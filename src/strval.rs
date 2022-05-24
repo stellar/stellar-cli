@@ -56,9 +56,7 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
     let val = parts[1];
     let val: ScVal = match typ {
         "i32" => ScVal::I32(val.parse::<i32>()?),
-        // "u32" => Ok(val.parse::<u32>()?.into_val(&h))?),
-        // "i64" => Ok(val.parse::<i64>()?.into_val(&h))?),
-        // "u64" => Ok(val.parse::<u64>()?.into_val(&h))?),
+        "u32" => ScVal::U32(val.parse::<u32>()?),
         _ => return Err(StrValError::UnknownType),
     };
     Ok(val)
@@ -67,6 +65,7 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
 pub fn to_string(_h: &Host, v: ScVal) -> Result<String, StrValError> {
     match v {
         ScVal::I32(v) => Ok(format!("i32:{}", v)),
+        ScVal::U32(v) => Ok(format!("u32:{}", v)),
         _ => Err(StrValError::UnknownType),
     }
 }
