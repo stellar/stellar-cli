@@ -63,9 +63,10 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
 }
 
 pub fn to_string(_h: &Host, v: ScVal) -> Result<String, StrValError> {
-    match v {
-        ScVal::I32(v) => Ok(format!("i32:{}", v)),
-        ScVal::U32(v) => Ok(format!("u32:{}", v)),
-        _ => Err(StrValError::UnknownType),
-    }
+    let s = match v {
+        ScVal::I32(v) => format!("i32:{}", v),
+        ScVal::U32(v) => format!("u32:{}", v),
+        _ => return Err(StrValError::UnknownType),
+    };
+    Ok(s)
 }
