@@ -75,7 +75,7 @@ impl Invoke {
             .map(|a| strval::from_string(&h, a))
             .collect::<Result<Vec<ScVal>, StrValError>>()?;
         let res = vm.invoke_function(&mut h, &self.function, &ScVec(args.try_into()?))?;
-        let res_str = strval::to_string(&h, res)?;
+        let res_str = strval::to_string(&h, res);
         println!("{}", res_str);
         Ok(())
     }

@@ -1,6 +1,9 @@
 use std::{error::Error, fmt::Display};
 
-use stellar_contract_env_host::{xdr::ScVal, Host};
+use stellar_contract_env_host::{
+    xdr::{ScObject, ScVal},
+    Host,
+};
 
 #[derive(Debug)]
 pub enum StrValError {
@@ -55,18 +58,49 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
     let typ = parts[0];
     let val = parts[1];
     let val: ScVal = match typ {
-        "i32" => ScVal::I32(val.parse::<i32>()?),
-        "u32" => ScVal::U32(val.parse::<u32>()?),
+        "i32" => ScVal::I32(val.parse()?),
+        "u32" => ScVal::U32(val.parse()?),
+        "i64" => {
+            let v: i64 = val.parse()?;
+            if v >= 0 {
+                ScVal::U63(v as u64)
+            } else {
+                ScVal::Object(Some(Box::new(ScObject::I64(val.parse()?))))
+            }
+        }
+        "u64" => ScVal::Object(Some(Box::new(ScObject::U64(val.parse()?)))),
         _ => return Err(StrValError::UnknownType),
     };
     Ok(val)
 }
 
-pub fn to_string(_h: &Host, v: ScVal) -> Result<String, StrValError> {
-    let s = match v {
+pub fn to_string(_h: &Host, v: ScVal) -> String {
+    match v {
         ScVal::I32(v) => format!("i32:{}", v),
         ScVal::U32(v) => format!("u32:{}", v),
-        _ => return Err(StrValError::UnknownType),
-    };
-    Ok(s)
+        ScVal::U63(v) => format!("i64:{}", v),
+        ScVal::Static(_) => todo!(),
+        ScVal::Symbol(_) => todo!(),
+        ScVal::Bitset(_) => todo!(),
+        ScVal::Status(_) => todo!(),
+        ScVal::Object(None) => panic!(""),
+        ScVal::Object(Some(b)) => match *b {
+            ScObject::Box(_) => todo!(),
+            ScObject::Vec(_) => todo!(),
+            ScObject::Map(_) => todo!(),
+            ScObject::U64(v) => format!("u64:{}", v),
+            ScObject::I64(v) => format!("i64:{}", v),
+            ScObject::String(_) => todo!(),
+            ScObject::Binary(_) => todo!(),
+            ScObject::Bigint(_) => todo!(),
+            ScObject::Bigrat(_) => todo!(),
+            ScObject::Ledgerkey(_) => todo!(),
+            ScObject::Operation(_) => todo!(),
+            ScObject::OperationResult(_) => todo!(),
+            ScObject::Transaction(_) => todo!(),
+            ScObject::Asset(_) => todo!(),
+            ScObject::Price(_) => todo!(),
+            ScObject::Accountid(_) => todo!(),
+        },
+    }
 }
