@@ -1,5 +1,6 @@
 # stellar-contract-cli
-Rust CLI for Stellar Jump Cannon.
+
+CLI for running Stellar contracts locally in a test VM. Executes WASM files built using the [rs-stellar-contract-sdk](https://github.com/stellar/rs-stellar-contract-sdk).
 
 ## Install
 
