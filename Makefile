@@ -1,6 +1,6 @@
 all: check build test
 
-export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic -Aclippy::match-same-arms
+export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
 test:
 	cargo test

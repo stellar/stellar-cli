@@ -15,12 +15,7 @@ pub enum StrValError {
 
 impl Error for StrValError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::UnknownError => None,
-            Self::UnknownType => None,
-            Self::InvalidNumberOfParts => None,
-            Self::InvalidValue => None,
-        }
+        None
     }
 }
 
@@ -76,6 +71,7 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
 }
 
 pub fn to_string(_h: &Host, v: ScVal) -> String {
+    #[allow(clippy::match_same_arms)]
     match v {
         ScVal::I32(v) => format!("i32:{}", v),
         ScVal::U32(v) => format!("u32:{}", v),
