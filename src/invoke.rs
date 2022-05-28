@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Debug, fmt::Display, fs};
+use std::{error, fmt::Debug, fmt::Display, fs};
 
 use clap::Parser;
 use stellar_contract_env_host::{
@@ -19,53 +19,54 @@ pub struct Invoke {
 }
 
 #[derive(Debug)]
-pub enum InvokeError {
-    Error(Box<dyn Error>),
-    StrValError(StrValError),
-    XdrError(XdrError),
+pub enum Error {
+    Other(Box<dyn error::Error>),
+    StrVal(StrValError),
+    Xdr(XdrError),
 }
 
-impl Error for InvokeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Self::Error(e) => e.source(),
-            Self::StrValError(e) => e.source(),
-            Self::XdrError(e) => e.source(),
+            Self::Other(e) => e.source(),
+            Self::StrVal(e) => e.source(),
+            Self::Xdr(e) => e.source(),
         }
     }
 }
 
-impl Display for InvokeError {
+impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "invoke error: ")?;
-        Ok(match self {
-            Self::Error(e) => std::fmt::Display::fmt(&e, f)?,
-            Self::StrValError(e) => std::fmt::Display::fmt(&e, f)?,
-            Self::XdrError(e) => std::fmt::Display::fmt(&e, f)?,
-        })
+        match self {
+            Self::Other(e) => std::fmt::Display::fmt(&e, f)?,
+            Self::StrVal(e) => std::fmt::Display::fmt(&e, f)?,
+            Self::Xdr(e) => std::fmt::Display::fmt(&e, f)?,
+        };
+        Ok(())
     }
 }
 
-impl From<Box<dyn Error>> for InvokeError {
-    fn from(e: Box<dyn Error>) -> Self {
-        Self::Error(e)
+impl From<Box<dyn error::Error>> for Error {
+    fn from(e: Box<dyn error::Error>) -> Self {
+        Self::Other(e)
     }
 }
 
-impl From<StrValError> for InvokeError {
+impl From<StrValError> for Error {
     fn from(e: StrValError) -> Self {
-        Self::StrValError(e)
+        Self::StrVal(e)
     }
 }
 
-impl From<XdrError> for InvokeError {
+impl From<XdrError> for Error {
     fn from(e: XdrError) -> Self {
-        Self::XdrError(e)
+        Self::Xdr(e)
     }
 }
 
 impl Invoke {
-    pub fn run(&self) -> Result<(), InvokeError> {
+    pub fn run(&self) -> Result<(), Error> {
         let contents = fs::read(&self.file).unwrap();
         let mut h = Host::default();
         let vm = Vm::new(&h, &contents).unwrap();

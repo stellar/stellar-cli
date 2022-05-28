@@ -15,26 +15,22 @@ pub enum StrValError {
 
 impl Error for StrValError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::UnknownError => None,
-            Self::UnknownType => None,
-            Self::InvalidNumberOfParts => None,
-            Self::InvalidValue => None,
-        }
+        None
     }
 }
 
 impl Display for StrValError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "parse error: ")?;
-        Ok(match self {
+        match self {
             Self::UnknownError => write!(f, "an unknown error occurred")?,
             Self::UnknownType => write!(f, "unknown type specified")?,
             Self::InvalidNumberOfParts => {
-                write!(f, "wrong number of parts must be 2 separated by colon (:)")?
+                write!(f, "wrong number of parts must be 2 separated by colon (:)")?;
             }
             Self::InvalidValue => write!(f, "value is not parseable to type")?,
-        })
+        };
+        Ok(())
     }
 }
 
@@ -62,8 +58,8 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
         "u32" => ScVal::U32(val.parse()?),
         "i64" => {
             let v: i64 = val.parse()?;
-            if v >= 0 {
-                ScVal::U63(v as u64)
+            if let Ok(v) = v.try_into() {
+                ScVal::U63(v)
             } else {
                 ScVal::Object(Some(Box::new(ScObject::I64(val.parse()?))))
             }
@@ -75,6 +71,7 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
 }
 
 pub fn to_string(_h: &Host, v: ScVal) -> String {
+    #[allow(clippy::match_same_arms)]
     match v {
         ScVal::I32(v) => format!("i32:{}", v),
         ScVal::U32(v) => format!("u32:{}", v),
