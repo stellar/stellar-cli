@@ -287,12 +287,12 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "stellar-contract-env-host",
+ "thiserror",
 ]
 
 [[package]]
 name = "stellar-contract-env-common"
 version = "0.0.0"
-source = "git+https://github.com/stellar/rs-stellar-contract-env?rev=52488e41#52488e413b84c979e0b44b9754f2fd3ac22ad9a4"
 dependencies = [
  "static_assertions",
  "stellar-xdr",
@@ -302,11 +302,11 @@ dependencies = [
 [[package]]
 name = "stellar-contract-env-host"
 version = "0.0.0"
-source = "git+https://github.com/stellar/rs-stellar-contract-env?rev=52488e41#52488e413b84c979e0b44b9754f2fd3ac22ad9a4"
 dependencies = [
  "im-rc",
  "num-bigint",
  "num-rational",
+ "parity-wasm",
  "static_assertions",
  "stellar-contract-env-common",
  "thiserror",

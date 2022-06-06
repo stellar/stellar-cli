@@ -1,4 +1,4 @@
-use std::{error, fmt::Debug, fmt::Display, fs};
+use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
 use stellar_contract_env_host::{
@@ -21,60 +21,16 @@ pub struct Invoke {
     args: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    Other(Box<dyn error::Error>),
-    StrVal(StrValError),
-    Xdr(XdrError),
-    Host(HostError),
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            Self::Other(e) => e.source(),
-            Self::StrVal(e) => e.source(),
-            Self::Xdr(e) => e.source(),
-            Self::Host(e) => e.source(),
-        }
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invoke error: ")?;
-        match self {
-            Self::Other(e) => std::fmt::Display::fmt(&e, f)?,
-            Self::StrVal(e) => std::fmt::Display::fmt(&e, f)?,
-            Self::Xdr(e) => std::fmt::Display::fmt(&e, f)?,
-            Self::Host(e) => std::fmt::Display::fmt(&e, f)?,
-        };
-        Ok(())
-    }
-}
-
-impl From<Box<dyn error::Error>> for Error {
-    fn from(e: Box<dyn error::Error>) -> Self {
-        Self::Other(e)
-    }
-}
-
-impl From<StrValError> for Error {
-    fn from(e: StrValError) -> Self {
-        Self::StrVal(e)
-    }
-}
-
-impl From<XdrError> for Error {
-    fn from(e: XdrError) -> Self {
-        Self::Xdr(e)
-    }
-}
-
-impl From<HostError> for Error {
-    fn from(e: HostError) -> Self {
-        Self::Host(e)
-    }
+    #[error("io")]
+    Io(#[from] io::Error),
+    #[error("strval")]
+    StrVal(#[from] StrValError),
+    #[error("xdr")]
+    Xdr(#[from] XdrError),
+    #[error("host")]
+    Host(#[from] HostError),
 }
 
 impl Invoke {
