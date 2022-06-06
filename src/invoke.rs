@@ -3,10 +3,13 @@ use std::{error, fmt::Debug, fmt::Display, fs};
 use clap::Parser;
 use stellar_contract_env_host::{
     xdr::{Error as XdrError, ScVal, ScVec},
-    Host, Vm,
+    Host, HostError, Vm,
 };
 
-use crate::strval::{self, StrValError};
+use crate::{
+    contractid,
+    strval::{self, StrValError},
+};
 
 #[derive(Parser, Debug)]
 pub struct Invoke {
@@ -23,6 +26,7 @@ pub enum Error {
     Other(Box<dyn error::Error>),
     StrVal(StrValError),
     Xdr(XdrError),
+    Host(HostError),
 }
 
 impl error::Error for Error {
@@ -31,6 +35,7 @@ impl error::Error for Error {
             Self::Other(e) => e.source(),
             Self::StrVal(e) => e.source(),
             Self::Xdr(e) => e.source(),
+            Self::Host(e) => e.source(),
         }
     }
 }
@@ -42,6 +47,7 @@ impl Display for Error {
             Self::Other(e) => std::fmt::Display::fmt(&e, f)?,
             Self::StrVal(e) => std::fmt::Display::fmt(&e, f)?,
             Self::Xdr(e) => std::fmt::Display::fmt(&e, f)?,
+            Self::Host(e) => std::fmt::Display::fmt(&e, f)?,
         };
         Ok(())
     }
@@ -65,17 +71,23 @@ impl From<XdrError> for Error {
     }
 }
 
+impl From<HostError> for Error {
+    fn from(e: HostError) -> Self {
+        Self::Host(e)
+    }
+}
+
 impl Invoke {
     pub fn run(&self) -> Result<(), Error> {
         let contents = fs::read(&self.file).unwrap();
-        let mut h = Host::default();
-        let vm = Vm::new(&h, &contents).unwrap();
+        let h = Host::default();
+        let vm = Vm::new(&h, contractid::ZERO, &contents).unwrap();
         let args = self
             .args
             .iter()
             .map(|a| strval::from_string(&h, a))
             .collect::<Result<Vec<ScVal>, StrValError>>()?;
-        let res = vm.invoke_function(&mut h, &self.function, &ScVec(args.try_into()?))?;
+        let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
         let res_str = strval::to_string(&h, res);
         println!("{}", res_str);
         Ok(())

@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+mod contractid;
 mod strval;
 
 mod invoke;
