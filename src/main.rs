@@ -41,8 +41,7 @@ fn run(cmd: Cmd) -> Result<(), CmdError> {
 
 fn main() {
     let root = Root::parse();
-    match run(root.cmd) {
-        Ok(_) => println!("ok"),
-        Err(e) => println!("error: {}", e),
+    if let Err(e) = run(root.cmd) {
+        println!("error: {}", e);
     }
 }
