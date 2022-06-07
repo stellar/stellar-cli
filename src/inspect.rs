@@ -23,9 +23,14 @@ impl Inspect {
         let contents = fs::read(&self.file)?;
         let h = Host::default();
         let vm = Vm::new(&h, contractid::ZERO, &contents)?;
-        println!("Exports:");
+        println!("Functions:");
         for f in vm.functions() {
-            println!("- {}({})", f.name, "arg,".repeat(f.arity));
+            println!(
+                " • {} ({}) -> ({})",
+                f.name,
+                vec!["val"; f.param_count].join(", "),
+                vec!["res"; f.result_count].join(", ")
+            );
         }
         Ok(())
     }
