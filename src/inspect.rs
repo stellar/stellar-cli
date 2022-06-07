@@ -23,6 +23,7 @@ impl Inspect {
         let contents = fs::read(&self.file)?;
         let h = Host::default();
         let vm = Vm::new(&h, contractid::ZERO, &contents)?;
+        println!("File: {}", self.file.to_string_lossy());
         println!("Functions:");
         for f in vm.functions() {
             println!(
@@ -31,6 +32,11 @@ impl Inspect {
                 vec!["val"; f.param_count].join(", "),
                 vec!["res"; f.result_count].join(", ")
             );
+        }
+        if let Some(spec) = vm.custom_section("contractspecv0") {
+            println!("Contract Spec: {}", base64::encode(spec));
+        } else {
+            println!("Contract Spec: None");
         }
         Ok(())
     }
