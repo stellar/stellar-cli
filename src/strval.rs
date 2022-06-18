@@ -58,13 +58,13 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
         "u32" => ScVal::U32(val.parse()?),
         "i64" => {
             let v: i64 = val.parse()?;
-            if let Ok(v) = v.try_into() {
+            if v >= 0 {
                 ScVal::U63(v)
             } else {
-                ScVal::Object(Some(Box::new(ScObject::I64(val.parse()?))))
+                ScVal::Object(Some(ScObject::I64(v)))
             }
         }
-        "u64" => ScVal::Object(Some(Box::new(ScObject::U64(val.parse()?)))),
+        "u64" => ScVal::Object(Some(ScObject::U64(val.parse()?))),
         _ => return Err(StrValError::UnknownType),
     };
     Ok(val)
@@ -81,23 +81,12 @@ pub fn to_string(_h: &Host, v: ScVal) -> String {
         ScVal::Bitset(_) => todo!(),
         ScVal::Status(_) => todo!(),
         ScVal::Object(None) => panic!(""),
-        ScVal::Object(Some(b)) => match *b {
-            ScObject::Box(_) => todo!(),
+        ScVal::Object(Some(b)) => match b {
             ScObject::Vec(_) => todo!(),
             ScObject::Map(_) => todo!(),
             ScObject::U64(v) => format!("u64:{}", v),
             ScObject::I64(v) => format!("i64:{}", v),
-            ScObject::String(_) => todo!(),
             ScObject::Binary(_) => todo!(),
-            ScObject::Bigint(_) => todo!(),
-            ScObject::Bigrat(_) => todo!(),
-            ScObject::Ledgerkey(_) => todo!(),
-            ScObject::Operation(_) => todo!(),
-            ScObject::OperationResult(_) => todo!(),
-            ScObject::Transaction(_) => todo!(),
-            ScObject::Asset(_) => todo!(),
-            ScObject::Price(_) => todo!(),
-            ScObject::Accountid(_) => todo!(),
         },
     }
 }

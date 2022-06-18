@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use thiserror::Error;
 
-mod contractid;
 mod strval;
 
 mod inspect;

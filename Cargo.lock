@@ -294,7 +294,6 @@ dependencies = [
 [[package]]
 name = "stellar-contract-env-common"
 version = "0.0.0"
-source = "git+https://github.com/stellar/rs-stellar-contract-env?rev=c2b25532#c2b25532aa3fc0e6d2f1f91c5fe6ae260d215c56"
 dependencies = [
  "static_assertions",
  "stellar-xdr",
@@ -304,7 +303,6 @@ dependencies = [
 [[package]]
 name = "stellar-contract-env-host"
 version = "0.0.0"
-source = "git+https://github.com/stellar/rs-stellar-contract-env?rev=c2b25532#c2b25532aa3fc0e6d2f1f91c5fe6ae260d215c56"
 dependencies = [
  "im-rc",
  "num-bigint",
@@ -319,7 +317,7 @@ dependencies = [
 [[package]]
 name = "stellar-xdr"
 version = "0.0.0"
-source = "git+https://github.com/stellar/rs-stellar-xdr?rev=d1dc8ce0#d1dc8ce045378ad664fe5f06b087d008016b6f3c"
+source = "git+https://github.com/stellar/rs-stellar-xdr?rev=9305173c#9305173ccaa4aac78fe33ba74e09ec32c9bbb908"
 dependencies = [
  "base64",
 ]

@@ -6,10 +6,7 @@ use stellar_contract_env_host::{
     Host, HostError, Vm,
 };
 
-use crate::{
-    contractid,
-    strval::{self, StrValError},
-};
+use crate::strval::{self, StrValError};
 
 #[derive(Parser, Debug)]
 pub struct Invoke {
@@ -37,7 +34,7 @@ impl Invoke {
     pub fn run(&self) -> Result<(), Error> {
         let contents = fs::read(&self.file).unwrap();
         let h = Host::default();
-        let vm = Vm::new(&h, contractid::ZERO, &contents).unwrap();
+        let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
         let args = self
             .args
             .iter()

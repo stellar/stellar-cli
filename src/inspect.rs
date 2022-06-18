@@ -2,8 +2,6 @@ use clap::Parser;
 use std::{fmt::Debug, fs, io};
 use stellar_contract_env_host::{Host, HostError, Vm};
 
-use crate::contractid;
-
 #[derive(Parser, Debug)]
 pub struct Inspect {
     #[clap(long, parse(from_os_str))]
@@ -22,7 +20,7 @@ impl Inspect {
     pub fn run(&self) -> Result<(), Error> {
         let contents = fs::read(&self.file)?;
         let h = Host::default();
-        let vm = Vm::new(&h, contractid::ZERO, &contents)?;
+        let vm = Vm::new(&h, [0; 32].into(), &contents)?;
         println!("File: {}", self.file.to_string_lossy());
         println!("Functions:");
         for f in vm.functions() {
