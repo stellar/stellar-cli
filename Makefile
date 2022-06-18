@@ -2,6 +2,9 @@ all: check build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
+install:
+	cargo install --path .
+
 test:
 	cargo test
 
