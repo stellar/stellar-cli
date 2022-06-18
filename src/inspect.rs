@@ -47,7 +47,7 @@ impl Inspect {
                         f.input_types.as_slice(),
                         f.output_types.as_slice(),
                     ),
-                    SpecEntry::Type(_) => todo!(),
+                    SpecEntry::Udt(_) => todo!(),
                 }
             }
         } else {
