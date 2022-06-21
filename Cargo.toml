@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", branch = "add-spec", features = ["next", "std"] }
-stellar-contract-env-host = { git = "https://github.com/stellar/rs-stellar-contract-env", rev = "b5b0304d", features = ["vm"] }
+stellar-contract-env-host = { git = "https://github.com/stellar/rs-stellar-contract-env", rev = "c55b5fe9", features = ["vm"] }
 # stellar-contract-env-host = { path = "../rs-stellar-contract-env/stellar-contract-env-host", features = ["vm"] }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
