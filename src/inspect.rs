@@ -50,7 +50,13 @@ impl Inspect {
                         ),
                         SpecEntry::Udt(_) => todo!(),
                     },
-                    Err(e) => println!("error: {}", e),
+                    Err(stellar_xdr::Error::IO(e)) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                        // TODO: Distinguish between EOF and EOF with partial fill.
+                        break;
+                    }
+                    Err(e) => {
+                        println!("error: {}", e);
+                    }
                 }
             }
         } else {
