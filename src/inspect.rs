@@ -39,15 +39,18 @@ impl Inspect {
         if let Some(spec) = vm.custom_section("contractspecv0") {
             println!("Contract Spec: {}", base64::encode(spec));
             let mut cursor = Cursor::new(spec);
-            while let Ok(spec_entry) = SpecEntry::read_xdr(&mut cursor) {
-                match spec_entry {
-                    SpecEntry::Function(SpecEntryFunction::V0(f)) => println!(
-                        " • Function: {} ({:?}) -> ({:?})",
-                        std::str::from_utf8(f.name.as_slice())?,
-                        f.input_types.as_slice(),
-                        f.output_types.as_slice(),
-                    ),
-                    SpecEntry::Udt(_) => todo!(),
+            loop {
+                match SpecEntry::read_xdr(&mut cursor) {
+                    Ok(spec_entry) => match spec_entry {
+                        SpecEntry::Function(SpecEntryFunction::V0(f)) => println!(
+                            " • Function: {} ({:?}) -> ({:?})",
+                            f.name.to_string()?,
+                            f.input_types.as_slice(),
+                            f.output_types.as_slice(),
+                        ),
+                        SpecEntry::Udt(_) => todo!(),
+                    },
+                    Err(e) => println!("error: {}", e),
                 }
             }
         } else {
