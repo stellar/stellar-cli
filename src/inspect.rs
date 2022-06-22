@@ -39,24 +39,16 @@ impl Inspect {
         if let Some(spec) = vm.custom_section("contractspecv0") {
             println!("Contract Spec: {}", base64::encode(spec));
             let mut cursor = Cursor::new(spec);
-            loop {
-                match SpecEntry::read_xdr(&mut cursor) {
-                    Ok(spec_entry) => match spec_entry {
-                        SpecEntry::Function(SpecEntryFunction::V0(f)) => println!(
-                            " • Function: {} ({:?}) -> ({:?})",
-                            f.name.to_string()?,
-                            f.input_types.as_slice(),
-                            f.output_types.as_slice(),
-                        ),
-                        SpecEntry::Udt(_) => todo!(),
-                    },
-                    Err(stellar_xdr::Error::IO(e)) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                        // TODO: Distinguish between EOF and EOF with partial fill.
-                        break;
-                    }
-                    Err(e) => {
-                        println!("error: {}", e);
-                    }
+            for spec_entry in SpecEntry::read_xdr_iter(&mut cursor) {
+                let spec_entry = spec_entry?;
+                match spec_entry {
+                    SpecEntry::Function(SpecEntryFunction::V0(f)) => println!(
+                        " • Function: {} ({:?}) -> ({:?})",
+                        f.name.to_string()?,
+                        f.input_types.as_slice(),
+                        f.output_types.as_slice(),
+                    ),
+                    SpecEntry::Udt(_) => todo!(),
                 }
             }
         } else {
