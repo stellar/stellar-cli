@@ -40,8 +40,7 @@ impl Inspect {
             println!("Contract Spec: {}", base64::encode(spec));
             let mut cursor = Cursor::new(spec);
             for spec_entry in SpecEntry::read_xdr_iter(&mut cursor) {
-                let spec_entry = spec_entry?;
-                match spec_entry {
+                match spec_entry? {
                     SpecEntry::Function(SpecEntryFunction::V0(f)) => println!(
                         " • Function: {} ({:?}) -> ({:?})",
                         f.name.to_string()?,
