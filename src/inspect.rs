@@ -1,6 +1,9 @@
 use clap::Parser;
-use std::{fmt::Debug, fs, io};
-use stellar_contract_env_host::{Host, HostError, Vm};
+use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
+use stellar_contract_env_host::{
+    xdr::{self, ReadXdr, SpecEntry, SpecEntryFunction, SpecEntryUdt},
+    Host, HostError, Vm,
+};
 
 #[derive(Parser, Debug)]
 pub struct Inspect {
@@ -10,10 +13,14 @@ pub struct Inspect {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("xdr")]
+    Xdr(#[from] xdr::Error),
     #[error("io")]
     Io(#[from] io::Error),
     #[error("host")]
     Host(#[from] HostError),
+    #[error("utf8")]
+    Utf8Error(#[from] Utf8Error),
 }
 
 impl Inspect {
@@ -33,6 +40,20 @@ impl Inspect {
         }
         if let Some(spec) = vm.custom_section("contractspecv0") {
             println!("Contract Spec: {}", base64::encode(spec));
+            let mut cursor = Cursor::new(spec);
+            for spec_entry in SpecEntry::read_xdr_iter(&mut cursor) {
+                match spec_entry? {
+                    SpecEntry::Function(SpecEntryFunction::V0(f)) => println!(
+                        " • Function: {} ({:?}) -> ({:?})",
+                        f.name.to_string()?,
+                        f.input_types.as_slice(),
+                        f.output_types.as_slice(),
+                    ),
+                    SpecEntry::Udt(SpecEntryUdt::V0(udt)) => {
+                        println!(" • User-Defined Type: {:?}", udt);
+                    }
+                }
+            }
         } else {
             println!("Contract Spec: None");
         }
