@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
 use stellar_contract_env_host::{Host, HostError, Vm};
-use stellar_xdr::{ReadXdr, SpecEntry, SpecEntryFunction};
+use stellar_xdr::{ReadXdr, SpecEntry, SpecEntryFunction, SpecEntryUdt};
 
 #[derive(Parser, Debug)]
 pub struct Inspect {
@@ -47,7 +47,9 @@ impl Inspect {
                         f.input_types.as_slice(),
                         f.output_types.as_slice(),
                     ),
-                    SpecEntry::Udt(_) => todo!(),
+                    SpecEntry::Udt(SpecEntryUdt::V0(udt)) => {
+                        println!(" • User-Defined Type: {:?}", udt);
+                    }
                 }
             }
         } else {
