@@ -1,7 +1,9 @@
 use clap::Parser;
 use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
-use stellar_contract_env_host::{Host, HostError, Vm};
-use stellar_xdr::{ReadXdr, SpecEntry, SpecEntryFunction, SpecEntryUdt};
+use stellar_contract_env_host::{
+    xdr::{self, ReadXdr, SpecEntry, SpecEntryFunction, SpecEntryUdt},
+    Host, HostError, Vm,
+};
 
 #[derive(Parser, Debug)]
 pub struct Inspect {
@@ -12,7 +14,7 @@ pub struct Inspect {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("xdr")]
-    Xdr(#[from] stellar_xdr::Error),
+    Xdr(#[from] xdr::Error),
     #[error("io")]
     Io(#[from] io::Error),
     #[error("host")]

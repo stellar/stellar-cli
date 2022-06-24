@@ -87,6 +87,9 @@ pub fn to_string(_h: &Host, v: ScVal) -> String {
             ScObject::U64(v) => format!("u64:{}", v),
             ScObject::I64(v) => format!("i64:{}", v),
             ScObject::Binary(_) => todo!(),
+            ScObject::BigInt(_) => todo!(),
+            ScObject::Hash(_) => todo!(),
+            ScObject::PublicKey(_) => todo!(),
         },
     }
 }
