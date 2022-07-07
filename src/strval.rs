@@ -65,6 +65,11 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
             }
         }
         "u64" => ScVal::Object(Some(ScObject::U64(val.parse()?))),
+        "symbol" => ScVal::Symbol(
+            val.as_bytes()
+                .try_into()
+                .map_err(|_| StrValError::InvalidValue)?,
+        ),
         _ => return Err(StrValError::UnknownType),
     };
     Ok(val)
@@ -76,8 +81,11 @@ pub fn to_string(_h: &Host, v: ScVal) -> String {
         ScVal::I32(v) => format!("i32:{}", v),
         ScVal::U32(v) => format!("u32:{}", v),
         ScVal::U63(v) => format!("i64:{}", v),
-        ScVal::Static(_) => todo!(),
-        ScVal::Symbol(_) => todo!(),
+        ScVal::Static(_) => format!("todo!"), //TODO:fix this
+        ScVal::Symbol(v) => format!(
+            "symbol:{}",
+            std::str::from_utf8(v.as_slice()).expect("non-UTF-8 in symbol")
+        ),
         ScVal::Bitset(_) => todo!(),
         ScVal::Status(_) => todo!(),
         ScVal::Object(None) => panic!(""),
