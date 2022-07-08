@@ -42,7 +42,7 @@ pub enum Error {
 }
 
 pub struct Snap {
-    storage: OrdMap<LedgerKey, LedgerEntry>,
+    ledgerEntries: OrdMap<LedgerKey, LedgerEntry>,
 }
 
 impl SnapshotSource for Snap {
