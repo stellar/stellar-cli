@@ -18,7 +18,7 @@ use crate::strval::{self, StrValError};
 pub struct Invoke {
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
-    #[clap(long, parse(from_os_str))]
+    #[clap(long, parse(from_os_str), default_value("ledger.xdr"))]
     snapshot_file: std::path::PathBuf,
     #[clap(long = "fn")]
     function: String,
