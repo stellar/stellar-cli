@@ -65,7 +65,7 @@ pub fn from_string(_h: &Host, s: &str) -> Result<ScVal, StrValError> {
             }
         }
         "u64" => ScVal::Object(Some(ScObject::U64(val.parse()?))),
-        "symbol" => ScVal::Symbol(
+        "sym" => ScVal::Symbol(
             val.as_bytes()
                 .try_into()
                 .map_err(|_| StrValError::InvalidValue)?,
