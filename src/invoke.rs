@@ -68,9 +68,8 @@ pub fn read_storage(
             //File doesn't exist, so treat this as an empty database and the file will be created later
             if e.kind() == std::io::ErrorKind::NotFound {
                 return Ok(res);
-            } else {
-                return Err(Error::Io(e));
             }
+            return Err(Error::Io(e));
         }
     };
 
@@ -85,13 +84,11 @@ pub fn read_storage(
 }
 
 pub fn commit_storage(
-    startup_state: OrdMap<LedgerKey, LedgerEntry>,
+    mut new_state: OrdMap<LedgerKey, LedgerEntry>,
     storage_map: &OrdMap<LedgerKey, Option<LedgerEntry>>,
     output_file: &std::path::PathBuf,
 ) -> Result<(), Error> {
-    //Need to start off with the startup_state since it's possible the storage_map did not touch every existing entry
-    let mut new_state = startup_state.clone();
-
+    //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
     let mut file = File::create(output_file)?;
     for (lk, ole) in storage_map {
         if let Some(le) = ole {
