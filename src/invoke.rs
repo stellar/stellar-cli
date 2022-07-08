@@ -1,17 +1,14 @@
 use std::{
     fmt::Debug,
-    fs::{self, File},
+    fs::{self},
     io,
-    io::BufRead,
-    io::Write,
     rc::Rc,
 };
 
 use clap::Parser;
 use stellar_contract_env_host::{
-    im_rc::OrdMap,
-    storage::{SnapshotSource, Storage},
-    xdr::{Error as XdrError, LedgerEntry, LedgerKey, ReadXdr, ScVal, ScVec, WriteXdr},
+    storage::Storage,
+    xdr::{Error as XdrError, ScVal, ScVec},
     Host, HostError, Vm,
 };
 
@@ -41,71 +38,84 @@ pub enum Error {
     Host(#[from] HostError),
 }
 
-pub struct Snap {
-    ledger_entries: OrdMap<LedgerKey, LedgerEntry>,
-}
+pub mod snapshot {
+    use std::fs::File;
 
-impl SnapshotSource for Snap {
-    fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
-        match self.ledger_entries.get(key) {
-            Some(v) => Ok(v.clone()),
-            None => Err(HostError::General("missing entry")),
-        }
-    }
-    fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
-        Ok(self.ledger_entries.contains_key(key))
-    }
-}
-
-pub fn read_storage(
-    input_file: &std::path::PathBuf,
-) -> Result<OrdMap<LedgerKey, LedgerEntry>, Error> {
-    let mut res = OrdMap::new();
-
-    let file = match File::open(input_file) {
-        Ok(f) => f,
-        Err(e) => {
-            //File doesn't exist, so treat this as an empty database and the file will be created later
-            if e.kind() == std::io::ErrorKind::NotFound {
-                return Ok(res);
-            }
-            return Err(Error::Io(e));
-        }
+    use super::{Error, HostError};
+    use stellar_contract_env_host::{
+        im_rc::OrdMap,
+        storage::SnapshotSource,
+        xdr::{LedgerEntry, LedgerKey, ReadXdr, WriteXdr},
     };
 
-    let mut lines = io::BufReader::new(file).lines();
-    while let (Some(line1), Some(line2)) = (lines.next(), lines.next()) {
-        let lk = LedgerKey::read_xdr(&mut line1?.as_bytes())?;
-        let le = LedgerEntry::read_xdr(&mut line2?.as_bytes())?;
-        res.insert(lk, le);
+    pub struct Snap {
+        pub ledger_entries: OrdMap<LedgerKey, LedgerEntry>,
     }
 
-    Ok(res)
-}
-
-pub fn commit_storage(
-    mut new_state: OrdMap<LedgerKey, LedgerEntry>,
-    storage_map: &OrdMap<LedgerKey, Option<LedgerEntry>>,
-    output_file: &std::path::PathBuf,
-) -> Result<(), Error> {
-    //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
-    let mut file = File::create(output_file)?;
-    for (lk, ole) in storage_map {
-        if let Some(le) = ole {
-            new_state.insert(lk.clone(), le.clone());
-        } else {
-            new_state.remove(lk);
+    impl SnapshotSource for Snap {
+        fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
+            match self.ledger_entries.get(key) {
+                Some(v) => Ok(v.clone()),
+                None => Err(HostError::General("missing entry")),
+            }
+        }
+        fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
+            Ok(self.ledger_entries.contains_key(key))
         }
     }
 
-    for (lk, le) in new_state {
-        lk.write_xdr(&mut file)?;
-        writeln!(&mut file)?;
-        le.write_xdr(&mut file)?;
-        writeln!(&mut file)?;
+    // snapshot_file format is the LedgerKey followed by the
+    // corresponding LedgerEntry, all in xdr.
+    // Ex.
+    // LedgerKey1LedgerEntry1LedgerKey2LedgerEntry2
+    // ...
+
+    pub fn read(input_file: &std::path::PathBuf) -> Result<OrdMap<LedgerKey, LedgerEntry>, Error> {
+        let mut res = OrdMap::new();
+
+        let mut file = match File::open(input_file) {
+            Ok(f) => f,
+            Err(e) => {
+                //File doesn't exist, so treat this as an empty database and the file will be created later
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    return Ok(res);
+                }
+                return Err(Error::Io(e));
+            }
+        };
+
+        while let (Ok(lk), Ok(le)) = (
+            LedgerKey::read_xdr(&mut file),
+            LedgerEntry::read_xdr(&mut file),
+        ) {
+            res.insert(lk, le);
+        }
+
+        Ok(res)
     }
 
-    Ok(())
+    pub fn commit(
+        mut new_state: OrdMap<LedgerKey, LedgerEntry>,
+        storage_map: &OrdMap<LedgerKey, Option<LedgerEntry>>,
+        output_file: &std::path::PathBuf,
+    ) -> Result<(), Error> {
+        //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
+        let mut file = File::create(output_file)?;
+        for (lk, ole) in storage_map {
+            if let Some(le) = ole {
+                new_state.insert(lk.clone(), le.clone());
+            } else {
+                new_state.remove(lk);
+            }
+        }
+
+        for (lk, le) in new_state {
+            lk.write_xdr(&mut file)?;
+            le.write_xdr(&mut file)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Invoke {
@@ -113,17 +123,9 @@ impl Invoke {
         let contents = fs::read(&self.file).unwrap();
 
         // Initialize storage and host
-        // db_file format is one xdr object per line, where a LedgerKey is followed by the corresponding LedgerEntry.
-        //
-        // LedgerKey1
-        // LedgerEntry1
-        // LedgerKey2
-        // LedgerEntry2
-        // ...
-
         // TODO: allow option to separate input and output file
-        let ledger_entries = read_storage(&self.snapshot_file)?;
-        let snap = Rc::new(Snap {
+        let ledger_entries = snapshot::read(&self.snapshot_file)?;
+        let snap = Rc::new(snapshot::Snap {
             ledger_entries: ledger_entries.clone(),
         });
         let storage = Storage::with_recording_footprint(snap);
@@ -145,7 +147,7 @@ impl Invoke {
             .recover_storage()
             .map_err(|_h| HostError::General("could not get storage from host"))?;
 
-        commit_storage(ledger_entries, &storage.map, &self.snapshot_file)?;
+        snapshot::commit(ledger_entries, &storage.map, &self.snapshot_file)?;
         Ok(())
     }
 }
