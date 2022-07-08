@@ -122,7 +122,7 @@ impl Invoke {
         // ...
 
         // TODO: allow option to separate input and output file
-        let startup_state = read_storage(&self.db_file)?;
+        let ledger_entries = read_storage(&self.db_file)?;
         let snap = Rc::new(Snap {
             storage: startup_state.clone(),
         });
