@@ -49,7 +49,7 @@ impl SnapshotSource for Snap {
     fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
         match self.storage.get(key) {
             Some(v) => Ok(v.clone()),
-            None => Err(HostError::General("Missing entry")),
+            None => Err(HostError::General("missing entry")),
         }
     }
     fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
