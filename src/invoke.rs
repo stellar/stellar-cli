@@ -42,18 +42,18 @@ pub enum Error {
 }
 
 pub struct Snap {
-    ledgerEntries: OrdMap<LedgerKey, LedgerEntry>,
+    ledger_entries: OrdMap<LedgerKey, LedgerEntry>,
 }
 
 impl SnapshotSource for Snap {
     fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
-        match self.storage.get(key) {
+        match self.ledger_entries.get(key) {
             Some(v) => Ok(v.clone()),
             None => Err(HostError::General("missing entry")),
         }
     }
     fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
-        Ok(self.storage.contains_key(key))
+        Ok(self.ledger_entries.contains_key(key))
     }
 }
 
@@ -122,9 +122,9 @@ impl Invoke {
         // ...
 
         // TODO: allow option to separate input and output file
-        let ledger_entries = read_storage(&self.db_file)?;
+        let ledger_entries = read_storage(&self.snapshot_file)?;
         let snap = Rc::new(Snap {
-            storage: startup_state.clone(),
+            ledger_entries: ledger_entries.clone(),
         });
         let storage = Storage::with_recording_footprint(snap);
 
@@ -145,7 +145,7 @@ impl Invoke {
             .recover_storage()
             .map_err(|_h| HostError::General("could not get storage from host"))?;
 
-        commit_storage(startup_state, &storage.map, &self.db_file)?;
+        commit_storage(ledger_entries, &storage.map, &self.snapshot_file)?;
         Ok(())
     }
 }
