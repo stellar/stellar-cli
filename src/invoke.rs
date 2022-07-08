@@ -1,7 +1,13 @@
-use std::{fmt::Debug, fs, io};
+use std::{
+    fmt::Debug,
+    fs::{self},
+    io,
+    rc::Rc,
+};
 
 use clap::Parser;
 use stellar_contract_env_host::{
+    storage::Storage,
     xdr::{Error as XdrError, ScVal, ScVec},
     Host, HostError, Vm,
 };
@@ -12,6 +18,8 @@ use crate::strval::{self, StrValError};
 pub struct Invoke {
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
+    #[clap(long, parse(from_os_str), default_value("ledger.xdr"))]
+    snapshot_file: std::path::PathBuf,
     #[clap(long = "fn")]
     function: String,
     #[clap(long = "arg", multiple_occurrences = true)]
@@ -30,10 +38,101 @@ pub enum Error {
     Host(#[from] HostError),
 }
 
+pub mod snapshot {
+    use std::fs::File;
+
+    use super::{Error, HostError};
+    use stellar_contract_env_host::{
+        im_rc::OrdMap,
+        storage::SnapshotSource,
+        xdr::{LedgerEntry, LedgerKey, ReadXdr, WriteXdr},
+    };
+
+    pub struct Snap {
+        pub ledger_entries: OrdMap<LedgerKey, LedgerEntry>,
+    }
+
+    impl SnapshotSource for Snap {
+        fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
+            match self.ledger_entries.get(key) {
+                Some(v) => Ok(v.clone()),
+                None => Err(HostError::General("missing entry")),
+            }
+        }
+        fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
+            Ok(self.ledger_entries.contains_key(key))
+        }
+    }
+
+    // snapshot_file format is the LedgerKey followed by the
+    // corresponding LedgerEntry, all in xdr.
+    // Ex.
+    // LedgerKey1LedgerEntry1LedgerKey2LedgerEntry2
+    // ...
+
+    pub fn read(input_file: &std::path::PathBuf) -> Result<OrdMap<LedgerKey, LedgerEntry>, Error> {
+        let mut res = OrdMap::new();
+
+        let mut file = match File::open(input_file) {
+            Ok(f) => f,
+            Err(e) => {
+                //File doesn't exist, so treat this as an empty database and the file will be created later
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    return Ok(res);
+                }
+                return Err(Error::Io(e));
+            }
+        };
+
+        while let (Ok(lk), Ok(le)) = (
+            LedgerKey::read_xdr(&mut file),
+            LedgerEntry::read_xdr(&mut file),
+        ) {
+            res.insert(lk, le);
+        }
+
+        Ok(res)
+    }
+
+    pub fn commit(
+        mut new_state: OrdMap<LedgerKey, LedgerEntry>,
+        storage_map: &OrdMap<LedgerKey, Option<LedgerEntry>>,
+        output_file: &std::path::PathBuf,
+    ) -> Result<(), Error> {
+        //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
+        let mut file = File::create(output_file)?;
+        for (lk, ole) in storage_map {
+            if let Some(le) = ole {
+                new_state.insert(lk.clone(), le.clone());
+            } else {
+                new_state.remove(lk);
+            }
+        }
+
+        for (lk, le) in new_state {
+            lk.write_xdr(&mut file)?;
+            le.write_xdr(&mut file)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl Invoke {
     pub fn run(&self) -> Result<(), Error> {
         let contents = fs::read(&self.file).unwrap();
-        let h = Host::default();
+
+        // Initialize storage and host
+        // TODO: allow option to separate input and output file
+        let ledger_entries = snapshot::read(&self.snapshot_file)?;
+        let snap = Rc::new(snapshot::Snap {
+            ledger_entries: ledger_entries.clone(),
+        });
+        let storage = Storage::with_recording_footprint(snap);
+
+        let h = Host::with_storage(storage);
+
+        //TODO: contractID should be user specified
         let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
         let args = self
             .args
@@ -43,6 +142,12 @@ impl Invoke {
         let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
         let res_str = strval::to_string(&h, res);
         println!("{}", res_str);
+
+        let storage = h
+            .recover_storage()
+            .map_err(|_h| HostError::General("could not get storage from host"))?;
+
+        snapshot::commit(ledger_entries, &storage.map, &self.snapshot_file)?;
         Ok(())
     }
 }
