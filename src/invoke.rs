@@ -22,7 +22,7 @@ pub struct Invoke {
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
     #[clap(long, parse(from_os_str))]
-    db_file: std::path::PathBuf,
+    snapshot_file: std::path::PathBuf,
     #[clap(long = "fn")]
     function: String,
     #[clap(long = "arg", multiple_occurrences = true)]
