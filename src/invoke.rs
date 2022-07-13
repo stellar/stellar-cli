@@ -18,7 +18,7 @@ use crate::strval::{self, StrValError};
 pub struct Invoke {
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
-    #[clap(long, parse(from_os_str), default_value("ledger.xdr"))]
+    #[clap(long, parse(from_os_str), default_value("ledger.json"))]
     snapshot_file: std::path::PathBuf,
     #[clap(long = "fn")]
     function: String,
@@ -45,7 +45,7 @@ pub mod snapshot {
     use stellar_contract_env_host::{
         im_rc::OrdMap,
         storage::SnapshotSource,
-        xdr::{LedgerEntry, LedgerKey, ReadXdr, WriteXdr},
+        xdr::{LedgerEntry, LedgerKey, VecM},
     };
 
     pub struct Snap {
@@ -64,12 +64,7 @@ pub mod snapshot {
         }
     }
 
-    // snapshot_file format is the LedgerKey followed by the
-    // corresponding LedgerEntry, all in xdr.
-    // Ex.
-    // LedgerKey1LedgerEntry1LedgerKey2LedgerEntry2
-    // ...
-
+    // snapshot_file format is the default serde JSON representation of VecM<(LedgerKey, LedgerEntry)>
     pub fn read(input_file: &std::path::PathBuf) -> Result<OrdMap<LedgerKey, LedgerEntry>, Error> {
         let mut res = OrdMap::new();
 
@@ -84,12 +79,9 @@ pub mod snapshot {
             }
         };
 
-        while let (Ok(lk), Ok(le)) = (
-            LedgerKey::read_xdr(&mut file),
-            LedgerEntry::read_xdr(&mut file),
-        ) {
-            res.insert(lk, le);
-        }
+        let state: VecM<(LedgerKey, LedgerEntry)> =
+            serde_json::from_reader(&mut file).map_err(|_| HostError::General("invalid read"))?;
+        res = state.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
 
         Ok(res)
     }
@@ -100,7 +92,7 @@ pub mod snapshot {
         output_file: &std::path::PathBuf,
     ) -> Result<(), Error> {
         //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
-        let mut file = File::create(output_file)?;
+        let file = File::create(output_file)?;
         for (lk, ole) in storage_map {
             if let Some(le) = ole {
                 new_state.insert(lk.clone(), le.clone());
@@ -109,10 +101,14 @@ pub mod snapshot {
             }
         }
 
-        for (lk, le) in new_state {
-            lk.write_xdr(&mut file)?;
-            le.write_xdr(&mut file)?;
-        }
+        let vec_new_state: VecM<(LedgerKey, LedgerEntry)> = new_state
+            .into_iter()
+            .map(|x| (x.0, x.1))
+            .collect::<Vec<(LedgerKey, LedgerEntry)>>()
+            .try_into()?;
+
+        serde_json::to_writer(&file, &vec_new_state)
+            .map_err(|_| HostError::General("invalid write"))?;
 
         Ok(())
     }

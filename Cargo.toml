@@ -4,8 +4,9 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-stellar-contract-env-host = { git = "https://github.com/stellar/rs-stellar-contract-env", rev = "894a749d", features = ["vm"] }
+stellar-contract-env-host = { git = "https://github.com/stellar/rs-stellar-contract-env", rev = "fed4e9f", features = ["vm", "serde"] }
 # stellar-contract-env-host = { path = "../rs-stellar-contract-env/stellar-contract-env-host", features = ["vm"] }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
 thiserror = "1.0.31"
+serde_json = "1.0.82"
