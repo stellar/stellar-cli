@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
 use stellar_contract_env_host::{
-    xdr::{self, ReadXdr, SpecEntry, SpecEntryFunction, SpecEntryUdt},
+    xdr::{self, ReadXdr, SpecEntry},
     Host, HostError, Vm,
 };
 
@@ -43,14 +43,17 @@ impl Inspect {
             let mut cursor = Cursor::new(spec);
             for spec_entry in SpecEntry::read_xdr_iter(&mut cursor) {
                 match spec_entry? {
-                    SpecEntry::Function(SpecEntryFunction::V0(f)) => println!(
+                    SpecEntry::FunctionV0(f) => println!(
                         " • Function: {} ({:?}) -> ({:?})",
                         f.name.to_string()?,
                         f.input_types.as_slice(),
                         f.output_types.as_slice(),
                     ),
-                    SpecEntry::Udt(SpecEntryUdt::V0(udt)) => {
-                        println!(" • User-Defined Type: {:?}", udt);
+                    SpecEntry::UdtUnionV0(udt) => {
+                        println!(" • Union: {:?}", udt);
+                    }
+                    SpecEntry::UdtStructV0(udt) => {
+                        println!(" • Struct: {:?}", udt);
                     }
                 }
             }
