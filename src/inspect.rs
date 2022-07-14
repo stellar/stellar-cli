@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
 use stellar_contract_env_host::{
-    xdr::{self, ReadXdr, ScSpecEntry},
+    xdr::{self, ReadXdr, ScEnvMetaEntry, ScSpecEntry},
     Host, HostError, Vm,
 };
 
@@ -37,6 +37,19 @@ impl Inspect {
                 vec!["val"; f.param_count].join(", "),
                 vec!["res"; f.result_count].join(", ")
             );
+        }
+        if let Some(env_meta) = vm.custom_section("contractenvmetav0") {
+            println!("Env Meta: {}", base64::encode(env_meta));
+            let mut cursor = Cursor::new(env_meta);
+            for env_meta_entry in ScEnvMetaEntry::read_xdr_iter(&mut cursor) {
+                match env_meta_entry? {
+                    ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
+                        println!(" • Interface Version: {}", v);
+                    }
+                }
+            }
+        } else {
+            println!("Contract Spec: None");
         }
         if let Some(spec) = vm.custom_section("contractspecv0") {
             println!("Contract Spec: {}", base64::encode(spec));
