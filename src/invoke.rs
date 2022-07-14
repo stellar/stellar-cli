@@ -82,7 +82,7 @@ pub mod snapshot {
         };
 
         let state: VecM<(LedgerKey, LedgerEntry)> = serde_json::from_reader(&mut file)?;
-        res = state.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
+        res = state.iter().cloned().collect();
 
         Ok(res)
     }
