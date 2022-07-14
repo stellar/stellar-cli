@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
 use stellar_contract_env_host::{
-    xdr::{self, ReadXdr, ScSpecEntry, ScEnvMetaEntry},
+    xdr::{self, ReadXdr, ScEnvMetaEntry, ScSpecEntry},
     Host, HostError, Vm,
 };
 
@@ -43,10 +43,9 @@ impl Inspect {
             let mut cursor = Cursor::new(env_meta);
             for env_meta_entry in ScEnvMetaEntry::read_xdr_iter(&mut cursor) {
                 match env_meta_entry? {
-                    ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => println!(
-                        " • Interface Version: {}",
-                        v,
-                    ),
+                    ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
+                        println!(" • Interface Version: {}", v,)
+                    }
                 }
             }
         } else {
