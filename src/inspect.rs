@@ -7,6 +7,7 @@ use stellar_contract_env_host::{
 
 #[derive(Parser, Debug)]
 pub struct Inspect {
+    /// WASM file containing contract
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
 }

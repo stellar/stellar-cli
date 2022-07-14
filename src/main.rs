@@ -18,7 +18,9 @@ struct Root {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
+    /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(Inspect),
+    /// Invoke a contract function in a WASM file
     Invoke(Invoke),
 }
 

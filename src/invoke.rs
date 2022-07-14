@@ -17,16 +17,20 @@ use crate::strval::{self, StrValError};
 
 #[derive(Parser, Debug)]
 pub struct Invoke {
+    /// WASM file containing contract
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
+    /// File to read and write ledger
     #[clap(long, parse(from_os_str), default_value("ledger.json"))]
     snapshot_file: std::path::PathBuf,
-    #[clap(long = "cost")]
     /// Output the cost of the invocation to stderr
+    #[clap(long = "cost")]
     cost: bool,
+    /// Name of function to invoke
     #[clap(long = "fn")]
     function: String,
-    #[clap(long = "arg", multiple_occurrences = true)]
+    /// Argument to pass to the contract function
+    #[clap(long = "arg", multiple = true)]
     args: Vec<String>,
 }
 
