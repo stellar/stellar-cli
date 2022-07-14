@@ -30,7 +30,7 @@ pub struct Invoke {
     #[clap(long = "fn")]
     function: String,
     /// Argument to pass to the contract function
-    #[clap(long = "arg", multiple = true)]
+    #[clap(long = "arg", value_name = "arg", multiple = true)]
     args: Vec<String>,
 }
 
