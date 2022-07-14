@@ -49,7 +49,7 @@ impl Inspect {
                 }
             }
         } else {
-            println!("Contract Spec: None");
+            println!("Env Meta: None");
         }
         if let Some(spec) = vm.custom_section("contractspecv0") {
             println!("Contract Spec: {}", base64::encode(spec));
