@@ -44,7 +44,7 @@ impl Inspect {
             for env_meta_entry in ScEnvMetaEntry::read_xdr_iter(&mut cursor) {
                 match env_meta_entry? {
                     ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
-                        println!(" • Interface Version: {}", v,)
+                        println!(" • Interface Version: {}", v)
                     }
                 }
             }
