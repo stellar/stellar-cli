@@ -7,6 +7,7 @@ use std::{
 
 use clap::Parser;
 use stellar_contract_env_host::{
+    budget::CostType,
     storage::Storage,
     xdr::{Error as XdrError, ScVal, ScVec},
     Host, HostError, Vm,
@@ -20,6 +21,9 @@ pub struct Invoke {
     file: std::path::PathBuf,
     #[clap(long, parse(from_os_str), default_value("ledger.json"))]
     snapshot_file: std::path::PathBuf,
+    #[clap(long = "cost")]
+    /// Output the cost of the invocation to stderr
+    cost: bool,
     #[clap(long = "fn")]
     function: String,
     #[clap(long = "arg", multiple_occurrences = true)]
@@ -134,6 +138,16 @@ impl Invoke {
         let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
         let res_str = strval::to_string(&h, res);
         println!("{}", res_str);
+
+        if self.cost {
+            h.get_budget(|b| {
+                eprintln!("Cpu Insns: {}", b.cpu_insns.get_count());
+                eprintln!("Mem Bytes: {}", b.mem_bytes.get_count());
+                for cost_type in CostType::variants() {
+                    eprintln!("Cost ({:?}): {}", cost_type, b.get_input(*cost_type));
+                }
+            });
+        }
 
         let storage = h
             .recover_storage()
