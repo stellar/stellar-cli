@@ -1,23 +1,38 @@
 use std::{
     fmt::Debug,
-    fs::{self},
+    fs::{self, File},
     io,
     rc::Rc,
 };
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use stellar_contract_env_host::{
     budget::CostType,
     storage::Storage,
-    xdr::{Error as XdrError, ScVal, ScVec},
+    xdr::{Error as XdrError, HostFunction, ScVal, ScVec},
     Host, HostError, Vm,
 };
 
 use crate::strval::{self, StrValError};
 
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Call,
+    CreateContract,
+    VmFn {
+        /// Name of function to invoke
+        #[clap(long = "fn")]
+        function: String,
+        /// Argument to pass to the contract function
+        #[clap(long = "arg", value_name = "arg", multiple = true)]
+        args: Vec<String>,
+    },
+}
+
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// WASM file containing contract
+    //TODO: move this into each subcommand instead?
+    /// If command == vm-fn, then this is the WASM file containing contract, otherwise, it's a JSON SCVec
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
     /// File to read and write ledger
@@ -26,12 +41,8 @@ pub struct Cmd {
     /// Output the cost of the invocation to stderr
     #[clap(long = "cost")]
     cost: bool,
-    /// Name of function to invoke
-    #[clap(long = "fn")]
-    function: String,
-    /// Argument to pass to the contract function
-    #[clap(long = "arg", value_name = "arg", multiple = true)]
-    args: Vec<String>,
+    #[clap(subcommand)]
+    command: Commands,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -120,8 +131,6 @@ pub mod snapshot {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let contents = fs::read(&self.file).unwrap();
-
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let ledger_entries = snapshot::read(&self.snapshot_file)?;
@@ -130,18 +139,33 @@ impl Cmd {
         });
         let storage = Storage::with_recording_footprint(snap);
 
-        let h = Host::with_storage(storage);
+        let mut h = Host::with_storage(storage);
 
-        //TODO: contractID should be user specified
-        let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
-        let args = self
-            .args
-            .iter()
-            .map(|a| strval::from_string(&h, a))
-            .collect::<Result<Vec<ScVal>, StrValError>>()?;
-        let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
-        let res_str = strval::to_string(&h, res);
-        println!("{}", res_str);
+        match &self.command {
+            Commands::Call => {
+                let mut file = File::open(&self.file).unwrap();
+                let args: ScVec = serde_json::from_reader(&mut file)?;
+                let _res = h.invoke_function(HostFunction::Call, args)?;
+            }
+            Commands::CreateContract => {
+                let mut file = File::open(&self.file).unwrap();
+                let args: ScVec = serde_json::from_reader(&mut file)?;
+                let _res = h.invoke_function(HostFunction::CreateContract, args)?;
+            }
+            Commands::VmFn { function, args } => {
+                let contents = fs::read(&self.file).unwrap();
+                let args = args
+                    .iter()
+                    .map(|a| strval::from_string(&h, a))
+                    .collect::<Result<Vec<ScVal>, StrValError>>()?;
+
+                //TODO: contractID should be user specified
+                let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
+                let res = vm.invoke_function(&h, function, &ScVec(args.try_into()?))?;
+                let res_str = strval::to_string(&h, res);
+                println!("{}", res_str);
+            }
+        }
 
         if self.cost {
             h.get_budget(|b| {
