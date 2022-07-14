@@ -36,6 +36,8 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("host")]
     Host(#[from] HostError),
+    #[error("serde")]
+    Serde(#[from] serde_json::Error),
 }
 
 pub mod snapshot {
@@ -79,8 +81,7 @@ pub mod snapshot {
             }
         };
 
-        let state: VecM<(LedgerKey, LedgerEntry)> =
-            serde_json::from_reader(&mut file).map_err(|_| HostError::General("invalid read"))?;
+        let state: VecM<(LedgerKey, LedgerEntry)> = serde_json::from_reader(&mut file)?;
         res = state.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
 
         Ok(res)
@@ -101,14 +102,9 @@ pub mod snapshot {
             }
         }
 
-        let vec_new_state: VecM<(LedgerKey, LedgerEntry)> = new_state
-            .into_iter()
-            .map(|x| (x.0, x.1))
-            .collect::<Vec<(LedgerKey, LedgerEntry)>>()
-            .try_into()?;
-
-        serde_json::to_writer(&file, &vec_new_state)
-            .map_err(|_| HostError::General("invalid write"))?;
+        let vec_new_state: VecM<(LedgerKey, LedgerEntry)> =
+            new_state.into_iter().collect::<Vec<_>>().try_into()?;
+        serde_json::to_writer(&file, &vec_new_state)?;
 
         Ok(())
     }
