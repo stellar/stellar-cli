@@ -1,16 +1,15 @@
-use clap::{Parser, Subcommand};
+use clap::{AppSettings, Parser, Subcommand};
 use thiserror::Error;
 
 mod strval;
 
 mod inspect;
-use inspect::Inspect;
-
 mod invoke;
-use invoke::Invoke;
+mod version;
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None, disable_help_subcommand = true, disable_version_flag = true)]
+#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Root {
     #[clap(subcommand)]
     cmd: Cmd,
@@ -18,10 +17,12 @@ struct Root {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
-    /// Inspect a WASM file listing contract functions, meta, etc
-    Inspect(Inspect),
     /// Invoke a contract function in a WASM file
-    Invoke(Invoke),
+    Invoke(invoke::Cmd),
+    /// Inspect a WASM file listing contract functions, meta, etc
+    Inspect(inspect::Cmd),
+    /// Print version information
+    Version(version::Cmd),
 }
 
 #[derive(Error, Debug)]
@@ -36,6 +37,7 @@ fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => invoke.run()?,
+        Cmd::Version(version) => version.run(),
     };
     Ok(())
 }

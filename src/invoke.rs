@@ -16,7 +16,7 @@ use stellar_contract_env_host::{
 use crate::strval::{self, StrValError};
 
 #[derive(Parser, Debug)]
-pub struct Invoke {
+pub struct Cmd {
     /// WASM file containing contract
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
@@ -118,7 +118,7 @@ pub mod snapshot {
     }
 }
 
-impl Invoke {
+impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let contents = fs::read(&self.file).unwrap();
 
