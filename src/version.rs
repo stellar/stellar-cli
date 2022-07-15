@@ -8,13 +8,7 @@ pub struct Cmd;
 impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) {
-        println!(
-            "stellar-contract-cli {}",
-            env!("CARGO_PKG_VERSION"),
-        );
-        println!(
-            "stellar-contract-env interface {}",
-            meta::INTERFACE_VERSION
-        );
+        println!("stellar-contract-cli {}", env!("CARGO_PKG_VERSION"),);
+        println!("stellar-contract-env interface {}", meta::INTERFACE_VERSION);
     }
 }
