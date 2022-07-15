@@ -6,7 +6,7 @@ use stellar_contract_env_host::{
 };
 
 #[derive(Parser, Debug)]
-pub struct Inspect {
+pub struct Cmd {
     /// WASM file containing contract
     #[clap(long, parse(from_os_str))]
     file: std::path::PathBuf,
@@ -24,7 +24,7 @@ pub enum Error {
     Utf8Error(#[from] Utf8Error),
 }
 
-impl Inspect {
+impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let contents = fs::read(&self.file)?;
         let h = Host::default();
