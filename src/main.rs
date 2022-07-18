@@ -5,6 +5,7 @@ mod strval;
 
 mod inspect;
 mod invoke;
+mod snapshot;
 mod version;
 
 #[derive(Parser, Debug)]
