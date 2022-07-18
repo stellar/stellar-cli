@@ -58,16 +58,18 @@ pub fn read(input_file: &std::path::PathBuf) -> Result<OrdMap<LedgerKey, LedgerE
 
 pub fn commit(
     mut new_state: OrdMap<LedgerKey, LedgerEntry>,
-    storage_map: &OrdMap<LedgerKey, Option<LedgerEntry>>,
+    storage_map: Option<&OrdMap<LedgerKey, Option<LedgerEntry>>>,
     output_file: &std::path::PathBuf,
 ) -> Result<(), Error> {
     //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
     let file = File::create(output_file)?;
-    for (lk, ole) in storage_map {
-        if let Some(le) = ole {
-            new_state.insert(lk.clone(), le.clone());
-        } else {
-            new_state.remove(lk);
+    if let Some(s) = storage_map {
+        for (lk, ole) in s {
+            if let Some(le) = ole {
+                new_state.insert(lk.clone(), le.clone());
+            } else {
+                new_state.remove(lk);
+            }
         }
     }
 

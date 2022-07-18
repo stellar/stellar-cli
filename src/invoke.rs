@@ -20,7 +20,6 @@ use crate::snapshot;
 #[derive(Subcommand, Debug)]
 enum Commands {
     Call,
-    CreateContract,
     VmFn {
         /// Name of function to invoke
         #[clap(long = "fn")]
@@ -81,11 +80,6 @@ impl Cmd {
                 let args: ScVec = serde_json::from_reader(&mut file)?;
                 let _res = h.invoke_function(HostFunction::Call, args)?;
             }
-            Commands::CreateContract => {
-                let mut file = File::open(&self.file).unwrap();
-                let args: ScVec = serde_json::from_reader(&mut file)?;
-                let _res = h.invoke_function(HostFunction::CreateContract, args)?;
-            }
             Commands::VmFn { function, args } => {
                 let contents = fs::read(&self.file).unwrap();
                 let args = args
@@ -115,7 +109,7 @@ impl Cmd {
             .recover_storage()
             .map_err(|_h| HostError::General("could not get storage from host"))?;
 
-        snapshot::commit(ledger_entries, &storage.map, &self.snapshot_file)?;
+        snapshot::commit(ledger_entries, Some(&storage.map), &self.snapshot_file)?;
         Ok(())
     }
 }
