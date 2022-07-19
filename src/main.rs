@@ -1,8 +1,6 @@
 use clap::{AppSettings, Parser, Subcommand};
 use thiserror::Error;
 
-mod strval;
-
 mod deploy;
 mod inspect;
 mod invoke;

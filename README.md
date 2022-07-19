@@ -15,7 +15,7 @@ All values passed to `--arg` are the JSON representation of SCVals.
 ### Directly invoking a function in a user specified WASM contract
 
 ```
-stellar-contract-cli invoke --file <WASMFILE> vm-fn --fn <FUNCNAME> --arg '{"i32":32}' --arg '{"i32":4}'
+stellar-contract-cli invoke --file <WASMFILE> --fn <FUNCNAME> --arg '{"i32":32}' --arg '{"i32":4}'
 ```
 
 Example using the [example_add_i32](https://github.com/stellar/rs-stellar-contract-sdk/tree/main/examples/add_i32) contract:
