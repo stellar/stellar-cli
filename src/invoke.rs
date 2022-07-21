@@ -2,6 +2,7 @@ use std::{
     fmt::Debug,
     fs::{self},
     io,
+    io::Cursor,
     rc::Rc,
 };
 
@@ -9,7 +10,7 @@ use clap::Parser;
 use stellar_contract_env_host::{
     budget::CostType,
     storage::Storage,
-    xdr::{Error as XdrError, ScVal, ScVec},
+    xdr::{Error as XdrError, ReadXdr, ScVal, ScVec, ScSpecEntry, ScSpecFunctionV0},
     Host, HostError, Vm,
 };
 
@@ -134,10 +135,18 @@ impl Cmd {
 
         //TODO: contractID should be user specified
         let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
+        let input_types = match Self::function_spec(&vm, &self.function) {
+            Some(s) => { s.input_types },
+            None => {
+                // TODO: Better error here
+                return Err(Error::StrVal(StrValError::UnknownError));
+            }
+        };
         let args = self
             .args
             .iter()
-            .map(|a| strval::from_string(&h, a))
+            .zip(input_types.iter())
+            .map(|(a, t)| strval::from_string(&h, a, t))
             .collect::<Result<Vec<ScVal>, StrValError>>()?;
         let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
         let res_str = strval::to_string(&h, res);
@@ -159,5 +168,23 @@ impl Cmd {
 
         snapshot::commit(ledger_entries, &storage.map, &self.snapshot_file)?;
         Ok(())
+    }
+
+    fn function_spec(vm: &Rc<Vm>, name: &str) -> Option<ScSpecFunctionV0> {
+        let spec = vm.custom_section("contractspecv0")?;
+        let mut cursor = Cursor::new(spec);
+        for spec_entry in ScSpecEntry::read_xdr_iter(&mut cursor) {
+            match spec_entry {
+                Ok(ScSpecEntry::FunctionV0(f)) =>  {
+                    if let Ok(n) = f.name.to_string() {
+                        if n == name {
+                            return Some(f);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        return None;
     }
 }
