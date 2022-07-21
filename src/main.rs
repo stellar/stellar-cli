@@ -5,6 +5,7 @@ mod deploy;
 mod inspect;
 mod invoke;
 mod snapshot;
+mod utils;
 mod version;
 
 #[derive(Parser, Debug)]

@@ -1,14 +1,12 @@
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
-use stellar_contract_env_host::xdr::{
-    ContractDataEntry, Error as XdrError, LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerKey,
-    LedgerKeyContractData, ScObject, ScStatic, ScVal,
-};
+use stellar_contract_env_host::xdr::Error as XdrError;
 
 use hex::{FromHex, FromHexError};
 
 use crate::snapshot;
+use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -40,25 +38,8 @@ impl Cmd {
         let contract_id: [u8; 32] = FromHex::from_hex(&self.contract_id)?;
         let contract = fs::read(&self.file).unwrap();
 
-        let key = LedgerKey::ContractData(LedgerKeyContractData {
-            contract_id: contract_id.into(),
-            key: ScVal::Static(ScStatic::LedgerKeyContractCodeWasm),
-        });
-
-        let data = LedgerEntryData::ContractData(ContractDataEntry {
-            contract_id: contract_id.into(),
-            key: ScVal::Static(ScStatic::LedgerKeyContractCodeWasm),
-            val: ScVal::Object(Some(ScObject::Binary(contract.try_into()?))),
-        });
-
-        let entry = LedgerEntry {
-            last_modified_ledger_seq: 0,
-            data,
-            ext: LedgerEntryExt::V0,
-        };
-
         let mut ledger_entries = snapshot::read(&self.snapshot_file)?;
-        ledger_entries.insert(key, entry);
+        utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
 
         snapshot::commit(ledger_entries, None, &self.snapshot_file)?;
         Ok(())

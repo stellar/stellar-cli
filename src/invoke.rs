@@ -4,13 +4,14 @@ use clap::Parser;
 use stellar_contract_env_host::{
     budget::CostType,
     storage::Storage,
-    xdr::{Error as XdrError, HostFunction, ScObject, ScVal, ScVec},
-    Host, HostError, Vm,
+    xdr::{Error as XdrError, HostFunction, ScObject, ScVal},
+    Host, HostError,
 };
 
 use hex::{FromHex, FromHexError};
 
 use crate::snapshot;
+use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -25,8 +26,8 @@ pub struct Cmd {
     cost: bool,
     #[clap(long, parse(from_os_str))]
     file: Option<std::path::PathBuf>,
-    #[clap(long = "id", conflicts_with("file"))]
-    contract_id: Option<String>,
+    #[clap(long = "id")]
+    contract_id: String,
     /// Argument to pass to the contract function
     #[clap(long = "arg", value_name = "arg", multiple = true)]
     args: Vec<String>,
@@ -50,9 +51,18 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
+        let contract_id: [u8; 32] = FromHex::from_hex(&self.contract_id)?;
+
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let ledger_entries = snapshot::read(&self.snapshot_file)?;
+        let mut ledger_entries = snapshot::read(&self.snapshot_file)?;
+
+        //If a file is specified, deploy the contract to storage
+        if let Some(f) = &self.file {
+            let contract = fs::read(f).unwrap();
+            utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
+        }
+
         let snap = Rc::new(snapshot::Snap {
             ledger_entries: ledger_entries.clone(),
         });
@@ -66,27 +76,14 @@ impl Cmd {
             .map(|a| serde_json::from_str(a))
             .collect::<Result<Vec<ScVal>, serde_json::Error>>()?;
 
-        if let Some(f) = &self.file {
-            let contents = fs::read(f).unwrap();
+        let mut complete_args = vec![
+            ScVal::Object(Some(ScObject::Binary(contract_id.try_into()?))),
+            ScVal::Symbol((&self.function).try_into()?),
+        ];
+        complete_args.extend_from_slice(args.as_slice());
 
-            //TODO: contractID should be user specified
-            let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
-            let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
-            println!("{}", serde_json::to_string_pretty(&res)?);
-        } else if let Some(id) = &self.contract_id {
-            let contract_id: [u8; 32] = FromHex::from_hex(id)?;
-
-            let mut complete_args = vec![
-                ScVal::Object(Some(ScObject::Binary(contract_id.try_into()?))),
-                ScVal::Symbol((&self.function).try_into()?),
-            ];
-            complete_args.extend_from_slice(args.as_slice());
-
-            let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
-            println!("{}", serde_json::to_string_pretty(&res)?);
-        } else {
-            panic!("exactly one of file or contract_id need to be specified");
-        }
+        let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
+        println!("{}", serde_json::to_string_pretty(&res)?);
 
         if self.cost {
             h.get_budget(|b| {
