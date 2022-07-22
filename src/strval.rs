@@ -1,7 +1,20 @@
 use std::{error::Error, fmt::Display};
+use serde_json::Value;
 
 use stellar_contract_env_host::{
-    xdr::{Error as XDRError, ScObject, ScMap, ScMapEntry, ScVal, ScVec, ScStatic, ScSpecTypeDef, ScSpecTypeVec, ScSpecTypeMap},
+    xdr::{
+        Error as XDRError,
+        ScObject,
+        ScMap,
+        ScMapEntry,
+        ScVal,
+        ScVec,
+        ScStatic,
+        ScSpecTypeDef,
+        ScSpecTypeVec,
+        ScSpecTypeMap,
+        VecM,
+    },
     Host,
 };
 
@@ -51,7 +64,16 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         // These ones have special processing when they're the top-level args. This is so we don't
         // need extra quotes around string args.
         ScSpecTypeDef::Symbol => ScVal::Symbol(s.as_bytes().try_into().map_err(|_| StrValError::InvalidValue)?),
-        ScSpecTypeDef::Binary => ScVal::Object(Some(ScObject::Binary(s.as_bytes().try_into().map_err(|_| StrValError::InvalidValue)?))),
+
+        // This might either be a json array of u8s, or just the raw utf-8 bytes
+        ScSpecTypeDef::Binary => {
+            match serde_json::from_str(s) {
+                // Firat, see if it is a json array
+                Ok(Value::Array(raw)) => from_json(&Value::Array(raw), t)?,
+                // Not a json array, just grab the bytes.
+                _ => ScVal::Object(Some(ScObject::Binary(s.as_bytes().try_into().map_err(|_| StrValError::InvalidValue)?))),
+            }
+        }
 
         // For all others we just use the json parser
         _ => serde_json::from_str(s).map_err(StrValError::Serde).and_then(|raw| from_json(&raw, t))?,
@@ -60,16 +82,16 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
     Ok(val)
 }
 
-pub fn from_json(v: &serde_json::Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
+pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
     let val: ScVal = match (t, v) {
         // Boolean parsing
-        (ScSpecTypeDef::Bool, serde_json::Value::Bool(true)) =>
+        (ScSpecTypeDef::Bool, Value::Bool(true)) =>
             ScVal::Static(ScStatic::True),
-        (ScSpecTypeDef::Bool, serde_json::Value::Bool(false)) =>
+        (ScSpecTypeDef::Bool, Value::Bool(false)) =>
             ScVal::Static(ScStatic::False),
 
         // Vec parsing
-        (ScSpecTypeDef::Vec(elem), serde_json::Value::Array(raw)) => {
+        (ScSpecTypeDef::Vec(elem), Value::Array(raw)) => {
             let ScSpecTypeVec{ element_type } = *elem.to_owned();
             let parsed: Result<Vec<ScVal>, StrValError> = raw.iter().map(|item| -> Result<ScVal, StrValError> {
                 from_json(item, &element_type)
@@ -79,13 +101,13 @@ pub fn from_json(v: &serde_json::Value, t: &ScSpecTypeDef) -> Result<ScVal, StrV
         },
 
         // Number parsing
-        (ScSpecTypeDef::BigInt, serde_json::Value::String(_n)) =>
+        (ScSpecTypeDef::BigInt, Value::String(_n)) =>
             // TODO: Implement this
             return Err(StrValError::InvalidValue),
-        (ScSpecTypeDef::BigInt, serde_json::Value::Number(_n)) =>
+        (ScSpecTypeDef::BigInt, Value::Number(_n)) =>
             // TODO: Implement this
             return Err(StrValError::InvalidValue),
-        (ScSpecTypeDef::I32, serde_json::Value::Number(n)) =>
+        (ScSpecTypeDef::I32, Value::Number(n)) =>
             {
             ScVal::I32(
                 n.as_i64().
@@ -94,9 +116,9 @@ pub fn from_json(v: &serde_json::Value, t: &ScSpecTypeDef) -> Result<ScVal, StrV
                     map_err(|_| StrValError::InvalidValue)?
             )
         },
-        (ScSpecTypeDef::I64, serde_json::Value::Number(n)) =>
+        (ScSpecTypeDef::I64, Value::Number(n)) =>
             ScVal::Object(Some(ScObject::I64(n.as_i64().ok_or(StrValError::InvalidValue)?))),
-        (ScSpecTypeDef::U32, serde_json::Value::Number(n)) => {
+        (ScSpecTypeDef::U32, Value::Number(n)) => {
             ScVal::U32(
                 n.as_u64().
                     ok_or(StrValError::InvalidValue)?.
@@ -104,11 +126,11 @@ pub fn from_json(v: &serde_json::Value, t: &ScSpecTypeDef) -> Result<ScVal, StrV
                     map_err(|_| StrValError::InvalidValue)?
             )
         },
-        (ScSpecTypeDef::U64, serde_json::Value::Number(n)) =>
+        (ScSpecTypeDef::U64, Value::Number(n)) =>
             ScVal::U63(n.as_i64().ok_or(StrValError::InvalidValue)?),
 
         // Map parsing
-        (ScSpecTypeDef::Map(map), serde_json::Value::Object(raw)) => {
+        (ScSpecTypeDef::Map(map), Value::Object(raw)) => {
             let ScSpecTypeMap{key_type, value_type} = *map.to_owned();
             // TODO: What do we do if the expected key_type is not a string or symbol?
             let parsed: Result<Vec<ScMapEntry>, StrValError> = raw.iter().map(|(k, v)| -> Result<ScMapEntry, StrValError> {
@@ -120,21 +142,26 @@ pub fn from_json(v: &serde_json::Value, t: &ScSpecTypeDef) -> Result<ScVal, StrV
             ScVal::Object(Some(ScObject::Map(converted)))
         },
 
-        // Symbol & String parsing
-        (ScSpecTypeDef::Symbol, serde_json::Value::String(s)) =>
+        // Symbol parsing
+        (ScSpecTypeDef::Symbol, Value::String(s)) =>
             ScVal::Symbol(s.as_bytes().try_into().map_err(|_| StrValError::InvalidValue)?),
 
         // Binary parsing
-        (ScSpecTypeDef::Binary, serde_json::Value::String(s)) =>
+        (ScSpecTypeDef::Binary, Value::String(s)) =>
             ScVal::Object(Some(ScObject::Binary(s.as_bytes().try_into().map_err(|_| StrValError::InvalidValue)?))),
-        (ScSpecTypeDef::Binary, serde_json::Value::Array(_raw)) => {
-            return Err(StrValError::InvalidValue); // TODO: Implement this
-            // let b: Result<Vec<u8>, StrValError> = raw.iter().map(|item| item.as_u64().try_into().map_err(|_| StrValError::InvalidValue)).collect();
-            // ScVal::Object(Some(ScObject::Binary(b?)))
+        (ScSpecTypeDef::Binary, Value::Array(raw)) => {
+            let b: Result<Vec<u8>, StrValError> = raw.iter().map(|item| {
+                item.as_u64().
+                    ok_or(StrValError::InvalidValue)?.
+                    try_into().
+                    map_err(|_| StrValError::InvalidValue)
+            }).collect();
+            let converted : VecM<u8, 256000_u32> = b?.try_into().map_err(StrValError::XDR).unwrap();
+            ScVal::Object(Some(ScObject::Binary(converted)))
         },
 
         // Option parsing
-        (ScSpecTypeDef::Option(_), serde_json::Value::Null) =>
+        (ScSpecTypeDef::Option(_), Value::Null) =>
             // is null -> void the right thing here?
             ScVal::Object(None),
         (ScSpecTypeDef::Option(_elem), _v) => {
