@@ -149,7 +149,7 @@ impl Cmd {
             .map(|(a, t)| strval::from_string(a, t))
             .collect::<Result<Vec<ScVal>, StrValError>>()?;
         let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
-        let res_str = strval::to_string(&h, res);
+        let res_str = strval::to_string(&res)?;
         println!("{}", res_str);
 
         if self.cost {
