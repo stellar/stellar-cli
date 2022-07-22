@@ -4,16 +4,16 @@ use serde_json::Value;
 use stellar_contract_env_host::{
     xdr::{
         Error as XDRError,
-        ScObject,
+        ScBigInt,
         ScMap,
         ScMapEntry,
-        ScVal,
-        ScVec,
-        ScStatic,
+        ScObject,
         ScSpecTypeDef,
         ScSpecTypeMap,
-        ScSpecTypeOption,
         ScSpecTypeVec,
+        ScStatic,
+        ScVal,
+        ScVec,
         VecM,
     },
     Host,
@@ -102,12 +102,37 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         },
 
         // Number parsing
-        (ScSpecTypeDef::BigInt, Value::String(_n)) =>
-            // TODO: Implement this
-            return Err(StrValError::InvalidValue),
-        (ScSpecTypeDef::BigInt, Value::Number(_n)) =>
-            // TODO: Implement this
-            return Err(StrValError::InvalidValue),
+        (ScSpecTypeDef::BigInt, Value::String(s)) => {
+            // TODO: This is a bit of a hack. It may not actually handle numbers bigger than
+            // whatever json serde supports parsing as a "real number".
+            from_string(s, &ScSpecTypeDef::BigInt)?
+        },
+        (ScSpecTypeDef::BigInt, Value::Number(n)) => {
+            if let Some(u) = n.as_u64() {
+                ScVal::Object(Some(ScObject::BigInt(
+                    if u == 0 {
+                        ScBigInt::Zero
+                    } else {
+                        let bytes: VecM<u8, 256000_u32> = u.to_be_bytes().to_vec().try_into().map_err(|_| StrValError::InvalidValue)?;
+                        ScBigInt::Positive(bytes)
+                    }
+                )))
+            } else if let Some(i) = n.as_i64() {
+                ScVal::Object(Some(ScObject::BigInt(
+                    if i == 0 {
+                        ScBigInt::Zero
+                    } else if i < 0 {
+                        let bytes: VecM<u8, 256000_u32> = i.to_be_bytes().to_vec().try_into().map_err(|_| StrValError::InvalidValue)?;
+                        ScBigInt::Negative(bytes)
+                    } else {
+                        let bytes: VecM<u8, 256000_u32> = i.to_be_bytes().to_vec().try_into().map_err(|_| StrValError::InvalidValue)?;
+                        ScBigInt::Positive(bytes)
+                    }
+                )))
+            } else  {
+                return Err(StrValError::InvalidValue);
+            }
+        },
         (ScSpecTypeDef::I32, Value::Number(n)) =>
             {
             ScVal::I32(
@@ -162,14 +187,14 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         },
 
         // Option parsing
-        (ScSpecTypeDef::Option(_), Value::Null) =>
-            // is null -> void the right thing here?
-            ScVal::Object(None),
-        (ScSpecTypeDef::Option(_elem), _v) => {
-            // TODO: Implement this
-            // let ScSpecTypeOption{ value_type } = *elem.to_owned();
-            // ScVal::Object(Some(from_json(v, &value_type)?.try_into().map_err(|_| StrValError::InvalidValue)?))
-        },
+        // TODO: Implement this
+        // (ScSpecTypeDef::Option(_), Value::Null) =>
+        //     // is null -> void the right thing here?
+        //     ScVal::Object(None),
+        // (ScSpecTypeDef::Option(_elem), _v) => {
+        //     let ScSpecTypeOption{ value_type } = *elem.to_owned();
+        //     ScVal::Object(Some(from_json(v, &value_type)?.try_into().map_err(|_| StrValError::InvalidValue)?))
+        // },
 
         // TODO: Implement the rest of these
         // ScSpecTypeDef::Bitset => {},
