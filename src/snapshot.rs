@@ -3,7 +3,7 @@ use std::{fs::File, io};
 use stellar_contract_env_host::{
     im_rc::OrdMap,
     storage::SnapshotSource,
-    xdr::{Error as XdrError, LedgerEntry, LedgerKey, VecM},
+    xdr::{Error as XdrError, LedgerEntry, LedgerKey, ScHostStorageErrorCode, ScStatus, VecM},
     HostError,
 };
 
@@ -27,7 +27,7 @@ impl SnapshotSource for Snap {
     fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
         match self.ledger_entries.get(key) {
             Some(v) => Ok(v.clone()),
-            None => Err(HostError::General("missing entry")),
+            None => Err(ScStatus::HostStorageError(ScHostStorageErrorCode::UnknownError).into()),
         }
     }
     fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {

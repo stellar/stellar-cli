@@ -4,7 +4,7 @@ use clap::Parser;
 use stellar_contract_env_host::{
     budget::CostType,
     storage::Storage,
-    xdr::{Error as XdrError, HostFunction, ScObject, ScVal},
+    xdr::{Error as XdrError, HostFunction, ScHostStorageErrorCode, ScObject, ScStatus, ScVal},
     Host, HostError,
 };
 
@@ -95,9 +95,11 @@ impl Cmd {
             });
         }
 
-        let storage = h
-            .recover_storage()
-            .map_err(|_h| HostError::General("could not get storage from host"))?;
+        let storage = h.recover_storage().map_err(|_h| {
+            HostError::from(ScStatus::HostStorageError(
+                ScHostStorageErrorCode::UnknownError,
+            ))
+        })?;
 
         snapshot::commit(ledger_entries, Some(&storage.map), &self.snapshot_file)?;
         Ok(())
