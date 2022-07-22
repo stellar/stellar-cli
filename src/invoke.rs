@@ -95,9 +95,11 @@ impl Cmd {
             });
         }
 
-        let storage = h
-            .recover_storage()
-            .map_err(|_h| HostError::from(ScStatus::HostStorageError(ScHostStorageErrorCode::UnknownError)))?;
+        let storage = h.recover_storage().map_err(|_h| {
+            HostError::from(ScStatus::HostStorageError(
+                ScHostStorageErrorCode::UnknownError,
+            ))
+        })?;
 
         snapshot::commit(ledger_entries, Some(&storage.map), &self.snapshot_file)?;
         Ok(())

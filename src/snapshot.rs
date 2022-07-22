@@ -3,7 +3,7 @@ use std::{fs::File, io};
 use stellar_contract_env_host::{
     im_rc::OrdMap,
     storage::SnapshotSource,
-    xdr::{Error as XdrError, LedgerEntry, LedgerKey, ScStatus, ScHostStorageErrorCode, VecM},
+    xdr::{Error as XdrError, LedgerEntry, LedgerKey, ScHostStorageErrorCode, ScStatus, VecM},
     HostError,
 };
 
