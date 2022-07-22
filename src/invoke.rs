@@ -146,7 +146,7 @@ impl Cmd {
             .args
             .iter()
             .zip(input_types.iter())
-            .map(|(a, t)| strval::from_string(&h, a, t))
+            .map(|(a, t)| strval::from_string(a, t))
             .collect::<Result<Vec<ScVal>, StrValError>>()?;
         let res = vm.invoke_function(&h, &self.function, &ScVec(args.try_into()?))?;
         let res_str = strval::to_string(&h, res);
