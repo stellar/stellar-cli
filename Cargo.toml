@@ -10,3 +10,4 @@ clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
 thiserror = "1.0.31"
 serde_json = "1.0.82"
+hex = "0.4.3"

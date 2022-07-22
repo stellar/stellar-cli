@@ -1,10 +1,12 @@
 use clap::{AppSettings, Parser, Subcommand};
 use thiserror::Error;
 
-mod strval;
-
+mod deploy;
 mod inspect;
 mod invoke;
+mod snapshot;
+mod strval;
+mod utils;
 mod version;
 
 #[derive(Parser, Debug)]
@@ -21,6 +23,8 @@ enum Cmd {
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
+    /// Writes a contractID and WASM contract directly to storage
+    Deploy(deploy::Cmd),
     /// Print version information
     Version(version::Cmd),
 }
@@ -31,12 +35,15 @@ enum CmdError {
     Inspect(#[from] inspect::Error),
     #[error("invoke")]
     Invoke(#[from] invoke::Error),
+    #[error("deploy")]
+    Deploy(#[from] deploy::Error),
 }
 
 fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => invoke.run()?,
+        Cmd::Deploy(deploy) => deploy.run()?,
         Cmd::Version(version) => version.run(),
     };
     Ok(())
