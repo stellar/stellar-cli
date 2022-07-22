@@ -11,8 +11,9 @@ use stellar_contract_env_host::{
         ScVec,
         ScStatic,
         ScSpecTypeDef,
-        ScSpecTypeVec,
         ScSpecTypeMap,
+        ScSpecTypeOption,
+        ScSpecTypeVec,
         VecM,
     },
     Host,
@@ -165,9 +166,9 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
             // is null -> void the right thing here?
             ScVal::Object(None),
         (ScSpecTypeDef::Option(_elem), _v) => {
-            return Err(StrValError::InvalidValue); // TODO: Implement this
+            // TODO: Implement this
             // let ScSpecTypeOption{ value_type } = *elem.to_owned();
-            // ScVal::Object(Some(from_json(v, &value_type)?.try_into()?))
+            // ScVal::Object(Some(from_json(v, &value_type)?.try_into().map_err(|_| StrValError::InvalidValue)?))
         },
 
         // TODO: Implement the rest of these
