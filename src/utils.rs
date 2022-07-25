@@ -4,6 +4,7 @@ use stellar_contract_env_host::{
     xdr::{
         ContractDataEntry, Error as XdrError, LedgerEntry, LedgerEntryData, LedgerEntryExt,
         LedgerKey, LedgerKeyContractData, ScObject, ScStatic, ScVal,
+        ScStatus, ScUnknownErrorCode,
     },
     HostError,
 };
@@ -47,5 +48,5 @@ pub fn get_contract_wasm_from_storage(
             return Ok(data.to_vec());
         }
     }
-    return Err(HostError::General("Contract not found"));
+    return Err(HostError::from(ScStatus::UnknownError(ScUnknownErrorCode::General)));
 }
