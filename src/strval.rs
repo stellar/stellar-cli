@@ -199,7 +199,6 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         // TODO: Implement the rest of these
         // ScSpecTypeDef::Bitset => {},
         // ScSpecTypeDef::Status => {},
-        // ScSpecTypeDef::BigInt => ScVal::Object(Some(ScObject::BigInt(s.parse()?))),
         // ScSpecTypeDef::Result(Box<ScSpecTypeResult>) => {},
         // ScSpecTypeDef::Set(Box<ScSpecTypeSet>) => {},
         // ScSpecTypeDef::Tuple(Box<ScSpecTypeTuple>) => {},
@@ -272,10 +271,17 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
                 // (n > u64::MAX || n < i64::MIN)
                 Value::Number(match n {
                     ScBigInt::Zero => serde_json::Number::from(0),
-                    ScBigInt::Negative(i) =>
-                        serde_json::Number::from(i64::from_be_bytes(i.to_vec().try_into().map_err(|_| StrValError::InvalidValue)?)),
-                    ScBigInt::Positive(u) =>
-                        serde_json::Number::from(u64::from_be_bytes(u.to_vec().try_into().map_err(|_| StrValError::InvalidValue)?)),
+                    ScBigInt::Negative(i) => {
+                        let mut bytes: Vec<u8> = i.to_vec();
+                        while bytes.len() < 8 { bytes.insert(0, 0) };
+                        if bytes.len() == 9 { bytes.remove(0); };
+                        serde_json::Number::from(i64::from_be_bytes(bytes.try_into().map_err(|_| StrValError::InvalidValue)?))
+                    },
+                    ScBigInt::Positive(u) => {
+                        let mut bytes: Vec<u8> = u.to_vec();
+                        while bytes.len() < 8 { bytes.insert(0, 0) };
+                        serde_json::Number::from(u64::from_be_bytes(bytes.try_into().map_err(|_| StrValError::InvalidValue)?))
+                    },
                 })
             },
             ScObject::Hash(_) => todo!(),
