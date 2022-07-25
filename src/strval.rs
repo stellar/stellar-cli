@@ -10,6 +10,8 @@ use stellar_contract_env_host::{
         ScObject,
         ScSpecTypeDef,
         ScSpecTypeMap,
+        ScSpecTypeOption,
+        ScSpecTypeTuple,
         ScSpecTypeVec,
         ScStatic,
         ScVal,
@@ -187,21 +189,32 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         },
 
         // Option parsing
-        // TODO: Implement this
-        // (ScSpecTypeDef::Option(_), Value::Null) =>
-        //     // is null -> void the right thing here?
-        //     ScVal::Object(None),
-        // (ScSpecTypeDef::Option(_elem), _v) => {
-        //     let ScSpecTypeOption{ value_type } = *elem.to_owned();
-        //     ScVal::Object(Some(from_json(v, &value_type)?.try_into().map_err(|_| StrValError::InvalidValue)?))
-        // },
+        (ScSpecTypeDef::Option(_), Value::Null) =>
+            // is null -> void the right thing here?
+            ScVal::Object(None),
+        (ScSpecTypeDef::Option(elem), v) => {
+            let ScSpecTypeOption{ value_type } = *elem.to_owned();
+            ScVal::Object(Some(from_json(v, &value_type)?.try_into().map_err(|_| StrValError::InvalidValue)?))
+        },
+
+        // Tuple parsing
+        (ScSpecTypeDef::Tuple(elem), Value::Array(raw)) => {
+            let ScSpecTypeTuple{ value_types } = *elem.to_owned();
+            if raw.len() != value_types.len() {
+                return Err(StrValError::InvalidValue);
+            };
+            let parsed: Result<Vec<ScVal>, StrValError> = raw.iter().zip(value_types.iter()).map(|(item, t)| {
+                from_json(item, t)
+            }).collect();
+            let converted : ScVec = parsed?.try_into().map_err(StrValError::XDR)?;
+            ScVal::Object(Some(ScObject::Vec(converted)))
+        },
 
         // TODO: Implement the rest of these
         // ScSpecTypeDef::Bitset => {},
         // ScSpecTypeDef::Status => {},
         // ScSpecTypeDef::Result(Box<ScSpecTypeResult>) => {},
         // ScSpecTypeDef::Set(Box<ScSpecTypeSet>) => {},
-        // ScSpecTypeDef::Tuple(Box<ScSpecTypeTuple>) => {},
         // ScSpecTypeDef::Udt(ScSpecTypeUdt) => {},
         _ => return Err(StrValError::UnknownType),
     };
