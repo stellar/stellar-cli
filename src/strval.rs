@@ -97,7 +97,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
             let parsed: Result<Vec<ScVal>, StrValError> = raw.iter().map(|item| -> Result<ScVal, StrValError> {
                 from_json(item, &element_type)
             }).collect();
-            let converted : ScVec = parsed?.try_into().map_err(StrValError::XDR).unwrap();
+            let converted : ScVec = parsed?.try_into().map_err(StrValError::XDR)?;
             ScVal::Object(Some(ScObject::Vec(converted)))
         },
 
@@ -164,7 +164,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                 let val = from_json(v, &value_type)?;
                 Ok(ScMapEntry{key, val})
             }).collect();
-            let converted : ScMap = parsed?.try_into().map_err(StrValError::XDR).unwrap();
+            let converted : ScMap = parsed?.try_into().map_err(StrValError::XDR)?;
             ScVal::Object(Some(ScObject::Map(converted)))
         },
 
@@ -182,7 +182,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                     try_into().
                     map_err(|_| StrValError::InvalidValue)
             }).collect();
-            let converted : VecM<u8, 256000_u32> = b?.try_into().map_err(StrValError::XDR).unwrap();
+            let converted : VecM<u8, 256000_u32> = b?.try_into().map_err(StrValError::XDR)?;
             ScVal::Object(Some(ScObject::Binary(converted)))
         },
 
