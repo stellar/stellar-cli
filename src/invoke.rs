@@ -6,7 +6,7 @@ use stellar_contract_env_host::{
     storage::Storage,
     xdr::{
         Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
-        ScSpecFunctionV0, ScStatus, ScVal, ScVec,
+        ScSpecFunctionV0, ScStatus, ScVal,
     },
     Host, HostError, Vm,
 };
@@ -123,18 +123,15 @@ impl Cmd {
     fn function_spec(vm: &Rc<Vm>, name: &str) -> Option<ScSpecFunctionV0> {
         let spec = vm.custom_section("contractspecv0")?;
         let mut cursor = Cursor::new(spec);
-        for spec_entry in ScSpecEntry::read_xdr_iter(&mut cursor) {
-            match spec_entry {
-                Ok(ScSpecEntry::FunctionV0(f)) => {
-                    if let Ok(n) = f.name.to_string() {
-                        if n == name {
-                            return Some(f);
-                        }
+        for spec_entry in ScSpecEntry::read_xdr_iter(&mut cursor).flatten() {
+            if let ScSpecEntry::FunctionV0(f) = spec_entry {
+                if let Ok(n) = f.name.to_string() {
+                    if n == name {
+                        return Some(f);
                     }
                 }
-                _ => {}
             }
         }
-        return None;
+        None
     }
 }

@@ -47,7 +47,7 @@ pub fn get_contract_wasm_from_storage(
             return Ok(data.to_vec());
         }
     }
-    return Err(HostError::from(ScStatus::UnknownError(
+    Err(HostError::from(ScStatus::UnknownError(
         ScUnknownErrorCode::General,
-    )));
+    )))
 }
