@@ -4,7 +4,10 @@ use clap::Parser;
 use stellar_contract_env_host::{
     budget::CostType,
     storage::Storage,
-    xdr::{Error as XdrError, ReadXdr, HostFunction, ScHostStorageErrorCode, ScObject, ScVal, ScStatus, ScVec, ScSpecEntry, ScSpecFunctionV0},
+    xdr::{
+        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
+        ScSpecFunctionV0, ScStatus, ScVal, ScVec,
+    },
     Host, HostError, Vm,
 };
 
@@ -73,10 +76,9 @@ impl Cmd {
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
         let mut h = Host::with_storage(storage);
 
-
         let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
         let input_types = match Self::function_spec(&vm, &self.function) {
-            Some(s) => { s.input_types },
+            Some(s) => s.input_types,
             None => {
                 // TODO: Better error here
                 return Err(Error::StrVal(StrValError::UnknownError));
@@ -123,7 +125,7 @@ impl Cmd {
         let mut cursor = Cursor::new(spec);
         for spec_entry in ScSpecEntry::read_xdr_iter(&mut cursor) {
             match spec_entry {
-                Ok(ScSpecEntry::FunctionV0(f)) =>  {
+                Ok(ScSpecEntry::FunctionV0(f)) => {
                     if let Ok(n) = f.name.to_string() {
                         if n == name {
                             return Some(f);

@@ -3,8 +3,7 @@ use stellar_contract_env_host::{
     storage::Storage,
     xdr::{
         ContractDataEntry, Error as XdrError, LedgerEntry, LedgerEntryData, LedgerEntryExt,
-        LedgerKey, LedgerKeyContractData, ScObject, ScStatic, ScVal,
-        ScStatus, ScUnknownErrorCode,
+        LedgerKey, LedgerKeyContractData, ScObject, ScStatic, ScStatus, ScUnknownErrorCode, ScVal,
     },
     HostError,
 };
@@ -48,5 +47,7 @@ pub fn get_contract_wasm_from_storage(
             return Ok(data.to_vec());
         }
     }
-    return Err(HostError::from(ScStatus::UnknownError(ScUnknownErrorCode::General)));
+    return Err(HostError::from(ScStatus::UnknownError(
+        ScUnknownErrorCode::General,
+    )));
 }
