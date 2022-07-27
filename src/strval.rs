@@ -9,7 +9,6 @@ use stellar_contract_env_host::xdr::{
 #[derive(Debug)]
 pub enum StrValError {
     UnknownError,
-    UnknownType,
     InvalidValue,
     Xdr(XdrError),
     Serde(serde_json::Error),
@@ -26,7 +25,6 @@ impl Display for StrValError {
         write!(f, "parse error: ")?;
         match self {
             Self::UnknownError => write!(f, "an unknown error occurred")?,
-            Self::UnknownType => write!(f, "unknown type specified")?,
             Self::InvalidValue => write!(f, "value is not parseable to type")?,
             Self::Serde(_) => write!(f, "json error")?,
             Self::Xdr(_) => write!(f, "xdr error")?,
@@ -235,7 +233,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         // ScSpecTypeDef::Result(Box<ScSpecTypeResult>) => {},
         // ScSpecTypeDef::Set(Box<ScSpecTypeSet>) => {},
         // ScSpecTypeDef::Udt(ScSpecTypeUdt) => {},
-        _ => return Err(StrValError::UnknownType),
+        (_, raw) => serde_json::from_value(raw.clone()).map_err(StrValError::Serde)?,
     };
     Ok(val)
 }
@@ -269,68 +267,66 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
                 .map_err(|_| StrValError::InvalidValue)?
                 .to_string(),
         ),
-        ScVal::Bitset(_) => todo!(),
-        ScVal::Status(_) => todo!(),
         ScVal::Object(None) => Value::Null,
-        ScVal::Object(Some(b)) => match b {
-            ScObject::Vec(v) => {
-                let values: Result<Vec<Value>, StrValError> = v
-                    .iter()
-                    .map(|item| -> Result<Value, StrValError> { to_json(item) })
-                    .collect();
-                Value::Array(values?)
+        ScVal::Object(Some(ScObject::Vec(v))) => {
+            let values: Result<Vec<Value>, StrValError> = v
+                .iter()
+                .map(|item| -> Result<Value, StrValError> { to_json(item) })
+                .collect();
+            Value::Array(values?)
+        }
+        ScVal::Object(Some(ScObject::Map(v))) => {
+            // TODO: What do we do if the key is not a string?
+            let mut m = serde_json::Map::<String, Value>::with_capacity(v.len());
+            for ScMapEntry { key, val } in v.iter() {
+                let k: String = to_string(key)?;
+                let v: Value = to_json(val).map_err(|_| StrValError::InvalidValue)?;
+                m.insert(k, v);
             }
-            ScObject::Map(v) => {
-                // TODO: What do we do if the key is not a string?
-                let mut m = serde_json::Map::<String, Value>::with_capacity(v.len());
-                for ScMapEntry { key, val } in v.iter() {
-                    let k: String = to_string(key)?;
-                    let v: Value = to_json(val).map_err(|_| StrValError::InvalidValue)?;
-                    m.insert(k, v);
+            Value::Object(m)
+        }
+        ScVal::Object(Some(ScObject::U64(v))) => Value::Number(serde_json::Number::from(*v)),
+        ScVal::Object(Some(ScObject::I64(v))) => Value::Number(serde_json::Number::from(*v)),
+        ScVal::Object(Some(ScObject::Binary(v))) => Value::Array(
+            v.to_vec()
+                .iter()
+                .map(|item| Value::Number(serde_json::Number::from(*item)))
+                .collect(),
+        ),
+        ScVal::Object(Some(ScObject::BigInt(n))) => {
+            // TODO: This is a hack. Should output as a string if the number is too big. Or a
+            // byte array? Either way, this won't currently support numbers > u64. Need to
+            // implement conversions/comparisons so we can tell if:
+            // (n > u64::MAX || n < i64::MIN)
+            Value::Number(match n {
+                ScBigInt::Zero => serde_json::Number::from(0),
+                ScBigInt::Negative(i) => {
+                    let mut bytes: Vec<u8> = i.to_vec();
+                    while bytes.len() < 8 {
+                        bytes.insert(0, 0);
+                    }
+                    if bytes.len() == 9 {
+                        bytes.remove(0);
+                    };
+                    serde_json::Number::from(i64::from_be_bytes(
+                        bytes.try_into().map_err(|_| StrValError::InvalidValue)?,
+                    ))
                 }
-                Value::Object(m)
-            }
-            ScObject::U64(v) => Value::Number(serde_json::Number::from(*v)),
-            ScObject::I64(v) => Value::Number(serde_json::Number::from(*v)),
-            ScObject::Binary(v) => Value::Array(
-                v.to_vec()
-                    .iter()
-                    .map(|item| Value::Number(serde_json::Number::from(*item)))
-                    .collect(),
-            ),
-            ScObject::BigInt(n) => {
-                // TODO: This is a hack. Should output as a string if the number is too big. Or a
-                // byte array? Either way, this won't currently support numbers > u64. Need to
-                // implement conversions/comparisons so we can tell if:
-                // (n > u64::MAX || n < i64::MIN)
-                Value::Number(match n {
-                    ScBigInt::Zero => serde_json::Number::from(0),
-                    ScBigInt::Negative(i) => {
-                        let mut bytes: Vec<u8> = i.to_vec();
-                        while bytes.len() < 8 {
-                            bytes.insert(0, 0);
-                        }
-                        if bytes.len() == 9 {
-                            bytes.remove(0);
-                        };
-                        serde_json::Number::from(i64::from_be_bytes(
-                            bytes.try_into().map_err(|_| StrValError::InvalidValue)?,
-                        ))
+                ScBigInt::Positive(u) => {
+                    let mut bytes: Vec<u8> = u.to_vec();
+                    while bytes.len() < 8 {
+                        bytes.insert(0, 0);
                     }
-                    ScBigInt::Positive(u) => {
-                        let mut bytes: Vec<u8> = u.to_vec();
-                        while bytes.len() < 8 {
-                            bytes.insert(0, 0);
-                        }
-                        serde_json::Number::from(u64::from_be_bytes(
-                            bytes.try_into().map_err(|_| StrValError::InvalidValue)?,
-                        ))
-                    }
-                })
-            }
-            ScObject::Hash(_) => todo!(),
-            ScObject::PublicKey(_) => todo!(),
-        },
+                    serde_json::Number::from(u64::from_be_bytes(
+                        bytes.try_into().map_err(|_| StrValError::InvalidValue)?,
+                    ))
+                }
+            })
+        }
+        // TODO: Implement these
+        ScVal::Object(Some(ScObject::Hash(_) | ScObject::PublicKey(_)))
+        | ScVal::Bitset(_)
+        | ScVal::Status(_) => serde_json::to_value(v).map_err(StrValError::Serde)?,
     };
     Ok(val)
 }
