@@ -1,6 +1,5 @@
 use std::{fmt::Debug, fs, io, io::Cursor, rc::Rc};
 
-use base64;
 use clap::Parser;
 use stellar_contract_env_host::{
     budget::CostType,
@@ -37,7 +36,12 @@ pub struct Cmd {
     #[clap(long = "arg", value_name = "arg", multiple = true)]
     args: Vec<String>,
     /// Argument to pass to the contract function (base64-encoded xdr)
-    #[clap(long = "arg-xdr", value_name = "arg-xdr", multiple = true, conflicts_with = "args")]
+    #[clap(
+        long = "arg-xdr",
+        value_name = "arg-xdr",
+        multiple = true,
+        conflicts_with = "args"
+    )]
     args_xdr: Vec<String>,
 }
 
@@ -90,16 +94,14 @@ impl Cmd {
         };
 
         // re-assemble the args, to match the order given on the command line
-        let args: Vec<ScVal> = if self.args.len() > 0 {
-            self
-                .args
+        let args: Vec<ScVal> = if self.args_xdr.is_empty() {
+            self.args
                 .iter()
                 .zip(input_types.iter())
                 .map(|(a, t)| strval::from_string(a, t))
                 .collect::<Result<Vec<ScVal>, StrValError>>()?
         } else {
-            self
-                .args_xdr
+            self.args_xdr
                 .iter()
                 .map(|a| match base64::decode(a) {
                     Err(_) => Err(StrValError::InvalidValue),
