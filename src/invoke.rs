@@ -1,5 +1,6 @@
 use std::{fmt::Debug, fs, io, io::Cursor, rc::Rc};
 
+use base64;
 use clap::Parser;
 use stellar_contract_env_host::{
     budget::CostType,
@@ -35,6 +36,9 @@ pub struct Cmd {
     /// Argument to pass to the contract function
     #[clap(long = "arg", value_name = "arg", multiple = true)]
     args: Vec<String>,
+    /// Argument to pass to the contract function (base64-encoded xdr)
+    #[clap(long = "arg-xdr", value_name = "arg-xdr", multiple = true, conflicts_with = "args")]
+    args_xdr: Vec<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -84,12 +88,25 @@ impl Cmd {
                 return Err(Error::StrVal(StrValError::UnknownError));
             }
         };
-        let args = &self
-            .args
-            .iter()
-            .zip(input_types.iter())
-            .map(|(a, t)| strval::from_string(a, t))
-            .collect::<Result<Vec<ScVal>, StrValError>>()?;
+
+        // re-assemble the args, to match the order given on the command line
+        let args: Vec<ScVal> = if self.args.len() > 0 {
+            self
+                .args
+                .iter()
+                .zip(input_types.iter())
+                .map(|(a, t)| strval::from_string(a, t))
+                .collect::<Result<Vec<ScVal>, StrValError>>()?
+        } else {
+            self
+                .args_xdr
+                .iter()
+                .map(|a| match base64::decode(a) {
+                    Err(_) => Err(StrValError::InvalidValue),
+                    Ok(b) => ScVal::from_xdr(b).map_err(StrValError::Xdr),
+                })
+                .collect::<Result<Vec<ScVal>, StrValError>>()?
+        };
 
         let mut complete_args = vec![
             ScVal::Object(Some(ScObject::Binary(contract_id.try_into()?))),
