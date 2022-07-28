@@ -5,6 +5,7 @@ mod deploy;
 mod inspect;
 mod invoke;
 mod snapshot;
+mod strval;
 mod utils;
 mod version;
 

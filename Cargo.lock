@@ -626,6 +626,7 @@ dependencies = [
  "base64",
  "clap",
  "hex",
+ "num-bigint",
  "serde_json",
  "soroban-env-host",
  "thiserror",
