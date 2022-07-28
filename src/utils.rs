@@ -1,4 +1,4 @@
-use stellar_contract_env_host::{
+use soroban_env_host::{
     im_rc::OrdMap,
     storage::Storage,
     xdr::{

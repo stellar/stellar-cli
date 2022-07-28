@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::{error::Error, fmt::Display, str::FromStr};
 
 use num_bigint::{BigInt, Sign};
-use stellar_contract_env_host::xdr::{
+use soroban_env_host::xdr::{
     Error as XdrError, ScBigInt, ScMap, ScMapEntry, ScObject, ScSpecTypeDef, ScSpecTypeMap,
     ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec, VecM,
 };

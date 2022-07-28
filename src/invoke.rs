@@ -1,7 +1,7 @@
 use std::{fmt::Debug, fs, io, io::Cursor, rc::Rc};
 
 use clap::Parser;
-use stellar_contract_env_host::{
+use soroban_env_host::{
     budget::CostType,
     storage::Storage,
     xdr::{
@@ -82,7 +82,7 @@ impl Cmd {
         });
         let mut storage = Storage::with_recording_footprint(snap);
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
-        let mut h = Host::with_storage(storage);
+        let h = Host::with_storage(storage);
 
         let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
         let input_types = match Self::function_spec(&vm, &self.function) {
