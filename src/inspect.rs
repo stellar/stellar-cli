@@ -1,9 +1,9 @@
 use clap::Parser;
-use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
-use stellar_contract_env_host::{
+use soroban_env_host::{
     xdr::{self, ReadXdr, ScEnvMetaEntry, ScSpecEntry},
     Host, HostError, Vm,
 };
+use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {

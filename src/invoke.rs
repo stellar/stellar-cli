@@ -1,7 +1,7 @@
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
-use stellar_contract_env_host::{
+use soroban_env_host::{
     budget::CostType,
     storage::Storage,
     xdr::{Error as XdrError, HostFunction, ScHostStorageErrorCode, ScObject, ScStatus, ScVal},
@@ -68,7 +68,7 @@ impl Cmd {
         });
         let storage = Storage::with_recording_footprint(snap);
 
-        let mut h = Host::with_storage(storage);
+        let h = Host::with_storage(storage);
 
         let args = &self
             .args
