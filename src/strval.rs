@@ -70,6 +70,7 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
             }
         }
 
+        // Might have wrapping quotes if it is negative. e.g. "-5"
         ScSpecTypeDef::BigInt => {
             if let Ok(Value::String(raw)) = serde_json::from_str(s) {
                 // First, see if it is a json string, strip the quotes and recurse
