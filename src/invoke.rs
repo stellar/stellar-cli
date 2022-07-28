@@ -8,7 +8,7 @@ use soroban_env_host::{
     Host, HostError,
 };
 
-use hex::{FromHex, FromHexError};
+use hex::FromHexError;
 
 use crate::snapshot;
 use crate::utils;
@@ -51,7 +51,7 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let contract_id: [u8; 32] = FromHex::from_hex(&self.contract_id)?;
+        let contract_id: [u8; 32] = utils::contract_id_from_str(&self.contract_id)?;
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
