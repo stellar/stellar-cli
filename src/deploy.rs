@@ -1,7 +1,7 @@
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
-use stellar_contract_env_host::xdr::Error as XdrError;
+use soroban_env_host::xdr::Error as XdrError;
 
 use hex::{FromHex, FromHexError};
 

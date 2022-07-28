@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display};
 
-use stellar_contract_env_host::{
+use soroban_env_host::{
     xdr::{ScObject, ScVal},
     Host,
 };
