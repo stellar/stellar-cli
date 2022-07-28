@@ -27,8 +27,8 @@ impl Display for StrValError {
         match self {
             Self::UnknownError => write!(f, "an unknown error occurred")?,
             Self::InvalidValue => write!(f, "value is not parseable to type")?,
-            Self::Serde(_) => write!(f, "json error")?,
-            Self::Xdr(_) => write!(f, "xdr error")?,
+            Self::Serde(e) => write!(f, "{}", e)?,
+            Self::Xdr(e) => write!(f, "{}", e)?,
         };
         Ok(())
     }
@@ -152,8 +152,9 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                     Ok(ScMapEntry { key, val })
                 })
                 .collect();
-            let converted: ScMap = parsed?.try_into().map_err(StrValError::Xdr)?;
-            ScVal::Object(Some(ScObject::Map(converted)))
+            ScVal::Object(Some(ScObject::Map(
+                ScMap::sorted_from(parsed?).map_err(StrValError::Xdr)?,
+            )))
         }
 
         // Symbol parsing

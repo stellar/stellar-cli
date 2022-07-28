@@ -61,6 +61,8 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error("hex")]
     FromHex(#[from] FromHexError),
+    #[error("contractnotfound")]
+    FunctionNotFoundInContractSpec,
 }
 
 impl Cmd {
@@ -88,8 +90,7 @@ impl Cmd {
         let input_types = match Self::function_spec(&vm, &self.function) {
             Some(s) => s.input_types,
             None => {
-                // TODO: Better error here
-                return Err(Error::StrVal(StrValError::UnknownError));
+                return Err(Error::FunctionNotFoundInContractSpec);
             }
         };
 
@@ -99,7 +100,7 @@ impl Cmd {
                 .iter()
                 .zip(input_types.iter())
                 .map(|(a, t)| strval::from_string(a, t))
-                .collect::<Result<Vec<ScVal>, StrValError>>()?
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             self.args_xdr
                 .iter()
@@ -107,7 +108,7 @@ impl Cmd {
                     Err(_) => Err(StrValError::InvalidValue),
                     Ok(b) => ScVal::from_xdr(b).map_err(StrValError::Xdr),
                 })
-                .collect::<Result<Vec<ScVal>, StrValError>>()?
+                .collect::<Result<Vec<_>, _>>()?
         };
 
         let mut complete_args = vec![
