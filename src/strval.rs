@@ -1,6 +1,7 @@
 use serde_json::Value;
-use std::{error::Error, fmt::Display};
+use std::{error::Error, fmt::Display, str::FromStr};
 
+use num_bigint::{BigInt, Sign};
 use stellar_contract_env_host::xdr::{
     Error as XdrError, ScBigInt, ScMap, ScMapEntry, ScObject, ScSpecTypeDef, ScSpecTypeMap,
     ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec, VecM,
@@ -58,7 +59,7 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         // This might either be a json array of u8s, or just the raw utf-8 bytes
         ScSpecTypeDef::Binary => {
             match serde_json::from_str(s) {
-                // Firat, see if it is a json array
+                // First, see if it is a json array
                 Ok(Value::Array(raw)) => from_json(&Value::Array(raw), t)?,
                 // Not a json array, just grab the bytes.
                 _ => ScVal::Object(Some(ScObject::Binary(
@@ -66,6 +67,22 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                         .try_into()
                         .map_err(|_| StrValError::InvalidValue)?,
                 ))),
+            }
+        }
+
+        ScSpecTypeDef::BigInt => {
+            if let Ok(Value::String(raw)) = serde_json::from_str(s) {
+                // First, see if it is a json string, strip the quotes and recurse
+                from_string(&raw, &ScSpecTypeDef::BigInt)?
+            } else {
+                let big = BigInt::from_str(s).map_err(|_| StrValError::InvalidValue)?;
+                let (sign, bytes) = big.to_bytes_be();
+                let b: VecM<u8, 256_000_u32> = bytes.try_into().map_err(StrValError::Xdr)?;
+                ScVal::Object(Some(ScObject::BigInt(match sign {
+                    Sign::NoSign => ScBigInt::Zero,
+                    Sign::Minus => ScBigInt::Negative(b),
+                    Sign::Plus => ScBigInt::Positive(b),
+                })))
             }
         }
 
@@ -96,44 +113,9 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         }
 
         // Number parsing
-        (ScSpecTypeDef::BigInt, Value::String(s)) => {
-            // TODO: This is a bit of a hack. It may not actually handle numbers bigger than
-            // whatever json serde supports parsing as a "real number".
-            from_string(s, &ScSpecTypeDef::BigInt)?
-        }
+        (ScSpecTypeDef::BigInt, Value::String(s)) => from_string(s, &ScSpecTypeDef::BigInt)?,
         (ScSpecTypeDef::BigInt, Value::Number(n)) => {
-            if let Some(u) = n.as_u64() {
-                ScVal::Object(Some(ScObject::BigInt(match u {
-                    0 => ScBigInt::Zero,
-                    _ => ScBigInt::Positive(
-                        u.to_be_bytes()
-                            .to_vec()
-                            .try_into()
-                            .map_err(|_| StrValError::InvalidValue)?,
-                    ),
-                })))
-            } else if let Some(i) = n.as_i64() {
-                #[allow(clippy::comparison_chain)]
-                ScVal::Object(Some(ScObject::BigInt(if i == 0 {
-                    ScBigInt::Zero
-                } else if i < 0 {
-                    ScBigInt::Negative(
-                        i.to_be_bytes()
-                            .to_vec()
-                            .try_into()
-                            .map_err(|_| StrValError::InvalidValue)?,
-                    )
-                } else {
-                    ScBigInt::Positive(
-                        i.to_be_bytes()
-                            .to_vec()
-                            .try_into()
-                            .map_err(|_| StrValError::InvalidValue)?,
-                    )
-                })))
-            } else {
-                return Err(StrValError::InvalidValue);
-            }
+            from_json(&Value::String(format!("{}", n)), &ScSpecTypeDef::BigInt)?
         }
         (ScSpecTypeDef::I32, Value::Number(n)) => ScVal::I32(
             n.as_i64()
@@ -285,6 +267,8 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
             }
             Value::Object(m)
         }
+        // TODO: Number is not the best choice here, because json parsers in clients might only
+        // handle 53-bit numbers.
         ScVal::Object(Some(ScObject::U64(v))) => Value::Number(serde_json::Number::from(*v)),
         ScVal::Object(Some(ScObject::I64(v))) => Value::Number(serde_json::Number::from(*v)),
         ScVal::Object(Some(ScObject::Binary(v))) => Value::Array(
@@ -294,32 +278,14 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
                 .collect(),
         ),
         ScVal::Object(Some(ScObject::BigInt(n))) => {
-            // TODO: This is a hack. Should output as a string if the number is too big. Or a
-            // byte array? Either way, this won't currently support numbers > u64. Need to
-            // implement conversions/comparisons so we can tell if:
-            // (n > u64::MAX || n < i64::MIN)
-            Value::Number(match n {
-                ScBigInt::Zero => serde_json::Number::from(0),
-                ScBigInt::Negative(i) => {
-                    let mut bytes: Vec<u8> = i.to_vec();
-                    while bytes.len() < 8 {
-                        bytes.insert(0, 0);
-                    }
-                    if bytes.len() == 9 {
-                        bytes.remove(0);
-                    };
-                    serde_json::Number::from(i64::from_be_bytes(
-                        bytes.try_into().map_err(|_| StrValError::InvalidValue)?,
-                    ))
+            // Always output bigints as strings
+            Value::String(match n {
+                ScBigInt::Zero => "0".to_string(),
+                ScBigInt::Negative(bytes) => {
+                    BigInt::from_bytes_be(Sign::Minus, bytes.as_ref()).to_str_radix(10)
                 }
-                ScBigInt::Positive(u) => {
-                    let mut bytes: Vec<u8> = u.to_vec();
-                    while bytes.len() < 8 {
-                        bytes.insert(0, 0);
-                    }
-                    serde_json::Number::from(u64::from_be_bytes(
-                        bytes.try_into().map_err(|_| StrValError::InvalidValue)?,
-                    ))
+                ScBigInt::Positive(bytes) => {
+                    BigInt::from_bytes_be(Sign::Plus, bytes.as_ref()).to_str_radix(10)
                 }
             })
         }
