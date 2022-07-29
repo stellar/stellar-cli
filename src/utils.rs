@@ -36,14 +36,10 @@ pub fn add_contract_to_ledger_entries(
 }
 
 pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexError> {
-    const CONTRACT_ID_LENGTH: usize = 32;
-    let contract_id_prefix = hex::decode(contract_id)?;
-    if contract_id_prefix.len() > CONTRACT_ID_LENGTH {
-        return Err(FromHexError::InvalidStringLength);
-    }
-    let mut contract_id = [0u8; CONTRACT_ID_LENGTH];
-    contract_id[..contract_id_prefix.len()].copy_from_slice(contract_id_prefix.as_slice());
-    Ok(contract_id)
+    let mut decoded = [0u8; 32];
+    let padded = format!("{:0>width$}", contract_id, width = decoded.len() * 2);
+    hex::decode_to_slice(padded, &mut decoded)?;
+    Ok(decoded)
 }
 
 pub fn get_contract_wasm_from_storage(
