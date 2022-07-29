@@ -7,9 +7,9 @@ use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// WASM file containing contract
+    /// WASM file to inspect
     #[clap(long, parse(from_os_str))]
-    file: std::path::PathBuf,
+    wasm: std::path::PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -26,10 +26,10 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let contents = fs::read(&self.file)?;
+        let contents = fs::read(&self.wasm)?;
         let h = Host::default();
         let vm = Vm::new(&h, [0; 32].into(), &contents)?;
-        println!("File: {}", self.file.to_string_lossy());
+        println!("File: {}", self.wasm.to_string_lossy());
         println!("Functions:");
         for f in vm.functions() {
             println!(

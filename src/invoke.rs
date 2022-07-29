@@ -19,23 +19,19 @@ use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Name of function to invoke
-    #[clap(long = "fn")]
-    function: String,
-    /// File to read and write ledger
-    #[clap(long, parse(from_os_str), default_value("ledger.json"))]
-    snapshot_file: std::path::PathBuf,
-    /// Output the cost of the invocation to stderr
-    #[clap(long = "cost")]
-    cost: bool,
-    #[clap(long, parse(from_os_str))]
-    file: Option<std::path::PathBuf>,
+    /// Contract ID to invoke
     #[clap(long = "id")]
     contract_id: String,
-    /// Argument to pass to the contract function
+    /// WASM file to deploy to the contract ID and invoke
+    #[clap(long, parse(from_os_str))]
+    wasm: Option<std::path::PathBuf>,
+    /// Function name to execute
+    #[clap(long = "fn")]
+    function: String,
+    /// Argument to pass to the function
     #[clap(long = "arg", value_name = "arg", multiple = true)]
     args: Vec<String>,
-    /// Argument to pass to the contract function (base64-encoded xdr)
+    /// Argument to pass to the function (base64-encoded xdr)
     #[clap(
         long = "arg-xdr",
         value_name = "arg-xdr",
@@ -43,6 +39,12 @@ pub struct Cmd {
         conflicts_with = "args"
     )]
     args_xdr: Vec<String>,
+    /// Output the cost execution to stderr
+    #[clap(long = "cost")]
+    cost: bool,
+    /// File to persist ledger state
+    #[clap(long, parse(from_os_str), default_value("ledger.json"))]
+    ledger_file: std::path::PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -71,10 +73,10 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut ledger_entries = snapshot::read(&self.snapshot_file)?;
+        let mut ledger_entries = snapshot::read(&self.ledger_file)?;
 
         //If a file is specified, deploy the contract to storage
-        if let Some(f) = &self.file {
+        if let Some(f) = &self.wasm {
             let contract = fs::read(f).unwrap();
             utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
         }
@@ -136,7 +138,7 @@ impl Cmd {
             ))
         })?;
 
-        snapshot::commit(ledger_entries, Some(&storage.map), &self.snapshot_file)?;
+        snapshot::commit(ledger_entries, Some(&storage.map), &self.ledger_file)?;
         Ok(())
     }
 
