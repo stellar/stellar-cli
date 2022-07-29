@@ -35,7 +35,7 @@ impl SnapshotSource for Snap {
     }
 }
 
-// snapshot_file format is the default serde JSON representation of VecM<(LedgerKey, LedgerEntry)>
+// Ledger file format is the default serde JSON representation of VecM<(LedgerKey, LedgerEntry)>
 pub fn read(input_file: &std::path::PathBuf) -> Result<OrdMap<LedgerKey, LedgerEntry>, Error> {
     let mut res = OrdMap::new();
 

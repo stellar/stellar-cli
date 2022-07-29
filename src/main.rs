@@ -23,7 +23,7 @@ enum Cmd {
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
-    /// Writes a contractID and WASM contract directly to storage
+    /// Deploy a WASM file as a contract
     Deploy(deploy::Cmd),
     /// Print version information
     Version(version::Cmd),
