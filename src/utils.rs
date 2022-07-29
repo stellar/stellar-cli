@@ -1,10 +1,12 @@
 use hex::FromHexError;
 use soroban_env_host::{
     im_rc::OrdMap,
+    storage::Storage,
     xdr::{
         ContractDataEntry, Error as XdrError, LedgerEntry, LedgerEntryData, LedgerEntryExt,
-        LedgerKey, LedgerKeyContractData, ScObject, ScStatic, ScVal,
+        LedgerKey, LedgerKeyContractData, ScObject, ScStatic, ScStatus, ScUnknownErrorCode, ScVal,
     },
+    HostError,
 };
 
 pub fn add_contract_to_ledger_entries(
@@ -42,4 +44,22 @@ pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexErr
     let mut contract_id = [0u8; CONTRACT_ID_LENGTH];
     contract_id[..contract_id_prefix.len()].copy_from_slice(contract_id_prefix.as_slice());
     Ok(contract_id)
+}
+
+pub fn get_contract_wasm_from_storage(
+    storage: &mut Storage,
+    contract_id: [u8; 32],
+) -> Result<Vec<u8>, HostError> {
+    let key = LedgerKey::ContractData(LedgerKeyContractData {
+        contract_id: contract_id.into(),
+        key: ScVal::Static(ScStatic::LedgerKeyContractCodeWasm),
+    });
+    if let LedgerEntryData::ContractData(entry) = storage.get(&key)?.data {
+        if let ScVal::Object(Some(ScObject::Binary(data))) = entry.val {
+            return Ok(data.to_vec());
+        }
+    }
+    Err(HostError::from(ScStatus::UnknownError(
+        ScUnknownErrorCode::General,
+    )))
 }
