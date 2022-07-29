@@ -1,3 +1,4 @@
+use hex::FromHexError;
 use soroban_env_host::{
     im_rc::OrdMap,
     storage::Storage,
@@ -32,6 +33,13 @@ pub fn add_contract_to_ledger_entries(
 
     entries.insert(key, entry);
     Ok(())
+}
+
+pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexError> {
+    let mut decoded = [0u8; 32];
+    let padded = format!("{:0>width$}", contract_id, width = decoded.len() * 2);
+    hex::decode_to_slice(padded, &mut decoded)?;
+    Ok(decoded)
 }
 
 pub fn get_contract_wasm_from_storage(

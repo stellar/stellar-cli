@@ -3,7 +3,7 @@ use std::{fmt::Debug, fs, io};
 use clap::Parser;
 use soroban_env_host::xdr::Error as XdrError;
 
-use hex::{FromHex, FromHexError};
+use hex::FromHexError;
 
 use crate::snapshot;
 use crate::utils;
@@ -35,7 +35,7 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let contract_id: [u8; 32] = FromHex::from_hex(&self.contract_id)?;
+        let contract_id: [u8; 32] = utils::contract_id_from_str(&self.contract_id)?;
         let contract = fs::read(&self.file).unwrap();
 
         let mut ledger_entries = snapshot::read(&self.snapshot_file)?;
