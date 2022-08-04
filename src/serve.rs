@@ -1,4 +1,13 @@
-use std::{fmt::Debug, fs, io, io::Cursor, sync::Arc, rc::Rc, path::PathBuf};
+use std::{
+    fmt::Debug,
+    fs,
+    io,
+    io::Cursor,
+    net::SocketAddr,
+    path::PathBuf,
+    rc::Rc,
+    sync::Arc,
+};
 
 use clap::Parser;
 use serde_json::{Value, json};
@@ -135,8 +144,10 @@ impl Cmd {
                 }
             });
 
+        let addr: SocketAddr = ([127, 0, 0, 1], self.port.unwrap_or(8080)).into();
+        println!("Listening on: {}", addr);
         warp::serve(call)
-            .run(([127, 0, 0, 1], self.port.unwrap_or(8080)))
+            .run(addr)
             .await;
         Ok(())
     }
