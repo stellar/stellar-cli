@@ -142,7 +142,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn function_spec(vm: &Rc<Vm>, name: &str) -> Option<ScSpecFunctionV0> {
+    pub fn function_spec(vm: &Rc<Vm>, name: &str) -> Option<ScSpecFunctionV0> {
         let spec = vm.custom_section("contractspecv0")?;
         let mut cursor = Cursor::new(spec);
         for spec_entry in ScSpecEntry::read_xdr_iter(&mut cursor).flatten() {
