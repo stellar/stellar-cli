@@ -4,11 +4,10 @@ use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use soroban_env_host::{
-    budget::CostType,
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
-        ScSpecFunctionV0, ScStatus, ScVal, WriteXdr,
+        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus,
+        ScVal, WriteXdr,
     },
     Host, HostError, Vm,
 };
@@ -99,20 +98,17 @@ impl Cmd {
                                 args,
                                 args_xdr,
                             }),
-                        ) => {
-                            let lf = ledger_file.clone();
-                            invoke(
-                                id,
-                                func,
-                                args.unwrap_or_default(),
-                                args_xdr.unwrap_or_default(),
-                                &lf,
-                            )
-                        }
+                        ) => invoke(
+                            &id,
+                            &func,
+                            &args.unwrap_or_default(),
+                            &args_xdr.unwrap_or_default(),
+                            &ledger_file,
+                        ),
                         _ => Err(Error::UnknownMethod),
                     };
                     let r = reply(&request.id, result);
-                    serde_json::to_string(&r).unwrap_or(
+                    serde_json::to_string(&r).unwrap_or_else(|_| {
                         json!({
                             "jsonrpc": "2.0",
                             "id": &request.id,
@@ -121,8 +117,8 @@ impl Cmd {
                             "message": "Internal server error",
                             },
                         })
-                        .to_string(),
-                    )
+                        .to_string()
+                    })
                 },
             );
 
@@ -173,13 +169,13 @@ fn reply(
 }
 
 fn invoke(
-    contract: String,
-    func: String,
-    args: Vec<Value>,
-    args_xdr: Vec<String>,
+    contract: &String,
+    func: &String,
+    args: &[Value],
+    args_xdr: &[String],
     ledger_file: &PathBuf,
 ) -> Result<ScVal, Error> {
-    let contract_id: [u8; 32] = utils::contract_id_from_str(&contract)?;
+    let contract_id: [u8; 32] = utils::contract_id_from_str(contract)?;
 
     // Initialize storage and host
     // TODO: allow option to separate input and output file
@@ -193,7 +189,7 @@ fn invoke(
     let h = Host::with_storage(storage);
 
     let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
-    let input_types = match invoke::Cmd::function_spec(&vm, &func) {
+    let input_types = match invoke::Cmd::function_spec(&vm, func) {
         Some(s) => s.input_types,
         None => {
             return Err(Error::FunctionNotFoundInContractSpec);
@@ -218,7 +214,7 @@ fn invoke(
 
     let mut complete_args = vec![
         ScVal::Object(Some(ScObject::Binary(contract_id.try_into()?))),
-        ScVal::Symbol((&func).try_into()?),
+        ScVal::Symbol(func.try_into()?),
     ];
     complete_args.extend_from_slice(args.as_slice());
 
