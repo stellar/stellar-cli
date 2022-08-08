@@ -1,4 +1,4 @@
-use std::{fs::File, io};
+use std::{fs::create_dir_all, fs::File, io};
 
 use soroban_env_host::{
     im_rc::OrdMap,
@@ -62,6 +62,12 @@ pub fn commit(
     output_file: &std::path::PathBuf,
 ) -> Result<(), Error> {
     //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
+    if let Some(dir) = output_file.parent() {
+        if !dir.exists() {
+            create_dir_all(dir)?;
+        }
+    }
+
     let file = File::create(output_file)?;
     if let Some(s) = storage_map {
         for (lk, ole) in s {
