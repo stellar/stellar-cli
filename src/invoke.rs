@@ -43,7 +43,7 @@ pub struct Cmd {
     #[clap(long = "cost")]
     cost: bool,
     /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value("ledger.json"))]
+    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
     ledger_file: std::path::PathBuf,
 }
 
