@@ -4,6 +4,7 @@ use thiserror::Error;
 mod deploy;
 mod inspect;
 mod invoke;
+mod jsonrpc;
 mod serve;
 mod snapshot;
 mod strval;

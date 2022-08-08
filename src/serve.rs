@@ -23,8 +23,9 @@ use soroban_env_host::{
 use warp::Filter;
 use hex::FromHexError;
 
-use crate::snapshot;
 use crate::invoke;
+use crate::jsonrpc;
+use crate::snapshot;
 use crate::strval::{self, StrValError};
 use crate::utils;
 
@@ -56,73 +57,16 @@ pub enum Error {
     FromHex(#[from] FromHexError),
     #[error("contractnotfound")]
     FunctionNotFoundInContractSpec,
+    #[error("unknownmethod")]
+    UnknownMethod,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
-#[serde(tag = "method", content = "params")]
 #[serde(rename_all = "snake_case")]
+#[serde(untagged)]
 enum Requests {
     Call { id: String, func: String, args: Option<Vec<Value>>, args_xdr: Option<Vec<String>> },
 }
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-#[serde(tag = "method", content = "params")]
-#[serde(rename_all = "snake_case")]
-enum Notifications {
-}
-
-#[derive(Debug)]
-enum JsonRpc<N, R> {
-    Request(usize, R),
-    Notification(N),
-}
-
-impl<N, R> serde::Serialize for JsonRpc<N, R>
-    where N: serde::Serialize,
-          R: serde::Serialize
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: serde::Serializer
-    {
-        match *self {
-            JsonRpc::Request(id, ref r) => {
-                let mut v = serde_json::to_value(r).map_err(serde::ser::Error::custom)?;
-                v["id"] = json!(id);
-                v.serialize(serializer)
-            }
-            JsonRpc::Notification(ref n) => n.serialize(serializer),
-        }
-    }
-}
-
-impl<'de, N, R> serde::Deserialize<'de> for JsonRpc<N, R>
-    where N: serde::Deserialize<'de>,
-          R: serde::Deserialize<'de>
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: serde::Deserializer<'de>
-    {
-        #[derive(serde::Deserialize)]
-        struct IdHelper {
-            id: Option<usize>,
-        }
-
-        let v = Value::deserialize(deserializer)?;
-        let helper = IdHelper::deserialize(&v).map_err(serde::de::Error::custom)?;
-        match helper.id {
-            Some(id) => {
-                let r = R::deserialize(v).map_err(serde::de::Error::custom)?;
-                Ok(JsonRpc::Request(id, r))
-            }
-            None => {
-                let n = N::deserialize(v).map_err(serde::de::Error::custom)?;
-                Ok(JsonRpc::Notification(n))
-            }
-        }
-    }
-}
-
-type Request = JsonRpc<Notifications, Requests>;
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
@@ -137,11 +81,33 @@ impl Cmd {
             .and(warp::path("rpc"))
             .and(warp::body::json())
             .and(with_ledger_file)
-            .map(|request: Requests, ledger_file: Arc<PathBuf>| match request {
-                Requests::Call { id, func, args, args_xdr } => {
-                    let lf = ledger_file.clone();
-                    reply(invoke(id, func, args.unwrap_or_default(), args_xdr.unwrap_or_default(), &lf))
+            .map(|request: jsonrpc::Request<Requests>, ledger_file: Arc<PathBuf>| {
+                if request.jsonrpc != "2.0" {
+                    return json!({
+                        "jsonrpc": "2.0",
+                        "id": &request.id,
+                        "error": {
+                            "code":-32600,
+                            "message": "Invalid jsonrpc value in request",
+                        },
+                    }).to_string();
                 }
+                let result = match (request.method.as_str(), request.params) {
+                    ("call", Some(Requests::Call { id, func, args, args_xdr })) => {
+                        let lf = ledger_file.clone();
+                        invoke(id, func, args.unwrap_or_default(), args_xdr.unwrap_or_default(), &lf)
+                    },
+                    _ => Err(Error::UnknownMethod),
+                };
+                let r = reply(&request.id, result);
+                serde_json::to_string(&r).unwrap_or(json!({
+                    "jsonrpc": "2.0",
+                    "id": &request.id,
+                    "error": {
+                    "code":-32603,
+                    "message": "Internal server error",
+                    },
+                }).to_string())
             });
 
         let addr: SocketAddr = ([127, 0, 0, 1], self.port.unwrap_or(8080)).into();
@@ -153,23 +119,37 @@ impl Cmd {
     }
 }
 
-fn reply(result: Result<ScVal, Error>) -> impl warp::Reply {
+fn reply(id: &Option<jsonrpc::Id>, result: Result<ScVal, Error>) -> jsonrpc::Response<Value, Value> {
     match result {
         Ok(res) => {
             let mut ret_xdr_buf: Vec<u8> = Vec::new();
             match (strval::to_string(&res), res.write_xdr(&mut Cursor::new(&mut ret_xdr_buf))) {
-                (Ok(j), Ok(())) => json!({
-                    "result": {
+                (Ok(j), Ok(())) => jsonrpc::Response::Ok(jsonrpc::ResultResponse{
+                    jsonrpc: "2.0".to_string(),
+                    id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
+                    result: json!({
                         "json": j,
                         "xdr": base64::encode(ret_xdr_buf),
-                    },
-                }).to_string(),
-                (Err(err), _) => reply(Err(Error::StrVal(err))),
-                (_, Err(err)) => reply(Err(Error::Xdr(err))),
+                    })
+                }),
+                (Err(err), _) => reply(id, Err(Error::StrVal(err))),
+                (_, Err(err)) => reply(id, Err(Error::Xdr(err))),
             }
         }
         Err(err) => {
-            json!({ "error": err.to_string() }).to_string()
+            jsonrpc::Response::Err(jsonrpc::ErrorResponse{
+                jsonrpc: "2.0".to_string(),
+                id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
+                error: jsonrpc::ErrorResponseError{
+                    code: match err {
+                        Error::Serde(_) => -32700,
+                        Error::UnknownMethod => -32601,
+                        _ => -32603
+                    },
+                    message: err.to_string(),
+                    data: None,
+                },
+            })
         }
     }
 }
