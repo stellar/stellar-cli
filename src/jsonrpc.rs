@@ -1,30 +1,30 @@
-use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq, Deserialize, Serialize, PartialOrd, Ord)]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum Id {
-	/// Null
-	Null,
-	/// Numeric id
-	Number(u64),
-	/// String id
-	Str(String),
+    /// Null
+    Null,
+    /// Numeric id
+    Number(u64),
+    /// String id
+    Str(String),
 }
 
 /// JSON-RPC request object as defined in the [spec](https://www.jsonrpc.org/specification#request-object).
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Request<T> {
-	/// JSON-RPC version.
-	pub jsonrpc: String,
-	/// Request ID
-	pub id: Option<Id>,
-	/// Name of the method to be invoked.
-	pub method: String,
-	/// Parameter values of the request.
-	pub params: Option<T>,
+    /// JSON-RPC version.
+    pub jsonrpc: String,
+    /// Request ID
+    pub id: Option<Id>,
+    /// Name of the method to be invoked.
+    pub method: String,
+    /// Parameter values of the request.
+    pub params: Option<T>,
 }
 
 /// JSON-RPC Response object as defined in the [spec](https://www.jsonrpc.org/specification#request-object).
@@ -40,17 +40,17 @@ pub enum Response<T, E> {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ResultResponse<T> {
-	pub jsonrpc: String,
-	pub id: Id,
-	pub result: T,
+    pub jsonrpc: String,
+    pub id: Id,
+    pub result: T,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ErrorResponse<T> {
-	pub jsonrpc: String,
-	pub id: Id,
-	pub error: ErrorResponseError<T>,
+    pub jsonrpc: String,
+    pub id: Id,
+    pub error: ErrorResponseError<T>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -60,4 +60,3 @@ pub struct ErrorResponseError<T> {
     pub message: String,
     pub data: Option<T>,
 }
-

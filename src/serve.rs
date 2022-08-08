@@ -1,27 +1,18 @@
-use std::{
-    fmt::Debug,
-    fs,
-    io,
-    io::Cursor,
-    net::SocketAddr,
-    path::PathBuf,
-    rc::Rc,
-    sync::Arc,
-};
+use std::{fmt::Debug, io, io::Cursor, net::SocketAddr, path::PathBuf, rc::Rc, sync::Arc};
 
 use clap::Parser;
-use serde_json::{Value, json};
+use hex::FromHexError;
+use serde_json::{json, Value};
 use soroban_env_host::{
     budget::CostType,
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, WriteXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
-        ScSpecFunctionV0, ScStatus, ScVal,
+        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
+        ScSpecFunctionV0, ScStatus, ScVal, WriteXdr,
     },
     Host, HostError, Vm,
 };
 use warp::Filter;
-use hex::FromHexError;
 
 use crate::invoke;
 use crate::jsonrpc;
@@ -65,7 +56,12 @@ pub enum Error {
 #[serde(rename_all = "snake_case")]
 #[serde(untagged)]
 enum Requests {
-    Call { id: String, func: String, args: Option<Vec<Value>>, args_xdr: Option<Vec<String>> },
+    Call {
+        id: String,
+        func: String,
+        args: Option<Vec<Value>>,
+        args_xdr: Option<Vec<String>>,
+    },
 }
 
 impl Cmd {
@@ -81,80 +77,108 @@ impl Cmd {
             .and(warp::path("rpc"))
             .and(warp::body::json())
             .and(with_ledger_file)
-            .map(|request: jsonrpc::Request<Requests>, ledger_file: Arc<PathBuf>| {
-                if request.jsonrpc != "2.0" {
-                    return json!({
-                        "jsonrpc": "2.0",
-                        "id": &request.id,
-                        "error": {
-                            "code":-32600,
-                            "message": "Invalid jsonrpc value in request",
-                        },
-                    }).to_string();
-                }
-                let result = match (request.method.as_str(), request.params) {
-                    ("call", Some(Requests::Call { id, func, args, args_xdr })) => {
-                        let lf = ledger_file.clone();
-                        invoke(id, func, args.unwrap_or_default(), args_xdr.unwrap_or_default(), &lf)
-                    },
-                    _ => Err(Error::UnknownMethod),
-                };
-                let r = reply(&request.id, result);
-                serde_json::to_string(&r).unwrap_or(json!({
-                    "jsonrpc": "2.0",
-                    "id": &request.id,
-                    "error": {
-                    "code":-32603,
-                    "message": "Internal server error",
-                    },
-                }).to_string())
-            });
+            .map(
+                |request: jsonrpc::Request<Requests>, ledger_file: Arc<PathBuf>| {
+                    if request.jsonrpc != "2.0" {
+                        return json!({
+                            "jsonrpc": "2.0",
+                            "id": &request.id,
+                            "error": {
+                                "code":-32600,
+                                "message": "Invalid jsonrpc value in request",
+                            },
+                        })
+                        .to_string();
+                    }
+                    let result = match (request.method.as_str(), request.params) {
+                        (
+                            "call",
+                            Some(Requests::Call {
+                                id,
+                                func,
+                                args,
+                                args_xdr,
+                            }),
+                        ) => {
+                            let lf = ledger_file.clone();
+                            invoke(
+                                id,
+                                func,
+                                args.unwrap_or_default(),
+                                args_xdr.unwrap_or_default(),
+                                &lf,
+                            )
+                        }
+                        _ => Err(Error::UnknownMethod),
+                    };
+                    let r = reply(&request.id, result);
+                    serde_json::to_string(&r).unwrap_or(
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": &request.id,
+                            "error": {
+                            "code":-32603,
+                            "message": "Internal server error",
+                            },
+                        })
+                        .to_string(),
+                    )
+                },
+            );
 
         let addr: SocketAddr = ([127, 0, 0, 1], self.port.unwrap_or(8080)).into();
         println!("Listening on: {}", addr);
-        warp::serve(call)
-            .run(addr)
-            .await;
+        warp::serve(call).run(addr).await;
         Ok(())
     }
 }
 
-fn reply(id: &Option<jsonrpc::Id>, result: Result<ScVal, Error>) -> jsonrpc::Response<Value, Value> {
+fn reply(
+    id: &Option<jsonrpc::Id>,
+    result: Result<ScVal, Error>,
+) -> jsonrpc::Response<Value, Value> {
     match result {
         Ok(res) => {
             let mut ret_xdr_buf: Vec<u8> = Vec::new();
-            match (strval::to_string(&res), res.write_xdr(&mut Cursor::new(&mut ret_xdr_buf))) {
-                (Ok(j), Ok(())) => jsonrpc::Response::Ok(jsonrpc::ResultResponse{
+            match (
+                strval::to_string(&res),
+                res.write_xdr(&mut Cursor::new(&mut ret_xdr_buf)),
+            ) {
+                (Ok(j), Ok(())) => jsonrpc::Response::Ok(jsonrpc::ResultResponse {
                     jsonrpc: "2.0".to_string(),
                     id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
                     result: json!({
                         "json": j,
                         "xdr": base64::encode(ret_xdr_buf),
-                    })
+                    }),
                 }),
                 (Err(err), _) => reply(id, Err(Error::StrVal(err))),
                 (_, Err(err)) => reply(id, Err(Error::Xdr(err))),
             }
         }
-        Err(err) => {
-            jsonrpc::Response::Err(jsonrpc::ErrorResponse{
-                jsonrpc: "2.0".to_string(),
-                id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
-                error: jsonrpc::ErrorResponseError{
-                    code: match err {
-                        Error::Serde(_) => -32700,
-                        Error::UnknownMethod => -32601,
-                        _ => -32603
-                    },
-                    message: err.to_string(),
-                    data: None,
+        Err(err) => jsonrpc::Response::Err(jsonrpc::ErrorResponse {
+            jsonrpc: "2.0".to_string(),
+            id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
+            error: jsonrpc::ErrorResponseError {
+                code: match err {
+                    Error::Serde(_) => -32700,
+                    Error::UnknownMethod => -32601,
+                    _ => -32603,
                 },
-            })
-        }
+                message: err.to_string(),
+                data: None,
+            },
+        }),
     }
 }
 
-fn invoke(contract: String, func: String, args: Vec<Value>, args_xdr: Vec<String>, ledger_file: &PathBuf) -> Result<ScVal, Error> {
+fn invoke(
+    contract: String,
+    func: String,
+    args: Vec<Value>,
+    args_xdr: Vec<String>,
+    ledger_file: &PathBuf,
+) -> Result<ScVal, Error> {
     let contract_id: [u8; 32] = utils::contract_id_from_str(&contract)?;
 
     // Initialize storage and host
@@ -178,8 +202,7 @@ fn invoke(contract: String, func: String, args: Vec<Value>, args_xdr: Vec<String
 
     // re-assemble the args, to match the order given on the command line
     let args: Vec<ScVal> = if args_xdr.is_empty() {
-        args
-            .iter()
+        args.iter()
             .zip(input_types.iter())
             .map(|(a, t)| strval::from_json(a, t))
             .collect::<Result<Vec<_>, _>>()?
@@ -192,7 +215,6 @@ fn invoke(contract: String, func: String, args: Vec<Value>, args_xdr: Vec<String
             })
             .collect::<Result<Vec<_>, _>>()?
     };
-
 
     let mut complete_args = vec![
         ScVal::Object(Some(ScObject::Binary(contract_id.try_into()?))),
