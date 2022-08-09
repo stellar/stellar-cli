@@ -10,7 +10,12 @@ mod utils;
 mod version;
 
 #[derive(Parser, Debug)]
-#[clap(version, about = "https://soroban.stellar.org", disable_help_subcommand = true, disable_version_flag = true)]
+#[clap(
+    version,
+    about = "https://soroban.stellar.org",
+    disable_help_subcommand = true,
+    disable_version_flag = true
+)]
 #[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Root {
     #[clap(subcommand)]
