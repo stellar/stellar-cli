@@ -1,9 +1,12 @@
 use clap::{AppSettings, Parser, Subcommand};
 use thiserror::Error;
 
+mod contractspec;
 mod deploy;
 mod inspect;
 mod invoke;
+mod jsonrpc;
+mod serve;
 mod snapshot;
 mod strval;
 mod utils;
@@ -23,6 +26,8 @@ enum Cmd {
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
+    /// Run a local webserver for web app development and testing
+    Serve(serve::Cmd),
     /// Deploy a WASM file as a contract
     Deploy(deploy::Cmd),
     /// Print version information
@@ -35,23 +40,27 @@ enum CmdError {
     Inspect(#[from] inspect::Error),
     #[error("invoke")]
     Invoke(#[from] invoke::Error),
+    #[error("serve")]
+    Serve(#[from] serve::Error),
     #[error("deploy")]
     Deploy(#[from] deploy::Error),
 }
 
-fn run(cmd: Cmd) -> Result<(), CmdError> {
+async fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => invoke.run()?,
+        Cmd::Serve(serve) => serve.run().await?,
         Cmd::Deploy(deploy) => deploy.run()?,
         Cmd::Version(version) => version.run(),
     };
     Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let root = Root::parse();
-    if let Err(e) = run(root.cmd) {
+    if let Err(e) = run(root.cmd).await {
         eprintln!("error: {:?}", e);
     }
 }
