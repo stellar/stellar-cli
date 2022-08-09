@@ -1,6 +1,7 @@
 use clap::{AppSettings, Parser, Subcommand};
 use thiserror::Error;
 
+mod contractspec;
 mod deploy;
 mod inspect;
 mod invoke;

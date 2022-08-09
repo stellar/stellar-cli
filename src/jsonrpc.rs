@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq, Deserialize, Serialize, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum Id {
@@ -15,6 +16,7 @@ pub enum Id {
 
 /// JSON-RPC request object as defined in the [spec](https://www.jsonrpc.org/specification#request-object).
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct Request<T> {
     /// JSON-RPC version.
@@ -30,6 +32,7 @@ pub struct Request<T> {
 /// JSON-RPC Response object as defined in the [spec](https://www.jsonrpc.org/specification#request-object).
 /// TODO: Figure out a cleaner way to do this.
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum Response<T, E> {
@@ -38,6 +41,7 @@ pub enum Response<T, E> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct ResultResponse<T> {
     pub jsonrpc: String,
@@ -46,6 +50,7 @@ pub struct ResultResponse<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct ErrorResponse<T> {
     pub jsonrpc: String,
@@ -54,6 +59,7 @@ pub struct ErrorResponse<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct ErrorResponseError<T> {
     pub code: i64,

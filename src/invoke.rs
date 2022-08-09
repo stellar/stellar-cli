@@ -1,18 +1,18 @@
-use std::{fmt::Debug, fs, io, io::Cursor, rc::Rc};
+use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
 use soroban_env_host::{
     budget::CostType,
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
-        ScSpecFunctionV0, ScStatus, ScVal,
+        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus, ScVal,
     },
     Host, HostError, Vm,
 };
 
 use hex::FromHexError;
 
+use crate::contractspec;
 use crate::snapshot;
 use crate::strval::{self, StrValError};
 use crate::utils;
@@ -89,7 +89,7 @@ impl Cmd {
         let h = Host::with_storage(storage);
 
         let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
-        let input_types = match Self::function_spec(&vm, &self.function) {
+        let input_types = match contractspec::function_spec(&vm, &self.function) {
             Some(s) => s.input_types,
             None => {
                 return Err(Error::FunctionNotFoundInContractSpec);
@@ -140,20 +140,5 @@ impl Cmd {
 
         snapshot::commit(ledger_entries, Some(&storage.map), &self.ledger_file)?;
         Ok(())
-    }
-
-    pub fn function_spec(vm: &Rc<Vm>, name: &str) -> Option<ScSpecFunctionV0> {
-        let spec = vm.custom_section("contractspecv0")?;
-        let mut cursor = Cursor::new(spec);
-        for spec_entry in ScSpecEntry::read_xdr_iter(&mut cursor).flatten() {
-            if let ScSpecEntry::FunctionV0(f) = spec_entry {
-                if let Ok(n) = f.name.to_string() {
-                    if n == name {
-                        return Some(f);
-                    }
-                }
-            }
-        }
-        None
     }
 }

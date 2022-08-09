@@ -13,7 +13,7 @@ use soroban_env_host::{
 };
 use warp::Filter;
 
-use crate::invoke;
+use crate::contractspec;
 use crate::jsonrpc;
 use crate::snapshot;
 use crate::strval::{self, StrValError};
@@ -21,9 +21,9 @@ use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// WASM file to deploy to the contract ID and invoke
-    #[clap(long)]
-    port: Option<u16>,
+    /// Port to listen for requests on.
+    #[clap(long, default_value("8080"))]
+    port: u16,
     /// File to persist ledger state
     #[clap(long, parse(from_os_str), default_value("ledger.json"))]
     ledger_file: PathBuf,
@@ -65,10 +65,6 @@ enum Requests {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        // let context = HostContext::default();
-        // eprintln!("Hello World!");
-        // process::exit(0);
-
         let ledger_file = Arc::new(self.ledger_file.clone());
         let with_ledger_file = warp::any().map(move || ledger_file.clone());
 
@@ -122,7 +118,7 @@ impl Cmd {
                 },
             );
 
-        let addr: SocketAddr = ([127, 0, 0, 1], self.port.unwrap_or(8080)).into();
+        let addr: SocketAddr = ([127, 0, 0, 1], self.port).into();
         println!("Listening on: {}", addr);
         warp::serve(call).run(addr).await;
         Ok(())
@@ -189,7 +185,7 @@ fn invoke(
     let h = Host::with_storage(storage);
 
     let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
-    let input_types = match invoke::Cmd::function_spec(&vm, func) {
+    let input_types = match contractspec::function_spec(&vm, func) {
         Some(s) => s.input_types,
         None => {
             return Err(Error::FunctionNotFoundInContractSpec);
