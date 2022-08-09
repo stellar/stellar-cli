@@ -2,10 +2,12 @@
 
 CLI for running Soroban contracts locally in a test VM. Executes WASM files built using the [rs-soroban-sdk](https://github.com/stellar/rs-soroban-sdk).
 
+Soroban: https://soroban.stellar.org
+
 ## Install
 
 ```
-cargo install soroban-cli
+cargo install --locked soroban-cli
 ```
 
 ## Usage
