@@ -1,4 +1,4 @@
-use clap::{ArgEnum, Command, Parser};
+use clap::{Command, Parser};
 use clap_complete::{generate, Shell};
 use std::io;
 
@@ -18,29 +18,11 @@ To enable autocomplete permanently, run:
 pub struct Cmd {
     /// The shell type
     #[clap(long, arg_enum)]
-    shell: ShellType,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
-enum ShellType {
-    Bash,
-    Zsh,
-    Fish,
-    Elvish,
-    #[clap(name = "powershell")]
-    PowerShell,
+    shell: Shell,
 }
 
 impl Cmd {
     pub fn run(&self, cmd: &mut Command) {
-        let gen = match self.shell {
-            ShellType::Bash => Shell::Bash,
-            ShellType::Zsh => Shell::Zsh,
-            ShellType::Fish => Shell::Fish,
-            ShellType::Elvish => Shell::Elvish,
-            ShellType::PowerShell => Shell::PowerShell,
-        };
-
-        generate(gen, cmd, env!("CARGO_PKG_NAME"), &mut io::stdout());
+        generate(self.shell, cmd, env!("CARGO_PKG_NAME"), &mut io::stdout());
     }
 }
