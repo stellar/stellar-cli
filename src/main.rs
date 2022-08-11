@@ -1,6 +1,7 @@
-use clap::{AppSettings, Parser, Subcommand};
+use clap::{AppSettings, CommandFactory, Parser, Subcommand};
 use thiserror::Error;
 
+mod completion;
 mod contractspec;
 mod deploy;
 mod inspect;
@@ -32,6 +33,9 @@ enum Cmd {
     Deploy(deploy::Cmd),
     /// Print version information
     Version(version::Cmd),
+    /// Print shell completion code for the specified shell.
+    #[clap(long_about = completion::LONG_ABOUT)]
+    Completion(completion::Cmd),
 }
 
 #[derive(Error, Debug)]
@@ -53,6 +57,7 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Deploy(deploy) => deploy.run()?,
         Cmd::Version(version) => version.run(),
+        Cmd::Completion(completion) => completion.run(&mut Root::command()),
     };
     Ok(())
 }
