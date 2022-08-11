@@ -1,6 +1,7 @@
-use clap::{AppSettings, Parser, Subcommand, CommandFactory};
+use clap::{AppSettings, CommandFactory, Parser, Subcommand};
 use thiserror::Error;
 
+mod completion;
 mod contractspec;
 mod deploy;
 mod inspect;
@@ -11,7 +12,6 @@ mod snapshot;
 mod strval;
 mod utils;
 mod version;
-mod completion;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None, disable_help_subcommand = true, disable_version_flag = true)]
@@ -35,7 +35,7 @@ enum Cmd {
     Version(version::Cmd),
     /// Print shell completion code for the specified shell.
     #[clap(long_about = completion::LONG_ABOUT)]
-    Completion(completion::Cmd)
+    Completion(completion::Cmd),
 }
 
 #[derive(Error, Debug)]

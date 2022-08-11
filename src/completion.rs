@@ -1,6 +1,6 @@
-use std::io;
 use clap::{ArgEnum, Command, Parser};
-use clap_complete::{Shell, generate};
+use clap_complete::{generate, Shell};
+use std::io;
 
 pub const LONG_ABOUT: &str = "\
 Print shell completion code for the specified shell
@@ -17,8 +17,8 @@ To enable autocomplete permanently, run:
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// The shell type
-    #[clap(arg_enum, value_parser )]
-    shell: ShellType
+    #[clap(arg_enum, value_parser)]
+    shell: ShellType,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
@@ -28,7 +28,7 @@ enum ShellType {
     Fish,
     Elvish,
     #[clap(name = "powershell")]
-    PowerShell
+    PowerShell,
 }
 
 impl Cmd {
@@ -41,6 +41,6 @@ impl Cmd {
             ShellType::PowerShell => Shell::PowerShell,
         };
 
-        generate(gen, cmd, env!("CARGO_PKG_NAME"), &mut io::stdout())
+        generate(gen, cmd, env!("CARGO_PKG_NAME"), &mut io::stdout());
     }
 }
