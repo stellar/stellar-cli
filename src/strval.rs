@@ -7,6 +7,8 @@ use soroban_env_host::xdr::{
     ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec, VecM,
 };
 
+use stellar_strkey::StrkeyPublicKeyEd25519;
+
 #[derive(Debug)]
 pub enum StrValError {
     UnknownError,
@@ -61,12 +63,24 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
             match serde_json::from_str(s) {
                 // First, see if it is a json array
                 Ok(Value::Array(raw)) => from_json(&Value::Array(raw), t)?,
-                // Not a json array, just grab the bytes.
-                _ => ScVal::Object(Some(ScObject::Binary(
-                    s.as_bytes()
-                        .try_into()
-                        .map_err(|_| StrValError::InvalidValue)?,
-                ))),
+                _ =>
+                // it could be a G- strkey
+                {
+                    match StrkeyPublicKeyEd25519::from_string(s) {
+                        Ok(key) => {
+                            let b = &key.0;
+                            ScVal::Object(Some(ScObject::Binary(
+                                b.try_into().map_err(|_| StrValError::InvalidValue)?,
+                            )))
+                        }
+                        // just grab the bytes
+                        Err(_) => ScVal::Object(Some(ScObject::Binary(
+                            s.as_bytes()
+                                .try_into()
+                                .map_err(|_| StrValError::InvalidValue)?,
+                        ))),
+                    }
+                }
             }
         }
 
