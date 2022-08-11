@@ -9,15 +9,15 @@ Ensure the completion package for your shell is installed,
 e.g., bash-completion for bash.
 
 To enable autocomplete in the current bash shell, run:
-  source <(soroban-cli completion bash)
-  
+  source <(soroban-cli completion --shell bash)
+
 To enable autocomplete permanently, run:
-  echo \"source <(soroban-cli completion bash)\" >> ~/.bashrc";
+  echo \"source <(soroban-cli completion --shell bash)\" >> ~/.bashrc";
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// The shell type
-    #[clap(arg_enum, value_parser)]
+    #[clap(long, arg_enum)]
     shell: ShellType,
 }
 
