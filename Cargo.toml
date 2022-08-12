@@ -12,6 +12,7 @@ edition = "2021"
 
 [dependencies]
 soroban-env-host = { version = "0.0.3", git = "https://github.com/stellar/rs-soroban-env", rev = "79e55e4", features = ["vm", "serde"] }
+soroban-spec = { path = "../rs-soroban-sdk/soroban-spec" }
 # soroban-env-host = { path = "../rs-soroban-env/soroban-env-host", features = ["vm", "serde"] }
 stellar-strkey = { version = "0.0.0", git = "https://github.com/stellar/rs-stellar-strkey", rev = "99dfcf8" }
 clap = { version = "3.1.18", features = ["derive", "env"] }
@@ -25,3 +26,5 @@ num-bigint = "0.4"
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
 clap_complete = "3.2.3"
+prettyplease = "0.1.18"
+syn = { version = "1.0.99", features = ["parsing"] }
