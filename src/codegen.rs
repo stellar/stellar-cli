@@ -27,6 +27,8 @@ pub enum Error {
     Host(#[from] HostError),
     #[error("contract spec not found")]
     ContractSpecNotFound,
+    #[error("parse for format error")]
+    ParseForFormatError(syn::Error),
 }
 
 impl Cmd {
@@ -42,16 +44,12 @@ impl Cmd {
             let specs = ScSpecEntry::read_xdr_iter(&mut cursor).collect::<Result<Vec<_>, _>>()?;
             let code = soroban_spec::generate_types(&specs, Some(&wasm_path_str));
             let code_raw = code.to_string();
-            let code_fmt = match syn::parse2(code) {
-                Ok(item) => prettyplease::unparse(&syn::File {
-                    shebang: None,
-                    attrs: vec![],
-                    items: vec![item],
-                }),
-                Err(_) => code_raw,
+            let (code_fmt, res) = match syn::parse_file(&code_raw) {
+                Ok(file) => (prettyplease::unparse(&file), Ok(())),
+                Err(e) => (code_raw, Err(Error::ParseForFormatError(e))),
             };
             println!("{}", code_fmt);
-            Ok(())
+            res
         } else {
             eprintln!("Contract Spec: Not Found");
             Err(Error::ContractSpecNotFound)
