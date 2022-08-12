@@ -37,9 +37,9 @@ impl Cmd {
         let contents = fs::read(&self.wasm)?;
         let h = Host::default();
         let vm = Vm::new(&h, [0; 32].into(), &contents)?;
-        eprintln!("File: {}", wasm_path_str);
+        println!("// File: {}", wasm_path_str);
         if let Some(spec) = vm.custom_section("contractspecv0") {
-            eprintln!("Contract Spec: {}", base64::encode(spec));
+            println!("// Contract Spec: {}", base64::encode(spec));
             let mut cursor = Cursor::new(spec);
             let specs = ScSpecEntry::read_xdr_iter(&mut cursor).collect::<Result<Vec<_>, _>>()?;
             let code = soroban_spec::generate_types(&specs, Some(&wasm_path_str));
@@ -51,7 +51,7 @@ impl Cmd {
             println!("{}", code_fmt);
             res
         } else {
-            eprintln!("Contract Spec: Not Found");
+            println!("// Contract Spec: Not Found");
             Err(Error::ContractSpecNotFound)
         }
     }
