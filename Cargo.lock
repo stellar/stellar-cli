@@ -1791,16 +1791,3 @@ dependencies = [
  "syn",
  "synstructure",
 ]
-
-[[patch.unused]]
-name = "soroban-env-guest"
-version = "0.0.3"
-source = "git+https://github.com/stellar/rs-soroban-env?rev=556c75f#556c75fa80e3b6e5ff3dc09443b9dc66e3111a40"
-
-[[patch.unused]]
-name = "soroban-sdk"
-version = "0.0.3"
-
-[[patch.unused]]
-name = "soroban-sdk-macros"
-version = "0.0.3"
