@@ -11,7 +11,6 @@ edition = "2021"
 
 [dependencies]
 soroban-env-host = { version = "0.0.3", features = ["vm", "serde"] }
-# soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "04d4358f" }
 soroban-spec = { path = "../rs-soroban-sdk/soroban-spec" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "99dfcf8" }
 clap = { version = "3.1.18", features = ["derive", "env"] }
@@ -29,8 +28,8 @@ prettyplease = "0.1.18"
 syn = { version = "1.0.99", features = ["parsing"] }
 
 [patch.crates-io]
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "556c75f" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "556c75f" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "556c75f" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "556c75f" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "3eca5ce" }

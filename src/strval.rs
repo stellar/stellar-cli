@@ -306,10 +306,11 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
             })
         }
         // TODO: Implement these
-        ScVal::Object(Some(ScObject::Hash(_) | ScObject::PublicKey(_)))
+        ScVal::Object(Some(
+            ScObject::Hash(_) | ScObject::PublicKey(_) | ScObject::ContractCode(_),
+        ))
         | ScVal::Bitset(_)
         | ScVal::Status(_) => serde_json::to_value(v).map_err(StrValError::Serde)?,
-        ScVal::Object(Some(ScObject::ContractCode(_))) => todo!(),
     };
     Ok(val)
 }
