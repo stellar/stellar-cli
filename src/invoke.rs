@@ -114,7 +114,7 @@ impl Cmd {
         };
 
         let mut complete_args = vec![
-            ScVal::Object(Some(ScObject::Binary(contract_id.try_into()?))),
+            ScVal::Object(Some(ScObject::Bytes(contract_id.try_into()?))),
             ScVal::Symbol((&self.function).try_into()?),
         ];
         complete_args.extend_from_slice(args.as_slice());
