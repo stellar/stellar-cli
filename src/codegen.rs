@@ -42,7 +42,7 @@ impl Cmd {
             println!("// Contract Spec: {}", base64::encode(spec));
             let mut cursor = Cursor::new(spec);
             let specs = ScSpecEntry::read_xdr_iter(&mut cursor).collect::<Result<Vec<_>, _>>()?;
-            let code = soroban_spec::generate(&specs, &contents);
+            let code = soroban_spec::generate(&specs, &wasm_path_str);
             let code_raw = code.to_string();
             let (code_fmt, res) = match syn::parse_file(&code_raw) {
                 Ok(file) => (prettyplease::unparse(&file), Ok(())),
