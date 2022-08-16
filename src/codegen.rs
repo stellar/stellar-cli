@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use clap::Parser;
-use soroban_spec::rust::GenerateFromFileError;
+use soroban_spec::codegen::rust::{generate_from_file, GenerateFromFileError};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -21,8 +21,7 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let wasm_path_str = self.wasm.to_string_lossy();
-        let code = soroban_spec::rust::generate_from_file(&wasm_path_str, None)
-            .map_err(Error::GenerateFromFile)?;
+        let code = generate_from_file(&wasm_path_str, None).map_err(Error::GenerateFromFile)?;
         let code_raw = code.to_string();
         match syn::parse_file(&code_raw) {
             Ok(file) => {
