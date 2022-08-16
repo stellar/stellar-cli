@@ -29,8 +29,8 @@ prettyplease = "0.1.18"
 syn = { version = "1.0.99", features = ["parsing"] }
 
 [patch.crates-io]
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "8861a4b5" }
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "3eca5ce" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "fba7071c" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "fba7071c" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "fba7071c" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "fba7071c" }
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "66436840" }
