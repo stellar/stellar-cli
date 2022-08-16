@@ -1274,6 +1274,7 @@ dependencies = [
  "itertools",
  "proc-macro2",
  "quote",
+ "sha2 0.10.2",
  "soroban-env-host",
  "syn",
  "thiserror",
