@@ -60,8 +60,8 @@ impl Cmd {
                     ScSpecEntry::FunctionV0(f) => println!(
                         " • Function: {} ({:?}) -> ({:?})",
                         f.name.to_string()?,
-                        f.input_types.as_slice(),
-                        f.output_types.as_slice(),
+                        f.inputs.as_slice(),
+                        f.outputs.as_slice(),
                     ),
                     ScSpecEntry::UdtUnionV0(udt) => {
                         println!(" • Union: {:?}", udt);

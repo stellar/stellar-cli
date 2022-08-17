@@ -89,8 +89,8 @@ impl Cmd {
         let h = Host::with_storage(storage);
 
         let vm = Vm::new(&h, contract_id.into(), &contents).unwrap();
-        let input_types = match contractspec::function_spec(&vm, &self.function) {
-            Some(s) => s.input_types,
+        let inputs = match contractspec::function_spec(&vm, &self.function) {
+            Some(s) => s.inputs,
             None => {
                 return Err(Error::FunctionNotFoundInContractSpec);
             }
@@ -100,8 +100,8 @@ impl Cmd {
         let args: Vec<ScVal> = if self.args_xdr.is_empty() {
             self.args
                 .iter()
-                .zip(input_types.iter())
-                .map(|(a, t)| strval::from_string(a, t))
+                .zip(inputs.iter())
+                .map(|(a, input)| strval::from_string(a, &input.type_))
                 .collect::<Result<Vec<_>, _>>()?
         } else {
             self.args_xdr
