@@ -5,7 +5,7 @@ use soroban_spec::gen::rust::{generate_from_file, GenerateFromFileError};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// WASM file to generating bindings for
+    /// WASM file to generate code for
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
 }
