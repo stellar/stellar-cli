@@ -12,7 +12,7 @@ rust-version = "1.63"
 
 [dependencies]
 soroban-env-host = { version = "0.0.3", features = ["vm", "serde"] }
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "f8cdec63" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "99322cf8" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "99dfcf8" }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
