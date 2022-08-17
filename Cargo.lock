@@ -1268,6 +1268,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "0.0.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=96d64bdd#96d64bdd49dd0f8e9099d3fae2fdb41f48d5d9ca"
 dependencies = [
  "base64",
  "darling",
