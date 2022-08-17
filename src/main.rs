@@ -66,9 +66,8 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => invoke.run()?,
         Cmd::Serve(serve) => serve.run().await?,
+        Cmd::Gen(gen) => gen.run()?,
         Cmd::Deploy(deploy) => deploy.run()?,
-        Cmd::Gen(codegen) => codegen.run()?,
-        Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
     };
     Ok(())
