@@ -4,6 +4,7 @@ use thiserror::Error;
 mod completion;
 mod contractspec;
 mod deploy;
+mod gen;
 mod inspect;
 mod invoke;
 mod jsonrpc;
@@ -36,6 +37,9 @@ enum Cmd {
     Serve(serve::Cmd),
     /// Deploy a WASM file as a contract
     Deploy(deploy::Cmd),
+    /// Generate code client bindings for a contract
+    Gen(gen::Cmd),
+
     /// Print version information
     Version(version::Cmd),
     /// Print shell completion code for the specified shell.
@@ -51,6 +55,8 @@ enum CmdError {
     Invoke(#[from] invoke::Error),
     #[error("serve")]
     Serve(#[from] serve::Error),
+    #[error("gen")]
+    Gen(#[from] gen::Error),
     #[error("deploy")]
     Deploy(#[from] deploy::Error),
 }
@@ -60,6 +66,7 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => invoke.run()?,
         Cmd::Serve(serve) => serve.run().await?,
+        Cmd::Gen(gen) => gen.run()?,
         Cmd::Deploy(deploy) => deploy.run()?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
