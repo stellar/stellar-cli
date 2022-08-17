@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use clap::Parser;
+use clap::{ArgEnum, Parser};
 use soroban_spec::gen::rust::{generate_from_file, GenerateFromFileError};
 
 #[derive(Parser, Debug)]
@@ -8,6 +8,15 @@ pub struct Cmd {
     /// WASM file to generate code for
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
+    /// Type of output to generate
+    #[clap(long, arg_enum)]
+    r#output: Output,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+pub enum Output {
+    /// Rust trait, client bindings, and test harness
+    Rust,
 }
 
 #[derive(thiserror::Error, Debug)]
