@@ -4,7 +4,8 @@ use soroban_env_host::{
     storage::Storage,
     xdr::{
         ContractDataEntry, Error as XdrError, LedgerEntry, LedgerEntryData, LedgerEntryExt,
-        LedgerKey, LedgerKeyContractData, ScObject, ScStatic, ScStatus, ScUnknownErrorCode, ScVal,
+        LedgerKey, LedgerKeyContractData, ScContractCode, ScObject, ScStatic, ScStatus,
+        ScUnknownErrorCode, ScVal,
     },
     HostError,
 };
@@ -22,7 +23,9 @@ pub fn add_contract_to_ledger_entries(
     let data = LedgerEntryData::ContractData(ContractDataEntry {
         contract_id: contract_id.into(),
         key: ScVal::Static(ScStatic::LedgerKeyContractCode),
-        val: ScVal::Object(Some(ScObject::Bytes(contract.try_into()?))),
+        val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(
+            contract.try_into()?,
+        )))),
     });
 
     let entry = LedgerEntry {
@@ -51,7 +54,7 @@ pub fn get_contract_wasm_from_storage(
         key: ScVal::Static(ScStatic::LedgerKeyContractCode),
     });
     if let LedgerEntryData::ContractData(entry) = storage.get(&key)?.data {
-        if let ScVal::Object(Some(ScObject::Bytes(data))) = entry.val {
+        if let ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(data)))) = entry.val {
             return Ok(data.to_vec());
         }
     }
