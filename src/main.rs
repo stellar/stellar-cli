@@ -1,10 +1,10 @@
 use clap::{AppSettings, CommandFactory, Parser, Subcommand};
 use thiserror::Error;
 
-mod codegen;
 mod completion;
 mod contractspec;
 mod deploy;
+mod gen;
 mod inspect;
 mod invoke;
 mod jsonrpc;
@@ -37,8 +37,8 @@ enum Cmd {
     Serve(serve::Cmd),
     /// Deploy a WASM file as a contract
     Deploy(deploy::Cmd),
-    /// Code generate bindings for a contract
-    Codegen(codegen::Cmd),
+    /// Generate code client bindings for a contract
+    Gen(gen::Cmd),
 
     /// Print version information
     Version(version::Cmd),
@@ -55,10 +55,10 @@ enum CmdError {
     Invoke(#[from] invoke::Error),
     #[error("serve")]
     Serve(#[from] serve::Error),
+    #[error("gen")]
+    Gen(#[from] gen::Error),
     #[error("deploy")]
     Deploy(#[from] deploy::Error),
-    #[error("codegen")]
-    Codegen(#[from] codegen::Error),
 }
 
 async fn run(cmd: Cmd) -> Result<(), CmdError> {
@@ -67,7 +67,7 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
         Cmd::Invoke(invoke) => invoke.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Deploy(deploy) => deploy.run()?,
-        Cmd::Codegen(codegen) => codegen.run()?,
+        Cmd::Gen(codegen) => codegen.run()?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
     };

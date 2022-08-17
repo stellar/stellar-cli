@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use clap::Parser;
-use soroban_spec::codegen::rust::{generate_from_file, GenerateFromFileError};
+use soroban_spec::gen::rust::{generate_from_file, GenerateFromFileError};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
