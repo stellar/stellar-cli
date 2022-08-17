@@ -12,9 +12,9 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("generate contract spec from file")]
+    #[error("generate contract spec from file: {0}")]
     GenerateFromFile(GenerateFromFileError),
-    #[error("parse for format error")]
+    #[error("parse for format error: {0}")]
     ParseForFormatError(syn::Error),
 }
 
