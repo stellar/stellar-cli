@@ -185,8 +185,8 @@ fn invoke(
     let h = Host::with_storage(storage);
 
     let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
-    let input_types = match contractspec::function_spec(&vm, func) {
-        Some(s) => s.input_types,
+    let inputs = match contractspec::function_spec(&vm, func) {
+        Some(s) => s.inputs,
         None => {
             return Err(Error::FunctionNotFoundInContractSpec);
         }
@@ -195,8 +195,8 @@ fn invoke(
     // re-assemble the args, to match the order given on the command line
     let args: Vec<ScVal> = if args_xdr.is_empty() {
         args.iter()
-            .zip(input_types.iter())
-            .map(|(a, t)| strval::from_json(a, t))
+            .zip(inputs.iter())
+            .map(|(a, input)| strval::from_json(a, &input.type_))
             .collect::<Result<Vec<_>, _>>()?
     } else {
         args_xdr
