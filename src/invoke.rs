@@ -88,7 +88,7 @@ impl Cmd {
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
         let h = Host::with_storage(storage);
 
-        let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
+        let vm = Vm::new(&h, contract_id.into(), &contents).unwrap();
         let input_types = match contractspec::function_spec(&vm, &self.function) {
             Some(s) => s.input_types,
             None => {
