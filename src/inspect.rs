@@ -37,11 +37,12 @@ impl Cmd {
         for payload in wasmparser::Parser::new(0).parse_all(&contents) {
             let payload = payload.map_err(Error::WasmParse)?;
             if let wasmparser::Payload::CustomSection(section) = payload {
-                match section.name() {
-                    "contractenvmetav0" => env_meta = Some(section.data()),
-                    "contractspecv0" => spec = Some(section.data()),
-                    _ => {}
-                }
+                let out = match section.name() {
+                    "contractenvmetav0" => &mut env_meta,
+                    "contractspecv0" => &mut spec,
+                    _ => continue,
+                };
+                *out = Some(section.data());
             };
         }
 
