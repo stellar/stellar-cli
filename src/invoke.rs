@@ -122,21 +122,19 @@ impl Cmd {
         let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
         println!("{}", strval::to_string(&res)?);
 
-        if self.cost {
-            h.get_budget(|b| {
-                eprintln!("Cpu Insns: {}", b.cpu_insns.get_count());
-                eprintln!("Mem Bytes: {}", b.mem_bytes.get_count());
-                for cost_type in CostType::variants() {
-                    eprintln!("Cost ({:?}): {}", cost_type, b.get_input(*cost_type));
-                }
-            });
-        }
-
-        let storage = h.recover_storage().map_err(|_h| {
+        let (storage, budget, _) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
         })?;
+
+        if self.cost {
+            eprintln!("Cpu Insns: {}", budget.cpu_insns.get_count());
+            eprintln!("Mem Bytes: {}", budget.mem_bytes.get_count());
+            for cost_type in CostType::variants() {
+                eprintln!("Cost ({:?}): {}", cost_type, budget.get_input(*cost_type));
+            }
+        }
 
         snapshot::commit(ledger_entries, Some(&storage.map), &self.ledger_file)?;
         Ok(())
