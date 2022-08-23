@@ -27,6 +27,7 @@ warp = "0.3"
 clap_complete = "3.2.3"
 prettyplease = "0.1.18"
 syn = { version = "1.0.99", features = ["parsing"] }
+wasmparser = "0.90.0"
 
 [patch.crates-io]
 soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "09dbeaaa" }
