@@ -32,8 +32,8 @@ impl Cmd {
 
         let contents = fs::read(&self.wasm)?;
 
-        let mut spec: Option<&[u8]> = None;
         let mut env_meta: Option<&[u8]> = None;
+        let mut spec: Option<&[u8]> = None;
         for payload in wasmparser::Parser::new(0).parse_all(&contents) {
             let payload = payload.map_err(Error::WasmParse)?;
             if let wasmparser::Payload::CustomSection(section) = payload {
