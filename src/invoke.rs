@@ -132,7 +132,7 @@ impl Cmd {
             });
         }
 
-        let storage = h.recover_storage().map_err(|_h| {
+        let (storage, _, _) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
