@@ -28,7 +28,7 @@ pub struct Cmd {
     #[clap(long, default_value("8080"))]
     port: u16,
     /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value("ledger.json"))]
+    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
     ledger_file: PathBuf,
 }
 
@@ -67,7 +67,7 @@ impl Cmd {
         let with_ledger_file = warp::any().map(move || ledger_file.clone());
 
         let routes = warp::post()
-            .and(warp::path("rpc"))
+            .and(warp::path!("api" / "v1" / "jsonrpc"))
             .and(warp::body::json())
             .and(with_ledger_file)
             .map(
@@ -102,8 +102,8 @@ impl Cmd {
                             "jsonrpc": "2.0",
                             "id": &request.id,
                             "error": {
-                            "code":-32603,
-                            "message": "Internal server error",
+                                "code":-32603,
+                                "message": "Internal server error",
                             },
                         })
                         .to_string()
@@ -130,19 +130,22 @@ fn reply(
                 result: res,
             })
         }
-        Err(err) => jsonrpc::Response::Err(jsonrpc::ErrorResponse {
-            jsonrpc: "2.0".to_string(),
-            id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
-            error: jsonrpc::ErrorResponseError {
-                code: match err {
-                    Error::Serde(_) => -32700,
-                    Error::UnknownMethod => -32601,
-                    _ => -32603,
+        Err(err) => {
+            eprintln!("err: {:?}", err);
+            jsonrpc::Response::Err(jsonrpc::ErrorResponse {
+                jsonrpc: "2.0".to_string(),
+                id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
+                error: jsonrpc::ErrorResponseError {
+                    code: match err {
+                        Error::Serde(_) => -32700,
+                        Error::UnknownMethod => -32601,
+                        _ => -32603,
+                    },
+                    message: err.to_string(),
+                    data: None,
                 },
-                message: err.to_string(),
-                data: None,
-            },
-        }),
+            })
+        },
     }
 }
 
@@ -185,21 +188,21 @@ fn simulate_transaction(
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
-//     let contract_xdr = body.parameters.get(0).ok_or(Error::Xdr(XdrError::Invalid))?;
-//     let method_xdr = body.parameters.get(1).ok_or(Error::Xdr(XdrError::Invalid))?;
-//     let (_, params) = body.parameters.split_at(2);
+    let contract_xdr = body.parameters.get(0).ok_or(Error::Xdr(XdrError::Invalid))?;
+    let method_xdr = body.parameters.get(1).ok_or(Error::Xdr(XdrError::Invalid))?;
+    let (_, params) = body.parameters.split_at(2);
 
-//     let contract_id: [u8; 32] = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = ScVal::Object::from_xdr(contract_xdr)? {
-//         bytes.try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
-//     } else {
-//         return Err(Error::Xdr(XdrError::Invalid));
-//     };
+    let contract_id: [u8; 32] = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = contract_xdr {
+        bytes.as_slice().try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+    } else {
+        return Err(Error::Xdr(XdrError::Invalid));
+    };
 
-//     let method: String = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = ScVal::Object::from_xdr(contract_xdr)? {
-//         bytes.try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
-//     } else {
-//         return Err(Error::Xdr(XdrError::Invalid));
-//     };
+    let method: String = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = method_xdr {
+        bytes.try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+    } else {
+        return Err(Error::Xdr(XdrError::Invalid));
+    };
 
 
     // Initialize storage and host
@@ -221,13 +224,13 @@ fn simulate_transaction(
     //     }
     // };
 
-    // let mut complete_args = vec![
-    //     ScVal::Object(Some(ScObject::Bytes(contract_id.try_into()?))),
-    //     ScVal::Symbol(method.try_into()?),
-    // ];
-    // complete_args.extend_from_slice(params);
+    let mut complete_args = vec![
+        ScVal::Object(Some(ScObject::Bytes(contract_id.try_into()?))),
+        ScVal::Symbol(method.try_into()?),
+    ];
+    complete_args.extend_from_slice(params);
 
-    let res = h.invoke_function(HostFunction::Call, body.parameters.clone())?;
+    let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
 
     // TODO: Include footprint in result struct
     // TODO: Include costs in result struct
