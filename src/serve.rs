@@ -144,8 +144,7 @@ fn reply(
 
 fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, Error> {
     // Parse and validate the txn
-    let decoded = base64::decode(txn_xdr).map_err(|_| Error::Xdr(XdrError::Invalid))?;
-    let ops = match TransactionEnvelope::from_xdr(decoded)? {
+    let ops = match TransactionEnvelope::from_xdr_base64(txn_xdr)? {
         TransactionEnvelope::TxV0(envelope) => envelope.tx.operations,
         TransactionEnvelope::Tx(envelope) => envelope.tx.operations,
         TransactionEnvelope::TxFeeBump(envelope) => {
