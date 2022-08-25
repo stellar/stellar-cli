@@ -6,20 +6,12 @@ use serde_json::{json, Value};
 use soroban_env_host::{
     storage::{AccessType, Footprint, Storage},
     xdr::{
-        Error as XdrError,
-        FeeBumpTransactionInnerTx,
-        HostFunction,
-        OperationBody, TransactionEnvelope,
-        ReadXdr,
-        ScHostStorageErrorCode,
-        ScObject,
-        ScStatus,
-        ScVal,
-        WriteXdr,
+        Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, OperationBody, ReadXdr,
+        ScHostStorageErrorCode, ScObject, ScStatus, ScVal, TransactionEnvelope, WriteXdr,
     },
     Host, HostError,
 };
-use warp::{Filter, http::Response};
+use warp::{http::Response, Filter};
 
 use crate::jsonrpc;
 use crate::snapshot;
@@ -59,7 +51,7 @@ pub enum Error {
 #[serde(rename_all = "snake_case")]
 #[serde(untagged)]
 enum Requests {
-    SimulateTransaction(Box<[String]>)
+    SimulateTransaction(Box<[String]>),
 }
 
 impl Cmd {
@@ -77,20 +69,20 @@ impl Cmd {
                         .status(200)
                         .header("content-type", "application/json; charset=utf-8");
                     if request.jsonrpc != "2.0" {
-                        return resp.body(json!({
-                            "jsonrpc": "2.0",
-                            "id": &request.id,
-                            "error": {
-                                "code":-32600,
-                                "message": "Invalid jsonrpc value in request",
-                            },
-                        }).to_string());
+                        return resp.body(
+                            json!({
+                                "jsonrpc": "2.0",
+                                "id": &request.id,
+                                "error": {
+                                    "code":-32600,
+                                    "message": "Invalid jsonrpc value in request",
+                                },
+                            })
+                            .to_string(),
+                        );
                     }
                     let result = match (request.method.as_str(), request.params) {
-                        (
-                            "simulateTransaction",
-                            Some(Requests::SimulateTransaction(b)),
-                        ) => {
+                        ("simulateTransaction", Some(Requests::SimulateTransaction(b))) => {
                             if let Some(txn_xdr) = b.into_vec().first() {
                                 simulate_transaction(txn_xdr, &ledger_file)
                             } else {
@@ -126,13 +118,11 @@ fn reply(
     result: Result<Value, Error>,
 ) -> jsonrpc::Response<Value, Value> {
     match result {
-        Ok(res) => {
-            jsonrpc::Response::Ok(jsonrpc::ResultResponse {
-                jsonrpc: "2.0".to_string(),
-                id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
-                result: res,
-            })
-        }
+        Ok(res) => jsonrpc::Response::Ok(jsonrpc::ResultResponse {
+            jsonrpc: "2.0".to_string(),
+            id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
+            result: res,
+        }),
         Err(err) => {
             eprintln!("err: {:?}", err);
             jsonrpc::Response::Err(jsonrpc::ErrorResponse {
@@ -148,14 +138,11 @@ fn reply(
                     data: None,
                 },
             })
-        },
+        }
     }
 }
 
-fn simulate_transaction(
-    txn_xdr: &str,
-    ledger_file: &PathBuf,
-) -> Result<Value, Error> {
+fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, Error> {
     // Parse and validate the txn
     let decoded = base64::decode(txn_xdr).map_err(|_| Error::Xdr(XdrError::Invalid))?;
     let ops = match TransactionEnvelope::from_xdr(decoded)? {
@@ -164,7 +151,7 @@ fn simulate_transaction(
         TransactionEnvelope::TxFeeBump(envelope) => {
             let FeeBumpTransactionInnerTx::Tx(tx_envelope) = envelope.tx.inner_tx;
             tx_envelope.tx.operations
-        },
+        }
     };
     if ops.len() != 1 {
         return Err(Error::Xdr(XdrError::Invalid));
@@ -184,12 +171,21 @@ fn simulate_transaction(
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
-    let contract_xdr = body.parameters.get(0).ok_or(Error::Xdr(XdrError::Invalid))?;
-    let method_xdr = body.parameters.get(1).ok_or(Error::Xdr(XdrError::Invalid))?;
+    let contract_xdr = body
+        .parameters
+        .get(0)
+        .ok_or(Error::Xdr(XdrError::Invalid))?;
+    let method_xdr = body
+        .parameters
+        .get(1)
+        .ok_or(Error::Xdr(XdrError::Invalid))?;
     let (_, params) = body.parameters.split_at(2);
 
     let contract_id: [u8; 32] = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = contract_xdr {
-        bytes.as_slice().try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+        bytes
+            .as_slice()
+            .try_into()
+            .or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
     } else {
         return Err(Error::Xdr(XdrError::Invalid));
     };
@@ -197,9 +193,13 @@ fn simulate_transaction(
     // TODO: Figure out and enforce the expected type here. For now, handle both a symbol and a
     // binary. The cap says binary, but other implementations use symbol.
     let method: String = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = method_xdr {
-        bytes.try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+        bytes
+            .try_into()
+            .or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
     } else if let ScVal::Symbol(bytes) = method_xdr {
-        bytes.try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+        bytes
+            .try_into()
+            .or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
     } else {
         return Err(Error::Xdr(XdrError::Invalid));
     };
@@ -223,8 +223,14 @@ fn simulate_transaction(
     // Calculate the budget usage
     let cost = h.get_budget(|b| {
         let mut m = serde_json::Map::new();
-        m.insert("cpu_insns".to_string(), Value::String(b.cpu_insns.get_count().to_string()));
-        m.insert("mem_bytes".to_string(), Value::String(b.mem_bytes.get_count().to_string()));
+        m.insert(
+            "cpu_insns".to_string(),
+            Value::String(b.cpu_insns.get_count().to_string()),
+        );
+        m.insert(
+            "mem_bytes".to_string(),
+            Value::String(b.mem_bytes.get_count().to_string()),
+        );
         // TODO: Include these extra costs. Figure out the rust type conversions.
         // for cost_type in CostType::variants() {
         //     m.insert(cost_type, b.get_input(*cost_type));
@@ -247,7 +253,7 @@ fn simulate_transaction(
             AccessType::ReadWrite => &mut read_write,
         };
         dest.push(base64::encode(k.to_xdr()?));
-    };
+    }
 
     // TODO: Commit here if we were "sendTransaction"
     // snapshot::commit(ledger_entries, Some(&storage.map), ledger_file)?;
