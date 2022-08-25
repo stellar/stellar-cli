@@ -250,7 +250,7 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
             AccessType::ReadOnly => &mut read_only,
             AccessType::ReadWrite => &mut read_write,
         };
-        dest.push(base64::encode(k.to_xdr()?));
+        dest.push(k.to_xdr_base64()?);
     }
 
     // TODO: Commit here if we were "sendTransaction"
