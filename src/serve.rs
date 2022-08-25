@@ -1,26 +1,29 @@
-use std::{fmt::Debug, io, io::Cursor, net::SocketAddr, path::PathBuf, rc::Rc, sync::Arc};
+use std::{fmt::Debug, io, net::SocketAddr, path::PathBuf, rc::Rc, sync::Arc};
 
 use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use soroban_env_host::{
-    storage::Storage,
+    storage::{AccessType, Footprint, Storage},
     xdr::{
-        self, Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus,
-        ScVal, WriteXdr,
-        OperationBody, TransactionEnvelope,
+        Error as XdrError,
         FeeBumpTransactionInnerTx,
-        LedgerKey,
+        HostFunction,
+        OperationBody, TransactionEnvelope,
+        ReadXdr,
+        ScHostStorageErrorCode,
+        ScObject,
+        ScStatus,
+        ScVal,
+        WriteXdr,
     },
-    Host, HostError, Vm,
+    Host, HostError,
 };
-use warp::Filter;
+use warp::{Filter, http::Response};
 
-use crate::contractspec;
 use crate::jsonrpc;
 use crate::snapshot;
-use crate::strval::{self, StrValError};
-use crate::utils;
+use crate::strval::StrValError;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -48,8 +51,6 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error("hex")]
     FromHex(#[from] FromHexError),
-    #[error("contractnotfound")]
-    FunctionNotFoundInContractSpec,
     #[error("unknownmethod")]
     UnknownMethod,
 }
@@ -72,16 +73,18 @@ impl Cmd {
             .and(with_ledger_file)
             .map(
                 |request: jsonrpc::Request<Requests>, ledger_file: Arc<PathBuf>| {
+                    let resp = Response::builder()
+                        .status(200)
+                        .header("content-type", "application/json; charset=utf-8");
                     if request.jsonrpc != "2.0" {
-                        return json!({
+                        return resp.body(json!({
                             "jsonrpc": "2.0",
                             "id": &request.id,
                             "error": {
                                 "code":-32600,
                                 "message": "Invalid jsonrpc value in request",
                             },
-                        })
-                        .to_string();
+                        }).to_string());
                     }
                     let result = match (request.method.as_str(), request.params) {
                         (
@@ -89,7 +92,7 @@ impl Cmd {
                             Some(Requests::SimulateTransaction(b)),
                         ) => {
                             if let Some(txn_xdr) = b.into_vec().first() {
-                                simulate_transaction(&txn_xdr, &ledger_file)
+                                simulate_transaction(txn_xdr, &ledger_file)
                             } else {
                                 Err(Error::Xdr(XdrError::Invalid))
                             }
@@ -97,7 +100,7 @@ impl Cmd {
                         _ => Err(Error::UnknownMethod),
                     };
                     let r = reply(&request.id, result);
-                    serde_json::to_string(&r).unwrap_or_else(|_| {
+                    resp.body(serde_json::to_string(&r).unwrap_or_else(|_| {
                         json!({
                             "jsonrpc": "2.0",
                             "id": &request.id,
@@ -107,7 +110,7 @@ impl Cmd {
                             },
                         })
                         .to_string()
-                    })
+                    }))
                 },
             );
 
@@ -173,16 +176,9 @@ fn simulate_transaction(
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
-    // pub function: HostFunction,
-    // pub parameters: ScVec,
-    // pub footprint: LedgerFootprint,
     if body.function != HostFunction::Call {
         return Err(Error::Xdr(XdrError::Invalid));
     };
-    // contract: &String,
-    // func: &String,
-    // args: &[Value],
-    // args_xdr: &[String],
 
     if body.parameters.len() < 2 {
         return Err(Error::Xdr(XdrError::Invalid));
@@ -198,32 +194,24 @@ fn simulate_transaction(
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
+    // TODO: Figure out and enforce the expected type here. For now, handle both a symbol and a
+    // binary. The cap says binary, but other implementations use symbol.
     let method: String = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = method_xdr {
+        bytes.try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+    } else if let ScVal::Symbol(bytes) = method_xdr {
         bytes.try_into().or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
     } else {
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
-
     // Initialize storage and host
-    // TODO: allow option to separate input and output file
     let ledger_entries = snapshot::read(ledger_file)?;
 
-    let snap = Rc::new(snapshot::Snap {
-        ledger_entries: ledger_entries.clone(),
-    });
+    let snap = Rc::new(snapshot::Snap { ledger_entries });
     let storage = Storage::with_recording_footprint(snap);
-    // let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
     let h = Host::with_storage(storage);
 
-    // let vm = Vm::new(&h, [0; 32].into(), &contents).unwrap();
-    // let inputs = match contractspec::function_spec(&vm, &method) {
-    //     Some(s) => s.inputs,
-    //     None => {
-    //         return Err(Error::FunctionNotFoundInContractSpec);
-    //     }
-    // };
-
+    // TODO: Check the parameters match the contract spec, or return a helpful error message
     let mut complete_args = vec![
         ScVal::Object(Some(ScObject::Bytes(contract_id.try_into()?))),
         ScVal::Symbol(method.try_into()?),
@@ -232,32 +220,43 @@ fn simulate_transaction(
 
     let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
 
-    // TODO: Include footprint in result struct
-    // TODO: Include costs in result struct
-    // let cost = h.get_budget(|b| {
-    //     let mut v = vec![
-    //         ("cpu_insns", b.cpu_insns.get_count()),
-    //         ("mem_bytes", b.mem_bytes.get_count()),
-    //     ];
-    //     // for cost_type in CostType::variants() {
-    //     //     v.push((cost_type.try_into()?, b.get_input(*cost_type)));
-    //     // }
-    //     Some(v)
-    // });
+    // Calculate the budget usage
+    let cost = h.get_budget(|b| {
+        let mut m = serde_json::Map::new();
+        m.insert("cpu_insns".to_string(), Value::String(b.cpu_insns.get_count().to_string()));
+        m.insert("mem_bytes".to_string(), Value::String(b.mem_bytes.get_count().to_string()));
+        // TODO: Include these extra costs. Figure out the rust type conversions.
+        // for cost_type in CostType::variants() {
+        //     m.insert(cost_type, b.get_input(*cost_type));
+        // }
+        m
+    });
+
+    // Calculate the storage footprint
+    let (storage, _, _) = h.try_finish().map_err(|_h| {
+        HostError::from(ScStatus::HostStorageError(
+            ScHostStorageErrorCode::UnknownError,
+        ))
+    })?;
+    let mut read_only: Vec<String> = vec![];
+    let mut read_write: Vec<String> = vec![];
+    let Footprint(m) = storage.footprint;
+    for (k, v) in m {
+        let dest = match v {
+            AccessType::ReadOnly => &mut read_only,
+            AccessType::ReadWrite => &mut read_write,
+        };
+        dest.push(base64::encode(k.to_xdr()?));
+    };
 
     // TODO: Commit here if we were "sendTransaction"
-    // let (storage, _, _) = h.try_finish().map_err(|_h| {
-    //     HostError::from(ScStatus::HostStorageError(
-    //         ScHostStorageErrorCode::UnknownError,
-    //     ))
-    // })?;
     // snapshot::commit(ledger_entries, Some(&storage.map), ledger_file)?;
 
     Ok(json!({
-        "cost": {},
+        "cost": cost,
         "footprint": {
-            "readOnly": [],
-            "readWrite": [],
+            "readOnly": read_only,
+            "readWrite": read_write,
         },
         "xdr": base64::encode(res.to_xdr()?),
         // TODO: Find "real" ledger seq number here
