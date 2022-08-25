@@ -185,7 +185,7 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
         bytes
             .as_slice()
             .try_into()
-            .or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+            .map_err(|_| Error::Xdr(XdrError::Invalid))?
     } else {
         return Err(Error::Xdr(XdrError::Invalid));
     };
@@ -195,11 +195,11 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
     let method: String = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = method_xdr {
         bytes
             .try_into()
-            .or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+            .map_err(|_| Error::Xdr(XdrError::Invalid))?
     } else if let ScVal::Symbol(bytes) = method_xdr {
         bytes
             .try_into()
-            .or_else(|_| Err(Error::Xdr(XdrError::Invalid)))?
+            .map_err(|_| Error::Xdr(XdrError::Invalid))?
     } else {
         return Err(Error::Xdr(XdrError::Invalid));
     };
