@@ -220,30 +220,28 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
 
     let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
 
-    // Calculate the budget usage
-    let cost = h.get_budget(|b| {
-        let mut m = serde_json::Map::new();
-        m.insert(
-            "cpu_insns".to_string(),
-            Value::String(b.cpu_insns.get_count().to_string()),
-        );
-        m.insert(
-            "mem_bytes".to_string(),
-            Value::String(b.mem_bytes.get_count().to_string()),
-        );
-        // TODO: Include these extra costs. Figure out the rust type conversions.
-        // for cost_type in CostType::variants() {
-        //     m.insert(cost_type, b.get_input(*cost_type));
-        // }
-        m
-    });
-
-    // Calculate the storage footprint
-    let (storage, _, _) = h.try_finish().map_err(|_h| {
+    let (storage, budget, _) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(
             ScHostStorageErrorCode::UnknownError,
         ))
     })?;
+
+    // Calculate the budget usage
+    let mut cost = serde_json::Map::new();
+    cost.insert(
+        "cpu_insns".to_string(),
+        Value::String(budget.cpu_insns.get_count().to_string()),
+    );
+    cost.insert(
+        "mem_bytes".to_string(),
+        Value::String(budget.mem_bytes.get_count().to_string()),
+    );
+    // TODO: Include these extra costs. Figure out the rust type conversions.
+    // for cost_type in CostType::variants() {
+    //     m.insert(cost_type, b.get_input(*cost_type));
+    // }
+
+    // Calculate the storage footprint
     let mut read_only: Vec<String> = vec![];
     let mut read_write: Vec<String> = vec![];
     let Footprint(m) = storage.footprint;
