@@ -261,7 +261,7 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
             "readOnly": read_only,
             "readWrite": read_write,
         },
-        "xdr": base64::encode(res.to_xdr()?),
+        "xdr": res.to_xdr_base64()?,
         // TODO: Find "real" ledger seq number here
         "latestLedger": 1,
     }))
