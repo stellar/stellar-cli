@@ -109,7 +109,7 @@ async fn handler(
     }
     let result = match (request.method.as_str(), request.params) {
         ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
-            get_contract_data(contract_id, key, &ledger_file)
+            get_contract_data(&contract_id, key, &ledger_file)
         }
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             if let Some(hash) = b.into_vec().first() {
@@ -221,13 +221,13 @@ fn reply(
 }
 
 fn get_contract_data(
-    contract_id_hex: String,
+    contract_id_hex: &str,
     key_xdr: String,
     ledger_file: &PathBuf,
 ) -> Result<Value, Error> {
     // Initialize storage and host
     let ledger_entries = snapshot::read(ledger_file)?;
-    let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex)?;
+    let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex.to_string())?;
     let key = ScVal::from_xdr_base64(key_xdr)?;
 
     let snap = Rc::new(snapshot::Snap { ledger_entries });
