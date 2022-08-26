@@ -4,6 +4,7 @@ use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use soroban_env_host::{
+    budget::Budget,
     storage::{AccessType, Footprint, Storage},
     xdr::{
         Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, OperationBody, ReadXdr,
@@ -144,7 +145,7 @@ fn reply(
 
 fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, Error> {
     // Parse and validate the txn
-    let ops = match TransactionEnvelope::from_xdr_base64(txn_xdr)? {
+    let ops = match TransactionEnvelope::from_xdr_base64(txn_xdr.to_string())? {
         TransactionEnvelope::TxV0(envelope) => envelope.tx.operations,
         TransactionEnvelope::Tx(envelope) => envelope.tx.operations,
         TransactionEnvelope::TxFeeBump(envelope) => {
@@ -208,7 +209,7 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
 
     let snap = Rc::new(snapshot::Snap { ledger_entries });
     let storage = Storage::with_recording_footprint(snap);
-    let h = Host::with_storage(storage);
+    let h = Host::with_storage_and_budget(storage, Budget::default());
 
     // TODO: Check the parameters match the contract spec, or return a helpful error message
     let mut complete_args = vec![
@@ -229,11 +230,11 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
     let mut cost = serde_json::Map::new();
     cost.insert(
         "cpu_insns".to_string(),
-        Value::String(budget.cpu_insns.get_count().to_string()),
+        Value::String(budget.get_cpu_insns_count().to_string()),
     );
     cost.insert(
         "mem_bytes".to_string(),
-        Value::String(budget.mem_bytes.get_count().to_string()),
+        Value::String(budget.get_mem_bytes_count().to_string()),
     );
     // TODO: Include these extra costs. Figure out the rust type conversions.
     // for cost_type in CostType::variants() {
