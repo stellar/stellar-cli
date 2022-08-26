@@ -3,7 +3,10 @@ use std::{fmt::Debug, io, rc::Rc};
 use clap::Parser;
 use soroban_env_host::{
     storage::Storage,
-    xdr::{self, Error as XdrError, ReadXdr, WriteXdr, LedgerEntryData, LedgerKey, LedgerKeyContractData, ScVal},
+    xdr::{
+        self, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr, ScVal,
+        WriteXdr,
+    },
     HostError,
 };
 
