@@ -253,7 +253,6 @@ fn get_contract_data(
     }))
 }
 
-
 fn parse_transaction(txn_xdr: &str, passphrase: &str) -> Result<([u8; 32], Vec<ScVal>), Error> {
     // Parse and validate the txn
     let transaction = TransactionEnvelope::from_xdr_base64(txn_xdr.to_string())?;
