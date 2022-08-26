@@ -8,6 +8,8 @@ mod gen;
 mod inspect;
 mod invoke;
 mod jsonrpc;
+mod network;
+mod read;
 mod serve;
 mod snapshot;
 mod strval;
@@ -33,6 +35,8 @@ enum Cmd {
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
+    /// Print the current value of a contract-data ledger entry
+    Read(read::Cmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
     /// Deploy a WASM file as a contract
@@ -53,6 +57,8 @@ enum CmdError {
     Inspect(#[from] inspect::Error),
     #[error("invoke")]
     Invoke(#[from] invoke::Error),
+    #[error("read")]
+    Read(#[from] read::Error),
     #[error("serve")]
     Serve(#[from] serve::Error),
     #[error("gen")]
@@ -65,6 +71,7 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => invoke.run()?,
+        Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Gen(gen) => gen.run()?,
         Cmd::Deploy(deploy) => deploy.run()?,

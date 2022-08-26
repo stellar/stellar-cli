@@ -1,22 +1,28 @@
-use std::{fmt::Debug, io, net::SocketAddr, path::PathBuf, rc::Rc, sync::Arc};
+use std::collections::HashMap;
+use std::{convert::Infallible, fmt::Debug, io, net::SocketAddr, path::PathBuf, rc::Rc, sync::Arc};
 
 use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
     xdr::{
-        Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, OperationBody, ReadXdr,
-        ScHostStorageErrorCode, ScObject, ScStatus, ScVal, TransactionEnvelope, WriteXdr,
+        self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, LedgerEntryData,
+        LedgerKey, LedgerKeyContractData, OperationBody, ReadXdr, ScHostStorageErrorCode, ScObject,
+        ScStatus, ScVal, TransactionEnvelope, WriteXdr,
     },
     Host, HostError,
 };
+use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
 use crate::jsonrpc;
+use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::snapshot;
 use crate::strval::StrValError;
+use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -52,7 +58,8 @@ pub enum Error {
 #[serde(rename_all = "snake_case")]
 #[serde(untagged)]
 enum Requests {
-    SimulateTransaction(Box<[String]>),
+    GetContractData((String, String)),
+    StringArg(Box<[String]>),
 }
 
 impl Cmd {
@@ -60,58 +67,128 @@ impl Cmd {
         let ledger_file = Arc::new(self.ledger_file.clone());
         let with_ledger_file = warp::any().map(move || ledger_file.clone());
 
+        // Just track in-flight transactions in-memory for sandbox for now. Simple.
+        let transaction_status_map: Arc<Mutex<HashMap<String, Value>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let with_transaction_status_map = warp::any().map(move || transaction_status_map.clone());
+
         let routes = warp::post()
             .and(warp::path!("api" / "v1" / "jsonrpc"))
             .and(warp::body::json())
             .and(with_ledger_file)
-            .map(
-                |request: jsonrpc::Request<Requests>, ledger_file: Arc<PathBuf>| {
-                    let resp = Response::builder()
-                        .status(200)
-                        .header("content-type", "application/json; charset=utf-8");
-                    if request.jsonrpc != "2.0" {
-                        return resp.body(
-                            json!({
-                                "jsonrpc": "2.0",
-                                "id": &request.id,
-                                "error": {
-                                    "code":-32600,
-                                    "message": "Invalid jsonrpc value in request",
-                                },
-                            })
-                            .to_string(),
-                        );
-                    }
-                    let result = match (request.method.as_str(), request.params) {
-                        ("simulateTransaction", Some(Requests::SimulateTransaction(b))) => {
-                            if let Some(txn_xdr) = b.into_vec().first() {
-                                simulate_transaction(txn_xdr, &ledger_file)
-                            } else {
-                                Err(Error::Xdr(XdrError::Invalid))
-                            }
-                        }
-                        _ => Err(Error::UnknownMethod),
-                    };
-                    let r = reply(&request.id, result);
-                    resp.body(serde_json::to_string(&r).unwrap_or_else(|_| {
-                        json!({
-                            "jsonrpc": "2.0",
-                            "id": &request.id,
-                            "error": {
-                                "code":-32603,
-                                "message": "Internal server error",
-                            },
-                        })
-                        .to_string()
-                    }))
-                },
-            );
+            .and(with_transaction_status_map)
+            .and_then(handler);
 
         let addr: SocketAddr = ([127, 0, 0, 1], self.port).into();
         println!("Listening on: {}", addr);
         warp::serve(routes).run(addr).await;
         Ok(())
     }
+}
+
+async fn handler(
+    request: jsonrpc::Request<Requests>,
+    ledger_file: Arc<PathBuf>,
+    transaction_status_map: Arc<Mutex<HashMap<String, Value>>>,
+) -> Result<impl warp::Reply, Infallible> {
+    let resp = Response::builder()
+        .status(200)
+        .header("content-type", "application/json; charset=utf-8");
+    if request.jsonrpc != "2.0" {
+        return Ok(resp.body(
+            json!({
+                "jsonrpc": "2.0",
+                "id": &request.id,
+                "error": {
+                    "code":-32600,
+                    "message": "Invalid jsonrpc value in request",
+                },
+            })
+            .to_string(),
+        ));
+    }
+    let result = match (request.method.as_str(), request.params) {
+        ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
+            get_contract_data(&contract_id, key, &ledger_file)
+        }
+        ("getTransactionStatus", Some(Requests::StringArg(b))) => {
+            if let Some(hash) = b.into_vec().first() {
+                let m = transaction_status_map.lock().await;
+                let status = m.get(hash);
+                Ok(match status {
+                    Some(status) => status.clone(),
+                    None => json!({
+                        "error": {
+                            "code":404,
+                            "message": "Transaction not found",
+                        },
+                    }),
+                })
+            } else {
+                Err(Error::Xdr(XdrError::Invalid))
+            }
+        }
+        ("simulateTransaction", Some(Requests::StringArg(b))) => {
+            if let Some(txn_xdr) = b.into_vec().first() {
+                parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE)
+                    // Execute and do NOT commit
+                    .and_then(|(_, args)| execute_transaction(&args, &ledger_file, false))
+            } else {
+                Err(Error::Xdr(XdrError::Invalid))
+            }
+        }
+        ("sendTransaction", Some(Requests::StringArg(b))) => {
+            if let Some(txn_xdr) = b.into_vec().first() {
+                // TODO: Format error object output if txn is invalid
+                let mut m = transaction_status_map.lock().await;
+                parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
+                    let id = hex::encode(hash);
+                    // Execute and commit
+                    let result = execute_transaction(&args, &ledger_file, true);
+                    // Add it to our status tracker
+                    m.insert(
+                        id.clone(),
+                        match result {
+                            Ok(result) => {
+                                json!({
+                                    "status": "success",
+                                    "results": vec![result],
+                                })
+                            }
+                            Err(_err) => {
+                                // TODO: Actually render the real error to the user
+                                // Add it to our status tracker
+                                json!({
+                                    "status": "error",
+                                    "error": {
+                                        "code":-32603,
+                                        "message": "Internal server error",
+                                    },
+                                })
+                            }
+                        },
+                    );
+                    // Return the hash
+                    json!({ "id": id })
+                })
+            } else {
+                Err(Error::Xdr(XdrError::Invalid))
+            }
+        }
+        _ => Err(Error::UnknownMethod),
+    };
+    let r = reply(&request.id, result);
+    Ok(resp.body(serde_json::to_string(&r).unwrap_or_else(|_| {
+        json!({
+            "jsonrpc": "2.0",
+            "id": &request.id,
+            "error": {
+                "code":-32603,
+                "message": "Internal server error",
+            },
+        })
+        .to_string()
+    })))
 }
 
 fn reply(
@@ -143,9 +220,42 @@ fn reply(
     }
 }
 
-fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, Error> {
+fn get_contract_data(
+    contract_id_hex: &str,
+    key_xdr: String,
+    ledger_file: &PathBuf,
+) -> Result<Value, Error> {
+    // Initialize storage and host
+    let ledger_entries = snapshot::read(ledger_file)?;
+    let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex.to_string())?;
+    let key = ScVal::from_xdr_base64(key_xdr)?;
+
+    let snap = Rc::new(snapshot::Snap { ledger_entries });
+    let mut storage = Storage::with_recording_footprint(snap);
+    let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
+        contract_id: xdr::Hash(contract_id),
+        key,
+    }))?;
+
+    let value = if let LedgerEntryData::ContractData(entry) = ledger_entry.data {
+        entry.val
+    } else {
+        unreachable!();
+    };
+
+    Ok(json!({
+        "xdr": value.to_xdr_base64()?,
+        "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
+        // TODO: Find "real" ledger seq number here
+        "latestLedger": 1,
+    }))
+}
+
+fn parse_transaction(txn_xdr: &str, passphrase: &str) -> Result<([u8; 32], Vec<ScVal>), Error> {
     // Parse and validate the txn
-    let ops = match TransactionEnvelope::from_xdr_base64(txn_xdr.to_string())? {
+    let transaction = TransactionEnvelope::from_xdr_base64(txn_xdr.to_string())?;
+    let hash = hash_transaction_in_envelope(&transaction, passphrase)?;
+    let ops = match transaction {
         TransactionEnvelope::TxV0(envelope) => envelope.tx.operations,
         TransactionEnvelope::Tx(envelope) => envelope.tx.operations,
         TransactionEnvelope::TxFeeBump(envelope) => {
@@ -204,21 +314,32 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
-    // Initialize storage and host
-    let ledger_entries = snapshot::read(ledger_file)?;
-
-    let snap = Rc::new(snapshot::Snap { ledger_entries });
-    let storage = Storage::with_recording_footprint(snap);
-    let h = Host::with_storage_and_budget(storage, Budget::default());
-
-    // TODO: Check the parameters match the contract spec, or return a helpful error message
     let mut complete_args = vec![
         ScVal::Object(Some(ScObject::Bytes(contract_id.try_into()?))),
         ScVal::Symbol(method.try_into()?),
     ];
     complete_args.extend_from_slice(params);
 
-    let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
+    Ok((hash, complete_args))
+}
+
+fn execute_transaction(
+    args: &Vec<ScVal>,
+    ledger_file: &PathBuf,
+    commit: bool,
+) -> Result<Value, Error> {
+    // Initialize storage and host
+    let ledger_entries = snapshot::read(ledger_file)?;
+
+    let snap = Rc::new(snapshot::Snap {
+        ledger_entries: ledger_entries.clone(),
+    });
+    let storage = Storage::with_recording_footprint(snap);
+    let h = Host::with_storage_and_budget(storage, Budget::default());
+
+    // TODO: Check the parameters match the contract spec, or return a helpful error message
+
+    let res = h.invoke_function(HostFunction::Call, args.try_into()?)?;
 
     let (storage, budget, _) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(
@@ -253,8 +374,9 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
         dest.push(k.to_xdr_base64()?);
     }
 
-    // TODO: Commit here if we were "sendTransaction"
-    // snapshot::commit(ledger_entries, Some(&storage.map), ledger_file)?;
+    if commit {
+        snapshot::commit(ledger_entries, &storage.map, ledger_file)?;
+    }
 
     Ok(json!({
         "cost": cost,
@@ -266,4 +388,58 @@ fn simulate_transaction(txn_xdr: &str, ledger_file: &PathBuf) -> Result<Value, E
         // TODO: Find "real" ledger seq number here
         "latestLedger": 1,
     }))
+}
+
+fn hash_transaction_in_envelope(
+    envelope: &TransactionEnvelope,
+    passphrase: &str,
+) -> Result<[u8; 32], Error> {
+    let tagged_transaction = match envelope {
+        TransactionEnvelope::TxV0(envelope) => {
+            xdr::TransactionSignaturePayloadTaggedTransaction::Tx(xdr::Transaction {
+                source_account: xdr::MuxedAccount::Ed25519(
+                    envelope.tx.source_account_ed25519.clone(),
+                ),
+                fee: envelope.tx.fee,
+                seq_num: envelope.tx.seq_num.clone(),
+                cond: match envelope.tx.time_bounds.clone() {
+                    None => xdr::Preconditions::None,
+                    Some(time_bounds) => xdr::Preconditions::Time(time_bounds),
+                },
+                memo: envelope.tx.memo.clone(),
+                operations: envelope.tx.operations.clone(),
+                ext: xdr::TransactionExt::V0,
+            })
+        }
+        TransactionEnvelope::Tx(envelope) => {
+            xdr::TransactionSignaturePayloadTaggedTransaction::Tx(envelope.tx.clone())
+        }
+        TransactionEnvelope::TxFeeBump(envelope) => {
+            xdr::TransactionSignaturePayloadTaggedTransaction::TxFeeBump(envelope.tx.clone())
+        }
+    };
+
+    // trim spaces from passphrase
+    // Check if network passpharse is empty
+
+    let network_id = xdr::Hash(hash_bytes(passphrase.as_bytes().to_vec()));
+    let payload = xdr::TransactionSignaturePayload {
+        network_id,
+        tagged_transaction,
+    };
+    let tx_bytes = payload.to_xdr()?;
+
+    // hash it
+    Ok(hash_bytes(tx_bytes))
+}
+
+fn hash_bytes(b: Vec<u8>) -> [u8; 32] {
+    let mut output: [u8; 32] = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,
+    ];
+    let mut hasher = Sha256::new();
+    hasher.update(b);
+    output.copy_from_slice(&hasher.finalize());
+    output
 }
