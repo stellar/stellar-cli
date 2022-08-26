@@ -58,9 +58,7 @@ impl Cmd {
         // Initialize storage
         let ledger_entries = snapshot::read(&self.ledger_file)?;
 
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: ledger_entries.clone(),
-        });
+        let snap = Rc::new(snapshot::Snap { ledger_entries });
         let mut storage = Storage::with_recording_footprint(snap);
         let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
             contract_id: xdr::Hash(contract_id),

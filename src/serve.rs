@@ -130,7 +130,7 @@ async fn handler(
         }
         ("simulateTransaction", Some(Requests::StringArg(b))) => {
             if let Some(txn_xdr) = b.into_vec().first() {
-                parse_transaction(txn_xdr, &SANDBOX_NETWORK_PASSPHRASE)
+                parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE)
                     // Execute and do NOT commit
                     .and_then(|(_, args)| execute_transaction(&args, &ledger_file, false))
             } else {
@@ -141,7 +141,7 @@ async fn handler(
             if let Some(txn_xdr) = b.into_vec().first() {
                 // TODO: Format error object output if txn is invalid
                 let mut m = transaction_status_map.lock().await;
-                parse_transaction(txn_xdr, &SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
+                parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
                     let id = hex::encode(hash);
                     // Execute and commit
                     let result = execute_transaction(&args, &ledger_file, true);
@@ -230,9 +230,7 @@ fn get_contract_data(
     let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex)?;
     let key = ScVal::from_xdr_base64(key_xdr)?;
 
-    let snap = Rc::new(snapshot::Snap {
-        ledger_entries: ledger_entries.clone(),
-    });
+    let snap = Rc::new(snapshot::Snap { ledger_entries });
     let mut storage = Storage::with_recording_footprint(snap);
     let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: xdr::Hash(contract_id),
@@ -432,8 +430,7 @@ fn hash_transaction_in_envelope(
     let tx_bytes = payload.to_xdr()?;
 
     // hash it
-
-    return Ok(hash_bytes(tx_bytes));
+    Ok(hash_bytes(tx_bytes))
 }
 
 fn hash_bytes(b: Vec<u8>) -> [u8; 32] {
