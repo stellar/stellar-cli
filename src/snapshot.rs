@@ -1,4 +1,4 @@
-use std::{fs::create_dir_all, fs::File, io};
+use std::{fs::create_dir_all, fs::File, io, iter::IntoIterator};
 
 use soroban_env_host::{
     im_rc::OrdMap,
@@ -56,11 +56,14 @@ pub fn read(input_file: &std::path::PathBuf) -> Result<OrdMap<LedgerKey, LedgerE
     Ok(res)
 }
 
-pub fn commit(
+pub fn commit<'a, I>(
     mut new_state: OrdMap<LedgerKey, LedgerEntry>,
-    storage_map: Option<&OrdMap<LedgerKey, Option<LedgerEntry>>>,
+    storage_map: I,
     output_file: &std::path::PathBuf,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    I: IntoIterator<Item = (&'a LedgerKey, &'a Option<LedgerEntry>)>,
+{
     //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
     if let Some(dir) = output_file.parent() {
         if !dir.exists() {
@@ -69,13 +72,11 @@ pub fn commit(
     }
 
     let file = File::create(output_file)?;
-    if let Some(s) = storage_map {
-        for (lk, ole) in s {
-            if let Some(le) = ole {
-                new_state.insert(lk.clone(), le.clone());
-            } else {
-                new_state.remove(lk);
-            }
+    for (lk, ole) in storage_map {
+        if let Some(le) = ole {
+            new_state.insert(lk.clone(), le.clone());
+        } else {
+            new_state.remove(lk);
         }
     }
 

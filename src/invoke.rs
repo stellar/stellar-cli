@@ -2,7 +2,7 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
 use soroban_env_host::{
-    budget::CostType,
+    budget::{Budget, CostType},
     storage::Storage,
     xdr::{
         Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus, ScVal,
@@ -86,7 +86,7 @@ impl Cmd {
         });
         let mut storage = Storage::with_recording_footprint(snap);
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
-        let h = Host::with_storage(storage);
+        let h = Host::with_storage_and_budget(storage, Budget::default());
 
         let vm = Vm::new(&h, contract_id.into(), &contents).unwrap();
         let inputs = match contractspec::function_spec(&vm, &self.function) {
@@ -129,14 +129,14 @@ impl Cmd {
         })?;
 
         if self.cost {
-            eprintln!("Cpu Insns: {}", budget.cpu_insns.get_count());
-            eprintln!("Mem Bytes: {}", budget.mem_bytes.get_count());
+            eprintln!("Cpu Insns: {}", budget.get_cpu_insns_count());
+            eprintln!("Mem Bytes: {}", budget.get_mem_bytes_count());
             for cost_type in CostType::variants() {
                 eprintln!("Cost ({:?}): {}", cost_type, budget.get_input(*cost_type));
             }
         }
 
-        snapshot::commit(ledger_entries, Some(&storage.map), &self.ledger_file)?;
+        snapshot::commit(ledger_entries, &storage.map, &self.ledger_file)?;
         Ok(())
     }
 }
