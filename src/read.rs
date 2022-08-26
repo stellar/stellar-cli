@@ -3,7 +3,7 @@ use std::{fmt::Debug, io, rc::Rc};
 use clap::Parser;
 use soroban_env_host::{
     storage::Storage,
-    xdr::{self, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ScVal},
+    xdr::{self, Error as XdrError, ReadXdr, WriteXdr, LedgerEntryData, LedgerKey, LedgerKeyContractData, ScVal},
     HostError,
 };
 
@@ -50,16 +50,15 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] = utils::contract_id_from_str(&self.contract_id)?;
-        let key = ScVal::from_xdr_base64(keyScVal)?;
+        let key = ScVal::from_xdr_base64(self.key.clone())?;
 
-        // Initialize storage and host
-        // TODO: allow option to separate input and output file
-        let mut ledger_entries = snapshot::read(&self.ledger_file)?;
+        // Initialize storage
+        let ledger_entries = snapshot::read(&self.ledger_file)?;
 
         let snap = Rc::new(snapshot::Snap {
             ledger_entries: ledger_entries.clone(),
         });
-        let storage = Storage::with_recording_footprint(snap);
+        let mut storage = Storage::with_recording_footprint(snap);
         let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
             contract_id: xdr::Hash(contract_id),
             key,

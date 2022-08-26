@@ -108,8 +108,8 @@ async fn handler(
         ));
     }
     let result = match (request.method.as_str(), request.params) {
-        ("getContractData", Some(Requests::GetContractData((contractIdHex, keyScVal)))) => {
-            get_contract_data(contractIdHex, keyScVal, &ledger_file)
+        ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
+            get_contract_data(contract_id, key, &ledger_file)
         }
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             if let Some(hash) = b.into_vec().first() {
@@ -233,7 +233,7 @@ fn get_contract_data(
     let snap = Rc::new(snapshot::Snap {
         ledger_entries: ledger_entries.clone(),
     });
-    let storage = Storage::with_recording_footprint(snap);
+    let mut storage = Storage::with_recording_footprint(snap);
     let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: xdr::Hash(contract_id),
         key,
