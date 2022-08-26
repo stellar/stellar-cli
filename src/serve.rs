@@ -4,22 +4,22 @@ use std::{convert::Infallible, fmt::Debug, io, net::SocketAddr, path::PathBuf, r
 use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
     xdr::{
-        self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, OperationBody, ReadXdr,
-        ScHostStorageErrorCode, ScObject, ScStatus, ScVal, TransactionEnvelope, WriteXdr,
-        LedgerKey, LedgerKeyContractData, LedgerEntryData,
+        self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, LedgerEntryData,
+        LedgerKey, LedgerKeyContractData, OperationBody, ReadXdr, ScHostStorageErrorCode, ScObject,
+        ScStatus, ScVal, TransactionEnvelope, WriteXdr,
     },
     Host, HostError,
 };
 use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
-use sha2::{Sha256, Digest};
 
-use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::jsonrpc;
+use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::snapshot;
 use crate::strval::StrValError;
 use crate::utils;
@@ -108,8 +108,9 @@ async fn handler(
         ));
     }
     let result = match (request.method.as_str(), request.params) {
-        ("getContractData", Some(Requests::GetContractData((contractIdHex, keyScVal)))) =>
-            get_contract_data(contractIdHex, keyScVal, &ledger_file),
+        ("getContractData", Some(Requests::GetContractData((contractIdHex, keyScVal)))) => {
+            get_contract_data(contractIdHex, keyScVal, &ledger_file)
+        }
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             if let Some(hash) = b.into_vec().first() {
                 let m = transaction_status_map.lock().await;
@@ -233,7 +234,7 @@ fn get_contract_data(
         ledger_entries: ledger_entries.clone(),
     });
     let storage = Storage::with_recording_footprint(snap);
-    let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData{
+    let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: xdr::Hash(contract_id),
         key,
     }))?;
@@ -243,7 +244,6 @@ fn get_contract_data(
     } else {
         unreachable!();
     };
-
 
     Ok(json!({
         "xdr": value.to_xdr_base64()?,
@@ -392,11 +392,16 @@ fn execute_transaction(
     }))
 }
 
-fn hash_transaction_in_envelope(envelope: &TransactionEnvelope, passphrase: &str) -> Result<[u8; 32], Error> {
+fn hash_transaction_in_envelope(
+    envelope: &TransactionEnvelope,
+    passphrase: &str,
+) -> Result<[u8; 32], Error> {
     let tagged_transaction = match envelope {
-        TransactionEnvelope::TxV0(envelope) =>
-            xdr::TransactionSignaturePayloadTaggedTransaction::Tx(xdr::Transaction{
-                source_account: xdr::MuxedAccount::Ed25519(envelope.tx.source_account_ed25519.clone()),
+        TransactionEnvelope::TxV0(envelope) => {
+            xdr::TransactionSignaturePayloadTaggedTransaction::Tx(xdr::Transaction {
+                source_account: xdr::MuxedAccount::Ed25519(
+                    envelope.tx.source_account_ed25519.clone(),
+                ),
                 fee: envelope.tx.fee,
                 seq_num: envelope.tx.seq_num.clone(),
                 cond: match envelope.tx.time_bounds.clone() {
@@ -406,18 +411,21 @@ fn hash_transaction_in_envelope(envelope: &TransactionEnvelope, passphrase: &str
                 memo: envelope.tx.memo.clone(),
                 operations: envelope.tx.operations.clone(),
                 ext: xdr::TransactionExt::V0,
-            }),
-        TransactionEnvelope::Tx(envelope) =>
-            xdr::TransactionSignaturePayloadTaggedTransaction::Tx(envelope.tx.clone()),
-        TransactionEnvelope::TxFeeBump(envelope) =>
-            xdr::TransactionSignaturePayloadTaggedTransaction::TxFeeBump(envelope.tx.clone()),
+            })
+        }
+        TransactionEnvelope::Tx(envelope) => {
+            xdr::TransactionSignaturePayloadTaggedTransaction::Tx(envelope.tx.clone())
+        }
+        TransactionEnvelope::TxFeeBump(envelope) => {
+            xdr::TransactionSignaturePayloadTaggedTransaction::TxFeeBump(envelope.tx.clone())
+        }
     };
 
     // trim spaces from passphrase
     // Check if network passpharse is empty
 
     let network_id = xdr::Hash(hash_bytes(passphrase.as_bytes().to_vec()));
-    let payload = xdr::TransactionSignaturePayload{
+    let payload = xdr::TransactionSignaturePayload {
         network_id,
         tagged_transaction,
     };
@@ -429,7 +437,10 @@ fn hash_transaction_in_envelope(envelope: &TransactionEnvelope, passphrase: &str
 }
 
 fn hash_bytes(b: Vec<u8>) -> [u8; 32] {
-    let mut output: [u8; 32] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    let mut output: [u8; 32] = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,
+    ];
     let mut hasher = Sha256::new();
     hasher.update(b);
     output.copy_from_slice(&hasher.finalize());

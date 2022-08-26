@@ -3,9 +3,7 @@ use std::{fmt::Debug, io, rc::Rc};
 use clap::Parser;
 use soroban_env_host::{
     storage::Storage,
-    xdr::{
-        self, Error as XdrError, ScVal, LedgerEntryData, LedgerKey, LedgerKeyContractData,
-    },
+    xdr::{self, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ScVal},
     HostError,
 };
 
@@ -62,11 +60,10 @@ impl Cmd {
             ledger_entries: ledger_entries.clone(),
         });
         let storage = Storage::with_recording_footprint(snap);
-        let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData{
+        let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
             contract_id: xdr::Hash(contract_id),
             key,
         }))?;
-
 
         let value = if let LedgerEntryData::ContractData(entry) = ledger_entry.data {
             entry.val
