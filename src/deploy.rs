@@ -41,7 +41,7 @@ impl Cmd {
         let mut ledger_entries = snapshot::read(&self.ledger_file)?;
         utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
 
-        snapshot::commit(ledger_entries, None, &self.ledger_file)?;
+        snapshot::commit(ledger_entries, [], &self.ledger_file)?;
         Ok(())
     }
 }

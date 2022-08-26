@@ -30,8 +30,8 @@ syn = { version = "1.0.99", features = ["parsing"] }
 wasmparser = "0.90.0"
 
 [patch.crates-io]
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "09dbeaaa" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "09dbeaaa" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "09dbeaaa" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "09dbeaaa" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "7978f95" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "7978f95" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "7978f95" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "7978f95" }
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "61de11d" }
