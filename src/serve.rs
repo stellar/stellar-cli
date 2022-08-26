@@ -10,6 +10,7 @@ use soroban_env_host::{
     xdr::{
         self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, OperationBody, ReadXdr,
         ScHostStorageErrorCode, ScObject, ScStatus, ScVal, TransactionEnvelope, WriteXdr,
+        LedgerKey, LedgerKeyContractData, LedgerEntryData,
     },
     Host, HostError,
 };
@@ -21,6 +22,7 @@ use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::jsonrpc;
 use crate::snapshot;
 use crate::strval::StrValError;
+use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -56,6 +58,7 @@ pub enum Error {
 #[serde(rename_all = "snake_case")]
 #[serde(untagged)]
 enum Requests {
+    GetContractData((String, String)),
     StringArg(Box<[String]>),
 }
 
@@ -105,6 +108,8 @@ async fn handler(
         ));
     }
     let result = match (request.method.as_str(), request.params) {
+        ("getContractData", Some(Requests::GetContractData((contractIdHex, keyScVal)))) =>
+            get_contract_data(contractIdHex, keyScVal, &ledger_file),
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             if let Some(hash) = b.into_vec().first() {
                 let m = transaction_status_map.lock().await;
@@ -213,6 +218,41 @@ fn reply(
         }
     }
 }
+
+fn get_contract_data(
+    contract_id_hex: String,
+    key_xdr: String,
+    ledger_file: &PathBuf,
+) -> Result<Value, Error> {
+    // Initialize storage and host
+    let ledger_entries = snapshot::read(ledger_file)?;
+    let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex)?;
+    let key = ScVal::from_xdr_base64(key_xdr)?;
+
+    let snap = Rc::new(snapshot::Snap {
+        ledger_entries: ledger_entries.clone(),
+    });
+    let storage = Storage::with_recording_footprint(snap);
+    let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData{
+        contract_id: xdr::Hash(contract_id),
+        key,
+    }))?;
+
+    let value = if let LedgerEntryData::ContractData(entry) = ledger_entry.data {
+        entry.val
+    } else {
+        unreachable!();
+    };
+
+
+    Ok(json!({
+        "xdr": value.to_xdr_base64()?,
+        "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
+        // TODO: Find "real" ledger seq number here
+        "latestLedger": 1,
+    }))
+}
+
 
 fn parse_transaction(txn_xdr: &str, passphrase: &str) -> Result<([u8; 32], Vec<ScVal>), Error> {
     // Parse and validate the txn
