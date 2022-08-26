@@ -28,17 +28,17 @@ pub enum Output {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("generate rust from file: {0}")]
-    GenerateRustFromFile(#[from] rust::GenerateFromFileError),
+    GenerateRustFromFile(rust::GenerateFromFileError),
     #[error("format rust error: {0}")]
-    FormatRust(#[from] syn::Error),
+    FormatRust(syn::Error),
     #[error("host")]
-    Host(#[from] HostError),
+    Host(HostError),
     #[error("xdr error: {0}")]
-    Xdr(#[from] soroban_env_host::xdr::Error),
+    Xdr(soroban_env_host::xdr::Error),
     #[error("io")]
-    Io(#[from] io::Error),
-    #[error("json error: {0}")]
-    Json(#[from] serde_json::Error),
+    Io(io::Error),
+    #[error("serialize json error: {0}")]
+    Json(serde_json::Error),
     #[error("contractnotfound")]
     ContractSpecNotFound,
 }
@@ -53,24 +53,39 @@ impl Cmd {
 
     pub fn generate_rust(&self) -> Result<(), Error> {
         let wasm_path_str = self.wasm.to_string_lossy();
-        let code = rust::generate_from_file(&wasm_path_str, None)?;
+        let code =
+            rust::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateRustFromFile)?;
         let code_raw = code.to_string();
-        let code_fmt = prettyplease::unparse(&syn::parse_file(&code_raw)?);
-        println!("{}", code_fmt);
-        Ok(())
+        match syn::parse_file(&code_raw) {
+            Ok(file) => {
+                let code_fmt = prettyplease::unparse(&file);
+                println!("{}", code_fmt);
+                Ok(())
+            }
+            Err(e) => {
+                println!("{}", code_raw);
+                Err(Error::FormatRust(e))
+            }
+        }
     }
 
     pub fn generate_json(&self) -> Result<(), Error> {
-        let contents = fs::read(&self.wasm)?;
+        let contents = fs::read(&self.wasm).map_err(Error::Io)?;
         let h = Host::default();
-        let vm = Vm::new(&h, [0; 32].into(), &contents)?;
+        let vm = Vm::new(&h, [0; 32].into(), &contents).map_err(Error::Host)?;
 
         if let Some(spec) = vm.custom_section("contractspecv0") {
             let mut cursor = Cursor::new(spec);
-            for spec_entry in ScSpecEntry::read_xdr_iter(&mut cursor) {
-                let spec_json = json::Entry::try_from(&spec_entry?)?;
-                println!("{}", serde_json::to_string(&spec_json)?);
-            }
+            let json_entries: Result<Vec<json::Entry>, Error> =
+                ScSpecEntry::read_xdr_iter(&mut cursor)
+                    .map(|spec_entry| {
+                        json::Entry::try_from(&spec_entry.map_err(Error::Xdr)?).map_err(Error::Xdr)
+                    })
+                    .collect();
+            println!(
+                "{}",
+                serde_json::to_string(&json_entries?).map_err(Error::Json)?
+            );
         } else {
             return Err(Error::ContractSpecNotFound);
         }
