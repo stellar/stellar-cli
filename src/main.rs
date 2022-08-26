@@ -8,6 +8,7 @@ mod gen;
 mod inspect;
 mod invoke;
 mod jsonrpc;
+mod network;
 mod serve;
 mod snapshot;
 mod strval;

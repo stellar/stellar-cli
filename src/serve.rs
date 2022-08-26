@@ -17,11 +17,10 @@ use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 use sha2::{Sha256, Digest};
 
+use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::jsonrpc;
 use crate::snapshot;
 use crate::strval::StrValError;
-
-const NETWORK_PASSPHRASE: &'static str = "TODO: What should this be for sandbox?";
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -125,7 +124,7 @@ async fn handler(
         }
         ("simulateTransaction", Some(Requests::StringArg(b))) => {
             if let Some(txn_xdr) = b.into_vec().first() {
-                parse_transaction(txn_xdr, &NETWORK_PASSPHRASE)
+                parse_transaction(txn_xdr, &SANDBOX_NETWORK_PASSPHRASE)
                     // Execute and do NOT commit
                     .and_then(|(_, args)| execute_transaction(&args, &ledger_file, false))
             } else {
@@ -136,7 +135,7 @@ async fn handler(
             if let Some(txn_xdr) = b.into_vec().first() {
                 // TODO: Format error object output if txn is invalid
                 let mut m = transaction_status_map.lock().await;
-                parse_transaction(txn_xdr, &NETWORK_PASSPHRASE).map(|(hash, args)| {
+                parse_transaction(txn_xdr, &SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
                     let id = hex::encode(hash);
                     // Execute and commit
                     let result = execute_transaction(&args, &ledger_file, true);
