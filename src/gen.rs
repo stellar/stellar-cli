@@ -1,10 +1,6 @@
-use std::{fmt::Debug, fs, io, io::Cursor};
+use std::fmt::Debug;
 
 use clap::{ArgEnum, Parser};
-use soroban_env_host::{
-    xdr::{ReadXdr, ScSpecEntry},
-    Host, HostError, Vm,
-};
 use soroban_spec::gen::{json, rust};
 
 #[derive(Parser, Debug)]
@@ -31,16 +27,8 @@ pub enum Error {
     GenerateRustFromFile(rust::GenerateFromFileError),
     #[error("format rust error: {0}")]
     FormatRust(syn::Error),
-    #[error("host")]
-    Host(HostError),
-    #[error("xdr error: {0}")]
-    Xdr(soroban_env_host::xdr::Error),
-    #[error("io")]
-    Io(io::Error),
-    #[error("serialize json error: {0}")]
-    Json(serde_json::Error),
-    #[error("contractnotfound")]
-    ContractSpecNotFound,
+    #[error("generate json from file: {0}")]
+    GenerateJsonFromFile(json::GenerateFromFileError),
 }
 
 impl Cmd {
@@ -70,25 +58,10 @@ impl Cmd {
     }
 
     pub fn generate_json(&self) -> Result<(), Error> {
-        let contents = fs::read(&self.wasm).map_err(Error::Io)?;
-        let h = Host::default();
-        let vm = Vm::new(&h, [0; 32].into(), &contents).map_err(Error::Host)?;
-
-        if let Some(spec) = vm.custom_section("contractspecv0") {
-            let mut cursor = Cursor::new(spec);
-            let json_entries: Result<Vec<json::Entry>, Error> =
-                ScSpecEntry::read_xdr_iter(&mut cursor)
-                    .map(|spec_entry| {
-                        json::Entry::try_from(&spec_entry.map_err(Error::Xdr)?).map_err(Error::Xdr)
-                    })
-                    .collect();
-            println!(
-                "{}",
-                serde_json::to_string(&json_entries?).map_err(Error::Json)?
-            );
-        } else {
-            return Err(Error::ContractSpecNotFound);
-        }
+        let wasm_path_str = self.wasm.to_string_lossy();
+        let json =
+            json::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateJsonFromFile)?;
+        println!("{}", json);
         Ok(())
     }
 }
