@@ -127,7 +127,7 @@ impl Cmd {
                     Err(_) => Err(StrValError::InvalidValue),
                     Ok(b) => ScVal::from_xdr(b).map_err(StrValError::Xdr),
                 },
-                Arg::Arg(s) => strval::from_string(&s, &input.type_),
+                Arg::Arg(s) => strval::from_string(s, &input.type_),
             })
             .collect::<Result<Vec<_>, _>>()?;
 
