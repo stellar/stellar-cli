@@ -32,12 +32,7 @@ pub struct Cmd {
     #[clap(long = "arg", value_name = "arg", multiple = true)]
     args: Vec<String>,
     /// Argument to pass to the function (base64-encoded xdr)
-    #[clap(
-        long = "arg-xdr",
-        value_name = "arg-xdr",
-        multiple = true,
-        conflicts_with = "args"
-    )]
+    #[clap(long = "arg-xdr", value_name = "arg-xdr", multiple = true)]
     args_xdr: Vec<String>,
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
@@ -65,10 +60,18 @@ pub enum Error {
     FromHex(#[from] FromHexError),
     #[error("contractnotfound")]
     FunctionNotFoundInContractSpec,
+    #[error("toomanyarguments")]
+    TooManyArguments,
+}
+
+#[derive(Clone, Debug)]
+enum Arg {
+    Arg(String),
+    ArgXDR(String),
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
         let contract_id: [u8; 32] = utils::contract_id_from_str(&self.contract_id)?;
 
         // Initialize storage and host
@@ -97,27 +100,42 @@ impl Cmd {
         };
 
         // re-assemble the args, to match the order given on the command line
-        let args: Vec<ScVal> = if self.args_xdr.is_empty() {
-            self.args
-                .iter()
-                .zip(inputs.iter())
-                .map(|(a, input)| strval::from_string(a, &input.type_))
-                .collect::<Result<Vec<_>, _>>()?
-        } else {
-            self.args_xdr
-                .iter()
-                .map(|a| match base64::decode(a) {
+        let indexed_args: Vec<(usize, Arg)> = matches
+            .indices_of("args")
+            .unwrap_or_default()
+            .zip(self.args.iter())
+            .map(|(a, b)| (a, Arg::Arg(b.to_string())))
+            .collect();
+        let indexed_args_xdr: Vec<(usize, Arg)> = matches
+            .indices_of("args-xdr")
+            .unwrap_or_default()
+            .zip(self.args_xdr.iter())
+            .map(|(a, b)| (a, Arg::ArgXDR(b.to_string())))
+            .collect();
+        let mut all_indexed_args: Vec<(usize, Arg)> = [indexed_args, indexed_args_xdr].concat();
+        all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
+
+        if all_indexed_args.len() > inputs.len() {
+            return Err(Error::TooManyArguments);
+        }
+
+        let parsed_args: Vec<ScVal> = all_indexed_args
+            .iter()
+            .zip(inputs.iter())
+            .map(|(arg, input)| match &arg.1 {
+                Arg::ArgXDR(s) => match base64::decode(s) {
                     Err(_) => Err(StrValError::InvalidValue),
                     Ok(b) => ScVal::from_xdr(b).map_err(StrValError::Xdr),
-                })
-                .collect::<Result<Vec<_>, _>>()?
-        };
+                },
+                Arg::Arg(s) => strval::from_string(&s, &input.type_),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let mut complete_args = vec![
             ScVal::Object(Some(ScObject::Bytes(contract_id.try_into()?))),
             ScVal::Symbol((&self.function).try_into()?),
         ];
-        complete_args.extend_from_slice(args.as_slice());
+        complete_args.extend_from_slice(parsed_args.as_slice());
 
         let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
         println!("{}", strval::to_string(&res)?);
