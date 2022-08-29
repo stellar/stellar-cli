@@ -1,5 +1,13 @@
 use std::collections::HashMap;
-use std::{convert::Infallible, fmt::Debug, io, net::SocketAddr, path::PathBuf, rc::Rc, sync::Arc};
+use std::{
+    convert::Infallible,
+    fmt::Debug,
+    io,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::Arc,
+};
 
 use clap::Parser;
 use hex::FromHexError;
@@ -224,7 +232,7 @@ fn reply(
 fn get_contract_data(
     contract_id_hex: &str,
     key_xdr: String,
-    data_directory: &PathBuf,
+    data_directory: &Path,
 ) -> Result<Value, Error> {
     // Initialize storage and host
     let ledger_file = data_directory.join("ledger.json");
@@ -327,7 +335,7 @@ fn parse_transaction(txn_xdr: &str, passphrase: &str) -> Result<([u8; 32], Vec<S
 
 fn execute_transaction(
     args: &Vec<ScVal>,
-    data_directory: &PathBuf,
+    data_directory: &Path,
     commit: bool,
 ) -> Result<Value, Error> {
     // Initialize storage and host
@@ -378,7 +386,7 @@ fn execute_transaction(
     }
 
     if commit {
-        events::commit(events, &data_directory, false);
+        events::commit(events, data_directory, false);
         snapshot::commit(ledger_entries, &storage.map, &ledger_file)?;
     }
 

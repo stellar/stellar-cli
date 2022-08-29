@@ -1,11 +1,13 @@
-use std::{fmt::Debug, fs::{create_dir_all, OpenOptions, File}, io::{self, BufRead, BufReader, BufWriter, Write}};
+use std::{
+    fmt::Debug,
+    fs::{create_dir_all, File, OpenOptions},
+    io::{self, BufRead, BufReader, BufWriter, Write},
+};
 
 use clap::Parser;
 use soroban_env_host::{
     events::{Events, HostEvent},
-    xdr::{
-        Error as XdrError, ContractEvent, Hash,
-    },
+    xdr::{ContractEvent, Error as XdrError, Hash},
     HostError,
 };
 
@@ -46,9 +48,7 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let contract_id: Option<[u8; 32]> = match &self.contract_id {
             None => None,
-            Some(id) => {
-                Some(utils::contract_id_from_str(&id)?)
-            },
+            Some(id) => Some(utils::contract_id_from_str(id)?),
         };
 
         let file = match File::open(&self.data_directory.join(FILE_NAME)) {
@@ -71,17 +71,13 @@ impl Cmd {
                 };
             };
             print(&event)?;
-        };
+        }
 
         Ok(())
     }
 }
 
-pub fn commit(
-    events: Events,
-    data_directory: &std::path::PathBuf,
-    log: bool
-) -> Result<(), Error> {
+pub fn commit(events: Events, data_directory: &std::path::Path, log: bool) -> Result<(), Error> {
     let output_file = data_directory.join(FILE_NAME);
     //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
     if let Some(dir) = output_file.parent() {
@@ -90,19 +86,22 @@ pub fn commit(
         }
     }
 
-    let file = OpenOptions::new().create(true).append(true).open(output_file)?;
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(output_file)?;
     let mut out = BufWriter::new(file);
     for e in events.0.iter() {
         if let HostEvent::Contract(event) = e {
             // DebugEvents ignored
             if log {
-                print(&event)?;
+                print(event)?;
             };
             let s = serde_json::to_string(&event)?;
             out.write_all(s.as_bytes())?;
             out.write_all(b"\n")?;
         };
-    };
+    }
     out.flush()?;
     Ok(())
 }
@@ -111,7 +110,11 @@ pub fn commit(
 pub fn print(event: &ContractEvent) -> Result<(), Error> {
     eprintln!(
         "[Event] {}: {}",
-        event.contract_id.as_ref().map(hex::encode).unwrap_or("-".to_string()),
+        event
+            .contract_id
+            .as_ref()
+            .map(hex::encode)
+            .unwrap_or_else(|| "-".to_string()),
         serde_json::to_string(&event.body)?,
     );
     Ok(())
