@@ -1,4 +1,4 @@
-use clap::{AppSettings, CommandFactory, Parser, Subcommand};
+use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 use thiserror::Error;
 
 mod completion;
@@ -67,10 +67,13 @@ enum CmdError {
     Deploy(#[from] deploy::Error),
 }
 
-async fn run(cmd: Cmd) -> Result<(), CmdError> {
+async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
-        Cmd::Invoke(invoke) => invoke.run()?,
+        Cmd::Invoke(invoke) => {
+            let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
+            invoke.run(&sub_arg_matches)?;
+        }
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Gen(gen) => gen.run()?,
@@ -83,8 +86,19 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
 
 #[tokio::main]
 async fn main() {
-    let root = Root::parse();
-    if let Err(e) = run(root.cmd).await {
+    // We expand the Root::parse() invocation, so that we can save
+    // Clap's ArgMatches (for later argument processing)
+    let mut matches = Root::command().get_matches();
+    let mut saved_matches = matches.clone();
+    let root = match Root::from_arg_matches_mut(&mut matches) {
+        Ok(s) => s,
+        Err(e) => {
+            let mut cmd = Root::command();
+            e.format(&mut cmd).exit()
+        }
+    };
+
+    if let Err(e) = run(root.cmd, &mut saved_matches).await {
         eprintln!("error: {:?}", e);
     }
 }
