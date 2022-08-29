@@ -62,6 +62,8 @@ pub enum Error {
     FunctionNotFoundInContractSpec,
     #[error("toomanyarguments")]
     TooManyArguments,
+    #[error("notenougharguments")]
+    NotEnoughArguments,
 }
 
 #[derive(Clone, Debug)]
@@ -118,15 +120,15 @@ impl Cmd {
         if all_indexed_args.len() > inputs.len() {
             return Err(Error::TooManyArguments);
         }
+        if all_indexed_args.len() < inputs.len() {
+            return Err(Error::NotEnoughArguments);
+        }
 
         let parsed_args: Vec<ScVal> = all_indexed_args
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
-                Arg::ArgXDR(s) => match base64::decode(s) {
-                    Err(_) => Err(StrValError::InvalidValue),
-                    Ok(b) => ScVal::from_xdr(b).map_err(StrValError::Xdr),
-                },
+                Arg::ArgXDR(s) => ScVal::from_xdr_base64(s.to_string()).map_err(StrValError::Xdr),
                 Arg::Arg(s) => strval::from_string(s, &input.type_),
             })
             .collect::<Result<Vec<_>, _>>()?;
