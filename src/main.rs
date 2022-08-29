@@ -1,5 +1,4 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
-use thiserror::Error;
 
 mod completion;
 mod contractspec;
@@ -51,19 +50,20 @@ enum Cmd {
     Completion(completion::Cmd),
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 enum CmdError {
-    #[error("inspect")]
+    // TODO: stop using Debug for displaying errors
+    #[error("{0:?}")]
     Inspect(#[from] inspect::Error),
-    #[error("invoke")]
+    #[error(transparent)]
     Invoke(#[from] invoke::Error),
-    #[error("read")]
+    #[error("{0:?}")]
     Read(#[from] read::Error),
-    #[error("serve")]
+    #[error("{0:?}")]
     Serve(#[from] serve::Error),
-    #[error("gen")]
+    #[error("{0:?}")]
     Gen(#[from] gen::Error),
-    #[error("deploy")]
+    #[error("{0:?}")]
     Deploy(#[from] deploy::Error),
 }
 
@@ -99,6 +99,6 @@ async fn main() {
     };
 
     if let Err(e) = run(root.cmd, &mut saved_matches).await {
-        eprintln!("error: {:?}", e);
+        eprintln!("error: {}", e);
     }
 }
