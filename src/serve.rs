@@ -18,6 +18,7 @@ use soroban_env_host::{
 use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
+use crate::events;
 use crate::jsonrpc;
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::snapshot;
@@ -29,9 +30,9 @@ pub struct Cmd {
     /// Port to listen for requests on.
     #[clap(long, default_value("8080"))]
     port: u16,
-    /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
-    ledger_file: PathBuf,
+    /// Directory to persist ledger state
+    #[clap(long, parse(from_os_str), default_value(".soroban"))]
+    data_directory: std::path::PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -64,8 +65,8 @@ enum Requests {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let ledger_file = Arc::new(self.ledger_file.clone());
-        let with_ledger_file = warp::any().map(move || ledger_file.clone());
+        let data_directory = Arc::new(self.data_directory.clone());
+        let with_data_directory = warp::any().map(move || data_directory.clone());
 
         // Just track in-flight transactions in-memory for sandbox for now. Simple.
         let transaction_status_map: Arc<Mutex<HashMap<String, Value>>> =
@@ -75,7 +76,7 @@ impl Cmd {
         let routes = warp::post()
             .and(warp::path!("api" / "v1" / "jsonrpc"))
             .and(warp::body::json())
-            .and(with_ledger_file)
+            .and(with_data_directory)
             .and(with_transaction_status_map)
             .and_then(handler);
 
@@ -88,7 +89,7 @@ impl Cmd {
 
 async fn handler(
     request: jsonrpc::Request<Requests>,
-    ledger_file: Arc<PathBuf>,
+    data_directory: Arc<PathBuf>,
     transaction_status_map: Arc<Mutex<HashMap<String, Value>>>,
 ) -> Result<impl warp::Reply, Infallible> {
     let resp = Response::builder()
@@ -109,7 +110,7 @@ async fn handler(
     }
     let result = match (request.method.as_str(), request.params) {
         ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
-            get_contract_data(&contract_id, key, &ledger_file)
+            get_contract_data(&contract_id, key, &data_directory)
         }
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             if let Some(hash) = b.into_vec().first() {
@@ -132,7 +133,7 @@ async fn handler(
             if let Some(txn_xdr) = b.into_vec().first() {
                 parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE)
                     // Execute and do NOT commit
-                    .and_then(|(_, args)| execute_transaction(&args, &ledger_file, false))
+                    .and_then(|(_, args)| execute_transaction(&args, &data_directory, false))
             } else {
                 Err(Error::Xdr(XdrError::Invalid))
             }
@@ -144,7 +145,7 @@ async fn handler(
                 parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
                     let id = hex::encode(hash);
                     // Execute and commit
-                    let result = execute_transaction(&args, &ledger_file, true);
+                    let result = execute_transaction(&args, &data_directory, true);
                     // Add it to our status tracker
                     m.insert(
                         id.clone(),
@@ -223,10 +224,11 @@ fn reply(
 fn get_contract_data(
     contract_id_hex: &str,
     key_xdr: String,
-    ledger_file: &PathBuf,
+    data_directory: &PathBuf,
 ) -> Result<Value, Error> {
     // Initialize storage and host
-    let ledger_entries = snapshot::read(ledger_file)?;
+    let ledger_file = data_directory.join("ledger.json");
+    let ledger_entries = snapshot::read(&ledger_file)?;
     let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex.to_string())?;
     let key = ScVal::from_xdr_base64(key_xdr)?;
 
@@ -325,11 +327,12 @@ fn parse_transaction(txn_xdr: &str, passphrase: &str) -> Result<([u8; 32], Vec<S
 
 fn execute_transaction(
     args: &Vec<ScVal>,
-    ledger_file: &PathBuf,
+    data_directory: &PathBuf,
     commit: bool,
 ) -> Result<Value, Error> {
     // Initialize storage and host
-    let ledger_entries = snapshot::read(ledger_file)?;
+    let ledger_file = data_directory.join("ledger.json");
+    let ledger_entries = snapshot::read(&ledger_file)?;
 
     let snap = Rc::new(snapshot::Snap {
         ledger_entries: ledger_entries.clone(),
@@ -341,7 +344,7 @@ fn execute_transaction(
 
     let res = h.invoke_function(HostFunction::Call, args.try_into()?)?;
 
-    let (storage, budget, _) = h.try_finish().map_err(|_h| {
+    let (storage, budget, events) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(
             ScHostStorageErrorCode::UnknownError,
         ))
@@ -375,7 +378,8 @@ fn execute_transaction(
     }
 
     if commit {
-        snapshot::commit(ledger_entries, &storage.map, ledger_file)?;
+        events::commit(events, &data_directory, false);
+        snapshot::commit(ledger_entries, &storage.map, &ledger_file)?;
     }
 
     Ok(json!({

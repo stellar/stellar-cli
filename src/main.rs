@@ -4,6 +4,7 @@ use thiserror::Error;
 mod completion;
 mod contractspec;
 mod deploy;
+mod events;
 mod gen;
 mod inspect;
 mod invoke;
@@ -31,6 +32,8 @@ struct Root {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
+    /// Events shows the events contracts have emitted
+    Events(events::Cmd),
     /// Invoke a contract function in a WASM file
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
@@ -53,6 +56,8 @@ enum Cmd {
 
 #[derive(Error, Debug)]
 enum CmdError {
+    #[error("events")]
+    Events(#[from] events::Error),
     #[error("inspect")]
     Inspect(#[from] inspect::Error),
     #[error("invoke")]
@@ -69,6 +74,7 @@ enum CmdError {
 
 async fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
+        Cmd::Events(events) => events.run()?,
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => invoke.run()?,
         Cmd::Read(read) => read.run()?,

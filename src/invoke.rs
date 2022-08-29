@@ -13,6 +13,7 @@ use soroban_env_host::{
 use hex::FromHexError;
 
 use crate::contractspec;
+use crate::events;
 use crate::snapshot;
 use crate::strval::{self, StrValError};
 use crate::utils;
@@ -42,9 +43,9 @@ pub struct Cmd {
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
-    /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
-    ledger_file: std::path::PathBuf,
+    /// Directory to persist ledger state
+    #[clap(long, parse(from_os_str), default_value(".soroban"))]
+    data_directory: std::path::PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -73,7 +74,8 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut ledger_entries = snapshot::read(&self.ledger_file)?;
+        let ledger_file = self.data_directory.join("ledger.json");
+        let mut ledger_entries = snapshot::read(&ledger_file)?;
 
         //If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
@@ -120,9 +122,8 @@ impl Cmd {
         complete_args.extend_from_slice(args.as_slice());
 
         let res = h.invoke_function(HostFunction::Call, complete_args.try_into()?)?;
-        println!("{}", strval::to_string(&res)?);
 
-        let (storage, budget, _) = h.try_finish().map_err(|_h| {
+        let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
@@ -136,7 +137,11 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(ledger_entries, &storage.map, &self.ledger_file)?;
+        events::commit(events, &self.data_directory, true);
+        snapshot::commit(ledger_entries, &storage.map, &ledger_file)?;
+
+        println!("{}", strval::to_string(&res)?);
+
         Ok(())
     }
 }

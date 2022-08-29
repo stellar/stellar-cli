@@ -31,8 +31,8 @@ wasmparser = "0.90.0"
 sha2 = "0.10.2"
 
 [patch.crates-io]
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "335910a0" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "335910a0" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "335910a0" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "335910a0" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "fb125ea" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "fb125ea" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "fb125ea" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "fb125ea" }
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "5b129da0" }
