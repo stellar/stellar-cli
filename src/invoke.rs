@@ -234,7 +234,7 @@ impl Cmd {
         for (i, event) in events.0.iter().enumerate() {
             eprintln!("Event #{}:", i);
             match event {
-                HostEvent::Contract(e) => eprint!("{}", serde_json::to_string_pretty(&e).unwrap()),
+                HostEvent::Contract(e) => eprint!("{}", serde_json::to_string(&e).unwrap()),
                 HostEvent::Debug(e) => eprint!("{}", e),
             }
         }
