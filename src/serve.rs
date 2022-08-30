@@ -72,12 +72,31 @@ impl Cmd {
             Arc::new(Mutex::new(HashMap::new()));
         let with_transaction_status_map = warp::any().map(move || transaction_status_map.clone());
 
-        let routes = warp::post()
+        let jsonrpc_route = warp::post()
             .and(warp::path!("api" / "v1" / "jsonrpc"))
             .and(warp::body::json())
             .and(with_ledger_file)
             .and(with_transaction_status_map)
             .and_then(handler);
+
+        // Allow access from all remote sites when we are in local sandbox mode. (Always for now)
+        let cors = warp::cors()
+            .allow_any_origin()
+            .allow_credentials(true)
+            .allow_headers(vec![
+                "Accept",
+                "Access-Control-Request-Headers",
+                "Access-Control-Request-Method",
+                "Content-Length",
+                "Content-Type",
+                "Encoding",
+                "Origin",
+                "Referer",
+                "Sec-Fetch-Mode",
+                "User-Agent",
+            ])
+            .allow_methods(vec!["GET", "POST"]);
+        let routes = jsonrpc_route.with(cors);
 
         let addr: SocketAddr = ([127, 0, 0, 1], self.port).into();
         println!("Listening on: {}", addr);
