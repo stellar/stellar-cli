@@ -9,13 +9,13 @@ use soroban_env_host::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("io")]
+    #[error(transparent)]
     Io(#[from] io::Error),
-    #[error("xdr")]
+    #[error(transparent)]
     Xdr(#[from] XdrError),
-    #[error("host")]
+    #[error(transparent)]
     Host(#[from] HostError),
-    #[error("serde")]
+    #[error(transparent)]
     Serde(#[from] serde_json::Error),
 }
 
@@ -43,7 +43,7 @@ pub fn read(input_file: &std::path::PathBuf) -> Result<OrdMap<LedgerKey, LedgerE
         Ok(f) => f,
         Err(e) => {
             //File doesn't exist, so treat this as an empty database and the file will be created later
-            if e.kind() == std::io::ErrorKind::NotFound {
+            if e.kind() == io::ErrorKind::NotFound {
                 return Ok(res);
             }
             return Err(Error::Io(e));
