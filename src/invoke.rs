@@ -216,7 +216,7 @@ impl Cmd {
         })?;
         println!("{}", res_str);
 
-        let (storage, budget, _) = h.try_finish().map_err(|_h| {
+        let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
@@ -228,6 +228,9 @@ impl Cmd {
             for cost_type in CostType::variants() {
                 eprintln!("Cost ({:?}): {}", cost_type, budget.get_input(*cost_type));
             }
+        }
+        if !events.0.is_empty() {
+            eprintln!("Events: {:?}", events);
         }
 
         snapshot::commit(ledger_entries, &storage.map, &self.ledger_file).map_err(|e| {
