@@ -151,6 +151,7 @@ async fn handler(
                         match result {
                             Ok(result) => {
                                 json!({
+                                    "id": id,
                                     "status": "success",
                                     "results": vec![result],
                                 })
@@ -159,6 +160,7 @@ async fn handler(
                                 // TODO: Actually render the real error to the user
                                 // Add it to our status tracker
                                 json!({
+                                    "id": id,
                                     "status": "error",
                                     "error": {
                                         "code":-32603,
@@ -169,7 +171,7 @@ async fn handler(
                         },
                     );
                     // Return the hash
-                    json!({ "id": id })
+                    json!({ "id": id, "status": "pending" })
                 })
             } else {
                 Err(Error::Xdr(XdrError::Invalid))
@@ -350,11 +352,11 @@ fn execute_transaction(
     // Calculate the budget usage
     let mut cost = serde_json::Map::new();
     cost.insert(
-        "cpu_insns".to_string(),
+        "cpuInsns".to_string(),
         Value::String(budget.get_cpu_insns_count().to_string()),
     );
     cost.insert(
-        "mem_bytes".to_string(),
+        "memBytes".to_string(),
         Value::String(budget.get_mem_bytes_count().to_string()),
     );
     // TODO: Include these extra costs. Figure out the rust type conversions.
@@ -384,7 +386,9 @@ fn execute_transaction(
             "readOnly": read_only,
             "readWrite": read_write,
         },
-        "xdr": res.to_xdr_base64()?,
+        "results": vec![
+            json!({ "xdr": res.to_xdr_base64()? })
+        ],
         // TODO: Find "real" ledger seq number here
         "latestLedger": 1,
     }))
