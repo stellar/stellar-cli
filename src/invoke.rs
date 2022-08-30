@@ -3,6 +3,7 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::Parser;
 use soroban_env_host::{
     budget::{Budget, CostType},
+    events::HostEvent,
     storage::Storage,
     xdr::{
         Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject,
@@ -229,8 +230,13 @@ impl Cmd {
                 eprintln!("Cost ({:?}): {}", cost_type, budget.get_input(*cost_type));
             }
         }
-        if !events.0.is_empty() {
-            eprintln!("Events: {:?}", events);
+
+        for (i, event) in events.0.iter().enumerate() {
+            eprintln!("Event #{}:", i);
+            match event {
+                HostEvent::Contract(e) => eprint!("{}", serde_json::to_string_pretty(&e).unwrap()),
+                HostEvent::Debug(e) => eprint!("{}", e),
+            }
         }
 
         snapshot::commit(ledger_entries, &storage.map, &self.ledger_file).map_err(|e| {
