@@ -5,7 +5,8 @@ use soroban_env_host::{
     budget::{Budget, CostType},
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus, ScVal,
+        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject,
+        ScSpecFunctionInputV0, ScStatus, ScVal, VecM,
     },
     Host, HostError, Vm,
 };
@@ -45,9 +46,9 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
-    ArgParseError { arg: String, error: StrValError },
+    CannotParseArg { arg: String, error: StrValError },
     #[error("parsing XDR argument {arg}: {error}")]
-    ArgXDRParseError { arg: String, error: XdrError },
+    CannotParseXDRArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(XdrError),
     #[error(transparent)]
@@ -55,17 +56,17 @@ pub enum Error {
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
     #[error("reading file {filepath}: {error}")]
-    ErrorReadingLedgerFile {
+    CannotReadLedgerFile {
         filepath: std::path::PathBuf,
         error: snapshot::Error,
     },
     #[error("reading file {filepath}: {error}")]
-    ErrorReadingContractFile {
+    CannotReadContractFile {
         filepath: std::path::PathBuf,
         error: io::Error,
     },
     #[error("committing file {filepath}: {error}")]
-    ErrorCommittingLedgerFile {
+    CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
         error: snapshot::Error,
     },
@@ -97,48 +98,11 @@ enum Arg {
 }
 
 impl Cmd {
-    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
-        let contract_id: [u8; 32] =
-            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractID {
-                    contract_id: self.contract_id.clone(),
-                    error: e,
-                }
-            })?;
-
-        // Initialize storage and host
-        // TODO: allow option to separate input and output file
-        let mut ledger_entries =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::ErrorReadingLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
-
-        //If a file is specified, deploy the contract to storage
-        if let Some(f) = &self.wasm {
-            let contract = fs::read(f).map_err(|e| Error::ErrorReadingContractFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
-            utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)
-                .map_err(Error::CannotAddContractToLedgerEntries)?;
-        }
-
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: ledger_entries.clone(),
-        });
-        let mut storage = Storage::with_recording_footprint(snap);
-        let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
-        let h = Host::with_storage_and_budget(storage, Budget::default());
-
-        let vm = Vm::new(&h, contract_id.into(), &contents)?;
-        let inputs = match contractspec::function_spec(&vm, &self.function) {
-            Some(s) => s.inputs,
-            None => {
-                return Err(Error::FunctionNotFoundInContractSpec(self.function.clone()));
-            }
-        };
-
+    fn parse_args(
+        &self,
+        matches: &clap::ArgMatches,
+        inputs: &VecM<ScSpecFunctionInputV0, 10>,
+    ) -> Result<Vec<ScVal>, Error> {
         // re-assemble the args, to match the order given on the command line
         let indexed_args: Vec<(usize, Arg)> = matches
             .indices_of("args")
@@ -163,24 +127,69 @@ impl Cmd {
             });
         }
 
-        let parsed_args: Vec<ScVal> = all_indexed_args
+        all_indexed_args
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
                 Arg::ArgXDR(s) => {
-                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| Error::ArgXDRParseError {
+                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| Error::CannotParseXDRArg {
                         arg: s.clone(),
                         error: e,
                     })
                 }
                 Arg::Arg(s) => {
-                    strval::from_string(s, &input.type_).map_err(|e| Error::ArgParseError {
+                    strval::from_string(s, &input.type_).map_err(|e| Error::CannotParseArg {
                         arg: s.clone(),
                         error: e,
                     })
                 }
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+        let contract_id: [u8; 32] =
+            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
+                Error::CannotParseContractID {
+                    contract_id: self.contract_id.clone(),
+                    error: e,
+                }
+            })?;
+
+        // Initialize storage and host
+        // TODO: allow option to separate input and output file
+        let mut ledger_entries =
+            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            })?;
+
+        //If a file is specified, deploy the contract to storage
+        if let Some(f) = &self.wasm {
+            let contract = fs::read(f).map_err(|e| Error::CannotReadContractFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            })?;
+            utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)
+                .map_err(Error::CannotAddContractToLedgerEntries)?;
+        }
+
+        let snap = Rc::new(snapshot::Snap {
+            ledger_entries: ledger_entries.clone(),
+        });
+        let mut storage = Storage::with_recording_footprint(snap);
+        let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
+        let h = Host::with_storage_and_budget(storage, Budget::default());
+
+        let vm = Vm::new(&h, contract_id.into(), &contents)?;
+        let inputs = match contractspec::function_spec(&vm, &self.function) {
+            Some(s) => s.inputs,
+            None => {
+                return Err(Error::FunctionNotFoundInContractSpec(self.function.clone()));
+            }
+        };
+
+        let parsed_args = self.parse_args(matches, &inputs)?;
 
         let mut complete_args = vec![
             ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
@@ -222,7 +231,7 @@ impl Cmd {
         }
 
         snapshot::commit(ledger_entries, &storage.map, &self.ledger_file).map_err(|e| {
-            Error::ErrorCommittingLedgerFile {
+            Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             }
