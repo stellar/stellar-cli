@@ -167,7 +167,7 @@ impl Cmd {
         //If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
             let contract = fs::read(f).map_err(|e| Error::CannotReadContractFile {
-                filepath: self.ledger_file.clone(),
+                filepath: f.clone(),
                 error: e,
             })?;
             utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)
