@@ -3,6 +3,7 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::Parser;
 use soroban_env_host::{
     budget::{Budget, CostType},
+    events::HostEvent,
     storage::Storage,
     xdr::{
         Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject,
@@ -216,7 +217,7 @@ impl Cmd {
         })?;
         println!("{}", res_str);
 
-        let (storage, budget, _) = h.try_finish().map_err(|_h| {
+        let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
@@ -227,6 +228,14 @@ impl Cmd {
             eprintln!("Mem Bytes: {}", budget.get_mem_bytes_count());
             for cost_type in CostType::variants() {
                 eprintln!("Cost ({:?}): {}", cost_type, budget.get_input(*cost_type));
+            }
+        }
+
+        for (i, event) in events.0.iter().enumerate() {
+            eprintln!("Event #{}:", i);
+            match event {
+                HostEvent::Contract(e) => eprint!("{}", serde_json::to_string(&e).unwrap()),
+                HostEvent::Debug(e) => eprint!("{}", e),
             }
         }
 
