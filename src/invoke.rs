@@ -85,7 +85,7 @@ pub enum Error {
     },
     #[error("function name {0} is too long")]
     FunctionNameTooLong(String),
-    #[error("argument count ({current}) surpasses maximum count ({maximum})")]
+    #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult { result: ScVal, error: StrValError },
