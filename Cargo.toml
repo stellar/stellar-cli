@@ -12,7 +12,7 @@ rust-version = "1.63"
 
 [dependencies]
 soroban-env-host = { version = "0.0.3", features = ["vm", "serde"] }
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "487c2b02" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5dc90214" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "99dfcf8" }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
@@ -31,8 +31,8 @@ wasmparser = "0.90.0"
 sha2 = "0.10.2"
 
 [patch.crates-io]
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "16fcb333" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "16fcb333" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "16fcb333" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "16fcb333" }
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "d0fb666" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "8c8d334" }
