@@ -45,7 +45,7 @@ pub struct Cmd {
 #[derive(Clone, Debug)]
 enum Arg {
     Arg(String),
-    ArgXDR(String),
+    ArgXdr(String),
 }
 
 impl Cmd {
@@ -65,7 +65,7 @@ impl Cmd {
             .indices_of("args-xdr")
             .unwrap_or_default()
             .zip(self.args_xdr.iter())
-            .map(|(a, b)| (a, Arg::ArgXDR(b.to_string())))
+            .map(|(a, b)| (a, Arg::ArgXdr(b.to_string())))
             .collect();
         let mut all_indexed_args: Vec<(usize, Arg)> = [indexed_args, indexed_args_xdr].concat();
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
@@ -82,8 +82,8 @@ impl Cmd {
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
-                Arg::ArgXDR(s) => {
-                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| CmdError::CannotParseXDRArg {
+                Arg::ArgXdr(s) => {
+                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| CmdError::CannotParseXdrArg {
                         arg: s.clone(),
                         error: e,
                     })

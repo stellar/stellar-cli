@@ -60,7 +60,7 @@ impl Cmd {
                 }
             })?
         } else if let Some(key) = &self.key_xdr {
-            ScVal::from_xdr_base64(key.to_string()).map_err(|e| CmdError::CannotParseXDRKey {
+            ScVal::from_xdr_base64(key.to_string()).map_err(|e| CmdError::CannotParseXdrKey {
                 key: key.clone(),
                 error: e,
             })?
@@ -99,7 +99,7 @@ impl Cmd {
             }
             Output::Json => {
                 let res_str = serde_json::to_string_pretty(&value).map_err(|e| {
-                    CmdError::CannotPrintJSONResult {
+                    CmdError::CannotPrintJsonResult {
                         result: value,
                         error: e,
                     }

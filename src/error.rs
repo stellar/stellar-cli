@@ -16,9 +16,9 @@ pub enum CmdError {
     #[error("parsing key {key}: {error}")]
     CannotParseKey { key: String, error: StrValError },
     #[error("parsing XDR key {key}: {error}")]
-    CannotParseXDRKey { key: String, error: XdrError },
+    CannotParseXdrKey { key: String, error: XdrError },
     #[error("parsing XDR key {arg}: {error}")]
-    CannotParseXDRArg { arg: String, error: XdrError },
+    CannotParseXdrArg { arg: String, error: XdrError },
     #[error("missing key argument")]
     MissingKey,
     #[error("cannot add contract to ledger entries: {0}")]
@@ -67,7 +67,7 @@ pub enum CmdError {
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult { result: ScVal, error: StrValError },
     #[error("cannot print result {result:?}: {error}")]
-    CannotPrintJSONResult {
+    CannotPrintJsonResult {
         result: ScVal,
         error: serde_json::Error,
     },
@@ -78,5 +78,5 @@ pub enum CmdError {
     #[error("format rust error: {0}")]
     CannotFormatRust(syn::Error),
     #[error("generate json from file: {0}")]
-    CannotGenerateJSONFromFile(json::GenerateFromFileError),
+    CannotGenerateJsonFromFile(json::GenerateFromFileError),
 }

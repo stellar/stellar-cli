@@ -52,7 +52,7 @@ impl Cmd {
     pub fn generate_json(&self) -> Result<(), CmdError> {
         let wasm_path_str = self.wasm.to_string_lossy();
         let json = json::generate_from_file(&wasm_path_str, None)
-            .map_err(CmdError::CannotGenerateJSONFromFile)?;
+            .map_err(CmdError::CannotGenerateJsonFromFile)?;
         println!("{}", json);
         Ok(())
     }
