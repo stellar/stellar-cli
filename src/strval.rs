@@ -64,19 +64,8 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_) => {
             match serde_json::from_str(s) {
                 // First, see if it is a json array
-                Ok(Value::Array(raw)) => from_json(&Value::Array(raw), t)?,
-                _ =>
-                // it could be a G- strkey
-                {
-                    if let Ok(key) = StrkeyPublicKeyEd25519::from_string(s) {
-                        let b = &key.0;
-                        ScVal::Object(Some(ScObject::Bytes(
-                            b.try_into().map_err(|_| StrValError::InvalidValue)?,
-                        )))
-                    } else {
-                        from_json(&Value::String(s.to_string()), t)?
-                    }
-                }
+                Ok(v @ (Value::Array(_) | Value::String(_))) => from_json(&v, t)?,
+                _ => from_json(&Value::String(s.to_string()), t)?,
             }
         }
 
@@ -175,12 +164,16 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         ),
 
         // Bytes parsing
-        (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
-            utils::padded_hex_from_str(s, bytes.n as usize)
-                .map_err(|_| StrValError::InvalidValue)?
-                .try_into()
-                .map_err(|_| StrValError::InvalidValue)?,
-        ))),
+        (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
+            if let Ok(key) = StrkeyPublicKeyEd25519::from_string(s) {
+                key.0.try_into().map_err(|_| StrValError::InvalidValue)?
+            } else {
+                utils::padded_hex_from_str(s, bytes.n as usize)
+                    .map_err(|_| StrValError::InvalidValue)?
+                    .try_into()
+                    .map_err(|_| StrValError::InvalidValue)?
+            }
+        }))),
         (ScSpecTypeDef::Bytes, Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
             hex::decode(s)
                 .map_err(|_| StrValError::InvalidValue)?
