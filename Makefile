@@ -23,12 +23,8 @@ fmt:
 clean:
 	cargo clean
 
-# Build all projects as if they are being published to crates.io, and do so for
-# all feature and target combinations.
-publish-dry-run:
-	cargo +stable hack --feature-powerset publish --locked --dry-run --package soroban-cli
+bump-version:
+	cargo workspaces version --all --force '*' --no-git-commit --yes custom $(VERSION)
 
-# Publish publishes the crate to crates.io. The dry-run is a dependency because
-# the dry-run target will verify all feature set combinations.
-publish: publish-dry-run
-	cargo +stable publish --locked --package soroban-cli
+publish:
+	cargo workspaces publish --all --force '*' --from-git --yes
