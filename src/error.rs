@@ -10,7 +10,7 @@ use hex::FromHexError;
 use std::io;
 
 #[derive(thiserror::Error, Debug)]
-pub enum CmdError {
+pub enum Cmd {
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg { arg: String, error: StrValError },
     #[error("parsing key {key}: {error}")]
@@ -48,7 +48,7 @@ pub enum CmdError {
         error: snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
-    CannotParseContractID {
+    CannotParseContractId {
         contract_id: String,
         error: FromHexError,
     },

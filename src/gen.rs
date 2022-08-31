@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use clap::{ArgEnum, Parser};
 use soroban_spec::gen::{json, rust};
 
-use crate::error::CmdError;
+use crate::error;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -24,17 +24,17 @@ pub enum Output {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), CmdError> {
+    pub fn run(&self) -> Result<(), error::Cmd> {
         match self.output {
             Output::Rust => self.generate_rust(),
             Output::Json => self.generate_json(),
         }
     }
 
-    pub fn generate_rust(&self) -> Result<(), CmdError> {
+    pub fn generate_rust(&self) -> Result<(), error::Cmd> {
         let wasm_path_str = self.wasm.to_string_lossy();
         let code = rust::generate_from_file(&wasm_path_str, None)
-            .map_err(CmdError::CannotGenerateRustFromFile)?;
+            .map_err(error::Cmd::CannotGenerateRustFromFile)?;
         let code_raw = code.to_string();
         match syn::parse_file(&code_raw) {
             Ok(file) => {
@@ -44,15 +44,15 @@ impl Cmd {
             }
             Err(e) => {
                 println!("{}", code_raw);
-                Err(CmdError::CannotFormatRust(e))
+                Err(error::Cmd::CannotFormatRust(e))
             }
         }
     }
 
-    pub fn generate_json(&self) -> Result<(), CmdError> {
+    pub fn generate_json(&self) -> Result<(), error::Cmd> {
         let wasm_path_str = self.wasm.to_string_lossy();
         let json = json::generate_from_file(&wasm_path_str, None)
-            .map_err(CmdError::CannotGenerateJsonFromFile)?;
+            .map_err(error::Cmd::CannotGenerateJsonFromFile)?;
         println!("{}", json);
         Ok(())
     }

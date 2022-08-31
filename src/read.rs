@@ -9,7 +9,7 @@ use soroban_env_host::{
     },
 };
 
-use crate::error::CmdError;
+use crate::error;
 use crate::snapshot;
 use crate::strval::{self};
 use crate::utils;
@@ -44,33 +44,33 @@ pub enum Output {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), CmdError> {
+    pub fn run(&self) -> Result<(), error::Cmd> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                CmdError::CannotParseContractID {
+                error::Cmd::CannotParseContractId {
                     contract_id: self.contract_id.clone(),
                     error: e,
                 }
             })?;
         let key = if let Some(key) = &self.key {
             strval::from_string(key, &ScSpecTypeDef::Symbol).map_err(|e| {
-                CmdError::CannotParseKey {
+                error::Cmd::CannotParseKey {
                     key: key.clone(),
                     error: e,
                 }
             })?
         } else if let Some(key) = &self.key_xdr {
-            ScVal::from_xdr_base64(key.to_string()).map_err(|e| CmdError::CannotParseXdrKey {
+            ScVal::from_xdr_base64(key.to_string()).map_err(|e| error::Cmd::CannotParseXdrKey {
                 key: key.clone(),
                 error: e,
             })?
         } else {
-            return Err(CmdError::MissingKey);
+            return Err(error::Cmd::MissingKey);
         };
 
         // Initialize storage
         let ledger_entries =
-            snapshot::read(&self.ledger_file).map_err(|e| CmdError::CannotReadLedgerFile {
+            snapshot::read(&self.ledger_file).map_err(|e| error::Cmd::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
@@ -91,7 +91,7 @@ impl Cmd {
         match self.output {
             Output::String => {
                 let res_str =
-                    strval::to_string(&value).map_err(|e| CmdError::CannotPrintResult {
+                    strval::to_string(&value).map_err(|e| error::Cmd::CannotPrintResult {
                         result: value,
                         error: e,
                     })?;
@@ -99,7 +99,7 @@ impl Cmd {
             }
             Output::Json => {
                 let res_str = serde_json::to_string_pretty(&value).map_err(|e| {
-                    CmdError::CannotPrintJsonResult {
+                    error::Cmd::CannotPrintJsonResult {
                         result: value,
                         error: e,
                     }

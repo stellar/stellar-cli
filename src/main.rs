@@ -51,7 +51,7 @@ enum Cmd {
     Completion(completion::Cmd),
 }
 
-async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), error::CmdError> {
+async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), error::Cmd> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => {

@@ -12,10 +12,11 @@ use soroban_env_host::{
     Host, HostError, Vm,
 };
 
+use crate::contractspec;
+use crate::error;
 use crate::snapshot;
 use crate::strval;
 use crate::utils;
-use crate::{contractspec, error::CmdError};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -53,7 +54,7 @@ impl Cmd {
         &self,
         matches: &clap::ArgMatches,
         inputs: &VecM<ScSpecFunctionInputV0, 10>,
-    ) -> Result<Vec<ScVal>, CmdError> {
+    ) -> Result<Vec<ScVal>, error::Cmd> {
         // re-assemble the args, to match the order given on the command line
         let indexed_args: Vec<(usize, Arg)> = matches
             .indices_of("args")
@@ -71,7 +72,7 @@ impl Cmd {
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
 
         if all_indexed_args.len() != inputs.len() {
-            return Err(CmdError::UnexpectedArgumentCount {
+            return Err(error::Cmd::UnexpectedArgumentCount {
                 provided: all_indexed_args.len(),
                 expected: inputs.len(),
                 function: self.function.clone(),
@@ -82,14 +83,14 @@ impl Cmd {
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
-                Arg::ArgXdr(s) => {
-                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| CmdError::CannotParseXdrArg {
+                Arg::ArgXdr(s) => ScVal::from_xdr_base64(s.to_string()).map_err(|e| {
+                    error::Cmd::CannotParseXdrArg {
                         arg: s.clone(),
                         error: e,
-                    })
-                }
+                    }
+                }),
                 Arg::Arg(s) => {
-                    strval::from_string(s, &input.type_).map_err(|e| CmdError::CannotParseArg {
+                    strval::from_string(s, &input.type_).map_err(|e| error::Cmd::CannotParseArg {
                         arg: s.clone(),
                         error: e,
                     })
@@ -98,10 +99,10 @@ impl Cmd {
             .collect::<Result<Vec<_>, _>>()
     }
 
-    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), CmdError> {
+    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), error::Cmd> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                CmdError::CannotParseContractID {
+                error::Cmd::CannotParseContractId {
                     contract_id: self.contract_id.clone(),
                     error: e,
                 }
@@ -110,19 +111,19 @@ impl Cmd {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut ledger_entries =
-            snapshot::read(&self.ledger_file).map_err(|e| CmdError::CannotReadLedgerFile {
+            snapshot::read(&self.ledger_file).map_err(|e| error::Cmd::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
 
         //If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
-            let contract = fs::read(f).map_err(|e| CmdError::CannotReadContractFile {
+            let contract = fs::read(f).map_err(|e| error::Cmd::CannotReadContractFile {
                 filepath: f.clone(),
                 error: e,
             })?;
             utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)
-                .map_err(CmdError::CannotAddContractToLedgerEntries)?;
+                .map_err(error::Cmd::CannotAddContractToLedgerEntries)?;
         }
 
         let snap = Rc::new(snapshot::Snap {
@@ -136,7 +137,7 @@ impl Cmd {
         let inputs = match contractspec::function_spec(&vm, &self.function) {
             Some(s) => s.inputs,
             None => {
-                return Err(CmdError::FunctionNotFoundInContractSpec(
+                return Err(error::Cmd::FunctionNotFoundInContractSpec(
                     self.function.clone(),
                 ));
             }
@@ -149,7 +150,7 @@ impl Cmd {
             ScVal::Symbol(
                 (&self.function)
                     .try_into()
-                    .map_err(|_| CmdError::FunctionNameTooLong(self.function.clone()))?,
+                    .map_err(|_| error::Cmd::FunctionNameTooLong(self.function.clone()))?,
             ),
         ];
         complete_args.extend_from_slice(parsed_args.as_slice());
@@ -158,12 +159,12 @@ impl Cmd {
         let final_args =
             complete_args
                 .try_into()
-                .map_err(|_| CmdError::MaxNumberOfArgumentsReached {
+                .map_err(|_| error::Cmd::MaxNumberOfArgumentsReached {
                     current: complete_args_len,
                     maximum: soroban_env_host::xdr::ScVec::default().max_len(),
                 })?;
         let res = h.invoke_function(HostFunction::Call, final_args)?;
-        let res_str = strval::to_string(&res).map_err(|e| CmdError::CannotPrintResult {
+        let res_str = strval::to_string(&res).map_err(|e| error::Cmd::CannotPrintResult {
             result: res,
             error: e,
         })?;
@@ -192,7 +193,7 @@ impl Cmd {
         }
 
         snapshot::commit(ledger_entries, &storage.map, &self.ledger_file).map_err(|e| {
-            CmdError::CannotCommitLedgerFile {
+            error::Cmd::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             }

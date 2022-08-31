@@ -1,4 +1,4 @@
-use crate::error::CmdError;
+use crate::error;
 
 use clap::Parser;
 use soroban_env_host::xdr::{ReadXdr, ScEnvMetaEntry, ScSpecEntry};
@@ -12,10 +12,10 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), CmdError> {
+    pub fn run(&self) -> Result<(), error::Cmd> {
         println!("File: {}", self.wasm.to_string_lossy());
 
-        let contents = fs::read(&self.wasm).map_err(|e| CmdError::CannotReadContractFile {
+        let contents = fs::read(&self.wasm).map_err(|e| error::Cmd::CannotReadContractFile {
             filepath: self.wasm.clone(),
             error: e,
         })?;
@@ -23,7 +23,7 @@ impl Cmd {
         let mut env_meta: Option<&[u8]> = None;
         let mut spec: Option<&[u8]> = None;
         for payload in wasmparser::Parser::new(0).parse_all(&contents) {
-            let payload = payload.map_err(|e| CmdError::CannotParseWasm {
+            let payload = payload.map_err(|e| error::Cmd::CannotParseWasm {
                 file: self.wasm.clone(),
                 error: e,
             })?;

@@ -2,7 +2,7 @@ use std::{fmt::Debug, fs};
 
 use clap::Parser;
 
-use crate::error::CmdError;
+use crate::error;
 use crate::snapshot;
 use crate::utils;
 
@@ -20,28 +20,28 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), CmdError> {
+    pub fn run(&self) -> Result<(), error::Cmd> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                CmdError::CannotParseContractID {
+                error::Cmd::CannotParseContractId {
                     contract_id: self.contract_id.clone(),
                     error: e,
                 }
             })?;
-        let contract = fs::read(&self.wasm).map_err(|e| CmdError::CannotReadContractFile {
+        let contract = fs::read(&self.wasm).map_err(|e| error::Cmd::CannotReadContractFile {
             filepath: self.wasm.clone(),
             error: e,
         })?;
 
         let mut ledger_entries =
-            snapshot::read(&self.ledger_file).map_err(|e| CmdError::CannotReadLedgerFile {
+            snapshot::read(&self.ledger_file).map_err(|e| error::Cmd::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
         utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
 
         snapshot::commit(ledger_entries, [], &self.ledger_file).map_err(|e| {
-            CmdError::CannotCommitLedgerFile {
+            error::Cmd::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             }
