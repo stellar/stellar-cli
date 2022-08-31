@@ -59,7 +59,7 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         ),
 
         // This might either be a json array of u8s, or just the raw utf-8 bytes
-        ScSpecTypeDef::Bytes => {
+        ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_) => {
             match serde_json::from_str(s) {
                 // First, see if it is a json array
                 Ok(Value::Array(raw)) => from_json(&Value::Array(raw), t)?,
@@ -179,12 +179,14 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         ),
 
         // Binary parsing
-        (ScSpecTypeDef::Bytes, Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
-            s.as_bytes()
-                .try_into()
-                .map_err(|_| StrValError::InvalidValue)?,
-        ))),
-        (ScSpecTypeDef::Bytes, Value::Array(raw)) => {
+        (ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_), Value::String(s)) => {
+            ScVal::Object(Some(ScObject::Bytes(
+                s.as_bytes()
+                    .try_into()
+                    .map_err(|_| StrValError::InvalidValue)?,
+            )))
+        }
+        (ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_), Value::Array(raw)) => {
             let b: Result<Vec<u8>, StrValError> = raw
                 .iter()
                 .map(|item| {
