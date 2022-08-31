@@ -38,11 +38,17 @@ pub fn add_contract_to_ledger_entries(
     Ok(())
 }
 
-pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexError> {
-    let mut decoded = [0u8; 32];
-    let padded = format!("{:0>width$}", contract_id, width = decoded.len() * 2);
+pub fn padded_hex_from_str(s: &String, n: usize) -> Result<Vec<u8>, FromHexError> {
+    let mut decoded = vec![0u8; n];
+    let padded = format!("{:0>width$}", s, width = n * 2);
     hex::decode_to_slice(padded, &mut decoded)?;
     Ok(decoded)
+}
+
+pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexError> {
+    padded_hex_from_str(contract_id, 32)?
+        .try_into()
+        .map_err(|_| FromHexError::InvalidStringLength)
 }
 
 pub fn get_contract_wasm_from_storage(
