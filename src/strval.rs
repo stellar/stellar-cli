@@ -9,6 +9,8 @@ use soroban_env_host::xdr::{
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
+use crate::utils;
+
 #[derive(Debug)]
 pub enum StrValError {
     UnknownError,
@@ -66,19 +68,13 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                 _ =>
                 // it could be a G- strkey
                 {
-                    match StrkeyPublicKeyEd25519::from_string(s) {
-                        Ok(key) => {
-                            let b = &key.0;
-                            ScVal::Object(Some(ScObject::Bytes(
-                                b.try_into().map_err(|_| StrValError::InvalidValue)?,
-                            )))
-                        }
-                        // just grab the bytes
-                        Err(_) => ScVal::Object(Some(ScObject::Bytes(
-                            s.as_bytes()
-                                .try_into()
-                                .map_err(|_| StrValError::InvalidValue)?,
-                        ))),
+                    if let Ok(key) = StrkeyPublicKeyEd25519::from_string(s) {
+                        let b = &key.0;
+                        ScVal::Object(Some(ScObject::Bytes(
+                            b.try_into().map_err(|_| StrValError::InvalidValue)?,
+                        )))
+                    } else {
+                        from_json(&Value::String(s.to_string()), t)?
                     }
                 }
             }
@@ -178,14 +174,19 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                 .map_err(|_| StrValError::InvalidValue)?,
         ),
 
-        // Binary parsing
-        (ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_), Value::String(s)) => {
-            ScVal::Object(Some(ScObject::Bytes(
-                s.as_bytes()
-                    .try_into()
-                    .map_err(|_| StrValError::InvalidValue)?,
-            )))
-        }
+        // Bytes parsing
+        (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
+            utils::padded_hex_from_str(s, bytes.n as usize)
+                .map_err(|_| StrValError::InvalidValue)?
+                .try_into()
+                .map_err(|_| StrValError::InvalidValue)?,
+        ))),
+        (ScSpecTypeDef::Bytes, Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
+            hex::decode(s)
+                .map_err(|_| StrValError::InvalidValue)?
+                .try_into()
+                .map_err(|_| StrValError::InvalidValue)?,
+        ))),
         (ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_), Value::Array(raw)) => {
             let b: Result<Vec<u8>, StrValError> = raw
                 .iter()
