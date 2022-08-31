@@ -28,7 +28,7 @@ pub struct Cmd {
     #[clap(long = "key-xdr", conflicts_with = "key")]
     key_xdr: Option<String>,
     /// Type of output to generate
-    #[clap(long, arg_enum)]
+    #[clap(long, arg_enum, default_value("string"))]
     output: Output,
     /// File to persist ledger state
     #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
