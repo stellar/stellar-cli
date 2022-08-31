@@ -3,6 +3,8 @@ use std::fmt::Debug;
 use clap::{ArgEnum, Parser};
 use soroban_spec::gen::{json, rust};
 
+use crate::error::CmdError;
+
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// WASM file to generate code for
@@ -21,28 +23,18 @@ pub enum Output {
     Json,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("generate rust from file: {0}")]
-    GenerateRustFromFile(rust::GenerateFromFileError),
-    #[error("format rust error: {0}")]
-    FormatRust(syn::Error),
-    #[error("generate json from file: {0}")]
-    GenerateJsonFromFile(json::GenerateFromFileError),
-}
-
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub fn run(&self) -> Result<(), CmdError> {
         match self.output {
             Output::Rust => self.generate_rust(),
             Output::Json => self.generate_json(),
         }
     }
 
-    pub fn generate_rust(&self) -> Result<(), Error> {
+    pub fn generate_rust(&self) -> Result<(), CmdError> {
         let wasm_path_str = self.wasm.to_string_lossy();
-        let code =
-            rust::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateRustFromFile)?;
+        let code = rust::generate_from_file(&wasm_path_str, None)
+            .map_err(CmdError::CannotGenerateRustFromFile)?;
         let code_raw = code.to_string();
         match syn::parse_file(&code_raw) {
             Ok(file) => {
@@ -52,15 +44,15 @@ impl Cmd {
             }
             Err(e) => {
                 println!("{}", code_raw);
-                Err(Error::FormatRust(e))
+                Err(CmdError::CannotFormatRust(e))
             }
         }
     }
 
-    pub fn generate_json(&self) -> Result<(), Error> {
+    pub fn generate_json(&self) -> Result<(), CmdError> {
         let wasm_path_str = self.wasm.to_string_lossy();
-        let json =
-            json::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateJsonFromFile)?;
+        let json = json::generate_from_file(&wasm_path_str, None)
+            .map_err(CmdError::CannotGenerateJSONFromFile)?;
         println!("{}", json);
         Ok(())
     }

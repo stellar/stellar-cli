@@ -18,6 +18,7 @@ use soroban_env_host::{
 use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
+use crate::error::CmdError;
 use crate::jsonrpc;
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::snapshot;
@@ -63,7 +64,7 @@ enum Requests {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), CmdError> {
         let ledger_file = Arc::new(self.ledger_file.clone());
         let with_ledger_file = warp::any().map(move || ledger_file.clone());
 

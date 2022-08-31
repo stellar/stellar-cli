@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs, io, rc::Rc};
+use std::{fmt::Debug, fs, rc::Rc};
 
 use clap::Parser;
 use soroban_env_host::{
@@ -6,18 +6,16 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject,
-        ScSpecFunctionInputV0, ScStatus, ScVal, VecM,
+        HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecFunctionInputV0, ScStatus,
+        ScVal, VecM,
     },
     Host, HostError, Vm,
 };
 
-use hex::FromHexError;
-
-use crate::contractspec;
 use crate::snapshot;
-use crate::strval::{self, StrValError};
+use crate::strval;
 use crate::utils;
+use crate::{contractspec, error::CmdError};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -44,54 +42,6 @@ pub struct Cmd {
     ledger_file: std::path::PathBuf,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("parsing argument {arg}: {error}")]
-    CannotParseArg { arg: String, error: StrValError },
-    #[error("parsing XDR argument {arg}: {error}")]
-    CannotParseXDRArg { arg: String, error: XdrError },
-    #[error("cannot add contract to ledger entries: {0}")]
-    CannotAddContractToLedgerEntries(XdrError),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
-    #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
-        error: snapshot::Error,
-    },
-    #[error("reading file {filepath}: {error}")]
-    CannotReadContractFile {
-        filepath: std::path::PathBuf,
-        error: io::Error,
-    },
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitLedgerFile {
-        filepath: std::path::PathBuf,
-        error: snapshot::Error,
-    },
-    #[error("cannot parse contract ID {contract_id}: {error}")]
-    CannotParseContractID {
-        contract_id: String,
-        error: FromHexError,
-    },
-    #[error("function {0} was not found in the contract")]
-    FunctionNotFoundInContractSpec(String),
-    #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
-    UnexpectedArgumentCount {
-        provided: usize,
-        expected: usize,
-        function: String,
-    },
-    #[error("function name {0} is too long")]
-    FunctionNameTooLong(String),
-    #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
-    MaxNumberOfArgumentsReached { current: usize, maximum: usize },
-    #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: StrValError },
-}
-
 #[derive(Clone, Debug)]
 enum Arg {
     Arg(String),
@@ -103,7 +53,7 @@ impl Cmd {
         &self,
         matches: &clap::ArgMatches,
         inputs: &VecM<ScSpecFunctionInputV0, 10>,
-    ) -> Result<Vec<ScVal>, Error> {
+    ) -> Result<Vec<ScVal>, CmdError> {
         // re-assemble the args, to match the order given on the command line
         let indexed_args: Vec<(usize, Arg)> = matches
             .indices_of("args")
@@ -121,7 +71,7 @@ impl Cmd {
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
 
         if all_indexed_args.len() != inputs.len() {
-            return Err(Error::UnexpectedArgumentCount {
+            return Err(CmdError::UnexpectedArgumentCount {
                 provided: all_indexed_args.len(),
                 expected: inputs.len(),
                 function: self.function.clone(),
@@ -133,13 +83,13 @@ impl Cmd {
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
                 Arg::ArgXDR(s) => {
-                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| Error::CannotParseXDRArg {
+                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| CmdError::CannotParseXDRArg {
                         arg: s.clone(),
                         error: e,
                     })
                 }
                 Arg::Arg(s) => {
-                    strval::from_string(s, &input.type_).map_err(|e| Error::CannotParseArg {
+                    strval::from_string(s, &input.type_).map_err(|e| CmdError::CannotParseArg {
                         arg: s.clone(),
                         error: e,
                     })
@@ -148,10 +98,10 @@ impl Cmd {
             .collect::<Result<Vec<_>, _>>()
     }
 
-    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), CmdError> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractID {
+                CmdError::CannotParseContractID {
                     contract_id: self.contract_id.clone(),
                     error: e,
                 }
@@ -160,19 +110,19 @@ impl Cmd {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut ledger_entries =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+            snapshot::read(&self.ledger_file).map_err(|e| CmdError::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
 
         //If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
-            let contract = fs::read(f).map_err(|e| Error::CannotReadContractFile {
+            let contract = fs::read(f).map_err(|e| CmdError::CannotReadContractFile {
                 filepath: f.clone(),
                 error: e,
             })?;
             utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)
-                .map_err(Error::CannotAddContractToLedgerEntries)?;
+                .map_err(CmdError::CannotAddContractToLedgerEntries)?;
         }
 
         let snap = Rc::new(snapshot::Snap {
@@ -186,7 +136,9 @@ impl Cmd {
         let inputs = match contractspec::function_spec(&vm, &self.function) {
             Some(s) => s.inputs,
             None => {
-                return Err(Error::FunctionNotFoundInContractSpec(self.function.clone()));
+                return Err(CmdError::FunctionNotFoundInContractSpec(
+                    self.function.clone(),
+                ));
             }
         };
 
@@ -197,7 +149,7 @@ impl Cmd {
             ScVal::Symbol(
                 (&self.function)
                     .try_into()
-                    .map_err(|_| Error::FunctionNameTooLong(self.function.clone()))?,
+                    .map_err(|_| CmdError::FunctionNameTooLong(self.function.clone()))?,
             ),
         ];
         complete_args.extend_from_slice(parsed_args.as_slice());
@@ -206,12 +158,12 @@ impl Cmd {
         let final_args =
             complete_args
                 .try_into()
-                .map_err(|_| Error::MaxNumberOfArgumentsReached {
+                .map_err(|_| CmdError::MaxNumberOfArgumentsReached {
                     current: complete_args_len,
                     maximum: soroban_env_host::xdr::ScVec::default().max_len(),
                 })?;
         let res = h.invoke_function(HostFunction::Call, final_args)?;
-        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
+        let res_str = strval::to_string(&res).map_err(|e| CmdError::CannotPrintResult {
             result: res,
             error: e,
         })?;
@@ -240,7 +192,7 @@ impl Cmd {
         }
 
         snapshot::commit(ledger_entries, &storage.map, &self.ledger_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+            CmdError::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             }

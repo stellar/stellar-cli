@@ -1,19 +1,17 @@
-use std::{fmt::Debug, io, rc::Rc};
+use std::{fmt::Debug, rc::Rc};
 
 use clap::{ArgEnum, Parser};
 use soroban_env_host::{
     storage::Storage,
     xdr::{
-        self, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr,
-        ScSpecTypeDef, ScVal, WriteXdr,
+        self, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr, ScSpecTypeDef, ScVal,
+        WriteXdr,
     },
-    HostError,
 };
 
-use hex::FromHexError;
-
+use crate::error::CmdError;
 use crate::snapshot;
-use crate::strval::{self, StrValError};
+use crate::strval::{self};
 use crate::utils;
 
 #[derive(Parser, Debug)]
@@ -45,37 +43,37 @@ pub enum Output {
     Xdr,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("io")]
-    Io(#[from] io::Error),
-    #[error("strval")]
-    StrVal(#[from] StrValError),
-    #[error("xdr")]
-    Xdr(#[from] XdrError),
-    #[error("host")]
-    Host(#[from] HostError),
-    #[error("snapshot")]
-    Snapshot(#[from] snapshot::Error),
-    #[error("serde")]
-    Serde(#[from] serde_json::Error),
-    #[error("hex")]
-    FromHex(#[from] FromHexError),
-}
-
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        let contract_id: [u8; 32] = utils::contract_id_from_str(&self.contract_id)?;
+    pub fn run(&self) -> Result<(), CmdError> {
+        let contract_id: [u8; 32] =
+            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
+                CmdError::CannotParseContractID {
+                    contract_id: self.contract_id.clone(),
+                    error: e,
+                }
+            })?;
         let key = if let Some(key) = &self.key {
-            strval::from_string(key, &ScSpecTypeDef::Symbol)?
+            strval::from_string(key, &ScSpecTypeDef::Symbol).map_err(|e| {
+                CmdError::CannotParseKey {
+                    key: key.clone(),
+                    error: e,
+                }
+            })?
         } else if let Some(key) = &self.key_xdr {
-            ScVal::from_xdr_base64(key.to_string())?
+            ScVal::from_xdr_base64(key.to_string()).map_err(|e| CmdError::CannotParseXDRKey {
+                key: key.clone(),
+                error: e,
+            })?
         } else {
-            return Err(Error::StrVal(StrValError::InvalidValue));
+            return Err(CmdError::MissingKey);
         };
 
         // Initialize storage
-        let ledger_entries = snapshot::read(&self.ledger_file)?;
+        let ledger_entries =
+            snapshot::read(&self.ledger_file).map_err(|e| CmdError::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            })?;
 
         let snap = Rc::new(snapshot::Snap { ledger_entries });
         let mut storage = Storage::with_recording_footprint(snap);
@@ -91,8 +89,23 @@ impl Cmd {
         };
 
         match self.output {
-            Output::String => println!("{}", strval::to_string(&value)?),
-            Output::Json => println!("{}", serde_json::to_string_pretty(&value)?),
+            Output::String => {
+                let res_str =
+                    strval::to_string(&value).map_err(|e| CmdError::CannotPrintResult {
+                        result: value,
+                        error: e,
+                    })?;
+                println!("{}", res_str);
+            }
+            Output::Json => {
+                let res_str = serde_json::to_string_pretty(&value).map_err(|e| {
+                    CmdError::CannotPrintJSONResult {
+                        result: value,
+                        error: e,
+                    }
+                })?;
+                println!("{}", res_str);
+            }
             Output::Xdr => println!("{}", value.to_xdr_base64()?),
         }
 

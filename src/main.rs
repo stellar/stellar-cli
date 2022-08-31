@@ -3,6 +3,7 @@ use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 mod completion;
 mod contractspec;
 mod deploy;
+mod error;
 mod gen;
 mod inspect;
 mod invoke;
@@ -50,24 +51,7 @@ enum Cmd {
     Completion(completion::Cmd),
 }
 
-#[derive(thiserror::Error, Debug)]
-enum CmdError {
-    // TODO: stop using Debug for displaying errors
-    #[error("{0:?}")]
-    Inspect(#[from] inspect::Error),
-    #[error(transparent)]
-    Invoke(#[from] invoke::Error),
-    #[error("{0:?}")]
-    Read(#[from] read::Error),
-    #[error("{0:?}")]
-    Serve(#[from] serve::Error),
-    #[error("{0:?}")]
-    Gen(#[from] gen::Error),
-    #[error("{0:?}")]
-    Deploy(#[from] deploy::Error),
-}
-
-async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
+async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), error::CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => {

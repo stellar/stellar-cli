@@ -1,10 +1,8 @@
-use std::{fmt::Debug, fs, io};
+use std::{fmt::Debug, fs};
 
 use clap::Parser;
-use soroban_env_host::xdr::Error as XdrError;
 
-use hex::FromHexError;
-
+use crate::error::CmdError;
 use crate::snapshot;
 use crate::utils;
 
@@ -21,27 +19,33 @@ pub struct Cmd {
     ledger_file: std::path::PathBuf,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("io")]
-    Io(#[from] io::Error),
-    #[error("xdr")]
-    Xdr(#[from] XdrError),
-    #[error("snapshot")]
-    Snapshot(#[from] snapshot::Error),
-    #[error("hex")]
-    FromHex(#[from] FromHexError),
-}
-
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        let contract_id: [u8; 32] = utils::contract_id_from_str(&self.contract_id)?;
-        let contract = fs::read(&self.wasm).unwrap();
+    pub fn run(&self) -> Result<(), CmdError> {
+        let contract_id: [u8; 32] =
+            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
+                CmdError::CannotParseContractID {
+                    contract_id: self.contract_id.clone(),
+                    error: e,
+                }
+            })?;
+        let contract = fs::read(&self.wasm).map_err(|e| CmdError::CannotReadContractFile {
+            filepath: self.wasm.clone(),
+            error: e,
+        })?;
 
-        let mut ledger_entries = snapshot::read(&self.ledger_file)?;
+        let mut ledger_entries =
+            snapshot::read(&self.ledger_file).map_err(|e| CmdError::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            })?;
         utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
 
-        snapshot::commit(ledger_entries, [], &self.ledger_file)?;
+        snapshot::commit(ledger_entries, [], &self.ledger_file).map_err(|e| {
+            CmdError::CannotCommitLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
+        })?;
         Ok(())
     }
 }
