@@ -1,11 +1,11 @@
 use std::{fmt::Debug, io, rc::Rc};
 
-use clap::Parser;
+use clap::{ArgEnum, Parser};
 use soroban_env_host::{
     storage::Storage,
     xdr::{
-        self, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr, ScVal,
-        WriteXdr,
+        self, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr,
+        ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
 };
@@ -21,15 +21,28 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[clap(long = "id")]
     contract_id: String,
-    /// Storage key to read from, base64-encoded xdr
-    #[clap(long = "key")]
-    key: String,
-    /// Output the result as json, instead of base64-encoded xdr
-    #[clap(long = "json")]
-    json: bool,
+    /// Storage key (symbols only)
+    #[clap(long = "key", conflicts_with = "key-xdr")]
+    key: Option<String>,
+    /// Storage key (base64-encoded XDR)
+    #[clap(long = "key-xdr", conflicts_with = "key")]
+    key_xdr: Option<String>,
+    /// Type of output to generate
+    #[clap(long, arg_enum)]
+    output: Output,
     /// File to persist ledger state
     #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
     ledger_file: std::path::PathBuf,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+pub enum Output {
+    /// String
+    String,
+    /// Json
+    Json,
+    /// XDR
+    Xdr,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -53,7 +66,13 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] = utils::contract_id_from_str(&self.contract_id)?;
-        let key = ScVal::from_xdr_base64(self.key.clone())?;
+        let key = if let Some(key) = &self.key {
+            strval::from_string(key, &ScSpecTypeDef::Symbol)?
+        } else if let Some(key) = &self.key_xdr {
+            ScVal::from_xdr_base64(key.to_string())?
+        } else {
+            return Err(Error::StrVal(StrValError::InvalidValue));
+        };
 
         // Initialize storage
         let ledger_entries = snapshot::read(&self.ledger_file)?;
@@ -71,10 +90,10 @@ impl Cmd {
             unreachable!();
         };
 
-        if self.json {
-            println!("{}", strval::to_string(&value)?);
-        } else {
-            println!("{}", value.to_xdr_base64()?);
+        match self.output {
+            Output::String => println!("{}", strval::to_string(&value)?),
+            Output::Json => println!("{}", serde_json::to_string_pretty(&value)?),
+            Output::Xdr => println!("{}", value.to_xdr_base64()?),
         }
 
         Ok(())
