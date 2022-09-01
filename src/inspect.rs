@@ -1,8 +1,10 @@
-use crate::error;
-
 use clap::Parser;
-use soroban_env_host::xdr::{ReadXdr, ScEnvMetaEntry, ScSpecEntry};
-use std::{fmt::Debug, fs, io::Cursor};
+use soroban_env_host::xdr::{Error as XdrError, ReadXdr, ScEnvMetaEntry, ScSpecEntry};
+use std::{
+    fmt::Debug,
+    fs,
+    io::{self, Cursor},
+};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -11,11 +13,27 @@ pub struct Cmd {
     wasm: std::path::PathBuf,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("reading file {filepath}: {error}")]
+    CannotReadContractFile {
+        filepath: std::path::PathBuf,
+        error: io::Error,
+    },
+    #[error("cannot parse wasm file {file}: {error}")]
+    CannotParseWasm {
+        file: std::path::PathBuf,
+        error: wasmparser::BinaryReaderError,
+    },
+    #[error("xdr processing error: {0}")]
+    Xdr(#[from] XdrError),
+}
+
 impl Cmd {
-    pub fn run(&self) -> Result<(), error::Cmd> {
+    pub fn run(&self) -> Result<(), Error> {
         println!("File: {}", self.wasm.to_string_lossy());
 
-        let contents = fs::read(&self.wasm).map_err(|e| error::Cmd::CannotReadContractFile {
+        let contents = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
             filepath: self.wasm.clone(),
             error: e,
         })?;
@@ -23,7 +41,7 @@ impl Cmd {
         let mut env_meta: Option<&[u8]> = None;
         let mut spec: Option<&[u8]> = None;
         for payload in wasmparser::Parser::new(0).parse_all(&contents) {
-            let payload = payload.map_err(|e| error::Cmd::CannotParseWasm {
+            let payload = payload.map_err(|e| Error::CannotParseWasm {
                 file: self.wasm.clone(),
                 error: e,
             })?;

@@ -3,8 +3,6 @@ use std::fmt::Debug;
 use clap::{ArgEnum, Parser};
 use soroban_spec::gen::{json, rust};
 
-use crate::error;
-
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// WASM file to generate code for
@@ -13,6 +11,16 @@ pub struct Cmd {
     /// Type of output to generate
     #[clap(long, arg_enum)]
     r#output: Output,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("generate rust from file: {0}")]
+    RustFromFile(rust::GenerateFromFileError),
+    #[error("format rust error: {0}")]
+    FormatRust(syn::Error),
+    #[error("generate json from file: {0}")]
+    GenerateJsonFromFile(json::GenerateFromFileError),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
@@ -24,17 +32,16 @@ pub enum Output {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), error::Cmd> {
+    pub fn run(&self) -> Result<(), Error> {
         match self.output {
             Output::Rust => self.generate_rust(),
             Output::Json => self.generate_json(),
         }
     }
 
-    pub fn generate_rust(&self) -> Result<(), error::Cmd> {
+    pub fn generate_rust(&self) -> Result<(), Error> {
         let wasm_path_str = self.wasm.to_string_lossy();
-        let code = rust::generate_from_file(&wasm_path_str, None)
-            .map_err(error::Cmd::CannotGenerateRustFromFile)?;
+        let code = rust::generate_from_file(&wasm_path_str, None).map_err(Error::RustFromFile)?;
         let code_raw = code.to_string();
         match syn::parse_file(&code_raw) {
             Ok(file) => {
@@ -44,15 +51,15 @@ impl Cmd {
             }
             Err(e) => {
                 println!("{}", code_raw);
-                Err(error::Cmd::CannotFormatRust(e))
+                Err(Error::FormatRust(e))
             }
         }
     }
 
-    pub fn generate_json(&self) -> Result<(), error::Cmd> {
+    pub fn generate_json(&self) -> Result<(), Error> {
         let wasm_path_str = self.wasm.to_string_lossy();
-        let json = json::generate_from_file(&wasm_path_str, None)
-            .map_err(error::Cmd::CannotGenerateJsonFromFile)?;
+        let json =
+            json::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateJsonFromFile)?;
         println!("{}", json);
         Ok(())
     }

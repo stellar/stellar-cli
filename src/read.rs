@@ -1,18 +1,19 @@
 use std::{fmt::Debug, rc::Rc};
 
 use clap::{ArgEnum, Parser};
+use hex::FromHexError;
 use soroban_env_host::{
     storage::Storage,
     xdr::{
-        self, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr, ScSpecTypeDef, ScVal,
-        WriteXdr,
+        self, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr,
+        ScSpecTypeDef, ScVal, WriteXdr,
     },
+    HostError,
 };
 
-use crate::error;
-use crate::snapshot;
 use crate::strval::{self};
 use crate::utils;
+use crate::{snapshot, strval::StrValError};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -43,34 +44,65 @@ pub enum Output {
     Xdr,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("parsing key {key}: {error}")]
+    CannotParseKey { key: String, error: StrValError },
+    #[error("parsing XDR key {key}: {error}")]
+    CannotParseXdrKey { key: String, error: XdrError },
+    #[error("missing key argument")]
+    MissingKey,
+    #[error("reading file {filepath}: {error}")]
+    CannotReadLedgerFile {
+        filepath: std::path::PathBuf,
+        error: snapshot::Error,
+    },
+    #[error("cannot parse contract ID {contract_id}: {error}")]
+    CannotParseContractId {
+        contract_id: String,
+        error: FromHexError,
+    },
+    #[error("cannot print result {result:?}: {error}")]
+    CannotPrintResult { result: ScVal, error: StrValError },
+    #[error("cannot print result {result:?}: {error}")]
+    CannotPrintJsonResult {
+        result: ScVal,
+        error: serde_json::Error,
+    },
+    #[error("xdr processing error: {0}")]
+    Xdr(#[from] XdrError),
+    #[error(transparent)]
+    // TODO: the Display impl of host errors is pretty user-unfriendly
+    //       (it just calls Debug). I think we can do better than that
+    Host(#[from] HostError),
+}
+
 impl Cmd {
-    pub fn run(&self) -> Result<(), error::Cmd> {
+    pub fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                error::Cmd::CannotParseContractId {
+                Error::CannotParseContractId {
                     contract_id: self.contract_id.clone(),
                     error: e,
                 }
             })?;
         let key = if let Some(key) = &self.key {
-            strval::from_string(key, &ScSpecTypeDef::Symbol).map_err(|e| {
-                error::Cmd::CannotParseKey {
-                    key: key.clone(),
-                    error: e,
-                }
+            strval::from_string(key, &ScSpecTypeDef::Symbol).map_err(|e| Error::CannotParseKey {
+                key: key.clone(),
+                error: e,
             })?
         } else if let Some(key) = &self.key_xdr {
-            ScVal::from_xdr_base64(key.to_string()).map_err(|e| error::Cmd::CannotParseXdrKey {
+            ScVal::from_xdr_base64(key.to_string()).map_err(|e| Error::CannotParseXdrKey {
                 key: key.clone(),
                 error: e,
             })?
         } else {
-            return Err(error::Cmd::MissingKey);
+            return Err(Error::MissingKey);
         };
 
         // Initialize storage
         let ledger_entries =
-            snapshot::read(&self.ledger_file).map_err(|e| error::Cmd::CannotReadLedgerFile {
+            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
@@ -90,16 +122,15 @@ impl Cmd {
 
         match self.output {
             Output::String => {
-                let res_str =
-                    strval::to_string(&value).map_err(|e| error::Cmd::CannotPrintResult {
-                        result: value,
-                        error: e,
-                    })?;
+                let res_str = strval::to_string(&value).map_err(|e| Error::CannotPrintResult {
+                    result: value,
+                    error: e,
+                })?;
                 println!("{}", res_str);
             }
             Output::Json => {
                 let res_str = serde_json::to_string_pretty(&value).map_err(|e| {
-                    error::Cmd::CannotPrintJsonResult {
+                    Error::CannotPrintJsonResult {
                         result: value,
                         error: e,
                     }

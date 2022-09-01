@@ -1,8 +1,9 @@
-use std::{fmt::Debug, fs};
+use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
+use hex::FromHexError;
+use soroban_env_host::{xdr::Error as XdrError, HostError};
 
-use crate::error;
 use crate::snapshot;
 use crate::utils;
 
@@ -19,29 +20,59 @@ pub struct Cmd {
     ledger_file: std::path::PathBuf,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    // TODO: the Display impl of host errors is pretty user-unfriendly
+    //       (it just calls Debug). I think we can do better than that
+    Host(#[from] HostError),
+    #[error("xdr processing error: {0}")]
+    Xdr(#[from] XdrError),
+    #[error("reading file {filepath}: {error}")]
+    CannotReadLedgerFile {
+        filepath: std::path::PathBuf,
+        error: snapshot::Error,
+    },
+    #[error("reading file {filepath}: {error}")]
+    CannotReadContractFile {
+        filepath: std::path::PathBuf,
+        error: io::Error,
+    },
+    #[error("committing file {filepath}: {error}")]
+    CannotCommitLedgerFile {
+        filepath: std::path::PathBuf,
+        error: snapshot::Error,
+    },
+    #[error("cannot parse contract ID {contract_id}: {error}")]
+    CannotParseContractId {
+        contract_id: String,
+        error: FromHexError,
+    },
+}
+
 impl Cmd {
-    pub fn run(&self) -> Result<(), error::Cmd> {
+    pub fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                error::Cmd::CannotParseContractId {
+                Error::CannotParseContractId {
                     contract_id: self.contract_id.clone(),
                     error: e,
                 }
             })?;
-        let contract = fs::read(&self.wasm).map_err(|e| error::Cmd::CannotReadContractFile {
+        let contract = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
             filepath: self.wasm.clone(),
             error: e,
         })?;
 
         let mut ledger_entries =
-            snapshot::read(&self.ledger_file).map_err(|e| error::Cmd::CannotReadLedgerFile {
+            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
         utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
 
         snapshot::commit(ledger_entries, [], &self.ledger_file).map_err(|e| {
-            error::Cmd::CannotCommitLedgerFile {
+            Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             }
