@@ -64,3 +64,15 @@ jobs:
       run: rm -fr target
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: cargo test --target ${{ matrix.target }}
+
+  publish:
+    if: github.event_name == 'release'
+    needs: [complete]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: rustup update
+    - run: cargo install --locked --version 0.2.35 cargo-workspaces
+    - run: make publish
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
