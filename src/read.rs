@@ -11,9 +11,11 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::strval::{self};
-use crate::utils;
-use crate::{snapshot, strval::StrValError};
+use crate::{
+    snapshot,
+    strval::{self, StrValError},
+    utils,
+};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {

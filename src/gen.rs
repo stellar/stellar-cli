@@ -13,6 +13,14 @@ pub struct Cmd {
     r#output: Output,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+pub enum Output {
+    /// Rust trait, client bindings, and test harness
+    Rust,
+    /// Json representation of contract spec types
+    Json,
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("generate rust from file: {0}")]
@@ -21,14 +29,6 @@ pub enum Error {
     FormatRust(syn::Error),
     #[error("generate json from file: {0}")]
     GenerateJsonFromFile(json::GenerateFromFileError),
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
-pub enum Output {
-    /// Rust trait, client bindings, and test harness
-    Rust,
-    /// Json representation of contract spec types
-    Json,
 }
 
 impl Cmd {
