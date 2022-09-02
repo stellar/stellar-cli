@@ -41,7 +41,8 @@ impl Cmd {
 
     pub fn generate_rust(&self) -> Result<(), Error> {
         let wasm_path_str = self.wasm.to_string_lossy();
-        let code = rust::generate_from_file(&wasm_path_str, None).map_err(Error::RustFromFile)?;
+        let code =
+            rust::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateRustFromFile)?;
         let code_raw = code.to_string();
         match syn::parse_file(&code_raw) {
             Ok(file) => {
