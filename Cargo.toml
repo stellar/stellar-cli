@@ -11,9 +11,9 @@ edition = "2021"
 rust-version = "1.63"
 
 [dependencies]
-soroban-env-host = { version = "0.0.3", features = ["vm", "serde"] }
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5dc90214" }
-stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "99dfcf8" }
+soroban-env-host = { version = "0.0.4", features = ["vm", "serde"] }
+soroban-spec = "0.0.4"
+stellar-strkey = "0.0.1"
 clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
 thiserror = "1.0.31"
@@ -31,8 +31,10 @@ wasmparser = "0.90.0"
 sha2 = "0.10.2"
 
 [patch.crates-io]
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "0e6cb7aa" }
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "8c8d334" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "ad77b1f" }
+stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "317f7689" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "c8bc71d" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "c8bc71d" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "c8bc71d" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "c8bc71d" }
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "fee9a43" }
