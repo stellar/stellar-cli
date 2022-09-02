@@ -47,7 +47,7 @@ pub struct Cmd {
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg { arg: String, error: StrValError },
-    #[error("parsing XDR key {arg}: {error}")]
+    #[error("parsing XDR arg {arg}: {error}")]
     CannotParseXdrArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(XdrError),

@@ -23,8 +23,6 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),

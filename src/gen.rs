@@ -16,7 +16,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("generate rust from file: {0}")]
-    RustFromFile(rust::GenerateFromFileError),
+    GenerateRustFromFile(rust::GenerateFromFileError),
     #[error("format rust error: {0}")]
     FormatRust(syn::Error),
     #[error("generate json from file: {0}")]
