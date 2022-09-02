@@ -1,6 +1,7 @@
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
+use hex::FromHexError;
 use soroban_env_host::{
     budget::{Budget, CostType},
     events::HostEvent,
@@ -12,12 +13,11 @@ use soroban_env_host::{
     Host, HostError, Vm,
 };
 
-use hex::FromHexError;
-
-use crate::contractspec;
-use crate::snapshot;
-use crate::strval::{self, StrValError};
-use crate::utils;
+use crate::{
+    contractspec, snapshot,
+    strval::{self, StrValError},
+    utils,
+};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -48,8 +48,8 @@ pub struct Cmd {
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg { arg: String, error: StrValError },
-    #[error("parsing XDR argument {arg}: {error}")]
-    CannotParseXDRArg { arg: String, error: XdrError },
+    #[error("parsing XDR arg {arg}: {error}")]
+    CannotParseXdrArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(XdrError),
     #[error(transparent)]
@@ -72,7 +72,7 @@ pub enum Error {
         error: snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
-    CannotParseContractID {
+    CannotParseContractId {
         contract_id: String,
         error: FromHexError,
     },
@@ -90,12 +90,14 @@ pub enum Error {
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult { result: ScVal, error: StrValError },
+    #[error("xdr processing error: {0}")]
+    Xdr(#[from] XdrError),
 }
 
 #[derive(Clone, Debug)]
 enum Arg {
     Arg(String),
-    ArgXDR(String),
+    ArgXdr(String),
 }
 
 impl Cmd {
@@ -115,7 +117,7 @@ impl Cmd {
             .indices_of("args-xdr")
             .unwrap_or_default()
             .zip(self.args_xdr.iter())
-            .map(|(a, b)| (a, Arg::ArgXDR(b.to_string())))
+            .map(|(a, b)| (a, Arg::ArgXdr(b.to_string())))
             .collect();
         let mut all_indexed_args: Vec<(usize, Arg)> = [indexed_args, indexed_args_xdr].concat();
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
@@ -132,8 +134,8 @@ impl Cmd {
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
-                Arg::ArgXDR(s) => {
-                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| Error::CannotParseXDRArg {
+                Arg::ArgXdr(s) => {
+                    ScVal::from_xdr_base64(s.to_string()).map_err(|e| Error::CannotParseXdrArg {
                         arg: s.clone(),
                         error: e,
                     })
@@ -151,7 +153,7 @@ impl Cmd {
     pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractID {
+                Error::CannotParseContractId {
                     contract_id: self.contract_id.clone(),
                     error: e,
                 }

@@ -53,17 +53,17 @@ enum Cmd {
 #[derive(thiserror::Error, Debug)]
 enum CmdError {
     // TODO: stop using Debug for displaying errors
-    #[error("{0:?}")]
+    #[error(transparent)]
     Inspect(#[from] inspect::Error),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
-    #[error("{0:?}")]
+    #[error(transparent)]
     Read(#[from] read::Error),
-    #[error("{0:?}")]
+    #[error(transparent)]
     Serve(#[from] serve::Error),
-    #[error("{0:?}")]
+    #[error(transparent)]
     Gen(#[from] gen::Error),
-    #[error("{0:?}")]
+    #[error(transparent)]
     Deploy(#[from] deploy::Error),
 }
 

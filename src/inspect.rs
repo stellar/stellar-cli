@@ -1,9 +1,10 @@
 use clap::Parser;
-use soroban_env_host::{
-    xdr::{self, ReadXdr, ScEnvMetaEntry, ScSpecEntry},
-    HostError,
+use soroban_env_host::xdr::{Error as XdrError, ReadXdr, ScEnvMetaEntry, ScSpecEntry};
+use std::{
+    fmt::Debug,
+    fs,
+    io::{self, Cursor},
 };
-use std::{fmt::Debug, fs, io, io::Cursor, str::Utf8Error};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -14,28 +15,36 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("parse wasm")]
-    WasmParse(wasmparser::BinaryReaderError),
-    #[error("xdr")]
-    Xdr(#[from] xdr::Error),
-    #[error("io")]
-    Io(#[from] io::Error),
-    #[error("host")]
-    Host(#[from] HostError),
-    #[error("utf8")]
-    Utf8Error(#[from] Utf8Error),
+    #[error("reading file {filepath}: {error}")]
+    CannotReadContractFile {
+        filepath: std::path::PathBuf,
+        error: io::Error,
+    },
+    #[error("cannot parse wasm file {file}: {error}")]
+    CannotParseWasm {
+        file: std::path::PathBuf,
+        error: wasmparser::BinaryReaderError,
+    },
+    #[error("xdr processing error: {0}")]
+    Xdr(#[from] XdrError),
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         println!("File: {}", self.wasm.to_string_lossy());
 
-        let contents = fs::read(&self.wasm)?;
+        let contents = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
+            filepath: self.wasm.clone(),
+            error: e,
+        })?;
 
         let mut env_meta: Option<&[u8]> = None;
         let mut spec: Option<&[u8]> = None;
         for payload in wasmparser::Parser::new(0).parse_all(&contents) {
-            let payload = payload.map_err(Error::WasmParse)?;
+            let payload = payload.map_err(|e| Error::CannotParseWasm {
+                file: self.wasm.clone(),
+                error: e,
+            })?;
             if let wasmparser::Payload::CustomSection(section) = payload {
                 let out = match section.name() {
                     "contractenvmetav0" => &mut env_meta,
