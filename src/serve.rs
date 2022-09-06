@@ -247,11 +247,13 @@ fn get_contract_data(
     ledger_file: &PathBuf,
 ) -> Result<Value, Error> {
     // Initialize storage and host
-    let ledger_entries = snapshot::read(ledger_file)?;
+    let state = snapshot::read(ledger_file)?;
     let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex.to_string())?;
     let key = ScVal::from_xdr_base64(key_xdr)?;
 
-    let snap = Rc::new(snapshot::Snap { ledger_entries });
+    let snap = Rc::new(snapshot::Snap {
+        ledger_entries: state.1,
+    });
     let mut storage = Storage::with_recording_footprint(snap);
     let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: xdr::Hash(contract_id),
@@ -350,13 +352,18 @@ fn execute_transaction(
     commit: bool,
 ) -> Result<Value, Error> {
     // Initialize storage and host
-    let ledger_entries = snapshot::read(ledger_file)?;
+    let state = snapshot::read(ledger_file)?;
 
     let snap = Rc::new(snapshot::Snap {
-        ledger_entries: ledger_entries.clone(),
+        ledger_entries: state.1.clone(),
     });
     let storage = Storage::with_recording_footprint(snap);
     let h = Host::with_storage_and_budget(storage, Budget::default());
+
+    let mut ledger_info = state.0.clone();
+    ledger_info.sequence_number += 1;
+    ledger_info.timestamp += 5;
+    h.set_ledger_info(ledger_info.clone());
 
     // TODO: Check the parameters match the contract spec, or return a helpful error message
 
@@ -396,7 +403,7 @@ fn execute_transaction(
     }
 
     if commit {
-        snapshot::commit(ledger_entries, &storage.map, ledger_file)?;
+        snapshot::commit(state.1, ledger_info, &storage.map, ledger_file)?;
     }
 
     Ok(json!({
