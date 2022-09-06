@@ -132,9 +132,9 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                 .try_into()
                 .map_err(|_| StrValError::InvalidValue)?,
         ),
-        (ScSpecTypeDef::U64, Value::Number(n)) => {
-            ScVal::U63(n.as_i64().ok_or(StrValError::InvalidValue)?)
-        }
+        (ScSpecTypeDef::U64, Value::Number(n)) => ScVal::Object(Some(ScObject::U64(
+            n.as_u64().ok_or(StrValError::InvalidValue)?,
+        ))),
 
         // Map parsing
         (ScSpecTypeDef::Map(map), Value::Object(raw)) => {
