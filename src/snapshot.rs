@@ -36,12 +36,12 @@ pub fn get_default_ledger_info() -> LedgerInfo {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SerializableState {
-    pub ledger_entries: VecM<(LedgerKey, LedgerEntry)>,
-    pub protocol_version: u32,
-    pub sequence_number: u32,
-    pub timestamp: u64,
-    pub network_passphrase: Vec<u8>,
+struct SerializableState {
+    ledger_entries: VecM<(LedgerKey, LedgerEntry)>,
+    protocol_version: u32,
+    sequence_number: u32,
+    timestamp: u64,
+    network_passphrase: Vec<u8>,
 }
 
 impl SnapshotSource for Snap {
