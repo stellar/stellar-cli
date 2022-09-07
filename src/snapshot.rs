@@ -7,6 +7,8 @@ use soroban_env_host::{
     HostError, LedgerInfo,
 };
 
+use crate::network::SANDBOX_NETWORK_PASSPHRASE;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -28,7 +30,7 @@ pub fn get_default_ledger_info() -> LedgerInfo {
         protocol_version: 19,
         sequence_number: 0,
         timestamp: 0,
-        network_passphrase: vec![0u8],
+        network_passphrase: SANDBOX_NETWORK_PASSPHRASE.as_bytes().to_vec(),
     }
 }
 
