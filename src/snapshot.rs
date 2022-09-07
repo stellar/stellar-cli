@@ -28,7 +28,7 @@ pub fn get_default_ledger_info() -> LedgerInfo {
         protocol_version: 19,
         sequence_number: 0,
         timestamp: 0,
-        network_id: vec![0u8],
+        network_passphrase: vec![0u8],
     }
 }
 
@@ -39,7 +39,7 @@ pub struct SerializableState {
     pub protocol_version: u32,
     pub sequence_number: u32,
     pub timestamp: u64,
-    pub network_id: Vec<u8>,
+    pub network_passphrase: Vec<u8>,
 }
 
 impl SnapshotSource for Snap {
@@ -77,7 +77,7 @@ pub fn read(
         protocol_version: state.protocol_version,
         sequence_number: state.sequence_number,
         timestamp: state.timestamp,
-        network_id: state.network_id,
+        network_passphrase: state.network_passphrase,
     };
     Ok((info, entries))
 }
@@ -115,7 +115,7 @@ where
         protocol_version: ledger_info.protocol_version,
         sequence_number: ledger_info.sequence_number,
         timestamp: ledger_info.timestamp,
-        network_id: ledger_info.network_id,
+        network_passphrase: ledger_info.network_passphrase,
     };
     serde_json::to_writer(&file, &output)?;
 
