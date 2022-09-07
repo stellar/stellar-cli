@@ -161,7 +161,7 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut ledger_entries =
+        let mut state =
             snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
@@ -173,16 +173,21 @@ impl Cmd {
                 filepath: f.clone(),
                 error: e,
             })?;
-            utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)
+            utils::add_contract_to_ledger_entries(&mut state.1, contract_id, contract)
                 .map_err(Error::CannotAddContractToLedgerEntries)?;
         }
 
         let snap = Rc::new(snapshot::Snap {
-            ledger_entries: ledger_entries.clone(),
+            ledger_entries: state.1.clone(),
         });
         let mut storage = Storage::with_recording_footprint(snap);
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
+
+        let mut ledger_info = state.0.clone();
+        ledger_info.sequence_number += 1;
+        ledger_info.timestamp += 5;
+        h.set_ledger_info(ledger_info.clone());
 
         let vm = Vm::new(&h, contract_id.into(), &contents)?;
         let inputs = match contractspec::function_spec(&vm, &self.function) {
@@ -241,7 +246,7 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(ledger_entries, &storage.map, &self.ledger_file).map_err(|e| {
+        snapshot::commit(state.1, ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
             Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,

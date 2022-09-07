@@ -4,7 +4,7 @@ use clap::Parser;
 use hex::FromHexError;
 use soroban_env_host::{xdr::Error as XdrError, HostError};
 
-use crate::snapshot;
+use crate::snapshot::{self, get_default_ledger_info};
 use crate::utils;
 
 #[derive(Parser, Debug)]
@@ -62,19 +62,19 @@ impl Cmd {
             error: e,
         })?;
 
-        let mut ledger_entries =
+        let mut state =
             snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
-        utils::add_contract_to_ledger_entries(&mut ledger_entries, contract_id, contract)?;
+        utils::add_contract_to_ledger_entries(&mut state.1, contract_id, contract)?;
 
-        snapshot::commit(ledger_entries, [], &self.ledger_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+        snapshot::commit(state.1, get_default_ledger_info(), [], &self.ledger_file).map_err(
+            |e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            }
-        })?;
+            },
+        )?;
         Ok(())
     }
 }
