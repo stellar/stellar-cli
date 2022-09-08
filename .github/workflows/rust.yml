@@ -53,7 +53,7 @@ jobs:
     - if: startsWith(github.head_ref, 'release/')
       uses: stellar/actions/rust-workspace-publish-dry-run@main
       with:
-        cargo-package-options: --target ${{ matrix.target }}}
+        cargo-package-options: --target ${{ matrix.target }}
 
   publish:
     if: github.event_name == 'release'
