@@ -150,7 +150,7 @@ impl Cmd {
             .collect::<Result<Vec<_>, _>>()
     }
 
-    fn execute_function(
+    fn invoke_function(
         &self,
         matches: &clap::ArgMatches,
         contract_id: [u8; 32],
@@ -233,7 +233,7 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res_str = self.execute_function(matches, contract_id, contents, &h)?;
+        let res_str = self.invoke_function(matches, contract_id, contents, &h)?;
         println!("{}", res_str);
 
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
