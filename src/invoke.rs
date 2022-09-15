@@ -154,10 +154,10 @@ impl Cmd {
         &self,
         matches: &clap::ArgMatches,
         contract_id: [u8; 32],
-        wasm: Vec<u8>,
+        wasm: &[u8],
         h: &Host,
     ) -> Result<String, Error> {
-        let vm = Vm::new(h, contract_id.into(), &wasm)?;
+        let vm = Vm::new(h, contract_id.into(), wasm)?;
         let inputs = match contractspec::function_spec(&vm, &self.function) {
             Some(s) => s.inputs,
             None => {
@@ -233,7 +233,7 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res_str = self.invoke_function(matches, contract_id, contents, &h)?;
+        let res_str = self.invoke_function(matches, contract_id, &contents, &h)?;
         println!("{}", res_str);
 
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
