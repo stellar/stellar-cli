@@ -236,6 +236,10 @@ impl Cmd {
         let res_str = self.invoke_function(matches, contract_id, &contents, &h)?;
         println!("{}", res_str);
 
+        // Tear down the vm -- it holds a reference to the host, and the host can't be finished while
+        // it is still alive.
+        std::mem::forget(vm);
+
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
