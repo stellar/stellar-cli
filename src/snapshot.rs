@@ -31,6 +31,7 @@ pub fn get_default_ledger_info() -> LedgerInfo {
         sequence_number: 0,
         timestamp: 0,
         network_passphrase: SANDBOX_NETWORK_PASSPHRASE.as_bytes().to_vec(),
+        base_reserve: 0,
     }
 }
 
@@ -42,6 +43,7 @@ struct SerializableState {
     sequence_number: u32,
     timestamp: u64,
     network_passphrase: Vec<u8>,
+    base_reserve: u32,
 }
 
 impl SnapshotSource for Snap {
@@ -80,6 +82,7 @@ pub fn read(
         sequence_number: state.sequence_number,
         timestamp: state.timestamp,
         network_passphrase: state.network_passphrase,
+        base_reserve: state.base_reserve,
     };
     Ok((info, entries))
 }
@@ -118,6 +121,7 @@ where
         sequence_number: ledger_info.sequence_number,
         timestamp: ledger_info.timestamp,
         network_passphrase: ledger_info.network_passphrase,
+        base_reserve: ledger_info.base_reserve,
     };
     serde_json::to_writer(&file, &output)?;
 
