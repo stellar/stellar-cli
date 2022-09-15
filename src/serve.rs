@@ -58,6 +58,7 @@ pub enum Error {
 #[serde(rename_all = "snake_case")]
 #[serde(untagged)]
 enum Requests {
+    NoArg(),
     GetContractData((String, String)),
     StringArg(Box<[String]>),
 }
@@ -127,6 +128,9 @@ async fn handler(
         ));
     }
     let result = match (request.method.as_str(), request.params) {
+        ("getHealth", Some(Requests::NoArg())) => Ok(json!({
+            "status": "healthy",
+        })),
         ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
             get_contract_data(&contract_id, key, &ledger_file)
         }
