@@ -150,6 +150,50 @@ impl Cmd {
             .collect::<Result<Vec<_>, _>>()
     }
 
+    fn invoke_function(
+        &self,
+        matches: &clap::ArgMatches,
+        contract_id: [u8; 32],
+        wasm: &[u8],
+        h: &Host,
+    ) -> Result<String, Error> {
+        let vm = Vm::new(h, contract_id.into(), wasm)?;
+        let inputs = match contractspec::function_spec(&vm, &self.function) {
+            Some(s) => s.inputs,
+            None => {
+                return Err(Error::FunctionNotFoundInContractSpec(self.function.clone()));
+            }
+        };
+
+        let parsed_args = self.parse_args(matches, &inputs)?;
+
+        let mut complete_args = vec![
+            ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
+            ScVal::Symbol(
+                (&self.function)
+                    .try_into()
+                    .map_err(|_| Error::FunctionNameTooLong(self.function.clone()))?,
+            ),
+        ];
+        complete_args.extend_from_slice(parsed_args.as_slice());
+        let complete_args_len = complete_args.len();
+
+        let final_args =
+            complete_args
+                .try_into()
+                .map_err(|_| Error::MaxNumberOfArgumentsReached {
+                    current: complete_args_len,
+                    maximum: soroban_env_host::xdr::ScVec::default().max_len(),
+                })?;
+        let res = h.invoke_function(HostFunction::Call, final_args)?;
+        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
+            result: res,
+            error: e,
+        })?;
+
+        Ok(res_str)
+    }
+
     pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
@@ -189,39 +233,7 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let vm = Vm::new(&h, contract_id.into(), &contents)?;
-        let inputs = match contractspec::function_spec(&vm, &self.function) {
-            Some(s) => s.inputs,
-            None => {
-                return Err(Error::FunctionNotFoundInContractSpec(self.function.clone()));
-            }
-        };
-
-        let parsed_args = self.parse_args(matches, &inputs)?;
-
-        let mut complete_args = vec![
-            ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
-            ScVal::Symbol(
-                (&self.function)
-                    .try_into()
-                    .map_err(|_| Error::FunctionNameTooLong(self.function.clone()))?,
-            ),
-        ];
-        complete_args.extend_from_slice(parsed_args.as_slice());
-        let complete_args_len = complete_args.len();
-
-        let final_args =
-            complete_args
-                .try_into()
-                .map_err(|_| Error::MaxNumberOfArgumentsReached {
-                    current: complete_args_len,
-                    maximum: soroban_env_host::xdr::ScVec::default().max_len(),
-                })?;
-        let res = h.invoke_function(HostFunction::Call, final_args)?;
-        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
-            result: res,
-            error: e,
-        })?;
+        let res_str = self.invoke_function(matches, contract_id, &contents, &h)?;
         println!("{}", res_str);
 
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
