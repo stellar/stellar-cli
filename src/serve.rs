@@ -15,6 +15,7 @@ use soroban_env_host::{
     },
     Host, HostError,
 };
+use stellar_strkey::StrkeyPublicKeyEd25519;
 use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
@@ -128,6 +129,22 @@ async fn handler(
         ));
     }
     let result = match (request.method.as_str(), request.params) {
+        ("getAccount", Some(Requests::StringArg(b))) => {
+            if let Some(address) = b.into_vec().first() {
+                if let Ok(_key) = StrkeyPublicKeyEd25519::from_string(address) {
+                    Ok(json!({
+                        "id": address,
+                        "sequence": "1", // TODO: Increment and persist this in sendTransaction.
+                        // TODO: Include balances
+                        // "balances": vec![],
+                    }))
+                } else {
+                    Err(Error::Xdr(XdrError::Invalid))
+                }
+            } else {
+                Err(Error::Xdr(XdrError::Invalid))
+            }
+        }
         ("getHealth", Some(Requests::NoArg())) => Ok(json!({
             "status": "healthy",
         })),
