@@ -277,13 +277,13 @@ impl Cmd {
                     .append(true)
                     .open(f)
                     .map_err(|e| Error::CannotOpenEventsFile {
-                        filepath: f.to_path_buf(),
+                        filepath: f.clone(),
                         error: e,
                     })?;
                 out = Box::new(file);
             }
 
-            for event in events.0.iter() {
+            for event in events.0 {
                 let event_str = match event {
                     HostEvent::Contract(e) => serde_json::to_string(&e).unwrap(),
                     HostEvent::Debug(e) => format!("{}", e),
