@@ -1,4 +1,9 @@
-use std::{fmt::Debug, fs, io, rc::Rc};
+use std::{
+    fmt::Debug,
+    fs::{self, OpenOptions},
+    io::{self, Write},
+    rc::Rc,
+};
 
 use clap::Parser;
 use hex::FromHexError;
@@ -42,6 +47,12 @@ pub struct Cmd {
     /// File to persist ledger state
     #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
     ledger_file: std::path::PathBuf,
+    /// Output file to write events
+    #[clap(long, parse(from_os_str))]
+    events_file: Option<std::path::PathBuf>,
+    /// Write events (to stdout unless --events_file is set)
+    #[clap(long)]
+    events: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -66,6 +77,13 @@ pub enum Error {
         filepath: std::path::PathBuf,
         error: io::Error,
     },
+    #[error("opening file {filepath}: {error}")]
+    CannotOpenEventsFile {
+        filepath: std::path::PathBuf,
+        error: io::Error,
+    },
+    #[error("writing event: {error}")]
+    CannotWriteEvent { error: io::Error },
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
@@ -250,11 +268,27 @@ impl Cmd {
             }
         }
 
-        for (i, event) in events.0.iter().enumerate() {
-            eprintln!("Event #{}:", i);
-            match event {
-                HostEvent::Contract(e) => eprint!("{}", serde_json::to_string(&e).unwrap()),
-                HostEvent::Debug(e) => eprint!("{}", e),
+        if self.events {
+            let mut out: Box<dyn io::Write> = Box::new(io::stdout());
+            if let Some(f) = &self.events_file {
+                let file = OpenOptions::new()
+                    .create_new(true)
+                    .write(true)
+                    .append(true)
+                    .open(f)
+                    .map_err(|e| Error::CannotOpenEventsFile {
+                        filepath: f.to_path_buf(),
+                        error: e,
+                    })?;
+                out = Box::new(file);
+            }
+
+            for event in events.0.iter() {
+                let event_str = match event {
+                    HostEvent::Contract(e) => serde_json::to_string(&e).unwrap(),
+                    HostEvent::Debug(e) => format!("{}", e),
+                };
+                writeln!(out, "{}", event_str).map_err(|e| Error::CannotWriteEvent { error: e })?;
             }
         }
 
