@@ -1,7 +1,6 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 
 mod completion;
-mod contractspec;
 mod deploy;
 mod gen;
 mod inspect;
