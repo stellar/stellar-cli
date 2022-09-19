@@ -31,11 +31,11 @@ wasmparser = "0.90.0"
 sha2 = "0.10.2"
 
 [patch.crates-io]
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "bf6b383e" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "bf97b19d" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "dc234c4" }
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "0a826765" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "0a826765" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "0a826765" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "0a826765" }
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "cebf5259" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "a0666316" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "a0666316" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "a0666316" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "a0666316" }
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "54bf5e00" }
 wasmi = { package = "soroban-wasmi", git = "https://github.com/stellar/wasmi", rev = "a61b6df" }

@@ -7,14 +7,15 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject,
+        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
         ScSpecFunctionInputV0, ScStatus, ScVal, VecM,
     },
-    Host, HostError, Vm,
+    Host, HostError,
 };
+use soroban_spec::read::FromWasmError;
 
 use crate::{
-    contractspec, snapshot,
+    snapshot,
     strval::{self, StrValError},
     utils,
 };
@@ -78,6 +79,8 @@ pub enum Error {
     },
     #[error("function {0} was not found in the contract")]
     FunctionNotFoundInContractSpec(String),
+    #[error("parsing contract spec: {0}")]
+    CannotParseContractSpec(FromWasmError),
     #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
     UnexpectedArgumentCount {
         provided: usize,
@@ -157,15 +160,21 @@ impl Cmd {
         wasm: &[u8],
         h: &Host,
     ) -> Result<String, Error> {
-        let vm = Vm::new(h, contract_id.into(), wasm)?;
-        let inputs = match contractspec::function_spec(&vm, &self.function) {
-            Some(s) => s.inputs,
-            None => {
-                return Err(Error::FunctionNotFoundInContractSpec(self.function.clone()));
-            }
-        };
+        let spec_entries =
+            soroban_spec::read::from_wasm(wasm).map_err(Error::CannotParseContractSpec)?;
+        let spec = spec_entries
+            .iter()
+            .find_map(|e| {
+                if let ScSpecEntry::FunctionV0(f) = e {
+                    if f.name.to_string_lossy() == self.function {
+                        return Some(f);
+                    }
+                }
+                None
+            })
+            .ok_or_else(|| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
 
-        let parsed_args = self.parse_args(matches, &inputs)?;
+        let parsed_args = self.parse_args(matches, &spec.inputs)?;
 
         let mut complete_args = vec![
             ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
@@ -251,10 +260,10 @@ impl Cmd {
         }
 
         for (i, event) in events.0.iter().enumerate() {
-            eprintln!("Event #{}:", i);
+            eprint!("Event #{}: ", i);
             match event {
-                HostEvent::Contract(e) => eprint!("{}", serde_json::to_string(&e).unwrap()),
-                HostEvent::Debug(e) => eprint!("{}", e),
+                HostEvent::Contract(e) => eprintln!("{}", serde_json::to_string(&e).unwrap()),
+                HostEvent::Debug(e) => eprintln!("{}", e),
             }
         }
 

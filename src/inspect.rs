@@ -86,6 +86,9 @@ impl Cmd {
                     ScSpecEntry::UdtStructV0(udt) => {
                         println!(" • Struct: {:?}", udt);
                     }
+                    ScSpecEntry::UdtEnumV0(udt) => {
+                        println!(" • Enum: {:?}", udt);
+                    }
                 }
             }
         } else {
