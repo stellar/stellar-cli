@@ -15,6 +15,7 @@ use soroban_env_host::{
     },
     Host, HostError,
 };
+use stellar_strkey::StrkeyPublicKeyEd25519;
 use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
@@ -58,6 +59,7 @@ pub enum Error {
 #[serde(rename_all = "snake_case")]
 #[serde(untagged)]
 enum Requests {
+    NoArg(),
     GetContractData((String, String)),
     StringArg(Box<[String]>),
 }
@@ -127,74 +129,19 @@ async fn handler(
         ));
     }
     let result = match (request.method.as_str(), request.params) {
+        ("getAccount", Some(Requests::StringArg(b))) => get_account(b),
+        ("getHealth", Some(Requests::NoArg())) => Ok(get_health()),
         ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
             get_contract_data(&contract_id, key, &ledger_file)
         }
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
-            if let Some(hash) = b.into_vec().first() {
-                let m = transaction_status_map.lock().await;
-                let status = m.get(hash);
-                Ok(match status {
-                    Some(status) => status.clone(),
-                    None => json!({
-                        "error": {
-                            "code":404,
-                            "message": "Transaction not found",
-                        },
-                    }),
-                })
-            } else {
-                Err(Error::Xdr(XdrError::Invalid))
-            }
+            get_transaction_status(&transaction_status_map, b).await
         }
         ("simulateTransaction", Some(Requests::StringArg(b))) => {
-            if let Some(txn_xdr) = b.into_vec().first() {
-                parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE)
-                    // Execute and do NOT commit
-                    .and_then(|(_, args)| execute_transaction(&args, &ledger_file, false))
-            } else {
-                Err(Error::Xdr(XdrError::Invalid))
-            }
+            simulate_transaction(&ledger_file, b)
         }
         ("sendTransaction", Some(Requests::StringArg(b))) => {
-            if let Some(txn_xdr) = b.into_vec().first() {
-                // TODO: Format error object output if txn is invalid
-                let mut m = transaction_status_map.lock().await;
-                parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
-                    let id = hex::encode(hash);
-                    // Execute and commit
-                    let result = execute_transaction(&args, &ledger_file, true);
-                    // Add it to our status tracker
-                    m.insert(
-                        id.clone(),
-                        match result {
-                            Ok(result) => {
-                                json!({
-                                    "id": id,
-                                    "status": "success",
-                                    "results": vec![result],
-                                })
-                            }
-                            Err(_err) => {
-                                // TODO: Actually render the real error to the user
-                                // Add it to our status tracker
-                                json!({
-                                    "id": id,
-                                    "status": "error",
-                                    "error": {
-                                        "code":-32603,
-                                        "message": "Internal server error",
-                                    },
-                                })
-                            }
-                        },
-                    );
-                    // Return the hash
-                    json!({ "id": id, "status": "pending" })
-                })
-            } else {
-                Err(Error::Xdr(XdrError::Invalid))
-            }
+            send_transaction(&ledger_file, &transaction_status_map, b).await
         }
         _ => Err(Error::UnknownMethod),
     };
@@ -472,4 +419,103 @@ fn hash_bytes(b: Vec<u8>) -> [u8; 32] {
     hasher.update(b);
     output.copy_from_slice(&hasher.finalize());
     output
+}
+
+fn get_account(b: Box<[String]>) -> Result<Value, Error> {
+    if let Some(address) = b.into_vec().first() {
+        if let Ok(_key) = StrkeyPublicKeyEd25519::from_string(address) {
+            Ok(json!({
+                "id": address,
+                "sequence": "1", // TODO: Increment and persist this in sendTransaction.
+                // TODO: Include balances
+                // "balances": vec![],
+            }))
+        } else {
+            Err(Error::Xdr(XdrError::Invalid))
+        }
+    } else {
+        Err(Error::Xdr(XdrError::Invalid))
+    }
+}
+
+fn get_health() -> Value {
+    json!({
+        "status": "healthy",
+    })
+}
+
+async fn get_transaction_status(
+    transaction_status_map: &Mutex<HashMap<String, Value>>,
+    b: Box<[String]>,
+) -> Result<Value, Error> {
+    if let Some(hash) = b.into_vec().first() {
+        let m = transaction_status_map.lock().await;
+        let status = m.get(hash);
+        Ok(match status {
+            Some(status) => status.clone(),
+            None => json!({
+                "error": {
+                    "code":404,
+                    "message": "Transaction not found",
+                },
+            }),
+        })
+    } else {
+        Err(Error::Xdr(XdrError::Invalid))
+    }
+}
+
+fn simulate_transaction(ledger_file: &PathBuf, b: Box<[String]>) -> Result<Value, Error> {
+    if let Some(txn_xdr) = b.into_vec().first() {
+        parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE)
+            // Execute and do NOT commit
+            .and_then(|(_, args)| execute_transaction(&args, ledger_file, false))
+    } else {
+        Err(Error::Xdr(XdrError::Invalid))
+    }
+}
+
+async fn send_transaction(
+    ledger_file: &PathBuf,
+    transaction_status_map: &Mutex<HashMap<String, Value>>,
+    b: Box<[String]>,
+) -> Result<Value, Error> {
+    if let Some(txn_xdr) = b.into_vec().first() {
+        // TODO: Format error object output if txn is invalid
+        let mut m = transaction_status_map.lock().await;
+        parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
+            let id = hex::encode(hash);
+            // Execute and commit
+            let result = execute_transaction(&args, ledger_file, true);
+            // Add it to our status tracker
+            m.insert(
+                id.clone(),
+                match result {
+                    Ok(result) => {
+                        json!({
+                            "id": id,
+                            "status": "success",
+                            "results": vec![result],
+                        })
+                    }
+                    Err(_err) => {
+                        // TODO: Actually render the real error to the user
+                        // Add it to our status tracker
+                        json!({
+                            "id": id,
+                            "status": "error",
+                            "error": {
+                                "code":-32603,
+                                "message": "Internal server error",
+                            },
+                        })
+                    }
+                },
+            );
+            // Return the hash
+            json!({ "id": id, "status": "pending" })
+        })
+    } else {
+        Err(Error::Xdr(XdrError::Invalid))
+    }
 }
