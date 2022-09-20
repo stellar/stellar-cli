@@ -15,9 +15,6 @@ pub struct Cmd {
     /// WASM file to deploy
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
-    /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
-    ledger_file: std::path::PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -49,7 +46,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub fn run(&self, ledger_file: &std::path::PathBuf) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
                 Error::CannotParseContractId {
@@ -62,19 +59,18 @@ impl Cmd {
             error: e,
         })?;
 
-        let mut state =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
+        let mut state = snapshot::read(ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+            filepath: ledger_file.clone(),
+            error: e,
+        })?;
         utils::add_contract_to_ledger_entries(&mut state.1, contract_id, contract)?;
 
-        snapshot::commit(state.1, get_default_ledger_info(), [], &self.ledger_file).map_err(
-            |e| Error::CannotCommitLedgerFile {
-                filepath: self.ledger_file.clone(),
+        snapshot::commit(state.1, get_default_ledger_info(), [], ledger_file).map_err(|e| {
+            Error::CannotCommitLedgerFile {
+                filepath: ledger_file.clone(),
                 error: e,
-            },
-        )?;
+            }
+        })?;
         Ok(())
     }
 }

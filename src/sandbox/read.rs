@@ -31,9 +31,6 @@ pub struct Cmd {
     /// Type of output to generate
     #[clap(long, arg_enum, default_value("string"))]
     output: Output,
-    /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
-    ledger_file: std::path::PathBuf,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
@@ -80,7 +77,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub fn run(&self, ledger_file: &std::path::PathBuf) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
                 Error::CannotParseContractId {
@@ -103,8 +100,8 @@ impl Cmd {
         };
 
         // Initialize storage
-        let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-            filepath: self.ledger_file.clone(),
+        let state = snapshot::read(ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+            filepath: ledger_file.clone(),
             error: e,
         })?;
 

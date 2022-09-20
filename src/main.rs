@@ -1,13 +1,11 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 
 mod completion;
-mod deploy;
 mod gen;
 mod inspect;
-mod invoke;
 mod jsonrpc;
 mod network;
-mod read;
+mod sandbox;
 mod serve;
 mod snapshot;
 mod strval;
@@ -29,16 +27,13 @@ struct Root {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
-    /// Invoke a contract function in a WASM file
-    Invoke(invoke::Cmd),
+    /// Run commands against a local sandbox
+    Sandbox(sandbox::Cmd),
+
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
-    /// Print the current value of a contract-data ledger entry
-    Read(read::Cmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
-    /// Deploy a WASM file as a contract
-    Deploy(deploy::Cmd),
     /// Generate code client bindings for a contract
     Gen(gen::Cmd),
 
@@ -55,28 +50,22 @@ enum CmdError {
     #[error(transparent)]
     Inspect(#[from] inspect::Error),
     #[error(transparent)]
-    Invoke(#[from] invoke::Error),
-    #[error(transparent)]
-    Read(#[from] read::Error),
+    Sandbox(#[from] sandbox::Error),
     #[error(transparent)]
     Serve(#[from] serve::Error),
     #[error(transparent)]
     Gen(#[from] gen::Error),
-    #[error(transparent)]
-    Deploy(#[from] deploy::Error),
 }
 
 async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
-        Cmd::Invoke(invoke) => {
-            let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
-            invoke.run(&sub_arg_matches)?;
+        Cmd::Sandbox(sandbox) => {
+            let (_, mut sub_arg_matches) = matches.remove_subcommand().unwrap();
+            sandbox.run(&mut sub_arg_matches)?;
         }
-        Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Gen(gen) => gen.run()?,
-        Cmd::Deploy(deploy) => deploy.run()?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
     };

@@ -40,9 +40,6 @@ pub struct Cmd {
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
-    /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
-    ledger_file: std::path::PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -203,7 +200,11 @@ impl Cmd {
         Ok(res_str)
     }
 
-    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub fn run(
+        &self,
+        ledger_file: &std::path::PathBuf,
+        matches: &clap::ArgMatches,
+    ) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
                 Error::CannotParseContractId {
@@ -214,11 +215,10 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
+        let mut state = snapshot::read(ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+            filepath: ledger_file.clone(),
+            error: e,
+        })?;
 
         //If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
@@ -267,9 +267,9 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(state.1, ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
+        snapshot::commit(state.1, ledger_info, &storage.map, ledger_file).map_err(|e| {
             Error::CannotCommitLedgerFile {
-                filepath: self.ledger_file.clone(),
+                filepath: ledger_file.clone(),
                 error: e,
             }
         })?;
