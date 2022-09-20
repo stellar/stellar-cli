@@ -5,6 +5,7 @@ mod gen;
 mod inspect;
 mod jsonrpc;
 mod network;
+mod remote;
 mod sandbox;
 mod serve;
 mod snapshot;
@@ -29,6 +30,8 @@ struct Root {
 enum Cmd {
     /// Run commands against a local sandbox
     Sandbox(sandbox::Cmd),
+    /// Run commands against a remote environment / network
+    Remote(remote::Cmd),
 
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
@@ -52,6 +55,8 @@ enum CmdError {
     #[error(transparent)]
     Sandbox(#[from] sandbox::Error),
     #[error(transparent)]
+    Remote(#[from] remote::Error),
+    #[error(transparent)]
     Serve(#[from] serve::Error),
     #[error(transparent)]
     Gen(#[from] gen::Error),
@@ -63,6 +68,10 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         Cmd::Sandbox(sandbox) => {
             let (_, mut sub_arg_matches) = matches.remove_subcommand().unwrap();
             sandbox.run(&mut sub_arg_matches)?;
+        }
+        Cmd::Remote(remote) => {
+            let (_, mut sub_arg_matches) = matches.remove_subcommand().unwrap();
+            remote.run(&mut sub_arg_matches)?;
         }
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Gen(gen) => gen.run()?,
