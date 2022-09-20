@@ -89,6 +89,9 @@ impl Cmd {
                     ScSpecEntry::UdtEnumV0(udt) => {
                         println!(" • Enum: {:?}", udt);
                     }
+                    ScSpecEntry::UdtErrorEnumV0(udt) => {
+                        println!(" • Error: {:?}", udt);
+                    }
                 }
             }
         } else {
