@@ -31,11 +31,18 @@ wasmparser = "0.90.0"
 sha2 = "0.10.2"
 
 [patch.crates-io]
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cdcd5185" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "be595fb1" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "dc234c4" }
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "fccd5196" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "fccd5196" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "fccd5196" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "fccd5196" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "2c088081" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "2c088081" }
+soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "2c088081" }
+soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "2c088081" }
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "c026149" }
 wasmi = { package = "soroban-wasmi", git = "https://github.com/stellar/wasmi", rev = "a61b6df" }
+
+[profile.release.package.soroban-env-host]
+# Debug assertions are always enabled in the CLI because the CLI is used as a
+# test harness, and we want debug assertions to be running in the embedded host
+# when running contracts to catch anything we might not otherwise catch, and to
+# log debug events if contracts are using them.
+debug-assertions = true

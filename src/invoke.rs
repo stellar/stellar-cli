@@ -260,10 +260,10 @@ impl Cmd {
         }
 
         for (i, event) in events.0.iter().enumerate() {
-            eprint!("Event #{}: ", i);
+            eprint!("#{}: ", i);
             match event {
-                HostEvent::Contract(e) => eprintln!("{}", serde_json::to_string(&e).unwrap()),
-                HostEvent::Debug(e) => eprintln!("{}", e),
+                HostEvent::Contract(e) => eprintln!("Event: {}", serde_json::to_string(&e).unwrap()),
+                HostEvent::Debug(e) => eprintln!("Debug: {}", e),
             }
         }
 
