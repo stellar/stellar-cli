@@ -263,7 +263,7 @@ impl Cmd {
             eprint!("#{}: ", i);
             match event {
                 HostEvent::Contract(e) => {
-                    eprintln!("event: {}", serde_json::to_string(&e).unwrap())
+                    eprintln!("event: {}", serde_json::to_string(&e).unwrap());
                 }
                 HostEvent::Debug(e) => eprintln!("debug: {}", e),
             }
