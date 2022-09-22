@@ -11,7 +11,7 @@ edition = "2021"
 rust-version = "1.63"
 
 [dependencies]
-soroban-env-host = { version = "0.0.5", features = ["vm", "serde"] }
+soroban-env-host = { version = "0.0.5", features = ["vm", "serde", "hostfn_log_fmt_values"] }
 soroban-spec = "0.0.4"
 stellar-strkey = "0.0.2"
 clap = { version = "3.1.18", features = ["derive", "env"] }
@@ -39,10 +39,3 @@ soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = 
 soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "2c088081" }
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "c026149" }
 wasmi = { package = "soroban-wasmi", git = "https://github.com/stellar/wasmi", rev = "a61b6df" }
-
-[profile.release.package.soroban-env-host]
-# Debug assertions are always enabled in the CLI because the CLI is used as a
-# test harness, and we want debug assertions to be running in the embedded host
-# when running contracts to catch anything we might not otherwise catch, and to
-# log debug events if contracts are using them.
-debug-assertions = true
