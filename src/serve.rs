@@ -96,6 +96,8 @@ impl Cmd {
                 "Referer",
                 "Sec-Fetch-Mode",
                 "User-Agent",
+                "X-Client-Name",
+                "X-Client-Version",
             ])
             .allow_methods(vec!["GET", "POST"]);
         let routes = jsonrpc_route.with(cors);
