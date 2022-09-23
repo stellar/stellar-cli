@@ -2,6 +2,8 @@ use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
 use hex::FromHexError;
+use sha2::Sha256;
+use soroban_env_host::xdr::{TransactionEnvelope, HostFunction, Operation, OperationBody, InvokeHostFunctionOp, LedgerFootprint};
 use soroban_env_host::{xdr::Error as XdrError, HostError};
 
 use crate::snapshot::{self, get_default_ledger_info};
@@ -76,5 +78,23 @@ impl Cmd {
             },
         )?;
         Ok(())
+    }
+
+    fn build_create_contract_tx(contract: Vec<u8>, key: [u8; 32], sig: Vec<u8>) -> Result<TransactionEnvelope, Error> {
+        // TODO: should the salt be provided by the user?
+        let salt = Sha256::digest("salt");
+        let separator = "create_contract_from_ed25519(contract: Vec<u8>, salt: u256, key: u256, sig: Vec<u8>)";
+
+
+        let op = Operation {
+            source_account: None,
+            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp{
+                function: HostFunction::CreateContract,
+                parameters: Default::default(),
+                // TODO: supposedly we need to get this from Core's preflight endpoint
+                footprint: Default::default(),
+            })
+            };
+        }
     }
 }
