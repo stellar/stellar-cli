@@ -8,7 +8,7 @@ license = "Apache-2.0"
 readme = "README.md"
 version = "0.0.4"
 edition = "2021"
-rust-version = "1.63"
+rust-version = "1.64"
 
 [dependencies]
 soroban-env-host = { version = "0.0.5", features = ["vm", "serde", "hostfn_log_fmt_values"] }
