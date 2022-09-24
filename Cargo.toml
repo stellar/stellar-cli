@@ -28,8 +28,8 @@ clap_complete = "3.2.3"
 prettyplease = "0.1.18"
 syn = { version = "1.0.99", features = ["parsing"] }
 wasmparser = "0.90.0"
-sha2 = "0.10.2"
-ed25519_dalek = "1.0.1"
+sha2 = "0.10.6"
+ed25519-dalek = "1.0.1"
 
 [patch.crates-io]
 soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "49feecab" }

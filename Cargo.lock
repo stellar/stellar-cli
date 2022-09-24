@@ -254,9 +254,9 @@ dependencies = [
 
 [[package]]
 name = "digest"
-version = "0.10.3"
+version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2fb860ca6fafa5552fb6d0e816a69c8e49f0908bf524e30a90d97c85892d506"
+checksum = "adfbc57365a37acbd2ebf2b64d7e69bb766e2fea813521ed536f5d0520dcf86c"
 dependencies = [
  "block-buffer 0.10.2",
  "crypto-common",
@@ -1114,7 +1114,7 @@ checksum = "028f48d513f9678cda28f6e4064755b3fbb2af6acd672f2c209b62323f7aea0f"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "digest 0.10.3",
+ "digest 0.10.5",
 ]
 
 [[package]]
@@ -1132,13 +1132,13 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.2"
+version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55deaec60f81eefe3cce0dc50bda92d6d8e88f2a27df7c5033b42afeb1ed2676"
+checksum = "82e6b795fe2e3b1e845bafcb27aa35405c4d47cdfc92af5fc8d3002f76cebdc0"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "digest 0.10.3",
+ "digest 0.10.5",
 ]
 
 [[package]]
@@ -1198,13 +1198,14 @@ dependencies = [
  "base64",
  "clap",
  "clap_complete",
+ "ed25519-dalek",
  "hex",
  "num-bigint",
  "prettyplease",
  "serde",
  "serde_derive",
  "serde_json",
- "sha2 0.10.2",
+ "sha2 0.10.6",
  "soroban-env-host",
  "soroban-spec",
  "stellar-strkey",
@@ -1241,7 +1242,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "parity-wasm",
- "sha2 0.10.2",
+ "sha2 0.10.6",
  "soroban-env-common",
  "soroban-native-sdk-macros",
  "soroban-wasmi",
@@ -1285,7 +1286,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "sha2 0.10.2",
+ "sha2 0.10.6",
  "soroban-env-host",
  "stellar-xdr",
  "syn",
