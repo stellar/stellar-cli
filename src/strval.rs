@@ -3,8 +3,9 @@ use std::{error::Error, fmt::Display, str::FromStr};
 
 use num_bigint::{BigInt, Sign};
 use soroban_env_host::xdr::{
-    Error as XdrError, ScBigInt, ScMap, ScMapEntry, ScObject, ScSpecTypeDef, ScSpecTypeMap,
-    ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec, VecM,
+    AccountId, Error as XdrError, PublicKey, ScBigInt, ScMap, ScMapEntry, ScObject, ScSpecTypeDef,
+    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec,
+    Uint256, VecM,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
@@ -163,6 +164,13 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                 .map_err(|_| StrValError::InvalidValue)?,
         ),
 
+        // AccountID parsing
+        (ScSpecTypeDef::AccountId, Value::String(s)) => ScVal::Object(Some(ScObject::AccountId({
+            StrkeyPublicKeyEd25519::from_string(s)
+                .map(|key| AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(key.0))))
+                .map_err(|_| StrValError::InvalidValue)?
+        }))),
+
         // Bytes parsing
         (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
             if let Ok(key) = StrkeyPublicKeyEd25519::from_string(s) {
@@ -289,6 +297,11 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
                 .map(|item| Value::Number(serde_json::Number::from(*item)))
                 .collect(),
         ),
+        ScVal::Object(Some(ScObject::AccountId(v))) => match v {
+            AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(k))) => {
+                Value::String(StrkeyPublicKeyEd25519(*k).to_string())
+            }
+        },
         ScVal::Object(Some(ScObject::BigInt(n))) => {
             // Always output bigints as strings
             Value::String(match n {

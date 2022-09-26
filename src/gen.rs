@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 use clap::{ArgEnum, Parser};
-use soroban_spec::gen::{json, rust};
+use soroban_spec::gen::{
+    json,
+    rust::{self, ToFormattedString},
+};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -43,15 +46,13 @@ impl Cmd {
         let wasm_path_str = self.wasm.to_string_lossy();
         let code =
             rust::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateRustFromFile)?;
-        let code_raw = code.to_string();
-        match syn::parse_file(&code_raw) {
-            Ok(file) => {
-                let code_fmt = prettyplease::unparse(&file);
-                println!("{}", code_fmt);
+        match code.to_formatted_string() {
+            Ok(formatted) => {
+                println!("{}", formatted);
                 Ok(())
             }
             Err(e) => {
-                println!("{}", code_raw);
+                println!("{}", code);
                 Err(Error::FormatRust(e))
             }
         }
