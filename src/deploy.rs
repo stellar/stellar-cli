@@ -4,14 +4,16 @@ use clap::Parser;
 use ed25519_dalek;
 use ed25519_dalek::Signer;
 use hex::FromHexError;
-use sha2::{Digest, Sha256, Sha512};
+use rand::Rng;
+use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::LedgerKey::ContractData;
 use soroban_env_host::xdr::ScStatic::LedgerKeyContractCode;
 use soroban_env_host::xdr::{
-    Hash, HashIdPreimageEd25519ContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
-    LedgerKey, LedgerKeyContractData, Memo, Operation, OperationBody, Preconditions, ScObject,
-    ScVal, Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256,
-    WriteXdr,
+    DecoratedSignature, Hash, HashIdPreimageEd25519ContractId, HostFunction, InvokeHostFunctionOp,
+    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, ScObject, ScVal, SequenceNumber, Signature, SignatureHint,
+    Transaction, TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::{xdr::Error as XdrError, HostError};
 use stellar_strkey::{DecodeError, StrkeyPrivateKeyEd25519};
@@ -94,11 +96,12 @@ impl Cmd {
 
     fn build_create_contract_tx(
         contract: Vec<u8>,
+        sequence: i64,
+        fee: u32,
+        network_passphrase: String,
         key: ed25519_dalek::Keypair,
     ) -> Result<TransactionEnvelope, Error> {
-        // TODO: generate the salt
-        // TODO: should the salt be provided by the end user?
-        let salt = Sha256::digest(b"a1");
+        let salt = rand::thread_rng().gen::<[u8; 32]>();
 
         let separator =
             b"create_contract_from_ed25519(contract: Vec<u8>, salt: u256, key: u256, sig: Vec<u8>)";
@@ -108,7 +111,7 @@ impl Cmd {
         hasher.update(contract);
         let hash = hasher.finalize();
 
-        let sig = key.sign(&hash);
+        let contract_signature = key.sign(&hash);
 
         let preimage = HashIdPreimageEd25519ContractId {
             ed25519: Uint256(key.secret.as_bytes().clone()),
@@ -122,7 +125,8 @@ impl Cmd {
         let salt_parameter = ScVal::Object(Some(ScObject::Bytes(salt.into()?)));
         let public_key_parameter =
             ScVal::Object(Some(ScObject::Bytes(key.public.as_bytes().into()?)));
-        let signature_parameter = ScVal::Object(Some(ScObject::Bytes(sig.to_bytes().into()?)));
+        let signature_parameter =
+            ScVal::Object(Some(ScObject::Bytes(contract_signature.to_bytes().into()?)));
 
         // TODO: reorder code properly
         let lk = LedgerKey::ContractData(LedgerKeyContractData {
@@ -130,38 +134,55 @@ impl Cmd {
             key: ScVal::Static(LedgerKeyContractCode),
         });
 
+        let parameters: VecM<ScVal, 256000> = vec![
+            contract_parameter,
+            salt_parameter,
+            public_key_parameter,
+            signature_parameter,
+        ]
+        .try_into()?;
+
         let op = Operation {
             source_account: None,
             body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
                 function: HostFunction::CreateContract,
-                parameters:
-                 // TODO: cast to VecM
-                vec![
-                    contract_parameter,
-                    salt_parameter,
-                    public_key_parameter,
-                    signature_parameter,
-                ],
+                parameters: parameters.into(),
                 footprint: LedgerFootprint {
                     read_only: Default::default(),
-                    // TODO: how to convert this to VecM?
-                    read_write: vec![lk],
+                    read_write: vec![lk].into()?,
                 },
             }),
         };
-
-        // TODO: sign transaction
         let tx = Transaction {
-            source_account: Default::default(),
-            // TODO: should the user supply the fee?
-            fee: 0,
-            // TODO: get sequence number from RPC server
-            seq_num: SequenceNumber(),
+            source_account: MuxedAccount::Ed25519(Uint256(key.public.as_bytes().clone())),
+            fee: fee,
+            seq_num: SequenceNumber(sequence),
             cond: Preconditions::None,
             memo: Memo::None,
-            operations: Default::default(),
+            operations: vec![op].into()?,
             ext: TransactionExt::V0,
         };
+
+        // sign the transaction
+        let passphrase_hash = Sha256::digest(network_passphrase);
+        let signature_payload = TransactionSignaturePayload {
+            network_id: Hash(passphrase_hash.into()),
+            tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
+        };
+        let tx_hash = Sha256::digest(signature_payload.to_xdr().into());
+        let tx_signature: Vec<u8> = key.sign(&tx_hash).into()?;
+
+        let decorated_signature = DecoratedSignature {
+            hint: SignatureHint(tx_signature.as_slice()[28..].into()?),
+            signature: Signature(tx_signature.into()?),
+        };
+
+        let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx: tx,
+            signatures: vec![decorated_signature].into()?,
+        });
+
+        Ok(envelope)
     }
 
     fn parse_private_key(strkey: String) -> Result<ed25519_dalek::Keypair, Error> {
