@@ -5,7 +5,7 @@ use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{AccountId, PublicKey};
+use soroban_env_host::xdr::{AccountId, MuxedAccount, Operation, PublicKey};
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
@@ -231,19 +231,19 @@ fn parse_transaction(
     // Parse and validate the txn
     let transaction = TransactionEnvelope::from_xdr_base64(txn_xdr.to_string())?;
     let hash = hash_transaction_in_envelope(&transaction, passphrase)?;
-    let source_account = tx_source_account(&transaction);
-    let ops = match transaction {
-        TransactionEnvelope::TxV0(envelope) => envelope.tx.operations,
-        TransactionEnvelope::Tx(envelope) => envelope.tx.operations,
+    let ops = match &transaction {
+        TransactionEnvelope::TxV0(envelope) => &envelope.tx.operations,
+        TransactionEnvelope::Tx(envelope) => &envelope.tx.operations,
         TransactionEnvelope::TxFeeBump(envelope) => {
-            let FeeBumpTransactionInnerTx::Tx(tx_envelope) = envelope.tx.inner_tx;
-            tx_envelope.tx.operations
+            let FeeBumpTransactionInnerTx::Tx(tx_envelope) = &envelope.tx.inner_tx;
+            &tx_envelope.tx.operations
         }
     };
     if ops.len() != 1 {
         return Err(Error::Xdr(XdrError::Invalid));
     }
     let op = ops.first().ok_or(Error::Xdr(XdrError::Invalid))?;
+    let source_account = parse_op_source_account(&transaction, &op);
     let body = if let OperationBody::InvokeHostFunction(b) = &op.body {
         b
     } else {
@@ -534,26 +534,26 @@ async fn send_transaction(
     }
 }
 
-fn tx_source_account(transaction: &TransactionEnvelope) -> AccountId {
-    // TODO: Read it from the tx op as well and use that as precedence.
-    match transaction {
-        TransactionEnvelope::TxV0(envelope) => AccountId(PublicKey::PublicKeyTypeEd25519(
-            envelope.tx.source_account_ed25519.clone(),
-        )),
-        TransactionEnvelope::Tx(envelope) => match envelope.tx.source_account.clone() {
-            xdr::MuxedAccount::Ed25519(a) => AccountId(PublicKey::PublicKeyTypeEd25519(a)),
-            xdr::MuxedAccount::MuxedEd25519(a) => {
-                AccountId(PublicKey::PublicKeyTypeEd25519(a.ed25519))
-            }
-        },
-        TransactionEnvelope::TxFeeBump(envelope) => {
-            let FeeBumpTransactionInnerTx::Tx(tx_envelope) = &envelope.tx.inner_tx;
-            match tx_envelope.tx.source_account.clone() {
-                xdr::MuxedAccount::Ed25519(a) => AccountId(PublicKey::PublicKeyTypeEd25519(a)),
-                xdr::MuxedAccount::MuxedEd25519(a) => {
-                    AccountId(PublicKey::PublicKeyTypeEd25519(a.ed25519))
-                }
+fn parse_op_source_account(transaction: &TransactionEnvelope, op: &Operation) -> AccountId {
+    if let Some(source_account) = &op.source_account {
+        parse_muxed_account(source_account)
+    } else {
+        match transaction {
+            TransactionEnvelope::TxV0(envelope) => AccountId(PublicKey::PublicKeyTypeEd25519(
+                envelope.tx.source_account_ed25519.clone(),
+            )),
+            TransactionEnvelope::Tx(envelope) => parse_muxed_account(&envelope.tx.source_account),
+            TransactionEnvelope::TxFeeBump(envelope) => {
+                let FeeBumpTransactionInnerTx::Tx(tx_envelope) = &envelope.tx.inner_tx;
+                parse_muxed_account(&tx_envelope.tx.source_account)
             }
         }
     }
+}
+
+fn parse_muxed_account(muxed_account: &MuxedAccount) -> AccountId {
+    AccountId(PublicKey::PublicKeyTypeEd25519(match muxed_account {
+        xdr::MuxedAccount::Ed25519(a) => a.clone(),
+        xdr::MuxedAccount::MuxedEd25519(a) => a.ed25519.clone(),
+    }))
 }
