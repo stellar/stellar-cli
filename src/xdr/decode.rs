@@ -10,7 +10,7 @@ pub struct Cmd {
     #[clap(long)]
     xdr: String,
     /// Type of output
-    #[clap(long, arg_enum)]
+    #[clap(long, arg_enum, default_value_t)]
     output: Output,
 }
 
@@ -20,6 +20,12 @@ pub enum Output {
     Default,
     /// Json representation
     Json,
+}
+
+impl Default for Output {
+    fn default() -> Self {
+        Self::Default
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
