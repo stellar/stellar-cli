@@ -535,6 +535,7 @@ async fn send_transaction(
 }
 
 fn tx_source_account(transaction: &TransactionEnvelope) -> AccountId {
+    // TODO: Read it from the tx op as well and use that as precedence.
     match transaction {
         TransactionEnvelope::TxV0(envelope) => AccountId(PublicKey::PublicKeyTypeEd25519(
             envelope.tx.source_account_ed25519.clone(),
