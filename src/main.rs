@@ -43,7 +43,7 @@ enum Cmd {
     /// Generate code client bindings for a contract
     Gen(gen::Cmd),
 
-    /// XDR decoding
+    /// Decode xdr
     Xdr(xdr::Cmd),
 
     /// Print version information
