@@ -1,14 +1,12 @@
 use clap::{ArgEnum, Parser};
 use soroban_env_host::xdr::{self};
 
-static VARS: [&str; 375] = xdr::Type::variants().map(|t| format!("{:?}", t).as_ref());
-
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// XDR type to decode to
-    #[clap(long, possible_values(VARS))]
+    #[clap(long, possible_values(xdr::TypeVariant::VARIANTS_STR))]
     r#type: xdr::TypeVariant,
-    /// XDR to decode
+    /// XDR (base64 encoded) to decode
     #[clap(long)]
     xdr: String,
     /// Type of output

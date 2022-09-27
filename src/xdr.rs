@@ -12,7 +12,7 @@ pub struct Cmd {
 
 #[derive(Subcommand, Debug)]
 enum SubCmd {
-    /// Deploy a WASM file as a contract
+    /// Decode XDR
     Dec(decode::Cmd),
 }
 
