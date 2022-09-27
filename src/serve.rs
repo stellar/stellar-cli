@@ -243,7 +243,7 @@ fn parse_transaction(
         return Err(Error::Xdr(XdrError::Invalid));
     }
     let op = ops.first().ok_or(Error::Xdr(XdrError::Invalid))?;
-    let source_account = parse_op_source_account(&transaction, &op);
+    let source_account = parse_op_source_account(&transaction, op);
     let body = if let OperationBody::InvokeHostFunction(b) = &op.body {
         b
     } else {
