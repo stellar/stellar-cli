@@ -13,6 +13,7 @@ mod snapshot;
 mod strval;
 mod utils;
 mod version;
+mod xdr;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -42,6 +43,9 @@ enum Cmd {
     /// Generate code client bindings for a contract
     Gen(gen::Cmd),
 
+    /// XDR decoding
+    Xdr(xdr::Cmd),
+
     /// Print version information
     Version(version::Cmd),
     /// Print shell completion code for the specified shell.
@@ -64,6 +68,8 @@ enum CmdError {
     Gen(#[from] gen::Error),
     #[error(transparent)]
     Deploy(#[from] deploy::Error),
+    #[error(transparent)]
+    Xdr(#[from] xdr::Error),
 }
 
 async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
@@ -77,6 +83,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Gen(gen) => gen.run()?,
         Cmd::Deploy(deploy) => deploy.run()?,
+        Cmd::Xdr(xdr) => xdr.run()?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
     };
