@@ -101,20 +101,20 @@ fn build_create_contract_tx(
     contract: Vec<u8>,
     sequence: i64,
     fee: u32,
-    network_passphrase: String,
+    network_passphrase: &str,
     key: ed25519_dalek::Keypair,
 ) -> Result<TransactionEnvelope, Error> {
     let salt = rand::thread_rng().gen::<[u8; 32]>();
 
     let separator =
         b"create_contract_from_ed25519(contract: Vec<u8>, salt: u256, key: u256, sig: Vec<u8>)";
-    let mut hasher = Sha256::new();
-    hasher.update(separator);
-    hasher.update(salt);
-    hasher.update(contract.clone());
-    let hash = hasher.finalize();
+    let contract_hash = Sha256::new()
+        .chain_update(separator)
+        .chain_update(salt)
+        .chain_update(contract.clone())
+        .finalize();
 
-    let contract_signature = key.sign(&hash);
+    let contract_signature = key.sign(&contract_hash);
 
     let preimage = HashIdPreimageEd25519ContractId {
         ed25519: Uint256(key.secret.as_bytes().clone()),
@@ -177,7 +177,7 @@ fn build_create_contract_tx(
     let tx_signature = key.sign(&tx_hash);
 
     let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(tx_signature.to_bytes()[28..].try_into()?),
+        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
         signature: Signature(tx_signature.to_bytes().try_into()?),
     };
 
@@ -205,15 +205,36 @@ fn parse_private_key(strkey: &str) -> Result<ed25519_dalek::Keypair, Error> {
 mod tests {
     use super::*;
 
+    #[test]
     fn test_parse_private_key() {
         let seed = "SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP";
         let keypair = parse_private_key(seed).unwrap();
 
         let expected_public_key: [u8; 32] = [
-            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10,
-            0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e,
-            0x1f,
+            0x31, 0x40, 0xf1, 0x40, 0x99, 0xa7, 0x4c, 0x90, 0xd4, 0x62, 0x48, 0xec, 0x8d, 0xef,
+            0xb3, 0x38, 0xc8, 0x2c, 0xe2, 0x42, 0x85, 0xc9, 0xf7, 0xb8, 0x95, 0xce, 0xdd, 0x6f,
+            0x96, 0x47, 0x82, 0x96,
         ];
         assert_eq!(expected_public_key, keypair.public.to_bytes());
+
+        let expected_private_key: [u8; 32] = [
+            0x4a, 0x62, 0x97, 0x5f, 0xc7, 0xb9, 0x9a, 0x18, 0xa0, 0x41, 0xba, 0x6, 0x24, 0xd0,
+            0x70, 0xf3, 0x95, 0x57, 0x58, 0x82, 0x81, 0x5a, 0x51, 0xbc, 0x3b, 0x49, 0xae, 0x5f,
+            0x37, 0x1e, 0x9c, 0x4a,
+        ];
+        assert_eq!(expected_private_key, keypair.secret.to_bytes());
+    }
+
+    #[test]
+    fn test_build_create_contract() {
+        let result = build_create_contract_tx(
+            b"foo".to_vec(),
+            300,
+            1,
+            "Public Global Stellar Network ; September 2015",
+            parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP").unwrap(),
+        );
+
+        assert!(result.is_ok());
     }
 }
