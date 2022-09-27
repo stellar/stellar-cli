@@ -13,7 +13,6 @@ use soroban_env_host::{
     Host, HostError,
 };
 use soroban_spec::read::FromWasmError;
-use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
     snapshot,
@@ -26,12 +25,6 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[clap(long = "id")]
     contract_id: String,
-    /// Account ID to invoke as
-    #[clap(
-        long = "account",
-        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
-    )]
-    account_id: StrkeyPublicKeyEd25519,
     /// WASM file to deploy to the contract ID and invoke
     #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
@@ -244,9 +237,7 @@ impl Cmd {
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
 
-        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
-            self.account_id.0,
-        ))));
+        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32]))));
 
         let mut ledger_info = state.0.clone();
         ledger_info.sequence_number += 1;

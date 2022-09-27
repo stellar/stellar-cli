@@ -1383,7 +1383,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stellar-strkey"
 version = "0.0.2"
-source = "git+https://github.com/stellar/rs-stellar-strkey?rev=cbb9651f#cbb9651f4a74adae0feac40374aa653cde650f1b"
+source = "git+https://github.com/stellar/rs-stellar-strkey?rev=dc234c4#dc234c4d0d57ffbe60e31e8c34e109ad409fd3bb"
 dependencies = [
  "base32",
 ]

@@ -32,7 +32,7 @@ csv = "1.1.6"
 
 [patch.crates-io]
 soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "81536e10" }
-stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "3c21b987" }
+stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "dc234c4" }
 soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "e110dff7" }
 soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "e110dff7" }
 soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "e110dff7" }
