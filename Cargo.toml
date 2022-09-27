@@ -28,6 +28,7 @@ clap_complete = "3.2.3"
 syn = { version = "1.0.99", features = ["parsing"] }
 wasmparser = "0.90.0"
 sha2 = "0.10.2"
+csv = "1.1.6"
 
 [patch.crates-io]
 soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "81536e10" }
