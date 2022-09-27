@@ -7,8 +7,8 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
-        ScSpecFunctionInputV0, ScStatus, ScVal, VecM,
+        AccountId, Error as XdrError, HostFunction, PublicKey, ReadXdr, ScHostStorageErrorCode,
+        ScObject, ScSpecEntry, ScSpecFunctionInputV0, ScStatus, ScVal, Uint256, VecM,
     },
     Host, HostError,
 };
@@ -236,6 +236,8 @@ impl Cmd {
         let mut storage = Storage::with_recording_footprint(snap);
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
+
+        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32]))));
 
         let mut ledger_info = state.0.clone();
         ledger_info.sequence_number += 1;
