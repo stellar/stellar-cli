@@ -126,13 +126,16 @@ impl Cmd {
             ]
                 .try_into().expect("invalid arguments");
 
-        // let res = h.invoke_function(HostFunction::CreateTokenContractWithSourceAccount, final_args)?;
-        let res = h.invoke_function(HostFunction::Call, final_args)?;
-        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
-            result: res,
-            error: e,
-        })?;
+        let res = h.invoke_function(HostFunction::CreateTokenContractWithSourceAccount, final_args)?;
 
-        Ok(res_str)
+        if let ScVal::Object(Some(ScObject::Bytes(res_hash))) = &res {
+            let mut hash_bytes: [u8; 32] = [0; 32];
+            for (i, b) in res_hash.iter().enumerate() {
+                hash_bytes[i] = b.clone();
+            };
+            Ok(hex::encode(hash_bytes))
+        } else {
+            panic!("unexpected result type: {:?}", res);
+        }
     }
 }
