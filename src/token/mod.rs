@@ -13,9 +13,9 @@ pub struct Root {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
-    /// Deploy an asset contract for a new asset
+    /// Deploy a token contract for a new token
     Create(create::Cmd),
-    /// Deploy an asset contract to wrap an existing Stellar classic asset for smart contract usage
+    /// Deploy a token contract to wrap an existing Stellar classic asset for smart contract usage
     Wrap(wrap::Cmd),
 }
 

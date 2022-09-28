@@ -41,7 +41,7 @@ pub enum Error {
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Administrator account for the asset
+    /// Administrator account for the token
     /// TODO: Do we need this? Or use source of deployer?
     #[clap(
         long,
@@ -49,15 +49,15 @@ pub struct Cmd {
     )]
     admin: StrkeyPublicKeyEd25519,
 
-    /// Number of decimal places for the asset
+    /// Number of decimal places for the token
     #[clap(long, default_value = "7")]
     decimal: u32,
 
-    /// Long name of the asset, e.g. "Stellar Lumens"
+    /// Long name of the token, e.g. "Stellar Lumens"
     #[clap(long)]
     name: String,
 
-    /// Short name of the asset, e.g. "XLM"
+    /// Short name of the token, e.g. "XLM"
     #[clap(long)]
     symbol: String,
 

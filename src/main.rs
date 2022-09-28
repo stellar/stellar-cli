@@ -1,6 +1,6 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 
-mod asset;
+mod token;
 mod completion;
 mod deploy;
 mod gen;
@@ -32,8 +32,6 @@ struct Root {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
-    /// Wrap, create, and manage asset contracts
-    Asset(asset::Root),
     /// Invoke a contract function in a WASM file
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
@@ -42,6 +40,8 @@ enum Cmd {
     Read(read::Cmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
+    /// Wrap, create, and manage token contracts
+    Token(token::Root),
     /// Deploy a WASM file as a contract
     Deploy(deploy::Cmd),
     /// Generate code client bindings for a contract
@@ -61,8 +61,6 @@ enum Cmd {
 enum CmdError {
     // TODO: stop using Debug for displaying errors
     #[error(transparent)]
-    Asset(#[from] asset::Error),
-    #[error(transparent)]
     Inspect(#[from] inspect::Error),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
@@ -70,6 +68,8 @@ enum CmdError {
     Read(#[from] read::Error),
     #[error(transparent)]
     Serve(#[from] serve::Error),
+    #[error(transparent)]
+    Token(#[from] token::Error),
     #[error(transparent)]
     Gen(#[from] gen::Error),
     #[error(transparent)]
@@ -80,7 +80,6 @@ enum CmdError {
 
 async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
     match cmd {
-        Cmd::Asset(asset) => asset.run()?,
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => {
             let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
@@ -88,6 +87,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         }
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
+        Cmd::Token(token) => token.run()?,
         Cmd::Gen(gen) => gen.run()?,
         Cmd::Deploy(deploy) => deploy.run().await?,
         Cmd::Xdr(xdr) => xdr.run()?,
