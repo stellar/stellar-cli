@@ -5,6 +5,7 @@ use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::{AccountId, MuxedAccount, Operation, PublicKey};
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
@@ -223,22 +224,26 @@ fn get_contract_data(
     }))
 }
 
-fn parse_transaction(txn_xdr: &str, passphrase: &str) -> Result<([u8; 32], Vec<ScVal>), Error> {
+fn parse_transaction(
+    txn_xdr: &str,
+    passphrase: &str,
+) -> Result<(AccountId, [u8; 32], Vec<ScVal>), Error> {
     // Parse and validate the txn
     let transaction = TransactionEnvelope::from_xdr_base64(txn_xdr.to_string())?;
     let hash = hash_transaction_in_envelope(&transaction, passphrase)?;
-    let ops = match transaction {
-        TransactionEnvelope::TxV0(envelope) => envelope.tx.operations,
-        TransactionEnvelope::Tx(envelope) => envelope.tx.operations,
+    let ops = match &transaction {
+        TransactionEnvelope::TxV0(envelope) => &envelope.tx.operations,
+        TransactionEnvelope::Tx(envelope) => &envelope.tx.operations,
         TransactionEnvelope::TxFeeBump(envelope) => {
-            let FeeBumpTransactionInnerTx::Tx(tx_envelope) = envelope.tx.inner_tx;
-            tx_envelope.tx.operations
+            let FeeBumpTransactionInnerTx::Tx(tx_envelope) = &envelope.tx.inner_tx;
+            &tx_envelope.tx.operations
         }
     };
     if ops.len() != 1 {
         return Err(Error::Xdr(XdrError::Invalid));
     }
     let op = ops.first().ok_or(Error::Xdr(XdrError::Invalid))?;
+    let source_account = parse_op_source_account(&transaction, op);
     let body = if let OperationBody::InvokeHostFunction(b) = &op.body {
         b
     } else {
@@ -292,10 +297,11 @@ fn parse_transaction(txn_xdr: &str, passphrase: &str) -> Result<([u8; 32], Vec<S
     ];
     complete_args.extend_from_slice(params);
 
-    Ok((hash, complete_args))
+    Ok((source_account, hash, complete_args))
 }
 
 fn execute_transaction(
+    source_account: AccountId,
     args: &Vec<ScVal>,
     ledger_file: &PathBuf,
     commit: bool,
@@ -308,6 +314,8 @@ fn execute_transaction(
     });
     let storage = Storage::with_recording_footprint(snap);
     let h = Host::with_storage_and_budget(storage, Budget::default());
+
+    h.set_source_account(source_account);
 
     let mut ledger_info = state.0.clone();
     ledger_info.sequence_number += 1;
@@ -471,7 +479,9 @@ fn simulate_transaction(ledger_file: &PathBuf, b: Box<[String]>) -> Result<Value
     if let Some(txn_xdr) = b.into_vec().first() {
         parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE)
             // Execute and do NOT commit
-            .and_then(|(_, args)| execute_transaction(&args, ledger_file, false))
+            .and_then(|(source_account, _, args)| {
+                execute_transaction(source_account, &args, ledger_file, false)
+            })
     } else {
         Err(Error::Xdr(XdrError::Invalid))
     }
@@ -485,39 +495,65 @@ async fn send_transaction(
     if let Some(txn_xdr) = b.into_vec().first() {
         // TODO: Format error object output if txn is invalid
         let mut m = transaction_status_map.lock().await;
-        parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE).map(|(hash, args)| {
-            let id = hex::encode(hash);
-            // Execute and commit
-            let result = execute_transaction(&args, ledger_file, true);
-            // Add it to our status tracker
-            m.insert(
-                id.clone(),
-                match result {
-                    Ok(result) => {
-                        json!({
-                            "id": id,
-                            "status": "success",
-                            "results": vec![result],
-                        })
-                    }
-                    Err(_err) => {
-                        // TODO: Actually render the real error to the user
-                        // Add it to our status tracker
-                        json!({
-                            "id": id,
-                            "status": "error",
-                            "error": {
-                                "code":-32603,
-                                "message": "Internal server error",
-                            },
-                        })
-                    }
-                },
-            );
-            // Return the hash
-            json!({ "id": id, "status": "pending" })
-        })
+        parse_transaction(txn_xdr, SANDBOX_NETWORK_PASSPHRASE).map(
+            |(source_account, hash, args)| {
+                let id = hex::encode(hash);
+                // Execute and commit
+                let result = execute_transaction(source_account, &args, ledger_file, true);
+                // Add it to our status tracker
+                m.insert(
+                    id.clone(),
+                    match result {
+                        Ok(result) => {
+                            json!({
+                                "id": id,
+                                "status": "success",
+                                "results": vec![result],
+                            })
+                        }
+                        Err(_err) => {
+                            // TODO: Actually render the real error to the user
+                            // Add it to our status tracker
+                            json!({
+                                "id": id,
+                                "status": "error",
+                                "error": {
+                                    "code":-32603,
+                                    "message": "Internal server error",
+                                },
+                            })
+                        }
+                    },
+                );
+                // Return the hash
+                json!({ "id": id, "status": "pending" })
+            },
+        )
     } else {
         Err(Error::Xdr(XdrError::Invalid))
     }
+}
+
+fn parse_op_source_account(transaction: &TransactionEnvelope, op: &Operation) -> AccountId {
+    if let Some(source_account) = &op.source_account {
+        parse_muxed_account(source_account)
+    } else {
+        match transaction {
+            TransactionEnvelope::TxV0(envelope) => AccountId(PublicKey::PublicKeyTypeEd25519(
+                envelope.tx.source_account_ed25519.clone(),
+            )),
+            TransactionEnvelope::Tx(envelope) => parse_muxed_account(&envelope.tx.source_account),
+            TransactionEnvelope::TxFeeBump(envelope) => {
+                let FeeBumpTransactionInnerTx::Tx(tx_envelope) = &envelope.tx.inner_tx;
+                parse_muxed_account(&tx_envelope.tx.source_account)
+            }
+        }
+    }
+}
+
+fn parse_muxed_account(muxed_account: &MuxedAccount) -> AccountId {
+    AccountId(PublicKey::PublicKeyTypeEd25519(match muxed_account {
+        xdr::MuxedAccount::Ed25519(a) => a.clone(),
+        xdr::MuxedAccount::MuxedEd25519(a) => a.ed25519.clone(),
+    }))
 }
