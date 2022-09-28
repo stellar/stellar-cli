@@ -5,6 +5,11 @@ use clap::Parser;
 use ed25519_dalek;
 use ed25519_dalek::Signer;
 use hex::FromHexError;
+use jsonrpsee_core;
+use jsonrpsee_core::client::ClientT;
+use jsonrpsee_core::rpc_params;
+use jsonrpsee_http_client;
+use jsonrpsee_http_client::HttpClientBuilder;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
@@ -23,15 +28,46 @@ use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    #[clap(long = "id")]
-    /// Contract ID to deploy to
-    contract_id: String,
     /// WASM file to deploy
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
-    /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
+    #[clap(long = "id", conflicts_with = "rpc-server-url")]
+    /// Contract ID to deploy to (if using the sandbox)
+    contract_id: String,
+    /// File to persist ledger state (if using the sandbox)
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value = ".soroban/ledger.json",
+        conflicts_with = "rpc-server-url"
+    )]
     ledger_file: std::path::PathBuf,
+
+    // RPC server endpoint
+    #[clap(long, requires = "private-strkey", requires = "network-passphrase")]
+    rpc_server_url: String,
+    // TODO: we should probably use an env variable for security reasons
+    //       (otherwise it will recorded in the shell history)
+    #[clap(long = "private-strkey")]
+    seed_strkey: String,
+    #[clap(long = "network-passphrase")]
+    network_passphrase: String,
+}
+
+// TODO: this should also be used by serve
+#[derive(serde::Deserialize, serde::Serialize)]
+struct GetAccountResponse {
+    id: String,
+    sequence: i64,
+    // TODO: add balances
+}
+
+// TODO: this should also be used by serve
+#[derive(serde::Deserialize, serde::Serialize)]
+struct SendTransactionResponse {
+    id: String,
+    status: String,
+    // TODO: add results
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -42,6 +78,8 @@ pub enum Error {
     TryFromSliceError(#[from] TryFromSliceError),
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+    #[error("jsonrpc error: {0}")]
+    JsonRpc(#[from] jsonrpsee_core::Error),
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
@@ -67,7 +105,20 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
+        let contract = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
+            filepath: self.wasm.clone(),
+            error: e,
+        })?;
+
+        if !self.rpc_server_url.is_empty() {
+            return self.run_against_rpc_server(contract).await;
+        }
+
+        self.run_in_sandbox(contract)
+    }
+
+    fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
                 Error::CannotParseContractId {
@@ -75,10 +126,6 @@ impl Cmd {
                     error: e,
                 }
             })?;
-        let contract = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
-            filepath: self.wasm.clone(),
-            error: e,
-        })?;
 
         let mut state =
             snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
@@ -93,6 +140,34 @@ impl Cmd {
                 error: e,
             },
         )?;
+        Ok(())
+    }
+
+    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
+        let base_url = self.rpc_server_url.clone() + "/api/v1/jsonrpc";
+        // TODO: We should consider migrating the server subcommand to jsonspree
+        let client = HttpClientBuilder::default().build(base_url)?;
+        let key = parse_private_key(&self.seed_strkey)?;
+
+        // Get the account sequence number
+        let public_strkey =
+            stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        let account_details: GetAccountResponse = client
+            .request("getAccount", rpc_params![public_strkey])
+            .await?;
+        // TODO: create a cmdline parameter for the fee isntead of simply using the minimum fee
+        let fee: u32 = 100;
+        let tx = build_create_contract_tx(
+            contract,
+            account_details.sequence,
+            fee,
+            &self.network_passphrase,
+            key,
+        )?;
+        let response: SendTransactionResponse = client
+            .request("sendTransaction", rpc_params![tx.to_xdr()?])
+            .await?;
+        println!("{}", response.status);
         Ok(())
     }
 }
@@ -117,7 +192,7 @@ fn build_create_contract_tx(
     let contract_signature = key.sign(&contract_hash);
 
     let preimage = HashIdPreimageEd25519ContractId {
-        ed25519: Uint256(key.secret.as_bytes().clone()),
+        ed25519: Uint256(key.public.as_bytes().clone()),
         salt: Uint256(salt.into()),
     };
     let preimage_xdr = preimage.to_xdr()?;
