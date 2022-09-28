@@ -201,7 +201,7 @@ impl Cmd {
                     current: complete_args_len,
                     maximum: soroban_env_host::xdr::ScVec::default().max_len(),
                 })?;
-        let res = h.invoke_function(HostFunction::Call, final_args)?;
+        let res = h.invoke_function(HostFunction::InvokeContract, final_args)?;
         let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
             result: res,
             error: e,

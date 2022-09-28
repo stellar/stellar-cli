@@ -250,7 +250,7 @@ fn parse_transaction(
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
-    if body.function != HostFunction::Call {
+    if body.function != HostFunction::InvokeContract {
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
@@ -324,7 +324,7 @@ fn execute_transaction(
 
     // TODO: Check the parameters match the contract spec, or return a helpful error message
 
-    let res = h.invoke_function(HostFunction::Call, args.try_into()?)?;
+    let res = h.invoke_function(HostFunction::InvokeContract, args.try_into()?)?;
 
     let (storage, budget, _) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(
