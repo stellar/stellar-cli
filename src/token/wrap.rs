@@ -3,8 +3,7 @@ use std::fmt::Debug;
 use clap::Parser;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
-}
+pub enum Error {}
 
 #[derive(Parser, Debug)]
 pub struct Cmd {

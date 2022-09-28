@@ -1,6 +1,5 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 
-mod token;
 mod completion;
 mod deploy;
 mod gen;
@@ -13,6 +12,7 @@ mod serve;
 mod snapshot;
 mod soroban_rpc;
 mod strval;
+mod token;
 mod utils;
 mod version;
 mod xdr;

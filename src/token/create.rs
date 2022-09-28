@@ -5,17 +5,14 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, Error as XdrError, HostFunction, PublicKey, ScHostStorageErrorCode,
-        ScObject, ScStatus, ScVal, Uint256,
+        AccountId, Error as XdrError, HostFunction, PublicKey, ScHostStorageErrorCode, ScObject,
+        ScStatus, ScVal, Uint256,
     },
     Host, HostError,
 };
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
-use crate::{
-    snapshot,
-    strval::{self, StrValError},
-};
+use crate::{snapshot, utils};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -33,8 +30,8 @@ pub enum Error {
         filepath: std::path::PathBuf,
         error: snapshot::Error,
     },
-    #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: StrValError },
+    #[error("cannot parse salt: {salt}")]
+    CannotParseSalt { salt: String },
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
 }
@@ -61,6 +58,13 @@ pub struct Cmd {
     #[clap(long)]
     symbol: String,
 
+    /// Custom salt 32-byte salt for the token id
+    #[clap(
+        long,
+        default_value = "0000000000000000000000000000000000000000000000000000000000000000"
+    )]
+    salt: String,
+
     /// File to persist ledger state
     #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
     ledger_file: std::path::PathBuf,
@@ -68,20 +72,25 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
+        // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
+        let salt_val: [u8; 32] =
+            utils::contract_id_from_str(&self.salt).map_err(|_| Error::CannotParseSalt {
+                salt: self.salt.clone(),
+            })?;
+
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let state =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
+        let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+            filepath: self.ledger_file.clone(),
+            error: e,
+        })?;
 
         let snap = Rc::new(snapshot::Snap {
             ledger_entries: state.1.clone(),
         });
         let h = Host::with_storage_and_budget(
             Storage::with_recording_footprint(snap),
-            Budget::default()
+            Budget::default(),
         );
 
         h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
@@ -92,9 +101,6 @@ impl Cmd {
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
-
-        // TODO: Let user specify salt (and key?)
-        let salt_val = [0u8; 32];
 
         let res_str = self.invoke_function(&h, &salt_val)?;
         println!("{}", res_str);
@@ -114,25 +120,25 @@ impl Cmd {
         Ok(())
     }
 
-    fn invoke_function(
-        &self,
-        h: &Host,
-        salt: &[u8; 32],
-    ) -> Result<String, Error> {
+    fn invoke_function(&self, h: &Host, salt: &[u8; 32]) -> Result<String, Error> {
+        let final_args = vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))]
+            .try_into()
+            .expect("invalid arguments");
 
-        let final_args =
-            vec![
-                ScVal::Object(Some(ScObject::Bytes(salt.try_into()?))),
-            ]
-                .try_into().expect("invalid arguments");
+        let res = h.invoke_function(
+            HostFunction::CreateTokenContractWithSourceAccount,
+            final_args,
+        )?;
 
-        let res = h.invoke_function(HostFunction::CreateTokenContractWithSourceAccount, final_args)?;
+        self.vec_to_hash(res)
+    }
 
+    fn vec_to_hash(&self, res: ScVal) -> Result<String, Error> {
         if let ScVal::Object(Some(ScObject::Bytes(res_hash))) = &res {
             let mut hash_bytes: [u8; 32] = [0; 32];
             for (i, b) in res_hash.iter().enumerate() {
                 hash_bytes[i] = b.clone();
-            };
+            }
             Ok(hex::encode(hash_bytes))
         } else {
             panic!("unexpected result type: {:?}", res);
