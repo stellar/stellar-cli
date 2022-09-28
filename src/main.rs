@@ -1,5 +1,6 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 
+mod asset;
 mod completion;
 mod deploy;
 mod gen;
@@ -31,6 +32,8 @@ struct Root {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
+    /// Wrap, create, and manage asset contracts
+    Asset(asset::Root),
     /// Invoke a contract function in a WASM file
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
@@ -58,6 +61,8 @@ enum Cmd {
 enum CmdError {
     // TODO: stop using Debug for displaying errors
     #[error(transparent)]
+    Asset(#[from] asset::Error),
+    #[error(transparent)]
     Inspect(#[from] inspect::Error),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
@@ -75,6 +80,7 @@ enum CmdError {
 
 async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
     match cmd {
+        Cmd::Asset(asset) => asset.run()?,
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => {
             let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
