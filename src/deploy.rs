@@ -1,4 +1,5 @@
 use std::array::TryFromSliceError;
+use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
@@ -13,9 +14,9 @@ use jsonrpsee_http_client::HttpClientBuilder;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    DecoratedSignature, Error as XdrError, Hash, HashIdPreimageEd25519ContractId, HostFunction,
-    InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData, LedgerKeyContractData, Memo,
-    MuxedAccount, Operation, OperationBody, Preconditions, ScObject,
+    DecoratedSignature, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageEd25519ContractId,
+    HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
+    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScObject,
     ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber, Signature, SignatureHint, Transaction,
     TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, Uint256, VecM, WriteXdr,
@@ -31,9 +32,16 @@ pub struct Cmd {
     /// WASM file to deploy
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
-    #[clap(long = "id", conflicts_with = "rpc-server-url")]
+    #[clap(
+        long = "id",
+        required_unless_present = "rpc-server-url",
+        conflicts_with = "rpc-server-url"
+    )]
+    // TODO: Should we get rid of the contract_id parameter
+    //       and just obtain it from the key/source like we do
+    //       when running against an rpc server?
     /// Contract ID to deploy to (if using the sandbox)
-    contract_id: String,
+    contract_id: Option<String>,
     /// File to persist ledger state (if using the sandbox)
     #[clap(
         long,
@@ -43,27 +51,35 @@ pub struct Cmd {
     )]
     ledger_file: std::path::PathBuf,
 
-    // RPC server endpoint
-    #[clap(long, requires = "private-strkey", requires = "network-passphrase")]
-    rpc_server_url: String,
+    /// RPC server endpoint
+    #[clap(
+        long,
+        required_unless_present = "contract-id",
+        conflicts_with = "contract-id",
+        requires = "private-strkey",
+        requires = "network-passphrase"
+    )]
+    rpc_server_url: Option<String>,
     // TODO: we should probably use an env variable for security reasons
     //       (otherwise it will recorded in the shell history)
+    /// Private key to sign the transaction sent to the rpc server
     #[clap(long = "private-strkey")]
-    seed_strkey: String,
+    private_strkey: Option<String>,
+    /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(long = "network-passphrase")]
-    network_passphrase: String,
+    network_passphrase: Option<String>,
 }
 
 // TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct GetAccountResponse {
     id: String,
-    sequence: i64,
+    sequence: String,
     // TODO: add balances
 }
 
 // TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct SendTransactionResponse {
     id: String,
     status: String,
@@ -74,6 +90,8 @@ struct SendTransactionResponse {
 pub enum Error {
     #[error(transparent)]
     Host(#[from] HostError),
+    #[error("error parsing int: {0}")]
+    ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
     #[error("xdr processing error: {0}")]
@@ -111,7 +129,7 @@ impl Cmd {
             error: e,
         })?;
 
-        if !self.rpc_server_url.is_empty() {
+        if self.rpc_server_url.is_some() {
             return self.run_against_rpc_server(contract).await;
         }
 
@@ -119,12 +137,10 @@ impl Cmd {
     }
 
     fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<(), Error> {
-        let contract_id: [u8; 32] =
-            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractId {
-                    contract_id: self.contract_id.clone(),
-                    error: e,
-                }
+        let contract_id: [u8; 32] = utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
+            .map_err(|e| Error::CannotParseContractId {
+                contract_id: self.contract_id.as_ref().unwrap().clone(),
+                error: e,
             })?;
 
         let mut state =
@@ -144,10 +160,10 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
-        let base_url = self.rpc_server_url.clone() + "/api/v1/jsonrpc";
+        let base_url = self.rpc_server_url.as_ref().unwrap().clone() + "/api/v1/jsonrpc";
         // TODO: We should consider migrating the server subcommand to jsonspree
         let client = HttpClientBuilder::default().build(base_url)?;
-        let key = parse_private_key(&self.seed_strkey)?;
+        let key = parse_private_key(self.private_strkey.as_ref().unwrap())?;
 
         // Get the account sequence number
         let public_strkey =
@@ -157,15 +173,16 @@ impl Cmd {
             .await?;
         // TODO: create a cmdline parameter for the fee isntead of simply using the minimum fee
         let fee: u32 = 100;
+        let sequence = account_details.sequence.parse::<i64>()?;
         let tx = build_create_contract_tx(
             contract,
-            account_details.sequence,
+            sequence,
             fee,
-            &self.network_passphrase,
+            self.network_passphrase.as_ref().unwrap(),
             key,
         )?;
         let response: SendTransactionResponse = client
-            .request("sendTransaction", rpc_params![tx.to_xdr()?])
+            .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await?;
         println!("{}", response.status);
         Ok(())
@@ -191,14 +208,13 @@ fn build_create_contract_tx(
 
     let contract_signature = key.sign(&contract_hash);
 
-    let preimage = HashIdPreimageEd25519ContractId {
+    let preimage = HashIdPreimage::ContractIdFromEd25519(HashIdPreimageEd25519ContractId {
         ed25519: Uint256(key.public.as_bytes().clone()),
         salt: Uint256(salt.into()),
-    };
+    });
     let preimage_xdr = preimage.to_xdr()?;
     let contract_id = Sha256::digest(preimage_xdr);
 
-    // TODO: clean up duplicated code and check whether the type conversions here make sense
     let contract_parameter = ScVal::Object(Some(ScObject::Bytes(contract.try_into()?)));
     let salt_parameter = ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)));
     let public_key_parameter =
@@ -207,7 +223,6 @@ fn build_create_contract_tx(
         contract_signature.to_bytes().try_into()?,
     )));
 
-    // TODO: reorder code properly
     let lk = ContractData(LedgerKeyContractData {
         contract_id: Hash(contract_id.into()),
         key: ScVal::Static(LedgerKeyContractCode),
@@ -279,6 +294,7 @@ fn parse_private_key(strkey: &str) -> Result<ed25519_dalek::Keypair, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jsonrpsee_http_client::types::Response;
 
     #[test]
     fn test_parse_private_key() {
