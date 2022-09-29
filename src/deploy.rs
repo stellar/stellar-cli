@@ -5,9 +5,8 @@ use std::{fmt::Debug, fs, io};
 use clap::Parser;
 use ed25519_dalek::Signer;
 use hex::FromHexError;
-use jsonrpsee_core::client::ClientT;
-use jsonrpsee_core::rpc_params;
-use jsonrpsee_http_client::HttpClientBuilder;
+use jsonrpsee_core::{client::ClientT, rpc_params};
+use jsonrpsee_http_client::{HeaderMap, HttpClientBuilder};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
@@ -23,6 +22,9 @@ use stellar_strkey::StrkeyPrivateKeyEd25519;
 
 use crate::snapshot::{self, get_default_ledger_info};
 use crate::utils;
+
+// TODO: put this in a common place
+const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -157,9 +159,16 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
+        // TODO: we should factor out the client creation when we start to use it in invoke and friends
         let base_url = self.rpc_server_url.as_ref().unwrap().clone() + "/api/v1/jsonrpc";
-        // TODO: We should consider migrating the server subcommand to jsonspree
-        let client = HttpClientBuilder::default().build(base_url)?;
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Client-Name", "soroban-cli".parse().unwrap());
+        let version = VERSION.unwrap_or("devel");
+        headers.insert("X-Client-Version", version.parse().unwrap());
+        // TODO: We should consider migrating the server subcommand to jsonrpsee
+        let client = HttpClientBuilder::default()
+            .set_headers(headers)
+            .build(base_url)?;
         let key = parse_private_key(self.private_strkey.as_ref().unwrap())?;
 
         // Get the account sequence number
@@ -168,7 +177,7 @@ impl Cmd {
         let account_details: GetAccountResponse = client
             .request("getAccount", rpc_params![public_strkey])
             .await?;
-        // TODO: create a cmdline parameter for the fee isntead of simply using the minimum fee
+        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
         let tx = build_create_contract_tx(
