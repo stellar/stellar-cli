@@ -104,7 +104,7 @@ impl Cmd {
             )
         } else if let Some(key) = &self.key_xdr {
             Some(
-                ScVal::from_xdr_base64(key.to_string()).map_err(|e| Error::CannotParseXdrKey {
+                ScVal::from_xdr_base64(key).map_err(|e| Error::CannotParseXdrKey {
                     key: key.clone(),
                     error: e,
                 })?,
