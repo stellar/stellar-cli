@@ -3,13 +3,10 @@ use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
-use ed25519_dalek;
 use ed25519_dalek::Signer;
 use hex::FromHexError;
-use jsonrpsee_core;
 use jsonrpsee_core::client::ClientT;
 use jsonrpsee_core::rpc_params;
-use jsonrpsee_http_client;
 use jsonrpsee_http_client::HttpClientBuilder;
 use rand::Rng;
 use sha2::{Digest, Sha256};
@@ -179,7 +176,7 @@ impl Cmd {
             sequence,
             fee,
             self.network_passphrase.as_ref().unwrap(),
-            key,
+            &key,
         )?;
         let response: SendTransactionResponse = client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
@@ -194,7 +191,7 @@ fn build_create_contract_tx(
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
-    key: ed25519_dalek::Keypair,
+    key: &ed25519_dalek::Keypair,
 ) -> Result<TransactionEnvelope, Error> {
     let salt = rand::thread_rng().gen::<[u8; 32]>();
 
@@ -209,8 +206,8 @@ fn build_create_contract_tx(
     let contract_signature = key.sign(&contract_hash);
 
     let preimage = HashIdPreimage::ContractIdFromEd25519(HashIdPreimageEd25519ContractId {
-        ed25519: Uint256(key.public.as_bytes().clone()),
-        salt: Uint256(salt.into()),
+        ed25519: Uint256(key.public.to_bytes()),
+        salt: Uint256(salt),
     });
     let preimage_xdr = preimage.to_xdr()?;
     let contract_id = Sha256::digest(preimage_xdr);
@@ -228,7 +225,7 @@ fn build_create_contract_tx(
         key: ScVal::Static(LedgerKeyContractCode),
     });
 
-    let parameters: VecM<ScVal, 256000> = vec![
+    let parameters: VecM<ScVal, 256_000> = vec![
         contract_parameter,
         salt_parameter,
         public_key_parameter,
@@ -239,17 +236,17 @@ fn build_create_contract_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateContract,
+            function: HostFunction::CreateContractWithEd25519,
             parameters: parameters.into(),
             footprint: LedgerFootprint {
-                read_only: Default::default(),
+                read_only: VecM::default(),
                 read_write: vec![lk].try_into()?,
             },
         }),
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.public.as_bytes().clone())),
-        fee: fee,
+        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
         memo: Memo::None,
@@ -272,7 +269,7 @@ fn build_create_contract_tx(
     };
 
     let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx: tx,
+        tx,
         signatures: vec![decorated_signature].try_into()?,
     });
 
@@ -281,7 +278,7 @@ fn build_create_contract_tx(
 
 fn parse_private_key(strkey: &str) -> Result<ed25519_dalek::Keypair, Error> {
     let seed =
-        StrkeyPrivateKeyEd25519::from_string(&strkey).map_err(|_| Error::CannotParsePrivateKey)?;
+        StrkeyPrivateKeyEd25519::from_string(strkey).map_err(|_| Error::CannotParsePrivateKey)?;
     let secret_key =
         ed25519_dalek::SecretKey::from_bytes(&seed.0).map_err(|_| Error::CannotParsePrivateKey)?;
     let public_key = (&secret_key).into();
@@ -294,7 +291,6 @@ fn parse_private_key(strkey: &str) -> Result<ed25519_dalek::Keypair, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jsonrpsee_http_client::types::Response;
 
     #[test]
     fn test_parse_private_key() {
@@ -323,7 +319,7 @@ mod tests {
             300,
             1,
             "Public Global Stellar Network ; September 2015",
-            parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP").unwrap(),
+            &parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP").unwrap(),
         );
 
         assert!(result.is_ok());
