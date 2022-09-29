@@ -82,7 +82,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Gen(gen) => gen.run()?,
-        Cmd::Deploy(deploy) => deploy.run()?,
+        Cmd::Deploy(deploy) => deploy.run().await?,
         Cmd::Xdr(xdr) => xdr.run()?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
