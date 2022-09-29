@@ -1,5 +1,7 @@
 use std::array::TryFromSliceError;
 use std::num::ParseIntError;
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
@@ -60,7 +62,7 @@ pub struct Cmd {
     )]
     rpc_server_url: Option<String>,
     // TODO: we should probably use an env variable for security reasons
-    //       (otherwise it will recorded in the shell history)
+    //       (otherwise it will get recorded in the shell history etc ...)
     /// Private key to sign the transaction sent to the rpc server
     #[clap(long = "private-strkey")]
     private_strkey: Option<String>,
@@ -80,6 +82,14 @@ struct GetAccountResponse {
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct SendTransactionResponse {
+    id: String,
+    status: String,
+    // TODO: add results
+}
+
+// TODO: this should also be used by serve
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+struct TransactionStatusResponse {
     id: String,
     status: String,
     // TODO: add results
@@ -119,6 +129,12 @@ pub enum Error {
     },
     #[error("cannot parse private key")]
     CannotParsePrivateKey,
+    #[error("trasaction submission failed")]
+    TransactionSubmissionFailed,
+    #[error("expected transaction status: {0}")]
+    UnexpectedTransactionStatus(String),
+    #[error("transaction submission timeout")]
+    TransactionSubmissionTimeout,
 }
 
 impl Cmd {
@@ -174,24 +190,51 @@ impl Cmd {
         // Get the account sequence number
         let public_strkey =
             stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        // TODO: use symbols for the method names (both here and in serve)
         let account_details: GetAccountResponse = client
             .request("getAccount", rpc_params![public_strkey])
             .await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let tx = build_create_contract_tx(
+        let (tx, tx_hash) = build_create_contract_tx(
             contract,
             sequence,
             fee,
             self.network_passphrase.as_ref().unwrap(),
             &key,
         )?;
-        let response: SendTransactionResponse = client
+        client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await?;
-        println!("{}", response.status);
-        Ok(())
+
+        // Poll the transaction status
+        let start = Instant::now();
+        loop {
+            let response: TransactionStatusResponse = client
+                .request("transactionStatus", rpc_params![hex::encode(tx_hash.0)])
+                .await?;
+            match response.status.as_str() {
+                "success" => {
+                    println!("{}", response.status);
+                    return Ok(());
+                }
+                "error" => {
+                    // TODO: provide a more elaborate error
+                    return Err(Error::TransactionSubmissionFailed);
+                }
+                "pending" => (),
+                _ => {
+                    return Err(Error::UnexpectedTransactionStatus(response.status));
+                }
+            };
+            let duration = start.elapsed();
+            // TODO: parameterize the timeout instead of using a magic constant
+            if duration.as_secs() > 10 {
+                return Err(Error::TransactionSubmissionTimeout);
+            }
+            sleep(Duration::from_secs(1));
+        }
     }
 }
 
@@ -201,7 +244,7 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<TransactionEnvelope, Error> {
+) -> Result<(TransactionEnvelope, Hash), Error> {
     let salt = rand::thread_rng().gen::<[u8; 32]>();
 
     let separator =
@@ -282,7 +325,7 @@ fn build_create_contract_tx(
         signatures: vec![decorated_signature].try_into()?,
     });
 
-    Ok(envelope)
+    Ok((envelope, Hash(tx_hash.into())))
 }
 
 fn parse_private_key(strkey: &str) -> Result<ed25519_dalek::Keypair, Error> {
