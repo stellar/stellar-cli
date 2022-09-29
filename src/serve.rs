@@ -511,9 +511,8 @@ async fn send_transaction(
                                 "results": vec![result],
                             })
                         }
-                        Err(_err) => {
-                            // TODO: Actually render the real error to the user
-                            // Add it to our status tracker
+                        Err(err) => {
+                            eprintln!("error: {:?}", err);
                             json!({
                                 "id": id,
                                 "status": "error",
