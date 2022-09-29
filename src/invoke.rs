@@ -7,12 +7,13 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        Error as XdrError, HostFunction, ReadXdr, ScHostStorageErrorCode, ScObject, ScSpecEntry,
-        ScSpecFunctionInputV0, ScStatus, ScVal, VecM,
+        AccountId, Error as XdrError, HostFunction, PublicKey, ReadXdr, ScHostStorageErrorCode,
+        ScObject, ScSpecEntry, ScSpecFunctionInputV0, ScStatus, ScVal, Uint256, VecM,
     },
     Host, HostError,
 };
 use soroban_spec::read::FromWasmError;
+use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
     snapshot,
@@ -25,6 +26,12 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[clap(long = "id")]
     contract_id: String,
+    /// Account ID to invoke as
+    #[clap(
+        long = "account",
+        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
+    )]
+    account_id: StrkeyPublicKeyEd25519,
     /// WASM file to deploy to the contract ID and invoke
     #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
@@ -194,7 +201,7 @@ impl Cmd {
                     current: complete_args_len,
                     maximum: soroban_env_host::xdr::ScVec::default().max_len(),
                 })?;
-        let res = h.invoke_function(HostFunction::Call, final_args)?;
+        let res = h.invoke_function(HostFunction::InvokeContract, final_args)?;
         let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
             result: res,
             error: e,
@@ -236,6 +243,10 @@ impl Cmd {
         let mut storage = Storage::with_recording_footprint(snap);
         let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
+
+        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+            self.account_id.0,
+        ))));
 
         let mut ledger_info = state.0.clone();
         ledger_info.sequence_number += 1;
