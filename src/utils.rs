@@ -80,6 +80,18 @@ pub fn get_contract_wasm_from_storage(
     )))
 }
 
+pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {
+    if let ScVal::Object(Some(ScObject::Bytes(res_hash))) = &res {
+        let mut hash_bytes: [u8; 32] = [0; 32];
+        for (i, b) in res_hash.iter().enumerate() {
+            hash_bytes[i] = *b;
+        }
+        Ok(hex::encode(hash_bytes))
+    } else {
+        Err(XdrError::Invalid)
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum ParsePrivateKeyError {
     #[error("cannot parse private key")]

@@ -102,7 +102,7 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res_str = self.invoke_function(&h, &salt_val)?;
+        let res_str = Cmd::invoke_function(&h, &salt_val)?;
         println!("{}", res_str);
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
@@ -120,7 +120,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn invoke_function(&self, h: &Host, salt: &[u8; 32]) -> Result<String, Error> {
+    fn invoke_function(h: &Host, salt: &[u8; 32]) -> Result<String, Error> {
         let final_args = vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))]
             .try_into()
             .expect("invalid arguments");
@@ -130,18 +130,6 @@ impl Cmd {
             final_args,
         )?;
 
-        self.vec_to_hash(res)
-    }
-
-    fn vec_to_hash(&self, res: ScVal) -> Result<String, Error> {
-        if let ScVal::Object(Some(ScObject::Bytes(res_hash))) = &res {
-            let mut hash_bytes: [u8; 32] = [0; 32];
-            for (i, b) in res_hash.iter().enumerate() {
-                hash_bytes[i] = b.clone();
-            }
-            Ok(hex::encode(hash_bytes))
-        } else {
-            panic!("unexpected result type: {:?}", res);
-        }
+        Ok(utils::vec_to_hash(&res)?)
     }
 }

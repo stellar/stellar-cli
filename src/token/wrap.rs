@@ -13,7 +13,7 @@ use soroban_env_host::{
 };
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
-use crate::snapshot;
+use crate::{snapshot, utils};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -57,7 +57,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         // Parse asset
-        let asset = self.parse_asset(&self.asset)?;
+        let asset = Cmd::parse_asset(&self.asset)?;
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -79,7 +79,7 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res_str = self.invoke_function(&h, &asset)?;
+        let res_str = Cmd::invoke_function(&h, &asset)?;
         println!("{}", res_str);
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
@@ -97,7 +97,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn invoke_function(&self, h: &Host, asset: &Asset) -> Result<String, Error> {
+    fn invoke_function(h: &Host, asset: &Asset) -> Result<String, Error> {
         let mut buf: Vec<u8> = vec![];
         asset.write_xdr(&mut buf)?;
         let final_args = vec![ScVal::Object(Some(ScObject::Bytes(buf.try_into()?)))]
@@ -106,26 +106,14 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::CreateTokenContractWithAsset, final_args)?;
 
-        self.vec_to_hash(res)
+        Ok(utils::vec_to_hash(&res)?)
     }
 
-    fn vec_to_hash(&self, res: ScVal) -> Result<String, Error> {
-        if let ScVal::Object(Some(ScObject::Bytes(res_hash))) = &res {
-            let mut hash_bytes: [u8; 32] = [0; 32];
-            for (i, b) in res_hash.iter().enumerate() {
-                hash_bytes[i] = b.clone();
-            }
-            Ok(hex::encode(hash_bytes))
-        } else {
-            panic!("unexpected result type: {:?}", res);
-        }
-    }
-
-    fn parse_asset(&self, str: &str) -> Result<Asset, Error> {
+    fn parse_asset(str: &str) -> Result<Asset, Error> {
         if str == "native" {
             return Ok(Asset::Native);
         }
-        let split: Vec<&str> = str.splitn(2, ":").collect();
+        let split: Vec<&str> = str.splitn(2, ':').collect();
         if split.len() != 2 {
             return Err(Error::CannotParseAsset {
                 asset: str.to_string(),
@@ -142,25 +130,25 @@ impl Cmd {
         if code.len() <= 4 {
             let mut asset_code: [u8; 4] = [0; 4];
             for (i, b) in code.as_bytes().iter().enumerate() {
-                asset_code[i] = b.clone();
+                asset_code[i] = *b;
             }
             Ok(Asset::CreditAlphanum4(AlphaNum4 {
                 asset_code: AssetCode4(asset_code),
-                issuer: self.parse_account_id(issuer)?,
+                issuer: Cmd::parse_account_id(issuer)?,
             }))
         } else {
             let mut asset_code: [u8; 12] = [0; 12];
             for (i, b) in code.as_bytes().iter().enumerate() {
-                asset_code[i] = b.clone();
+                asset_code[i] = *b;
             }
             Ok(Asset::CreditAlphanum12(AlphaNum12 {
                 asset_code: AssetCode12(asset_code),
-                issuer: self.parse_account_id(issuer)?,
+                issuer: Cmd::parse_account_id(issuer)?,
             }))
         }
     }
 
-    fn parse_account_id(&self, str: &str) -> Result<AccountId, Error> {
+    fn parse_account_id(str: &str) -> Result<AccountId, Error> {
         let pk_bytes = StrkeyPublicKeyEd25519::from_string(str)
             .map_err(|_| Error::CannotParseAccountId {
                 account_id: str.to_string(),

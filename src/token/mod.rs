@@ -29,9 +29,10 @@ pub enum Error {
 
 impl Root {
     pub fn run(&self) -> Result<(), Error> {
-        Ok(match &self.cmd {
+        match &self.cmd {
             Cmd::Create(create) => create.run()?,
             Cmd::Wrap(wrap) => wrap.run()?,
-        })
+        }
+        Ok(())
     }
 }
