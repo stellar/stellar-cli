@@ -144,12 +144,10 @@ impl Cmd {
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
-                Arg::ArgXdr(s) => {
-                    ScVal::from_xdr_base64(s).map_err(|e| Error::CannotParseXdrArg {
-                        arg: s.clone(),
-                        error: e,
-                    })
-                }
+                Arg::ArgXdr(s) => ScVal::from_xdr_base64(s).map_err(|e| Error::CannotParseXdrArg {
+                    arg: s.clone(),
+                    error: e,
+                }),
                 Arg::Arg(s) => {
                     strval::from_string(s, &input.type_).map_err(|e| Error::CannotParseArg {
                         arg: s.clone(),
