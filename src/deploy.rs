@@ -12,12 +12,13 @@ use jsonrpsee_http_client::{HeaderMap, HttpClientBuilder};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    DecoratedSignature, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageEd25519ContractId,
-    HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
-    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScObject,
-    ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber, Signature, SignatureHint, Transaction,
-    TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
-    TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
+    HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
+    LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber,
+    Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
+    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+    TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::HostError;
 use stellar_strkey::StrkeyPrivateKeyEd25519;
@@ -197,7 +198,7 @@ impl Cmd {
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let (tx, tx_hash) = build_create_contract_tx(
+        let (tx, tx_hash, contract_id) = build_create_contract_tx(
             contract,
             sequence,
             fee,
@@ -216,7 +217,8 @@ impl Cmd {
                 .await?;
             match response.status.as_str() {
                 "success" => {
-                    println!("{}", response.status);
+                    println!("{}", response.status.as_str());
+                    println!("Contract ID: {}", hex::encode(contract_id.0));
                     return Ok(());
                 }
                 "error" => {
@@ -244,51 +246,33 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<(TransactionEnvelope, Hash), Error> {
+) -> Result<(TransactionEnvelope, Hash, Hash), Error> {
     let salt = rand::thread_rng().gen::<[u8; 32]>();
 
-    let separator =
-        b"create_contract_from_ed25519(contract: Vec<u8>, salt: u256, key: u256, sig: Vec<u8>)";
-    let contract_hash = Sha256::new()
-        .chain_update(separator)
-        .chain_update(salt)
-        .chain_update(contract.clone())
-        .finalize();
-
-    let contract_signature = key.sign(&contract_hash);
-
-    let preimage = HashIdPreimage::ContractIdFromEd25519(HashIdPreimageEd25519ContractId {
-        ed25519: Uint256(key.public.to_bytes()),
-        salt: Uint256(salt),
-    });
+    let preimage =
+        HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
+            source_account: AccountId(PublicKey::PublicKeyTypeEd25519(
+                key.public.to_bytes().into(),
+            )),
+            salt: Uint256(salt),
+        });
     let preimage_xdr = preimage.to_xdr()?;
     let contract_id = Sha256::digest(preimage_xdr);
 
     let contract_parameter = ScVal::Object(Some(ScObject::Bytes(contract.try_into()?)));
     let salt_parameter = ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)));
-    let public_key_parameter =
-        ScVal::Object(Some(ScObject::Bytes(key.public.as_bytes().try_into()?)));
-    let signature_parameter = ScVal::Object(Some(ScObject::Bytes(
-        contract_signature.to_bytes().try_into()?,
-    )));
 
     let lk = ContractData(LedgerKeyContractData {
         contract_id: Hash(contract_id.into()),
         key: ScVal::Static(LedgerKeyContractCode),
     });
 
-    let parameters: VecM<ScVal, 256_000> = vec![
-        contract_parameter,
-        salt_parameter,
-        public_key_parameter,
-        signature_parameter,
-    ]
-    .try_into()?;
+    let parameters: VecM<ScVal, 256_000> = vec![contract_parameter, salt_parameter].try_into()?;
 
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateContractWithEd25519,
+            function: HostFunction::CreateContractWithSourceAccount,
             parameters: parameters.into(),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
@@ -325,7 +309,7 @@ fn build_create_contract_tx(
         signatures: vec![decorated_signature].try_into()?,
     });
 
-    Ok((envelope, Hash(tx_hash.into())))
+    Ok((envelope, Hash(tx_hash.into()), Hash(contract_id.into())))
 }
 
 fn parse_private_key(strkey: &str) -> Result<ed25519_dalek::Keypair, Error> {
