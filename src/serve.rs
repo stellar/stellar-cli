@@ -250,6 +250,7 @@ fn parse_transaction(
         return Err(Error::Xdr(XdrError::Invalid));
     };
 
+    // TODO: Support creating contracts and token wrappers here as well.
     if body.function != HostFunction::InvokeContract {
         return Err(Error::Xdr(XdrError::Invalid));
     };
