@@ -387,7 +387,8 @@ fn build_init_token_op(contract_id: &Hash, parameters: ScVec) -> Result<Operatio
                         contract_id: contract_id.clone(),
                         key: ScVal::Symbol("Metadata".try_into().unwrap()),
                     }),
-                ].try_into()?,
+                ]
+                .try_into()?,
             },
         }),
     })
