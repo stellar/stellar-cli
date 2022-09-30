@@ -229,7 +229,7 @@ fn parse_transaction(
     passphrase: &str,
 ) -> Result<(AccountId, [u8; 32], Vec<ScVal>), Error> {
     // Parse and validate the txn
-    let transaction = TransactionEnvelope::from_xdr_base64(txn_xdr.to_string())?;
+    let transaction = TransactionEnvelope::from_xdr_base64(txn_xdr)?;
     let hash = hash_transaction_in_envelope(&transaction, passphrase)?;
     let ops = match &transaction {
         TransactionEnvelope::TxV0(envelope) => &envelope.tx.operations,
