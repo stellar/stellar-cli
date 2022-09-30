@@ -1,25 +1,33 @@
-use std::{fmt::Debug, rc::Rc};
+use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 
 use clap::Parser;
+use ed25519_dalek::Signer;
+use rand::Rng;
+use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, Error as XdrError, HostFunction, PublicKey, ScHostStorageErrorCode, ScObject,
-        ScStatus, ScVal, Uint256,
+        AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
+        HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
+        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject,
+        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Signature, SignatureHint,
+        Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
     },
     Host, HostError,
 };
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
-use crate::{snapshot, utils};
+use crate::{
+    snapshot,
+    soroban_rpc::{Error as SorobanRpcError, SorobanRpc},
+    utils,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
@@ -30,8 +38,20 @@ pub enum Error {
         filepath: std::path::PathBuf,
         error: snapshot::Error,
     },
+    #[error("cannot parse private key")]
+    CannotParsePrivateKey,
     #[error("cannot parse salt: {salt}")]
     CannotParseSalt { salt: String },
+    #[error(transparent)]
+    // TODO: the Display impl of host errors is pretty user-unfriendly
+    //       (it just calls Debug). I think we can do better than that
+    Host(#[from] HostError),
+    #[error("error parsing int: {0}")]
+    ParseIntError(#[from] ParseIntError),
+    #[error(transparent)]
+    SorobanRpc(#[from] SorobanRpcError),
+    #[error("internal conversion error: {0}")]
+    TryFromSliceError(#[from] TryFromSliceError),
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
 }
@@ -65,20 +85,46 @@ pub struct Cmd {
     )]
     salt: String,
 
-    /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
+    /// File to persist ledger state (if using the sandbox)
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value = ".soroban/ledger.json",
+        conflicts_with = "rpc-server-url"
+    )]
     ledger_file: std::path::PathBuf,
+
+    /// RPC server endpoint
+    #[clap(
+        long,
+        conflicts_with = "ledger-file",
+        requires = "private-strkey",
+        requires = "network-passphrase"
+    )]
+    rpc_server_url: Option<String>,
+    // TODO: we should probably use an env variable for security reasons
+    //       (otherwise it will get recorded in the shell history etc ...)
+    /// Private key to sign the transaction sent to the rpc server
+    #[clap(long = "private-strkey")]
+    private_strkey: Option<String>,
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[clap(long = "network-passphrase")]
+    network_passphrase: Option<String>,
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
         let salt: [u8; 32] =
             utils::contract_id_from_str(&self.salt).map_err(|_| Error::CannotParseSalt {
                 salt: self.salt.clone(),
             })?;
 
-        let res_str = self.run_in_sandbox(salt)?;
+        let res_str = if self.rpc_server_url.is_some() {
+            self.run_against_rpc_server(salt).await?
+        } else {
+            self.run_in_sandbox(salt)?
+        };
         println!("{}", res_str);
         Ok(())
     }
@@ -130,5 +176,123 @@ impl Cmd {
             }
         })?;
         Ok(res_str)
+    }
+
+    async fn run_against_rpc_server(&self, salt: [u8; 32]) -> Result<String, Error> {
+        let client = SorobanRpc::new(self.rpc_server_url.as_ref().unwrap());
+        let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
+            .map_err(|_| Error::CannotParsePrivateKey)?;
+        let salt_val = if salt == [0; 32] {
+            rand::thread_rng().gen::<[u8; 32]>()
+        } else {
+            salt
+        };
+
+        // Get the account sequence number
+        let public_strkey =
+            stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        // TODO: use symbols for the method names (both here and in serve)
+        let account_details = client.get_account(&public_strkey).await?;
+        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
+        let fee: u32 = 100;
+        let sequence = account_details.sequence.parse::<i64>()?;
+        let contract_id = get_contract_id(salt_val, key.public.to_bytes())?;
+        let tx = build_create_token_tx(
+            salt_val,
+            &contract_id,
+            sequence,
+            fee,
+            self.network_passphrase.as_ref().unwrap(),
+            &key,
+        )?;
+
+        client.send_transaction(&tx).await?;
+
+        Ok(hex::encode(&contract_id))
+    }
+}
+
+fn get_contract_id(salt: [u8; 32], public_key: [u8; 32]) -> Result<Hash, Error> {
+    let preimage =
+        HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
+            source_account: AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(public_key))),
+            salt: Uint256(salt),
+        });
+    let preimage_xdr = preimage.to_xdr()?;
+    Ok(Hash(Sha256::digest(preimage_xdr).into()))
+}
+
+fn build_create_token_tx(
+    salt: [u8; 32],
+    contract_id: &Hash,
+    sequence: i64,
+    fee: u32,
+    network_passphrase: &str,
+    key: &ed25519_dalek::Keypair,
+) -> Result<TransactionEnvelope, Error> {
+    let lk = ContractData(LedgerKeyContractData {
+        contract_id: contract_id.clone(),
+        key: ScVal::Static(LedgerKeyContractCode),
+    });
+
+    let parameters: VecM<ScVal, 256_000> =
+        vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))].try_into()?;
+
+    let op = Operation {
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            function: HostFunction::CreateTokenContractWithSourceAccount,
+            parameters: parameters.into(),
+            footprint: LedgerFootprint {
+                read_only: VecM::default(),
+                read_write: vec![lk].try_into()?,
+            },
+        }),
+    };
+    let tx = Transaction {
+        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        fee,
+        seq_num: SequenceNumber(sequence),
+        cond: Preconditions::None,
+        memo: Memo::None,
+        operations: vec![op].try_into()?,
+        ext: TransactionExt::V0,
+    };
+
+    // sign the transaction
+    let tx_hash = utils::transaction_hash(&tx, network_passphrase)?;
+    let tx_signature = key.sign(&tx_hash);
+
+    let decorated_signature = DecoratedSignature {
+        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
+        signature: Signature(tx_signature.to_bytes().try_into()?),
+    };
+
+    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
+        tx,
+        signatures: vec![decorated_signature].try_into()?,
+    });
+
+    Ok(envelope)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_create_contract() {
+        let contract_id = Hash([0u8; 32]);
+        let result = build_create_token_tx(
+            [0u8; 32],
+            &contract_id,
+            300,
+            1,
+            "Public Global Stellar Network ; September 2015",
+            &utils::parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+                .unwrap(),
+        );
+
+        assert!(result.is_ok());
     }
 }

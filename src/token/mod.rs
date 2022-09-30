@@ -28,9 +28,9 @@ pub enum Error {
 }
 
 impl Root {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         match &self.cmd {
-            Cmd::Create(create) => create.run()?,
+            Cmd::Create(create) => create.run().await?,
             Cmd::Wrap(wrap) => wrap.run()?,
         }
         Ok(())
