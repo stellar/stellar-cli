@@ -371,12 +371,6 @@ fn init_token_parameters(
 }
 
 fn build_init_token_op(contract_id: &Hash, parameters: ScVec) -> Result<Operation, Error> {
-    // TODO: Figure out the ledger keys we'll affect here
-    let lk = ContractData(LedgerKeyContractData {
-        contract_id: contract_id.clone(),
-        key: ScVal::Static(LedgerKeyContractCode),
-    });
-
     Ok(Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
@@ -384,7 +378,16 @@ fn build_init_token_op(contract_id: &Hash, parameters: ScVec) -> Result<Operatio
             parameters,
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
-                read_write: vec![lk].try_into()?,
+                read_write: vec![
+                    ContractData(LedgerKeyContractData {
+                        contract_id: contract_id.clone(),
+                        key: ScVal::Symbol("Admin".try_into().unwrap()),
+                    }),
+                    ContractData(LedgerKeyContractData {
+                        contract_id: contract_id.clone(),
+                        key: ScVal::Symbol("Metadata".try_into().unwrap()),
+                    }),
+                ].try_into()?,
             },
         }),
     })
