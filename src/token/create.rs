@@ -146,14 +146,16 @@ impl Cmd {
         decimal: u32,
     ) -> Result<String, Error> {
         // Use 0s as default admin key
-        let admin = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(admin_param
-            .unwrap_or_else(|| {
-                StrkeyPublicKeyEd25519::from_string(
-                    "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-                )
-                .unwrap()
-            })
-            .0)));
+        let admin = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+            admin_param
+                .unwrap_or_else(|| {
+                    StrkeyPublicKeyEd25519::from_string(
+                        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+                    )
+                    .unwrap()
+                })
+                .0,
+        )));
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -221,7 +223,9 @@ impl Cmd {
             salt
         };
 
-        let admin_key = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(admin.unwrap_or_else(|| key.public.to_bytes()))));
+        let admin_key = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+            admin.unwrap_or_else(|| key.public.to_bytes()),
+        )));
 
         // Get the account sequence number
         let public_strkey =
