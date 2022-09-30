@@ -61,10 +61,8 @@ pub struct Cmd {
         requires = "network-passphrase"
     )]
     rpc_server_url: Option<String>,
-    // TODO: we should probably use an env variable for security reasons
-    //       (otherwise it will get recorded in the shell history etc ...)
     /// Private key to sign the transaction sent to the rpc server
-    #[clap(long = "private-strkey")]
+    #[clap(long = "private-strkey", env)]
     private_strkey: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(long = "network-passphrase")]
