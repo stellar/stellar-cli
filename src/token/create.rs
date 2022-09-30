@@ -146,14 +146,14 @@ impl Cmd {
         decimal: u32,
     ) -> Result<String, Error> {
         // Use 0s as default admin key
-        let admin = admin_param
+        let admin = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(admin_param
             .unwrap_or_else(|| {
                 StrkeyPublicKeyEd25519::from_string(
                     "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
                 )
                 .unwrap()
             })
-            .0;
+            .0)));
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -170,7 +170,7 @@ impl Cmd {
             Budget::default(),
         );
 
-        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(admin))));
+        h.set_source_account(admin.clone());
 
         let mut ledger_info = state.0.clone();
         ledger_info.sequence_number += 1;
@@ -183,10 +183,10 @@ impl Cmd {
         )?;
         let res_str = utils::vec_to_hash(&res)?;
 
-        let contract_id = get_contract_id(salt, admin)?;
+        let contract_id = get_contract_id(salt, admin.clone())?;
         h.invoke_function(
             HostFunction::InvokeContract,
-            init_token_parameters(contract_id, admin, name, symbol, decimal),
+            init_token_parameters(contract_id, &admin, name, symbol, decimal),
         )?;
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
@@ -221,7 +221,7 @@ impl Cmd {
             salt
         };
 
-        let admin_key = admin.unwrap_or_else(|| key.public.to_bytes());
+        let admin_key = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(admin.unwrap_or_else(|| key.public.to_bytes()))));
 
         // Get the account sequence number
         let public_strkey =
@@ -231,7 +231,7 @@ impl Cmd {
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let contract_id = get_contract_id(salt_val, admin_key)?;
+        let contract_id = get_contract_id(salt_val, admin_key.clone())?;
 
         client
             .send_transaction(&build_tx(
@@ -247,7 +247,7 @@ impl Cmd {
             .send_transaction(&build_tx(
                 build_init_token_op(
                     &Hash(contract_id),
-                    init_token_parameters(contract_id, admin_key, name, symbol, decimal),
+                    init_token_parameters(contract_id, &admin_key, name, symbol, decimal),
                 )?,
                 sequence,
                 fee,
@@ -260,10 +260,10 @@ impl Cmd {
     }
 }
 
-fn get_contract_id(salt: [u8; 32], public_key: [u8; 32]) -> Result<[u8; 32], Error> {
+fn get_contract_id(salt: [u8; 32], source_account: AccountId) -> Result<[u8; 32], Error> {
     let preimage =
         HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
-            source_account: AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(public_key))),
+            source_account,
             salt: Uint256(salt),
         });
     let preimage_xdr = preimage.to_xdr()?;
@@ -328,7 +328,7 @@ fn build_create_token_op(contract_id: &Hash, salt: [u8; 32]) -> Result<Operation
 
 fn init_token_parameters(
     contract_id: [u8; 32],
-    admin: [u8; 32],
+    admin: &AccountId,
     name: &str,
     symbol: &str,
     decimals: u32,
@@ -342,7 +342,7 @@ fn init_token_parameters(
         ScVal::Object(Some(ScObject::Vec(
             vec![
                 ScVal::Symbol("Account".try_into().unwrap()),
-                ScVal::Object(Some(ScObject::Bytes(admin.try_into().unwrap()))),
+                ScVal::Object(Some(ScObject::AccountId(admin.clone()))),
             ]
             .try_into()
             .unwrap(),
