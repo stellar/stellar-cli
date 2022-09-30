@@ -203,6 +203,9 @@ impl Cmd {
             self.network_passphrase.as_ref().unwrap(),
             &key,
         )?;
+
+        println!("Contract ID: {}", hex::encode(contract_id.0));
+
         client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await?;
@@ -216,7 +219,6 @@ impl Cmd {
             match response.status.as_str() {
                 "success" => {
                     println!("{}", response.status.as_str());
-                    println!("Contract ID: {}", hex::encode(contract_id.0));
                     return Ok(());
                 }
                 "error" => {
