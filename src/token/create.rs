@@ -351,16 +351,16 @@ fn init_token_parameters(
         ScVal::Object(Some(ScObject::Map(
             ScMap::sorted_from(vec![
                 ScMapEntry {
+                    key: ScVal::Symbol("decimals".try_into().unwrap()),
+                    val: ScVal::U32(decimals),
+                },
+                ScMapEntry {
                     key: ScVal::Symbol("name".try_into().unwrap()),
                     val: ScVal::Object(Some(ScObject::Bytes(name.try_into().unwrap()))),
                 },
                 ScMapEntry {
                     key: ScVal::Symbol("symbol".try_into().unwrap()),
                     val: ScVal::Object(Some(ScObject::Bytes(symbol.try_into().unwrap()))),
-                },
-                ScMapEntry {
-                    key: ScVal::Symbol("decimals".try_into().unwrap()),
-                    val: ScVal::U32(decimals),
                 },
             ])
             .unwrap(),
