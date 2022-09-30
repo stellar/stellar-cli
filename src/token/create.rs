@@ -11,7 +11,7 @@ use soroban_env_host::{
         AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
         HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
         LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject,
+        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject, ScVec, ScMap, ScMapEntry,
         ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Signature, SignatureHint,
         Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM,
         WriteXdr,
@@ -46,6 +46,8 @@ pub enum Error {
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
+    #[error("invalid asset code: {asset}")]
+    InvalidAssetCode { asset: String },
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
@@ -58,13 +60,9 @@ pub enum Error {
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Administrator account for the token
-    /// TODO: Do we need this? Or use source of deployer?
-    #[clap(
-        long,
-        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
-    )]
-    admin: StrkeyPublicKeyEd25519,
+    /// Administrator account for the token, will default to --private-strkey if not set
+    #[clap(long)]
+    admin: Option<StrkeyPublicKeyEd25519>,
 
     /// Number of decimal places for the token
     #[clap(long, default_value = "7")]
@@ -118,16 +116,25 @@ impl Cmd {
                 salt: self.salt.clone(),
             })?;
 
+        if self.symbol.len() > 12 {
+            return Err(Error::InvalidAssetCode {
+                asset: self.symbol.clone(),
+            });
+        }
+
         let res_str = if self.rpc_server_url.is_some() {
-            self.run_against_rpc_server(salt).await?
+            self.run_against_rpc_server(salt, self.admin.map(|a| a.0), &self.name, &self.symbol, self.decimal).await?
         } else {
-            self.run_in_sandbox(salt)?
+            self.run_in_sandbox(salt, self.admin, &self.name, &self.symbol, self.decimal)?
         };
         println!("{}", res_str);
         Ok(())
     }
 
-    fn run_in_sandbox(&self, salt: [u8; 32]) -> Result<String, Error> {
+    fn run_in_sandbox(&self, salt: [u8; 32], admin_param: Option<StrkeyPublicKeyEd25519>, name: &str, symbol: &str, decimal: u32) -> Result<String, Error> {
+        // Use 0s as default admin key
+        let admin = admin_param.unwrap_or_else(|| StrkeyPublicKeyEd25519::from_string("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF").unwrap()).0;
+
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
@@ -143,23 +150,24 @@ impl Cmd {
             Budget::default(),
         );
 
-        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
-            self.admin.0,
-        ))));
+        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(admin))));
 
         let mut ledger_info = state.0.clone();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let final_args = vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))]
-            .try_into()
-            .expect("invalid arguments");
         let res = h.invoke_function(
             HostFunction::CreateTokenContractWithSourceAccount,
-            final_args,
+            vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))].try_into()?,
         )?;
         let res_str = utils::vec_to_hash(&res)?;
+
+        let contract_id = get_contract_id(salt, admin)?;
+        h.invoke_function(
+            HostFunction::InvokeContract,
+            init_token_parameters(contract_id, admin, name, symbol, decimal),
+        )?;
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
@@ -176,7 +184,7 @@ impl Cmd {
         Ok(res_str)
     }
 
-    async fn run_against_rpc_server(&self, salt: [u8; 32]) -> Result<String, Error> {
+    async fn run_against_rpc_server(&self, salt: [u8; 32], admin: Option<[u8; 32]>, name: &str, symbol: &str, decimal: u32) -> Result<String, Error> {
         let client = SorobanRpc::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
             .map_err(|_| Error::CannotParsePrivateKey)?;
@@ -186,6 +194,8 @@ impl Cmd {
             salt
         };
 
+        let admin_key = admin.unwrap_or_else(|| key.public.to_bytes());
+
         // Get the account sequence number
         let public_strkey =
             stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
@@ -194,59 +204,49 @@ impl Cmd {
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let contract_id = get_contract_id(salt_val, key.public.to_bytes())?;
-        let tx = build_create_token_tx(
-            salt_val,
-            &contract_id,
+        let contract_id = get_contract_id(salt_val, admin_key)?;
+
+        client.send_transaction(&build_tx(
+            build_create_token_op(&Hash(contract_id), salt_val)?,
             sequence,
             fee,
             self.network_passphrase.as_ref().unwrap(),
             &key,
-        )?;
+        )?).await?;
 
-        client.send_transaction(&tx).await?;
+        client.send_transaction(&build_tx(
+            build_init_token_op(
+                &Hash(contract_id),
+                init_token_parameters(contract_id, admin_key, name, symbol, decimal),
+            )?,
+            sequence,
+            fee,
+            self.network_passphrase.as_ref().unwrap(),
+            &key,
+        )?).await?;
+
 
         Ok(hex::encode(&contract_id))
     }
 }
 
-fn get_contract_id(salt: [u8; 32], public_key: [u8; 32]) -> Result<Hash, Error> {
+fn get_contract_id(salt: [u8; 32], public_key: [u8; 32]) -> Result<[u8; 32], Error> {
     let preimage =
         HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
             source_account: AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(public_key))),
             salt: Uint256(salt),
         });
     let preimage_xdr = preimage.to_xdr()?;
-    Ok(Hash(Sha256::digest(preimage_xdr).into()))
+    Ok(Sha256::digest(preimage_xdr).into())
 }
 
-fn build_create_token_tx(
-    salt: [u8; 32],
-    contract_id: &Hash,
+fn build_tx(
+    op: Operation,
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
 ) -> Result<TransactionEnvelope, Error> {
-    let lk = ContractData(LedgerKeyContractData {
-        contract_id: contract_id.clone(),
-        key: ScVal::Static(LedgerKeyContractCode),
-    });
-
-    let parameters: VecM<ScVal, 256_000> =
-        vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))].try_into()?;
-
-    let op = Operation {
-        source_account: None,
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateTokenContractWithSourceAccount,
-            parameters: parameters.into(),
-            footprint: LedgerFootprint {
-                read_only: VecM::default(),
-                read_write: vec![lk].try_into()?,
-            },
-        }),
-    };
     let tx = Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
@@ -274,16 +274,102 @@ fn build_create_token_tx(
     Ok(envelope)
 }
 
+fn build_create_token_op(
+    contract_id: &Hash,
+    salt: [u8; 32],
+) -> Result<Operation, Error> {
+    let lk = ContractData(LedgerKeyContractData {
+        contract_id: contract_id.clone(),
+        key: ScVal::Static(LedgerKeyContractCode),
+    });
+
+    let parameters: VecM<ScVal, 256_000> =
+        vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))].try_into()?;
+
+    Ok(Operation {
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            function: HostFunction::CreateTokenContractWithSourceAccount,
+            parameters: parameters.into(),
+            footprint: LedgerFootprint {
+                read_only: VecM::default(),
+                read_write: vec![lk].try_into()?,
+            },
+        }),
+    })
+}
+
+fn init_token_parameters(
+    contract_id: [u8; 32],
+    admin: [u8; 32],
+    name: &str,
+    symbol: &str,
+    decimals: u32,
+) -> ScVec {
+    vec![
+        // Contract ID
+        ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
+        // Method
+        ScVal::Symbol("init_token".try_into().unwrap()),
+        // Admin Identifier
+        ScVal::Object(Some(ScObject::Vec(vec![
+            ScVal::Symbol("Account".try_into().unwrap()),
+            ScVal::Object(Some(ScObject::Bytes(admin.try_into().unwrap()))),
+        ].try_into().unwrap()))),
+        // TokenMetadata
+        ScVal::Object(Some(ScObject::Map(ScMap::sorted_from(vec![
+            ScMapEntry {
+                key: ScVal::Symbol("name".try_into().unwrap()),
+                val: ScVal::Object(Some(ScObject::Bytes(name.try_into().unwrap()))),
+            },
+            ScMapEntry {
+                key: ScVal::Symbol("symbol".try_into().unwrap()),
+                val: ScVal::Object(Some(ScObject::Bytes(symbol.try_into().unwrap()))),
+            },
+            ScMapEntry {
+                key: ScVal::Symbol("decimals".try_into().unwrap()),
+                val: ScVal::U32(decimals),
+            },
+        ]).unwrap()))),
+    ].try_into().unwrap()
+}
+
+fn build_init_token_op(
+    contract_id: &Hash,
+    parameters: ScVec,
+) -> Result<Operation, Error> {
+    // TODO: Figure out the ledger keys we'll affect here
+    let lk = ContractData(LedgerKeyContractData {
+        contract_id: contract_id.clone(),
+        key: ScVal::Static(LedgerKeyContractCode),
+    });
+
+    Ok(Operation {
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            function: HostFunction::InvokeContract,
+            parameters,
+            footprint: LedgerFootprint {
+                read_only: VecM::default(),
+                read_write: vec![lk].try_into()?,
+            },
+        }),
+    })
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_build_create_contract() {
+    fn test_build_tx() {
         let contract_id = Hash([0u8; 32]);
-        let result = build_create_token_tx(
-            [0u8; 32],
-            &contract_id,
+        let salt = [0u8; 32];
+        let op = build_create_token_op(&contract_id, salt);
+        assert!(op.is_ok());
+        let result = build_tx(
+            op.unwrap(),
             300,
             1,
             "Public Global Stellar Network ; September 2015",
