@@ -1,14 +1,10 @@
 use std::array::TryFromSliceError;
 use std::num::ParseIntError;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
 use ed25519_dalek::Signer;
 use hex::FromHexError;
-use jsonrpsee_core::{client::ClientT, rpc_params};
-use jsonrpsee_http_client::{HeaderMap, HttpClientBuilder};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
@@ -17,17 +13,13 @@ use soroban_env_host::xdr::{
     LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
     Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber,
     Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::HostError;
-use stellar_strkey::StrkeyPrivateKeyEd25519;
 
+use crate::rpc::{self, Client};
 use crate::snapshot::{self, get_default_ledger_info};
 use crate::utils;
-
-// TODO: put this in a common place
-const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -70,30 +62,6 @@ pub struct Cmd {
     network_passphrase: Option<String>,
 }
 
-// TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-struct GetAccountResponse {
-    id: String,
-    sequence: String,
-    // TODO: add balances
-}
-
-// TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-struct SendTransactionResponse {
-    id: String,
-    status: String,
-    // TODO: add results
-}
-
-// TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-struct TransactionStatusResponse {
-    id: String,
-    status: String,
-    // TODO: add results
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -128,12 +96,8 @@ pub enum Error {
     },
     #[error("cannot parse private key")]
     CannotParsePrivateKey,
-    #[error("trasaction submission failed")]
-    TransactionSubmissionFailed,
-    #[error("expected transaction status: {0}")]
-    UnexpectedTransactionStatus(String),
-    #[error("transaction submission timeout")]
-    TransactionSubmissionTimeout,
+    #[error(transparent)]
+    Rpc(#[from] rpc::Error),
 }
 
 impl Cmd {
@@ -174,29 +138,19 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
-        // TODO: we should factor out the client creation when we start to use it in invoke and friends
-        let base_url = self.rpc_server_url.as_ref().unwrap().clone() + "/api/v1/jsonrpc";
-        let mut headers = HeaderMap::new();
-        headers.insert("X-Client-Name", "soroban-cli".parse().unwrap());
-        let version = VERSION.unwrap_or("devel");
-        headers.insert("X-Client-Version", version.parse().unwrap());
-        // TODO: We should consider migrating the server subcommand to jsonrpsee
-        let client = HttpClientBuilder::default()
-            .set_headers(headers)
-            .build(base_url)?;
-        let key = parse_private_key(self.private_strkey.as_ref().unwrap())?;
+        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
+        let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
+            .map_err(|_| Error::CannotParsePrivateKey)?;
 
         // Get the account sequence number
         let public_strkey =
             stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
-        let account_details: GetAccountResponse = client
-            .request("getAccount", rpc_params![public_strkey])
-            .await?;
+        let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let (tx, tx_hash, contract_id) = build_create_contract_tx(
+        let (tx, contract_id) = build_create_contract_tx(
             contract,
             sequence,
             fee,
@@ -206,37 +160,9 @@ impl Cmd {
 
         println!("Contract ID: {}", hex::encode(contract_id.0));
 
-        client
-            .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
-            .await?;
+        client.send_transaction(&tx).await?;
 
-        // Poll the transaction status
-        let start = Instant::now();
-        loop {
-            let response: TransactionStatusResponse = client
-                .request("transactionStatus", rpc_params![hex::encode(tx_hash.0)])
-                .await?;
-            match response.status.as_str() {
-                "success" => {
-                    println!("{}", response.status.as_str());
-                    return Ok(());
-                }
-                "error" => {
-                    // TODO: provide a more elaborate error
-                    return Err(Error::TransactionSubmissionFailed);
-                }
-                "pending" => (),
-                _ => {
-                    return Err(Error::UnexpectedTransactionStatus(response.status));
-                }
-            };
-            let duration = start.elapsed();
-            // TODO: parameterize the timeout instead of using a magic constant
-            if duration.as_secs() > 10 {
-                return Err(Error::TransactionSubmissionTimeout);
-            }
-            sleep(Duration::from_secs(1));
-        }
+        Ok(())
     }
 }
 
@@ -246,7 +172,7 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<(TransactionEnvelope, Hash, Hash), Error> {
+) -> Result<(TransactionEnvelope, Hash), Error> {
     let salt = rand::thread_rng().gen::<[u8; 32]>();
 
     let preimage =
@@ -291,12 +217,7 @@ fn build_create_contract_tx(
     };
 
     // sign the transaction
-    let passphrase_hash = Sha256::digest(network_passphrase);
-    let signature_payload = TransactionSignaturePayload {
-        network_id: Hash(passphrase_hash.into()),
-        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
-    };
-    let tx_hash = Sha256::digest(signature_payload.to_xdr()?);
+    let tx_hash = utils::transaction_hash(&tx, network_passphrase)?;
     let tx_signature = key.sign(&tx_hash);
 
     let decorated_signature = DecoratedSignature {
@@ -309,44 +230,12 @@ fn build_create_contract_tx(
         signatures: vec![decorated_signature].try_into()?,
     });
 
-    Ok((envelope, Hash(tx_hash.into()), Hash(contract_id.into())))
-}
-
-fn parse_private_key(strkey: &str) -> Result<ed25519_dalek::Keypair, Error> {
-    let seed =
-        StrkeyPrivateKeyEd25519::from_string(strkey).map_err(|_| Error::CannotParsePrivateKey)?;
-    let secret_key =
-        ed25519_dalek::SecretKey::from_bytes(&seed.0).map_err(|_| Error::CannotParsePrivateKey)?;
-    let public_key = (&secret_key).into();
-    Ok(ed25519_dalek::Keypair {
-        secret: secret_key,
-        public: public_key,
-    })
+    Ok((envelope, Hash(contract_id.into())))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_private_key() {
-        let seed = "SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP";
-        let keypair = parse_private_key(seed).unwrap();
-
-        let expected_public_key: [u8; 32] = [
-            0x31, 0x40, 0xf1, 0x40, 0x99, 0xa7, 0x4c, 0x90, 0xd4, 0x62, 0x48, 0xec, 0x8d, 0xef,
-            0xb3, 0x38, 0xc8, 0x2c, 0xe2, 0x42, 0x85, 0xc9, 0xf7, 0xb8, 0x95, 0xce, 0xdd, 0x6f,
-            0x96, 0x47, 0x82, 0x96,
-        ];
-        assert_eq!(expected_public_key, keypair.public.to_bytes());
-
-        let expected_private_key: [u8; 32] = [
-            0x4a, 0x62, 0x97, 0x5f, 0xc7, 0xb9, 0x9a, 0x18, 0xa0, 0x41, 0xba, 0x6, 0x24, 0xd0,
-            0x70, 0xf3, 0x95, 0x57, 0x58, 0x82, 0x81, 0x5a, 0x51, 0xbc, 0x3b, 0x49, 0xae, 0x5f,
-            0x37, 0x1e, 0x9c, 0x4a,
-        ];
-        assert_eq!(expected_private_key, keypair.secret.to_bytes());
-    }
 
     #[test]
     fn test_build_create_contract() {
@@ -355,7 +244,8 @@ mod tests {
             300,
             1,
             "Public Global Stellar Network ; September 2015",
-            &parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP").unwrap(),
+            &utils::parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+                .unwrap(),
         );
 
         assert!(result.is_ok());
