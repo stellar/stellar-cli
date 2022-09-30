@@ -8,16 +8,17 @@ use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    DecoratedSignature, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageEd25519ContractId,
-    HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
-    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScObject,
-    ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber, Signature, SignatureHint, Transaction,
-    TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
+    HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
+    LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber,
+    Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
+    TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::HostError;
 
+use crate::rpc::{self, Client};
 use crate::snapshot::{self, get_default_ledger_info};
-use crate::soroban_rpc::{Error as SorobanRpcError, SorobanRpc};
 use crate::utils;
 
 #[derive(Parser, Debug)]
@@ -53,10 +54,8 @@ pub struct Cmd {
         requires = "network-passphrase"
     )]
     rpc_server_url: Option<String>,
-    // TODO: we should probably use an env variable for security reasons
-    //       (otherwise it will get recorded in the shell history etc ...)
     /// Private key to sign the transaction sent to the rpc server
-    #[clap(long = "private-strkey")]
+    #[clap(long = "private-strkey", env)]
     private_strkey: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(long = "network-passphrase")]
@@ -98,7 +97,7 @@ pub enum Error {
     #[error("cannot parse private key")]
     CannotParsePrivateKey,
     #[error(transparent)]
-    SorobanRpc(#[from] SorobanRpcError),
+    Rpc(#[from] rpc::Error),
 }
 
 impl Cmd {
@@ -139,7 +138,7 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
-        let client = SorobanRpc::new(self.rpc_server_url.as_ref().unwrap());
+        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
             .map_err(|_| Error::CannotParsePrivateKey)?;
 
@@ -151,13 +150,15 @@ impl Cmd {
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let tx = build_create_contract_tx(
+        let (tx, contract_id) = build_create_contract_tx(
             contract,
             sequence,
             fee,
             self.network_passphrase.as_ref().unwrap(),
             &key,
         )?;
+
+        println!("Contract ID: {}", hex::encode(contract_id.0));
 
         client.send_transaction(&tx).await?;
 
@@ -171,51 +172,33 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<TransactionEnvelope, Error> {
+) -> Result<(TransactionEnvelope, Hash), Error> {
     let salt = rand::thread_rng().gen::<[u8; 32]>();
 
-    let separator =
-        b"create_contract_from_ed25519(contract: Vec<u8>, salt: u256, key: u256, sig: Vec<u8>)";
-    let contract_hash = Sha256::new()
-        .chain_update(separator)
-        .chain_update(salt)
-        .chain_update(contract.clone())
-        .finalize();
-
-    let contract_signature = key.sign(&contract_hash);
-
-    let preimage = HashIdPreimage::ContractIdFromEd25519(HashIdPreimageEd25519ContractId {
-        ed25519: Uint256(key.public.to_bytes()),
-        salt: Uint256(salt),
-    });
+    let preimage =
+        HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
+            source_account: AccountId(PublicKey::PublicKeyTypeEd25519(
+                key.public.to_bytes().into(),
+            )),
+            salt: Uint256(salt),
+        });
     let preimage_xdr = preimage.to_xdr()?;
     let contract_id = Sha256::digest(preimage_xdr);
 
     let contract_parameter = ScVal::Object(Some(ScObject::Bytes(contract.try_into()?)));
     let salt_parameter = ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)));
-    let public_key_parameter =
-        ScVal::Object(Some(ScObject::Bytes(key.public.as_bytes().try_into()?)));
-    let signature_parameter = ScVal::Object(Some(ScObject::Bytes(
-        contract_signature.to_bytes().try_into()?,
-    )));
 
     let lk = ContractData(LedgerKeyContractData {
         contract_id: Hash(contract_id.into()),
         key: ScVal::Static(LedgerKeyContractCode),
     });
 
-    let parameters: VecM<ScVal, 256_000> = vec![
-        contract_parameter,
-        salt_parameter,
-        public_key_parameter,
-        signature_parameter,
-    ]
-    .try_into()?;
+    let parameters: VecM<ScVal, 256_000> = vec![contract_parameter, salt_parameter].try_into()?;
 
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateContractWithEd25519,
+            function: HostFunction::CreateContractWithSourceAccount,
             parameters: parameters.into(),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
@@ -247,7 +230,7 @@ fn build_create_contract_tx(
         signatures: vec![decorated_signature].try_into()?,
     });
 
-    Ok(envelope)
+    Ok((envelope, Hash(contract_id.into())))
 }
 
 #[cfg(test)]
