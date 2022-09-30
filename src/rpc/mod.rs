@@ -46,11 +46,11 @@ pub struct TransactionStatusResponse {
     // TODO: add results
 }
 
-pub struct SorobanRpc {
+pub struct Rpc {
     base_url: String,
 }
 
-impl SorobanRpc {
+impl Rpc {
     pub fn new(base_url: &str) -> Self {
         Self {
             base_url: base_url.to_string(),

@@ -10,7 +10,7 @@ mod network;
 mod read;
 mod serve;
 mod snapshot;
-mod soroban_rpc;
+mod rpc;
 mod strval;
 mod utils;
 mod version;

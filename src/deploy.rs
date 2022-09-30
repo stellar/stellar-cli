@@ -17,8 +17,8 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::HostError;
 
+use crate::rpc::{self, Rpc};
 use crate::snapshot::{self, get_default_ledger_info};
-use crate::soroban_rpc::{Error as SorobanRpcError, SorobanRpc};
 use crate::utils;
 
 #[derive(Parser, Debug)]
@@ -97,7 +97,7 @@ pub enum Error {
     #[error("cannot parse private key")]
     CannotParsePrivateKey,
     #[error(transparent)]
-    SorobanRpc(#[from] SorobanRpcError),
+    Rpc(#[from] rpc::Error),
 }
 
 impl Cmd {
@@ -138,7 +138,7 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
-        let client = SorobanRpc::new(self.rpc_server_url.as_ref().unwrap());
+        let client = Rpc::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
             .map_err(|_| Error::CannotParsePrivateKey)?;
 
