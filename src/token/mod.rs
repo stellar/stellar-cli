@@ -31,7 +31,7 @@ impl Root {
     pub async fn run(&self) -> Result<(), Error> {
         match &self.cmd {
             Cmd::Create(create) => create.run().await?,
-            Cmd::Wrap(wrap) => wrap.run()?,
+            Cmd::Wrap(wrap) => wrap.run().await?,
         }
         Ok(())
     }
