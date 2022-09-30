@@ -20,9 +20,8 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
-    snapshot,
-    soroban_rpc::{Error as SorobanRpcError, SorobanRpc},
-    utils,
+    rpc::{Client, Error as SorobanRpcError},
+    snapshot, utils,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -52,7 +51,7 @@ pub enum Error {
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
-    SorobanRpc(#[from] SorobanRpcError),
+    Client(#[from] SorobanRpcError),
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
     #[error("xdr processing error: {0}")]
@@ -152,7 +151,7 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, asset: Asset) -> Result<String, Error> {
-        let client = SorobanRpc::new(self.rpc_server_url.as_ref().unwrap());
+        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
             .map_err(|_| Error::CannotParsePrivateKey)?;
 

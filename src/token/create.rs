@@ -11,19 +11,18 @@ use soroban_env_host::{
         AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
         HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
         LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject, ScVec, ScMap, ScMapEntry,
-        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Signature, SignatureHint,
-        Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScMap, ScMapEntry,
+        ScObject, ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec, SequenceNumber,
+        Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
-    snapshot,
-    soroban_rpc::{Error as SorobanRpcError, SorobanRpc},
-    utils,
+    rpc::{Client, Error as SorobanRpcError},
+    snapshot, utils,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -51,7 +50,7 @@ pub enum Error {
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
-    SorobanRpc(#[from] SorobanRpcError),
+    Client(#[from] SorobanRpcError),
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
     #[error("xdr processing error: {0}")]
@@ -123,7 +122,14 @@ impl Cmd {
         }
 
         let res_str = if self.rpc_server_url.is_some() {
-            self.run_against_rpc_server(salt, self.admin.map(|a| a.0), &self.name, &self.symbol, self.decimal).await?
+            self.run_against_rpc_server(
+                salt,
+                self.admin.map(|a| a.0),
+                &self.name,
+                &self.symbol,
+                self.decimal,
+            )
+            .await?
         } else {
             self.run_in_sandbox(salt, self.admin, &self.name, &self.symbol, self.decimal)?
         };
@@ -131,9 +137,23 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(&self, salt: [u8; 32], admin_param: Option<StrkeyPublicKeyEd25519>, name: &str, symbol: &str, decimal: u32) -> Result<String, Error> {
+    fn run_in_sandbox(
+        &self,
+        salt: [u8; 32],
+        admin_param: Option<StrkeyPublicKeyEd25519>,
+        name: &str,
+        symbol: &str,
+        decimal: u32,
+    ) -> Result<String, Error> {
         // Use 0s as default admin key
-        let admin = admin_param.unwrap_or_else(|| StrkeyPublicKeyEd25519::from_string("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF").unwrap()).0;
+        let admin = admin_param
+            .unwrap_or_else(|| {
+                StrkeyPublicKeyEd25519::from_string(
+                    "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+                )
+                .unwrap()
+            })
+            .0;
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -184,8 +204,15 @@ impl Cmd {
         Ok(res_str)
     }
 
-    async fn run_against_rpc_server(&self, salt: [u8; 32], admin: Option<[u8; 32]>, name: &str, symbol: &str, decimal: u32) -> Result<String, Error> {
-        let client = SorobanRpc::new(self.rpc_server_url.as_ref().unwrap());
+    async fn run_against_rpc_server(
+        &self,
+        salt: [u8; 32],
+        admin: Option<[u8; 32]>,
+        name: &str,
+        symbol: &str,
+        decimal: u32,
+    ) -> Result<String, Error> {
+        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
             .map_err(|_| Error::CannotParsePrivateKey)?;
         let salt_val = if salt == [0; 32] {
@@ -206,25 +233,28 @@ impl Cmd {
         let sequence = account_details.sequence.parse::<i64>()?;
         let contract_id = get_contract_id(salt_val, admin_key)?;
 
-        client.send_transaction(&build_tx(
-            build_create_token_op(&Hash(contract_id), salt_val)?,
-            sequence,
-            fee,
-            self.network_passphrase.as_ref().unwrap(),
-            &key,
-        )?).await?;
+        client
+            .send_transaction(&build_tx(
+                build_create_token_op(&Hash(contract_id), salt_val)?,
+                sequence,
+                fee,
+                self.network_passphrase.as_ref().unwrap(),
+                &key,
+            )?)
+            .await?;
 
-        client.send_transaction(&build_tx(
-            build_init_token_op(
-                &Hash(contract_id),
-                init_token_parameters(contract_id, admin_key, name, symbol, decimal),
-            )?,
-            sequence,
-            fee,
-            self.network_passphrase.as_ref().unwrap(),
-            &key,
-        )?).await?;
-
+        client
+            .send_transaction(&build_tx(
+                build_init_token_op(
+                    &Hash(contract_id),
+                    init_token_parameters(contract_id, admin_key, name, symbol, decimal),
+                )?,
+                sequence,
+                fee,
+                self.network_passphrase.as_ref().unwrap(),
+                &key,
+            )?)
+            .await?;
 
         Ok(hex::encode(&contract_id))
     }
@@ -274,10 +304,7 @@ fn build_tx(
     Ok(envelope)
 }
 
-fn build_create_token_op(
-    contract_id: &Hash,
-    salt: [u8; 32],
-) -> Result<Operation, Error> {
+fn build_create_token_op(contract_id: &Hash, salt: [u8; 32]) -> Result<Operation, Error> {
     let lk = ContractData(LedgerKeyContractData {
         contract_id: contract_id.clone(),
         key: ScVal::Static(LedgerKeyContractCode),
@@ -312,32 +339,38 @@ fn init_token_parameters(
         // Method
         ScVal::Symbol("init_token".try_into().unwrap()),
         // Admin Identifier
-        ScVal::Object(Some(ScObject::Vec(vec![
-            ScVal::Symbol("Account".try_into().unwrap()),
-            ScVal::Object(Some(ScObject::Bytes(admin.try_into().unwrap()))),
-        ].try_into().unwrap()))),
+        ScVal::Object(Some(ScObject::Vec(
+            vec![
+                ScVal::Symbol("Account".try_into().unwrap()),
+                ScVal::Object(Some(ScObject::Bytes(admin.try_into().unwrap()))),
+            ]
+            .try_into()
+            .unwrap(),
+        ))),
         // TokenMetadata
-        ScVal::Object(Some(ScObject::Map(ScMap::sorted_from(vec![
-            ScMapEntry {
-                key: ScVal::Symbol("name".try_into().unwrap()),
-                val: ScVal::Object(Some(ScObject::Bytes(name.try_into().unwrap()))),
-            },
-            ScMapEntry {
-                key: ScVal::Symbol("symbol".try_into().unwrap()),
-                val: ScVal::Object(Some(ScObject::Bytes(symbol.try_into().unwrap()))),
-            },
-            ScMapEntry {
-                key: ScVal::Symbol("decimals".try_into().unwrap()),
-                val: ScVal::U32(decimals),
-            },
-        ]).unwrap()))),
-    ].try_into().unwrap()
+        ScVal::Object(Some(ScObject::Map(
+            ScMap::sorted_from(vec![
+                ScMapEntry {
+                    key: ScVal::Symbol("name".try_into().unwrap()),
+                    val: ScVal::Object(Some(ScObject::Bytes(name.try_into().unwrap()))),
+                },
+                ScMapEntry {
+                    key: ScVal::Symbol("symbol".try_into().unwrap()),
+                    val: ScVal::Object(Some(ScObject::Bytes(symbol.try_into().unwrap()))),
+                },
+                ScMapEntry {
+                    key: ScVal::Symbol("decimals".try_into().unwrap()),
+                    val: ScVal::U32(decimals),
+                },
+            ])
+            .unwrap(),
+        ))),
+    ]
+    .try_into()
+    .unwrap()
 }
 
-fn build_init_token_op(
-    contract_id: &Hash,
-    parameters: ScVec,
-) -> Result<Operation, Error> {
+fn build_init_token_op(contract_id: &Hash, parameters: ScVec) -> Result<Operation, Error> {
     // TODO: Figure out the ledger keys we'll affect here
     let lk = ContractData(LedgerKeyContractData {
         contract_id: contract_id.clone(),
@@ -356,7 +389,6 @@ fn build_init_token_op(
         }),
     })
 }
-
 
 #[cfg(test)]
 mod tests {
