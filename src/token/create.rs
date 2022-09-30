@@ -73,11 +73,17 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
-        let salt_val: [u8; 32] =
+        let salt: [u8; 32] =
             utils::contract_id_from_str(&self.salt).map_err(|_| Error::CannotParseSalt {
                 salt: self.salt.clone(),
             })?;
 
+        let res_str = self.run_in_sandbox(salt)?;
+        println!("{}", res_str);
+        Ok(())
+    }
+
+    fn run_in_sandbox(&self, salt: [u8; 32]) -> Result<String, Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
@@ -102,8 +108,14 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res_str = Cmd::invoke_function(&h, &salt_val)?;
-        println!("{}", res_str);
+        let final_args = vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))]
+            .try_into()
+            .expect("invalid arguments");
+        let res = h.invoke_function(
+            HostFunction::CreateTokenContractWithSourceAccount,
+            final_args,
+        )?;
+        let res_str = utils::vec_to_hash(&res)?;
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
@@ -117,19 +129,6 @@ impl Cmd {
                 error: e,
             }
         })?;
-        Ok(())
-    }
-
-    fn invoke_function(h: &Host, salt: &[u8; 32]) -> Result<String, Error> {
-        let final_args = vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))]
-            .try_into()
-            .expect("invalid arguments");
-
-        let res = h.invoke_function(
-            HostFunction::CreateTokenContractWithSourceAccount,
-            final_args,
-        )?;
-
-        Ok(utils::vec_to_hash(&res)?)
+        Ok(res_str)
     }
 }

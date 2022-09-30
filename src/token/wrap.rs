@@ -56,8 +56,14 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
+        let res_str = self.run_in_sandbox(&self.asset)?;
+        println!("{}", res_str);
+        Ok(())
+    }
+
+    fn run_in_sandbox(&self, asset_str: &str) -> Result<String, Error> {
         // Parse asset
-        let asset = Cmd::parse_asset(&self.asset)?;
+        let asset = Cmd::parse_asset(asset_str)?;
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -79,8 +85,14 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res_str = Cmd::invoke_function(&h, &asset)?;
-        println!("{}", res_str);
+        let mut buf: Vec<u8> = vec![];
+        asset.write_xdr(&mut buf)?;
+        let final_args = vec![ScVal::Object(Some(ScObject::Bytes(buf.try_into()?)))]
+            .try_into()
+            .expect("invalid arguments");
+
+        let res = h.invoke_function(HostFunction::CreateTokenContractWithAsset, final_args)?;
+        let res_str = utils::vec_to_hash(&res)?;
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
@@ -94,19 +106,7 @@ impl Cmd {
                 error: e,
             }
         })?;
-        Ok(())
-    }
-
-    fn invoke_function(h: &Host, asset: &Asset) -> Result<String, Error> {
-        let mut buf: Vec<u8> = vec![];
-        asset.write_xdr(&mut buf)?;
-        let final_args = vec![ScVal::Object(Some(ScObject::Bytes(buf.try_into()?)))]
-            .try_into()
-            .expect("invalid arguments");
-
-        let res = h.invoke_function(HostFunction::CreateTokenContractWithAsset, final_args)?;
-
-        Ok(utils::vec_to_hash(&res)?)
+        Ok(res_str)
     }
 
     fn parse_asset(str: &str) -> Result<Asset, Error> {
