@@ -50,13 +50,13 @@ pub struct Cmd {
         long,
         required_unless_present = "contract-id",
         conflicts_with = "contract-id",
-        requires = "private-strkey",
+        requires = "secret-key",
         requires = "network-passphrase"
     )]
     rpc_server_url: Option<String>,
-    /// Private key to sign the transaction sent to the rpc server
-    #[clap(long = "private-strkey", env)]
-    private_strkey: Option<String>,
+    /// Secret 'S' key used to sign the transaction sent to the rpc server
+    #[clap(long = "secret-key", env = "SOROBAN_SECRET_KEY")]
+    secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(long = "network-passphrase")]
     network_passphrase: Option<String>,
@@ -139,7 +139,7 @@ impl Cmd {
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
-        let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
+        let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParsePrivateKey)?;
 
         // Get the account sequence number
