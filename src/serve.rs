@@ -243,7 +243,7 @@ fn parse_transaction(
     };
     if ops.len() != 1 {
         return Err(Error::UnsupportedTransaction {
-            message: "Must only have one operation".to_string()
+            message: "Must only have one operation".to_string(),
         });
     }
     let op = ops.first().ok_or(Error::Xdr(XdrError::Invalid))?;
@@ -252,20 +252,20 @@ fn parse_transaction(
         b
     } else {
         return Err(Error::UnsupportedTransaction {
-            message: "Operation must be invokeHostFunction".to_string()
+            message: "Operation must be invokeHostFunction".to_string(),
         });
     };
 
     // TODO: Support creating contracts and token wrappers here as well.
     if body.function != HostFunction::InvokeContract {
         return Err(Error::UnsupportedTransaction {
-            message: "Function must be invokeContract".to_string()
+            message: "Function must be invokeContract".to_string(),
         });
     };
 
     if body.parameters.len() < 2 {
         return Err(Error::UnsupportedTransaction {
-            message: "Function must have at least 2 parameters".to_string()
+            message: "Function must have at least 2 parameters".to_string(),
         });
     };
 
@@ -273,13 +273,13 @@ fn parse_transaction(
         .parameters
         .get(0)
         .ok_or(Error::UnsupportedTransaction {
-            message: "First parameter must be the contract id".to_string()
+            message: "First parameter must be the contract id".to_string(),
         })?;
     let method_xdr = body
         .parameters
         .get(1)
         .ok_or(Error::UnsupportedTransaction {
-            message: "Second parameter must be the contract method".to_string()
+            message: "Second parameter must be the contract method".to_string(),
         })?;
     let (_, params) = body.parameters.split_at(2);
 
@@ -288,11 +288,11 @@ fn parse_transaction(
             .as_slice()
             .try_into()
             .map_err(|_| Error::UnsupportedTransaction {
-                message: "Could not parse contract id".to_string()
+                message: "Could not parse contract id".to_string(),
             })?
     } else {
         return Err(Error::UnsupportedTransaction {
-            message: "Could not parse contract id".to_string()
+            message: "Could not parse contract id".to_string(),
         });
     };
 
@@ -302,17 +302,17 @@ fn parse_transaction(
         bytes
             .try_into()
             .map_err(|_| Error::UnsupportedTransaction {
-                message: "Could not parse contract method".to_string()
+                message: "Could not parse contract method".to_string(),
             })?
     } else if let ScVal::Symbol(bytes) = method_xdr {
         bytes
             .try_into()
             .map_err(|_| Error::UnsupportedTransaction {
-                message: "Could not parse contract method".to_string()
+                message: "Could not parse contract method".to_string(),
             })?
     } else {
         return Err(Error::UnsupportedTransaction {
-            message: "Could not parse contract method".to_string()
+            message: "Could not parse contract method".to_string(),
         });
     };
 
