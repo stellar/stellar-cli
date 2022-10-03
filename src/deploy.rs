@@ -152,7 +152,7 @@ impl Cmd {
         let sequence = account_details.sequence.parse::<i64>()?;
         let (tx, contract_id) = build_create_contract_tx(
             contract,
-            sequence,
+            sequence + 1,
             fee,
             self.network_passphrase.as_ref().unwrap(),
             &key,
