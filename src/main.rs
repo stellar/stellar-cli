@@ -12,6 +12,7 @@ mod rpc;
 mod serve;
 mod snapshot;
 mod strval;
+mod token;
 mod utils;
 mod version;
 mod xdr;
@@ -39,6 +40,8 @@ enum Cmd {
     Read(read::Cmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
+    /// Wrap, create, and manage token contracts
+    Token(token::Root),
     /// Deploy a WASM file as a contract
     Deploy(deploy::Cmd),
     /// Generate code client bindings for a contract
@@ -66,6 +69,8 @@ enum CmdError {
     #[error(transparent)]
     Serve(#[from] serve::Error),
     #[error(transparent)]
+    Token(#[from] token::Error),
+    #[error(transparent)]
     Gen(#[from] gen::Error),
     #[error(transparent)]
     Deploy(#[from] deploy::Error),
@@ -82,6 +87,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         }
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
+        Cmd::Token(token) => token.run().await?,
         Cmd::Gen(gen) => gen.run()?,
         Cmd::Deploy(deploy) => deploy.run().await?,
         Cmd::Xdr(xdr) => xdr.run()?,

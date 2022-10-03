@@ -18,6 +18,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
+name = "aho-corasick"
+version = "0.7.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4f55bd91a0978cbfd91c457a164bab8b4001c833b7f323132c0a4e1922dd44e"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1182,10 +1191,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "regex"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c4eb3267174b8c6c2f654116623910a0fef09c4753f8dd83db29c48a0df988b"
+dependencies = [
+ "aho-corasick",
+ "memchr",
+ "regex-syntax",
+]
+
+[[package]]
 name = "regex-automata"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
+
+[[package]]
+name = "regex-syntax"
+version = "0.6.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
 
 [[package]]
 name = "remove_dir_all"
@@ -1486,6 +1512,7 @@ dependencies = [
  "num-bigint",
  "prettyplease",
  "rand 0.8.5",
+ "regex",
  "serde",
  "serde_derive",
  "serde_json",
@@ -1503,7 +1530,7 @@ dependencies = [
 [[package]]
 name = "soroban-env-common"
 version = "0.0.5"
-source = "git+https://github.com/stellar/rs-soroban-env?rev=b20d10db#b20d10db0ef61cb84c48ab3d710a27747ebc9748"
+source = "git+https://github.com/stellar/rs-soroban-env?rev=35f752b#35f752b6197173c8616034b4e3a587b2f530c49d"
 dependencies = [
  "soroban-env-macros",
  "soroban-wasmi",
@@ -1514,7 +1541,7 @@ dependencies = [
 [[package]]
 name = "soroban-env-host"
 version = "0.0.5"
-source = "git+https://github.com/stellar/rs-soroban-env?rev=b20d10db#b20d10db0ef61cb84c48ab3d710a27747ebc9748"
+source = "git+https://github.com/stellar/rs-soroban-env?rev=35f752b#35f752b6197173c8616034b4e3a587b2f530c49d"
 dependencies = [
  "backtrace",
  "dyn-fmt",
@@ -1537,7 +1564,7 @@ dependencies = [
 [[package]]
 name = "soroban-env-macros"
 version = "0.0.5"
-source = "git+https://github.com/stellar/rs-soroban-env?rev=b20d10db#b20d10db0ef61cb84c48ab3d710a27747ebc9748"
+source = "git+https://github.com/stellar/rs-soroban-env?rev=35f752b#35f752b6197173c8616034b4e3a587b2f530c49d"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -1549,7 +1576,7 @@ dependencies = [
 [[package]]
 name = "soroban-native-sdk-macros"
 version = "0.0.5"
-source = "git+https://github.com/stellar/rs-soroban-env?rev=b20d10db#b20d10db0ef61cb84c48ab3d710a27747ebc9748"
+source = "git+https://github.com/stellar/rs-soroban-env?rev=35f752b#35f752b6197173c8616034b4e3a587b2f530c49d"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -1560,7 +1587,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "0.0.4"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=bc3ff723#bc3ff723af755f1e1e50704b8dd30016b427b2f9"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=fb658e3#fb658e38016e486937a309905fba4524d5445491"
 dependencies = [
  "base64",
  "darling",
