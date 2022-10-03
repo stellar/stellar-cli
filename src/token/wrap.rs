@@ -193,10 +193,22 @@ fn build_wrap_token_tx(
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
 ) -> Result<TransactionEnvelope, Error> {
-    let lk = ContractData(LedgerKeyContractData {
-        contract_id: contract_id.clone(),
-        key: ScVal::Static(LedgerKeyContractCode),
-    });
+    let mut read_write = vec![
+        ContractData(LedgerKeyContractData {
+            contract_id: contract_id.clone(),
+            key: ScVal::Static(LedgerKeyContractCode),
+        }),
+        ContractData(LedgerKeyContractData {
+            contract_id: contract_id.clone(),
+            key: ScVal::Symbol("Metadata".try_into().unwrap()),
+        }),
+    ];
+    if asset != &Asset::Native {
+        read_write.push(ContractData(LedgerKeyContractData {
+            contract_id: contract_id.clone(),
+            key: ScVal::Symbol("Admin".try_into().unwrap()),
+        }));
+    }
 
     let mut buf: Vec<u8> = vec![];
     asset.write_xdr(&mut buf)?;
@@ -210,7 +222,7 @@ fn build_wrap_token_tx(
             parameters: parameters.into(),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
-                read_write: vec![lk].try_into()?,
+                read_write: read_write.try_into()?,
             },
         }),
     };
