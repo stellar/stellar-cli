@@ -167,7 +167,7 @@ impl Cmd {
         let tx = build_wrap_token_tx(
             &asset,
             &contract_id,
-            sequence,
+            sequence + 1,
             fee,
             self.network_passphrase.as_ref().unwrap(),
             &key,

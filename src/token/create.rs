@@ -240,7 +240,7 @@ impl Cmd {
         client
             .send_transaction(&build_tx(
                 build_create_token_op(&Hash(contract_id), salt_val)?,
-                sequence,
+                sequence + 1,
                 fee,
                 self.network_passphrase.as_ref().unwrap(),
                 &key,
@@ -253,7 +253,7 @@ impl Cmd {
                     &Hash(contract_id),
                     init_token_parameters(contract_id, &admin_key, name, symbol, decimal),
                 )?,
-                sequence,
+                sequence + 2,
                 fee,
                 self.network_passphrase.as_ref().unwrap(),
                 &key,
