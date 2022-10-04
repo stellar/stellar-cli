@@ -67,7 +67,6 @@ pub struct Cmd {
         conflicts_with_all = &["contract-id", "ledger-file"],
     )]
     salt: Option<String>,
-
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -150,9 +149,8 @@ impl Cmd {
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
         let salt: [u8; 32] = match &self.salt {
             // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
-            Some(h) => utils::contract_id_from_str(&h).map_err(|_| Error::CannotParseSalt {
-                salt: h.clone(),
-            })?,
+            Some(h) => utils::contract_id_from_str(h)
+                .map_err(|_| Error::CannotParseSalt { salt: h.clone() })?,
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
