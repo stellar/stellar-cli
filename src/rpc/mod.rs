@@ -1,6 +1,6 @@
 use jsonrpsee_core::{client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
-use soroban_env_host::xdr::{Error as XdrError, TransactionEnvelope, WriteXdr};
+use soroban_env_host::xdr::{Error as XdrError, ScVal, TransactionEnvelope, WriteXdr};
 use std::{
     thread::sleep,
     time::{Duration, Instant},
@@ -40,10 +40,32 @@ pub struct SendTransactionResponse {
 
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct TransactionStatusResponse {
+pub struct GetTransactionStatusResponse {
     pub id: String,
     pub status: String,
     // TODO: add results
+}
+
+// TODO: this should also be used by serve
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetContractDataResponse {
+    pub xdr: String,
+    // TODO: add lastModifiedLedgerSeq and latestLedger
+}
+
+// TODO: this should also be used by serve
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct Cost {
+    #[serde(rename = "cpuInsns")]
+    pub cpu_insns: String,
+    #[serde(rename = "memBytes")]
+    pub mem_bytes: String,
+}
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct SimulateTransactionResponse {
+    pub footprint: String,
+    pub cost: Cost,
+    // TODO: add results and latestLedger
 }
 
 pub struct Client {
@@ -123,13 +145,36 @@ impl Client {
         }
     }
 
+    pub async fn simulate_transaction(
+        &self,
+        tx: &TransactionEnvelope,
+    ) -> Result<SimulateTransactionResponse, Error> {
+        let base64_tx = tx.to_xdr_base64()?;
+        Ok(self
+            .client()?
+            .request("simulateTransaction", rpc_params![base64_tx])
+            .await?)
+    }
+
     pub async fn get_transaction_status(
         &self,
         tx_id: &str,
-    ) -> Result<TransactionStatusResponse, Error> {
+    ) -> Result<GetTransactionStatusResponse, Error> {
         Ok(self
             .client()?
             .request("getTransactionStatus", rpc_params![tx_id])
+            .await?)
+    }
+
+    pub async fn get_contract_data(
+        &self,
+        contract_id: &str,
+        key: ScVal,
+    ) -> Result<GetContractDataResponse, Error> {
+        let base64_key = key.to_xdr_base64()?;
+        Ok(self
+            .client()?
+            .request("getContractData", rpc_params![contract_id, base64_key])
             .await?)
     }
 }

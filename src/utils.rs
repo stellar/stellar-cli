@@ -1,5 +1,9 @@
+use ed25519_dalek::Signer;
 use hex::FromHexError;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::{
+    DecoratedSignature, Signature, SignatureHint, TransactionEnvelope, TransactionV1Envelope,
+};
 use soroban_env_host::{
     im_rc::OrdMap,
     storage::Storage,
@@ -54,6 +58,25 @@ pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u
         tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
     };
     Ok(Sha256::digest(signature_payload.to_xdr()?).into())
+}
+
+pub fn sign_transaction(
+    key: &ed25519_dalek::Keypair,
+    tx: &Transaction,
+    network_passphrase: &str,
+) -> Result<TransactionEnvelope, XdrError> {
+    let tx_hash = transaction_hash(&tx, network_passphrase)?;
+    let tx_signature = key.sign(&tx_hash);
+
+    let decorated_signature = DecoratedSignature {
+        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
+        signature: Signature(tx_signature.to_bytes().try_into()?),
+    };
+
+    Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
+        tx: tx.clone(),
+        signatures: vec![decorated_signature].try_into()?,
+    }))
 }
 
 pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexError> {

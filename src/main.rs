@@ -84,7 +84,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Invoke(invoke) => {
             let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
-            invoke.run(&sub_arg_matches)?;
+            invoke.run(&sub_arg_matches).await?;
         }
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,

@@ -291,21 +291,7 @@ fn build_tx(
         ext: TransactionExt::V0,
     };
 
-    // sign the transaction
-    let tx_hash = utils::transaction_hash(&tx, network_passphrase)?;
-    let tx_signature = key.sign(&tx_hash);
-
-    let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
-        signature: Signature(tx_signature.to_bytes().try_into()?),
-    };
-
-    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx,
-        signatures: vec![decorated_signature].try_into()?,
-    });
-
-    Ok(envelope)
+    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
 }
 
 fn build_create_token_op(contract_id: &Hash, salt: [u8; 32]) -> Result<Operation, Error> {

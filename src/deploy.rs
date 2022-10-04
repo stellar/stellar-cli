@@ -161,7 +161,6 @@ impl Cmd {
         // Get the account sequence number
         let public_strkey =
             stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
-        // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
@@ -232,19 +231,7 @@ fn build_create_contract_tx(
         ext: TransactionExt::V0,
     };
 
-    // sign the transaction
-    let tx_hash = utils::transaction_hash(&tx, network_passphrase)?;
-    let tx_signature = key.sign(&tx_hash);
-
-    let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
-        signature: Signature(tx_signature.to_bytes().try_into()?),
-    };
-
-    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx,
-        signatures: vec![decorated_signature].try_into()?,
-    });
+    let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;
 
     Ok((envelope, Hash(contract_id.into())))
 }
