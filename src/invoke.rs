@@ -1,22 +1,29 @@
+use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
 use hex::FromHexError;
+use soroban_env_host::xdr::{
+    InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+    TransactionExt, VecM,
+};
 use soroban_env_host::{
     budget::{Budget, CostType},
     events::HostEvent,
     storage::Storage,
     xdr::{
         AccountId, Error as XdrError, HostFunction, PublicKey, ReadXdr, ScHostStorageErrorCode,
-        ScObject, ScSpecEntry, ScSpecFunctionInputV0, ScStatus, ScVal, Uint256, VecM,
+        ScObject, ScSpecEntry, ScStatus, ScVal, Uint256,
     },
     Host, HostError,
 };
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
+use crate::rpc::Client;
 use crate::{
-    snapshot,
+    rpc, snapshot,
     strval::{self, StrValError},
     utils,
 };
@@ -29,9 +36,14 @@ pub struct Cmd {
     /// Account ID to invoke as
     #[clap(
         long = "account",
-        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
+        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+        conflicts_with = "rpc-server-url"
     )]
     account_id: StrkeyPublicKeyEd25519,
+
+    // TODO: as a workaround (RPC server doesn't yet implement getContractData)
+    //       we allow supplying the wasm contract in the commandline
+    //       later on we should add: conflicts_with = "rpc-server-url"
     /// WASM file to deploy to the contract ID and invoke
     #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
@@ -48,8 +60,32 @@ pub struct Cmd {
     #[clap(long = "cost")]
     cost: bool,
     /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value(".soroban/ledger.json"),
+        conflicts_with = "rpc-server-url"
+    )]
     ledger_file: std::path::PathBuf,
+
+    /// RPC server endpoint
+    #[clap(
+        long,
+        conflicts_with = "account-id",
+        requires = "secret-key",
+        requires = "network-passphrase"
+    )]
+    rpc_server_url: Option<String>,
+    /// Secret 'S' key used to sign the transaction sent to the rpc server
+    #[clap(
+        long = "secret-key",
+        env = "SOROBAN_SECRET_KEY",
+        requires = "rpc-server-url"
+    )]
+    secret_key: Option<String>,
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[clap(long = "network-passphrase", requires = "rpc-server-url")]
+    network_passphrase: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -102,6 +138,14 @@ pub enum Error {
     CannotPrintResult { result: ScVal, error: StrValError },
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+    #[error("error parsing int: {0}")]
+    ParseIntError(#[from] ParseIntError),
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
+    #[error(transparent)]
+    Rpc(#[from] rpc::Error),
+    #[error("unexpected contract code data type: {0:?}")]
+    UnexpectedContractCodeDataType(ScVal),
 }
 
 #[derive(Clone, Debug)]
@@ -111,12 +155,28 @@ enum Arg {
 }
 
 impl Cmd {
-    fn parse_args(
+    fn build_host_function_parameters(
         &self,
+        contract_id: [u8; 32],
+        wasm: &[u8],
         matches: &clap::ArgMatches,
-        inputs: &VecM<ScSpecFunctionInputV0, 10>,
-    ) -> Result<Vec<ScVal>, Error> {
-        // re-assemble the args, to match the order given on the command line
+    ) -> Result<ScVec, Error> {
+        // Get the function spec from the contract code
+        let spec_entries =
+            soroban_spec::read::from_wasm(wasm).map_err(Error::CannotParseContractSpec)?;
+        let spec = spec_entries
+            .iter()
+            .find_map(|e| {
+                if let ScSpecEntry::FunctionV0(f) = e {
+                    if f.name.to_string_lossy() == self.function {
+                        return Some(f);
+                    }
+                }
+                None
+            })
+            .ok_or_else(|| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
+
+        // Re-assemble the function args, to match the order given on the command line
         let indexed_args: Vec<(usize, Arg)> = matches
             .indices_of("args")
             .unwrap_or_default()
@@ -132,6 +192,8 @@ impl Cmd {
         let mut all_indexed_args: Vec<(usize, Arg)> = [indexed_args, indexed_args_xdr].concat();
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
 
+        // Parse the function arguments
+        let inputs = &spec.inputs;
         if all_indexed_args.len() != inputs.len() {
             return Err(Error::UnexpectedArgumentCount {
                 provided: all_indexed_args.len(),
@@ -140,7 +202,7 @@ impl Cmd {
             });
         }
 
-        all_indexed_args
+        let parsed_args = all_indexed_args
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
@@ -155,32 +217,9 @@ impl Cmd {
                     })
                 }
             })
-            .collect::<Result<Vec<_>, _>>()
-    }
+            .collect::<Result<Vec<_>, _>>()?;
 
-    fn invoke_function(
-        &self,
-        matches: &clap::ArgMatches,
-        contract_id: [u8; 32],
-        wasm: &[u8],
-        h: &Host,
-    ) -> Result<String, Error> {
-        let spec_entries =
-            soroban_spec::read::from_wasm(wasm).map_err(Error::CannotParseContractSpec)?;
-        let spec = spec_entries
-            .iter()
-            .find_map(|e| {
-                if let ScSpecEntry::FunctionV0(f) = e {
-                    if f.name.to_string_lossy() == self.function {
-                        return Some(f);
-                    }
-                }
-                None
-            })
-            .ok_or_else(|| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
-
-        let parsed_args = self.parse_args(matches, &spec.inputs)?;
-
+        // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
             ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
             ScVal::Symbol(
@@ -192,23 +231,15 @@ impl Cmd {
         complete_args.extend_from_slice(parsed_args.as_slice());
         let complete_args_len = complete_args.len();
 
-        let final_args =
-            complete_args
-                .try_into()
-                .map_err(|_| Error::MaxNumberOfArgumentsReached {
-                    current: complete_args_len,
-                    maximum: soroban_env_host::xdr::ScVec::default().max_len(),
-                })?;
-        let res = h.invoke_function(HostFunction::InvokeContract, final_args)?;
-        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
-            result: res,
-            error: e,
-        })?;
-
-        Ok(res_str)
+        complete_args
+            .try_into()
+            .map_err(|_| Error::MaxNumberOfArgumentsReached {
+                current: complete_args_len,
+                maximum: ScVec::default().max_len(),
+            })
     }
 
-    pub fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub async fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
                 Error::CannotParseContractId {
@@ -217,6 +248,90 @@ impl Cmd {
                 }
             })?;
 
+        if self.rpc_server_url.is_some() {
+            return self.run_against_rpc_server(contract_id, matches).await;
+        }
+
+        self.run_in_sandbox(contract_id, matches)
+    }
+
+    async fn run_against_rpc_server(
+        &self,
+        contract_id: [u8; 32],
+        matches: &clap::ArgMatches,
+    ) -> Result<(), Error> {
+        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
+        let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
+            .map_err(|_| Error::CannotParseSecretKey)?;
+
+        // Get the account sequence number
+        let public_strkey = StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        let account_details = client.get_account(&public_strkey).await?;
+        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
+        let fee: u32 = 100;
+        let sequence = account_details.sequence.parse::<i64>()?;
+
+        // Get the contract
+        let wasm = if let Some(f) = &self.wasm {
+            // Get the contract from a file
+            // TODO: as a workaround (RPC server doesn't yet implement getContractData)
+            //       we allow supplying the contract in the commandline
+            //       we should consider removing this later on
+            fs::read(f).map_err(|e| Error::CannotReadContractFile {
+                filepath: f.clone(),
+                error: e,
+            })?
+        } else {
+            // Get the contract from the network
+            let contract_data = client
+                .get_contract_data(
+                    &hex::encode(contract_id),
+                    ScVal::Static(ScStatic::LedgerKeyContractCode),
+                )
+                .await?;
+
+            match ScVal::from_xdr_base64(contract_data.xdr)? {
+                ScVal::Object(Some(ScObject::Bytes(bytes))) => bytes.to_vec(),
+                scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+            }
+        };
+
+        // Get the ledger footprint
+        let host_function_params =
+            self.build_host_function_parameters(contract_id, &wasm, matches)?;
+        let tx_without_footprint = build_invoke_contract_tx(
+            host_function_params.clone(),
+            None,
+            sequence + 1,
+            fee,
+            self.network_passphrase.as_ref().unwrap(),
+            &key,
+        )?;
+        let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
+        let footprint = LedgerFootprint::from_xdr_base64(simulation_response.footprint)?;
+
+        // Send the final transaction with the actual footprint
+        let tx = build_invoke_contract_tx(
+            host_function_params,
+            Some(footprint),
+            sequence + 1,
+            fee,
+            self.network_passphrase.as_ref().unwrap(),
+            &key,
+        )?;
+
+        client.send_transaction(&tx).await?;
+        // TODO: print results
+        // TODO: print cost
+
+        Ok(())
+    }
+
+    fn run_in_sandbox(
+        &self,
+        contract_id: [u8; 32],
+        matches: &clap::ArgMatches,
+    ) -> Result<(), Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut state =
@@ -225,7 +340,7 @@ impl Cmd {
                 error: e,
             })?;
 
-        //If a file is specified, deploy the contract to storage
+        // If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
             let contract = fs::read(f).map_err(|e| Error::CannotReadContractFile {
                 filepath: f.clone(),
@@ -239,7 +354,7 @@ impl Cmd {
             ledger_entries: state.1.clone(),
         });
         let mut storage = Storage::with_recording_footprint(snap);
-        let contents = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
+        let wasm = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
 
         h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
@@ -251,7 +366,15 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res_str = self.invoke_function(matches, contract_id, &contents, &h)?;
+        let host_function_params =
+            self.build_host_function_parameters(contract_id, &wasm, matches)?;
+
+        let res = h.invoke_function(HostFunction::InvokeContract, host_function_params)?;
+        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
+            result: res,
+            error: e,
+        })?;
+
         println!("{}", res_str);
 
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
@@ -286,4 +409,38 @@ impl Cmd {
         })?;
         Ok(())
     }
+}
+
+fn build_invoke_contract_tx(
+    parameters: ScVec,
+    footprint: Option<LedgerFootprint>,
+    sequence: i64,
+    fee: u32,
+    network_passphrase: &str,
+    key: &ed25519_dalek::Keypair,
+) -> Result<TransactionEnvelope, Error> {
+    // Use a default footprint if none provided
+    let final_footprint = footprint.unwrap_or(LedgerFootprint {
+        read_only: VecM::default(),
+        read_write: VecM::default(),
+    });
+    let op = Operation {
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            function: HostFunction::InvokeContract,
+            parameters,
+            footprint: final_footprint,
+        }),
+    };
+    let tx = Transaction {
+        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        fee,
+        seq_num: SequenceNumber(sequence),
+        cond: Preconditions::None,
+        memo: Memo::None,
+        operations: vec![op].try_into()?,
+        ext: TransactionExt::V0,
+    };
+
+    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
 }

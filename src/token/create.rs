@@ -1,20 +1,18 @@
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 
 use clap::Parser;
-use ed25519_dalek::Signer;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-        HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
-        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScMap, ScMapEntry,
-        ScObject, ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec, SequenceNumber,
-        Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
-        TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        AccountId, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageSourceAccountContractId,
+        HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
+        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScHostStorageErrorCode, ScMap, ScMapEntry, ScObject,
+        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -291,21 +289,7 @@ fn build_tx(
         ext: TransactionExt::V0,
     };
 
-    // sign the transaction
-    let tx_hash = utils::transaction_hash(&tx, network_passphrase)?;
-    let tx_signature = key.sign(&tx_hash);
-
-    let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
-        signature: Signature(tx_signature.to_bytes().try_into()?),
-    };
-
-    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx,
-        signatures: vec![decorated_signature].try_into()?,
-    });
-
-    Ok(envelope)
+    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
 }
 
 fn build_create_token_op(contract_id: &Hash, salt: [u8; 32]) -> Result<Operation, Error> {

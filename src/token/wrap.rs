@@ -1,18 +1,16 @@
 use clap::Parser;
-use ed25519_dalek::Signer;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, DecoratedSignature,
-        Error as XdrError, Hash, HashIdPreimage, HostFunction, InvokeHostFunctionOp,
-        LedgerFootprint, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount,
-        Operation, OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject,
-        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Signature, SignatureHint,
-        Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, Error as XdrError, Hash,
+        HashIdPreimage, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
+        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject,
+        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -236,21 +234,7 @@ fn build_wrap_token_tx(
         ext: TransactionExt::V0,
     };
 
-    // sign the transaction
-    let tx_hash = utils::transaction_hash(&tx, network_passphrase)?;
-    let tx_signature = key.sign(&tx_hash);
-
-    let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
-        signature: Signature(tx_signature.to_bytes().try_into()?),
-    };
-
-    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx,
-        signatures: vec![decorated_signature].try_into()?,
-    });
-
-    Ok(envelope)
+    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
 }
 
 fn parse_asset(str: &str) -> Result<Asset, Error> {

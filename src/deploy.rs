@@ -3,17 +3,15 @@ use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
-use ed25519_dalek::Signer;
 use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::HashIdPreimageSourceAccountContractId;
 use soroban_env_host::xdr::{
-    AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-    HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
-    LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber,
-    Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    AccountId, Error as XdrError, Hash, HashIdPreimage, HostFunction, InvokeHostFunctionOp,
+    LedgerFootprint, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal,
+    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::HostError;
 
@@ -103,8 +101,8 @@ pub enum Error {
         contract_id: String,
         error: FromHexError,
     },
-    #[error("cannot parse private key")]
-    CannotParsePrivateKey,
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 }
@@ -156,12 +154,11 @@ impl Cmd {
 
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
-            .map_err(|_| Error::CannotParsePrivateKey)?;
+            .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
         let public_strkey =
             stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
-        // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
@@ -232,19 +229,7 @@ fn build_create_contract_tx(
         ext: TransactionExt::V0,
     };
 
-    // sign the transaction
-    let tx_hash = utils::transaction_hash(&tx, network_passphrase)?;
-    let tx_signature = key.sign(&tx_hash);
-
-    let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
-        signature: Signature(tx_signature.to_bytes().try_into()?),
-    };
-
-    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx,
-        signatures: vec![decorated_signature].try_into()?,
-    });
+    let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;
 
     Ok((envelope, Hash(contract_id.into())))
 }
