@@ -1,18 +1,16 @@
 use clap::Parser;
-use ed25519_dalek::Signer;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, DecoratedSignature,
-        Error as XdrError, Hash, HashIdPreimage, HostFunction, InvokeHostFunctionOp,
-        LedgerFootprint, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount,
-        Operation, OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject,
-        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Signature, SignatureHint,
-        Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, Error as XdrError, Hash,
+        HashIdPreimage, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
+        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject,
+        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };

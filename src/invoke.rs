@@ -2,13 +2,11 @@ use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
-use ed25519_dalek::{Signature, Signer};
 use hex::FromHexError;
-use soroban_env_host::xdr::ScValType::Object;
 use soroban_env_host::xdr::{
-    DecoratedSignature, InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ScStatic, ScVec, SequenceNumber, SignatureHint, Transaction,
-    TransactionEnvelope, TransactionExt, TransactionV1Envelope, VecM,
+    InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+    TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -421,11 +419,11 @@ fn build_invoke_contract_tx(
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<(TransactionEnvelope), Error> {
+) -> Result<TransactionEnvelope, Error> {
     // Use a default footprint if none provided
     let final_footprint = footprint.unwrap_or(LedgerFootprint {
-        read_only: Default::default(),
-        read_write: Default::default(),
+        read_only: VecM::default(),
+        read_write: VecM::default(),
     });
     let op = Operation {
         source_account: None,

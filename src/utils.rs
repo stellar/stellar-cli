@@ -65,7 +65,7 @@ pub fn sign_transaction(
     tx: &Transaction,
     network_passphrase: &str,
 ) -> Result<TransactionEnvelope, XdrError> {
-    let tx_hash = transaction_hash(&tx, network_passphrase)?;
+    let tx_hash = transaction_hash(tx, network_passphrase)?;
     let tx_signature = key.sign(&tx_hash);
 
     let decorated_signature = DecoratedSignature {

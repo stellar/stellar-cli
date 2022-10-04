@@ -1,20 +1,18 @@
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 
 use clap::Parser;
-use ed25519_dalek::Signer;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-        HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
-        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScMap, ScMapEntry,
-        ScObject, ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec, SequenceNumber,
-        Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
-        TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        AccountId, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageSourceAccountContractId,
+        HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
+        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScHostStorageErrorCode, ScMap, ScMapEntry, ScObject,
+        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };

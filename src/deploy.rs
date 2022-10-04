@@ -3,17 +3,15 @@ use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
-use ed25519_dalek::Signer;
 use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::HashIdPreimageSourceAccountContractId;
 use soroban_env_host::xdr::{
-    AccountId, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-    HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
-    LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal, SequenceNumber,
-    Signature, SignatureHint, Transaction, TransactionEnvelope, TransactionExt,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    AccountId, Error as XdrError, Hash, HashIdPreimage, HostFunction, InvokeHostFunctionOp,
+    LedgerFootprint, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal,
+    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::HostError;
 
