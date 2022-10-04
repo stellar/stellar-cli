@@ -188,7 +188,7 @@ impl Cmd {
         let contract_id = get_contract_id(salt, admin.clone())?;
         h.invoke_function(
             HostFunction::InvokeContract,
-            init_token_parameters(contract_id, &admin, name, symbol, decimal),
+            init_parameters(contract_id, &admin, name, symbol, decimal),
         )?;
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
@@ -249,9 +249,9 @@ impl Cmd {
 
         client
             .send_transaction(&build_tx(
-                build_init_token_op(
+                build_init_op(
                     &Hash(contract_id),
-                    init_token_parameters(contract_id, &admin_key, name, symbol, decimal),
+                    init_parameters(contract_id, &admin_key, name, symbol, decimal),
                 )?,
                 sequence + 2,
                 fee,
@@ -330,7 +330,7 @@ fn build_create_token_op(contract_id: &Hash, salt: [u8; 32]) -> Result<Operation
     })
 }
 
-fn init_token_parameters(
+fn init_parameters(
     contract_id: [u8; 32],
     admin: &AccountId,
     name: &str,
@@ -341,7 +341,7 @@ fn init_token_parameters(
         // Contract ID
         ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
         // Method
-        ScVal::Symbol("init_token".try_into().unwrap()),
+        ScVal::Symbol("init".try_into().unwrap()),
         // Admin Identifier
         ScVal::Object(Some(ScObject::Vec(
             vec![
@@ -374,7 +374,7 @@ fn init_token_parameters(
     .unwrap()
 }
 
-fn build_init_token_op(contract_id: &Hash, parameters: ScVec) -> Result<Operation, Error> {
+fn build_init_op(contract_id: &Hash, parameters: ScVec) -> Result<Operation, Error> {
     Ok(Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
