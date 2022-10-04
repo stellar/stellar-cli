@@ -60,6 +60,14 @@ pub struct Cmd {
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(long = "network-passphrase")]
     network_passphrase: Option<String>,
+
+    /// Custom salt 32-byte salt for the token id
+    #[clap(
+        long,
+        conflicts_with_all = &["contract-id", "ledger-file"],
+    )]
+    salt: Option<String>,
+
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -74,6 +82,8 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
+    #[error("cannot parse salt: {salt}")]
+    CannotParseSalt { salt: String },
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
@@ -138,6 +148,14 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
+        let salt: [u8; 32] = match &self.salt {
+            // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
+            Some(h) => utils::contract_id_from_str(&h).map_err(|_| Error::CannotParseSalt {
+                salt: h.clone(),
+            })?,
+            None => rand::thread_rng().gen::<[u8; 32]>(),
+        };
+
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParsePrivateKey)?;
@@ -155,6 +173,7 @@ impl Cmd {
             sequence + 1,
             fee,
             self.network_passphrase.as_ref().unwrap(),
+            salt,
             &key,
         )?;
 
@@ -171,10 +190,9 @@ fn build_create_contract_tx(
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
+    salt: [u8; 32],
     key: &ed25519_dalek::Keypair,
 ) -> Result<(TransactionEnvelope, Hash), Error> {
-    let salt = rand::thread_rng().gen::<[u8; 32]>();
-
     let preimage =
         HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
             source_account: AccountId(PublicKey::PublicKeyTypeEd25519(
@@ -244,6 +262,7 @@ mod tests {
             300,
             1,
             "Public Global Stellar Network ; September 2015",
+            [0u8; 32],
             &utils::parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap(),
         );
