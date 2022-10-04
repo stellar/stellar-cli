@@ -19,6 +19,7 @@ mod xdr;
 
 #[derive(Parser, Debug)]
 #[clap(
+    name = "soroban",
     version,
     about = "https://soroban.stellar.org",
     disable_help_subcommand = true,

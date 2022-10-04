@@ -9,6 +9,11 @@ readme = "README.md"
 version = "0.0.4"
 edition = "2021"
 rust-version = "1.64"
+autobins = false
+
+[[bin]]
+name = "soroban"
+path = "src/main.rs"
 
 [dependencies]
 soroban-env-host = { version = "0.0.5", features = ["vm", "serde", "hostfn_log_fmt_values"] }
