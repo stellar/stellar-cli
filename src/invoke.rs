@@ -71,7 +71,6 @@ pub struct Cmd {
     /// RPC server endpoint
     #[clap(
         long,
-        required_unless_present = "account-id",
         conflicts_with = "account-id",
         requires = "secret-key",
         requires = "network-passphrase"
@@ -81,11 +80,11 @@ pub struct Cmd {
     #[clap(
         long = "secret-key",
         env = "SOROBAN_SECRET_KEY",
-        conflicts_with = "account-id"
+        requires = "rpc-server-url"
     )]
     secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(long = "network-passphrase")]
+    #[clap(long = "network-passphrase", requires = "rpc-server-url")]
     network_passphrase: Option<String>,
 }
 
