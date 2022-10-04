@@ -5,7 +5,7 @@ use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{AccountId, MuxedAccount, Operation, PublicKey};
+use soroban_env_host::xdr::{AccountId, LedgerFootprint, MuxedAccount, Operation, PublicKey};
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
@@ -373,16 +373,20 @@ fn execute_transaction(
     // }
 
     // Calculate the storage footprint
-    let mut read_only: Vec<String> = vec![];
-    let mut read_write: Vec<String> = vec![];
+    let mut read_only: Vec<LedgerKey> = vec![];
+    let mut read_write: Vec<LedgerKey> = vec![];
     let Footprint(m) = storage.footprint;
     for (k, v) in m {
         let dest = match v {
             AccessType::ReadOnly => &mut read_only,
             AccessType::ReadWrite => &mut read_write,
         };
-        dest.push(k.to_xdr_base64()?);
+        dest.push(k);
     }
+    let footprint = LedgerFootprint {
+        read_only: read_only.try_into().unwrap(),
+        read_write: read_write.try_into().unwrap(),
+    };
 
     if commit {
         snapshot::commit(state.1, ledger_info, &storage.map, ledger_file)?;
@@ -390,10 +394,7 @@ fn execute_transaction(
 
     Ok(json!({
         "cost": cost,
-        "footprint": {
-            "readOnly": read_only,
-            "readWrite": read_write,
-        },
+        "footprint": footprint.to_xdr_base64()?,
         "results": vec![
             json!({ "xdr": res.to_xdr_base64()? })
         ],
