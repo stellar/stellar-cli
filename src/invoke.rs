@@ -140,8 +140,8 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
-    #[error("cannot parse private key")]
-    CannotParsePrivateKey,
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
@@ -262,7 +262,7 @@ impl Cmd {
     ) -> Result<(), Error> {
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
-            .map_err(|_| Error::CannotParsePrivateKey)?;
+            .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
         let public_strkey = StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();

@@ -101,8 +101,8 @@ pub enum Error {
         contract_id: String,
         error: FromHexError,
     },
-    #[error("cannot parse private key")]
-    CannotParsePrivateKey,
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 }
@@ -154,7 +154,7 @@ impl Cmd {
 
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
         let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
-            .map_err(|_| Error::CannotParsePrivateKey)?;
+            .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
         let public_strkey =
