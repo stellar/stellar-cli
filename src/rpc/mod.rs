@@ -126,7 +126,7 @@ impl Client {
             match response.status.as_str() {
                 "success" => {
                     // TODO: the caller should probably be printing this
-                    println!("{}", response.status);
+                    eprintln!("{}", response.status);
                     return Ok(response.results);
                 }
                 "error" => {
