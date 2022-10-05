@@ -120,7 +120,7 @@ impl Client {
             let response = self.get_transaction_status(&id).await?;
             match response.status.as_str() {
                 "success" => {
-                    println!("{}", response.status);
+                    eprintln!("{}", response.status);
                     return Ok(SendTransactionResponse {
                         id: response.id,
                         status: response.status,
