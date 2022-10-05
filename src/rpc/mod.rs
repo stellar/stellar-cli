@@ -35,7 +35,12 @@ pub struct GetAccountResponse {
 pub struct SendTransactionResponse {
     pub id: String,
     pub status: String,
-    // TODO: add results
+    // TODO: add error
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct TransactionStatusResult {
+    pub xdr: String,
 }
 
 // TODO: this should also be used by serve
@@ -43,7 +48,8 @@ pub struct SendTransactionResponse {
 pub struct GetTransactionStatusResponse {
     pub id: String,
     pub status: String,
-    // TODO: add results
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub results: Vec<TransactionStatusResult>,
 }
 
 // TODO: this should also be used by serve
@@ -101,18 +107,17 @@ impl Client {
     pub async fn send_transaction(
         &self,
         tx: &TransactionEnvelope,
-    ) -> Result<SendTransactionResponse, Error> {
+    ) -> Result<Vec<TransactionStatusResult>, Error> {
         let client = self.client()?;
         let SendTransactionResponse { id, status } = client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await
             .map_err(|_| Error::TransactionSubmissionFailed)?;
 
-        if status == "success" {
-            return Ok(SendTransactionResponse { id, status });
-        } else if status == "error" {
+        if status == "error" {
             return Err(Error::TransactionSubmissionFailed);
         }
+        // even if status == "success" we need to query the transaction status in order to get the result
 
         // Poll the transaction status
         let start = Instant::now();
@@ -120,12 +125,9 @@ impl Client {
             let response = self.get_transaction_status(&id).await?;
             match response.status.as_str() {
                 "success" => {
+                    // TODO: the caller should probably be printing this
                     eprintln!("{}", response.status);
-                    return Ok(SendTransactionResponse {
-                        id: response.id,
-                        status: response.status,
-                        // TODO: add results
-                    });
+                    return Ok(response.results);
                 }
                 "error" => {
                     // TODO: provide a more elaborate error

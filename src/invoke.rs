@@ -146,6 +146,8 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(ScVal),
+    #[error("missing transaction result")]
+    MissingTransactionResult,
 }
 
 #[derive(Clone, Debug)]
@@ -320,8 +322,17 @@ impl Cmd {
             &key,
         )?;
 
-        client.send_transaction(&tx).await?;
-        // TODO: print results
+        let results = client.send_transaction(&tx).await?;
+        if results.is_empty() {
+            return Err(Error::MissingTransactionResult);
+        }
+        let res = ScVal::from_xdr_base64(&results[0].xdr)?;
+        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
+            result: res,
+            error: e,
+        })?;
+
+        println!("{}", res_str);
         // TODO: print cost
 
         Ok(())
