@@ -37,13 +37,13 @@ pub struct Cmd {
     #[clap(
         long = "account",
         default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-        conflicts_with = "rpc-server-url"
+        conflicts_with = "rpc-url"
     )]
     account_id: StrkeyPublicKeyEd25519,
 
     // TODO: as a workaround (RPC server doesn't yet implement getContractData)
     //       we allow supplying the wasm contract in the commandline
-    //       later on we should add: conflicts_with = "rpc-server-url"
+    //       later on we should add: conflicts_with = "rpc-url"
     /// WASM file to deploy to the contract ID and invoke
     #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
@@ -64,7 +64,8 @@ pub struct Cmd {
         long,
         parse(from_os_str),
         default_value(".soroban/ledger.json"),
-        conflicts_with = "rpc-server-url"
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_LEDGER_FILE"
     )]
     ledger_file: std::path::PathBuf,
 
@@ -73,18 +74,19 @@ pub struct Cmd {
         long,
         conflicts_with = "account-id",
         requires = "secret-key",
-        requires = "network-passphrase"
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_URL"
     )]
-    rpc_server_url: Option<String>,
+    rpc_url: Option<String>,
     /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(
-        long = "secret-key",
-        env = "SOROBAN_SECRET_KEY",
-        requires = "rpc-server-url"
-    )]
+    #[clap(long = "secret-key", requires = "rpc-url", env = "SOROBAN_SECRET_KEY")]
     secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(long = "network-passphrase", requires = "rpc-server-url")]
+    #[clap(
+        long = "network-passphrase",
+        requires = "rpc-url",
+        env = "SOROBAN_NETWORK_PASSPHRASE"
+    )]
     network_passphrase: Option<String>,
 }
 
@@ -250,7 +252,7 @@ impl Cmd {
                 }
             })?;
 
-        if self.rpc_server_url.is_some() {
+        if self.rpc_url.is_some() {
             return self.run_against_rpc_server(contract_id, matches).await;
         }
 
@@ -262,7 +264,7 @@ impl Cmd {
         contract_id: [u8; 32],
         matches: &clap::ArgMatches,
     ) -> Result<(), Error> {
-        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
+        let client = Client::new(self.rpc_url.as_ref().unwrap());
         let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParseSecretKey)?;
 

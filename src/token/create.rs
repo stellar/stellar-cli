@@ -85,7 +85,8 @@ pub struct Cmd {
         long,
         parse(from_os_str),
         default_value = ".soroban/ledger.json",
-        conflicts_with = "rpc-server-url"
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_LEDGER_FILE"
     )]
     ledger_file: std::path::PathBuf,
 
@@ -94,14 +95,15 @@ pub struct Cmd {
         long,
         conflicts_with = "ledger-file",
         requires = "secret-key",
-        requires = "network-passphrase"
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_URL"
     )]
-    rpc_server_url: Option<String>,
+    rpc_url: Option<String>,
     /// Secret key to sign the transaction sent to the rpc server
-    #[clap(long = "secret-str", env = "SOROBAN_SECRET_KEY")]
+    #[clap(long = "secret-key", env = "SOROBAN_SECRET_KEY")]
     secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(long = "network-passphrase")]
+    #[clap(long = "network-passphrase", env = "SOROBAN_NETWORK_PASSPHRASE")]
     network_passphrase: Option<String>,
 }
 
@@ -119,7 +121,7 @@ impl Cmd {
             });
         }
 
-        let res_str = if self.rpc_server_url.is_some() {
+        let res_str = if self.rpc_url.is_some() {
             self.run_against_rpc_server(
                 salt,
                 self.admin.map(|a| a.0),
@@ -212,7 +214,7 @@ impl Cmd {
         symbol: &str,
         decimal: u32,
     ) -> Result<String, Error> {
-        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
+        let client = Client::new(self.rpc_url.as_ref().unwrap());
         let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParseSecretKey)?;
         let salt_val = if salt == [0; 32] {

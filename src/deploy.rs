@@ -26,8 +26,8 @@ pub struct Cmd {
     wasm: std::path::PathBuf,
     #[clap(
         long = "id",
-        required_unless_present = "rpc-server-url",
-        conflicts_with = "rpc-server-url"
+        required_unless_present = "rpc-url",
+        conflicts_with = "rpc-url"
     )]
     // TODO: Should we get rid of the contract_id parameter
     //       and just obtain it from the key/source like we do
@@ -39,7 +39,8 @@ pub struct Cmd {
         long,
         parse(from_os_str),
         default_value = ".soroban/ledger.json",
-        conflicts_with = "rpc-server-url"
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_LEDGER_FILE"
     )]
     ledger_file: std::path::PathBuf,
 
@@ -49,14 +50,15 @@ pub struct Cmd {
         required_unless_present = "contract-id",
         conflicts_with = "contract-id",
         requires = "secret-key",
-        requires = "network-passphrase"
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_URL"
     )]
-    rpc_server_url: Option<String>,
+    rpc_url: Option<String>,
     /// Secret 'S' key used to sign the transaction sent to the rpc server
     #[clap(long = "secret-key", env = "SOROBAN_SECRET_KEY")]
     secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(long = "network-passphrase")]
+    #[clap(long = "network-passphrase", env = "SOROBAN_NETWORK_PASSPHRASE")]
     network_passphrase: Option<String>,
 
     /// Custom salt 32-byte salt for the token id
@@ -114,7 +116,7 @@ impl Cmd {
             error: e,
         })?;
 
-        if self.rpc_server_url.is_some() {
+        if self.rpc_url.is_some() {
             return self.run_against_rpc_server(contract).await;
         }
 
@@ -152,7 +154,7 @@ impl Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = Client::new(self.rpc_server_url.as_ref().unwrap());
+        let client = Client::new(self.rpc_url.as_ref().unwrap());
         let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParseSecretKey)?;
 

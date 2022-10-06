@@ -34,7 +34,12 @@ pub struct Cmd {
     #[clap(long, arg_enum, default_value("string"))]
     output: Output,
     /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value(".soroban/ledger.json"),
+        env = "SOROBAN_LEDGER_FILE"
+    )]
     ledger_file: std::path::PathBuf,
 }
 
