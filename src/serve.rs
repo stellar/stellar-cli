@@ -531,11 +531,16 @@ async fn send_transaction(
                     id.clone(),
                     match result {
                         Ok(result) => {
-                            json!({
-                                "id": id,
-                                "status": "success",
-                                "results": vec![result],
-                            })
+                            if let Value::Object(mut o) = result {
+                                o.insert("id".to_string(), Value::String(id.to_string()));
+                                o.insert(
+                                    "status".to_string(),
+                                    Value::String("success".to_string()),
+                                );
+                                Value::Object(o)
+                            } else {
+                                panic!("Expected object");
+                            }
                         }
                         Err(err) => {
                             eprintln!("error: {:?}", err);
