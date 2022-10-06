@@ -35,8 +35,8 @@ pub enum Error {
         filepath: std::path::PathBuf,
         error: snapshot::Error,
     },
-    #[error("cannot parse private key")]
-    CannotParsePrivateKey,
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
     #[error("cannot parse salt: {salt}")]
     CannotParseSalt { salt: String },
     #[error(transparent)]
@@ -57,7 +57,7 @@ pub enum Error {
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Administrator account for the token, will default to --private-strkey if not set
+    /// Administrator account for the token, will default to --secret-key if not set
     #[clap(long)]
     admin: Option<StrkeyPublicKeyEd25519>,
 
@@ -93,13 +93,13 @@ pub struct Cmd {
     #[clap(
         long,
         conflicts_with = "ledger-file",
-        requires = "private-strkey",
+        requires = "secret-key",
         requires = "network-passphrase"
     )]
     rpc_server_url: Option<String>,
-    /// Private key to sign the transaction sent to the rpc server
-    #[clap(long = "private-strkey", env)]
-    private_strkey: Option<String>,
+    /// Secret key to sign the transaction sent to the rpc server
+    #[clap(long = "secret-str", env = "SOROBAN_SECRET_KEY")]
+    secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(long = "network-passphrase")]
     network_passphrase: Option<String>,
@@ -213,8 +213,8 @@ impl Cmd {
         decimal: u32,
     ) -> Result<String, Error> {
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
-        let key = utils::parse_private_key(self.private_strkey.as_ref().unwrap())
-            .map_err(|_| Error::CannotParsePrivateKey)?;
+        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
+            .map_err(|_| Error::CannotParseSecretKey)?;
         let salt_val = if salt == [0; 32] {
             rand::thread_rng().gen::<[u8; 32]>()
         } else {
@@ -397,7 +397,7 @@ mod tests {
             300,
             1,
             "Public Global Stellar Network ; September 2015",
-            &utils::parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+            &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap(),
         );
 
