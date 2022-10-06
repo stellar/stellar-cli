@@ -64,7 +64,8 @@ pub struct Cmd {
         long,
         parse(from_os_str),
         default_value(".soroban/ledger.json"),
-        conflicts_with = "rpc-server-url"
+        conflicts_with = "rpc-server-url",
+        env = "SOROBAN_LEDGER_FILE"
     )]
     ledger_file: std::path::PathBuf,
 
@@ -73,18 +74,23 @@ pub struct Cmd {
         long,
         conflicts_with = "account-id",
         requires = "secret-key",
-        requires = "network-passphrase"
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_SERVER_URL"
     )]
     rpc_server_url: Option<String>,
     /// Secret 'S' key used to sign the transaction sent to the rpc server
     #[clap(
         long = "secret-key",
-        env = "SOROBAN_SECRET_KEY",
-        requires = "rpc-server-url"
+        requires = "rpc-server-url",
+        env = "SOROBAN_SECRET_KEY"
     )]
     secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(long = "network-passphrase", requires = "rpc-server-url")]
+    #[clap(
+        long = "network-passphrase",
+        requires = "rpc-server-url",
+        env = "SOROBAN_NETWORK_PASSPHRASE"
+    )]
     network_passphrase: Option<String>,
 }
 

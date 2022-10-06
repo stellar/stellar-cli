@@ -32,7 +32,12 @@ pub struct Cmd {
     #[clap(long, default_value("8080"))]
     port: u16,
     /// File to persist ledger state
-    #[clap(long, parse(from_os_str), default_value(".soroban/ledger.json"))]
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value(".soroban/ledger.json"),
+        env = "SOROBAN_LEDGER_FILE"
+    )]
     ledger_file: PathBuf,
 }
 
