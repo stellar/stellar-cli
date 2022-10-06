@@ -263,7 +263,7 @@ impl Cmd {
         matches: &clap::ArgMatches,
     ) -> Result<(), Error> {
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
-        let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
+        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number

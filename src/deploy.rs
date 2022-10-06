@@ -153,7 +153,7 @@ impl Cmd {
         };
 
         let client = Client::new(self.rpc_server_url.as_ref().unwrap());
-        let key = utils::parse_private_key(self.secret_key.as_ref().unwrap())
+        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
@@ -246,7 +246,7 @@ mod tests {
             1,
             "Public Global Stellar Network ; September 2015",
             [0u8; 32],
-            &utils::parse_private_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+            &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap(),
         );
 
