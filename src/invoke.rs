@@ -77,7 +77,7 @@ pub struct Cmd {
         requires = "network-passphrase",
         env = "SOROBAN_RPC_URL"
     )]
-    RPC_URL: Option<String>,
+    rpc_url: Option<String>,
     /// Secret 'S' key used to sign the transaction sent to the rpc server
     #[clap(long = "secret-key", requires = "rpc-url", env = "SOROBAN_SECRET_KEY")]
     secret_key: Option<String>,
