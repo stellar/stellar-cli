@@ -1,10 +1,8 @@
 use jsonrpsee_core::{client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use soroban_env_host::xdr::{Error as XdrError, ScVal, TransactionEnvelope, WriteXdr};
-use std::{
-    thread::sleep,
-    time::{Duration, Instant},
-};
+use tokio::time::sleep;
+use std::time::{Duration, Instant};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -143,7 +141,7 @@ impl Client {
             if duration.as_secs() > 10 {
                 return Err(Error::TransactionSubmissionTimeout);
             }
-            sleep(Duration::from_secs(1));
+            sleep(Duration::from_secs(1)).await;
         }
     }
 
