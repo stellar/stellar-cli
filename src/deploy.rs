@@ -50,6 +50,13 @@ pub struct Cmd {
         help_heading = HEADING_RPC,
     )]
     secret_key: Option<String>,
+    /// Custom salt 32-byte salt for the token id
+    #[clap(
+        long,
+        conflicts_with_all = &["contract-id", "ledger-file"],
+        help_heading = HEADING_RPC,
+    )]
+    salt: Option<String>,
     /// RPC server endpoint
     #[clap(
         long,
@@ -67,14 +74,6 @@ pub struct Cmd {
         help_heading = HEADING_RPC,
     )]
     network_passphrase: Option<String>,
-
-    /// Custom salt 32-byte salt for the token id
-    #[clap(
-        long,
-        conflicts_with_all = &["contract-id", "ledger-file"],
-        help_heading = HEADING_RPC,
-    )]
-    salt: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
