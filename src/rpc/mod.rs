@@ -18,6 +18,8 @@ pub enum Error {
     UnexpectedTransactionStatus(String),
     #[error("transaction submission timeout")]
     TransactionSubmissionTimeout,
+    #[error("transaction simulation failed: {0}")]
+    TransactionSimulationFailed(String),
 }
 
 // TODO: this should also be used by serve
@@ -69,6 +71,8 @@ pub struct Cost {
 pub struct SimulateTransactionResponse {
     pub footprint: String,
     pub cost: Cost,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub error: Option<String>,
     // TODO: add results and latestLedger
 }
 
@@ -150,10 +154,14 @@ impl Client {
         tx: &TransactionEnvelope,
     ) -> Result<SimulateTransactionResponse, Error> {
         let base64_tx = tx.to_xdr_base64()?;
-        Ok(self
+        let response: SimulateTransactionResponse = self
             .client()?
             .request("simulateTransaction", rpc_params![base64_tx])
-            .await?)
+            .await?;
+        match response.error {
+            None => Ok(response),
+            Some(e) => Err(Error::TransactionSimulationFailed(e)),
+        }
     }
 
     pub async fn get_transaction_status(
