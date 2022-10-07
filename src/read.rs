@@ -16,7 +16,7 @@ use soroban_env_host::{
 use crate::{
     snapshot,
     strval::{self, StrValError},
-    utils,
+    utils, HEADING_SANDBOX,
 };
 
 #[derive(Parser, Debug)]
@@ -38,7 +38,8 @@ pub struct Cmd {
         long,
         parse(from_os_str),
         default_value(".soroban/ledger.json"),
-        env = "SOROBAN_LEDGER_FILE"
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
 }

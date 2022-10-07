@@ -17,6 +17,9 @@ mod utils;
 mod version;
 mod xdr;
 
+const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
+const HEADING_RPC: &str = "OPTIONS (RPC)";
+
 #[derive(Parser, Debug)]
 #[clap(
     name = "soroban",

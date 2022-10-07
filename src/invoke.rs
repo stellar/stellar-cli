@@ -28,6 +28,7 @@ use crate::{
     strval::{self, StrValError},
     utils,
 };
+use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -35,7 +36,13 @@ pub struct Cmd {
     #[clap(
         long = "account",
         default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-        conflicts_with = "rpc-url"
+        // TODO: Allow account to be specified with rpc-url/secret-key and use
+        // the value for the source account when specified instead of using the
+        // secret keys public key. Remove the help heading as part of this.
+        // This will make this field work the same way the create token command
+        // does.
+        conflicts_with = "rpc-url",
+        help_heading = HEADING_RPC,
     )]
     account_id: StrkeyPublicKeyEd25519,
     /// Contract ID to invoke
@@ -65,7 +72,8 @@ pub struct Cmd {
         parse(from_os_str),
         default_value(".soroban/ledger.json"),
         conflicts_with = "rpc-url",
-        env = "SOROBAN_LEDGER_FILE"
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
     /// RPC server endpoint
@@ -74,17 +82,24 @@ pub struct Cmd {
         conflicts_with = "account-id",
         requires = "secret-key",
         requires = "network-passphrase",
-        env = "SOROBAN_RPC_URL"
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
     )]
     rpc_url: Option<String>,
     /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(long = "secret-key", requires = "rpc-url", env = "SOROBAN_SECRET_KEY")]
+    #[clap(
+        long = "secret-key",
+        requires = "rpc-url",
+        env = "SOROBAN_SECRET_KEY",
+        help_heading = HEADING_RPC,
+    )]
     secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(
         long = "network-passphrase",
         requires = "rpc-url",
-        env = "SOROBAN_NETWORK_PASSPHRASE"
+        env = "SOROBAN_NETWORK_PASSPHRASE",
+        help_heading = HEADING_RPC,
     )]
     network_passphrase: Option<String>,
 }

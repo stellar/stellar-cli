@@ -17,10 +17,7 @@ use soroban_env_host::HostError;
 
 use crate::rpc::{self, Client};
 use crate::snapshot::{self, get_default_ledger_info};
-use crate::utils;
-
-const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
-const HEADING_RPC: &str = "OPTIONS (RPC)";
+use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
