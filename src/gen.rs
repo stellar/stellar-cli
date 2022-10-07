@@ -29,7 +29,7 @@ pub enum Error {
     #[error("generate rust from file: {0}")]
     GenerateRustFromFile(rust::GenerateFromFileError),
     #[error("format rust error: {0}")]
-    FormatRust(syn::Error),
+    FormatRust(String),
     #[error("generate json from file: {0}")]
     GenerateJsonFromFile(json::GenerateFromFileError),
 }
@@ -53,7 +53,7 @@ impl Cmd {
             }
             Err(e) => {
                 println!("{}", code);
-                Err(Error::FormatRust(e))
+                Err(Error::FormatRust(e.to_string()))
             }
         }
     }
