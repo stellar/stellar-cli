@@ -1499,7 +1499,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "0.0.4"
+version = "0.1.0"
 dependencies = [
  "base64",
  "clap",
@@ -2251,8 +2251,3 @@ dependencies = [
  "syn",
  "synstructure",
 ]
-
-[[patch.unused]]
-name = "soroban-env-guest"
-version = "0.0.6"
-source = "git+https://github.com/stellar/rs-soroban-env?rev=91cf595#91cf595508d475877f855619ad5baeb5f45a3885"
