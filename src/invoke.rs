@@ -5,8 +5,8 @@ use clap::Parser;
 use hex::FromHexError;
 use soroban_env_host::xdr::{
     InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
-    TransactionExt, VecM,
+    Preconditions, ScContractCode, ScStatic, ScVec, SequenceNumber, Transaction,
+    TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -42,11 +42,8 @@ pub struct Cmd {
     )]
     account_id: StrkeyPublicKeyEd25519,
 
-    // TODO: as a workaround (RPC server doesn't yet implement getContractData)
-    //       we allow supplying the wasm contract in the commandline
-    //       later on we should add: conflicts_with = "rpc-url"
     /// WASM file to deploy to the contract ID and invoke
-    #[clap(long, parse(from_os_str))]
+    #[clap(long, parse(from_os_str), conflicts_with = "rpc-url")]
     wasm: Option<std::path::PathBuf>,
     /// Function name to execute
     #[clap(long = "fn")]
@@ -279,29 +276,19 @@ impl Cmd {
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
 
-        // Get the contract
-        let wasm = if let Some(f) = &self.wasm {
-            // Get the contract from a file
-            // TODO: as a workaround (RPC server doesn't yet implement getContractData)
-            //       we allow supplying the contract in the commandline
-            //       we should consider removing this later on
-            fs::read(f).map_err(|e| Error::CannotReadContractFile {
-                filepath: f.clone(),
-                error: e,
-            })?
-        } else {
-            // Get the contract from the network
-            let contract_data = client
-                .get_contract_data(
-                    &hex::encode(contract_id),
-                    ScVal::Static(ScStatic::LedgerKeyContractCode),
-                )
-                .await?;
+        // Get the contract from the network
+        let contract_data = client
+            .get_contract_data(
+                &hex::encode(contract_id),
+                ScVal::Static(ScStatic::LedgerKeyContractCode),
+            )
+            .await?;
 
-            match ScVal::from_xdr_base64(contract_data.xdr)? {
-                ScVal::Object(Some(ScObject::Bytes(bytes))) => bytes.to_vec(),
-                scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+        let wasm = match ScVal::from_xdr_base64(contract_data.xdr)? {
+            ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(bytes)))) => {
+                bytes.to_vec()
             }
+            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
         };
 
         // Get the ledger footprint
