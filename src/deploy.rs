@@ -21,15 +21,12 @@ use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
+    /// Contract ID to deploy to (if using the sandbox)
+    #[clap(long = "id", conflicts_with = "rpc-url")]
+    contract_id: Option<String>,
     /// WASM file to deploy
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
-    #[clap(long = "id", conflicts_with = "rpc-url")]
-    // TODO: Should we get rid of the contract_id parameter
-    //       and just obtain it from the key/source like we do
-    //       when running against an rpc server?
-    /// Contract ID to deploy to (if using the sandbox)
-    contract_id: Option<String>,
     /// File to persist ledger state (if using the sandbox)
     #[clap(
         long,
@@ -39,7 +36,6 @@ pub struct Cmd {
         env = "SOROBAN_LEDGER_FILE"
     )]
     ledger_file: std::path::PathBuf,
-
     /// RPC server endpoint
     #[clap(
         long,
