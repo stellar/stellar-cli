@@ -22,6 +22,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
+use crate::utils::create_ledger_footprint;
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
@@ -59,6 +60,9 @@ pub struct Cmd {
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
+    /// Output the footprint to stderr
+    #[clap(long = "footprint")]
+    footprint: bool,
     /// File to persist ledger state
     #[clap(
         long,
@@ -314,6 +318,13 @@ impl Cmd {
         let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
         let footprint = LedgerFootprint::from_xdr_base64(simulation_response.footprint)?;
 
+        if self.footprint {
+            eprintln!(
+                "Footprint: {:?}",
+                serde_json::to_string(&footprint).unwrap(),
+            );
+        }
+
         // Send the final transaction with the actual footprint
         let tx = build_invoke_contract_tx(
             host_function_params,
@@ -395,6 +406,13 @@ impl Cmd {
                 ScHostStorageErrorCode::UnknownError,
             ))
         })?;
+
+        if self.footprint {
+            eprintln!(
+                "Footprint: {}",
+                serde_json::to_string(&create_ledger_footprint(&storage.footprint)).unwrap(),
+            );
+        }
 
         if self.cost {
             eprintln!("Cpu Insns: {}", budget.get_cpu_insns_count());
