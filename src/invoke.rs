@@ -42,7 +42,7 @@ pub struct Cmd {
     )]
     account_id: StrkeyPublicKeyEd25519,
 
-    /// WASM file to deploy to the contract ID and invoke
+    /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
     /// Function name to execute
