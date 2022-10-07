@@ -367,7 +367,13 @@ fn build_init_op(contract_id: &Hash, parameters: ScVec) -> Result<Operation, Err
             function: HostFunction::InvokeContract,
             parameters,
             footprint: LedgerFootprint {
-                read_only: VecM::default(),
+                read_only: vec![
+                    ContractData(LedgerKeyContractData {
+                        contract_id: contract_id.clone(),
+                        key: ScVal::Static(LedgerKeyContractCode),
+                    }),
+                ]
+                .try_into()?,
                 read_write: vec![
                     ContractData(LedgerKeyContractData {
                         contract_id: contract_id.clone(),
