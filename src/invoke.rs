@@ -42,8 +42,8 @@ pub struct Cmd {
     )]
     account_id: StrkeyPublicKeyEd25519,
 
-    /// WASM file to deploy to the contract ID and invoke
-    #[clap(long, parse(from_os_str), conflicts_with = "rpc-url")]
+    /// WASM file of the contract to invoke (if using sandbox will deploy this file)
+    #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
     /// Function name to execute
     #[clap(long = "fn")]
@@ -276,19 +276,27 @@ impl Cmd {
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
 
-        // Get the contract from the network
-        let contract_data = client
-            .get_contract_data(
-                &hex::encode(contract_id),
-                ScVal::Static(ScStatic::LedgerKeyContractCode),
-            )
-            .await?;
-
-        let wasm = match ScVal::from_xdr_base64(contract_data.xdr)? {
-            ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(bytes)))) => {
-                bytes.to_vec()
+        // Get the contract
+        let wasm = if let Some(f) = &self.wasm {
+            // Get the contract from a file
+            fs::read(f).map_err(|e| Error::CannotReadContractFile {
+                filepath: f.clone(),
+                error: e,
+            })?
+        } else {
+            // Get the contract from the network
+            let contract_data = client
+                .get_contract_data(
+                    &hex::encode(contract_id),
+                    ScVal::Static(ScStatic::LedgerKeyContractCode),
+                )
+                .await?;
+            match ScVal::from_xdr_base64(contract_data.xdr)? {
+                ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(bytes)))) => {
+                    bytes.to_vec()
+                }
+                scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }
-            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
         };
 
         // Get the ledger footprint
