@@ -21,6 +21,10 @@ use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
+    /// WASM file to deploy
+    #[clap(long, parse(from_os_str))]
+    wasm: std::path::PathBuf,
+
     /// Contract ID to deploy to
     #[clap(
         long = "id",
@@ -28,9 +32,6 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     contract_id: Option<String>,
-    /// WASM file to deploy
-    #[clap(long, parse(from_os_str))]
-    wasm: std::path::PathBuf,
     /// File to persist ledger state
     #[clap(
         long,
@@ -41,6 +42,14 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
+
+    /// Secret 'S' key used to sign the transaction sent to the rpc server
+    #[clap(
+        long = "secret-key",
+        env = "SOROBAN_SECRET_KEY",
+        help_heading = HEADING_RPC,
+    )]
+    secret_key: Option<String>,
     /// RPC server endpoint
     #[clap(
         long,
@@ -51,13 +60,6 @@ pub struct Cmd {
         help_heading = HEADING_RPC,
     )]
     rpc_url: Option<String>,
-    /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(
-        long = "secret-key",
-        env = "SOROBAN_SECRET_KEY",
-        help_heading = HEADING_RPC,
-    )]
-    secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(
         long = "network-passphrase",

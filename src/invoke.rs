@@ -32,19 +32,6 @@ use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Account ID to invoke as
-    #[clap(
-        long = "account",
-        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-        // TODO: Allow account to be specified with rpc-url/secret-key and use
-        // the value for the source account when specified instead of using the
-        // secret keys public key. Remove the help heading as part of this.
-        // This will make this field work the same way the create token command
-        // does.
-        conflicts_with = "rpc-url",
-        help_heading = HEADING_RPC,
-    )]
-    account_id: StrkeyPublicKeyEd25519,
     /// Contract ID to invoke
     #[clap(long = "id")]
     contract_id: String,
@@ -66,6 +53,15 @@ pub struct Cmd {
     /// Output the footprint to stderr
     #[clap(long = "footprint")]
     footprint: bool,
+
+    /// Account ID to invoke as
+    #[clap(
+        long = "account",
+        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+        conflicts_with = "rpc-url",
+        help_heading = HEADING_SANDBOX,
+    )]
+    account_id: StrkeyPublicKeyEd25519,
     /// File to persist ledger state
     #[clap(
         long,
@@ -76,6 +72,15 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
+
+    /// Secret 'S' key used to sign the transaction sent to the rpc server
+    #[clap(
+        long = "secret-key",
+        requires = "rpc-url",
+        env = "SOROBAN_SECRET_KEY",
+        help_heading = HEADING_RPC,
+    )]
+    secret_key: Option<String>,
     /// RPC server endpoint
     #[clap(
         long,
@@ -86,14 +91,6 @@ pub struct Cmd {
         help_heading = HEADING_RPC,
     )]
     rpc_url: Option<String>,
-    /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(
-        long = "secret-key",
-        requires = "rpc-url",
-        env = "SOROBAN_SECRET_KEY",
-        help_heading = HEADING_RPC,
-    )]
-    secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(
         long = "network-passphrase",

@@ -33,6 +33,7 @@ pub struct Cmd {
     /// Type of output to generate
     #[clap(long, arg_enum, default_value("string"))]
     output: Output,
+
     /// File to persist ledger state
     #[clap(
         long,

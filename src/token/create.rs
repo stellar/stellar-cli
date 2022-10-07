@@ -60,19 +60,15 @@ pub struct Cmd {
     /// Administrator account for the token, will default to --secret-key if not set
     #[clap(long)]
     admin: Option<StrkeyPublicKeyEd25519>,
-
     /// Number of decimal places for the token
     #[clap(long, default_value = "7")]
     decimal: u32,
-
     /// Long name of the token, e.g. "Stellar Lumens"
     #[clap(long)]
     name: String,
-
     /// Short name of the token, e.g. "XLM"
     #[clap(long)]
     symbol: String,
-
     /// Custom salt 32-byte salt for the token id
     #[clap(
         long,

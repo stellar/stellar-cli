@@ -31,6 +31,7 @@ pub struct Cmd {
     /// Port to listen for requests on.
     #[clap(long, default_value("8080"))]
     port: u16,
+
     /// File to persist ledger state
     #[clap(
         long,
