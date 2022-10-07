@@ -116,14 +116,16 @@ impl Cmd {
             error: e,
         })?;
 
-        if self.rpc_url.is_some() {
-            return self.run_against_rpc_server(contract).await;
-        }
-
-        self.run_in_sandbox(contract)
+        let res_str = if self.rpc_url.is_some() {
+            self.run_against_rpc_server(contract).await?
+        } else {
+            self.run_in_sandbox(contract)?
+        };
+        println!("{}", res_str);
+        Ok(())
     }
 
-    fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<(), Error> {
+    fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {
         let contract_id: [u8; 32] = utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
             .map_err(|e| Error::CannotParseContractId {
                 contract_id: self.contract_id.as_ref().unwrap().clone(),
@@ -143,10 +145,10 @@ impl Cmd {
                 error: e,
             },
         )?;
-        Ok(())
+        Ok(hex::encode(contract_id))
     }
 
-    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
+    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<String, Error> {
         let salt: [u8; 32] = match &self.salt {
             // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
             Some(h) => utils::contract_id_from_str(h)
@@ -174,11 +176,9 @@ impl Cmd {
             &key,
         )?;
 
-        println!("Contract ID: {}", hex::encode(contract_id.0));
-
         client.send_transaction(&tx).await?;
 
-        Ok(())
+        Ok(hex::encode(contract_id.0))
     }
 }
 
