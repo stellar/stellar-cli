@@ -24,10 +24,7 @@ pub struct Cmd {
     /// WASM file to deploy
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
-    #[clap(
-        long = "id",
-        conflicts_with = "rpc-url"
-    )]
+    #[clap(long = "id", conflicts_with = "rpc-url")]
     // TODO: Should we get rid of the contract_id parameter
     //       and just obtain it from the key/source like we do
     //       when running against an rpc server?
@@ -125,11 +122,12 @@ impl Cmd {
 
     fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {
         let contract_id: [u8; 32] = match &self.contract_id {
-            Some(id) => utils::contract_id_from_str(id)
-                .map_err(|e| Error::CannotParseContractId {
+            Some(id) => {
+                utils::contract_id_from_str(id).map_err(|e| Error::CannotParseContractId {
                     contract_id: self.contract_id.as_ref().unwrap().clone(),
                     error: e,
-                })?,
+                })?
+            }
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
