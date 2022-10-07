@@ -28,16 +28,10 @@ use crate::{
     strval::{self, StrValError},
     utils,
 };
+use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Account ID to invoke as
-    #[clap(
-        long = "account",
-        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-        conflicts_with = "rpc-url"
-    )]
-    account_id: StrkeyPublicKeyEd25519,
     /// Contract ID to invoke
     #[clap(long = "id")]
     contract_id: String,
@@ -59,32 +53,50 @@ pub struct Cmd {
     /// Output the footprint to stderr
     #[clap(long = "footprint")]
     footprint: bool,
+
+    /// Account ID to invoke as
+    #[clap(
+        long = "account",
+        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+        conflicts_with = "rpc-url",
+        help_heading = HEADING_SANDBOX,
+    )]
+    account_id: StrkeyPublicKeyEd25519,
     /// File to persist ledger state
     #[clap(
         long,
         parse(from_os_str),
         default_value(".soroban/ledger.json"),
         conflicts_with = "rpc-url",
-        env = "SOROBAN_LEDGER_FILE"
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
+
+    /// Secret 'S' key used to sign the transaction sent to the rpc server
+    #[clap(
+        long = "secret-key",
+        requires = "rpc-url",
+        env = "SOROBAN_SECRET_KEY",
+        help_heading = HEADING_RPC,
+    )]
+    secret_key: Option<String>,
     /// RPC server endpoint
     #[clap(
         long,
         conflicts_with = "account-id",
         requires = "secret-key",
         requires = "network-passphrase",
-        env = "SOROBAN_RPC_URL"
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
     )]
     rpc_url: Option<String>,
-    /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(long = "secret-key", requires = "rpc-url", env = "SOROBAN_SECRET_KEY")]
-    secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(
         long = "network-passphrase",
         requires = "rpc-url",
-        env = "SOROBAN_NETWORK_PASSPHRASE"
+        env = "SOROBAN_NETWORK_PASSPHRASE",
+        help_heading = HEADING_RPC,
     )]
     network_passphrase: Option<String>,
 }

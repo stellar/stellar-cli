@@ -19,7 +19,7 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
     rpc::{Client, Error as SorobanRpcError},
-    snapshot, utils,
+    snapshot, utils, HEADING_RPC, HEADING_SANDBOX,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -68,24 +68,34 @@ pub struct Cmd {
         parse(from_os_str),
         default_value = ".soroban/ledger.json",
         conflicts_with = "rpc-url",
-        env = "SOROBAN_LEDGER_FILE"
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
 
+    /// Secret key to sign the transaction sent to the rpc server
+    #[clap(
+        long = "secret-key",
+        env = "SOROBAN_SECRET_KEY",
+        help_heading = HEADING_RPC,
+    )]
+    secret_key: Option<String>,
     /// RPC server endpoint
     #[clap(
         long,
         conflicts_with = "ledger-file",
         requires = "secret-key",
         requires = "network-passphrase",
-        env = "SOROBAN_RPC_URL"
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
     )]
     rpc_url: Option<String>,
-    /// Secret key to sign the transaction sent to the rpc server
-    #[clap(long = "secret-key", env = "SOROBAN_SECRET_KEY")]
-    secret_key: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(long = "network-passphrase", env = "SOROBAN_NETWORK_PASSPHRASE")]
+    #[clap(
+        long = "network-passphrase",
+        env = "SOROBAN_NETWORK_PASSPHRASE",
+        help_heading = HEADING_RPC,
+    )]
     network_passphrase: Option<String>,
 }
 

@@ -20,23 +20,25 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
-use crate::jsonrpc;
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::snapshot;
 use crate::strval::StrValError;
 use crate::utils::{self, create_ledger_footprint};
+use crate::{jsonrpc, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// Port to listen for requests on.
     #[clap(long, default_value("8080"))]
     port: u16,
+
     /// File to persist ledger state
     #[clap(
         long,
         parse(from_os_str),
         default_value(".soroban/ledger.json"),
-        env = "SOROBAN_LEDGER_FILE"
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
     )]
     ledger_file: PathBuf,
 }
