@@ -377,11 +377,11 @@ fn build_init_op(contract_id: &Hash, parameters: ScVec) -> Result<Operation, Err
                 read_write: vec![
                     ContractData(LedgerKeyContractData {
                         contract_id: contract_id.clone(),
-                        key: ScVal::Symbol("Admin".try_into().unwrap()),
+                        key: ScVal::Object(Some(ScObject::Vec(vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?))),
                     }),
                     ContractData(LedgerKeyContractData {
                         contract_id: contract_id.clone(),
-                        key: ScVal::Symbol("Metadata".try_into().unwrap()),
+                        key: ScVal::Object(Some(ScObject::Vec(vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?))),
                     }),
                 ]
                 .try_into()?,
