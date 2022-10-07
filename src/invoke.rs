@@ -292,7 +292,9 @@ impl Cmd {
                 )
                 .await?;
             match ScVal::from_xdr_base64(contract_data.xdr)? {
-                ScVal::Object(Some(ScObject::Bytes(bytes))) => bytes.to_vec(),
+                ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(bytes)))) => {
+                    bytes.to_vec()
+                }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }
         };
