@@ -24,11 +24,7 @@ pub struct Cmd {
     /// WASM file to deploy
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
-    #[clap(
-        long = "id",
-        required_unless_present = "rpc-url",
-        conflicts_with = "rpc-url"
-    )]
+    #[clap(long = "id", conflicts_with = "rpc-url")]
     // TODO: Should we get rid of the contract_id parameter
     //       and just obtain it from the key/source like we do
     //       when running against an rpc server?
@@ -47,7 +43,6 @@ pub struct Cmd {
     /// RPC server endpoint
     #[clap(
         long,
-        required_unless_present = "contract-id",
         conflicts_with = "contract-id",
         requires = "secret-key",
         requires = "network-passphrase",
@@ -116,19 +111,25 @@ impl Cmd {
             error: e,
         })?;
 
-        if self.rpc_url.is_some() {
-            return self.run_against_rpc_server(contract).await;
-        }
-
-        self.run_in_sandbox(contract)
+        let res_str = if self.rpc_url.is_some() {
+            self.run_against_rpc_server(contract).await?
+        } else {
+            self.run_in_sandbox(contract)?
+        };
+        println!("{}", res_str);
+        Ok(())
     }
 
-    fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<(), Error> {
-        let contract_id: [u8; 32] = utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
-            .map_err(|e| Error::CannotParseContractId {
-                contract_id: self.contract_id.as_ref().unwrap().clone(),
-                error: e,
-            })?;
+    fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {
+        let contract_id: [u8; 32] = match &self.contract_id {
+            Some(id) => {
+                utils::contract_id_from_str(id).map_err(|e| Error::CannotParseContractId {
+                    contract_id: self.contract_id.as_ref().unwrap().clone(),
+                    error: e,
+                })?
+            }
+            None => rand::thread_rng().gen::<[u8; 32]>(),
+        };
 
         let mut state =
             snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
@@ -143,10 +144,10 @@ impl Cmd {
                 error: e,
             },
         )?;
-        Ok(())
+        Ok(hex::encode(contract_id))
     }
 
-    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<(), Error> {
+    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<String, Error> {
         let salt: [u8; 32] = match &self.salt {
             // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
             Some(h) => utils::contract_id_from_str(h)
@@ -174,11 +175,9 @@ impl Cmd {
             &key,
         )?;
 
-        println!("Contract ID: {}", hex::encode(contract_id.0));
-
         client.send_transaction(&tx).await?;
 
-        Ok(())
+        Ok(hex::encode(contract_id.0))
     }
 }
 
