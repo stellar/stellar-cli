@@ -5,8 +5,8 @@ use clap::Parser;
 use hex::FromHexError;
 use soroban_env_host::xdr::{
     InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
-    TransactionExt, VecM,
+    Preconditions, ScContractCode, ScStatic, ScVec, SequenceNumber, Transaction,
+    TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
