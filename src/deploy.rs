@@ -26,7 +26,6 @@ pub struct Cmd {
     wasm: std::path::PathBuf,
     #[clap(
         long = "id",
-        required_unless_present = "rpc-url",
         conflicts_with = "rpc-url"
     )]
     // TODO: Should we get rid of the contract_id parameter
@@ -47,7 +46,6 @@ pub struct Cmd {
     /// RPC server endpoint
     #[clap(
         long,
-        required_unless_present = "contract-id",
         conflicts_with = "contract-id",
         requires = "secret-key",
         requires = "network-passphrase",
@@ -126,11 +124,14 @@ impl Cmd {
     }
 
     fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {
-        let contract_id: [u8; 32] = utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
-            .map_err(|e| Error::CannotParseContractId {
-                contract_id: self.contract_id.as_ref().unwrap().clone(),
-                error: e,
-            })?;
+        let contract_id: [u8; 32] = match &self.contract_id {
+            Some(id) => utils::contract_id_from_str(id)
+                .map_err(|e| Error::CannotParseContractId {
+                    contract_id: self.contract_id.as_ref().unwrap().clone(),
+                    error: e,
+                })?,
+            None => rand::thread_rng().gen::<[u8; 32]>(),
+        };
 
         let mut state =
             snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
