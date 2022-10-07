@@ -319,10 +319,7 @@ impl Cmd {
         let footprint = LedgerFootprint::from_xdr_base64(simulation_response.footprint)?;
 
         if self.footprint {
-            eprintln!(
-                "Footprint: {:?}",
-                serde_json::to_string(&footprint).unwrap(),
-            );
+            eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap(),);
         }
 
         // Send the final transaction with the actual footprint
