@@ -1,8 +1,10 @@
 use ed25519_dalek::Signer;
 use hex::FromHexError;
 use sha2::{Digest, Sha256};
+use soroban_env_host::storage::{AccessType, Footprint};
 use soroban_env_host::xdr::{
-    DecoratedSignature, Signature, SignatureHint, TransactionEnvelope, TransactionV1Envelope,
+    DecoratedSignature, LedgerFootprint, Signature, SignatureHint, TransactionEnvelope,
+    TransactionV1Envelope,
 };
 use soroban_env_host::{
     im_rc::OrdMap,
@@ -131,6 +133,23 @@ pub fn parse_secret_key(strkey: &str) -> Result<ed25519_dalek::Keypair, ParseSec
         secret: secret_key,
         public: public_key,
     })
+}
+
+pub fn create_ledger_footprint(footprint: &Footprint) -> LedgerFootprint {
+    let mut read_only: Vec<LedgerKey> = vec![];
+    let mut read_write: Vec<LedgerKey> = vec![];
+    let Footprint(m) = footprint;
+    for (k, v) in m {
+        let dest = match v {
+            AccessType::ReadOnly => &mut read_only,
+            AccessType::ReadWrite => &mut read_write,
+        };
+        dest.push(k.clone());
+    }
+    LedgerFootprint {
+        read_only: read_only.try_into().unwrap(),
+        read_write: read_write.try_into().unwrap(),
+    }
 }
 
 #[cfg(test)]

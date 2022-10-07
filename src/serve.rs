@@ -5,10 +5,10 @@ use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{AccountId, LedgerFootprint, MuxedAccount, Operation, PublicKey};
+use soroban_env_host::xdr::{AccountId, MuxedAccount, Operation, PublicKey};
 use soroban_env_host::{
     budget::Budget,
-    storage::{AccessType, Footprint, Storage},
+    storage::Storage,
     xdr::{
         self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, LedgerEntryData,
         LedgerKey, LedgerKeyContractData, OperationBody, ReadXdr, ScHostStorageErrorCode, ScObject,
@@ -24,7 +24,7 @@ use crate::jsonrpc;
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::snapshot;
 use crate::strval::StrValError;
-use crate::utils;
+use crate::utils::{self, create_ledger_footprint};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -378,20 +378,7 @@ fn execute_transaction(
     // }
 
     // Calculate the storage footprint
-    let mut read_only: Vec<LedgerKey> = vec![];
-    let mut read_write: Vec<LedgerKey> = vec![];
-    let Footprint(m) = storage.footprint;
-    for (k, v) in m {
-        let dest = match v {
-            AccessType::ReadOnly => &mut read_only,
-            AccessType::ReadWrite => &mut read_write,
-        };
-        dest.push(k);
-    }
-    let footprint = LedgerFootprint {
-        read_only: read_only.try_into().unwrap(),
-        read_write: read_write.try_into().unwrap(),
-    };
+    let footprint = create_ledger_footprint(&storage.footprint);
 
     if commit {
         snapshot::commit(state.1, ledger_info, &storage.map, ledger_file)?;
