@@ -31,9 +31,6 @@ use crate::{
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Contract ID to invoke
-    #[clap(long = "id")]
-    contract_id: String,
     /// Account ID to invoke as
     #[clap(
         long = "account",
@@ -41,7 +38,9 @@ pub struct Cmd {
         conflicts_with = "rpc-url"
     )]
     account_id: StrkeyPublicKeyEd25519,
-
+    /// Contract ID to invoke
+    #[clap(long = "id")]
+    contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
@@ -69,7 +68,6 @@ pub struct Cmd {
         env = "SOROBAN_LEDGER_FILE"
     )]
     ledger_file: std::path::PathBuf,
-
     /// RPC server endpoint
     #[clap(
         long,
