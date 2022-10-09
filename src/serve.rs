@@ -29,7 +29,7 @@ use crate::{jsonrpc, HEADING_SANDBOX};
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// Port to listen for requests on.
-    #[clap(long, default_value("8080"))]
+    #[clap(long, default_value("8000"))]
     port: u16,
 
     /// File to persist ledger state
@@ -85,7 +85,7 @@ impl Cmd {
         let with_transaction_status_map = warp::any().map(move || transaction_status_map.clone());
 
         let jsonrpc_route = warp::post()
-            .and(warp::path!("api" / "v1" / "jsonrpc"))
+            .and(warp::path!("soroban" / "rpc"))
             .and(warp::body::json())
             .and(with_ledger_file)
             .and(with_transaction_status_map)
