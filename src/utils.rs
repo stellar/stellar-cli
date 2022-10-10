@@ -87,9 +87,7 @@ pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexErr
 }
 
 pub fn get_token_contract_spec_xdr() -> Vec<u8> {
-    // TODO: Construct a .wasm file containing these bytes in the
-    // `contractspecv0` custom section, or refactor the invoke code to collect
-    // the spec from this function rather than a wasm file.
+    // TODO: Expose this from the soroban_token_spec crate.
     [
         soroban_token_spec::Token::spec_xdr_allowance().as_slice(),
         soroban_token_spec::Token::spec_xdr_approve().as_slice(),
