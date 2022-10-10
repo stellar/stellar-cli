@@ -22,7 +22,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::{create_ledger_footprint, get_token_contract_wasm};
+use crate::utils::{create_ledger_footprint, get_token_contract_spec_xdr};
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
@@ -137,6 +137,8 @@ pub enum Error {
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
+    #[error("parsing contract spec: {0}")]
+    CannotParseContractSpecFromXdr(XdrError),
     #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
     UnexpectedArgumentCount {
         provided: usize,
@@ -173,12 +175,10 @@ impl Cmd {
     fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
-        wasm: &[u8],
+        spec_entries: &Vec<ScSpecEntry>,
         matches: &clap::ArgMatches,
     ) -> Result<ScVec, Error> {
         // Get the function spec from the contract code
-        let spec_entries =
-            soroban_spec::read::from_wasm(wasm).map_err(Error::CannotParseContractSpec)?;
         let spec = spec_entries
             .iter()
             .find_map(|e| {
@@ -287,12 +287,13 @@ impl Cmd {
         let sequence = account_details.sequence.parse::<i64>()?;
 
         // Get the contract
-        let wasm = if let Some(f) = &self.wasm {
+        let spec_entries = if let Some(f) = &self.wasm {
             // Get the contract from a file
-            fs::read(f).map_err(|e| Error::CannotReadContractFile {
+            let wasm = fs::read(f).map_err(|e| Error::CannotReadContractFile {
                 filepath: f.clone(),
                 error: e,
-            })?
+            })?;
+            soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)?
         } else {
             // Get the contract from the network
             let contract_data = client
@@ -302,11 +303,13 @@ impl Cmd {
                 )
                 .await?;
             match ScVal::from_xdr_base64(contract_data.xdr)? {
-                ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(bytes)))) => {
-                    bytes.to_vec()
+                ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(wasm)))) => {
+                    soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)?
                 }
                 ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
-                    get_token_contract_wasm()
+                    let spec = get_token_contract_spec_xdr();
+                    soroban_spec::read::parse_raw(&spec)
+                        .map_err(Error::CannotParseContractSpecFromXdr)?
                 }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }
@@ -314,7 +317,7 @@ impl Cmd {
 
         // Get the ledger footprint
         let host_function_params =
-            self.build_host_function_parameters(contract_id, &wasm, matches)?;
+            self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
             None,
@@ -383,7 +386,8 @@ impl Cmd {
             ledger_entries: state.1.clone(),
         });
         let mut storage = Storage::with_recording_footprint(snap);
-        let wasm = utils::get_contract_wasm_from_storage(&mut storage, contract_id)?;
+        let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
+            .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
 
         h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
@@ -396,7 +400,7 @@ impl Cmd {
         h.set_ledger_info(ledger_info.clone());
 
         let host_function_params =
-            self.build_host_function_parameters(contract_id, &wasm, matches)?;
+            self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract, host_function_params)?;
         let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
