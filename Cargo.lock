@@ -170,6 +170,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
+name = "bytes-lit"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c181bca161a49348b90fa75f9a54fe11b7138098eed90d841a1055d574b4250"
+dependencies = [
+ "num-bigint",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1498,6 +1510,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-auth"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e04a64263e30fa5d577735426d159fc142001318417181b4b1eea61fbb22b67e"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soroban-cli"
 version = "0.1.0"
 dependencies = [
@@ -1516,9 +1537,11 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.10.6",
+ "soroban-auth",
  "soroban-env-host",
  "soroban-spec",
- "stellar-strkey",
+ "soroban-token-spec",
+ "stellar-strkey 0.0.6",
  "thiserror",
  "tokio",
  "warp",
@@ -1534,6 +1557,16 @@ dependencies = [
  "soroban-wasmi",
  "static_assertions",
  "stellar-xdr",
+]
+
+[[package]]
+name = "soroban-env-guest"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d236b60a3ca851123d30092854408a0438f343e4bf8b34bc405c21c070f4331b"
+dependencies = [
+ "soroban-env-common",
+ "static_assertions",
 ]
 
 [[package]]
@@ -1583,6 +1616,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-sdk"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e422bbcdf8294e0254a60ba1184a875f1c11c7d0422a8f3edd0315e46175dd03"
+dependencies = [
+ "bytes-lit",
+ "rand 0.8.5",
+ "soroban-env-guest",
+ "soroban-env-host",
+ "soroban-sdk-macros",
+ "stellar-strkey 0.0.2",
+]
+
+[[package]]
+name = "soroban-sdk-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cab6652aa1920100cf42bbc8e043cf4f87955a7de9643230f7ce8bc41996c99"
+dependencies = [
+ "darling",
+ "itertools",
+ "proc-macro2",
+ "quote",
+ "sha2 0.10.6",
+ "soroban-env-common",
+ "soroban-spec",
+ "stellar-xdr",
+ "syn",
+]
+
+[[package]]
 name = "soroban-spec"
 version = "0.1.0"
 source = "git+https://github.com/stellar/rs-soroban-sdk?rev=3992556b#3992556b840ab1659599ba7c4671ad9231129bcc"
@@ -1602,6 +1666,16 @@ dependencies = [
  "syn",
  "thiserror",
  "wasmparser 0.88.0",
+]
+
+[[package]]
+name = "soroban-token-spec"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b6656e0c2b8d25bc72ff8953874b82111ba6cb9491e4b36316376b3b609eb0"
+dependencies = [
+ "soroban-auth",
+ "soroban-sdk",
 ]
 
 [[package]]
@@ -1643,6 +1717,15 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stellar-strkey"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "350ec80765002d972f7fa9bc2bd9e550fc3bf9fbe3f1c0e55b30755fccc2fd34"
+dependencies = [
+ "base32",
+]
 
 [[package]]
 name = "stellar-strkey"

@@ -23,6 +23,8 @@ path = "src/main.rs"
 
 [dependencies]
 soroban-env-host = { version = "0.0.6", features = ["vm", "serde", "hostfn_log_fmt_values"] }
+soroban-token-spec = "0.1.0"
+soroban-auth = "0.1.0"
 soroban-spec = "0.1.0"
 stellar-strkey = "0.0.6"
 clap = { version = "3.1.18", features = ["derive", "env"] }
