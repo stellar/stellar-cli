@@ -159,6 +159,8 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(ScVal),
+    #[error("missing token contract code, please pass it through the --wasm flag")]
+    MissingTokenContractWasm,
     #[error("missing transaction result")]
     MissingTransactionResult,
 }
@@ -304,6 +306,12 @@ impl Cmd {
             match ScVal::from_xdr_base64(contract_data.xdr)? {
                 ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(bytes)))) => {
                     bytes.to_vec()
+                }
+                ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
+                    // TODO: this is nicer than simply failing with a type error,
+                    //       but it's a hack. Instead, soroban-env-host should expose
+                    //       the contract's spec, so that we can use it here.
+                    return Err(Error::MissingTokenContractWasm);
                 }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }
