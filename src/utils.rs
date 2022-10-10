@@ -87,6 +87,39 @@ pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexErr
         .map_err(|_| FromHexError::InvalidStringLength)
 }
 
+pub fn get_token_contract_wasm() -> Vec<u8> {
+    let s = [
+        soroban_token_spec::Token::spec_xdr_allowance().as_slice(),
+        soroban_token_spec::Token::spec_xdr_approve().as_slice(),
+        soroban_token_spec::Token::spec_xdr_balance().as_slice(),
+        soroban_token_spec::Token::spec_xdr_burn().as_slice(),
+        soroban_token_spec::Token::spec_xdr_decimals().as_slice(),
+        soroban_token_spec::Token::spec_xdr_export().as_slice(),
+        soroban_token_spec::Token::spec_xdr_freeze().as_slice(),
+        soroban_token_spec::Token::spec_xdr_import().as_slice(),
+        soroban_token_spec::Token::spec_xdr_init().as_slice(),
+        soroban_token_spec::Token::spec_xdr_is_frozen().as_slice(),
+        soroban_token_spec::Token::spec_xdr_mint().as_slice(),
+        soroban_token_spec::Token::spec_xdr_name().as_slice(),
+        soroban_token_spec::Token::spec_xdr_nonce().as_slice(),
+        soroban_token_spec::Token::spec_xdr_set_admin().as_slice(),
+        soroban_token_spec::Token::spec_xdr_symbol().as_slice(),
+        soroban_token_spec::Token::spec_xdr_unfreeze().as_slice(),
+        soroban_token_spec::Token::spec_xdr_xfer().as_slice(),
+        soroban_token_spec::Token::spec_xdr_xfer_from().as_slice(),
+        soroban_token_spec::TokenMetadata::spec_xdr().as_slice(),
+        soroban_auth::Identifier::spec_xdr().as_slice(),
+        soroban_auth::Signature::spec_xdr().as_slice(),
+        soroban_auth::Ed25519Signature::spec_xdr().as_slice(),
+        soroban_auth::AccountSignatures::spec_xdr().as_slice(),
+        soroban_auth::SignaturePayload::spec_xdr().as_slice(),
+        soroban_auth::SignaturePayloadV0::spec_xdr().as_slice(),
+    ]
+    .concat();
+    println!("{}", base64::encode(&s));
+    s
+}
+
 pub fn get_contract_wasm_from_storage(
     storage: &mut Storage,
     contract_id: [u8; 32],
@@ -96,8 +129,14 @@ pub fn get_contract_wasm_from_storage(
         key: ScVal::Static(ScStatic::LedgerKeyContractCode),
     });
     if let LedgerEntryData::ContractData(entry) = storage.get(&key)?.data {
-        if let ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(data)))) = entry.val {
-            return Ok(data.to_vec());
+        match entry.val {
+            ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(data)))) => {
+                return Ok(data.to_vec())
+            }
+            ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
+                return Ok(get_token_contract_wasm());
+            }
+            _ => (),
         }
     }
     Err(HostError::from(ScStatus::UnknownError(

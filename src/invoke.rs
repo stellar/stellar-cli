@@ -22,7 +22,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::create_ledger_footprint;
+use crate::utils::{create_ledger_footprint, get_token_contract_wasm};
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
@@ -306,38 +306,7 @@ impl Cmd {
                     bytes.to_vec()
                 }
                 ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
-                    [
-                        soroban_token_spec::Token::spec_xdr_allowance().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_approve().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_balance().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_burn().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_decimals().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_export().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_freeze().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_import().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_init().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_is_frozen().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_mint().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_name().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_nonce().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_set_admin().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_symbol().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_unfreeze().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_xfer().as_slice(),
-                        soroban_token_spec::Token::spec_xdr_xfer_from().as_slice(),
-                        soroban_token_spec::TokenMetadata::spec_xdr().as_slice(),
-                        soroban_auth::Identifier::spec_xdr().as_slice(),
-                        soroban_auth::Signature::spec_xdr().as_slice(),
-                        soroban_auth::Ed25519Signature::spec_xdr().as_slice(),
-                        soroban_auth::AccountSignatures::spec_xdr().as_slice(),
-                        soroban_auth::SignaturePayload::spec_xdr().as_slice(),
-                        soroban_auth::SignaturePayloadV0::spec_xdr().as_slice(),
-                    ]
-                    .concat()
-                    // TODO: this is nicer than simply failing with a type error,
-                    //       but it's a hack. Instead, soroban-env-host should expose
-                    //       the contract's spec, so that we can use it here.
-                    // return Err(Error::MissingTokenContractWasm);
+                    get_token_contract_wasm()
                 }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }
