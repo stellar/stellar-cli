@@ -175,7 +175,7 @@ impl Cmd {
     fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
-        spec_entries: &Vec<ScSpecEntry>,
+        spec_entries: &[ScSpecEntry],
         matches: &clap::ArgMatches,
     ) -> Result<ScVec, Error> {
         // Get the function spec from the contract code
