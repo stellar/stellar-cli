@@ -113,7 +113,7 @@ impl Cmd {
         let routes = jsonrpc_route.with(cors);
 
         let addr: SocketAddr = ([127, 0, 0, 1], self.port).into();
-        println!("Listening on: {}", addr);
+        println!("Listening on: {}/soroban/rpc", addr);
         warp::serve(routes).run(addr).await;
         Ok(())
     }

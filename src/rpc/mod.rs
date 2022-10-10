@@ -88,7 +88,7 @@ impl Client {
     }
 
     fn client(&self) -> Result<HttpClient, Error> {
-        let url = self.base_url.clone() + "/api/v1/jsonrpc";
+        let url = self.base_url.clone();
         let mut headers = HeaderMap::new();
         headers.insert("X-Client-Name", "soroban-cli".parse().unwrap());
         let version = VERSION.unwrap_or("devel");
