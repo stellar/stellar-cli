@@ -88,7 +88,10 @@ pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexErr
 }
 
 pub fn get_token_contract_wasm() -> Vec<u8> {
-    let s = [
+    // TODO: Construct a .wasm file containing these bytes in the
+    // `contractspecv0` custom section, or refactor the invoke code to collect
+    // the spec from this function rather than a wasm file.
+    [
         soroban_token_spec::Token::spec_xdr_allowance().as_slice(),
         soroban_token_spec::Token::spec_xdr_approve().as_slice(),
         soroban_token_spec::Token::spec_xdr_balance().as_slice(),
@@ -115,9 +118,7 @@ pub fn get_token_contract_wasm() -> Vec<u8> {
         soroban_auth::SignaturePayload::spec_xdr().as_slice(),
         soroban_auth::SignaturePayloadV0::spec_xdr().as_slice(),
     ]
-    .concat();
-    println!("{}", base64::encode(&s));
-    s
+    .concat()
 }
 
 pub fn get_contract_wasm_from_storage(
