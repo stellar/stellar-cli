@@ -307,8 +307,7 @@ impl Cmd {
                     soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)?
                 }
                 ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
-                    let spec = get_token_contract_spec_xdr();
-                    soroban_spec::read::parse_raw(&spec)
+                    soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
                         .map_err(Error::CannotParseContractSpecFromXdr)?
                 }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),

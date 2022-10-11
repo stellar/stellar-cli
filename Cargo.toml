@@ -48,7 +48,8 @@ jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
 
 [patch.crates-io]
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3992556b" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "6cc95811" }
+soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "6cc95811" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "d1b68fd1" }
 soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "91cf595" }
 soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "91cf595" }

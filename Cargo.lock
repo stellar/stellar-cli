@@ -1649,7 +1649,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "0.1.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=3992556b#3992556b840ab1659599ba7c4671ad9231129bcc"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=6cc95811#6cc9581128ebb034fed5ee7cf5a176d7cc2db12b"
 dependencies = [
  "base64",
  "darling",
@@ -1671,8 +1671,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-spec"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b6656e0c2b8d25bc72ff8953874b82111ba6cb9491e4b36316376b3b609eb0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=6cc95811#6cc9581128ebb034fed5ee7cf5a176d7cc2db12b"
 dependencies = [
  "soroban-auth",
  "soroban-sdk",

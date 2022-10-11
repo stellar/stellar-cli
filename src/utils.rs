@@ -86,38 +86,6 @@ pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexErr
         .map_err(|_| FromHexError::InvalidStringLength)
 }
 
-pub fn get_token_contract_spec_xdr() -> Vec<u8> {
-    // TODO: Expose this from the soroban_token_spec crate.
-    [
-        soroban_token_spec::Token::spec_xdr_allowance().as_slice(),
-        soroban_token_spec::Token::spec_xdr_approve().as_slice(),
-        soroban_token_spec::Token::spec_xdr_balance().as_slice(),
-        soroban_token_spec::Token::spec_xdr_burn().as_slice(),
-        soroban_token_spec::Token::spec_xdr_decimals().as_slice(),
-        soroban_token_spec::Token::spec_xdr_export().as_slice(),
-        soroban_token_spec::Token::spec_xdr_freeze().as_slice(),
-        soroban_token_spec::Token::spec_xdr_import().as_slice(),
-        soroban_token_spec::Token::spec_xdr_init().as_slice(),
-        soroban_token_spec::Token::spec_xdr_is_frozen().as_slice(),
-        soroban_token_spec::Token::spec_xdr_mint().as_slice(),
-        soroban_token_spec::Token::spec_xdr_name().as_slice(),
-        soroban_token_spec::Token::spec_xdr_nonce().as_slice(),
-        soroban_token_spec::Token::spec_xdr_set_admin().as_slice(),
-        soroban_token_spec::Token::spec_xdr_symbol().as_slice(),
-        soroban_token_spec::Token::spec_xdr_unfreeze().as_slice(),
-        soroban_token_spec::Token::spec_xdr_xfer().as_slice(),
-        soroban_token_spec::Token::spec_xdr_xfer_from().as_slice(),
-        soroban_token_spec::TokenMetadata::spec_xdr().as_slice(),
-        soroban_auth::Identifier::spec_xdr().as_slice(),
-        soroban_auth::Signature::spec_xdr().as_slice(),
-        soroban_auth::Ed25519Signature::spec_xdr().as_slice(),
-        soroban_auth::AccountSignatures::spec_xdr().as_slice(),
-        soroban_auth::SignaturePayload::spec_xdr().as_slice(),
-        soroban_auth::SignaturePayloadV0::spec_xdr().as_slice(),
-    ]
-    .concat()
-}
-
 pub fn get_contract_spec_from_storage(
     storage: &mut Storage,
     contract_id: [u8; 32],
@@ -136,8 +104,8 @@ pub fn get_contract_spec_from_storage(
                 return soroban_spec::read::from_wasm(&wasm);
             }
             ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
-                let spec = get_token_contract_spec_xdr();
-                return soroban_spec::read::parse_raw(&spec).map_err(FromWasmError::Parse);
+                return soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+                    .map_err(FromWasmError::Parse);
             }
             _ => (),
         }
