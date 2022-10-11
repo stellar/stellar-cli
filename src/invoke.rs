@@ -22,7 +22,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::create_ledger_footprint;
+use crate::utils::{contract_code_to_spec_entries, create_ledger_footprint};
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
@@ -303,12 +303,8 @@ impl Cmd {
                 )
                 .await?;
             match ScVal::from_xdr_base64(contract_data.xdr)? {
-                ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(wasm)))) => {
-                    soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)?
-                }
-                ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
-                    soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
-                        .map_err(Error::CannotParseContractSpecFromXdr)?
+                ScVal::Object(Some(ScObject::ContractCode(c))) => {
+                    contract_code_to_spec_entries(c).map_err(Error::CannotParseContractSpec)?
                 }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }

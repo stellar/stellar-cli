@@ -95,22 +95,26 @@ pub fn get_contract_spec_from_storage(
         key: ScVal::Static(ScStatic::LedgerKeyContractCode),
     });
     if let Ok(LedgerEntry {
-        data: LedgerEntryData::ContractData(entry),
+        data:
+            LedgerEntryData::ContractData(ContractDataEntry {
+                val: ScVal::Object(Some(ScObject::ContractCode(c))),
+                ..
+            }),
         ..
     }) = storage.get(&key)
     {
-        match entry.val {
-            ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(wasm)))) => {
-                return soroban_spec::read::from_wasm(&wasm);
-            }
-            ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))) => {
-                return soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
-                    .map_err(FromWasmError::Parse);
-            }
-            _ => (),
-        }
+        contract_code_to_spec_entries(c)
+    } else {
+        Err(FromWasmError::NotFound)
     }
-    Err(FromWasmError::NotFound)
+}
+
+pub fn contract_code_to_spec_entries(c: ScContractCode) -> Result<Vec<ScSpecEntry>, FromWasmError> {
+    match c {
+        ScContractCode::Wasm(wasm) => soroban_spec::read::from_wasm(&wasm),
+        ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+            .map_err(FromWasmError::Parse),
+    }
 }
 
 pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {
