@@ -22,7 +22,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::{create_ledger_footprint, get_token_contract_spec_xdr};
+use crate::utils::create_ledger_footprint;
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
