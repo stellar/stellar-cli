@@ -1537,7 +1537,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.10.6",
- "soroban-auth",
  "soroban-env-host",
  "soroban-spec",
  "soroban-token-spec",
