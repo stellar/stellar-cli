@@ -3,9 +3,9 @@ use std::{error::Error, fmt::Display, str::FromStr};
 
 use num_bigint::{BigInt, Sign};
 use soroban_env_host::xdr::{
-    AccountId, Error as XdrError, PublicKey, ScBigInt, ScMap, ScMapEntry, ScObject, ScSpecTypeDef,
-    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec,
-    Uint256, VecM,
+    AccountId, BytesM, Error as XdrError, PublicKey, ScBigInt, ScMap, ScMapEntry, ScObject,
+    ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic,
+    ScVal, ScVec, Uint256,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
@@ -78,7 +78,7 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
             } else {
                 let big = BigInt::from_str(s).map_err(|_| StrValError::InvalidValue)?;
                 let (sign, bytes) = big.to_bytes_be();
-                let b: VecM<u8, 256_000_u32> = bytes.try_into().map_err(StrValError::Xdr)?;
+                let b: BytesM<256_000_u32> = bytes.try_into().map_err(StrValError::Xdr)?;
                 ScVal::Object(Some(ScObject::BigInt(match sign {
                     Sign::NoSign => ScBigInt::Zero,
                     Sign::Minus => ScBigInt::Negative(b),
@@ -198,7 +198,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                         .map_err(|_| StrValError::InvalidValue)
                 })
                 .collect();
-            let converted: VecM<u8, 256_000_u32> = b?.try_into().map_err(StrValError::Xdr)?;
+            let converted: BytesM<256_000_u32> = b?.try_into().map_err(StrValError::Xdr)?;
             ScVal::Object(Some(ScObject::Bytes(converted)))
         }
 
