@@ -81,7 +81,7 @@ impl Cmd {
                         f.outputs.as_slice(),
                     ),
                     ScSpecEntry::UdtUnionV0(udt) => {
-                        println!(" • Union: {}", serde_json::to_string(&udt).unwrap());
+                        println!(" • Union: {:?}", udt);
                     }
                     ScSpecEntry::UdtStructV0(udt) => {
                         println!(" • Struct: {:?}", udt);
