@@ -5,8 +5,8 @@ use clap::Parser;
 use hex::FromHexError;
 use soroban_env_host::xdr::{
     InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScContractCode, ScStatic, ScVec, SequenceNumber, Transaction,
-    TransactionEnvelope, TransactionExt, VecM,
+    Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+    TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -137,8 +137,6 @@ pub enum Error {
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
-    #[error("parsing contract spec: {0}")]
-    CannotParseContractSpecFromXdr(XdrError),
     #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
     UnexpectedArgumentCount {
         provided: usize,
