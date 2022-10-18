@@ -44,6 +44,7 @@ ed25519-dalek = "1.0.1"
 jsonrpsee-http-client = "0.15.1"
 jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
+assert_cmd = "2.0.4"
 
 [dev_dependencies]
 assert_cmd = "2.0.4"
