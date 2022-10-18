@@ -112,42 +112,9 @@ pub fn get_contract_spec_from_storage(
 pub fn contract_code_to_spec_entries(c: ScContractCode) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     match c {
         ScContractCode::Wasm(wasm) => soroban_spec::read::from_wasm(&wasm),
-        ScContractCode::Token => soroban_spec::read::parse_raw(&get_token_contract_spec_xdr())
+        ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
             .map_err(FromWasmError::Parse),
-        // TODO: Use this when the soroban_token_spec::spec_xdr() function is fixed.
-        // ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
-        //     .map_err(FromWasmError::Parse),
     }
-}
-
-pub fn get_token_contract_spec_xdr() -> Vec<u8> {
-    // TODO: Expose this from the soroban_token_spec crate.
-    [
-        soroban_token_spec::Token::spec_xdr_allowance().as_slice(),
-        soroban_token_spec::Token::spec_xdr_approve().as_slice(),
-        soroban_token_spec::Token::spec_xdr_balance().as_slice(),
-        soroban_token_spec::Token::spec_xdr_burn().as_slice(),
-        soroban_token_spec::Token::spec_xdr_decimals().as_slice(),
-        soroban_token_spec::Token::spec_xdr_export().as_slice(),
-        soroban_token_spec::Token::spec_xdr_freeze().as_slice(),
-        soroban_token_spec::Token::spec_xdr_import().as_slice(),
-        soroban_token_spec::Token::spec_xdr_init().as_slice(),
-        soroban_token_spec::Token::spec_xdr_is_frozen().as_slice(),
-        soroban_token_spec::Token::spec_xdr_mint().as_slice(),
-        soroban_token_spec::Token::spec_xdr_name().as_slice(),
-        soroban_token_spec::Token::spec_xdr_nonce().as_slice(),
-        soroban_token_spec::Token::spec_xdr_set_admin().as_slice(),
-        soroban_token_spec::Token::spec_xdr_symbol().as_slice(),
-        soroban_token_spec::Token::spec_xdr_unfreeze().as_slice(),
-        soroban_token_spec::Token::spec_xdr_xfer().as_slice(),
-        soroban_token_spec::Token::spec_xdr_xfer_from().as_slice(),
-        soroban_token_spec::TokenMetadata::spec_xdr().as_slice(),
-        soroban_auth::Identifier::spec_xdr().as_slice(),
-        soroban_auth::Signature::spec_xdr().as_slice(),
-        soroban_auth::Ed25519Signature::spec_xdr().as_slice(),
-        soroban_auth::AccountSignatures::spec_xdr().as_slice(),
-    ]
-    .concat()
 }
 
 pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {
