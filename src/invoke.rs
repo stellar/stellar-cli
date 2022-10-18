@@ -389,6 +389,7 @@ impl Cmd {
                 // defines the same value (see URL below). There's some value in
                 // only defining this once to prevent the two from diverging, which
                 // would cause inconsistent test behavior between the SDK and CLI.
+                // A good home for this is unclear at this time.
                 // https://github.com/stellar/rs-soroban-sdk/blob/b6f9a2c7ec54d2d5b5a1e02d1e38ae3158c22e78/soroban-sdk/src/accounts.rs#L470-L483.
                 LedgerEntry {
                     data: LedgerEntryData::Account(AccountEntry {
