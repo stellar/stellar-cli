@@ -25,6 +25,7 @@ path = "src/main.rs"
 soroban-env-host = { version = "0.0.6", features = ["vm", "serde", "hostfn_log_fmt_values"] }
 soroban-spec = "0.1.0"
 soroban-token-spec = "0.1.0"
+soroban-auth = "0.1.0"
 stellar-strkey = "0.0.6"
 clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
@@ -46,9 +47,14 @@ jsonrpsee-http-client = "0.15.1"
 jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
 
+[dev_dependencies]
+assert_cmd = "2.0.4"
+assert_fs = "1.0.7"
+
 [patch.crates-io]
 soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b6f9a2c" }
 soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b6f9a2c" }
+soroban-auth = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b6f9a2c" }
 soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b6f9a2c" }
 soroban-sdk-macros = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b6f9a2c" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "d1b68fd1" }
