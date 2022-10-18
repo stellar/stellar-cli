@@ -5,11 +5,11 @@ export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 install:
 	cargo install --path .
 
-build-test-wasms:
-	cargo build --workspace --exclude soroban-cli --profile test-wasms --target wasm32-unknown-unknown
-
 build:
 	cargo build
+
+build-test-wasms:
+	cargo build --workspace --exclude soroban-cli --profile test-wasms --target wasm32-unknown-unknown
 
 test: build-test-wasms
 	cargo test
