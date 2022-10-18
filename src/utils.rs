@@ -3,20 +3,19 @@ use hex::FromHexError;
 use sha2::{Digest, Sha256};
 use soroban_env_host::storage::{AccessType, Footprint};
 use soroban_env_host::xdr::{
-    DecoratedSignature, LedgerFootprint, Signature, SignatureHint, TransactionEnvelope,
-    TransactionV1Envelope,
+    DecoratedSignature, LedgerFootprint, ScSpecEntry, Signature, SignatureHint,
+    TransactionEnvelope, TransactionV1Envelope,
 };
 use soroban_env_host::{
     im_rc::OrdMap,
     storage::Storage,
     xdr::{
         ContractDataEntry, Error as XdrError, Hash, LedgerEntry, LedgerEntryData, LedgerEntryExt,
-        LedgerKey, LedgerKeyContractData, ScContractCode, ScObject, ScStatic, ScStatus,
-        ScUnknownErrorCode, ScVal, Transaction, TransactionSignaturePayload,
-        TransactionSignaturePayloadTaggedTransaction, WriteXdr,
+        LedgerKey, LedgerKeyContractData, ScContractCode, ScObject, ScStatic, ScVal, Transaction,
+        TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction, WriteXdr,
     },
-    HostError,
 };
+use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPrivateKeyEd25519;
 
 pub fn add_contract_to_ledger_entries(
@@ -87,22 +86,35 @@ pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexErr
         .map_err(|_| FromHexError::InvalidStringLength)
 }
 
-pub fn get_contract_wasm_from_storage(
+pub fn get_contract_spec_from_storage(
     storage: &mut Storage,
     contract_id: [u8; 32],
-) -> Result<Vec<u8>, HostError> {
+) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: contract_id.into(),
         key: ScVal::Static(ScStatic::LedgerKeyContractCode),
     });
-    if let LedgerEntryData::ContractData(entry) = storage.get(&key)?.data {
-        if let ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(data)))) = entry.val {
-            return Ok(data.to_vec());
-        }
+    if let Ok(LedgerEntry {
+        data:
+            LedgerEntryData::ContractData(ContractDataEntry {
+                val: ScVal::Object(Some(ScObject::ContractCode(c))),
+                ..
+            }),
+        ..
+    }) = storage.get(&key)
+    {
+        contract_code_to_spec_entries(c)
+    } else {
+        Err(FromWasmError::NotFound)
     }
-    Err(HostError::from(ScStatus::UnknownError(
-        ScUnknownErrorCode::General,
-    )))
+}
+
+pub fn contract_code_to_spec_entries(c: ScContractCode) -> Result<Vec<ScSpecEntry>, FromWasmError> {
+    match c {
+        ScContractCode::Wasm(wasm) => soroban_spec::read::from_wasm(&wasm),
+        ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+            .map_err(FromWasmError::Parse),
+    }
 }
 
 pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {

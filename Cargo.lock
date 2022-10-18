@@ -56,6 +56,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert_fs"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf09bb72e00da477c2596865e8873227e2196d263cca35414048875dbbeea1be"
+dependencies = [
+ "doc-comment",
+ "globwalk",
+ "predicates",
+ "predicates-core",
+ "predicates-tree",
+ "tempfile",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -193,6 +207,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
+name = "bytes-lit"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c181bca161a49348b90fa75f9a54fe11b7138098eed90d841a1055d574b4250"
+dependencies = [
+ "num-bigint",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -301,6 +327,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-utils"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edbafec5fa1f196ca66527c1b12c2ec4745ca14b50f1ad8f9f6f720b55d11fac"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "crypto-common"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -347,9 +382,9 @@ dependencies = [
 
 [[package]]
 name = "cxx"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19f39818dcfc97d45b03953c1292efc4e80954e1583c4aa770bac1383e2310a4"
+checksum = "3f83d0ebf42c6eafb8d7c52f7e5f2d3003b89c7aa4fd2b79229209459a849af8"
 dependencies = [
  "cc",
  "cxxbridge-flags",
@@ -359,9 +394,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e580d70777c116df50c390d1211993f62d40302881e54d4b79727acb83d0199"
+checksum = "07d050484b55975889284352b0ffc2ecbda25c0c55978017c132b29ba0818a86"
 dependencies = [
  "cc",
  "codespan-reporting",
@@ -374,15 +409,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56a46460b88d1cec95112c8c363f0e2c39afdb237f60583b0b36343bf627ea9c"
+checksum = "99d2199b00553eda8012dfec8d3b1c75fce747cf27c169a270b3b99e3448ab78"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747b608fecf06b0d72d440f27acc99288207324b793be2c17991839f3d4995ea"
+checksum = "dcb67a6de1f602736dd7eaead0080cf3435df806c61b24b13328db128c58868f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -601,6 +636,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22030e2c5a68ec659fde1e949a745124b48e6fa8b045b7ed5bd1fe4ccc5c4e5d"
 
 [[package]]
+name = "globset"
+version = "0.4.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a1e17342619edbc21a964c2afbeb6c820c6a2560032872f397bb97ea127bd0a"
+dependencies = [
+ "aho-corasick",
+ "bstr",
+ "fnv",
+ "log",
+ "regex",
+]
+
+[[package]]
+name = "globwalk"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93e3af942408868f6934a7b85134a3230832b9977cf66125df2f9edcfce4ddcc"
+dependencies = [
+ "bitflags",
+ "ignore",
+ "walkdir",
+]
+
+[[package]]
 name = "h2"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -764,9 +823,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone-haiku"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fde6edd6cef363e9359ed3c98ba64590ba9eecba2293eb5a723ab32aee8926aa"
+checksum = "0703ae284fc167426161c2e3f1da3ea71d94b21bedbcc9494e92b28e334e3dca"
 dependencies = [
  "cxx",
  "cxx-build",
@@ -786,6 +845,24 @@ checksum = "e14ddfc70884202db2244c223200c204c2bda1bc6e0998d11b5e024d657209e6"
 dependencies = [
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "ignore"
+version = "0.4.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "713f1b139373f96a2e0ce3ac931cd01ee973c3c5dd7c40c0c2efe96ad2b6751d"
+dependencies = [
+ "crossbeam-utils",
+ "globset",
+ "lazy_static",
+ "log",
+ "memchr",
+ "regex",
+ "same-file",
+ "thread_local",
+ "walkdir",
+ "winapi-util",
 ]
 
 [[package]]
@@ -1479,6 +1556,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef703b7cb59335eae2eb93ceb664c0eb7ea6bf567079d843e09420219668e072"
 
 [[package]]
+name = "same-file"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1707,10 +1793,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-auth"
+version = "0.1.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=b66355c4#b66355c40288a245b91901c1bfa366793b656672"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soroban-cli"
 version = "0.1.2"
 dependencies = [
  "assert_cmd",
+ "assert_fs",
  "base64",
  "clap",
  "clap_complete",
@@ -1726,9 +1821,11 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.10.6",
+ "soroban-auth",
  "soroban-env-host",
  "soroban-spec",
- "stellar-strkey",
+ "soroban-token-spec",
+ "stellar-strkey 0.0.6",
  "thiserror",
  "tokio",
  "warp",
@@ -1744,6 +1841,15 @@ dependencies = [
  "soroban-wasmi",
  "static_assertions",
  "stellar-xdr",
+]
+
+[[package]]
+name = "soroban-env-guest"
+version = "0.0.6"
+source = "git+https://github.com/stellar/rs-soroban-env?rev=4f2f3a2d#4f2f3a2da58dd869b559f41311815b20d1552ce5"
+dependencies = [
+ "soroban-env-common",
+ "static_assertions",
 ]
 
 [[package]]
@@ -1793,9 +1899,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-sdk"
+version = "0.1.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=b66355c4#b66355c40288a245b91901c1bfa366793b656672"
+dependencies = [
+ "bytes-lit",
+ "rand 0.8.5",
+ "soroban-env-guest",
+ "soroban-env-host",
+ "soroban-sdk-macros",
+ "stellar-strkey 0.0.2",
+]
+
+[[package]]
+name = "soroban-sdk-macros"
+version = "0.1.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=b66355c4#b66355c40288a245b91901c1bfa366793b656672"
+dependencies = [
+ "darling",
+ "itertools",
+ "proc-macro2",
+ "quote",
+ "sha2 0.10.6",
+ "soroban-env-common",
+ "soroban-spec",
+ "stellar-xdr",
+ "syn",
+]
+
+[[package]]
 name = "soroban-spec"
 version = "0.1.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=5a6429c2#5a6429c297e9a9135dc797029ddc7a79ca3abee6"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=b66355c4#b66355c40288a245b91901c1bfa366793b656672"
 dependencies = [
  "base64",
  "darling",
@@ -1812,6 +1947,15 @@ dependencies = [
  "syn",
  "thiserror",
  "wasmparser 0.88.0",
+]
+
+[[package]]
+name = "soroban-token-spec"
+version = "0.1.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=b66355c4#b66355c40288a245b91901c1bfa366793b656672"
+dependencies = [
+ "soroban-auth",
+ "soroban-sdk",
 ]
 
 [[package]]
@@ -1853,6 +1997,15 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stellar-strkey"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "350ec80765002d972f7fa9bc2bd9e550fc3bf9fbe3f1c0e55b30755fccc2fd34"
+dependencies = [
+ "base32",
+]
 
 [[package]]
 name = "stellar-strkey"
@@ -1962,6 +2115,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "thread_local"
+version = "1.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5516c27b78311c50bf42c071425c560ac799b11c30b31f87e3081965fe5e0180"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]
@@ -2237,6 +2399,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "walkdir"
+version = "2.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "808cf2735cd4b6866113f648b791c6adc5714537bc222d9347bb203386ffda56"
+dependencies = [
+ "same-file",
+ "winapi",
+ "winapi-util",
 ]
 
 [[package]]
