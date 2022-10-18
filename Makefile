@@ -9,6 +9,7 @@ test:
 	cargo test
 
 build:
+	cargo build --workspace --exclude soroban-cli --profile test-wasms --target wasm32-unknown-unknown
 	cargo build
 
 check:

@@ -26,3 +26,20 @@ fn invoke_token() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+fn source_account_exists() -> Result<(), Box<dyn std::error::Error>> {
+    let tmp = TempDir::new().unwrap();
+    let ledger = tmp.child("ledger.json");
+
+    let mut cmd = Command::cargo_bin("soroban")?;
+    cmd.arg("invoke");
+    cmd.arg("--ledger-file").arg(ledger.as_os_str());
+    cmd.arg("--id").arg("1");
+    cmd.arg("--wasm")
+        .arg("target/wasm32-unknown-unknown/release/test_invoker_account_exists.wasm");
+    cmd.arg("--fn").arg("invokerexi");
+    cmd.assert().success().stdout("true\n");
+
+    Ok(())
+}

@@ -1,3 +1,9 @@
+[workspace]
+members = [
+    ".",
+    "test-wasms/invoker_account_exists"
+]
+
 [package]
 name = "soroban-cli"
 description = "Soroban CLI"
@@ -70,3 +76,14 @@ wasmi = { package = "soroban-wasmi", git = "https://github.com/stellar/wasmi", r
 # soroban-env-host = { path = "../rs-soroban-env/soroban-env-host" }
 # soroban-env-macros = { path = "../rs-soroban-env/soroban-env-macros" }
 # soroban-native-sdk-macros = { path = "../rs-soroban-env/soroban-native-sdk-macros" }
+
+[profile.test-wasms]
+inherits = "release"
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true

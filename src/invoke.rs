@@ -6,7 +6,7 @@ use hex::FromHexError;
 use soroban_env_host::xdr::{
     InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
     Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
-    TransactionExt, VecM,
+    TransactionExt, VecM, LedgerKey, LedgerKeyAccount, LedgerEntry, LedgerEntryData, AccountEntry, StringM, Thresholds, AccountEntryExt, LedgerEntryExt,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
