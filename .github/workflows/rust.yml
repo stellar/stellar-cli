@@ -47,7 +47,13 @@ jobs:
     - run: rustup update
     - run: rustup target add ${{ matrix.target }}
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
-    - run: cargo test --target ${{ matrix.target }}
+    # unit tests
+    - run: cargo test --bins --target ${{ matrix.target }}
+    # integration tests
+    # TODO: we should probably manage the container in the test itself
+    # TODO: do a proper functional check on the container startup instead of waiting 15 seconds
+    - run: docker run -d -p 8000:8000 stellar/quickstart:soroban-dev --standalone --enable-soroban-rpc --protocol-version 20 && sleep 15
+    - run: cargo test --test integration_test --target ${{ matrix.target }}
 
   publish-dry-run:
     if: startsWith(github.head_ref, 'release/')
