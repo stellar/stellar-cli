@@ -38,7 +38,7 @@ fn source_account_exists() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("--id").arg("1");
     cmd.arg("--wasm")
         .arg("target/wasm32-unknown-unknown/test-wasms/test_invoker_account_exists.wasm");
-    cmd.arg("--fn").arg("invokerexi");
+    cmd.arg("--fn").arg("invkexists");
     cmd.assert().success().stdout("true\n");
 
     Ok(())
