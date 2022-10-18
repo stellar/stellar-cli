@@ -12,7 +12,7 @@ build-test-wasms:
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
 
 test: build-test-wasms
-	cargo test
+	cargo test --workspace
 
 check:
 	cargo clippy --all-targets

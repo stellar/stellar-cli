@@ -48,7 +48,7 @@ jobs:
     - run: rustup target add ${{ matrix.target }}
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
-    - run: cargo test --target ${{ matrix.target }}
+    - run: cargo test --workspace --target ${{ matrix.target }}
 
   publish-dry-run:
     if: startsWith(github.head_ref, 'release/')
