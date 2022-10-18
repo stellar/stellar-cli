@@ -3,6 +3,7 @@ members = [
     ".",
     "test-wasms/invoker_account_exists"
 ]
+default-members = ["."]
 
 [package]
 name = "soroban-cli"
