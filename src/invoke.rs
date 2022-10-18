@@ -23,7 +23,9 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::{contract_code_to_spec_entries, create_ledger_footprint};
+use crate::utils::{
+    contract_code_to_spec_entries, create_ledger_footprint, default_account_ledger_entry,
+};
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
@@ -376,7 +378,7 @@ impl Cmd {
                 .map_err(Error::CannotAddContractToLedgerEntries)?;
         }
 
-        // Create source account.
+        // Create source account, adding it to the ledger if not already present.
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(self.account_id.0)));
         let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
             account_id: source_account.clone(),
@@ -384,30 +386,7 @@ impl Cmd {
         if !state.1.contains_key(&source_account_ledger_key) {
             state.1.insert(
                 source_account_ledger_key,
-                // TODO: Consider moving the definition of a default account
-                // ledger entry to a location shared by the SDK and CLI. The SDK
-                // currently defines the same value (see URL below). There's
-                // some benefit in only defining this once to prevent the two
-                // from diverging, which would cause inconsistent test behavior
-                // between the SDK and CLI. A good home for this is unclear at
-                // this time.
-                // https://github.com/stellar/rs-soroban-sdk/blob/b6f9a2c7ec54d2d5b5a1e02d1e38ae3158c22e78/soroban-sdk/src/accounts.rs#L470-L483.
-                LedgerEntry {
-                    data: LedgerEntryData::Account(AccountEntry {
-                        account_id: source_account.clone(),
-                        balance: 0,
-                        flags: 0,
-                        home_domain: StringM::default(),
-                        inflation_dest: None,
-                        num_sub_entries: 0,
-                        seq_num: SequenceNumber(0),
-                        thresholds: Thresholds([1; 4]),
-                        signers: VecM::default(),
-                        ext: AccountEntryExt::V0,
-                    }),
-                    last_modified_ledger_seq: 0,
-                    ext: LedgerEntryExt::V0,
-                },
+                default_account_ledger_entry(source_account.clone()),
             );
         }
 
