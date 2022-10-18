@@ -384,12 +384,13 @@ impl Cmd {
         if !state.1.contains_key(&source_account_ledger_key) {
             state.1.insert(
                 source_account_ledger_key,
-                // TODO: Consider moving the definition of a default account ledger
-                // entry to a location shared by the SDK and CLI. The SDK currently
-                // defines the same value (see URL below). There's some value in
-                // only defining this once to prevent the two from diverging, which
-                // would cause inconsistent test behavior between the SDK and CLI.
-                // A good home for this is unclear at this time.
+                // TODO: Consider moving the definition of a default account
+                // ledger entry to a location shared by the SDK and CLI. The SDK
+                // currently defines the same value (see URL below). There's
+                // some benefit in only defining this once to prevent the two
+                // from diverging, which would cause inconsistent test behavior
+                // between the SDK and CLI. A good home for this is unclear at
+                // this time.
                 // https://github.com/stellar/rs-soroban-sdk/blob/b6f9a2c7ec54d2d5b5a1e02d1e38ae3158c22e78/soroban-sdk/src/accounts.rs#L470-L483.
                 LedgerEntry {
                     data: LedgerEntryData::Account(AccountEntry {
