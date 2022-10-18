@@ -4,10 +4,9 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::Parser;
 use hex::FromHexError;
 use soroban_env_host::xdr::{
-    AccountEntry, AccountEntryExt, InvokeHostFunctionOp, LedgerEntry, LedgerEntryData,
-    LedgerEntryExt, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ScStatic, ScVec, SequenceNumber, StringM, Thresholds,
-    Transaction, TransactionEnvelope, TransactionExt, VecM,
+    InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+    TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
