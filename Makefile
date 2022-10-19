@@ -8,6 +8,9 @@ install:
 test:
 	cargo test
 
+e2e-test:
+	cargo test --test 'e2e*' -- --ignored
+
 build:
 	cargo build
 
