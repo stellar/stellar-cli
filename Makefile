@@ -5,14 +5,17 @@ export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 install:
 	cargo install --path .
 
-test:
-	cargo test
+build:
+	cargo build
+
+build-test-wasms:
+	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
+
+test: build-test-wasms
+	cargo test --workspace
 
 e2e-test:
 	cargo test --test 'e2e*' -- --ignored
-
-build:
-	cargo build
 
 check:
 	cargo clippy --all-targets

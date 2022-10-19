@@ -1,6 +1,6 @@
 use assert_cmd::prelude::*;
 use assert_fs::{prelude::*, TempDir};
-use std::process::Command;
+use std::{path::Path, process::Command};
 
 #[test]
 fn invoke_token() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,6 +23,28 @@ fn invoke_token() -> Result<(), Box<dyn std::error::Error>> {
         .arg("d55b5a3a5793539545f957f7da783f7b19159369ccdb19c53dbd117ebfc08842");
     cmd.arg("--fn").arg("decimals");
     cmd.assert().success().stdout("7\n");
+
+    Ok(())
+}
+
+#[test]
+fn source_account_exists() -> Result<(), Box<dyn std::error::Error>> {
+    const WASM: &str = "target/wasm32-unknown-unknown/test-wasms/test_invoker_account_exists.wasm";
+    assert!(
+        Path::new(WASM).is_file(),
+        "file {WASM:?} missing, run 'make test-wasms' to generate .wasm files before running this test"
+    );
+
+    let tmp = TempDir::new().unwrap();
+    let ledger = tmp.child("ledger.json");
+
+    let mut cmd = Command::cargo_bin("soroban")?;
+    cmd.arg("invoke");
+    cmd.arg("--ledger-file").arg(ledger.as_os_str());
+    cmd.arg("--id").arg("1");
+    cmd.arg("--wasm").arg(WASM);
+    cmd.arg("--fn").arg("invkexists");
+    cmd.assert().success().stdout("true\n");
 
     Ok(())
 }

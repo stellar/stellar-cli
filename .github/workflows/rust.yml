@@ -47,7 +47,8 @@ jobs:
     - run: rustup update
     - run: rustup target add ${{ matrix.target }}
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
-    - run: cargo test --target ${{ matrix.target }}
+    - run: make build-test-wasms
+    - run: cargo test --workspace --target ${{ matrix.target }}
 
   e2e-test:
     strategy:

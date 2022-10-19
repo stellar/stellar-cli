@@ -4,9 +4,9 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::Parser;
 use hex::FromHexError;
 use soroban_env_host::xdr::{
-    InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
-    TransactionExt, VecM,
+    InvokeHostFunctionOp, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount,
+    Operation, OperationBody, Preconditions, ScStatic, ScVec, SequenceNumber, Transaction,
+    TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -22,7 +22,9 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::{contract_code_to_spec_entries, create_ledger_footprint};
+use crate::utils::{
+    contract_code_to_spec_entries, create_ledger_footprint, default_account_ledger_entry,
+};
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
@@ -375,6 +377,18 @@ impl Cmd {
                 .map_err(Error::CannotAddContractToLedgerEntries)?;
         }
 
+        // Create source account, adding it to the ledger if not already present.
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(self.account_id.0)));
+        let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
+            account_id: source_account.clone(),
+        });
+        if !state.1.contains_key(&source_account_ledger_key) {
+            state.1.insert(
+                source_account_ledger_key,
+                default_account_ledger_entry(source_account.clone()),
+            );
+        }
+
         let snap = Rc::new(snapshot::Snap {
             ledger_entries: state.1.clone(),
         });
@@ -382,10 +396,7 @@ impl Cmd {
         let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
             .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
-
-        h.set_source_account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
-            self.account_id.0,
-        ))));
+        h.set_source_account(source_account);
 
         let mut ledger_info = state.0.clone();
         ledger_info.sequence_number += 1;

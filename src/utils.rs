@@ -3,8 +3,9 @@ use hex::FromHexError;
 use sha2::{Digest, Sha256};
 use soroban_env_host::storage::{AccessType, Footprint};
 use soroban_env_host::xdr::{
-    DecoratedSignature, LedgerFootprint, ScSpecEntry, Signature, SignatureHint,
-    TransactionEnvelope, TransactionV1Envelope,
+    AccountEntry, AccountEntryExt, AccountId, DecoratedSignature, LedgerFootprint, ScSpecEntry,
+    SequenceNumber, Signature, SignatureHint, StringM, Thresholds, TransactionEnvelope,
+    TransactionV1Envelope, VecM,
 };
 use soroban_env_host::{
     im_rc::OrdMap,
@@ -161,6 +162,32 @@ pub fn create_ledger_footprint(footprint: &Footprint) -> LedgerFootprint {
     LedgerFootprint {
         read_only: read_only.try_into().unwrap(),
         read_write: read_write.try_into().unwrap(),
+    }
+}
+
+pub fn default_account_ledger_entry(account_id: AccountId) -> LedgerEntry {
+    // TODO: Consider moving the definition of a default account ledger entry to
+    // a location shared by the SDK and CLI. The SDK currently defines the same
+    // value (see URL below). There's some benefit in only defining this once to
+    // prevent the two from diverging, which would cause inconsistent test
+    // behavior between the SDK and CLI. A good home for this is unclear at this
+    // time.
+    // https://github.com/stellar/rs-soroban-sdk/blob/b6f9a2c7ec54d2d5b5a1e02d1e38ae3158c22e78/soroban-sdk/src/accounts.rs#L470-L483.
+    LedgerEntry {
+        data: LedgerEntryData::Account(AccountEntry {
+            account_id,
+            balance: 0,
+            flags: 0,
+            home_domain: StringM::default(),
+            inflation_dest: None,
+            num_sub_entries: 0,
+            seq_num: SequenceNumber(0),
+            thresholds: Thresholds([1; 4]),
+            signers: VecM::default(),
+            ext: AccountEntryExt::V0,
+        }),
+        last_modified_ledger_seq: 0,
+        ext: LedgerEntryExt::V0,
     }
 }
 
