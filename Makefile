@@ -14,6 +14,9 @@ build-test-wasms:
 test: build-test-wasms
 	cargo test --workspace
 
+e2e-test:
+	cargo test --test 'e2e*' -- --ignored
+
 check:
 	cargo clippy --all-targets
 

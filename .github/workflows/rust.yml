@@ -50,6 +50,23 @@ jobs:
     - run: make build-test-wasms
     - run: cargo test --workspace --target ${{ matrix.target }}
 
+  e2e-test:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: stellar/actions/rust-cache@main
+      - run: rustup update
+      - run: rustup target add ${{ matrix.target }}
+      # TODO: we should probably manage the container in the test itself
+      # TODO: do a proper functional check on the container startup instead of waiting 15 seconds
+      - run: docker run -d -p 8000:8000 stellar/quickstart:soroban-dev --standalone --enable-soroban-rpc --enable-core-artificially-accelerate-time-for-testing --protocol-version 20 && sleep 15
+      - run: cargo test --test 'e2e*' --target ${{ matrix.target }} -- --ignored
+
   publish-dry-run:
     if: startsWith(github.head_ref, 'release/')
     strategy:
