@@ -9,7 +9,7 @@ test:
 	cargo test
 
 e2e-test:
-	cargo test --features e2e_tests --test 'e2e*'
+	cargo test --test 'e2e*' -- --ignored
 
 build:
 	cargo build

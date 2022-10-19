@@ -14,8 +14,9 @@ fn get_base_cmd() -> Command {
     cmd
 }
 
+// e2e tests are ignore by default
 #[test]
-#[cfg_attr(not(feature = "e2e_tests"), ignore)]
+#[ignore]
 fn deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 

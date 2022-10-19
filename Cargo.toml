@@ -12,9 +12,6 @@ rust-version = "1.64"
 autobins = false
 build = "build.rs"
 
-[features]
-e2e_tests = []
-
 [build-dependencies]
 serde = "1.0.82"
 serde_derive = "1.0.82"
