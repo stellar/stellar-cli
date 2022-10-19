@@ -16,6 +16,7 @@ mod token;
 mod utils;
 mod version;
 mod xdr;
+mod build;
 
 const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
 const HEADING_RPC: &str = "OPTIONS (RPC)";
@@ -59,6 +60,9 @@ enum Cmd {
     /// Print shell completion code for the specified shell.
     #[clap(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
+
+    /// Build smart contract
+    Build(build::Cmd)
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -80,6 +84,8 @@ enum CmdError {
     Deploy(#[from] deploy::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Build(#[from] build::Error),
 }
 
 async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
@@ -97,6 +103,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         Cmd::Xdr(xdr) => xdr.run()?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
+        Cmd::Build(build) => build.run()?,
     };
     Ok(())
 }
