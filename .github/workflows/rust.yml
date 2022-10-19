@@ -49,7 +49,7 @@ jobs:
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: cargo test --target ${{ matrix.target }}
 
-  e2e-tests:
+  e2e-test:
     strategy:
       matrix:
         include:
