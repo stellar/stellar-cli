@@ -52,7 +52,8 @@ assert_fs = "1.0.7"
 [workspace]
 members = [
     ".",
-    "test-wasms/invoker_account_exists"
+    "tests/fixtures/test-wasms/hello_world",
+    "tests/fixtures/test-wasms/invoker_account_exists",
 ]
 default-members = ["."]
 

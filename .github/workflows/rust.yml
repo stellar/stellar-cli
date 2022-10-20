@@ -64,6 +64,7 @@ jobs:
       - run: rustup target add ${{ matrix.target }}
       # TODO: we should probably manage the container in the test itself
       # TODO: do a proper functional check on the container startup instead of waiting 15 seconds
+      - run: make build-test-wasms
       - run: docker run -d -p 8000:8000 stellar/quickstart:soroban-dev --standalone --enable-soroban-rpc --enable-core-artificially-accelerate-time-for-testing --protocol-version 20 && sleep 15
       - run: cargo test --test 'e2e*' --target ${{ matrix.target }} -- --ignored
 
