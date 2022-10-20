@@ -19,7 +19,7 @@ fn get_base_cmd() -> Command {
 // e2e tests are ignore by default
 #[test]
 #[ignore]
-fn deploy_and_invoke_contract_against_rpc_server() {
+fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
     const WASM: &str = "target/wasm32-unknown-unknown/release/test_hello_world.wasm";
