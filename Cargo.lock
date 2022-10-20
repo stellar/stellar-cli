@@ -327,6 +327,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "crate-git-revision"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07bf26dd21fe3d2cfed5afaedba648f944ba425e39083d1b86b6993e0d71b430"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1809,6 +1820,7 @@ dependencies = [
  "base64",
  "clap",
  "clap_complete",
+ "crate-git-revision",
  "csv",
  "ed25519-dalek",
  "hex",
