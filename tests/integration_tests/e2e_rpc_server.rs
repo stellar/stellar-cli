@@ -22,7 +22,7 @@ fn get_base_cmd() -> Command {
 fn deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
-    const WASM: &str = "target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm";
+    const WASM: &str = "target/wasm32-unknown-unknown/release/test_hello_world.wasm";
     assert!(
         Path::new(WASM).is_file(),
         "file {WASM:?} missing, run 'make test-wasms' to generate .wasm files before running this test"

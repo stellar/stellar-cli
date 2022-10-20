@@ -46,7 +46,7 @@ jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
 assert_cmd = "2.0.4"
 clap-cargo-extra = { path = "../clap-cargo-extra" }
-binaryen = "0.12.1"
+binaryen = { version = "0.12.1", optional = true }
 filetime = "0.2.17"
 cargo_metadata = "0.15.0"
 
@@ -54,6 +54,7 @@ cargo_metadata = "0.15.0"
 [dev_dependencies]
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
+ctor = "0.1.26"
 
 [workspace]
 members = [
@@ -91,13 +92,19 @@ wasmi = { package = "soroban-wasmi", git = "https://github.com/stellar/wasmi", r
 # soroban-env-macros = { path = "../rs-soroban-env/soroban-env-macros" }
 # soroban-native-sdk-macros = { path = "../rs-soroban-env/soroban-native-sdk-macros" }
 
-[profile.test-wasms]
-inherits = "release"
-opt-level = "z"
-overflow-checks = true
-debug = 0
-strip = "symbols"
-debug-assertions = false
-panic = "abort"
-codegen-units = 1
-lto = true
+# [profile.release]
+# # inherits = "release"
+# opt-level = "z"
+# overflow-checks = true
+# debug = 0
+# strip = "symbols"
+# debug-assertions = false
+# panic = "abort"
+# codegen-units = 1
+# lto = true
+
+# [profile.release.package."soroban-cli"]
+
+[features]
+default = []
+# binaryen = []

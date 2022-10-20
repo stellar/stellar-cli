@@ -29,7 +29,7 @@ fn invoke_token() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn source_account_exists() -> Result<(), Box<dyn std::error::Error>> {
-    const WASM: &str = "target/wasm32-unknown-unknown/test-wasms/test_invoker_account_exists.wasm";
+    const WASM: &str = "target/wasm32-unknown-unknown/release/test_invoker_account_exists.wasm";
     assert!(
         Path::new(WASM).is_file(),
         "file {WASM:?} missing, run 'make test-wasms' to generate .wasm files before running this test"
