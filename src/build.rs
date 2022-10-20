@@ -55,11 +55,11 @@ impl Cmd {
     }
 
     /// Build the current package or the workspace
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Could fail to build when executing the command
-    /// 
+    ///
     pub fn run(&self) -> Result<(), Error> {
         let mut cargo = self.cargo.clone();
         cargo.target = Some(
