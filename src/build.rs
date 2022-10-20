@@ -43,7 +43,7 @@ fn build_err(cmd: &Command) -> Error {
 }
 
 impl Cmd {
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::must_use_candidate)]
     pub fn optimized() -> Self {
         let mut cmd = Self::default();
         std::env::remove_var("CARGO");
@@ -54,6 +54,12 @@ impl Cmd {
         cmd
     }
 
+    /// Build the current package or the workspace
+    /// 
+    /// # Errors
+    /// 
+    /// Could fail to build when executing the command
+    /// 
     pub fn run(&self) -> Result<(), Error> {
         let mut cargo = self.cargo.clone();
         cargo.target = Some(
