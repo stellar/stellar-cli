@@ -46,9 +46,11 @@ impl Cmd {
     #[allow(dead_code, clippy::must_use_candidate)]
     pub fn optimized() -> Self {
         let mut cmd = Self::default();
-        std::env::remove_var("CARGO");
-        cmd.cargo.cargo_bin.channel = "nightly".to_string();
-        cmd.cargo.optimize = true;
+        if cfg!(feature = "nightly") {
+            std::env::remove_var("CARGO");
+            cmd.cargo.cargo_bin.channel = "nightly".to_string();
+            cmd.cargo.optimize = true;
+        }
         cmd.cargo.release = true;
         cmd.cargo.target = Some("wasm32-unknown-unknown".to_string());
         cmd
