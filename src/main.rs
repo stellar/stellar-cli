@@ -1,5 +1,6 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 
+mod build;
 mod completion;
 mod deploy;
 mod gen;
@@ -16,7 +17,6 @@ mod token;
 mod utils;
 mod version;
 mod xdr;
-mod build;
 
 const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
 const HEADING_RPC: &str = "OPTIONS (RPC)";
@@ -62,7 +62,7 @@ enum Cmd {
     Completion(completion::Cmd),
 
     /// Build smart contract
-    Build(build::Cmd)
+    Build(build::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]

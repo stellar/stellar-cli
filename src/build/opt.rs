@@ -47,8 +47,6 @@ impl Cmd {
     }
 }
 
-
-
 fn get_time(path: &Path) -> Result<FileTime, Error> {
     fs::metadata(path)
         .as_ref()

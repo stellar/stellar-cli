@@ -8,6 +8,6 @@ fn build_tests() {
     cmd.cargo.workspace.workspace = true;
     cmd.cargo.workspace.exclude.push("soroban-cli".to_string());
     cmd.run().expect("failed to compile tests");
-    
+
     print!("Successfully compiled")
 }
