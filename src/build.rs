@@ -63,9 +63,7 @@ impl Cmd {
         );
         let mut cmd = cargo.build_cmd();
         let status = cmd.status().map_err(|_| build_err(&cmd))?;
-        if !status.success() {
-            Err(build_err(&cmd))
-        } else {
+        if status.success() {
             #[cfg(feature = "binaryen")]
             for p in cargo.current_packages().map_err(|_| build_err(&cmd))? {
                 let t = &p.targets[0];
@@ -74,6 +72,8 @@ impl Cmd {
                 }
             }
             Ok(())
+        } else {
+            Err(build_err(&cmd))
         }
     }
 }

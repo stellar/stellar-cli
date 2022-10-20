@@ -45,7 +45,7 @@ jsonrpsee-http-client = "0.15.1"
 jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
 assert_cmd = "2.0.4"
-clap-cargo-extra = { path = "../clap-cargo-extra" }
+clap-cargo-extra = { git = "https://github.com/AhaLabs/clap-cargo-extra", branch = "feat/cargo_bin" }
 binaryen = { version = "0.12.1", optional = true }
 filetime = "0.2.17"
 cargo_metadata = "0.15.0"

@@ -326,6 +326,7 @@ dependencies = [
 [[package]]
 name = "clap-cargo-extra"
 version = "0.1.0"
+source = "git+https://github.com/AhaLabs/clap-cargo-extra?branch=feat/cargo_bin#1013513b77ec75bcb4f7d4f308aae5c4463453ba"
 dependencies = [
  "anyhow",
  "cargo_metadata",
