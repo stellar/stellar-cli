@@ -45,6 +45,8 @@ jobs:
             linker: gcc-aarch64-linux-gnu
             skip-test: true
     runs-on: ${{ matrix.os }}
+    env:
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
     steps:
     - uses: actions/checkout@v3
     - uses: stellar/actions/rust-cache@main
