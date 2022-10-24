@@ -10,3 +10,49 @@ jobs:
     uses: stellar/actions/.github/workflows/rust-publish.yml@main
     secrets:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  upload:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          # TODO: Re-enable when soroban-cli can compile for Linux aarch64.
+          # - os: ubuntu-latest
+          #   target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          # TODO: Re-enable when this job is updated to support Windows.
+          # - os: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   ext: .exe
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: '${{ github.event.release.release.name }}'
+      NAME: 'soroban-cli-${{ github.event.release.release.name }}-${{ matrix.target }}'
+    steps:
+    - uses: actions/checkout@v3
+    - run: rustup update
+    - run: rustup target add ${{ matrix.target }}
+    - name: Package
+      run: cargo package --no-verify
+    - name: Build
+      run: |
+        cd target/package
+        tar xvfz soroban-cli-$VERSION.crate
+        cd soroban-cli-$VERSION
+        cargo build --target-dir=../.. --release --target ${{ matrix.target }}
+    - name: Upload
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          await github.rest.repos.uploadReleaseAsset({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: ${{ github.event.release.release.id }},
+            name: '${{ env.NAME }}${{ matrix.ext }}',
+            data: fs.readFileSync('target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'),
+          });
