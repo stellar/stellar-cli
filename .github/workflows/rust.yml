@@ -46,12 +46,12 @@ jobs:
             skip-test: true
     runs-on: ${{ matrix.os }}
     steps:
-    - if: matrix.linker
-      run: sudo apt install ${{ matrix.linker }}
     - uses: actions/checkout@v3
     - uses: stellar/actions/rust-cache@main
     - run: rustup update
     - run: rustup target add ${{ matrix.target }}
+    - if: matrix.linker
+      run: sudo apt install ${{ matrix.linker }}
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - if: '!matrix.skip-test'
       run: make build-test-wasms
