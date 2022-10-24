@@ -40,23 +40,15 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            apt-install: gcc-aarch64-linux-gnu
-            skip-test: true
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
     - uses: stellar/actions/rust-cache@main
     - run: rustup update
     - run: rustup target add ${{ matrix.target }}
-    - if: matrix.apt-install
-      run: sudo apt-get -y install ${{ matrix.apt-install }}
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
-    - if: '!matrix.skip-test'
-      run: make build-test-wasms
-    - if: '!matrix.skip-test'
-      run: cargo test --workspace --target ${{ matrix.target }}
+    - run: make build-test-wasms
+    - run: cargo test --workspace --target ${{ matrix.target }}
 
   e2e-test:
     strategy:
