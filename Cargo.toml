@@ -95,6 +95,3 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
-
-[target.aarch64-unknown-linux-gnu]
-linker = "aarch64-linux-gnu-gcc"
