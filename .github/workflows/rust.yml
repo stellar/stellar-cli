@@ -42,7 +42,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            linker: gcc-aarch64-linux-gnu
+            apt-install: gcc-aarch64-linux-gnu
             skip-test: true
     runs-on: ${{ matrix.os }}
     env:
@@ -52,8 +52,8 @@ jobs:
     - uses: stellar/actions/rust-cache@main
     - run: rustup update
     - run: rustup target add ${{ matrix.target }}
-    - if: matrix.linker
-      run: sudo apt install ${{ matrix.linker }}
+    - if: matrix.apt-install
+      run: sudo apt-get -y install ${{ matrix.apt-install }}
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - if: '!matrix.skip-test'
       run: make build-test-wasms
