@@ -42,8 +42,11 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
+            linker: gcc-aarch64-linux-gnu
     runs-on: ${{ matrix.os }}
     steps:
+    - if: matrix.linker
+      run: sudo apt install ${{ matrix.linker }}
     - uses: actions/checkout@v3
     - uses: stellar/actions/rust-cache@main
     - run: rustup update
