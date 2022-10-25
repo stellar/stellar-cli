@@ -16,16 +16,16 @@ fn get_base_cmd() -> Command {
     cmd
 }
 
-// e2e tests are ignored by default
+// e2e tests are ignore by default
 #[test]
 #[ignore]
-fn deploy_and_invoke_contract_against_rpc_server() {
+fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
-    const WASM: &str = "target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm";
+    const WASM: &str = "target/wasm32-unknown-unknown/release/test_hello_world.wasm";
     assert!(
         Path::new(WASM).is_file(),
-        "file {WASM:?} missing, run 'make build-test-wasms' to generate .wasm files before running this test"
+        "file {WASM:?} missing, run 'make test-wasms' to generate .wasm files before running this test"
     );
 
     let mut deploy = get_base_cmd();
@@ -48,40 +48,6 @@ fn deploy_and_invoke_contract_against_rpc_server() {
     invoke
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
-        .stderr("success\n")
-        .success();
-}
-
-#[test]
-#[ignore]
-fn create_and_invoke_token_contract_against_rpc_server() {
-    // This test assumes a fresh standalone network rpc server on port 8000
-
-    let mut deploy = get_base_cmd();
-    let create = deploy.args(&[
-        "token",
-        "create",
-        "--name=Stellar Lumens",
-        "--symbol=XLM",
-        "--salt=1",
-    ]);
-
-    create
-        .assert()
-        .stdout("8af3f0c5c2c4b5a3c6ac67b390f84d9db843b48827376f42e5bad215c42588f7\n")
-        .stderr("success\nsuccess\n")
-        .success();
-
-    let mut invoke = get_base_cmd();
-    let invoke = invoke.args(&[
-        "invoke",
-        "--id=8af3f0c5c2c4b5a3c6ac67b390f84d9db843b48827376f42e5bad215c42588f7",
-        "--fn=symbol",
-    ]);
-
-    invoke
-        .assert()
-        .stdout("[88,76,77]\n")
         .stderr("success\n")
         .success();
 }
