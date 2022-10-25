@@ -66,7 +66,8 @@ jobs:
       - run: make build-test-wasms
       - run: docker run -d -p 8000:8000 stellar/quickstart:soroban-dev --standalone --enable-soroban-rpc --enable-core-artificially-accelerate-time-for-testing --protocol-version 20
       - run: while ! [ "$(curl -s --fail localhost:8000 | jq '.history_latest_ledger')" -gt 0 ]; do echo waiting; sleep 1; done
-      - run: cargo test --test 'e2e*' --target ${{ matrix.target }} -- --ignored
+      # Run e2e tests sequentially to avoid	sequence number	mismatches
+      - run: cargo test --test 'e2e*' --target ${{ matrix.target }} -- --ignored --test-threads 1
 
   publish-dry-run:
     if: startsWith(github.head_ref, 'release/')
