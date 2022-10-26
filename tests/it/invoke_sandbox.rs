@@ -22,7 +22,7 @@ fn invoke_token() -> Result<(), Box<dyn std::error::Error>> {
         .assert()
         .success()
         .stdout("7\n");
-        Ok(())
+    Ok(())
 }
 
 #[test]
@@ -35,5 +35,5 @@ fn source_account_exists() -> Result<(), Box<dyn std::error::Error>> {
         .assert()
         .success()
         .stdout("true\n");
-        Ok(())
+    Ok(())
 }
