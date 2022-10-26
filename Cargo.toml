@@ -48,6 +48,7 @@ regex = "1.6.0"
 [dev_dependencies]
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
+anyhow = "1.0.66"
 
 [workspace]
 members = [
