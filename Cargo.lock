@@ -2586,9 +2586,9 @@ checksum = "1c38c045535d93ec4f0b4defec448e4291638ee608530863b1e2ba115d4fff7f"
 
 [[package]]
 name = "wasm-opt"
-version = "0.110.1"
+version = "0.110.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92186976135b1af91a88c255c15d273b393d73f8032c8ca373a1e69ea1b56ec5"
+checksum = "b68e8037b4daf711393f4be2056246d12d975651b14d581520ad5d1f19219cec"
 dependencies = [
  "anyhow",
  "libc",
@@ -2602,9 +2602,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-opt-cxx-sys"
-version = "0.110.1"
+version = "0.110.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dc16d755d1a6bc0555e43adc5cfd7ae66f3ad590b3394a949ba616248dd84ff"
+checksum = "91adbad477e97bba3fbd21dd7bfb594e7ad5ceb9169ab1c93ab9cb0ada636b6f"
 dependencies = [
  "anyhow",
  "cxx",
@@ -2614,9 +2614,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-opt-sys"
-version = "0.110.1"
+version = "0.110.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d7d039c9786215a640602f861c6e9e7eb6ba855fb105b36e62a79a45ef173b2"
+checksum = "ec4fa5a322a4e6ac22fd141f498d56afbdbf9df5debeac32380d2dcaa3e06941"
 dependencies = [
  "anyhow",
  "cc",
