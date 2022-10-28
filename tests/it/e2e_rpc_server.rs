@@ -1,30 +1,28 @@
-use anyhow::Ok;
-
-use crate::util::{wasm_file, Soroban};
+use crate::util::{test_wasm, Standalone, SorobanCommand};
 
 // e2e tests are ignore by default
 #[test]
 #[ignore]
-fn e2e_deploy_and_invoke_contract_against_rpc_server() -> Result<(), anyhow::Error> {
+fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
-    Soroban::new_standalone()?
+    Standalone::new()
         .arg("deploy")
-        .wasm(wasm_file("test_hello_world"))?
+        .arg("--wasm")
+        .arg(test_wasm("test_hello_world"))
         .arg("--salt=0")
         .assert()
         .stdout("1f3eb7b8dc051d6aa46db5454588a142c671a0cdcdb36a2f754d9675a64bf613\n")
         .stderr("success\n")
         .success();
 
-    Soroban::new_standalone()?
+    Standalone::new()
         .arg("invoke")
-        .contract_id("1f3eb7b8dc051d6aa46db5454588a142c671a0cdcdb36a2f754d9675a64bf613")
-        ._fn("hello")
-        ._arg("world")
+        .arg("--id=1f3eb7b8dc051d6aa46db5454588a142c671a0cdcdb36a2f754d9675a64bf613")
+        .arg("--fn=hello")
+        .arg("--arg=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
         .stderr("success\n")
         .success();
-    Ok(())
 }
