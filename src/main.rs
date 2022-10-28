@@ -7,7 +7,7 @@ mod inspect;
 mod invoke;
 mod jsonrpc;
 mod network;
-mod opt;
+mod optimize;
 mod read;
 mod rpc;
 mod serve;
@@ -42,7 +42,7 @@ enum Cmd {
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
     /// Optimize a WASM file
-    Optimize(opt::Cmd),
+    Optimize(optimize::Cmd),
     /// Print the current value of a contract-data ledger entry
     Read(read::Cmd),
     /// Run a local webserver for web app development and testing
@@ -70,7 +70,7 @@ enum CmdError {
     #[error(transparent)]
     Inspect(#[from] inspect::Error),
     #[error(transparent)]
-    Optimize(#[from] opt::Error),
+    Optimize(#[from] optimize::Error),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
     #[error(transparent)]
