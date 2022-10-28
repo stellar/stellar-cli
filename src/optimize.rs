@@ -34,7 +34,7 @@ impl Cmd {
 
         let wasm_out = self.wasm_out.as_ref().cloned().unwrap_or_else(|| {
             let mut wasm_out = self.wasm.clone();
-            wasm_out.set_extension(".optimized.wasm");
+            wasm_out.set_extension("optimized.wasm");
             wasm_out
         });
         println!("Writing to: {}...", self.wasm.to_string_lossy());
