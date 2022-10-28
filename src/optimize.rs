@@ -7,7 +7,7 @@ pub struct Cmd {
     /// WASM file to optimize
     #[clap(long, parse(from_os_str))]
     wasm: std::path::PathBuf,
-    /// Path to write the optimized WASM file to (defaults to same location as --wasm)
+    /// Path to write the optimized WASM file to (defaults to same location as --wasm with .optimized.wasm suffix)
     #[clap(long, parse(from_os_str))]
     wasm_out: Option<std::path::PathBuf>,
 }
@@ -32,11 +32,15 @@ impl Cmd {
             wasm_size
         );
 
-        let wasm_out = self.wasm_out.as_ref().unwrap_or(&self.wasm);
+        let wasm_out = self.wasm_out.as_ref().cloned().unwrap_or_else(|| {
+            let mut wasm_out = self.wasm.clone();
+            wasm_out.set_extension(".optimized.wasm");
+            wasm_out
+        });
         println!("Writing to: {}...", self.wasm.to_string_lossy());
 
         OptimizationOptions::new_optimize_for_size_aggressively()
-            .run(&self.wasm, wasm_out)
+            .run(&self.wasm, &wasm_out)
             .map_err(Error::OptimizationError)?;
 
         let wasm_out_size = std::fs::metadata(&wasm_out)
