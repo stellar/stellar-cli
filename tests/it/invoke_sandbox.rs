@@ -3,7 +3,7 @@ use crate::util::{temp_ledger_file, test_wasm, Sandbox, SorobanCommand};
 #[test]
 fn invoke_token() {
     let ledger = temp_ledger_file();
-    Sandbox::new()
+    Sandbox::new_cmd()
         .arg("token")
         .arg("create")
         .arg("--ledger-file")
@@ -14,7 +14,7 @@ fn invoke_token() {
         .success()
         .stdout("d55b5a3a5793539545f957f7da783f7b19159369ccdb19c53dbd117ebfc08842\n");
 
-    Sandbox::new()
+    Sandbox::new_cmd()
         .arg("invoke")
         .arg("--ledger-file")
         .arg(ledger)
@@ -27,7 +27,7 @@ fn invoke_token() {
 
 #[test]
 fn source_account_exists() {
-    Sandbox::new()
+    Sandbox::new_cmd()
         .arg("invoke")
         .arg("--ledger-file")
         .arg(temp_ledger_file())

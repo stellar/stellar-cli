@@ -3,7 +3,7 @@ use std::{ffi::OsString, path::PathBuf};
 use assert_cmd::Command;
 use assert_fs::{prelude::PathChild, TempDir};
 
-pub fn test_wasm<'a>(name: &str) -> PathBuf {
+pub fn test_wasm(name: &str) -> PathBuf {
     let path =
         PathBuf::from("target/wasm32-unknown-unknown/test-wasms").join(format!("{name}.wasm"));
     assert!(path.is_file(), "File not found: {}. run 'make test-wasms' to generate .wasm files before running this test", path.display());
@@ -13,25 +13,22 @@ pub fn test_wasm<'a>(name: &str) -> PathBuf {
 /// Create a command with the correct env variables
 pub trait SorobanCommand {
     /// Default is with none
-    fn new() -> Command {
+    fn new_cmd() -> Command {
         Command::cargo_bin("soroban").expect("failed to find local soroban binary")
     }
 }
-
 
 /// Default
 pub struct Sandbox {}
 
 impl SorobanCommand for Sandbox {}
 
-
-
 /// Standalone Network
 pub struct Standalone {}
 
 impl SorobanCommand for Standalone {
-    fn new() -> Command {
-        let mut this = Sandbox::new();
+    fn new_cmd() -> Command {
+        let mut this = Sandbox::new_cmd();
         this.env("SOROBAN_RPC_URL", "http://localhost:8000/soroban/rpc")
             .env(
                 "SOROBAN_SECRET_KEY",
@@ -44,7 +41,6 @@ impl SorobanCommand for Standalone {
         this
     }
 }
-
 
 pub fn temp_ledger_file() -> OsString {
     TempDir::new()
