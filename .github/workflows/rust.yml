@@ -38,8 +38,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+          test: true
+        - os: ubuntu-latest
+          target: aarch64-unknown-linux-gnu
+          test: false
+        - os: macos-latest
+          target: x86_64-apple-darwin
+          test: true
+        - os: macos-latest
+          target: aarch64-apple-darwin
+          test: false
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+          test: true
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
@@ -48,7 +61,8 @@ jobs:
     - run: rustup target add ${{ matrix.target }}
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
-    - run: cargo test --workspace --target ${{ matrix.target }}
+    - if: matrix.test
+      run: cargo test --workspace --target ${{ matrix.target }}
 
   e2e-test:
     strategy:
@@ -77,6 +91,20 @@ jobs:
         include:
         - os: ubuntu-latest
           target: x86_64-unknown-linux-gnu
+          test: true
+        - os: ubuntu-latest
+          target: aarch64-unknown-linux-gnu
+          test: false
+        - os: macos-latest
+          target: x86_64-apple-darwin
+          test: true
+        - os: macos-latest
+          target: aarch64-apple-darwin
+          test: false
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+          test: true
+          # TODO: Pass through whether tests should be run or not.
     uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@main
     with:
       runs-on: ${{ matrix.os }}

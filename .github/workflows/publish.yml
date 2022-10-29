@@ -24,23 +24,26 @@ jobs:
             target: x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
-          # TODO: Re-enable when this job is updated to support Windows.
-          # - os: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   ext: .exe
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: .exe
     runs-on: ${{ matrix.os }}
     env:
       VERSION: '${{ github.event.release.release.name }}'
       NAME: 'soroban-cli-${{ github.event.release.release.name }}-${{ matrix.target }}'
     steps:
     - uses: actions/checkout@v3
-    - run: rustup update
-    - run: rustup target add ${{ matrix.target }}
+    - shell: bash
+      run: rustup update
+    - shell: bash
+      run: rustup target add ${{ matrix.target }}
     - if: matrix.apt-install
       run: sudo apt-get -y install ${{ matrix.apt-install }}
     - name: Package
+      shell: bash
       run: cargo package --no-verify
     - name: Build
+      shell: bash
       run: |
         cd target/package
         tar xvfz soroban-cli-$VERSION.crate
