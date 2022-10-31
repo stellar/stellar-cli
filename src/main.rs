@@ -7,6 +7,7 @@ mod inspect;
 mod invoke;
 mod jsonrpc;
 mod network;
+mod optimize;
 mod read;
 mod rpc;
 mod serve;
@@ -40,6 +41,8 @@ enum Cmd {
     Invoke(invoke::Cmd),
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
+    /// Optimize a WASM file
+    Optimize(optimize::Cmd),
     /// Print the current value of a contract-data ledger entry
     Read(read::Cmd),
     /// Run a local webserver for web app development and testing
@@ -67,6 +70,8 @@ enum CmdError {
     #[error(transparent)]
     Inspect(#[from] inspect::Error),
     #[error(transparent)]
+    Optimize(#[from] optimize::Error),
+    #[error(transparent)]
     Invoke(#[from] invoke::Error),
     #[error(transparent)]
     Read(#[from] read::Error),
@@ -85,6 +90,7 @@ enum CmdError {
 async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
+        Cmd::Optimize(opt) => opt.run()?,
         Cmd::Invoke(invoke) => {
             let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
             invoke.run(&sub_arg_matches).await?;
