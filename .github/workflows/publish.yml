@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
 
   publish:
@@ -28,9 +32,6 @@ jobs:
             target: x86_64-pc-windows-msvc
             ext: .exe
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
     env:
       VERSION: '${{ github.event.release.release.name }}'
       NAME: 'soroban-cli-${{ github.event.release.release.name }}-${{ matrix.target }}'
