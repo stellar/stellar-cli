@@ -39,7 +39,10 @@ impl Cmd {
         });
         println!("Writing to: {}...", self.wasm.to_string_lossy());
 
-        OptimizationOptions::new_optimize_for_size_aggressively()
+        let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
+        options.converge = true;
+
+        options
             .run(&self.wasm, &wasm_out)
             .map_err(Error::OptimizationError)?;
 
