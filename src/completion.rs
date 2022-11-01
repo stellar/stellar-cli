@@ -9,10 +9,10 @@ Ensure the completion package for your shell is installed,
 e.g., bash-completion for bash.
 
 To enable autocomplete in the current bash shell, run:
-  source <(soroban-cli completion --shell bash)
+  source <(soroban completion --shell bash)
 
 To enable autocomplete permanently, run:
-  echo \"source <(soroban-cli completion --shell bash)\" >> ~/.bashrc";
+  echo \"source <(soroban completion --shell bash)\" >> ~/.bashrc";
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -23,6 +23,6 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self, cmd: &mut Command) {
-        generate(self.shell, cmd, env!("CARGO_PKG_NAME"), &mut io::stdout());
+        generate(self.shell, cmd, env!("CARGO_BIN_NAME"), &mut io::stdout());
     }
 }
