@@ -18,7 +18,7 @@ e2e-test:
 	cargo test --test 'e2e*' -- --ignored
 
 check:
-	cargo clippy --all-targets --target aarch64-apple-darwin
+	cargo clippy --all-targets
 
 watch:
 	cargo watch --clear --watch-when-idle --shell '$(MAKE)'
