@@ -3,7 +3,7 @@ name: Publish
 on:
   release:
     types: [published]
-  # pull_request:
+  pull_request:
 
 defaults:
   run:
