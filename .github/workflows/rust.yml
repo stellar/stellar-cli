@@ -92,7 +92,7 @@ jobs:
       - run: cargo test --test 'e2e*' --target ${{ matrix.target }} -- --ignored --test-threads 1
 
   publish-dry-run:
-    # if: startsWith(github.head_ref, 'release/')
+    if: startsWith(github.head_ref, 'release/')
     strategy:
       matrix:
         include:
