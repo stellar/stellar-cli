@@ -112,7 +112,7 @@ jobs:
           target: x86_64-pc-windows-msvc
           test: true
           # TODO: Pass through whether tests should be run or not.
-    uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@main
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@publishdryrunalltheplatforms
     with:
       runs-on: ${{ matrix.os }}
-      cargo-package-options: --target ${{ matrix.target }}
+      target: ${{ matrix.target }}
