@@ -34,7 +34,7 @@ jobs:
             ext: .exe
     runs-on: ${{ matrix.os }}
     env:
-      VERSION: '${{ github.event.release.release.name }}'
+      VERSION: '0.1.2' # '${{ github.event.release.release.name }}'
       NAME: 'soroban-cli-${{ github.event.release.release.name }}-${{ matrix.target }}'
     steps:
     - uses: actions/checkout@v3
