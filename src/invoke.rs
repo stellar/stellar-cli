@@ -445,15 +445,11 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(
-            state.1,
-            ledger_info,
-            &storage.map,
-            &self.ledger_file,
-        )
-        .map_err(|e| Error::CannotCommitLedgerFile {
-            filepath: self.ledger_file.clone(),
-            error: e,
+        snapshot::commit(state.1, ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
+            Error::CannotCommitLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
         })?;
         Ok(())
     }
