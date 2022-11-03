@@ -3,6 +3,7 @@ name: Publish
 on:
   release:
     types: [published]
+  pull_request:
 
 defaults:
   run:
@@ -10,10 +11,10 @@ defaults:
 
 jobs:
 
-  publish:
-    uses: stellar/actions/.github/workflows/rust-publish.yml@main
-    secrets:
-      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+  # publish:
+  #   uses: stellar/actions/.github/workflows/rust-publish.yml@main
+  #   secrets:
+  #     CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   upload:
     strategy:
@@ -49,15 +50,19 @@ jobs:
         tar xvfz soroban-cli-$VERSION.crate
         cd soroban-cli-$VERSION
         cargo build --target-dir=../.. --release --target ${{ matrix.target }}
-    - name: Upload
-      uses: actions/github-script@v6
+    - uses: actions/upload-artifact@v3
       with:
-        script: |
-          const fs = require('fs');
-          await github.rest.repos.uploadReleaseAsset({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            release_id: ${{ github.event.release.release.id }},
-            name: '${{ env.NAME }}${{ matrix.ext }}',
-            data: fs.readFileSync('target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'),
-          });
+        name: soroban-${{ matrix.os }}-${{ matrix.target }}-${{ matrix.runs-on }}
+        path: 'target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'
+    # - name: Upload
+    #   uses: actions/github-script@v6
+    #   with:
+    #     script: |
+    #       const fs = require('fs');
+    #       await github.rest.repos.uploadReleaseAsset({
+    #         owner: context.repo.owner,
+    #         repo: context.repo.repo,
+    #         release_id: ${{ github.event.release.release.id }},
+    #         name: '${{ env.NAME }}${{ matrix.ext }}',
+    #         data: fs.readFileSync('target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'),
+    #       });
