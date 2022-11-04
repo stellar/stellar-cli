@@ -2,11 +2,15 @@ name: Rust
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/**]
   pull_request:
 
 env:
   RUSTFLAGS: -Dwarnings -Dclippy::all -Dclippy::pedantic
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
 
@@ -38,17 +42,28 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+        - os: ubuntu-latest
+          target: aarch64-unknown-linux-gnu
+        - os: macos-latest
+          target: x86_64-apple-darwin
+        - os: macos-latest
+          target: aarch64-apple-darwin
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
     - uses: stellar/actions/rust-cache@main
     - run: rustup update
     - run: rustup target add ${{ matrix.target }}
+    - if: matrix.target == 'aarch64-unknown-linux-gnu'
+      run: sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
-    - run: cargo test --workspace --target ${{ matrix.target }}
+    - if: startsWith(matrix.target, 'x86_64')
+      run: cargo test --workspace --target ${{ matrix.target }}
 
   e2e-test:
     strategy:
@@ -71,13 +86,21 @@ jobs:
       - run: cargo test --test it --target ${{ matrix.target }} -- e2e_rpc_server --ignored --test-threads 1
 
   publish-dry-run:
-    if: startsWith(github.head_ref, 'release/')
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
       matrix:
         include:
         - os: ubuntu-latest
           target: x86_64-unknown-linux-gnu
+        - os: ubuntu-latest
+          target: aarch64-unknown-linux-gnu
+        - os: macos-latest
+          target: x86_64-apple-darwin
+        - os: macos-latest
+          target: aarch64-apple-darwin
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
     uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@main
     with:
       runs-on: ${{ matrix.os }}
-      cargo-package-options: --target ${{ matrix.target }}
+      target: ${{ matrix.target }}

@@ -94,7 +94,7 @@ pub fn commit<'a, I>(
     output_file: &std::path::PathBuf,
 ) -> Result<(), Error>
 where
-    I: IntoIterator<Item = (&'a LedgerKey, &'a Option<LedgerEntry>)>,
+    I: IntoIterator<Item = (&'a Box<LedgerKey>, &'a Option<Box<LedgerEntry>>)>,
 {
     //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
     if let Some(dir) = output_file.parent() {
@@ -106,7 +106,7 @@ where
     let file = File::create(output_file)?;
     for (lk, ole) in storage_map {
         if let Some(le) = ole {
-            new_state.insert(lk.clone(), le.clone());
+            new_state.insert(*lk.clone(), *(*le).clone());
         } else {
             new_state.remove(lk);
         }

@@ -157,7 +157,7 @@ pub fn create_ledger_footprint(footprint: &Footprint) -> LedgerFootprint {
             AccessType::ReadOnly => &mut read_only,
             AccessType::ReadWrite => &mut read_write,
         };
-        dest.push(k.clone());
+        dest.push(*k.clone());
     }
     LedgerFootprint {
         read_only: read_only.try_into().unwrap(),
