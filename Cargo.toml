@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 rust-version = "1.64"
 autobins = false
@@ -60,18 +60,18 @@ default-members = ["."]
 
 [workspace.dependencies]
 soroban-env-host = "0.0.9"
-soroban-spec = "0.2.0"
-soroban-token-spec = "0.2.0"
-soroban-auth = "0.2.0"
+soroban-spec = "0.2.1"
+soroban-token-spec = "0.2.1"
+soroban-auth = "0.2.1"
 stellar-strkey = "0.0.6"
-soroban-sdk = "0.2.0"
+soroban-sdk = "0.2.1"
 
 [patch.crates-io]
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3ec51a3d" }
-soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3ec51a3d" }
-soroban-auth = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3ec51a3d" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3ec51a3d" }
-soroban-sdk-macros = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3ec51a3d" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
+soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
+soroban-auth = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
+soroban-sdk-macros = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
 stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "d1b68fd1" }
 soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
 soroban-env-guest = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
