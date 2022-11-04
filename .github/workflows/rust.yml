@@ -86,7 +86,7 @@ jobs:
       - run: cargo test --test it --target ${{ matrix.target }} -- e2e_rpc_server --ignored --test-threads 1
 
   publish-dry-run:
-    # if: startsWith(github.head_ref, 'release/')
+    if: startsWith(github.head_ref, 'release/')
     strategy:
       matrix:
         include:
@@ -100,7 +100,7 @@ jobs:
           target: aarch64-apple-darwin
         - os: windows-latest
           target: x86_64-pc-windows-msvc
-    uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@publishdryrunalltheplatforms
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@main
     with:
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
