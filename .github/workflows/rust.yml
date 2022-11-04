@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/**]
   pull_request:
 
 env:
@@ -86,7 +86,7 @@ jobs:
       - run: cargo test --test it --target ${{ matrix.target }} -- e2e_rpc_server --ignored --test-threads 1
 
   publish-dry-run:
-    if: startsWith(github.head_ref, 'release/')
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
       matrix:
         include:
