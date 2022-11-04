@@ -139,7 +139,7 @@ impl Cmd {
         } else {
             self.run_in_sandbox(salt, self.admin, &self.name, &self.symbol, self.decimal)?
         };
-        println!("{}", res_str);
+        println!("{res_str}");
         Ok(())
     }
 
