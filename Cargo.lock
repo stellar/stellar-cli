@@ -1828,15 +1828,15 @@ dependencies = [
 
 [[package]]
 name = "soroban-auth"
-version = "0.2.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=3ec51a3d#3ec51a3d48a3ffc33e75064c3cfb66a1f704a953"
+version = "0.2.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0#4d2559c05f4846d11ae967764b031f297eeeb2d6"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "soroban-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -1936,8 +1936,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "0.2.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=3ec51a3d#3ec51a3d48a3ffc33e75064c3cfb66a1f704a953"
+version = "0.2.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0#4d2559c05f4846d11ae967764b031f297eeeb2d6"
 dependencies = [
  "bytes-lit",
  "ed25519-dalek",
@@ -1950,8 +1950,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "0.2.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=3ec51a3d#3ec51a3d48a3ffc33e75064c3cfb66a1f704a953"
+version = "0.2.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0#4d2559c05f4846d11ae967764b031f297eeeb2d6"
 dependencies = [
  "darling",
  "itertools",
@@ -1966,8 +1966,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "0.2.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=3ec51a3d#3ec51a3d48a3ffc33e75064c3cfb66a1f704a953"
+version = "0.2.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0#4d2559c05f4846d11ae967764b031f297eeeb2d6"
 dependencies = [
  "base64",
  "darling",
@@ -1988,8 +1988,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-token-spec"
-version = "0.2.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=3ec51a3d#3ec51a3d48a3ffc33e75064c3cfb66a1f704a953"
+version = "0.2.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0#4d2559c05f4846d11ae967764b031f297eeeb2d6"
 dependencies = [
  "soroban-auth",
  "soroban-sdk",
@@ -2140,14 +2140,14 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 
 [[package]]
 name = "test_hello_world"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_invoker_account_exists"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "soroban-sdk",
 ]

@@ -348,7 +348,7 @@ impl Cmd {
             error: e,
         })?;
 
-        println!("{}", res_str);
+        println!("{res_str}");
         // TODO: print cost
 
         Ok(())
@@ -412,7 +412,7 @@ impl Cmd {
             error: e,
         })?;
 
-        println!("{}", res_str);
+        println!("{res_str}");
 
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
@@ -431,17 +431,17 @@ impl Cmd {
             eprintln!("Cpu Insns: {}", budget.get_cpu_insns_count());
             eprintln!("Mem Bytes: {}", budget.get_mem_bytes_count());
             for cost_type in CostType::variants() {
-                eprintln!("Cost ({:?}): {}", cost_type, budget.get_input(*cost_type));
+                eprintln!("Cost ({cost_type:?}): {}", budget.get_input(*cost_type));
             }
         }
 
         for (i, event) in events.0.iter().enumerate() {
-            eprint!("#{}: ", i);
+            eprint!("#{i}: ");
             match event {
                 HostEvent::Contract(e) => {
                     eprintln!("event: {}", serde_json::to_string(&e).unwrap());
                 }
-                HostEvent::Debug(e) => eprintln!("debug: {}", e),
+                HostEvent::Debug(e) => eprintln!("debug: {e}"),
             }
         }
 

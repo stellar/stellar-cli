@@ -42,7 +42,7 @@ impl Cmd {
             xdr::Type::from_xdr_base64(self.r#type, self.xdr.clone()).map_err(Error::Xdr)?;
 
         match self.output {
-            Output::Default => println!("{:#?}", value),
+            Output::Default => println!("{value:#?}"),
             Output::Json => println!(
                 "{}",
                 serde_json::to_string_pretty(&value).map_err(Error::Json)?
