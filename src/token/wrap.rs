@@ -109,7 +109,7 @@ impl Cmd {
         } else {
             self.run_in_sandbox(&asset)?
         };
-        println!("{}", res_str);
+        println!("{res_str}");
         Ok(())
     }
 

@@ -61,7 +61,7 @@ impl Cmd {
             for env_meta_entry in ScEnvMetaEntry::read_xdr_iter(&mut cursor) {
                 match env_meta_entry? {
                     ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
-                        println!(" • Interface Version: {}", v);
+                        println!(" • Interface Version: {v}");
                     }
                 }
             }
@@ -81,16 +81,16 @@ impl Cmd {
                         f.outputs.as_slice(),
                     ),
                     ScSpecEntry::UdtUnionV0(udt) => {
-                        println!(" • Union: {:?}", udt);
+                        println!(" • Union: {udt:?}");
                     }
                     ScSpecEntry::UdtStructV0(udt) => {
-                        println!(" • Struct: {:?}", udt);
+                        println!(" • Struct: {udt:?}");
                     }
                     ScSpecEntry::UdtEnumV0(udt) => {
-                        println!(" • Enum: {:?}", udt);
+                        println!(" • Enum: {udt:?}");
                     }
                     ScSpecEntry::UdtErrorEnumV0(udt) => {
-                        println!(" • Error: {:?}", udt);
+                        println!(" • Error: {udt:?}");
                     }
                 }
             }

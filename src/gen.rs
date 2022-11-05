@@ -48,11 +48,11 @@ impl Cmd {
             rust::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateRustFromFile)?;
         match code.to_formatted_string() {
             Ok(formatted) => {
-                println!("{}", formatted);
+                println!("{formatted}");
                 Ok(())
             }
             Err(e) => {
-                println!("{}", code);
+                println!("{code}");
                 Err(Error::FormatRust(e.to_string()))
             }
         }
@@ -62,7 +62,7 @@ impl Cmd {
         let wasm_path_str = self.wasm.to_string_lossy();
         let json =
             json::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateJsonFromFile)?;
-        println!("{}", json);
+        println!("{json}");
         Ok(())
     }
 }
