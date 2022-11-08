@@ -185,4 +185,12 @@ impl Client {
             .request("getContractData", rpc_params![contract_id, base64_key])
             .await?)
     }
+
+    pub async fn subscribe_events(&self) {
+        todo!()
+    }
+
+    pub async fn unsubscribe_events(&self) {
+        todo!()
+    }
 }
