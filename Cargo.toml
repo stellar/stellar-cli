@@ -1,6 +1,6 @@
 [package]
-name = "soroban-cli"
-description = "Soroban CLI"
+name = "soroban-tools"
+description = "Soroban Tools"
 homepage = "https://github.com/stellar/soroban-cli"
 repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
@@ -10,14 +10,12 @@ version = "0.1.2"
 edition = "2021"
 rust-version = "1.64"
 autobins = false
-build = "build.rs"
+#build = "build.rs"
 
-[build-dependencies]
-crate-git-revision = "0.0.2"
 
 [[bin]]
-name = "soroban"
-path = "src/main.rs"
+name = "soroban-cli"
+path = "cmd/soroban-cli/src/main.rs"
 
 [dependencies]
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
@@ -52,19 +50,22 @@ assert_fs = "1.0.7"
 
 [workspace]
 members = [
-    ".",
+    "cmd/soroban-cli",
     "tests/fixtures/test-wasms/hello_world",
     "tests/fixtures/test-wasms/invoker_account_exists",
 ]
-default-members = ["."]
+default-members = ["cmd/soroban-cli"]
 
+# The dependencies in the [workspace.dependencies] should be of the same version as in
+# [patch.crates-io]; This is required so that the entire dependency tree would end up using
+# the same exact version of the repositories.
 [workspace.dependencies]
-soroban-env-host = "0.0.6"
-soroban-spec = "0.1.0"
-soroban-token-spec = "0.1.0"
-soroban-auth = "0.1.0"
-stellar-strkey = "0.0.6"
-soroban-sdk = "0.1.0"
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "4f2f3a2d" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b66355c4" }
+soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b66355c4" }
+soroban-auth = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b66355c4" }
+stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "d1b68fd1" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b66355c4" }
 
 [patch.crates-io]
 soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "b66355c4" }

@@ -2,13 +2,22 @@ all: check build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
-install:
+# set the GIT_REVISION unless it's already set by the caller.
+export GIT_REVISION?=0.0.2
+
+# update the Cargo.lock every time the Cargo.toml changes.
+Cargo.lock: Cargo.toml
+	cargo update
+
+install: Cargo.lock
 	cargo install --path .
+	go install ./...
 
-build:
+build: Cargo.lock
 	cargo build
+	go build ./...
 
-build-test-wasms:
+build-test-wasms: Cargo.lock
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
 
 test: build-test-wasms
@@ -17,7 +26,7 @@ test: build-test-wasms
 e2e-test:
 	cargo test --test 'e2e*' -- --ignored
 
-check:
+check: Cargo.lock
 	cargo clippy --all-targets
 
 watch:
@@ -28,6 +37,7 @@ fmt:
 
 clean:
 	cargo clean
+	go clean ./...
 
 publish:
 	cargo workspaces publish --all --force '*' --from-git --yes

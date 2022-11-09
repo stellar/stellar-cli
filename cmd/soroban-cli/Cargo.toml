@@ -1,0 +1,53 @@
+[package]
+name = "soroban-cli"
+description = "Soroban CLI"
+homepage = "https://github.com/stellar/soroban-cli"
+repository = "https://github.com/stellar/soroban-cli"
+authors = ["Stellar Development Foundation <info@stellar.org>"]
+license = "Apache-2.0"
+readme = "README.md"
+version = "0.1.2"
+edition = "2021"
+rust-version = "1.64"
+autobins = false
+build = "build.rs"
+
+[[bin]]
+name = "soroban-cli"
+path = "src/main.rs"
+
+[build-dependencies]
+crate-git-revision = "0.0.2"
+
+[dependencies]
+soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
+soroban-spec = { workspace = true }
+soroban-token-spec = { workspace = true }
+soroban-auth = { workspace = true }
+stellar-strkey = { workspace = true }
+soroban-sdk = { workspace = true }
+clap = { version = "3.1.18", features = ["derive", "env"] }
+base64 = "0.13.0"
+thiserror = "1.0.31"
+serde = "1.0.82"
+serde_derive = "1.0.82"
+serde_json = "1.0.82"
+hex = "0.4.3"
+num-bigint = "0.4"
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
+clap_complete = "3.2.3"
+rand = "0.8.5"
+wasmparser = "0.90.0"
+sha2 = "0.10.6"
+csv = "1.1.6"
+ed25519-dalek = "1.0.1"
+jsonrpsee-http-client = "0.15.1"
+jsonrpsee-core = "0.15.1"
+regex = "1.6.0"
+wasm-opt = "0.110.1"
+
+[dev_dependencies]
+assert_cmd = "2.0.4"
+assert_fs = "1.0.7"
+

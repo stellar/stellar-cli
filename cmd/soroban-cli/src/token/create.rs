@@ -266,7 +266,7 @@ impl Cmd {
             )?)
             .await?;
 
-        Ok(hex::encode(&contract_id))
+        Ok(hex::encode(contract_id))
     }
 }
 

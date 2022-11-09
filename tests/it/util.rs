@@ -14,7 +14,7 @@ pub fn test_wasm(name: &str) -> PathBuf {
 pub trait SorobanCommand {
     /// Default is with none
     fn new_cmd() -> Command {
-        Command::cargo_bin("soroban").expect("failed to find local soroban binary")
+        Command::cargo_bin("soroban-cli").expect("failed to find local soroban-cli binary")
     }
 }
 
