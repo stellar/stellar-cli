@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.75"
+version = "1.0.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41ca34107f97baef6cfb231b32f36115781856b8f8208e8c580e0bcaea374842"
+checksum = "76a284da2e6fe2092f2353e51713435363112dfd60030e22add80be333fb928f"
 dependencies = [
  "jobserver",
 ]
@@ -1037,9 +1037,9 @@ checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
 
 [[package]]
 name = "libm"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "292a948cd991e376cf75541fe5b97a1081d713c618b4f1b9500f8844e49eb565"
+checksum = "348108ab3fba42ec82ff6e9564fc4ca0247bdccdc68dd8af9764bbc79c3c8ffb"
 
 [[package]]
 name = "link-cplusplus"
@@ -1839,7 +1839,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "0.2.1"
+version = "0.1.2"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2001,7 +2001,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-tools"
-version = "0.1.2"
+version = "0.2.1"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2024,7 +2024,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-spec",
  "soroban-token-spec",
- "stellar-strkey 0.0.6",
+ "stellar-strkey",
  "thiserror",
  "tokio",
  "warp",
