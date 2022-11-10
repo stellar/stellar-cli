@@ -85,7 +85,7 @@ jobs:
       - run: while ! [ "$(curl -s --fail localhost:8000 | jq '.history_latest_ledger')" -gt 0 ]; do echo waiting; sleep 1; done
       # Run e2e tests sequentially to avoid	sequence number	mismatches
       # TODO: use different accounts in different tests to avoid the data race
-      - run: cargo test --test it --target ${{ matrix.target }} -- e2e_rpc_server --ignored --test-threads 1
+      - run: cargo test --test it --workspace --target ${{ matrix.target }} -- e2e_rpc_server --ignored --test-threads 1
 
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
