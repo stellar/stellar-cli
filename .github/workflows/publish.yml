@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
 
   publish:
@@ -19,33 +23,37 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            apt-install: gcc-aarch64-linux-gnu
           - os: macos-latest
             target: x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
-          # TODO: Re-enable when this job is updated to support Windows.
-          # - os: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   ext: .exe
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: .exe
     runs-on: ${{ matrix.os }}
     env:
-      VERSION: '${{ github.event.release.release.name }}'
-      NAME: 'soroban-cli-${{ github.event.release.release.name }}-${{ matrix.target }}'
+      VERSION: '${{ github.event.release.name }}'
+      NAME: 'soroban-cli-${{ github.event.release.name }}-${{ matrix.target }}'
     steps:
     - uses: actions/checkout@v3
     - run: rustup update
     - run: rustup target add ${{ matrix.target }}
-    - if: matrix.apt-install
-      run: sudo apt-get -y install ${{ matrix.apt-install }}
+    - if: matrix.target == 'aarch64-unknown-linux-gnu'
+      run: sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - name: Package
       run: cargo package --no-verify
     - name: Build
+      env:
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       run: |
         cd target/package
         tar xvfz soroban-cli-$VERSION.crate
         cd soroban-cli-$VERSION
         cargo build --target-dir=../.. --release --target ${{ matrix.target }}
+    - uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.NAME }}
+        path: 'target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'
     - name: Upload
       uses: actions/github-script@v6
       with:
@@ -54,7 +62,7 @@ jobs:
           await github.rest.repos.uploadReleaseAsset({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            release_id: ${{ github.event.release.release.id }},
+            release_id: ${{ github.event.release.id }},
             name: '${{ env.NAME }}${{ matrix.ext }}',
             data: fs.readFileSync('target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'),
           });

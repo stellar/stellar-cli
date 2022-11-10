@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contracterror, contractimpl, panic_error, Address, Env};
+use soroban_sdk::{contracterror, contractimpl, panic_with_error, Address, Env};
 
 #[contracterror]
 #[derive(Copy, Clone)]
@@ -15,7 +15,7 @@ impl Contract {
     pub fn invkexists(env: Env) -> bool {
         match env.invoker() {
             Address::Account(account_id) => env.accounts().get(&account_id).is_some(),
-            Address::Contract(_) => panic_error!(&env, Error::InvokerIsContract),
+            Address::Contract(_) => panic_with_error!(&env, Error::InvokerIsContract),
         }
     }
 }

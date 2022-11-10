@@ -113,7 +113,7 @@ impl Cmd {
         let routes = jsonrpc_route.with(cors);
 
         let addr: SocketAddr = ([127, 0, 0, 1], self.port).into();
-        println!("Listening on: {}/soroban/rpc", addr);
+        println!("Listening on: {addr}/soroban/rpc");
         warp::serve(routes).run(addr).await;
         Ok(())
     }
@@ -182,7 +182,7 @@ fn reply(
             result: res,
         }),
         Err(err) => {
-            eprintln!("err: {:?}", err);
+            eprintln!("err: {err:?}");
             jsonrpc::Response::Err(jsonrpc::ErrorResponse {
                 jsonrpc: "2.0".to_string(),
                 id: id.as_ref().unwrap_or(&jsonrpc::Id::Null).clone(),
@@ -537,7 +537,7 @@ async fn send_transaction(
                             }
                         }
                         Err(err) => {
-                            eprintln!("error: {:?}", err);
+                            eprintln!("error: {err:?}");
                             json!({
                                 "id": id,
                                 "status": "error",

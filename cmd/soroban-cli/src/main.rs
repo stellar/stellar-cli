@@ -122,6 +122,6 @@ async fn main() {
     };
 
     if let Err(e) = run(root.cmd, &mut saved_matches).await {
-        eprintln!("error: {}", e);
+        eprintln!("error: {e}");
     }
 }

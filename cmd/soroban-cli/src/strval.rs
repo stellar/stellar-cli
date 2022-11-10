@@ -32,8 +32,8 @@ impl Display for StrValError {
         match self {
             Self::UnknownError => write!(f, "an unknown error occurred")?,
             Self::InvalidValue => write!(f, "value is not parseable to type")?,
-            Self::Serde(e) => write!(f, "{}", e)?,
-            Self::Xdr(e) => write!(f, "{}", e)?,
+            Self::Serde(e) => write!(f, "{e}")?,
+            Self::Xdr(e) => write!(f, "{e}")?,
         };
         Ok(())
     }
@@ -116,7 +116,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         // Number parsing
         (ScSpecTypeDef::BigInt, Value::String(s)) => from_string(s, &ScSpecTypeDef::BigInt)?,
         (ScSpecTypeDef::BigInt, Value::Number(n)) => {
-            from_json(&Value::String(format!("{}", n)), &ScSpecTypeDef::BigInt)?
+            from_json(&Value::String(format!("{n}")), &ScSpecTypeDef::BigInt)?
         }
         (ScSpecTypeDef::I32, Value::Number(n)) => ScVal::I32(
             n.as_i64()

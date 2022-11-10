@@ -33,7 +33,7 @@ fn create_and_invoke_token_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
     Standalone::new_cmd()
-        .args(&[
+        .args([
             "token",
             "create",
             "--name=Stellar Lumens",
@@ -46,7 +46,7 @@ fn create_and_invoke_token_contract_against_rpc_server() {
         .success();
 
     Standalone::new_cmd()
-        .args(&[
+        .args([
             "invoke",
             "--id=8af3f0c5c2c4b5a3c6ac67b390f84d9db843b48827376f42e5bad215c42588f7",
             "--fn=symbol",
