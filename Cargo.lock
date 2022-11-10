@@ -1836,14 +1836,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soroban-auth"
-version = "0.2.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0#4d2559c05f4846d11ae967764b031f297eeeb2d6"
-dependencies = [
- "soroban-sdk 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "soroban-cli"
 version = "0.2.1"
 dependencies = [
@@ -1865,7 +1857,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.10.6",
- "soroban-auth 0.2.1 (git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0)",
  "soroban-env-host 0.0.9 (git+https://github.com/stellar/rs-soroban-env?rev=c04c2332)",
  "soroban-spec 0.2.1 (git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0)",
  "soroban-token-spec",
@@ -2066,7 +2057,7 @@ name = "soroban-token-spec"
 version = "0.2.1"
 source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d2559c0#4d2559c05f4846d11ae967764b031f297eeeb2d6"
 dependencies = [
- "soroban-auth 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "soroban-auth",
  "soroban-sdk 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
