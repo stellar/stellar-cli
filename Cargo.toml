@@ -60,22 +60,22 @@ default-members = ["."]
 [workspace.dependencies.soroban-env-host]
 version = "0.0.9"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "c04c2332"
+rev = "99de1bf0"
 
 [workspace.dependencies.soroban-spec]
 version = "0.2.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "4d2559c0"
+rev = "63bef69c"
 
 [workspace.dependencies.soroban-token-spec]
 version = "0.2.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "4d2559c0"
+rev = "63bef69c"
 
 [workspace.dependencies.soroban-sdk]
 version = "0.2.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "4d2559c0"
+rev = "63bef69c"
 
 [workspace.dependencies.stellar-strkey]
 version = "0.0.6"
