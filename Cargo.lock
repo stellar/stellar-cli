@@ -2008,6 +2008,7 @@ dependencies = [
  "base64",
  "clap",
  "clap_complete",
+ "crate-git-revision",
  "csv",
  "ed25519-dalek",
  "hex",

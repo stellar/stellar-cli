@@ -10,14 +10,11 @@ version = "0.1.2"
 edition = "2021"
 rust-version = "1.64"
 autobins = false
-build = "build.rs"
+build = "../../build.rs"
 
 [[bin]]
 name = "soroban-cli"
 path = "src/main.rs"
-
-[build-dependencies]
-crate-git-revision = "0.0.2"
 
 [dependencies]
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
@@ -47,7 +44,9 @@ jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
 wasm-opt = "0.110.1"
 
+[build-dependencies]
+crate-git-revision = "0.0.2"
+
 [dev_dependencies]
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
-

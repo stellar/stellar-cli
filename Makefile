@@ -2,9 +2,6 @@ all: check build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
-# set the GIT_REVISION unless it's already set by the caller.
-export GIT_REVISION?=0.0.2
-
 # update the Cargo.lock every time the Cargo.toml changes.
 Cargo.lock: Cargo.toml
 	cargo update

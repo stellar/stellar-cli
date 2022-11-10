@@ -10,8 +10,10 @@ version = "0.2.1"
 edition = "2021"
 rust-version = "1.65"
 autobins = false
-#build = "build.rs"
+build = "build.rs"
 
+[build-dependencies]
+crate-git-revision = "0.0.2"
 
 [[bin]]
 name = "soroban-cli"
