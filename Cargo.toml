@@ -61,7 +61,6 @@ default-members = ["."]
 version = "0.0.9"
 git = "https://github.com/stellar/rs-soroban-env"
 rev = "c04c2332"
-#path = "../rs-soroban-env/soroban-env-host"
 
 [workspace.dependencies.soroban-spec]
 version = "0.2.1"
@@ -82,6 +81,15 @@ rev = "4d2559c0"
 version = "0.0.6"
 git = "https://github.com/stellar/rs-stellar-strkey"
 rev = "d1b68fd1"
+
+# [patch."https://github.com/stellar/rs-stellar-xdr"]
+# stellar-xdr = { path = "../rs-stellar-xdr/" }
+# [patch."https://github.com/stellar/rs-soroban-env"]
+# soroban-env-host = { path = "../rs-soroban-env/soroban-env-host/" }
+# [patch."https://github.com/stellar/rs-soroban-sdk"]
+# soroban-spec = { path = "../rs-soroban-sdk/soroban-spec/" }
+# soroban-token-spec = { path = "../rs-soroban-sdk/soroban-token-spec/" }
+# soroban-sdk = { path = "../rs-soroban-sdk/soroban-sdk/" }
 
 [profile.test-wasms]
 inherits = "release"
