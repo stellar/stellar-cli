@@ -20,7 +20,6 @@ path = "src/main.rs"
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
 soroban-spec = { workspace = true }
 soroban-token-spec = { workspace = true }
-soroban-auth = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 clap = { version = "3.1.18", features = ["derive", "env"] }
