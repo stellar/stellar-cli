@@ -23,7 +23,6 @@ path = "cmd/soroban-cli/src/main.rs"
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
 soroban-spec = { workspace = true }
 soroban-token-spec = { workspace = true }
-soroban-auth = { workspace = true }
 stellar-strkey = { workspace = true }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 base64 = "0.13.0"
@@ -58,36 +57,39 @@ members = [
 ]
 default-members = ["cmd/soroban-cli"]
 
-# The dependencies in the [workspace.dependencies] should be of the same version as in
-# [patch.crates-io]; This is required so that the entire dependency tree would end up using
-# the same exact version of the repositories.
-[workspace.dependencies]
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-soroban-auth = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "d1b68fd1" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
+[workspace.dependencies.soroban-env-host]
+version = "0.0.9"
+git = "https://github.com/stellar/rs-soroban-env"
+rev = "99de1bf0"
 
-[patch.crates-io]
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-soroban-auth = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-soroban-sdk-macros = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d2559c0" }
-stellar-strkey = { git = "https://github.com/stellar/rs-stellar-strkey", rev = "d1b68fd1" }
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
-soroban-env-guest = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
-soroban-env-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
-soroban-native-sdk-macros = { git = "https://github.com/stellar/rs-soroban-env", rev = "c04c2332" }
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "e88f9fa7" }
-wasmi = { package = "soroban-wasmi", git = "https://github.com/stellar/wasmi", rev = "d1ec0036" }
+[workspace.dependencies.soroban-spec]
+version = "0.2.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "63bef69c"
 
-# soroban-env-common = { path = "../rs-soroban-env/soroban-env-common" }
-# soroban-env-host = { path = "../rs-soroban-env/soroban-env-host" }
-# soroban-env-macros = { path = "../rs-soroban-env/soroban-env-macros" }
-# soroban-native-sdk-macros = { path = "../rs-soroban-env/soroban-native-sdk-macros" }
+[workspace.dependencies.soroban-token-spec]
+version = "0.2.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "63bef69c"
+
+[workspace.dependencies.soroban-sdk]
+version = "0.2.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "63bef69c"
+
+[workspace.dependencies.stellar-strkey]
+version = "0.0.6"
+git = "https://github.com/stellar/rs-stellar-strkey"
+rev = "d1b68fd1"
+
+# [patch."https://github.com/stellar/rs-soroban-env"]
+# soroban-env-host = { path = "../rs-soroban-env/soroban-env-host/" }
+# [patch."https://github.com/stellar/rs-soroban-sdk"]
+# soroban-spec = { path = "../rs-soroban-sdk/soroban-spec/" }
+# soroban-token-spec = { path = "../rs-soroban-sdk/soroban-token-spec/" }
+# soroban-sdk = { path = "../rs-soroban-sdk/soroban-sdk/" }
+# [patch."https://github.com/stellar/rs-stellar-xdr"]
+# stellar-xdr = { path = "../rs-stellar-xdr/" }
 
 [profile.test-wasms]
 inherits = "release"
