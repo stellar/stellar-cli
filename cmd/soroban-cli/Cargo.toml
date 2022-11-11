@@ -10,7 +10,7 @@ version = "0.1.2"
 edition = "2021"
 rust-version = "1.64"
 autobins = false
-build = "../../build.rs"
+build = "build.rs"
 
 [[bin]]
 name = "soroban-cli"
