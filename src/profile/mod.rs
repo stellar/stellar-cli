@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use clap::{Parser, Subcommand};
 use crate::HEADING_CONFIG;
+use clap::{Parser, Subcommand};
 
 pub mod current;
 pub mod ls;

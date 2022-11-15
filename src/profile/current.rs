@@ -1,7 +1,7 @@
-use std::{fmt::Debug};
+use std::fmt::Debug;
 
-use clap::Parser;
 use crate::profile::store;
+use clap::Parser;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -10,8 +10,7 @@ pub enum Error {
 }
 
 #[derive(Parser, Debug)]
-pub struct Cmd {
-}
+pub struct Cmd {}
 
 impl Cmd {
     pub fn run(&self, profiles_file: &std::path::PathBuf) -> Result<(), Error> {

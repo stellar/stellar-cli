@@ -1,4 +1,4 @@
-use std::{fmt::Debug};
+use std::fmt::Debug;
 
 use clap::Parser;
 // use rand::Rng;
@@ -14,7 +14,6 @@ pub enum Error {
     #[error("profile already exists: {name}")]
     ProfileAlreadyExists { name: String },
 }
-
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -40,7 +39,6 @@ pub struct Cmd {
     /// RPC server endpoint
     #[clap(
         long,
-        requires = "secret-key",
         requires = "network-passphrase",
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
@@ -67,9 +65,12 @@ impl Cmd {
         let mut state = store::read(profiles_file)?;
 
         // Generate the secret key if not provided
-        let secret_key: Option<String> = self.secret_key.clone().or_else(|| Some(store::generate_secret_key()));
+        let secret_key: Option<String> = self
+            .secret_key
+            .clone()
+            .or_else(|| Some(store::generate_secret_key()));
 
-        let p = store::Profile{
+        let p = store::Profile {
             ledger_file: Some(self.ledger_file.clone()),
             rpc_url: self.rpc_url.clone(),
             secret_key,
@@ -82,11 +83,13 @@ impl Cmd {
                 continue;
             }
             if !self.force {
-                return Err(Error::ProfileAlreadyExists{name: self.name.clone()})
+                return Err(Error::ProfileAlreadyExists {
+                    name: self.name.clone(),
+                });
             }
             t.1 = p;
             store::commit(profiles_file, &state)?;
-            return Ok(())
+            return Ok(());
         }
 
         // Doesn't exist, add it.

@@ -1,7 +1,7 @@
-use std::{fmt::Debug};
+use std::fmt::Debug;
 
-use clap::Parser;
 use crate::profile::store;
+use clap::Parser;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,7 +22,9 @@ impl Cmd {
     pub fn run(&self, profiles_file: &std::path::PathBuf) -> Result<(), Error> {
         let mut state = store::read(profiles_file)?;
         if !state.profiles.iter().any(|(name, _)| name == &self.name) {
-            return Err(Error::ProfileNotFound{name: self.name.clone()})
+            return Err(Error::ProfileNotFound {
+                name: self.name.clone(),
+            });
         }
         state.current = self.name.clone();
         store::commit(profiles_file, &state)?;

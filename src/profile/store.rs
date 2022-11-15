@@ -1,8 +1,8 @@
 use std::{fs::create_dir_all, fs::File, io};
 
+use crate::network;
 use rand::Rng;
 use stellar_strkey::StrkeyPrivateKeyEd25519;
-use crate::network;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -26,19 +26,17 @@ pub fn generate_secret_key() -> String {
 
 impl Default for ProfilesConfig {
     fn default() -> Self {
-        Self{
+        Self {
             current: "sandbox".to_string(),
-            profiles: vec![
-                (
-                    "sandbox".to_string(),
-                    Profile{
-                        ledger_file: Some(".soroban/ledger.json".into()),
-                        rpc_url: None,
-                        secret_key: Some(generate_secret_key()),
-                        network_passphrase: Some(network::SANDBOX_NETWORK_PASSPHRASE.to_string()),
-                    }
-                ),
-            ],
+            profiles: vec![(
+                "sandbox".to_string(),
+                Profile {
+                    ledger_file: Some(".soroban/ledger.json".into()),
+                    rpc_url: None,
+                    secret_key: Some(generate_secret_key()),
+                    network_passphrase: Some(network::SANDBOX_NETWORK_PASSPHRASE.to_string()),
+                },
+            )],
         }
     }
 }
@@ -55,16 +53,15 @@ pub struct Profile {
 }
 
 pub fn read(profiles_file: &std::path::PathBuf) -> Result<ProfilesConfig, Error> {
-        // TODO: Default if file isn't found
-        let mut file = match File::open(profiles_file) {
-            Ok(f) => f,
-            Err(e) => match e.kind() {
-                io::ErrorKind::NotFound => return Ok(ProfilesConfig::default()),
-                _ => return Err(Error::Io(e)),
-            }
-        };
-        let state: ProfilesConfig = serde_json::from_reader(&mut file)?;
-        Ok(state)
+    let mut file = match File::open(profiles_file) {
+        Ok(f) => f,
+        Err(e) => match e.kind() {
+            io::ErrorKind::NotFound => return Ok(ProfilesConfig::default()),
+            _ => return Err(Error::Io(e)),
+        },
+    };
+    let state: ProfilesConfig = serde_json::from_reader(&mut file)?;
+    Ok(state)
 }
 
 pub fn commit(profiles_file: &std::path::PathBuf, new_state: &ProfilesConfig) -> Result<(), Error> {
