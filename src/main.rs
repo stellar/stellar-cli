@@ -8,6 +8,7 @@ mod invoke;
 mod jsonrpc;
 mod network;
 mod optimize;
+mod profile;
 mod read;
 mod rpc;
 mod serve;
@@ -18,6 +19,7 @@ mod utils;
 mod version;
 mod xdr;
 
+const HEADING_CONFIG: &str = "OPTIONS (CONFIG)";
 const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
 const HEADING_RPC: &str = "OPTIONS (RPC)";
 
@@ -43,6 +45,8 @@ enum Cmd {
     Inspect(inspect::Cmd),
     /// Optimize a WASM file
     Optimize(optimize::Cmd),
+    /// Select and manage profiles
+    Profile(profile::Root),
     /// Print the current value of a contract-data ledger entry
     Read(read::Cmd),
     /// Run a local webserver for web app development and testing
@@ -74,6 +78,8 @@ enum CmdError {
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
     #[error(transparent)]
+    Profile(#[from] profile::Error),
+    #[error(transparent)]
     Read(#[from] read::Error),
     #[error(transparent)]
     Serve(#[from] serve::Error),
@@ -95,6 +101,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
             let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
             invoke.run(&sub_arg_matches).await?;
         }
+        Cmd::Profile(profile) => profile.run()?,
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Token(token) => token.run().await?,
