@@ -1,49 +1,30 @@
-use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
+use std::{fmt::Debug};
 
 use clap::Parser;
 // use rand::Rng;
 // use sha2::{Digest, Sha256};
 // use stellar_strkey::StrkeyPublicKeyEd25519;
 
-use crate::{
-    snapshot, HEADING_CONFIG, HEADING_RPC, HEADING_SANDBOX,
-};
+use crate::{profile::store, HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
-        error: snapshot::Error,
-    },
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitLedgerFile {
-        filepath: std::path::PathBuf,
-        error: snapshot::Error,
-    },
-    #[error("cannot parse secret key")]
-    CannotParseSecretKey,
-    #[error("error parsing int: {0}")]
-    ParseIntError(#[from] ParseIntError),
-    #[error("internal conversion error: {0}")]
-    TryFromSliceError(#[from] TryFromSliceError),
+    #[error(transparent)]
+    ProfileStoreError(#[from] store::Error),
+    #[error("profile already exists: {name}")]
+    ProfileAlreadyExists { name: String },
 }
+
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// File to persist profile config
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value = "~/.config/soroban/config.json",
-        env = "SOROBAN_CONFIG_FILE",
-        help_heading = HEADING_CONFIG,
-    )]
-    config_file: std::path::PathBuf,
-
     /// Name of the profile, e.g. "sandbox"
     #[clap(long)]
     name: String,
+
+    /// Overwrite any existing profile with the same name.
+    #[clap(long, short = 'f')]
+    force: bool,
 
     /// File to persist ledger state (if using the sandbox)
     #[clap(
@@ -82,7 +63,35 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        todo!()
+    pub fn run(&self, profiles_file: &std::path::PathBuf) -> Result<(), Error> {
+        let mut state = store::read(profiles_file)?;
+
+        // Generate the secret key if not provided
+        let secret_key: Option<String> = self.secret_key.clone().or_else(|| Some(store::generate_secret_key()));
+
+        let p = store::Profile{
+            ledger_file: Some(self.ledger_file.clone()),
+            rpc_url: self.rpc_url.clone(),
+            secret_key,
+            network_passphrase: self.network_passphrase.clone(),
+        };
+
+        // See if it already exists
+        for t in state.profiles.iter_mut() {
+            if t.0 != self.name {
+                continue;
+            }
+            if !self.force {
+                return Err(Error::ProfileAlreadyExists{name: self.name.clone()})
+            }
+            t.1 = p;
+            store::commit(profiles_file, &state)?;
+            return Ok(())
+        }
+
+        // Doesn't exist, add it.
+        state.profiles.push((self.name.clone(), p));
+        store::commit(profiles_file, &state)?;
+        Ok(())
     }
 }

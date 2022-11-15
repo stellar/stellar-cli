@@ -1,44 +1,22 @@
-use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
+use std::{fmt::Debug};
 
 use clap::Parser;
-
-use crate::{
-    snapshot, HEADING_CONFIG,
-};
+use crate::profile::store;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("reading file {filepath}: {error}")]
-    CannotReadConfigFile {
-        filepath: std::path::PathBuf,
-        error: snapshot::Error,
-    },
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitConfigFile {
-        filepath: std::path::PathBuf,
-        error: snapshot::Error,
-    },
-    #[error("cannot find profile: {name}")]
-    ProfileNotFound {
-        name: String,
-    },
+    #[error(transparent)]
+    ProfileStoreError(#[from] store::Error),
 }
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// File to persist profile config
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value = "~/.config/soroban/config.json",
-        env = "SOROBAN_CONFIG_FILE",
-        help_heading = HEADING_CONFIG,
-    )]
-    config_file: std::path::PathBuf,
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        todo!()
+    pub fn run(&self, profiles_file: &std::path::PathBuf) -> Result<(), Error> {
+        let state = store::read(profiles_file)?;
+        println!("{}", state.current);
+        Ok(())
     }
 }
