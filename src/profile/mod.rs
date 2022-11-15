@@ -7,7 +7,7 @@ pub mod current;
 pub mod ls;
 pub mod new;
 pub mod store;
-pub mod use_profile;
+pub mod use_cmd;
 
 #[derive(Parser, Debug)]
 pub struct Root {
@@ -34,7 +34,7 @@ enum Cmd {
     /// Create a new profile
     New(new::Cmd),
     /// Select the default profile to use
-    Use(use_profile::Cmd),
+    Use(use_cmd::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -46,16 +46,16 @@ pub enum Error {
     #[error(transparent)]
     New(#[from] new::Error),
     #[error(transparent)]
-    Use(#[from] use_profile::Error),
+    Use(#[from] use_cmd::Error),
 }
 
 impl Root {
     pub fn run(&self) -> Result<(), Error> {
         match &self.cmd {
-            Cmd::Current(current) => current.run(&self.profiles_file)?,
-            Cmd::Ls(ls) => ls.run(&self.profiles_file)?,
+            Cmd::Current(_) => current::Cmd::run(&self.profiles_file)?,
+            Cmd::Ls(_) => ls::Cmd::run(&self.profiles_file)?,
             Cmd::New(new) => new.run(&self.profiles_file)?,
-            Cmd::Use(use_profile) => use_profile.run(&self.profiles_file)?,
+            Cmd::Use(use_cmd) => use_cmd.run(&self.profiles_file)?,
         }
         Ok(())
     }

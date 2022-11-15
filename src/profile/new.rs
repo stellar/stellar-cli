@@ -78,7 +78,7 @@ impl Cmd {
         };
 
         // See if it already exists
-        for t in state.profiles.iter_mut() {
+        for t in &mut state.profiles {
             if t.0 != self.name {
                 continue;
             }

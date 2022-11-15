@@ -10,6 +10,10 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
+    #[error("profile not found: {name}")]
+    ProfileNotFound { name: String },
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -43,13 +47,35 @@ impl Default for ProfilesConfig {
 
 // TODO: Generalize this to a list of key/value overrides, to be merged into the passed config as
 // defaults.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
     pub ledger_file: Option<std::path::PathBuf>,
     pub rpc_url: Option<String>,
     pub secret_key: Option<String>,
     pub network_passphrase: Option<String>,
+}
+
+impl Profile {
+    pub fn parse_secret_key(&self) -> Result<[u8; 32], Error> {
+        let seed = match &self.secret_key {
+            None => Err(Error::CannotParseSecretKey),
+            Some(strkey) => Ok(StrkeyPrivateKeyEd25519::from_string(strkey)
+                .map_err(|_| Error::CannotParseSecretKey)?),
+        }?;
+        Ok(seed.0)
+    }
+
+    pub fn parse_secret_key_dalek(&self) -> Result<ed25519_dalek::Keypair, Error> {
+        let seed = self.parse_secret_key()?;
+        let secret_key =
+            ed25519_dalek::SecretKey::from_bytes(&seed).map_err(|_| Error::CannotParseSecretKey)?;
+        let public_key = (&secret_key).into();
+        Ok(ed25519_dalek::Keypair {
+            secret: secret_key,
+            public: public_key,
+        })
+    }
 }
 
 pub fn read(profiles_file: &std::path::PathBuf) -> Result<ProfilesConfig, Error> {
@@ -62,6 +88,20 @@ pub fn read(profiles_file: &std::path::PathBuf) -> Result<ProfilesConfig, Error>
     };
     let state: ProfilesConfig = serde_json::from_reader(&mut file)?;
     Ok(state)
+}
+
+pub fn read_current(
+    profiles_file: &std::path::PathBuf,
+    selected: Option<String>,
+) -> Result<Profile, Error> {
+    let state = read(profiles_file)?;
+    let needle = selected.unwrap_or(state.current);
+    for (name, p) in &state.profiles {
+        if name == &needle {
+            return Ok(p.clone());
+        }
+    }
+    Err(Error::ProfileNotFound { name: needle })
 }
 
 pub fn commit(profiles_file: &std::path::PathBuf, new_state: &ProfilesConfig) -> Result<(), Error> {

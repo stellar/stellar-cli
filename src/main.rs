@@ -35,6 +35,24 @@ const HEADING_RPC: &str = "OPTIONS (RPC)";
 struct Root {
     #[clap(subcommand)]
     cmd: Cmd,
+
+    /// File to persist profile config
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value = ".soroban/profiles.json",
+        env = "SOROBAN_PROFILES_FILE",
+        help_heading = HEADING_CONFIG,
+    )]
+    profiles_file: std::path::PathBuf,
+
+    /// Profile to use to connect to the network
+    #[clap(
+        long,
+        env = "SOROBAN_PROFILE",
+        help_heading = HEADING_CONFIG,
+    )]
+    profile: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -91,29 +109,34 @@ enum CmdError {
     Deploy(#[from] deploy::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    ProfileStore(#[from] profile::store::Error),
 }
 
-async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
-    match cmd {
-        Cmd::Inspect(inspect) => inspect.run()?,
-        Cmd::Optimize(opt) => opt.run()?,
-        Cmd::Invoke(invoke) => {
-            let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
-            invoke.run(&sub_arg_matches).await?;
-        }
-        Cmd::Profile(profile) => profile.run()?,
-        Cmd::Read(read) => read.run()?,
-        Cmd::Serve(serve) => serve.run().await?,
-        Cmd::Token(token) => token.run().await?,
-        Cmd::Gen(gen) => gen.run()?,
-        Cmd::Deploy(deploy) => deploy.run().await?,
-        Cmd::Xdr(xdr) => xdr.run()?,
-        Cmd::Version(version) => version.run(),
-        Cmd::Completion(completion) => completion.run(&mut Root::command()),
-    };
-    Ok(())
+impl Root {
+    async fn run(&self, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
+        let current_profile =
+            profile::store::read_current(&self.profiles_file, self.profile.clone())?;
+        match &self.cmd {
+            Cmd::Inspect(inspect) => inspect.run()?,
+            Cmd::Optimize(opt) => opt.run()?,
+            Cmd::Invoke(invoke) => {
+                let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
+                invoke.run(&sub_arg_matches, &current_profile).await?;
+            }
+            Cmd::Profile(profile) => profile.run()?,
+            Cmd::Read(read) => read.run()?,
+            Cmd::Serve(serve) => serve.run().await?,
+            Cmd::Token(token) => token.run().await?,
+            Cmd::Gen(gen) => gen.run()?,
+            Cmd::Deploy(deploy) => deploy.run().await?,
+            Cmd::Xdr(xdr) => xdr.run()?,
+            Cmd::Version(version) => version.run(),
+            Cmd::Completion(completion) => completion.run(&mut Root::command()),
+        };
+        Ok(())
+    }
 }
-
 #[tokio::main]
 async fn main() {
     // We expand the Root::parse() invocation, so that we can save
@@ -128,7 +151,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = run(root.cmd, &mut saved_matches).await {
+    if let Err(e) = root.run(&mut saved_matches).await {
         eprintln!("error: {e}");
     }
 }

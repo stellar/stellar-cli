@@ -13,9 +13,9 @@ pub enum Error {
 pub struct Cmd {}
 
 impl Cmd {
-    pub fn run(&self, profiles_file: &std::path::PathBuf) -> Result<(), Error> {
+    pub fn run(profiles_file: &std::path::PathBuf) -> Result<(), Error> {
         let state = store::read(profiles_file)?;
-        for (name, _p) in state.profiles.iter() {
+        for (name, _p) in &state.profiles {
             println!("{}", name);
         }
         Ok(())
