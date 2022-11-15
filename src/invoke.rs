@@ -26,8 +26,9 @@ use crate::utils::{
     contract_code_to_spec_entries, create_ledger_footprint, default_account_ledger_entry,
 };
 use crate::{
-    profile, rpc, snapshot, utils,
+    profile, rpc, snapshot,
     strval::{self, StrValError},
+    utils,
 };
 
 #[derive(Parser, Debug)]
