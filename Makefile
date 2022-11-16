@@ -4,7 +4,7 @@ export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
 # update the Cargo.lock every time the Cargo.toml changes.
 Cargo.lock: Cargo.toml
-	cargo update
+	cargo update --workspace
 
 install: Cargo.lock
 	cargo install --path .

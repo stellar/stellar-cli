@@ -11,7 +11,7 @@ impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) {
         println!(
-            "soroban-cli {} ({})",
+            "soroban {} ({})",
             env!("CARGO_PKG_VERSION"),
             GIT_REVISION,
         );

@@ -16,7 +16,7 @@ build = "build.rs"
 crate-git-revision = "0.0.2"
 
 [[bin]]
-name = "soroban-cli"
+name = "soroban"
 path = "cmd/soroban-cli/src/main.rs"
 
 [dependencies]
