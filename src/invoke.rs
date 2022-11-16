@@ -319,12 +319,10 @@ impl Cmd {
         contract_id: [u8; 32],
         matches: &clap::ArgMatches,
     ) -> Result<(), Error> {
-        // TODO: More graceful error here
-        let ledger_file = opts.ledger_file.as_ref().unwrap();
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state = snapshot::read(ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-            filepath: ledger_file.clone(),
+        let mut state = snapshot::read(&opts.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+            filepath: opts.ledger_file.clone(),
             error: e,
         })?;
 
@@ -407,9 +405,9 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(state.1, ledger_info, &storage.map, ledger_file).map_err(|e| {
+        snapshot::commit(state.1, ledger_info, &storage.map, &opts.ledger_file).map_err(|e| {
             Error::CannotCommitLedgerFile {
-                filepath: ledger_file.clone(),
+                filepath: opts.ledger_file.clone(),
                 error: e,
             }
         })?;

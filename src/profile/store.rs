@@ -1,6 +1,6 @@
 use std::{fs::create_dir_all, fs::File, io};
 
-use crate::network;
+use crate::{network, HEADING_SANDBOX, HEADING_RPC};
 use rand::Rng;
 use stellar_strkey::StrkeyPrivateKeyEd25519;
 
@@ -35,7 +35,7 @@ impl Default for ProfilesConfig {
             profiles: vec![(
                 "sandbox".to_string(),
                 Profile {
-                    ledger_file: Some(".soroban/ledger.json".into()),
+                    ledger_file: ".soroban/ledger.json".into(),
                     rpc_url: None,
                     secret_key: Some(generate_secret_key()),
                     network_passphrase: Some(network::SANDBOX_NETWORK_PASSPHRASE.to_string()),
@@ -47,12 +47,41 @@ impl Default for ProfilesConfig {
 
 // TODO: Generalize this to a list of key/value overrides, to be merged into the passed config as
 // defaults.
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, clap::Args, Default, Eq, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
-    pub ledger_file: Option<std::path::PathBuf>,
+    /// File to persist ledger state (if using the sandbox)
+    #[clap(
+    long,
+    parse(from_os_str),
+    default_value = ".soroban/ledger.json",
+    conflicts_with = "rpc-url",
+    env = "SOROBAN_LEDGER_FILE",
+    help_heading = HEADING_SANDBOX,
+)]
+    pub ledger_file: std::path::PathBuf,
+
+    /// RPC server endpoint
+    #[clap(
+    long,
+    requires = "network-passphrase",
+    env = "SOROBAN_RPC_URL",
+    help_heading = HEADING_RPC,
+)]
     pub rpc_url: Option<String>,
+    /// Secret key to sign the transaction sent to the rpc server
+    #[clap(
+    long = "secret-key",
+    env = "SOROBAN_SECRET_KEY",
+    help_heading = HEADING_RPC,
+)]
     pub secret_key: Option<String>,
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[clap(
+    long = "network-passphrase",
+    env = "SOROBAN_NETWORK_PASSPHRASE",
+    help_heading = HEADING_RPC,
+)]
     pub network_passphrase: Option<String>,
 }
 
