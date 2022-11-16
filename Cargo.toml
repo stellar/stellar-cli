@@ -1,6 +1,6 @@
 [package]
-name = "soroban-cli"
-description = "Soroban CLI"
+name = "soroban-tools"
+description = "Soroban Tools"
 homepage = "https://github.com/stellar/soroban-cli"
 repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
@@ -17,7 +17,7 @@ crate-git-revision = "0.0.2"
 
 [[bin]]
 name = "soroban"
-path = "src/main.rs"
+path = "cmd/soroban-cli/src/main.rs"
 
 [dependencies]
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
@@ -51,11 +51,11 @@ assert_fs = "1.0.7"
 
 [workspace]
 members = [
-    ".",
-    "tests/fixtures/test-wasms/hello_world",
-    "tests/fixtures/test-wasms/invoker_account_exists",
+    "cmd/soroban-cli",
+    "cmd/soroban-cli/tests/fixtures/test-wasms/hello_world",
+    "cmd/soroban-cli/tests/fixtures/test-wasms/invoker_account_exists",
 ]
-default-members = ["."]
+default-members = ["cmd/soroban-cli"]
 
 [workspace.dependencies.soroban-env-host]
 version = "0.0.9"
