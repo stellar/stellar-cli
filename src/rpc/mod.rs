@@ -76,6 +76,27 @@ pub struct SimulateTransactionResponse {
     // TODO: add results and latestLedger
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetEventsResponse {
+    pub events: Vec<Event>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct Event {
+    pub ledger: String,
+
+    #[serde(rename = "ledgerClosedAt")]
+    pub ledger_closed_at: String,
+
+    #[serde(rename = "contractId")]
+    pub contract_id: String,
+
+    pub id: String,
+    pub paging_token: String,
+    pub topic: Vec<String>,
+    pub value: String,
+}
+
 pub struct Client {
     base_url: String,
 }
@@ -183,6 +204,17 @@ impl Client {
         Ok(self
             .client()?
             .request("getContractData", rpc_params![contract_id, base64_key])
+            .await?)
+    }
+
+    pub async fn get_events(
+        &self,
+        contract_ids: &Vec<String>,
+        topics: &Vec<String>,
+    ) -> Result<GetEventsResponse, Error> {
+        Ok(self
+            .client()?
+            .request("getEvents", rpc_params![contract_ids, topics])
             .await?)
     }
 }
