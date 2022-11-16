@@ -209,12 +209,24 @@ impl Client {
 
     pub async fn get_events(
         &self,
-        contract_ids: &Vec<String>,
-        topics: &Vec<String>,
+        _contract_ids: &Vec<String>,
+        _topics: &Vec<String>,
     ) -> Result<GetEventsResponse, Error> {
-        Ok(self
-            .client()?
-            .request("getEvents", rpc_params![contract_ids, topics])
-            .await?)
+        // Ok(self
+        //     .client()?
+        //     .request("getEvents", rpc_params![contract_ids, topics])
+        //     .await?)
+
+        Ok(GetEventsResponse {
+            events: vec![Event {
+                ledger: "123456789".to_string(),
+                ledger_closed_at: "timestamp".to_string(),
+                contract_id: "deadbeef".to_string(),
+                id: "1234-1".to_string(),
+                paging_token: "1234-1".to_string(),
+                topic: vec!["thisisabase64scval".to_string()],
+                value: "thisisabase64body".to_string(),
+            }],
+        })
     }
 }
