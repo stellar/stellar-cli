@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "cmd/soroban-cli",
     "cmd/soroban-cli/tests/fixtures/test-wasms/hello_world",
