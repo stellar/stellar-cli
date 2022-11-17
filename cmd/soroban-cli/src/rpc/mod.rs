@@ -209,8 +209,8 @@ impl Client {
 
     pub async fn get_events(
         &self,
-        _contract_ids: &Vec<String>,
-        _topics: &Vec<String>,
+        _contract_ids: &[String],
+        _topics: &[String],
     ) -> Result<GetEventsResponse, Error> {
         // Ok(self
         //     .client()?

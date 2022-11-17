@@ -101,11 +101,11 @@ impl Cmd {
             });
         }
 
-        for raw_contract_id in self.contract_ids.iter() {
+        for raw_contract_id in &self.contract_ids {
             // We parse the contract IDs to ensure they're the correct format,
             // but since we'll be passing them as-is to the RPC server anyway,
             // we disregard the return value.
-            utils::contract_id_from_str(&raw_contract_id).map_err(|e| {
+            utils::contract_id_from_str(raw_contract_id).map_err(|e| {
                 Error::CannotParseContractId {
                     contract_id: raw_contract_id.clone(),
                     error: e,
@@ -130,7 +130,7 @@ impl Cmd {
             return Err(Error::TargetRequired {});
         }
 
-        for event in events.iter() {
+        for event in &events {
             if self.format == "json" {
                 println!("{}", serde_json::to_string_pretty(&event).unwrap());
             } else {
