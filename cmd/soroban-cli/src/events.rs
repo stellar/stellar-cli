@@ -45,9 +45,9 @@ pub struct Cmd {
     #[clap(long, multiple = true)]
     topics: Vec<String>,
 
-    /// Formatting options: either console or json.
+    /// Formatting options for outputted events
     #[clap(
-        long, 
+        long,
         possible_values = ["console", "json"],
         default_value = "console"
     )]
@@ -58,22 +58,22 @@ pub struct Cmd {
 pub enum Error {
     #[error("invalid ledger range: low bigger than high ({low} > {high})")]
     InvalidLedgerRange { low: u32, high: u32 },
-    
+
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
         error: FromHexError,
     },
-    
+
     #[error("too many contracts IDs (max 5)")]
     TooManyContractIds {},
-    
+
     #[error("too many topic filters (max 5)")]
     TooManyTopicFilters {},
 
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
-    
+
     #[error(transparent)]
     Generic(#[from] Box<dyn std::error::Error>),
 }
@@ -116,10 +116,7 @@ impl Cmd {
             // TODO: Get events from the sandbox.
             let path = self.sandbox.as_ref().unwrap();
             if !path.exists() {
-                panic!(
-                    "Provided path ({}) does not exist",
-                    path.to_str().unwrap()
-                );
+                panic!("Provided path ({}) does not exist", path.to_str().unwrap());
             }
         }
 
