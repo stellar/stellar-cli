@@ -1,6 +1,15 @@
+use std::io;
+use std::io::Write;
+
 use clap::Parser;
 use hex::FromHexError;
+use soroban_env_host::xdr::ReadXdr;
+use soroban_env_host::xdr::ScVal;
+use soroban_env_host::xdr::StringM;
+use soroban_env_host::xdr::WriteXdr;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
+use crate::rpc::Event;
 use crate::utils;
 use crate::HEADING_RPC;
 use crate::{rpc, rpc::Client};
@@ -40,6 +49,9 @@ pub enum Error {
     TooManyTopicFilters {},
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
+    #[error(transparent)]
+    Generic(#[from] Box<dyn std::error::Error>),
 }
 
 impl Cmd {
@@ -73,27 +85,86 @@ impl Cmd {
             })?;
         }
 
-        let mut topics: Vec<String> = Vec::new();
-        for topic in self.topics.iter() {
-            // if topic == "*" || topic == "#" {
-            topics.push(topic.clone());
-            // } else {
-            //     // Like with IDs, we just ensure that the segments are valid
-            //     match ScVal::from_xdr_base64(topic.clone())? {
-            //         ScVal::Object(_) => {}
-            //     }
-            // }
-        }
+        // let mut topics: Vec<String> = Vec::new();
+        // for topic in self.topics.iter() {
+        //     if topic == "*" || topic == "#" {
+        //         topics.push(topic.clone());
+        //     } else {
+        //         // Like with IDs, we just ensure that the segments are valid
+        //         match ScVal::from_xdr_base64(topic.clone())? {
+        //             ScVal::Object(_) => {}
+        //         }
+        //     }
+        // }
+        let note: &[u8] = b"helloworld";
+
+        let topic1 = ScVal::Symbol(note.try_into().unwrap());
+        let topic2 = ScVal::U32(8008135);
+
+        println!(
+            "topics: {:?} {:?}",
+            topic1.to_xdr_base64(),
+            topic2.to_xdr_base64()
+        );
 
         if self.rpc_url.is_some() {
             let client = Client::new(self.rpc_url.as_ref().unwrap());
-            let events = client.get_events(&self.contract_ids, &topics).await?;
+            let events = client.get_events(&self.contract_ids, &self.topics).await?;
 
             for event in events.events.iter() {
-                println!("{:#?}", event);
+                print_event_in_color(event)?;
             }
         }
 
         Ok(())
     }
+}
+
+pub fn print_event_in_color(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+
+    set_green(&mut stdout)?;
+    write!(&mut stdout, "Event ")?;
+    set_white(&mut stdout)?;
+    write!(&mut stdout, "{}", event.id)?;
+
+    set_green(&mut stdout)?;
+    write!(&mut stdout, ":\n  Ledger:   ")?;
+    set_white(&mut stdout)?;
+    write!(&mut stdout, "{}", event.ledger)?;
+    set_green(&mut stdout)?;
+    write!(&mut stdout, " (closed at ")?;
+    set_white(&mut stdout)?;
+    write!(&mut stdout, "{}", event.ledger_closed_at)?;
+
+    set_green(&mut stdout)?;
+    write!(&mut stdout, ")\n  Contract: ")?;
+    set_white(&mut stdout)?;
+    write!(&mut stdout, "{}", event.contract_id)?;
+
+    set_green(&mut stdout)?;
+    write!(&mut stdout, "\n  Topics: ")?;
+    set_white(&mut stdout)?;
+    for topic in event.topic.iter() {
+        // write!(&mut stdout, "    {:?}", topic)?;
+        let scval = ScVal::from_xdr_base64(topic)?;
+        write!(&mut stdout, "\n    {:?}", scval)?;
+    }
+
+    set_green(&mut stdout)?;
+    write!(&mut stdout, "\n  Value: ")?;
+    set_white(&mut stdout)?;
+    writeln!(&mut stdout, "{:?}", event.value)?;
+
+    Ok(())
+}
+
+fn set_green(ss: &mut StandardStream) -> io::Result<()> {
+    ss.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+    write!(ss, "")
+}
+
+fn set_white(ss: &mut StandardStream) -> io::Result<()> {
+    ss.set_color(ColorSpec::new().set_fg(None))?;
+    write!(ss, "")
 }

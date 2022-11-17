@@ -1861,6 +1861,7 @@ dependencies = [
  "soroban-spec",
  "soroban-token-spec",
  "stellar-strkey",
+ "termcolor",
  "thiserror",
  "tokio",
  "warp",

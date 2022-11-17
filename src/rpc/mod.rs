@@ -219,13 +219,17 @@ impl Client {
 
         Ok(GetEventsResponse {
             events: vec![Event {
-                ledger: "123456789".to_string(),
-                ledger_closed_at: "timestamp".to_string(),
-                contract_id: "deadbeef".to_string(),
-                id: "1234-1".to_string(),
-                paging_token: "1234-1".to_string(),
-                topic: vec!["thisisabase64scval".to_string()],
-                value: "thisisabase64body".to_string(),
+                ledger: "43601283".to_string(),
+                ledger_closed_at: "2022-11-16T16:10:41Z".to_string(),
+                contract_id: "e3e82a76cc316f6289fd1ffbdf315da0f2c6be9582b84b9983a402f02ea0fff7"
+                    .to_string(),
+                id: "0164090849041387521-0000000003".to_string(),
+                paging_token: "164090849041387521-3".to_string(),
+                topic: vec![
+                    "AAAABQAAAAh0cmFuc2Zlcg==".to_string(), // "transfer" symbol
+                    "AAAAAQB6Mcc=".to_string(),             // 8008135 u32
+                ],
+                value: "AAAABQAAAAh0cmFuc2Zlcg==".to_string(),
             }],
         })
     }
