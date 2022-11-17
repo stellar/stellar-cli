@@ -35,7 +35,7 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
         conflicts_with = "rpc-url",
     )]
-    sandbox: Option<std::path::PathBuf>,
+    ledger_file: Option<std::path::PathBuf>,
 
     /// A set of (up to 5) contract IDs to filter events on
     #[clap(long = "ids", multiple = true)]
@@ -114,13 +114,12 @@ impl Cmd {
         }
 
         let mut events: Vec<Event> = Vec::new();
-        if self.rpc_url.is_some() {
-            let client = Client::new(self.rpc_url.as_ref().unwrap());
-            let rpc_event = client.get_events(&self.contract_ids, &self.topics).await?;
+        if let Some(rpc_url) = self.rpc_url.as_ref() {
+            let client = Client::new(rpc_url);
+            let rpc_event = client.get_events(&self.contract_ids, &self.topics)?;
             events = rpc_event.events;
-        } else if self.sandbox.is_some() {
+        } else if let Some(path) = self.ledger_file.as_ref() {
             // TODO: Get events from the sandbox.
-            let path = self.sandbox.as_ref().unwrap();
             if !path.exists() {
                 return Err(Error::InvalidSandboxFile {
                     path: path.to_str().unwrap().to_string(),
@@ -167,7 +166,7 @@ pub fn print_event_in_color(event: &Event) -> Result<(), Box<dyn std::error::Err
     set_white(&mut stdout)?;
     write!(&mut stdout, "\n  Topics:")?;
     set_green(&mut stdout)?;
-    for topic in event.topic.iter() {
+    for topic in &event.topic {
         let scval = ScVal::from_xdr_base64(topic)?;
         write!(&mut stdout, "\n            {:?}", scval)?;
     }

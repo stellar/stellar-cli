@@ -207,7 +207,7 @@ impl Client {
             .await?)
     }
 
-    pub async fn get_events(
+    pub fn get_events(
         &self,
         _contract_ids: &[String],
         _topics: &[String],
