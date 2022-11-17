@@ -3,7 +3,7 @@ use std::io::Write;
 
 use clap::Parser;
 use hex::FromHexError;
-use soroban_env_host::xdr::{ReadXdr, ScVal, WriteXdr};
+use soroban_env_host::xdr::{ReadXdr, ScVal};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use crate::rpc::Event;

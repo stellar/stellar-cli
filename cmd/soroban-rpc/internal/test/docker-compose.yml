@@ -1,0 +1,33 @@
+version: '3'
+services:
+  core-postgres:
+    image: postgres:9.6.17-alpine
+    restart: on-failure
+    environment:
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_DB=stellar
+    ports:
+      - "5641:5641"
+    command: ["-p", "5641"]
+
+  core:
+    platform: linux/amd64
+    # Note: Please keep the image pinned to an immutable tag matching the Captive Core version.
+    #       This avoid implicit updates which break compatibility between
+    #       the Core container and captive core.
+    image: ${CORE_IMAGE:-stellar/stellar-core:19.3.0-1006.9ce6dc4e9.focal}
+    depends_on:
+      - core-postgres
+    restart: on-failure
+    environment:
+      - TRACY_NO_INVARIANT_CHECK=1
+    ports:
+      - "11625:11625"
+      - "11626:11626"
+      # add extra port for history archive server
+      - "1570:1570"
+    entrypoint: /usr/bin/env
+    command: /start standalone
+    volumes:
+      - ./stellar-core-integration-tests.cfg:/stellar-core.cfg
+      - ./core-start.sh:/start
