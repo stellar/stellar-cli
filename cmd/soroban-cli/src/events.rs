@@ -1,7 +1,7 @@
 use std::io;
 use std::io::Write;
 
-use clap::Parser;
+use clap::{ArgEnum, Parser};
 use hex::FromHexError;
 use soroban_env_host::xdr::{ReadXdr, ScVal};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -23,7 +23,7 @@ pub struct Cmd {
     #[clap(long,
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
-        conflicts_with = "sandbox",
+        conflicts_with = "ledger-file",
     )]
     rpc_url: Option<String>,
 
@@ -39,20 +39,16 @@ pub struct Cmd {
     ledger_file: Option<std::path::PathBuf>,
 
     /// A set of (up to 5) contract IDs to filter events on
-    #[clap(long = "ids", multiple = true)]
+    #[clap(long = "id", multiple = true, max_values(5))]
     contract_ids: Vec<String>,
 
     /// A set of (up to 5) topic filters to filter events on
-    #[clap(long, multiple = true)]
+    #[clap(long = "topic", multiple = true, max_values(5))]
     topics: Vec<String>,
 
     /// Formatting options for outputted events
-    #[clap(
-        long,
-        possible_values = ["console", "json"],
-        default_value = "console"
-    )]
-    format: String,
+    #[clap(long, arg_enum, default_value = "pretty")]
+    format: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -60,23 +56,20 @@ pub enum Error {
     #[error("invalid ledger range: low bigger than high ({low} > {high})")]
     InvalidLedgerRange { low: u32, high: u32 },
 
+    #[error("sandbox filepath does not exist: {path}")]
+    InvalidSandboxFile { path: String },
+
     #[error("cannot parse contract ID {contract_id}: {error}")]
-    CannotParseContractId {
+    InvalidContractId {
         contract_id: String,
         error: FromHexError,
     },
 
-    #[error("too many contracts IDs (max 5)")]
-    TooManyContractIds {},
-
-    #[error("too many topic filters (max 5)")]
-    TooManyTopicFilters {},
+    #[error("invalid JSON string: {debug}")]
+    InvalidJson { debug: String },
 
     #[error("you must specify either an RPC server or sandbox filepath")]
-    TargetRequired {},
-
-    #[error("sandbox filepath does not exist: {path}")]
-    InvalidSandboxFile { path: String },
+    TargetRequired,
 
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
@@ -85,16 +78,16 @@ pub enum Error {
     Generic(#[from] Box<dyn std::error::Error>),
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+pub enum OutputFormat {
+    /// Colorful, human-oriented console output
+    Pretty,
+    /// JSONified console output
+    Json,
+}
+
 impl Cmd {
     pub async fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
-        if self.contract_ids.len() > 5 {
-            return Err(Error::TooManyContractIds {});
-        }
-
-        if self.topics.len() > 5 {
-            return Err(Error::TooManyTopicFilters {});
-        }
-
         if self.start_ledger > self.end_ledger {
             return Err(Error::InvalidLedgerRange {
                 low: self.start_ledger,
@@ -106,11 +99,9 @@ impl Cmd {
             // We parse the contract IDs to ensure they're the correct format,
             // but since we'll be passing them as-is to the RPC server anyway,
             // we disregard the return value.
-            utils::contract_id_from_str(raw_contract_id).map_err(|e| {
-                Error::CannotParseContractId {
-                    contract_id: raw_contract_id.clone(),
-                    error: e,
-                }
+            utils::contract_id_from_str(raw_contract_id).map_err(|e| Error::InvalidContractId {
+                contract_id: raw_contract_id.clone(),
+                error: e,
             })?;
         }
 
@@ -127,14 +118,24 @@ impl Cmd {
                 });
             }
         } else {
-            return Err(Error::TargetRequired {});
+            return Err(Error::TargetRequired);
         }
 
         for event in &events {
-            if self.format == "json" {
-                println!("{}", serde_json::to_string_pretty(&event).unwrap());
-            } else {
-                print_event_in_color(event)?;
+            match self.format {
+                OutputFormat::Json => {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&event).map_err(|e| {
+                            Error::InvalidJson {
+                                debug: format!("{:?} ({:#?})", e, event),
+                            }
+                        })?,
+                    );
+                }
+                OutputFormat::Pretty => {
+                    print_event_in_color(event)?;
+                }
             }
         }
 
