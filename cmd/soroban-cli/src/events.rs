@@ -14,7 +14,8 @@ use crate::{HEADING_RPC, HEADING_SANDBOX};
 #[derive(Parser, Debug)]
 #[clap()]
 pub struct Cmd {
-    /// The ledger range to pull events from
+    /// The (inclusive) range of ledger sequence numbers to pull events from
+    /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
     start_ledger: u32,
     end_ledger: u32,
 
