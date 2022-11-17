@@ -71,6 +71,12 @@ pub enum Error {
     #[error("too many topic filters (max 5)")]
     TooManyTopicFilters {},
 
+    #[error("you must specify either an RPC server or sandbox filepath")]
+    TargetRequired {},
+
+    #[error("sandbox filepath does not exist: {path}")]
+    InvalidSandboxFile { path: String },
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 
@@ -116,8 +122,12 @@ impl Cmd {
             // TODO: Get events from the sandbox.
             let path = self.sandbox.as_ref().unwrap();
             if !path.exists() {
-                panic!("Provided path ({}) does not exist", path.to_str().unwrap());
+                return Err(Error::InvalidSandboxFile {
+                    path: path.to_str().unwrap().to_string(),
+                });
             }
+        } else {
+            return Err(Error::TargetRequired {});
         }
 
         for event in events.iter() {
