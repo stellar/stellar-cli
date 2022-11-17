@@ -3,16 +3,13 @@ use std::io::Write;
 
 use clap::Parser;
 use hex::FromHexError;
-use soroban_env_host::xdr::ReadXdr;
-use soroban_env_host::xdr::ScVal;
-use soroban_env_host::xdr::StringM;
-use soroban_env_host::xdr::WriteXdr;
+use soroban_env_host::xdr::{ReadXdr, ScVal, WriteXdr};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use crate::rpc::Event;
 use crate::utils;
-use crate::HEADING_RPC;
 use crate::{rpc, rpc::Client};
+use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 #[clap()]
@@ -20,6 +17,25 @@ pub struct Cmd {
     /// The ledger range to pull events from
     start_ledger: u32,
     end_ledger: u32,
+
+    /// RPC server endpoint
+    #[clap(long,
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
+        conflicts_with = "sandbox",
+    )]
+    rpc_url: Option<String>,
+
+    /// Sandbox file from which to pull events from
+    #[clap(
+        long,
+        parse(from_os_str),
+        value_name = "PATH",
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
+        conflicts_with = "rpc-url",
+    )]
+    sandbox: Option<std::path::PathBuf>,
 
     /// A set of (up to 5) contract IDs to filter events on
     #[clap(long = "ids", multiple = true)]
@@ -29,39 +45,45 @@ pub struct Cmd {
     #[clap(long, multiple = true)]
     topics: Vec<String>,
 
-    /// RPC server endpoint
-    #[clap(long, env = "SOROBAN_RPC_URL", help_heading = HEADING_RPC)]
-    rpc_url: Option<String>,
+    /// Formatting options: either console or json.
+    #[clap(
+        long, 
+        possible_values = ["console", "json"],
+        default_value = "console"
+    )]
+    format: String,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("invalid ledger range: low bigger than high ({low} > {high})")]
     InvalidLedgerRange { low: u32, high: u32 },
+    
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
         error: FromHexError,
     },
+    
     #[error("too many contracts IDs (max 5)")]
     TooManyContractIds {},
+    
     #[error("too many topic filters (max 5)")]
     TooManyTopicFilters {},
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
-
+    
     #[error(transparent)]
     Generic(#[from] Box<dyn std::error::Error>),
 }
 
 impl Cmd {
     pub async fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
-        println!("{:#?}", self.contract_ids);
         if self.contract_ids.len() > 5 {
             return Err(Error::TooManyContractIds {});
         }
 
-        println!("{:#?}", self.topics);
         if self.topics.len() > 5 {
             return Err(Error::TooManyTopicFilters {});
         }
@@ -85,33 +107,26 @@ impl Cmd {
             })?;
         }
 
-        // let mut topics: Vec<String> = Vec::new();
-        // for topic in self.topics.iter() {
-        //     if topic == "*" || topic == "#" {
-        //         topics.push(topic.clone());
-        //     } else {
-        //         // Like with IDs, we just ensure that the segments are valid
-        //         match ScVal::from_xdr_base64(topic.clone())? {
-        //             ScVal::Object(_) => {}
-        //         }
-        //     }
-        // }
-        let note: &[u8] = b"helloworld";
-
-        let topic1 = ScVal::Symbol(note.try_into().unwrap());
-        let topic2 = ScVal::U32(8008135);
-
-        println!(
-            "topics: {:?} {:?}",
-            topic1.to_xdr_base64(),
-            topic2.to_xdr_base64()
-        );
-
+        let mut events: Vec<Event> = Vec::new();
         if self.rpc_url.is_some() {
             let client = Client::new(self.rpc_url.as_ref().unwrap());
-            let events = client.get_events(&self.contract_ids, &self.topics).await?;
+            let rpc_event = client.get_events(&self.contract_ids, &self.topics).await?;
+            events = rpc_event.events;
+        } else if self.sandbox.is_some() {
+            // TODO: Get events from the sandbox.
+            let path = self.sandbox.as_ref().unwrap();
+            if !path.exists() {
+                panic!(
+                    "Provided path ({}) does not exist",
+                    path.to_str().unwrap()
+                );
+            }
+        }
 
-            for event in events.events.iter() {
+        for event in events.iter() {
+            if self.format == "json" {
+                println!("{}", serde_json::to_string_pretty(&event).unwrap());
+            } else {
                 print_event_in_color(event)?;
             }
         }
@@ -123,39 +138,39 @@ impl Cmd {
 pub fn print_event_in_color(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
-    set_green(&mut stdout)?;
-    write!(&mut stdout, "Event ")?;
     set_white(&mut stdout)?;
+    write!(&mut stdout, "Event ")?;
+    set_green(&mut stdout)?;
     write!(&mut stdout, "{}", event.id)?;
 
-    set_green(&mut stdout)?;
+    set_white(&mut stdout)?;
     write!(&mut stdout, ":\n  Ledger:   ")?;
-    set_white(&mut stdout)?;
-    write!(&mut stdout, "{}", event.ledger)?;
     set_green(&mut stdout)?;
-    write!(&mut stdout, " (closed at ")?;
+    write!(&mut stdout, "{}", event.ledger)?;
     set_white(&mut stdout)?;
+    write!(&mut stdout, " (closed at ")?;
+    set_green(&mut stdout)?;
     write!(&mut stdout, "{}", event.ledger_closed_at)?;
 
-    set_green(&mut stdout)?;
-    write!(&mut stdout, ")\n  Contract: ")?;
     set_white(&mut stdout)?;
+    write!(&mut stdout, ")\n  Contract: ")?;
+    set_green(&mut stdout)?;
     write!(&mut stdout, "{}", event.contract_id)?;
 
-    set_green(&mut stdout)?;
-    write!(&mut stdout, "\n  Topics: ")?;
     set_white(&mut stdout)?;
+    write!(&mut stdout, "\n  Topics:")?;
+    set_green(&mut stdout)?;
     for topic in event.topic.iter() {
-        // write!(&mut stdout, "    {:?}", topic)?;
         let scval = ScVal::from_xdr_base64(topic)?;
-        write!(&mut stdout, "\n    {:?}", scval)?;
+        write!(&mut stdout, "\n            {:?}", scval)?;
     }
-
-    set_green(&mut stdout)?;
-    write!(&mut stdout, "\n  Value: ")?;
     set_white(&mut stdout)?;
-    writeln!(&mut stdout, "{:?}", event.value)?;
+    write!(&mut stdout, "\n  Value: ")?;
+    set_green(&mut stdout)?;
+    let scval = ScVal::from_xdr_base64(&event.value)?;
+    writeln!(&mut stdout, "{:?}", scval)?;
 
+    set_white(&mut stdout)?;
     Ok(())
 }
 

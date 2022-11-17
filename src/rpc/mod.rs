@@ -229,7 +229,7 @@ impl Client {
                     "AAAABQAAAAh0cmFuc2Zlcg==".to_string(), // "transfer" symbol
                     "AAAAAQB6Mcc=".to_string(),             // 8008135 u32
                 ],
-                value: "AAAABQAAAAh0cmFuc2Zlcg==".to_string(),
+                value: "AAAABQAAAApHaWJNb255UGxzAAA=".to_string(),
             }],
         })
     }
