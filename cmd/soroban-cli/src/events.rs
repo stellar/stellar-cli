@@ -135,7 +135,7 @@ impl Cmd {
                         })?,
                     );
                 }
-                OutputFormat::Ascii => print_event(event)?,
+                OutputFormat::Plain => print_event(event)?,
                 OutputFormat::Pretty => pretty_print_event(event)?,
             }
         }
