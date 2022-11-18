@@ -65,8 +65,11 @@ pub enum Error {
         error: FromHexError,
     },
 
-    #[error("invalid JSON string: {debug}")]
-    InvalidJson { debug: String },
+    #[error("invalid JSON string: {error} ({debug})")]
+    InvalidJson {
+        debug: String,
+        error: serde_json::Error,
+    },
 
     #[error("you must specify either an RPC server or sandbox filepath")]
     TargetRequired,
@@ -130,7 +133,8 @@ impl Cmd {
                         "{}",
                         serde_json::to_string_pretty(&event).map_err(|e| {
                             Error::InvalidJson {
-                                debug: format!("{:?} ({:#?})", e, event),
+                                debug: format!("{:#?}", event),
+                                error: e,
                             }
                         })?,
                     );
