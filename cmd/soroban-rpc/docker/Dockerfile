@@ -2,7 +2,7 @@ FROM golang:1.19.1 as build
 
 ADD . /src/soroban-rpc
 WORKDIR /src/soroban-rpc
-RUN go build -o /bin/soroban-rpc ./exp/services/soroban-rpc
+RUN go build -o /bin/soroban-rpc ./cmd/soroban-rpc
 
 
 FROM ubuntu:20.04
