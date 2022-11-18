@@ -82,6 +82,8 @@ pub enum Error {
 pub enum OutputFormat {
     /// Colorful, human-oriented console output
     Pretty,
+    /// Human-oriented console output without colors
+    Plain,
     /// JSONified console output
     Json,
 }
@@ -133,9 +135,8 @@ impl Cmd {
                         })?,
                     );
                 }
-                OutputFormat::Pretty => {
-                    print_event_in_color(event)?;
-                }
+                OutputFormat::Ascii => print_event(event)?,
+                OutputFormat::Pretty => pretty_print_event(event)?,
             }
         }
 
@@ -143,37 +144,59 @@ impl Cmd {
     }
 }
 
-pub fn print_event_in_color(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
+pub fn print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Event {}:", event.id);
+    println!(
+        "  Ledger:   {} (closed at {})",
+        event.ledger, event.ledger_closed_at
+    );
+    println!("  Contract: {}", event.contract_id);
+    println!("  Topics:");
+    for topic in &event.topic {
+        let scval = ScVal::from_xdr_base64(topic)?;
+        println!("            {:?}", scval);
+    }
+    let scval = ScVal::from_xdr_base64(&event.value)?;
+    println!("  Value:    {:?}", scval);
+
+    Ok(())
+}
+
+pub fn pretty_print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+    if !stdout.supports_color() {
+        print_event(event)?;
+        return Ok(());
+    }
 
     set_white(&mut stdout)?;
-    write!(&mut stdout, "Event ")?;
+    stdout.write(b"Event ")?;
     set_green(&mut stdout)?;
     write!(&mut stdout, "{}", event.id)?;
 
     set_white(&mut stdout)?;
-    write!(&mut stdout, ":\n  Ledger:   ")?;
+    stdout.write(b":\n  Ledger:   ")?;
     set_green(&mut stdout)?;
     write!(&mut stdout, "{}", event.ledger)?;
     set_white(&mut stdout)?;
-    write!(&mut stdout, " (closed at ")?;
+    stdout.write(b" (closed at ")?;
     set_green(&mut stdout)?;
     write!(&mut stdout, "{}", event.ledger_closed_at)?;
 
     set_white(&mut stdout)?;
-    write!(&mut stdout, ")\n  Contract: ")?;
+    stdout.write(b")\n  Contract: ")?;
     set_green(&mut stdout)?;
     write!(&mut stdout, "{}", event.contract_id)?;
 
     set_white(&mut stdout)?;
-    write!(&mut stdout, "\n  Topics:")?;
+    stdout.write(b"\n  Topics:")?;
     set_green(&mut stdout)?;
     for topic in &event.topic {
         let scval = ScVal::from_xdr_base64(topic)?;
         write!(&mut stdout, "\n            {:?}", scval)?;
     }
     set_white(&mut stdout)?;
-    write!(&mut stdout, "\n  Value: ")?;
+    stdout.write(b"\n  Value: ")?;
     set_green(&mut stdout)?;
     let scval = ScVal::from_xdr_base64(&event.value)?;
     writeln!(&mut stdout, "{:?}", scval)?;
