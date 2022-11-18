@@ -14,10 +14,19 @@ use crate::{HEADING_RPC, HEADING_SANDBOX};
 #[derive(Parser, Debug)]
 #[clap()]
 pub struct Cmd {
-    /// The (inclusive) range of ledger sequence numbers to pull events from
+    /// The first ledger sequence number in the range to pull events
     /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+    #[clap(short, long)]
     start_ledger: u32,
+
+    /// The last (and inclusive) ledger sequence number in the range to pull events
+    /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+    #[clap(short, long)]
     end_ledger: u32,
+
+    /// Formatting options for outputted events
+    #[clap(long, arg_enum, default_value = "pretty")]
+    format: OutputFormat,
 
     /// RPC server endpoint
     #[clap(long,
@@ -39,16 +48,17 @@ pub struct Cmd {
     ledger_file: Option<std::path::PathBuf>,
 
     /// A set of (up to 5) contract IDs to filter events on
-    #[clap(long = "id", multiple = true, max_values(5))]
+    #[clap(long = "id", multiple = true, max_values(5), help_heading = "FILTERS")]
     contract_ids: Vec<String>,
 
     /// A set of (up to 5) topic filters to filter events on
-    #[clap(long = "topic", multiple = true, max_values(5))]
+    #[clap(
+        long = "topic",
+        multiple = true,
+        max_values(5),
+        help_heading = "FILTERS"
+    )]
     topics: Vec<String>,
-
-    /// Formatting options for outputted events
-    #[clap(long, arg_enum, default_value = "pretty")]
-    format: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
