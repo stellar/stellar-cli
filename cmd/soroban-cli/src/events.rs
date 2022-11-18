@@ -1,10 +1,8 @@
-use std::io;
-use std::io::Write;
-
 use clap::{ArgEnum, Parser};
 use hex::FromHexError;
 use soroban_env_host::xdr::{ReadXdr, ScVal};
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
+use termcolor_output::colored;
 
 use crate::rpc::Event;
 use crate::utils;
@@ -20,7 +18,6 @@ pub struct Cmd {
     start_ledger: u32,
 
     /// The last (and inclusive) ledger sequence number in the range to pull events
-    /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
     #[clap(short, long)]
     end_ledger: u32,
 
@@ -183,48 +180,55 @@ pub fn pretty_print_event(event: &Event) -> Result<(), Box<dyn std::error::Error
         return Ok(());
     }
 
-    set_white(&mut stdout)?;
-    stdout.write(b"Event ")?;
-    set_green(&mut stdout)?;
-    write!(&mut stdout, "{}", event.id)?;
+    colored!(
+        stdout,
+        "{}Event{} {}{}{}:\n",
+        bold!(true),
+        bold!(false),
+        fg!(Some(Color::Green)),
+        event.id,
+        reset!(),
+    )?;
 
-    set_white(&mut stdout)?;
-    stdout.write(b":\n  Ledger:   ")?;
-    set_green(&mut stdout)?;
-    write!(&mut stdout, "{}", event.ledger)?;
-    set_white(&mut stdout)?;
-    stdout.write(b" (closed at ")?;
-    set_green(&mut stdout)?;
-    write!(&mut stdout, "{}", event.ledger_closed_at)?;
+    colored!(
+        stdout,
+        "  Ledger:   {}{}{} (closed at {}{}{})\n",
+        fg!(Some(Color::Green)),
+        event.ledger,
+        reset!(),
+        fg!(Some(Color::Green)),
+        event.ledger_closed_at,
+        reset!(),
+    )?;
 
-    set_white(&mut stdout)?;
-    stdout.write(b")\n  Contract: ")?;
-    set_green(&mut stdout)?;
-    write!(&mut stdout, "{}", event.contract_id)?;
+    colored!(
+        stdout,
+        "  Contract: {}{}{}\n",
+        fg!(Some(Color::Green)),
+        event.contract_id,
+        reset!(),
+    )?;
 
-    set_white(&mut stdout)?;
-    stdout.write(b"\n  Topics:")?;
-    set_green(&mut stdout)?;
+    colored!(stdout, "  Topics:\n")?;
     for topic in &event.topic {
         let scval = ScVal::from_xdr_base64(topic)?;
-        write!(&mut stdout, "\n            {:?}", scval)?;
+        colored!(
+            stdout,
+            "            {}{:?}{}\n",
+            fg!(Some(Color::Green)),
+            scval,
+            reset!(),
+        )?;
     }
-    set_white(&mut stdout)?;
-    stdout.write(b"\n  Value: ")?;
-    set_green(&mut stdout)?;
+
     let scval = ScVal::from_xdr_base64(&event.value)?;
-    writeln!(&mut stdout, "{:?}", scval)?;
+    colored!(
+        stdout,
+        "  Value: {}{:?}{}\n",
+        fg!(Some(Color::Green)),
+        scval,
+        reset!(),
+    )?;
 
-    set_white(&mut stdout)?;
     Ok(())
-}
-
-fn set_green(ss: &mut StandardStream) -> io::Result<()> {
-    ss.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-    write!(ss, "")
-}
-
-fn set_white(ss: &mut StandardStream) -> io::Result<()> {
-    ss.set_color(ColorSpec::new().set_fg(None))?;
-    write!(ss, "")
 }
