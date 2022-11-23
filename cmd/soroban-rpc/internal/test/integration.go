@@ -287,5 +287,5 @@ func findDockerComposePath() string {
 	}
 
 	// Directly jump down to the folder that should contain the configs
-	return filepath.Join(current, "soroban-rpc", "internal", "test")
+	return filepath.Join(current, "cmd", "soroban-rpc", "internal", "test")
 }
