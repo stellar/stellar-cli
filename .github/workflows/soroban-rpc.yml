@@ -45,7 +45,7 @@ jobs:
 
       - name: Build Soroban RPC reproducible build
         run: |
-          go build -v -trimpath -buildvcs=false ./cmd/soroban-rpc/soroban-rpc
+          go build -v -trimpath -buildvcs=false ./cmd/soroban-rpc
           touch empty
 
       - name: Run Soroban RPC Tests
