@@ -268,7 +268,7 @@ func findDockerComposePath() string {
 	//
 
 	if gopath := os.Getenv("GOPATH"); gopath != "" {
-		monorepo := filepath.Join(gopath, "src", "github.com", "stellar", "go")
+		monorepo := filepath.Join(gopath, "src", "github.com", "stellar", "soroban-tools")
 		if _, err = os.Stat(monorepo); !os.IsNotExist(err) {
 			current = monorepo
 		}
@@ -287,5 +287,5 @@ func findDockerComposePath() string {
 	}
 
 	// Directly jump down to the folder that should contain the configs
-	return filepath.Join(current, "exp", "services", "soroban-rpc", "internal", "test")
+	return filepath.Join(current, "soroban-rpc", "internal", "test")
 }
