@@ -49,4 +49,6 @@ jobs:
           touch empty
 
       - name: Run Soroban RPC Tests
-        run: go test -race -timeout 25m -v ./cmd/soroban-rpc/internal/test/...
+        run: |
+          pwd
+          go test -race -timeout 25m -v ./cmd/soroban-rpc/internal/test/...
