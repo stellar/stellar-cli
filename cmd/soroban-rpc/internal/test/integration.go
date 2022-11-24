@@ -57,14 +57,23 @@ type Test struct {
 	shutdownCalls []func()
 }
 
+// The dockerComposeEnv and dockerComposeEnvMu are global objects, allowing multiple tests
+// to be executed and have the dockerComposeEnv being created only once.
+var dockerComposeEnv string
+var dockerComposeEnvMu sync.Mutex
+
 func NewTest(t *testing.T) *Test {
 	if os.Getenv("SOROBAN_RPC_INTEGRATION_TESTS_ENABLED") == "" {
-		//t.Skip("skipping integration test: SOROBAN_RPC_INTEGRATION_TESTS_ENABLED not set")
+		t.Skip("skipping integration test: SOROBAN_RPC_INTEGRATION_TESTS_ENABLED not set")
 	}
 
 	composePath := findDockerComposePath()
-	goMonorepoCommit := findGoMonorepoCommit(composePath)
-	dockerComposeEnv := makeDockerComposeEnv(goMonorepoCommit)
+	dockerComposeEnvMu.Lock()
+	if dockerComposeEnv == "" {
+		goMonorepoCommit := findGoMonorepoCommit(composePath)
+		dockerComposeEnv = makeDockerComposeEnv(goMonorepoCommit)
+	}
+	dockerComposeEnvMu.Unlock()
 	i := &Test{
 		t:           t,
 		composePath: composePath,
@@ -358,15 +367,14 @@ func findCommitHash(shortCommitHash string) (string, error) {
 	}
 
 	lookoutCommit := strings.ToLower(shortCommitHash)
-
 	cIter, err := repo.Log(&git.LogOptions{
-		All: true,
+		All:   true,
+		Order: git.LogOrderCommitterTime,
 	})
 	if err != nil {
 		fmt.Printf("unable to get log entries at %s for %s: %v\n", path, shortCommitHash, err)
 		return "", err
 	}
-
 	// ... just iterates over the commits, looking for a commit with a specific hash.
 	var revCommit string
 	err = cIter.ForEach(func(c *object.Commit) error {
@@ -378,6 +386,7 @@ func findCommitHash(shortCommitHash string) (string, error) {
 		}
 		return nil
 	})
+
 	if err != nil && err != storer.ErrStop {
 		fmt.Printf("unable to iterate on lof entries for %s : %v\n", path, err)
 		return "", err
