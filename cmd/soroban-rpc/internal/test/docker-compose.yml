@@ -6,8 +6,8 @@ services:
     environment:
       - POSTGRES_PASSWORD=mysecretpassword
       - POSTGRES_DB=stellar
-    ports:
-      - "5641:5641"
+    expose:
+      - "5641"
     command: ["-p", "5641"]
 
   core:
@@ -15,7 +15,7 @@ services:
     # Note: Please keep the image pinned to an immutable tag matching the Captive Core version.
     #       This avoid implicit updates which break compatibility between
     #       the Core container and captive core.
-    image: ${CORE_IMAGE:-stellar/stellar-core:19.3.0-1006.9ce6dc4e9.focal}
+    image: ${CORE_IMAGE:-sreuland/stellar-core:19.4.1-1097.4e813f20e.focal-soroban}
     depends_on:
       - core-postgres
     restart: on-failure
@@ -31,3 +31,39 @@ services:
     volumes:
       - ./stellar-core-integration-tests.cfg:/stellar-core.cfg
       - ./core-start.sh:/start
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  horizon-postgres:
+    image: postgres:9.6.17-alpine
+    restart: on-failure
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_DB=horizon
+    expose:
+      - "5432"
+
+  horizon:
+    platform: linux/amd64
+    build:
+      # set build context to the root directory of the go monorepo
+      context: https://github.com/stellar/go.git#${GOMONOREPO_COMMIT}
+      dockerfile: services/horizon/docker/Dockerfile.dev
+    depends_on:
+      - horizon-postgres
+      - core
+    restart: on-failure
+    ports:
+      - "8000:8000"
+    environment:
+      - HISTORY_ARCHIVE_URLS=http://host.docker.internal:1570
+      - NETWORK_PASSPHRASE=Standalone Network ; February 2017
+      - ENABLE_CAPTIVE_CORE_INGESTION=false
+      - STELLAR_CORE_URL=http://host.docker.internal:11626
+      - DATABASE_URL=postgres://postgres@horizon-postgres:5432/horizon?sslmode=disable
+      - INGEST=true
+      - PER_HOUR_RATE_LIMIT=0
+      - CHECKPOINT_FREQUENCY=8
+    command: ["--apply-migrations", "--stellar-core-db-url=postgres://postgres:mysecretpassword@core-postgres:5641/stellar?sslmode=disable"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
