@@ -47,7 +47,7 @@ services:
     platform: linux/amd64
     build:
       # set build context to the root directory of the go monorepo
-      context: https://github.com/stellar/go.git
+      context: https://github.com/stellar/go.git#${GOMONOREPO_COMMIT}
       dockerfile: services/horizon/docker/Dockerfile.dev
     depends_on:
       - horizon-postgres
