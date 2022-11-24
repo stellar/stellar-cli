@@ -68,10 +68,12 @@ func NewTest(t *testing.T) *Test {
 	}
 
 	composePath := findDockerComposePath()
+	needBuild := false
 	dockerComposeEnvMu.Lock()
 	if dockerComposeEnv == "" {
 		goMonorepoCommit := findGoMonorepoCommit(composePath)
 		dockerComposeEnv = makeDockerComposeEnv(goMonorepoCommit)
+		needBuild = true
 	}
 	dockerComposeEnvMu.Unlock()
 	i := &Test{
@@ -79,8 +81,9 @@ func NewTest(t *testing.T) *Test {
 		composePath: composePath,
 		composeEnv:  dockerComposeEnv,
 	}
-
-	i.runComposeCommand("build")
+	if needBuild {
+		i.runComposeCommand("build")
+	}
 	i.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color")
 	i.prepareShutdownHandlers()
 	i.coreClient = &stellarcore.Client{URL: "http://localhost:" + strconv.Itoa(stellarCorePort)}
