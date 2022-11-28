@@ -13,7 +13,8 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
-func Start(logger *supportlog.Entry, cfg config.LocalConfig) (exitCode int) {
+func Start(cfg config.LocalConfig) (exitCode int) {
+	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
 
 	hc := &horizonclient.Client{

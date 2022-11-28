@@ -20,7 +20,6 @@ func main() {
 	var endpoint, horizonURL, stellarCoreURL, networkPassphrase string
 	var txConcurrency, txQueueSize int
 	var logLevel logrus.Level
-	logger := supportlog.New()
 
 	configOpts := config.ConfigOptions{
 		{
@@ -103,16 +102,18 @@ func main() {
 				TxConcurrency:     txConcurrency,
 				TxQueueSize:       txQueueSize,
 			}
-			exitCode := daemon.Start(logger, config)
+			exitCode := daemon.Start(config)
 			os.Exit(exitCode)
 		},
 	}
 
 	if err := configOpts.Init(cmd); err != nil {
-		logger.WithError(err).Fatal("could not parse config options")
+		supportlog.New().WithError(err).Fatal("could not parse config options")
+		os.Exit(-1)
 	}
 
 	if err := cmd.Execute(); err != nil {
-		logger.WithError(err).Fatal("could not run")
+		supportlog.New().WithError(err).Fatal("could not run")
+		os.Exit(-1)
 	}
 }
