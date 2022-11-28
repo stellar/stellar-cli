@@ -3,21 +3,17 @@ package main
 import (
 	"fmt"
 	"go/types"
-	"net/http"
-	"time"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/config"
-	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+	localConfig "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
 )
 
 func main() {
@@ -97,45 +93,18 @@ func main() {
 		Run: func(_ *cobra.Command, _ []string) {
 			configOpts.Require()
 			configOpts.SetValues()
-			logger.SetLevel(logLevel)
 
-			hc := &horizonclient.Client{
-				HorizonURL: horizonURL,
-				HTTP: &http.Client{
-					Timeout: horizonclient.HorizonTimeout,
-				},
-				AppName: "Soroban RPC",
+			config := localConfig.LocalConfig{
+				EndPoint:          endpoint,
+				HorizonURL:        horizonURL,
+				StellarCoreURL:    stellarCoreURL,
+				NetworkPassphrase: networkPassphrase,
+				LogLevel:          logLevel,
+				TxConcurrency:     txConcurrency,
+				TxQueueSize:       txQueueSize,
 			}
-			hc.SetHorizonTimeout(horizonclient.HorizonTimeout)
-
-			transactionProxy := methods.NewTransactionProxy(
-				hc,
-				txConcurrency,
-				txQueueSize,
-				networkPassphrase,
-				5*time.Minute,
-			)
-
-			handler, err := internal.NewJSONRPCHandler(internal.HandlerParams{
-				AccountStore:     methods.AccountStore{Client: hc},
-				Logger:           logger,
-				TransactionProxy: transactionProxy,
-				CoreClient:       &stellarcore.Client{URL: stellarCoreURL},
-			})
-			if err != nil {
-				logger.Fatalf("could not create handler: %v", err)
-			}
-			supporthttp.Run(supporthttp.Config{
-				ListenAddr: endpoint,
-				Handler:    handler,
-				OnStarting: func() {
-					logger.Infof("Starting Soroban JSON RPC server on %v", endpoint)
-					handler.Start()
-				},
-				OnStopping: func() {
-					handler.Close()
-				},
-			})
+			exitCode := daemon.Start(logger, config)
+			os.Exit(exitCode)
 		},
 	}
 
