@@ -40,12 +40,6 @@ impl Display for StrValError {
     }
 }
 
-impl From<std::num::ParseIntError> for StrValError {
-    fn from(_: std::num::ParseIntError) -> Self {
-        StrValError::InvalidValue(None)
-    }
-}
-
 impl From<()> for StrValError {
     fn from(_: ()) -> Self {
         StrValError::UnknownError
@@ -130,7 +124,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         ))),
         (ScSpecTypeDef::U32, Value::Number(n)) => ScVal::U32(
             n.as_u64()
-                .ok_or(StrValError::InvalidValue(None))?
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
                 .try_into()
                 .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
         ),
