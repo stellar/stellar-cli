@@ -107,6 +107,20 @@ func main() {
 		},
 	}
 
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version information and exit",
+		Run: func(_ *cobra.Command, _ []string) {
+			if localConfig.CommitHash == "" {
+				fmt.Printf("soroban-rpc dev\n")
+			} else {
+				fmt.Printf("soroban-rpc %s (%s)\n", localConfig.Version, localConfig.CommitHash)
+			}
+		},
+	}
+
+	cmd.AddCommand(versionCmd)
+
 	if err := configOpts.Init(cmd); err != nil {
 		supportlog.New().WithError(err).Fatal("could not parse config options")
 		os.Exit(-1)
