@@ -3,75 +3,53 @@ package main
 import (
 	"fmt"
 	"go/types"
-	"strings"
+	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/stellar/go/ingest/ledgerbackend"
+
+	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/config"
 	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
 func main() {
-	var port int
-	var networkPassphrase, binaryPath, configPath string
-	var captiveCoreTomlParams ledgerbackend.CaptiveCoreTomlParams
-	var historyArchiveURLs []string
-	var checkpointFrequency uint32
+	var endpoint, horizonURL, stellarCoreURL, networkPassphrase string
+	var txConcurrency, txQueueSize int
 	var logLevel logrus.Level
 	logger := supportlog.New()
 
 	configOpts := config.ConfigOptions{
 		{
-			Name:        "port",
-			Usage:       "Port to listen and serve on",
-			OptType:     types.Int,
-			ConfigKey:   &port,
-			FlagDefault: 8000,
+			Name:        "endpoint",
+			Usage:       "Endpoint to listen and serve on",
+			OptType:     types.String,
+			ConfigKey:   &endpoint,
+			FlagDefault: "localhost:8000",
+			Required:    false,
+		},
+		&config.ConfigOption{
+			Name:        "horizon-url",
+			ConfigKey:   &horizonURL,
+			OptType:     types.String,
 			Required:    true,
+			FlagDefault: "",
+			Usage:       "URL used to query Horizon",
 		},
-		{
-			Name:        "network-passphrase",
-			Usage:       "Network passphrase of the Stellar network transactions should be signed for",
+		&config.ConfigOption{
+			Name:        "stellar-core-url",
+			ConfigKey:   &stellarCoreURL,
 			OptType:     types.String,
-			ConfigKey:   &networkPassphrase,
-			FlagDefault: network.TestNetworkPassphrase,
 			Required:    true,
-		},
-		&config.ConfigOption{
-			Name:        "stellar-core-binary-path",
-			OptType:     types.String,
 			FlagDefault: "",
-			//Required:    true,
-			Usage:     "path to stellar core binary",
-			ConfigKey: &binaryPath,
-		},
-		&config.ConfigOption{
-			Name:        "captive-core-config-path",
-			OptType:     types.String,
-			FlagDefault: "",
-			//Required:    true,
-			Usage:     "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
-			ConfigKey: &configPath,
-		},
-		&config.ConfigOption{
-			Name:      "history-archive-urls",
-			ConfigKey: &historyArchiveURLs,
-			OptType:   types.String,
-			//Required:    true,
-			FlagDefault: "",
-			CustomSetValue: func(co *config.ConfigOption) error {
-				stringOfUrls := viper.GetString(co.Name)
-				urlStrings := strings.Split(stringOfUrls, ",")
-
-				*(co.ConfigKey.(*[]string)) = urlStrings
-				return nil
-			},
-			Usage: "comma-separated list of stellar history archives to connect with",
+			Usage:       "URL used to query Stellar Core",
 		},
 		&config.ConfigOption{
 			Name:        "log-level",
@@ -88,22 +66,29 @@ func main() {
 			},
 			Usage: "minimum log severity (debug, info, warn, error) to log",
 		},
-		&config.ConfigOption{
-			Name:           "stellar-captive-core-http-port",
-			ConfigKey:      &captiveCoreTomlParams.HTTPPort,
-			OptType:        types.Uint,
-			CustomSetValue: config.SetOptionalUint,
-			Required:       false,
-			FlagDefault:    uint(11626),
-			Usage:          "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
+		{
+			Name:        "network-passphrase",
+			Usage:       "Network passphrase of the Stellar network transactions should be signed for",
+			OptType:     types.String,
+			ConfigKey:   &networkPassphrase,
+			FlagDefault: network.FutureNetworkPassphrase,
+			Required:    true,
 		},
-		&config.ConfigOption{
-			Name:        "checkpoint-frequency",
-			ConfigKey:   &checkpointFrequency,
-			OptType:     types.Uint32,
-			FlagDefault: uint32(64),
+		{
+			Name:        "tx-concurrency",
+			Usage:       "Maximum number of concurrent transaction submissions",
+			OptType:     types.Int,
+			ConfigKey:   &txConcurrency,
+			FlagDefault: 10,
 			Required:    false,
-			Usage:       "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
+		},
+		{
+			Name:        "tx-queue",
+			Usage:       "Maximum length of pending transactions queue",
+			OptType:     types.Int,
+			ConfigKey:   &txQueueSize,
+			FlagDefault: 10,
+			Required:    false,
 		},
 	}
 	cmd := &cobra.Command{
@@ -114,33 +99,38 @@ func main() {
 			configOpts.SetValues()
 			logger.SetLevel(logLevel)
 
-			captiveCoreTomlParams.HistoryArchiveURLs = historyArchiveURLs
-			captiveCoreTomlParams.NetworkPassphrase = networkPassphrase
-			captiveCoreTomlParams.Strict = true
-			captiveCoreToml, err := ledgerbackend.NewCaptiveCoreTomlFromFile(configPath, captiveCoreTomlParams)
-			if err != nil {
-				logger.WithError(err).Fatal("Invalid captive core toml")
+			hc := &horizonclient.Client{
+				HorizonURL: horizonURL,
+				HTTP: &http.Client{
+					Timeout: horizonclient.HorizonTimeout,
+				},
+				AppName: "Soroban RPC",
 			}
+			hc.SetHorizonTimeout(horizonclient.HorizonTimeout)
 
-			captiveConfig := ledgerbackend.CaptiveCoreConfig{
-				BinaryPath:          binaryPath,
-				NetworkPassphrase:   networkPassphrase,
-				HistoryArchiveURLs:  historyArchiveURLs,
-				CheckpointFrequency: checkpointFrequency,
-				Log:                 logger.WithField("subservice", "stellar-core"),
-				Toml:                captiveCoreToml,
-				UserAgent:           "captivecore",
-			}
+			transactionProxy := methods.NewTransactionProxy(
+				hc,
+				txConcurrency,
+				txQueueSize,
+				networkPassphrase,
+				5*time.Minute,
+			)
 
-			handler, err := internal.NewJSONRPCHandler(captiveConfig, logger)
+			handler, err := internal.NewJSONRPCHandler(internal.HandlerParams{
+				AccountStore:     methods.AccountStore{Client: hc},
+				Logger:           logger,
+				TransactionProxy: transactionProxy,
+				CoreClient:       &stellarcore.Client{URL: stellarCoreURL},
+			})
 			if err != nil {
 				logger.Fatalf("could not create handler: %v", err)
 			}
 			supporthttp.Run(supporthttp.Config{
-				ListenAddr: fmt.Sprintf(":%d", port),
+				ListenAddr: endpoint,
 				Handler:    handler,
 				OnStarting: func() {
-					logger.Infof("Starting Soroban JSON RPC server on %v", port)
+					logger.Infof("Starting Soroban JSON RPC server on %v", endpoint)
+					handler.Start()
 				},
 				OnStopping: func() {
 					handler.Close()

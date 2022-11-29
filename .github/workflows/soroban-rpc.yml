@@ -1,0 +1,52 @@
+name: Soroban RPC
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+
+  integration:
+    name: Integration tests
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        go: [1.19.1]
+    runs-on: ${{ matrix.os }}
+    env:
+      SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
+      SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
+      PROTOCOL_19_CORE_DEBIAN_PKG_VERSION: 19.5.1-1111.eba1d3de9.focal~soroban
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # For pull requests, build and test the PR head not a merge of the PR with the destination.
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          # We need to full history for git-restore-mtime to know what modification dates to use.
+          # Otherwise, the Go test cache will fail (due to the modification time of fixtures changing).
+          fetch-depth: '0'
+
+      - uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Install Captive Core
+        run: |
+          # Workaround for https://github.com/actions/virtual-environments/issues/5245,
+          # libc++1-8 won't be installed if another version is installed (but apt won't give you a helpul
+          # message about why the installation fails)
+          sudo apt-get remove -y libc++1-10 libc++abi1-10 || true
+          
+          sudo wget -qO - https://apt.stellar.org/SDF.asc | APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=true sudo apt-key add -
+          sudo bash -c 'echo "deb https://apt.stellar.org focal unstable" > /etc/apt/sources.list.d/SDF-unstable.list'
+          sudo apt-get update && sudo apt-get install -y stellar-core="$PROTOCOL_19_CORE_DEBIAN_PKG_VERSION"
+          echo "Using stellar core version $(stellar-core version)"
+
+      - name: Build Soroban RPC reproducible build
+        run: |
+          go build -v -trimpath -buildvcs=false ./cmd/soroban-rpc
+          touch empty
+
+      - name: Run Soroban RPC Tests
+        run: go test -race -timeout 25m -v ./cmd/soroban-rpc/internal/test/...
