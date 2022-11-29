@@ -1,11 +1,14 @@
 extern crate libc;
 extern crate soroban_env_host;
 
-use std::convert::TryInto;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
-use soroban_env_host::xdr::{self, AccountId, HostFunction, LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode, ScVec, WriteXdr};
+use soroban_env_host::xdr::{
+    self, AccountId, HostFunction, LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode, ScVec,
+    WriteXdr,
+};
 use soroban_env_host::{Host, HostError, LedgerInfo};
+use std::convert::TryInto;
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
@@ -37,14 +40,13 @@ impl SnapshotSource for CSnapshotSource {
         let res_cstr = unsafe { CStr::from_ptr(res) };
         let res_str = res_cstr.to_str().unwrap();
         // TODO: use a proper error
-        let entry =
-            LedgerEntry::from_xdr_base64(res_str).map_err(|_| ScHostStorageErrorCode::UnknownError)?;
-        unsafe { FreeGoCString(res)};
+        let entry = LedgerEntry::from_xdr_base64(res_str)
+            .map_err(|_| ScHostStorageErrorCode::UnknownError)?;
+        unsafe { FreeGoCString(res) };
         Ok(entry)
     }
 
     fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
-
         let key_xdr = key.to_xdr_base64().unwrap();
         let key_cstr = CString::new(key_xdr).unwrap();
         let res = unsafe { SnapshotSourceHas(key_cstr.as_ptr()) };
@@ -71,7 +73,11 @@ impl From<CLedgerInfo> for LedgerInfo {
             protocol_version: c.protocol_version,
             sequence_number: c.sequence_number,
             timestamp: c.timestamp,
-            network_passphrase: network_passphrase_cstr.to_str().unwrap().as_bytes().to_vec(),
+            network_passphrase: network_passphrase_cstr
+                .to_str()
+                .unwrap()
+                .as_bytes()
+                .to_vec(),
             base_reserve: c.base_reserve,
         }
     }
@@ -107,7 +113,7 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
     let c_str = CString::new(str).unwrap();
     // transfer ownership to caller
     // caller needs to invoke free_preflight_result(result) when done
-    Box::into_raw(Box::new(CPreflightResult{
+    Box::into_raw(Box::new(CPreflightResult {
         error: c_str.into_raw(),
         result: null_mut(),
         footprint: null_mut(),
@@ -118,43 +124,36 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
 
 #[no_mangle]
 pub extern "C" fn preflight_host_function(
-    hf: *const libc::c_char,   // HostFunction XDR in base64
-    args: *const libc::c_char, // ScVec XDR in base64
+    hf: *const libc::c_char,             // HostFunction XDR in base64
+    args: *const libc::c_char,           // ScVec XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
-) -> *mut CPreflightResult
-{
+) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        preflight_host_function_or_maybe_panic(
-            hf,
-            args,
-            source_account,
-            ledger_info,
-        )
+        preflight_host_function_or_maybe_panic(hf, args, source_account, ledger_info)
     }));
     match res {
-        Err(panic) =>
-            match panic.downcast::<String>() {
-                Ok(panic_msg) => {
-                    preflight_error(format!("panic during preflight_host_function() call: {}", panic_msg))
-                }
-                Err(_) => {
-                    preflight_error("panic during preflight_host_function() call: unknown cause".to_string())
-                }
-            },
+        Err(panic) => match panic.downcast::<String>() {
+            Ok(panic_msg) => preflight_error(format!(
+                "panic during preflight_host_function() call: {}",
+                panic_msg
+            )),
+            Err(_) => preflight_error(
+                "panic during preflight_host_function() call: unknown cause".to_string(),
+            ),
+        },
         Ok(r) => r,
     }
 }
 
 fn preflight_host_function_or_maybe_panic(
-    hf: *const libc::c_char,   // HostFunction XDR in base64
-    args: *const libc::c_char, // ScVec XDR in base64
+    hf: *const libc::c_char,             // HostFunction XDR in base64
+    args: *const libc::c_char,           // ScVec XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
-) -> *mut CPreflightResult
-{
+) -> *mut CPreflightResult {
     let hf_cstr = unsafe { CStr::from_ptr(hf) };
     let hf = match HostFunction::from_xdr_base64(hf_cstr.to_str().unwrap()) {
         Ok(hf) => hf,
@@ -166,7 +165,7 @@ fn preflight_host_function_or_maybe_panic(
         Err(err) => return preflight_error(format!("decoding args: {}", err)),
     };
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
-    let source_account = match AccountId::from_xdr_base64(source_account_cstr.to_str().unwrap()){
+    let source_account = match AccountId::from_xdr_base64(source_account_cstr.to_str().unwrap()) {
         Ok(account_id) => account_id,
         Err(err) => return preflight_error(format!("decoding account_id: {}", err)),
     };
@@ -200,11 +199,11 @@ fn preflight_host_function_or_maybe_panic(
             return preflight_error(err.to_string());
         }
     };
-    let fp_cstr =  CString::new(fp.to_xdr_base64().unwrap()).unwrap();
+    let fp_cstr = CString::new(fp.to_xdr_base64().unwrap()).unwrap();
     let result_cstr = CString::new(result.to_xdr_base64().unwrap()).unwrap();
     // transfer ownership to caller
     // caller needs to invoke free_preflight_result(result) when done
-    Box::into_raw(Box::new(CPreflightResult{
+    Box::into_raw(Box::new(CPreflightResult {
         error: null_mut(),
         result: result_cstr.into_raw(),
         footprint: fp_cstr.into_raw(),
