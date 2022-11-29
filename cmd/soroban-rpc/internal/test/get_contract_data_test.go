@@ -145,5 +145,5 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
 	var scVal xdr.ScVal
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &scVal))
-	assert.Equal(t, testContract, scVal.MustObj().MustContractCode().MustWasm())
+	assert.Equal(t, testContract, scVal.MustObj().MustContractCode().MustWasmId())
 }
