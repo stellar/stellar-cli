@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "cmd/soroban-cli",
     "cmd/soroban-cli/tests/fixtures/test-wasms/*",
+    "cmd/soroban-rpc/lib/preflight",
 ]
 default-members = ["cmd/soroban-cli"]
 
