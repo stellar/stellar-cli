@@ -107,6 +107,28 @@ func main() {
 		},
 	}
 
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version information and exit",
+		Run: func(_ *cobra.Command, _ []string) {
+			if localConfig.CommitHash == "" {
+				fmt.Printf("soroban-rpc dev\n")
+			} else {
+				// avoid printing the branch for the main branch
+				// ( since that's what the end-user would typically have )
+				// but keep it for internal build ( so that we'll know from which branch it
+				// was built )
+				branch := localConfig.Branch
+				if branch == "main" {
+					branch = ""
+				}
+				fmt.Printf("soroban-rpc %s (%s) %s\n", localConfig.Version, localConfig.CommitHash, branch)
+			}
+		},
+	}
+
+	cmd.AddCommand(versionCmd)
+
 	if err := configOpts.Init(cmd); err != nil {
 		supportlog.New().WithError(err).Fatal("could not parse config options")
 		os.Exit(-1)
