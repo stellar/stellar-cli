@@ -162,6 +162,14 @@ impl Cmd {
                 .collect()
         };
 
+        if entries.len() == 0 {
+            println!(
+                "No entries found in {} for contract {}.",
+                self.ledger_file.display(),
+                self.contract_id
+            );
+        }
+
         let mut out = csv::Writer::from_writer(stdout());
         for data in entries {
             let output = match self.output {

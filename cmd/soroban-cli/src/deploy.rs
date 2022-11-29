@@ -150,7 +150,7 @@ impl Cmd {
             })?;
         utils::add_contract_to_ledger_entries(&mut state.1, contract_id, contract)?;
 
-        snapshot::commit(state.1, get_default_ledger_info(), [], &self.ledger_file).map_err(
+        snapshot::commit(state.1, &get_default_ledger_info(), [], &self.ledger_file).map_err(
             |e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,

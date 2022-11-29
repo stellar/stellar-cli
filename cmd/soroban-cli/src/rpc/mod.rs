@@ -12,6 +12,8 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
+    #[error("json decoding error: {0}")]
+    Serde(#[from] serde_json::Error),
     #[error("transaction submission failed")]
     TransactionSubmissionFailed,
     #[error("expected transaction status: {0}")]
@@ -81,20 +83,28 @@ pub struct GetEventsResponse {
     pub events: Vec<Event>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Event {
-    pub ledger: String,
+    #[serde(rename = "eventType")]
+    pub event_type: String,
+    pub id: String,
 
+    pub ledger: String,
     #[serde(rename = "ledgerClosedAt")]
     pub ledger_closed_at: String,
 
     #[serde(rename = "contractId")]
     pub contract_id: String,
-
-    pub id: String,
-    pub paging_token: String,
     pub topic: Vec<String>,
-    pub value: String,
+    pub value: EventValue,
+
+    #[serde(rename = "pagingToken")]
+    pub paging_token: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct EventValue {
+    pub xdr: String,
 }
 
 pub struct Client {
@@ -217,20 +227,12 @@ impl Client {
         //     .request("getEvents", rpc_params![contract_ids, topics])
         //     .await?)
 
-        Ok(GetEventsResponse {
-            events: vec![Event {
-                ledger: "43601283".to_string(),
-                ledger_closed_at: "2022-11-16T16:10:41Z".to_string(),
-                contract_id: "e3e82a76cc316f6289fd1ffbdf315da0f2c6be9582b84b9983a402f02ea0fff7"
-                    .to_string(),
-                id: "0164090849041387521-0000000003".to_string(),
-                paging_token: "164090849041387521-3".to_string(),
-                topic: vec![
-                    "AAAABQAAAAh0cmFuc2Zlcg==".to_string(), // "transfer" symbol
-                    "AAAAAQB6Mcc=".to_string(),             // 8008135 u32
-                ],
-                value: "AAAABQAAAApHaWJNb255UGxzAAA=".to_string(),
-            }],
-        })
+        let mut reader = std::fs::OpenOptions::new()
+            .read(true)
+            .open("./fixtures/event_response.json")
+            .unwrap();
+        let mock_events: GetEventsResponse = serde_json::from_reader(&mut reader)?;
+
+        Ok(mock_events)
     }
 }

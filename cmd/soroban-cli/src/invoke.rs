@@ -74,6 +74,16 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
+    /// File to persist event output
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value(".soroban/events.json"),
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_EVENTS_FILE",
+        help_heading = HEADING_SANDBOX,
+    )]
+    events_file: std::path::PathBuf,
 
     /// Secret 'S' key used to sign the transaction sent to the rpc server
     #[clap(
@@ -445,12 +455,20 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(state.1, ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
+        snapshot::commit(state.1, &ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
             Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             }
         })?;
+
+        snapshot::commit_events(&events.0, &ledger_info, &self.events_file).map_err(|e| {
+            Error::CannotCommitLedgerFile {
+                filepath: self.events_file.clone(),
+                error: e,
+            }
+        })?;
+
         Ok(())
     }
 }
