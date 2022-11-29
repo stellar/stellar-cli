@@ -114,7 +114,15 @@ func main() {
 			if localConfig.CommitHash == "" {
 				fmt.Printf("soroban-rpc dev\n")
 			} else {
-				fmt.Printf("soroban-rpc %s (%s)\n", localConfig.Version, localConfig.CommitHash)
+				// avoid printing the branch for the main branch
+				// ( since that's what the end-user would typically have )
+				// but keep it for internal build ( so that we'll know from which branch it
+				// was built )
+				branch := localConfig.Branch
+				if branch == "main" {
+					branch = ""
+				}
+				fmt.Printf("soroban-rpc %s (%s) %s\n", localConfig.Version, localConfig.CommitHash, branch)
 			}
 		},
 	}
