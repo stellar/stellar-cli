@@ -15,7 +15,7 @@ use crate::utils;
 #[derive(Debug)]
 pub enum StrValError {
     UnknownError,
-    InvalidValue,
+    InvalidValue(Option<ScSpecTypeDef>),
     Xdr(XdrError),
     Serde(serde_json::Error),
 }
@@ -31,17 +31,12 @@ impl Display for StrValError {
         write!(f, "parse error: ")?;
         match self {
             Self::UnknownError => write!(f, "an unknown error occurred")?,
-            Self::InvalidValue => write!(f, "value is not parseable to type")?,
+            Self::InvalidValue(Some(s)) => write!(f, "value is not parseable to {:?}", s)?,
+            Self::InvalidValue(None) => write!(f, "value is not parseable to type")?,
             Self::Serde(e) => write!(f, "{e}")?,
             Self::Xdr(e) => write!(f, "{e}")?,
         };
         Ok(())
-    }
-}
-
-impl From<std::num::ParseIntError> for StrValError {
-    fn from(_: std::num::ParseIntError) -> Self {
-        StrValError::InvalidValue
     }
 }
 
@@ -58,7 +53,7 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         ScSpecTypeDef::Symbol => ScVal::Symbol(
             s.as_bytes()
                 .try_into()
-                .map_err(|_| StrValError::InvalidValue)?,
+                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
         ),
 
         // This might either be a json array of u8s, or just the raw utf-8 bytes
@@ -74,9 +69,10 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         ScSpecTypeDef::BigInt => {
             if let Ok(Value::String(raw)) = serde_json::from_str(s) {
                 // First, see if it is a json string, strip the quotes and recurse
-                from_string(&raw, &ScSpecTypeDef::BigInt)?
+                from_string(&raw, t)?
             } else {
-                let big = BigInt::from_str(s).map_err(|_| StrValError::InvalidValue)?;
+                let big =
+                    BigInt::from_str(s).map_err(|_| StrValError::InvalidValue(Some(t.clone())))?;
                 let (sign, bytes) = big.to_bytes_be();
                 let b: BytesM<256_000_u32> = bytes.try_into().map_err(StrValError::Xdr)?;
                 ScVal::Object(Some(ScObject::BigInt(match sign {
@@ -114,27 +110,27 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         }
 
         // Number parsing
-        (ScSpecTypeDef::BigInt, Value::String(s)) => from_string(s, &ScSpecTypeDef::BigInt)?,
-        (ScSpecTypeDef::BigInt, Value::Number(n)) => {
-            from_json(&Value::String(format!("{n}")), &ScSpecTypeDef::BigInt)?
-        }
+        (ScSpecTypeDef::BigInt, Value::String(s)) => from_string(s, t)?,
+        (ScSpecTypeDef::BigInt, Value::Number(n)) => from_json(&Value::String(format!("{n}")), t)?,
         (ScSpecTypeDef::I32, Value::Number(n)) => ScVal::I32(
             n.as_i64()
-                .ok_or(StrValError::InvalidValue)?
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
                 .try_into()
-                .map_err(|_| StrValError::InvalidValue)?,
+                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
         ),
         (ScSpecTypeDef::I64, Value::Number(n)) => ScVal::Object(Some(ScObject::I64(
-            n.as_i64().ok_or(StrValError::InvalidValue)?,
+            n.as_i64()
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?,
         ))),
         (ScSpecTypeDef::U32, Value::Number(n)) => ScVal::U32(
             n.as_u64()
-                .ok_or(StrValError::InvalidValue)?
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
                 .try_into()
-                .map_err(|_| StrValError::InvalidValue)?,
+                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
         ),
         (ScSpecTypeDef::U64, Value::Number(n)) => ScVal::Object(Some(ScObject::U64(
-            n.as_u64().ok_or(StrValError::InvalidValue)?,
+            n.as_u64()
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?,
         ))),
 
         // Map parsing
@@ -161,41 +157,43 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         (ScSpecTypeDef::Symbol, Value::String(s)) => ScVal::Symbol(
             s.as_bytes()
                 .try_into()
-                .map_err(|_| StrValError::InvalidValue)?,
+                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
         ),
 
         // AccountID parsing
         (ScSpecTypeDef::AccountId, Value::String(s)) => ScVal::Object(Some(ScObject::AccountId({
             StrkeyPublicKeyEd25519::from_string(s)
                 .map(|key| AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(key.0))))
-                .map_err(|_| StrValError::InvalidValue)?
+                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
         }))),
 
         // Bytes parsing
         (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
             if let Ok(key) = StrkeyPublicKeyEd25519::from_string(s) {
-                key.0.try_into().map_err(|_| StrValError::InvalidValue)?
+                key.0
+                    .try_into()
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
             } else {
                 utils::padded_hex_from_str(s, bytes.n as usize)
-                    .map_err(|_| StrValError::InvalidValue)?
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
                     .try_into()
-                    .map_err(|_| StrValError::InvalidValue)?
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
             }
         }))),
         (ScSpecTypeDef::Bytes, Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
             hex::decode(s)
-                .map_err(|_| StrValError::InvalidValue)?
+                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
                 .try_into()
-                .map_err(|_| StrValError::InvalidValue)?,
+                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
         ))),
         (ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_), Value::Array(raw)) => {
             let b: Result<Vec<u8>, StrValError> = raw
                 .iter()
                 .map(|item| {
                     item.as_u64()
-                        .ok_or(StrValError::InvalidValue)?
+                        .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
                         .try_into()
-                        .map_err(|_| StrValError::InvalidValue)
+                        .map_err(|_| StrValError::InvalidValue(Some(t.clone())))
                 })
                 .collect();
             let converted: BytesM<256_000_u32> = b?.try_into().map_err(StrValError::Xdr)?;
@@ -210,7 +208,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
             ScVal::Object(Some(
                 from_json(v, value_type)?
                     .try_into()
-                    .map_err(|_| StrValError::InvalidValue)?,
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
             ))
         }
 
@@ -218,7 +216,7 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         (ScSpecTypeDef::Tuple(elem), Value::Array(raw)) => {
             let ScSpecTypeTuple { value_types } = &**elem;
             if raw.len() != value_types.len() {
-                return Err(StrValError::InvalidValue);
+                return Err(StrValError::InvalidValue(Some(t.clone())));
             };
             let parsed: Result<Vec<ScVal>, StrValError> = raw
                 .iter()
@@ -246,7 +244,7 @@ pub fn to_string(v: &ScVal) -> Result<String, StrValError> {
         // If symbols are a top-level thing we omit the wrapping quotes
         // TODO: Decide if this is a good idea or not.
         ScVal::Symbol(v) => std::str::from_utf8(v.as_slice())
-            .map_err(|_| StrValError::InvalidValue)?
+            .map_err(|_| StrValError::InvalidValue(Some(ScSpecTypeDef::Symbol)))?
             .to_string(),
         _ => serde_json::to_string(&to_json(v)?).map_err(StrValError::Serde)?,
     })
@@ -259,14 +257,14 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
             ScStatic::True => Value::Bool(true),
             ScStatic::False => Value::Bool(false),
             ScStatic::Void => Value::Null,
-            ScStatic::LedgerKeyContractCode => return Err(StrValError::InvalidValue),
+            ScStatic::LedgerKeyContractCode => return Err(StrValError::InvalidValue(None)),
         },
         ScVal::U63(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::U32(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::I32(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::Symbol(v) => Value::String(
             std::str::from_utf8(v.as_slice())
-                .map_err(|_| StrValError::InvalidValue)?
+                .map_err(|_| StrValError::InvalidValue(Some(ScSpecTypeDef::Symbol)))?
                 .to_string(),
         ),
         ScVal::Object(None) => Value::Null,
@@ -282,7 +280,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
             let mut m = serde_json::Map::<String, Value>::with_capacity(v.len());
             for ScMapEntry { key, val } in v.iter() {
                 let k: String = to_string(key)?;
-                let v: Value = to_json(val).map_err(|_| StrValError::InvalidValue)?;
+                let v: Value = to_json(val).map_err(|_| StrValError::InvalidValue(None))?;
                 m.insert(k, v);
             }
             Value::Object(m)
