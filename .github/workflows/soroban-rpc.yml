@@ -82,8 +82,8 @@ jobs:
 
       - name: Build Soroban RPC reproducible build
         run: |
-          CARGO_BUILD_TARGET=${{ matrix.rust_target }} go generate ./exp/services/soroban-rpc/...
-          CGO_ENABLED=1 GOARCH=${{ matrix.go_arch }} go build -trimpath -buildvcs=false ./exp/services/soroban-rpc
+          CARGO_BUILD_TARGET=${{ matrix.rust_target }} go generate ./cmd/soroban-rpc/...
+          CGO_ENABLED=1 GOARCH=${{ matrix.go_arch }} go build -trimpath -buildvcs=false ./cmd/soroban-rpc
           touch empty
           ls -lh soroban-rpc
           file soroban-rpc
