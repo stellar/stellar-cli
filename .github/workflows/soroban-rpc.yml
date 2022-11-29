@@ -1,5 +1,9 @@
 name: Soroban RPC
 
+defaults:
+  run:
+    shell: bash
+
 on:
   push:
     branches: [master]
@@ -31,8 +35,22 @@ jobs:
     name: Integration tests
     strategy:
       matrix:
-        os: [ubuntu-20.04]
-        go: [1.19.1]
+        include:
+          - os: ubuntu-20.04
+            rust_target: x86_64-unknown-linux-gnu
+            go_arch: amd64
+          - os: ubuntu-latest
+            rust_target: aarch64-unknown-linux-gnu
+            go_arch: arm64
+          - os: macos-latest
+            rust_target: x86_64-apple-darwin
+            go_arch: amd64
+          - os: macos-latest
+            rust_target: aarch64-apple-darwin
+            go_arch: arm64
+          - os: windows-latest
+            rust_target: x86_64-pc-windows-gnu
+            go_arch: amd64
     runs-on: ${{ matrix.os }}
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
@@ -47,14 +65,35 @@ jobs:
           # Otherwise, the Go test cache will fail (due to the modification time of fixtures changing).
           fetch-depth: '0'
 
-      - uses: ./.github/actions/setup-go
+      - uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.go }}
+          go-version: 1.19.1
 
-      - name: Install Captive Core
+      - run: rustup update
+      - run: rustup target add ${{ matrix.rust_target }}
+
+      # Use cross-compiler for linux aarch64
+      - if: matrix.rust_target == 'aarch64-unknown-linux-gnu'
+        name: Install aarch64 cross-compilation toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-10-aarch64-linux-gnu
+          echo 'CC=aarch64-linux-gnu-gcc-10' >> $GITHUB_ENV
+
+      - name: Build Soroban RPC reproducible build
+        run: |
+          CARGO_BUILD_TARGET=${{ matrix.rust_target }} go generate ./exp/services/soroban-rpc/...
+          CGO_ENABLED=1 GOARCH=${{ matrix.go_arch }} go build -trimpath -buildvcs=false ./exp/services/soroban-rpc
+          touch empty
+          ls -lh soroban-rpc
+          file soroban-rpc
+
+      # Since we need to install Captive Core, only run tests on x86_64 linux
+      - if: matrix.rust_target == 'x86_64-unknown-linux-gnu'
+        name: Install Captive Core
         run: |
           # Workaround for https://github.com/actions/virtual-environments/issues/5245,
-          # libc++1-8 won't be installed if another version is installed (but apt won't give you a helpul
+          # libc++1-8 won't be installed if another version is installed (but apt won't give you a helpful
           # message about why the installation fails)
           sudo apt-get remove -y libc++1-10 libc++abi1-10 || true
           
@@ -62,19 +101,16 @@ jobs:
           sudo bash -c 'echo "deb https://apt.stellar.org focal unstable" > /etc/apt/sources.list.d/SDF-unstable.list'
           sudo apt-get update && sudo apt-get install -y stellar-core="$PROTOCOL_20_CORE_DEBIAN_PKG_VERSION"
           echo "Using stellar core version $(stellar-core version)"
-      
+
       # Docker-compose's remote contexts on Ubuntu 20 started failing with an OpenSSL versioning error.
       # See https://stackoverflow.com/questions/66579446/error-executing-docker-compose-building-webserver-unable-to-prepare-context-un
-      - name: Work around Docker Compose problem
+      - if: matrix.rust_target == 'x86_64-unknown-linux-gnu'
+        name: Work around Docker Compose problem
         run: |
           sudo pip3 install pip --upgrade
           sudo pip3 install pyopenssl --upgrade
           sudo pip3 install docker-compose
 
-      - name: Build Soroban RPC reproducible build
-        run: |
-          go build -v -trimpath -buildvcs=false ./cmd/soroban-rpc
-          touch empty
-
-      - name: Run Soroban RPC Tests
+      - if: matrix.rust_target == 'x86_64-unknown-linux-gnu'
+        name: Run Soroban RPC Tests
         run: go test -race -timeout 25m -v ./cmd/soroban-rpc/internal/test/...

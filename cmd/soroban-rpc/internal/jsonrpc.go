@@ -44,6 +44,7 @@ type HandlerParams struct {
 	CoreClient         *stellarcore.Client
 	LedgerEntryStorage ledgerentry_storage.LedgerEntryStorage
 	Logger             *log.Entry
+	NetworkPassphrase  string
 }
 
 // NewJSONRPCHandler constructs a Handler instance
@@ -55,7 +56,7 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryStorage),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
-		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.CoreClient),
+		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
