@@ -1,6 +1,7 @@
-use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
+use clap::{AppSettings, CommandFactory, FromArgMatches, Parser};
 
 mod completion;
+mod config;
 mod deploy;
 mod gen;
 mod inspect;
@@ -35,7 +36,7 @@ struct Root {
     cmd: Cmd,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Parser, Debug)]
 enum Cmd {
     /// Invoke a contract function in a WASM file
     Invoke(invoke::Cmd),
@@ -43,6 +44,9 @@ enum Cmd {
     Inspect(inspect::Cmd),
     /// Optimize a WASM file
     Optimize(optimize::Cmd),
+    /// Read and update config
+    #[clap(subcommand)]
+    Config(config::Cmd),
     /// Print the current value of a contract-data ledger entry
     Read(read::Cmd),
     /// Run a local webserver for web app development and testing
@@ -85,26 +89,31 @@ enum CmdError {
     Deploy(#[from] deploy::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
 }
 
-async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
-    match cmd {
-        Cmd::Inspect(inspect) => inspect.run()?,
-        Cmd::Optimize(opt) => opt.run()?,
-        Cmd::Invoke(invoke) => {
-            let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
-            invoke.run(&sub_arg_matches).await?;
-        }
-        Cmd::Read(read) => read.run()?,
-        Cmd::Serve(serve) => serve.run().await?,
-        Cmd::Token(token) => token.run().await?,
-        Cmd::Gen(gen) => gen.run()?,
-        Cmd::Deploy(deploy) => deploy.run().await?,
-        Cmd::Xdr(xdr) => xdr.run()?,
-        Cmd::Version(version) => version.run(),
-        Cmd::Completion(completion) => completion.run(&mut Root::command()),
-    };
-    Ok(())
+impl Root {
+    async fn run(&self, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
+        match &self.cmd {
+            Cmd::Inspect(inspect) => inspect.run()?,
+            Cmd::Optimize(opt) => opt.run()?,
+            Cmd::Invoke(invoke) => {
+                let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
+                invoke.run(&sub_arg_matches).await?;
+            }
+            Cmd::Config(config) => config.run()?,
+            Cmd::Read(read) => read.run()?,
+            Cmd::Serve(serve) => serve.run().await?,
+            Cmd::Token(token) => token.run().await?,
+            Cmd::Gen(gen) => gen.run()?,
+            Cmd::Deploy(deploy) => deploy.run().await?,
+            Cmd::Xdr(xdr) => xdr.run()?,
+            Cmd::Version(version) => version.run(),
+            Cmd::Completion(completion) => completion.run(&mut Root::command()),
+        };
+        Ok(())
+    }
 }
 
 #[tokio::main]
@@ -121,7 +130,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = run(root.cmd, &mut saved_matches).await {
+    if let Err(e) = root.run(&mut saved_matches).await {
         eprintln!("error: {e}");
     }
 }
