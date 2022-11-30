@@ -98,21 +98,31 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	kp := keypair.Root(StandaloneNetworkPassphrase)
 	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
 
-	// Install and create the contract first
-	for _, op := range []txnbuild.Operation{
-		createInstallContractCodeOperation(t, account.AccountID, testContract, true),
-		createCreateContractOperation(t, account.AccountID, testContract, StandaloneNetworkPassphrase, true),
-	} {
-		assertSendTransaction(t, client, kp, txnbuild.TransactionParams{
-			SourceAccount:        &account,
-			IncrementSequenceNum: true,
-			Operations:           []txnbuild.Operation{op},
-			BaseFee:              txnbuild.MinBaseFee,
-			Preconditions: txnbuild.Preconditions{
-				TimeBounds: txnbuild.NewInfiniteTimeout(),
-			},
-		})
-	}
+	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createInvokeHostOperation(t, account.AccountID, true),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	assert.NoError(t, err)
+	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
+	assert.NoError(t, err)
+	b64, err := tx.Base64()
+	assert.NoError(t, err)
+
+	sendTxRequest := methods.SendTransactionRequest{Transaction: b64}
+	var sendTxResponse methods.SendTransactionResponse
+	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
+
+	txStatusResponse := getTransactionStatus(t, client, sendTxResponse.ID)
+	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	contractID := getContractID(t, sourceAccount, testSalt)
@@ -133,7 +143,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, result.LatestLedger, int64(0))
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
-	var scVal xdr.ScVal
-	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &scVal))
-	assert.Equal(t, testContract, scVal.MustObj().MustContractCode().MustWasmId())
+	var entry xdr.LedgerEntryData
+	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
+	assert.Equal(t, testContract, entry.MustContractData().Val.MustObj().MustContractCode().MustWasm())
 }
