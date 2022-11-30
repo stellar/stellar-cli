@@ -28,7 +28,7 @@ func TestGetContractDataNotFound(t *testing.T) {
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	keyB64, err := xdr.MarshalBase64(getContractCodeLedgerKey())
 	require.NoError(t, err)
-	contractID := getContractID(t, sourceAccount, testSalt)
+	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
 	request := methods.GetContractDataRequest{
 		ContractID: hex.EncodeToString(contractID[:]),
 		Key:        keyB64,
@@ -63,7 +63,7 @@ func TestGetContractDataInvalidParams(t *testing.T) {
 	assert.Equal(t, "contract id is not 32 bytes", jsonRPCErr.Message)
 	assert.Equal(t, code.InvalidParams, jsonRPCErr.Code)
 
-	contractID := getContractID(t, keypair.Root(StandaloneNetworkPassphrase).Address(), testSalt)
+	contractID := getContractID(t, keypair.Root(StandaloneNetworkPassphrase).Address(), testSalt, StandaloneNetworkPassphrase)
 	request.ContractID = hex.EncodeToString(contractID[:])
 	request.Key = "@#$!@#!@#"
 	jsonRPCErr = client.CallResult(context.Background(), "getContractData", request, &result).(*jrpc2.Error)
@@ -83,7 +83,7 @@ func TestGetContractDataDeadlineError(t *testing.T) {
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	keyB64, err := xdr.MarshalBase64(getContractCodeLedgerKey())
 	require.NoError(t, err)
-	contractID := getContractID(t, sourceAccount, testSalt)
+	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
 	request := methods.GetContractDataRequest{
 		ContractID: hex.EncodeToString(contractID[:]),
 		Key:        keyB64,
@@ -104,35 +104,25 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	kp := keypair.Root(StandaloneNetworkPassphrase)
 	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
 
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
-		SourceAccount:        &account,
-		IncrementSequenceNum: true,
-		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(t, account.AccountID, true),
-		},
-		BaseFee: txnbuild.MinBaseFee,
-		Preconditions: txnbuild.Preconditions{
-			TimeBounds: txnbuild.NewInfiniteTimeout(),
-		},
-	})
-	assert.NoError(t, err)
-	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
-	assert.NoError(t, err)
-	b64, err := tx.Base64()
-	assert.NoError(t, err)
-
-	sendTxRequest := methods.SendTransactionRequest{Transaction: b64}
-	var sendTxResponse methods.SendTransactionResponse
-	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
-
-	txStatusResponse := getTransactionStatus(t, client, sendTxResponse.ID)
-	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
+	// Install and create the contract first
+	for _, op := range []txnbuild.Operation{
+		createInstallContractCodeOperation(t, account.AccountID, testContract, true),
+		createCreateContractOperation(t, account.AccountID, testContract, StandaloneNetworkPassphrase, true),
+	} {
+		sendTransaction(t, client, kp, txnbuild.TransactionParams{
+			SourceAccount:        &account,
+			IncrementSequenceNum: true,
+			Operations:           []txnbuild.Operation{op},
+			BaseFee:              txnbuild.MinBaseFee,
+			Preconditions: txnbuild.Preconditions{
+				TimeBounds: txnbuild.NewInfiniteTimeout(),
+			},
+		})
+	}
 
 	keyB64, err := xdr.MarshalBase64(getContractCodeLedgerKey())
 	require.NoError(t, err)
-	contractID := getContractID(t, kp.Address(), testSalt)
+	contractID := getContractID(t, kp.Address(), testSalt, StandaloneNetworkPassphrase)
 	request := methods.GetContractDataRequest{
 		ContractID: hex.EncodeToString(contractID[:]),
 		Key:        keyB64,
@@ -146,4 +136,19 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	var scVal xdr.ScVal
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &scVal))
 	assert.Equal(t, testContract, scVal.MustObj().MustContractCode().MustWasmId())
+}
+
+func sendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, txnParams txnbuild.TransactionParams) {
+	tx, err := txnbuild.NewTransaction(txnParams)
+	assert.NoError(t, err)
+	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
+	assert.NoError(t, err)
+	b64, err := tx.Base64()
+	assert.NoError(t, err)
+
+	sendTxRequest := methods.SendTransactionRequest{Transaction: b64}
+	var sendTxResponse methods.SendTransactionResponse
+	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
 }
