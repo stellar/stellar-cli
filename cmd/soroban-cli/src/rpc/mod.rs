@@ -61,6 +61,13 @@ pub struct GetContractDataResponse {
 
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetLedgerEntryResponse {
+    pub xdr: String,
+    // TODO: add lastModifiedLedgerSeq and latestLedger
+}
+
+// TODO: this should also be used by serve
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Cost {
     #[serde(rename = "cpuInsns")]
     pub cpu_insns: String,

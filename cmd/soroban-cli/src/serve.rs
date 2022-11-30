@@ -234,23 +234,27 @@ fn get_contract_data(
     }))
 }
 
-fn get_ledger_entry(key_xdr: String, ledger_file: &PathBuf) -> Result<Value, Error> {
-    // Initialize storage and host
-    let state = snapshot::read(ledger_file)?;
-    let key = LedgerKey::from_xdr_base64(key_xdr)?;
+fn get_ledger_entry(k: Box<[String]>, ledger_file: &PathBuf) -> Result<Value, Error> {
+    if let Some(key_xdr) = k.into_vec().first() {
+        // Initialize storage and host
+        let state = snapshot::read(ledger_file)?;
+        let key = LedgerKey::from_xdr_base64(key_xdr)?;
 
-    let snap = Rc::new(snapshot::Snap {
-        ledger_entries: state.1,
-    });
-    let mut storage = Storage::with_recording_footprint(snap);
-    let ledger_entry = storage.get(&key)?;
+        let snap = Rc::new(snapshot::Snap {
+            ledger_entries: state.1,
+        });
+        let mut storage = Storage::with_recording_footprint(snap);
+        let ledger_entry = storage.get(&key)?;
 
-    Ok(json!({
-        "xdr": ledger_entry.data.to_xdr_base64()?,
-        "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
-        // TODO: Find "real" ledger seq number here
-        "latestLedger": 1,
-    }))
+        Ok(json!({
+            "xdr": ledger_entry.data.to_xdr_base64()?,
+            "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
+            // TODO: Find "real" ledger seq number here
+            "latestLedger": 1,
+        }))
+    } else {
+        Err(Error::Xdr(XdrError::Invalid))
+    }
 }
 
 fn parse_transaction(
