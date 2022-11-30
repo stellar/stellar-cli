@@ -31,16 +31,16 @@ func createInvokeHostOperation(t *testing.T, sourceAccount string, includeFootpr
 func createInstallContractCodeOperation(t *testing.T, sourceAccount string, contractCode []byte, includeFootprint bool) *txnbuild.InvokeHostFunction {
 	var footprint xdr.LedgerFootprint
 	if includeFootprint {
-		// TODO: Check this is still right
-		ledgerKey := xdr.LedgerKeyContractData{
-			ContractId: xdr.Hash(getContractID(t, sourceAccount, testSalt)),
-			Key:        getContractCodeLedgerKey(),
-		}
+		installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+		assert.NoError(t, err)
+		contractHash := sha256.Sum256(installContractCodeArgs)
 		footprint = xdr.LedgerFootprint{
 			ReadWrite: []xdr.LedgerKey{
 				{
-					Type:         xdr.LedgerEntryTypeContractData,
-					ContractData: &ledgerKey,
+					Type: xdr.LedgerEntryTypeContractCode,
+					ContractCode: &xdr.LedgerKeyContractCode{
+						Hash: xdr.Hash(contractHash),
+					},
 				},
 			},
 		}
@@ -58,21 +58,30 @@ func createInstallContractCodeOperation(t *testing.T, sourceAccount string, cont
 	}
 }
 
-func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, includeFootprint bool) *txnbuild.InvokeHostFunction {
+func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string, includeFootprint bool) *txnbuild.InvokeHostFunction {
 	saltParam := xdr.Uint256(testSalt)
 
 	var footprint xdr.LedgerFootprint
 	if includeFootprint {
-		// TODO: Check this is still right
-		ledgerKey := xdr.LedgerKeyContractData{
-			ContractId: xdr.Hash(getContractID(t, sourceAccount, testSalt)),
-			Key:        getContractCodeLedgerKey(),
-		}
+		installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+		assert.NoError(t, err)
+		contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
 		footprint = xdr.LedgerFootprint{
 			ReadWrite: []xdr.LedgerKey{
 				{
-					Type:         xdr.LedgerEntryTypeContractData,
-					ContractData: &ledgerKey,
+					Type: xdr.LedgerEntryTypeContractData,
+					ContractData: &xdr.LedgerKeyContractData{
+						ContractId: xdr.Hash(getContractID(t, sourceAccount, testSalt, networkPassphrase)),
+						Key:        getContractCodeLedgerKey(),
+					},
+				},
+			},
+			ReadOnly: []xdr.LedgerKey{
+				{
+					Type: xdr.LedgerEntryTypeContractCode,
+					ContractCode: &xdr.LedgerKeyContractCode{
+						Hash: xdr.Hash(contractHash),
+					},
 				},
 			},
 		}
@@ -82,7 +91,6 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 	assert.NoError(t, err)
 	contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
 
-	// two operations, install, then create.
 	return &txnbuild.InvokeHostFunction{
 		Footprint: footprint,
 		Function: xdr.HostFunction{
@@ -111,11 +119,13 @@ func getContractCodeLedgerKey() xdr.ScVal {
 	return contractCodeLedgerKey
 }
 
-func getContractID(t *testing.T, sourceAccount string, salt [32]byte) [32]byte {
+func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPassphrase string) [32]byte {
+	networkId := xdr.Hash(sha256.Sum256([]byte(networkPassphrase)))
 	preImage := xdr.HashIdPreimage{
 		Type: xdr.EnvelopeTypeEnvelopeTypeContractIdFromSourceAccount,
 		SourceAccountContractId: &xdr.HashIdPreimageSourceAccountContractId{
-			Salt: salt,
+			NetworkId: networkId,
+			Salt:      salt,
 		},
 	}
 	preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount)
@@ -277,7 +287,7 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
 			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
-			createCreateContractOperation(t, sourceAccount, testContract, false),
+			createCreateContractOperation(t, sourceAccount, testContract, StandaloneNetworkPassphrase, false),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
