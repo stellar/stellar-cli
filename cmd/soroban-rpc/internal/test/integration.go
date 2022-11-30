@@ -144,8 +144,12 @@ func (i *Test) runComposeCommand(args ...string) {
 func (i *Test) prepareShutdownHandlers() {
 	i.shutdownCalls = append(i.shutdownCalls,
 		func() {
-			i.handler.Close()
-			i.server.Close()
+			if i.handler.Handler != nil {
+				i.handler.Close()
+			}
+			if i.server != nil {
+				i.server.Close()
+			}
 			i.runComposeCommand("down", "-v")
 		},
 	)
