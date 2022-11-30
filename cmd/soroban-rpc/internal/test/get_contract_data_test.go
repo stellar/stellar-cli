@@ -109,7 +109,7 @@ func TestGetContractDataSucceeds(t *testing.T) {
 		createInstallContractCodeOperation(t, account.AccountID, testContract, true),
 		createCreateContractOperation(t, account.AccountID, testContract, StandaloneNetworkPassphrase, true),
 	} {
-		sendTransaction(t, client, kp, txnbuild.TransactionParams{
+		assertSendTransaction(t, client, kp, txnbuild.TransactionParams{
 			SourceAccount:        &account,
 			IncrementSequenceNum: true,
 			Operations:           []txnbuild.Operation{op},
@@ -138,7 +138,7 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	assert.Equal(t, testContract, scVal.MustObj().MustContractCode().MustWasmId())
 }
 
-func sendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, txnParams txnbuild.TransactionParams) {
+func assertSendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, txnParams txnbuild.TransactionParams) {
 	tx, err := txnbuild.NewTransaction(txnParams)
 	assert.NoError(t, err)
 	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
@@ -151,4 +151,7 @@ func sendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, txnPa
 	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
 	assert.NoError(t, err)
 	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
+
+	txStatusResponse := getTransactionStatus(t, client, sendTxResponse.ID)
+	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
 }
