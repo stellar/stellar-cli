@@ -406,7 +406,7 @@ impl Cmd {
         let host_function_params =
             self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
 
-        let res = h.invoke_function(HostFunction::InvokeContract, host_function_params)?;
+        let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
         let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
             result: res,
             error: e,
@@ -471,8 +471,7 @@ fn build_invoke_contract_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::InvokeContract,
-            parameters,
+            function: HostFunction::InvokeContract(parameters),
             footprint: final_footprint,
         }),
     };
