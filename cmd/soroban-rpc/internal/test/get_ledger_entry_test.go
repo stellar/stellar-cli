@@ -25,7 +25,7 @@ func TestGetLedgerEntryNotFound(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractID := getContractID(t, sourceAccount, testSalt)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
@@ -70,7 +70,7 @@ func TestGetLedgerEntryDeadlineError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractID := getContractID(t, sourceAccount, testSalt)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
@@ -115,7 +115,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	}
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractID := getContractID(t, sourceAccount, testSalt)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
