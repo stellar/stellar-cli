@@ -34,7 +34,7 @@ mod secret {
     #[derive(thiserror::Error, Debug)]
     pub enum Error {
         #[error("invalid secret key")]
-        InvalidSecretKey { secret_key: String },
+        InvalidSecretKey,
         #[error("seed_phrase must be 12 words long, found {len}")]
         InvalidSeedPhrase { len: usize },
         #[error("seceret input error")]
