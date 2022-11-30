@@ -146,6 +146,7 @@ async fn handler(
         ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
             get_contract_data(&contract_id, key, &ledger_file)
         }
+        ("getLedgerEntry", Some(Requests::StringArg(key))) => get_ledger_entry(key, &ledger_file),
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             get_transaction_status(&transaction_status_map, b).await
         }
@@ -227,6 +228,25 @@ fn get_contract_data(
 
     Ok(json!({
         "xdr": value.to_xdr_base64()?,
+        "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
+        // TODO: Find "real" ledger seq number here
+        "latestLedger": 1,
+    }))
+}
+
+fn get_ledger_entry(key_xdr: String, ledger_file: &PathBuf) -> Result<Value, Error> {
+    // Initialize storage and host
+    let state = snapshot::read(ledger_file)?;
+    let key = LedgerKey::from_xdr_base64(key_xdr)?;
+
+    let snap = Rc::new(snapshot::Snap {
+        ledger_entries: state.1,
+    });
+    let mut storage = Storage::with_recording_footprint(snap);
+    let ledger_entry = storage.get(&key)?;
+
+    Ok(json!({
+        "xdr": ledger_entry.data.to_xdr_base64()?,
         "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
         // TODO: Find "real" ledger seq number here
         "latestLedger": 1,
