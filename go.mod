@@ -8,7 +8,6 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
 	github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189
-	github.com/stellar/go v0.0.0-20221024165153-36c7c5dffc5a
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/mod v0.6.0
 )
@@ -53,6 +52,7 @@ require (
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/cast v0.0.0-20150508191742-4d07383ffe94 // indirect
 	github.com/spf13/jwalterweatherman v0.0.0-20141219030609-3d60171a6431 // indirect
+	github.com/stellar/go v0.0.0-20221130151413-77a05889334f
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
