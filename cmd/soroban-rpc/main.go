@@ -12,6 +12,7 @@ import (
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/config"
 	supportlog "github.com/stellar/go/support/log"
+	goxdr "github.com/stellar/go/xdr"
 	localConfig "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
 )
@@ -123,6 +124,7 @@ func main() {
 					branch = ""
 				}
 				fmt.Printf("soroban-rpc %s (%s) %s\n", localConfig.Version, localConfig.CommitHash, branch)
+				fmt.Printf("stellar-xdr %s\n", goxdr.CommitHash)
 			}
 		},
 	}
