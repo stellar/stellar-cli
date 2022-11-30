@@ -153,5 +153,5 @@ func assertSendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full,
 	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
 
 	txStatusResponse := getTransactionStatus(t, client, sendTxResponse.ID)
-	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
+	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status, txStatusResponse.Error.Message)
 }
