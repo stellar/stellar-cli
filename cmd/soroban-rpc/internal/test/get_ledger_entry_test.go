@@ -103,7 +103,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(t, account.AccountID, true),
+			createInstallContractCodeOperation(t, account.AccountID, testContract, true),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{

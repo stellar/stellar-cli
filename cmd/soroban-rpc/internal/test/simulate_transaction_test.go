@@ -24,8 +24,32 @@ var (
 )
 
 // createInvokeHostOperation creates a dummy InvokeHostFunctionOp. In this case by installing a contract code.
-func createInvokeHostOperation(t *testing.T, sourceAccount string, includeFootprint bool) *txnbuild.InvokeHostFunction {
-	return createInstallContractCodeOperation(t, sourceAccount, testContract, includeFootprint)
+func createInvokeHostOperation(t *testing.T, sourceAccount string, footprint xdr.LedgerFootprint, contractId xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
+	var contractIdBytes []byte = contractId[:]
+	contractIdObj := &xdr.ScObject{
+		Type: xdr.ScObjectTypeScoBytes,
+		Bin:  &contractIdBytes,
+	}
+	methodSymbol := xdr.ScSymbol(method)
+	parameters := xdr.ScVec{
+		xdr.ScVal{
+			Type: xdr.ScValTypeScvObject,
+			Obj:  &contractIdObj,
+		},
+		xdr.ScVal{
+			Type: xdr.ScValTypeScvSymbol,
+			Sym:  &methodSymbol,
+		},
+	}
+	parameters = append(parameters, args...)
+	return &txnbuild.InvokeHostFunction{
+		Footprint: footprint,
+		Function: xdr.HostFunction{
+			Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeArgs: &parameters,
+		},
+		SourceAccount: sourceAccount,
+	}
 }
 
 func createInstallContractCodeOperation(t *testing.T, sourceAccount string, contractCode []byte, includeFootprint bool) *txnbuild.InvokeHostFunction {
@@ -149,7 +173,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(t, sourceAccount, false),
+			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -171,13 +195,13 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(
 		t,
 		methods.SimulateTransactionResponse{
-			Footprint: "AAAAAAAAAAEAAAAGkvS4fCJA01o8HRusdDVaD5Z7F2lkyM3UfhQOjETmlDMAAAADAAAAAw==",
+			Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
 			Cost: methods.SimulateTransactionCost{
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
 			Results: []methods.InvokeHostFunctionResult{
-				{XDR: "AAAABAAAAAEAAAAEAAAAIJL0uHwiQNNaPB0brHQ1Wg+WexdpZMjN1H4UDoxE5pQz"},
+				{XDR: "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC"},
 			},
 			LatestLedger: result.LatestLedger,
 		},
@@ -185,7 +209,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	)
 
 	// test operation which does not have a source account
-	withoutSourceAccountOp := createInvokeHostOperation(t, "", false)
+	withoutSourceAccountOp := createInstallContractCodeOperation(t, "", testContract, false)
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: sourceAccount,
@@ -216,9 +240,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			Sequence:  0,
 		},
 		IncrementSequenceNum: false,
-		Operations:           []txnbuild.Operation{createInvokeHostOperation(t, sourceAccount, false)},
-		BaseFee:              txnbuild.MinBaseFee,
-		Memo:                 nil,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -244,8 +270,8 @@ func TestSimulateTransactionError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	invokeHostOp := createInvokeHostOperation(t, sourceAccount, false)
-	invokeHostOp.Function.InstallContractCodeArgs = nil
+	invokeHostOp := createInvokeHostOperation(t, sourceAccount, xdr.LedgerFootprint{}, xdr.Hash{}, "noMethod")
+	invokeHostOp.Function.InvokeArgs = &xdr.ScVec{}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
@@ -383,9 +409,11 @@ func TestSimulateTransactionDeadlineError(t *testing.T) {
 			Sequence:  0,
 		},
 		IncrementSequenceNum: false,
-		Operations:           []txnbuild.Operation{createInvokeHostOperation(t, sourceAccount, false)},
-		BaseFee:              txnbuild.MinBaseFee,
-		Memo:                 nil,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},

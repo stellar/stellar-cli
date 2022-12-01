@@ -140,7 +140,7 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: testContract}.MarshalBinary()
 	assert.NoError(t, err)
 	contractHash := sha256.Sum256(installContractCodeArgs)
-	assert.Equal(t, contractHash, scVal.MustObj().MustContractCode().MustWasmId())
+	assert.Equal(t, xdr.Hash(contractHash), scVal.MustObj().MustContractCode().MustWasmId())
 }
 
 func assertSendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, txnParams txnbuild.TransactionParams) {
