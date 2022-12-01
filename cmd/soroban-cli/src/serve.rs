@@ -288,31 +288,27 @@ fn parse_transaction(
     };
 
     // TODO: Support creating contracts and token wrappers here as well.
-    if body.function != HostFunction::InvokeContract {
+    let parameters: ScVec = if let HostFunction::InvokeContract(p) = body {
+        p
+    } else {
         return Err(Error::UnsupportedTransaction {
             message: "Function must be invokeContract".to_string(),
         });
     };
 
-    if body.parameters.len() < 2 {
+    if parameters.len() < 2 {
         return Err(Error::UnsupportedTransaction {
             message: "Function must have at least 2 parameters".to_string(),
         });
     };
 
-    let contract_xdr = body
-        .parameters
-        .get(0)
-        .ok_or(Error::UnsupportedTransaction {
-            message: "First parameter must be the contract id".to_string(),
-        })?;
-    let method_xdr = body
-        .parameters
-        .get(1)
-        .ok_or(Error::UnsupportedTransaction {
-            message: "Second parameter must be the contract method".to_string(),
-        })?;
-    let (_, params) = body.parameters.split_at(2);
+    let contract_xdr = parameters.get(0).ok_or(Error::UnsupportedTransaction {
+        message: "First parameter must be the contract id".to_string(),
+    })?;
+    let method_xdr = parameters.get(1).ok_or(Error::UnsupportedTransaction {
+        message: "Second parameter must be the contract method".to_string(),
+    })?;
+    let (_, params) = parameters.split_at(2);
 
     let contract_id: [u8; 32] = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = contract_xdr {
         bytes
@@ -380,7 +376,8 @@ fn execute_transaction(
 
     // TODO: Check the parameters match the contract spec, or return a helpful error message
 
-    let res = h.invoke_function(HostFunction::InvokeContract, args.try_into()?)?;
+    // TODO: Handle installing code and creating contracts here as well
+    let res = h.invoke_function(HostFunction::InvokeContract(args.try_into()?))?;
 
     let (storage, budget, _) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(

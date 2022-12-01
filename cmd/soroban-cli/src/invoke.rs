@@ -23,9 +23,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::{
-    contract_code_to_spec_entries, create_ledger_footprint, default_account_ledger_entry,
-};
+use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
 use crate::{
     rpc, snapshot,
     strval::{self, StrValError},
