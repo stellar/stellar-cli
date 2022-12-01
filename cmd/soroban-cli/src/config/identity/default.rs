@@ -1,13 +1,13 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("missing default")]
-    MissingDefault {},
+    #[error("No such identity {name}")]
+    MissingIdentity { name: String},
 }
 
 #[derive(Debug, clap::Args)]
 pub struct Cmd {
-    /// default alais
-    pub default_alias: String,
+    /// default name
+    pub default_name: String,
 }
 
 impl Cmd {

@@ -1,7 +1,8 @@
-pub mod identity;
-use std::fmt::Debug;
-
 use clap::Parser;
+
+pub mod identity;
+pub mod location;
+pub mod secret;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {

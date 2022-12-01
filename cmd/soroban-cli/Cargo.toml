@@ -43,6 +43,8 @@ jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
 wasm-opt = "0.110.1"
 rpassword = "7.2.0"
+dirs = "4.0.0"
+config = "0.13.1"
 
 [build-dependencies]
 crate-git-revision = "0.0.2"
