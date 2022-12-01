@@ -210,13 +210,17 @@ fn build_wrap_token_tx(
         }),
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Symbol("Metadata".try_into().unwrap()),
+            key: ScVal::Object(Some(ScObject::Vec(
+                vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
+            ))),
         }),
     ];
     if asset != &Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Symbol("Admin".try_into().unwrap()),
+            key: ScVal::Object(Some(ScObject::Vec(
+                vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
+            ))),
         }));
     }
 
