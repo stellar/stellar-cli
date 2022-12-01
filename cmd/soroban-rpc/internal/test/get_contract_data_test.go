@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
 	"testing"
@@ -135,7 +136,11 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
 	var scVal xdr.ScVal
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &scVal))
-	assert.Equal(t, testContract, scVal.MustObj().MustContractCode().MustWasmId())
+
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: testContract}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := sha256.Sum256(installContractCodeArgs)
+	assert.Equal(t, contractHash, scVal.MustObj().MustContractCode().MustWasmId())
 }
 
 func assertSendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, txnParams txnbuild.TransactionParams) {
