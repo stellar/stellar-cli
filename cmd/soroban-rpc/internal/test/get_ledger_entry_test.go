@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"crypto/sha256"
 	"net/http"
 	"testing"
 	"time"
@@ -124,13 +125,13 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	txStatusResponse := getTransactionStatus(t, client, sendTxResponse.ID)
 	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
 
-	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: testContract}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := sha256.Sum256(installContractCodeArgs)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeContractData,
-		ContractData: &xdr.LedgerKeyContractData{
-			ContractId: contractID,
-			Key:        getContractCodeLedgerKey(),
+		Type: xdr.LedgerEntryTypeContractCode,
+		ContractCode: &xdr.LedgerKeyContractCode{
+			Hash: xdr.Hash(contractHash),
 		},
 	})
 	require.NoError(t, err)
@@ -145,5 +146,5 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
-	assert.Equal(t, testContract, entry.MustContractData().Val.MustObj().MustContractCode().MustWasmId())
+	assert.Equal(t, testContract, entry.MustContractCode().Code)
 }
