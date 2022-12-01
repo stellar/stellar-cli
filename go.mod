@@ -8,7 +8,7 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
 	github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189
-	github.com/stellar/go v0.0.0-20221130174218-d4744d60f56c
+	github.com/stellar/go v0.0.0-20221201205727-49dc8a987555
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/mod v0.6.0
 )
