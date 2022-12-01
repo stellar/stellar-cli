@@ -25,7 +25,7 @@ func TestGetLedgerEntryNotFound(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt)
+	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
@@ -70,7 +70,7 @@ func TestGetLedgerEntryDeadlineError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt)
+	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
@@ -125,7 +125,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt)
+	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
@@ -145,5 +145,5 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
-	assert.Equal(t, testContract, entry.MustContractData().Val.MustObj().MustContractCode().MustWasm())
+	assert.Equal(t, testContract, entry.MustContractData().Val.MustObj().MustContractCode().MustWasmId())
 }
