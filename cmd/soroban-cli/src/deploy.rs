@@ -213,7 +213,7 @@ fn build_install_contract_code_tx(
     salt: [u8; 32],
     key: &ed25519_dalek::Keypair,
 ) -> Result<(TransactionEnvelope, Hash), Error> {
-    let hash = contract_hash(&contract)?;
+    let hash = utils::contract_hash(&contract)?;
 
     let op = Operation {
         source_account: None,
@@ -293,15 +293,6 @@ fn build_create_contract_tx(
     let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;
 
     Ok((envelope, Hash(contract_id.into())))
-}
-
-fn contract_hash(contract: &[u8]) -> Result<Hash, Error> {
-    let install_contract_code_args = InstallContractCodeArgs {
-        code: contract.try_into()?,
-    };
-    let mut buf: Vec<u8> = vec![];
-    install_contract_code_args.write_xdr(&mut buf)?;
-    Ok(Hash(Sha256::digest(buf.try_into()?).try_into()?))
 }
 
 #[cfg(test)]

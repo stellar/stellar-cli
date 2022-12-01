@@ -2,9 +2,9 @@ use serde_json::Value;
 use std::{error::Error, fmt::Display, str::FromStr};
 
 use soroban_env_host::xdr::{
-    AccountId, BytesM, Error as XdrError, Int128Parts, PublicKey, ScMap, ScMapEntry, ScObject,
-    ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic,
-    ScVal, ScVec, Uint256,
+    AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecTypeDef,
+    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec,
+    Uint256,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;

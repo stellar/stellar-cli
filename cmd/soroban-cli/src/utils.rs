@@ -17,7 +17,7 @@ use soroban_env_host::{
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPrivateKeyEd25519;
 
-fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
+pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
     let args_xdr = InstallContractCodeArgs {
         code: contract.try_into()?,
     }
