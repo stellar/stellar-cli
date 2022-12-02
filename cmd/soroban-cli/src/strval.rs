@@ -69,9 +69,9 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                 // First, see if it is a json string, strip the quotes and recurse
                 from_string(&raw, t)?
             } else {
-                let val =
-                    u128::from_str(s).map_err(|_| StrValError::InvalidValue(Some(t.clone())))?;
-                ScVal::Object(Some(ScObject::U128(val.into())))
+                u128::from_str(s)
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
+                    .into()
             }
         }
 
@@ -81,9 +81,9 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
                 // First, see if it is a json string, strip the quotes and recurse
                 from_string(&raw, t)?
             } else {
-                let val =
-                    i128::from_str(s).map_err(|_| StrValError::InvalidValue(Some(t.clone())))?;
-                ScVal::Object(Some(ScObject::I128(val.into())))
+                i128::from_str(s)
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
+                    .into()
             }
         }
 
@@ -114,22 +114,21 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         }
 
         // Number parsing
-        (ScSpecTypeDef::U128, Value::String(s)) => from_string(s, t)?,
-        (ScSpecTypeDef::U128, Value::Number(n)) => ScVal::Object(Some(ScObject::U128(
-            // json numbers can only be u64 anyway, so...
-            n.as_u64()
-                .ok_or(StrValError::InvalidValue(Some(t.clone())))?
-                .try_into()
-                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
-        ))),
-        (ScSpecTypeDef::I128, Value::String(s)) => from_string(s, t)?,
-        (ScSpecTypeDef::I128, Value::Number(n)) => ScVal::Object(Some(ScObject::I128(
-            // json numbers can only be i64 anyway, so...
-            n.as_i64()
-                .ok_or(StrValError::InvalidValue(Some(t.clone())))?
-                .try_into()
-                .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?,
-        ))),
+        (ScSpecTypeDef::U128 | ScSpecTypeDef::I128, Value::String(s)) => from_string(s, t)?,
+        (ScSpecTypeDef::U128, Value::Number(n)) => {
+            let val: u128 = n
+                .as_u64()
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
+                .into();
+            ScVal::Object(Some(val.into()))
+        }
+        (ScSpecTypeDef::I128, Value::Number(n)) => {
+            let val: i128 = n
+                .as_i64()
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
+                .into();
+            ScVal::Object(Some(val.into()))
+        }
         (ScSpecTypeDef::I32, Value::Number(n)) => ScVal::I32(
             n.as_i64()
                 .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
@@ -320,12 +319,16 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
         },
         ScVal::Object(Some(ScObject::U128(n))) => {
             // Always output u128s as strings
-            let v: u128 = n.into();
+            let v: u128 = ScObject::U128(n.clone())
+                .try_into()
+                .map_err(|_| StrValError::InvalidValue(Some(ScSpecTypeDef::U128)))?;
             Value::String(v.to_string())
         }
         ScVal::Object(Some(ScObject::I128(n))) => {
             // Always output i128s as strings
-            let v: i128 = n.into();
+            let v: i128 = ScObject::I128(n.clone())
+                .try_into()
+                .map_err(|_| StrValError::InvalidValue(Some(ScSpecTypeDef::I128)))?;
             Value::String(v.to_string())
         }
         // TODO: Implement these

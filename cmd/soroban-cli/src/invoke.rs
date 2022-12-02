@@ -482,7 +482,7 @@ async fn get_remote_contract_spec_entries(
     // Get the contract from the network
     let contract_ref = client
         .get_ledger_entry(LedgerKey::ContractData(LedgerKeyContractData {
-            contract_id: xdr::Hash(contract_id.clone()),
+            contract_id: xdr::Hash(*contract_id),
             key: ScVal::Static(ScStatic::LedgerKeyContractCode),
         }))
         .await?;

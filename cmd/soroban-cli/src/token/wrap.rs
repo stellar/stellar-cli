@@ -170,7 +170,7 @@ impl Cmd {
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
         let network_passphrase = self.network_passphrase.as_ref().unwrap();
-        let contract_id = get_contract_id(&asset, &network_passphrase)?;
+        let contract_id = get_contract_id(&asset, network_passphrase)?;
         let tx = build_wrap_token_tx(
             &asset,
             &contract_id,

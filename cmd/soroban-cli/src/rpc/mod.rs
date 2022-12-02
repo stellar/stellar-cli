@@ -1,6 +1,6 @@
 use jsonrpsee_core::{client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
-use soroban_env_host::xdr::{Error as XdrError, LedgerKey, ScVal, TransactionEnvelope, WriteXdr};
+use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
@@ -178,18 +178,6 @@ impl Client {
         Ok(self
             .client()?
             .request("getTransactionStatus", rpc_params![tx_id])
-            .await?)
-    }
-
-    pub async fn get_contract_data(
-        &self,
-        contract_id: &str,
-        key: ScVal,
-    ) -> Result<GetContractDataResponse, Error> {
-        let base64_key = key.to_xdr_base64()?;
-        Ok(self
-            .client()?
-            .request("getContractData", rpc_params![contract_id, base64_key])
             .await?)
     }
 

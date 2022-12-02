@@ -31,14 +31,14 @@ pub fn add_contract_to_ledger_entries(
     contract: Vec<u8>,
 ) -> Result<(), XdrError> {
     // Install the code
-    let hash = contract_hash(&contract.as_slice())?;
-    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
+    let hash = contract_hash(contract.as_slice())?;
+    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() });
     let code_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractCode(ContractCodeEntry {
             code: contract.try_into()?,
             ext: ExtensionPoint::V0,
-            hash,
+            hash: hash.clone(),
         }),
         ext: LedgerEntryExt::V0,
     };
@@ -55,9 +55,7 @@ pub fn add_contract_to_ledger_entries(
         data: LedgerEntryData::ContractData(ContractDataEntry {
             contract_id: contract_id.into(),
             key: ScVal::Static(ScStatic::LedgerKeyContractCode),
-            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::WasmRef(
-                contract.try_into()?,
-            )))),
+            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::WasmRef(hash)))),
         }),
         ext: LedgerEntryExt::V0,
     };
