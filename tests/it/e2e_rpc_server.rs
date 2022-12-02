@@ -14,9 +14,7 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
 #[ignore]
 fn e2e_deploy_and_invoke_contract_against_rpc_server_with_args_file() {
     // This test assumes a fresh standalone network rpc server on port 8000
-    test_hello_world(move |cmd| {
-        cmd.arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world")
-    })
+    test_hello_world(move |cmd| cmd.arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world"))
 }
 
 fn test_hello_world<F>(f: F)
