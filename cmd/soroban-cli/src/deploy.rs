@@ -186,7 +186,6 @@ impl Cmd {
             sequence + 1,
             fee,
             self.network_passphrase.as_ref().unwrap(),
-            salt,
             &key,
         )?;
         client.send_transaction(&tx).await?;
@@ -210,7 +209,6 @@ fn build_install_contract_code_tx(
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
-    salt: [u8; 32],
     key: &ed25519_dalek::Keypair,
 ) -> Result<(TransactionEnvelope, Hash), Error> {
     let hash = utils::contract_hash(&contract)?;
@@ -223,7 +221,8 @@ fn build_install_contract_code_tx(
             }),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
-                read_write: vec![ContractCode(LedgerKeyContractCode { hash })].try_into()?,
+                read_write: vec![ContractCode(LedgerKeyContractCode { hash: hash.clone() })]
+                    .try_into()?,
             },
         }),
     };
@@ -268,7 +267,7 @@ fn build_create_contract_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id: ContractId::SourceAccount(Uint256(salt)),
-                source: ScContractCode::WasmRef(hash),
+                source: ScContractCode::WasmRef(hash.clone()),
             }),
             footprint: LedgerFootprint {
                 read_only: vec![ContractCode(LedgerKeyContractCode { hash })].try_into()?,
@@ -306,7 +305,6 @@ mod tests {
             300,
             1,
             "Public Global Stellar Network ; September 2015",
-            [0u8; 32],
             &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap(),
         );

@@ -288,7 +288,7 @@ fn parse_transaction(
     };
 
     // TODO: Support creating contracts and token wrappers here as well.
-    let parameters = if let HostFunction::InvokeContract(p) = body.function {
+    let parameters = if let HostFunction::InvokeContract(p) = &body.function {
         p
     } else {
         return Err(Error::UnsupportedTransaction {

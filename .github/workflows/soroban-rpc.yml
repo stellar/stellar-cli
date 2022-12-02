@@ -17,7 +17,7 @@ jobs:
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_19_CORE_DEBIAN_PKG_VERSION: 19.5.1-1111.eba1d3de9.focal~soroban
+      PROTOCOL_19_CORE_DEBIAN_PKG_VERSION: 19.5.1-1131.f55f88376.focal~soroban
     steps:
       - uses: actions/checkout@v3
         with:
