@@ -23,7 +23,7 @@ type GetLedgerEntryResponse struct {
 	LatestLedger       int64  `json:"latestLedger,string"`
 }
 
-// NewGetLedgerEntryHandler returns a json rpc handler to retrieve a contract data ledger entry from stellar cre
+// NewGetLedgerEntryHandler returns a json rpc handler to retrieve the specified ledger entry from stellar core
 func NewGetLedgerEntryHandler(logger *log.Entry, coreClient *stellarcore.Client) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetLedgerEntryRequest) (GetLedgerEntryResponse, error) {
 		var key xdr.LedgerKey
