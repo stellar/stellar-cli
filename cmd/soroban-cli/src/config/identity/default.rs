@@ -1,7 +1,7 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("No such identity {name}")]
-    MissingIdentity { name: String},
+    MissingIdentity { name: String },
 }
 
 #[derive(Debug, clap::Args)]

@@ -1,6 +1,7 @@
+use jsonrpsee_core::Serialize;
+use serde::Deserialize;
 use std::io::Write;
-
-use crate::utils;
+use stellar_strkey::{StrkeyPrivateKeyEd25519, StrkeyPublicKeyEd25519};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -12,6 +13,8 @@ pub enum Error {
     PasswordRead,
     #[error(transparent)]
     Secret(#[from] stellar_strkey::DecodeError),
+    #[error("Seceret file failed to deserialize")]
+    DeserializationError,
 }
 
 #[derive(Debug, clap::Args)]
@@ -33,30 +36,43 @@ impl Args {
         if self.secret_key {
             println!("Type a secret key: ");
             let secret_key = read_password()?;
-            let key = utils::parse_secret_key(&secret_key).map_err(|_| Error::InvalidSecretKey)?;
-            Ok(Secret::PrivateKey(key))
+            let secret_key = StrkeyPrivateKeyEd25519::from_string(&secret_key)
+                .map_err(|_| Error::InvalidSecretKey)?
+                .to_string();
+            Ok(Secret::SecretKey { secret_key })
         } else if self.seed_phrase {
             println!("Type a 12 word seed phrase: ");
             let seed_phrase = read_password()?;
-            let seed_phrase = seed_phrase.split_whitespace().collect::<Vec<&str>>();
+            let seed_phrase: Vec<&str> = seed_phrase.split_whitespace().collect();
             if seed_phrase.len() != 12 {
                 let len = seed_phrase.len();
                 return Err(Error::InvalidSeedPhrase { len });
             }
-            Ok(Secret::SeedPhrase(
-                seed_phrase.into_iter().map(ToString::to_string).collect(),
-            ))
+            Ok(Secret::SeedPhrase {
+                seed_phrase: seed_phrase
+                    .into_iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            })
         } else {
             Err(Error::PasswordRead {})
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Secret {
-    PrivateKey(ed25519_dalek::Keypair),
-    SeedPhrase(Vec<String>),
+    SecretKey { secret_key: String },
+    SeedPhrase { seed_phrase: String },
     // MacOS,
+}
+
+trait AsKey {
+    fn public_key(&self) -> StrkeyPublicKeyEd25519;
+
+    fn private_key(&self) -> StrkeyPrivateKeyEd25519;
 }
 
 fn read_password() -> Result<String, Error> {

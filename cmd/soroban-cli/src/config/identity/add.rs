@@ -7,6 +7,9 @@ pub enum Error {
 
     #[error(transparent)]
     Config(#[from] location::Error),
+
+    #[error("Failed to write identity file")]
+    IdCreationFailed,
 }
 
 #[derive(Debug, clap::Args)]
@@ -17,6 +20,7 @@ pub struct Cmd {
     #[clap(flatten)]
     pub secrets: secret::Args,
 
+    // TODO: generate key
     /// Generate a new key pair and print seed phrase
     #[clap(long)]
     pub generate: bool,
@@ -32,12 +36,8 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         println!("{self:#?}");
-        let dir = self.config.config_dir()?;
-        println!(
-            "About to write {:#?} to {}",
-            self.secrets.read_secret()?,
-            dir.display()
-        );
-        Ok(())
+        self.config
+            .write_identity(&self.name, &self.secrets.read_secret()?)
+            .map_err(|_| Error::IdCreationFailed)
     }
 }
