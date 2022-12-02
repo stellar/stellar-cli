@@ -19,6 +19,7 @@ use soroban_env_host::{
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
+    network,
     rpc::{Client, Error as SorobanRpcError},
     snapshot, utils, HEADING_RPC, HEADING_SANDBOX,
 };
@@ -185,8 +186,8 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let network_passphrase = self.network_passphrase.as_ref().unwrap();
-        let contract_id = get_contract_id(salt, admin.clone(), network_passphrase)?;
+        let contract_id =
+            get_contract_id(salt, admin.clone(), network::SANDBOX_NETWORK_PASSPHRASE)?;
 
         let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
             contract_id: ContractId::SourceAccount(Uint256(salt)),
