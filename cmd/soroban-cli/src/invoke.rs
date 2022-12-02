@@ -1,4 +1,5 @@
 use std::num::ParseIntError;
+use std::path::PathBuf;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
@@ -48,6 +49,9 @@ pub struct Cmd {
     /// Argument to pass to the function (base64-encoded xdr)
     #[clap(long = "arg-xdr", value_name = "arg-xdr", multiple = true)]
     args_xdr: Vec<String>,
+    /// File containing JSON Argument to pass to the function
+    #[clap(long, multiple = true)]
+    args_file: Vec<PathBuf>,
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
@@ -162,6 +166,8 @@ pub enum Error {
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing transaction result")]
     MissingTransactionResult,
+    #[error("args file error")]
+    ArgsFile,
 }
 
 #[derive(Clone, Debug)]
@@ -203,7 +209,19 @@ impl Cmd {
             .zip(self.args_xdr.iter())
             .map(|(a, b)| (a, Arg::ArgXdr(b.to_string())))
             .collect();
-        let mut all_indexed_args: Vec<(usize, Arg)> = [indexed_args, indexed_args_xdr].concat();
+
+        let indexed_args_files: Vec<(usize, Arg)> = matches
+            .indices_of("args-file")
+            .unwrap_or_default()
+            .zip(self.args_file.iter())
+            .map(|(a, p)| {
+                let b = std::fs::read_to_string(p).map_err(|_| Error::ArgsFile)?;
+                Ok((a, Arg::ArgXdr(b)))
+            })
+            .collect::<Result<_, Error>>()?;
+
+        let mut all_indexed_args: Vec<(usize, Arg)> =
+            [indexed_args, indexed_args_xdr, indexed_args_files].concat();
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
 
         // Parse the function arguments
@@ -254,26 +272,15 @@ impl Cmd {
     }
 
     pub async fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
-        let contract_id: [u8; 32] =
-            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractId {
-                    contract_id: self.contract_id.clone(),
-                    error: e,
-                }
-            })?;
-
         if self.rpc_url.is_some() {
-            return self.run_against_rpc_server(contract_id, matches).await;
+            self.run_against_rpc_server(matches).await
+        } else {
+            self.run_in_sandbox(matches)
         }
-
-        self.run_in_sandbox(contract_id, matches)
     }
 
-    async fn run_against_rpc_server(
-        &self,
-        contract_id: [u8; 32],
-        matches: &clap::ArgMatches,
-    ) -> Result<(), Error> {
+    async fn run_against_rpc_server(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+        let contract_id = self.contract_id()?;
         let client = Client::new(self.rpc_url.as_ref().unwrap());
         let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParseSecretKey)?;
@@ -341,11 +348,8 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(
-        &self,
-        contract_id: [u8; 32],
-        matches: &clap::ArgMatches,
-    ) -> Result<(), Error> {
+    fn run_in_sandbox(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+        let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut state =
@@ -439,6 +443,15 @@ impl Cmd {
             }
         })?;
         Ok(())
+    }
+}
+
+impl Cmd {
+    fn contract_id(&self) -> Result<[u8; 32], Error> {
+        utils::contract_id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
+            contract_id: self.contract_id.clone(),
+            error: e,
+        })
     }
 }
 
