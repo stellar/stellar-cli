@@ -146,6 +146,7 @@ async fn handler(
         ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
             get_contract_data(&contract_id, key, &ledger_file)
         }
+        ("getLedgerEntry", Some(Requests::StringArg(key))) => get_ledger_entry(key, &ledger_file),
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             get_transaction_status(&transaction_status_map, b).await
         }
@@ -233,6 +234,29 @@ fn get_contract_data(
     }))
 }
 
+fn get_ledger_entry(k: Box<[String]>, ledger_file: &PathBuf) -> Result<Value, Error> {
+    if let Some(key_xdr) = k.into_vec().first() {
+        // Initialize storage and host
+        let state = snapshot::read(ledger_file)?;
+        let key = LedgerKey::from_xdr_base64(key_xdr)?;
+
+        let snap = Rc::new(snapshot::Snap {
+            ledger_entries: state.1,
+        });
+        let mut storage = Storage::with_recording_footprint(snap);
+        let ledger_entry = storage.get(&key)?;
+
+        Ok(json!({
+            "xdr": ledger_entry.data.to_xdr_base64()?,
+            "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
+            // TODO: Find "real" ledger seq number here
+            "latestLedger": 1,
+        }))
+    } else {
+        Err(Error::Xdr(XdrError::Invalid))
+    }
+}
+
 fn parse_transaction(
     txn_xdr: &str,
     passphrase: &str,
@@ -264,31 +288,27 @@ fn parse_transaction(
     };
 
     // TODO: Support creating contracts and token wrappers here as well.
-    if body.function != HostFunction::InvokeContract {
+    let parameters = if let HostFunction::InvokeContract(p) = &body.function {
+        p
+    } else {
         return Err(Error::UnsupportedTransaction {
             message: "Function must be invokeContract".to_string(),
         });
     };
 
-    if body.parameters.len() < 2 {
+    if parameters.len() < 2 {
         return Err(Error::UnsupportedTransaction {
             message: "Function must have at least 2 parameters".to_string(),
         });
     };
 
-    let contract_xdr = body
-        .parameters
-        .get(0)
-        .ok_or(Error::UnsupportedTransaction {
-            message: "First parameter must be the contract id".to_string(),
-        })?;
-    let method_xdr = body
-        .parameters
-        .get(1)
-        .ok_or(Error::UnsupportedTransaction {
-            message: "Second parameter must be the contract method".to_string(),
-        })?;
-    let (_, params) = body.parameters.split_at(2);
+    let contract_xdr = parameters.get(0).ok_or(Error::UnsupportedTransaction {
+        message: "First parameter must be the contract id".to_string(),
+    })?;
+    let method_xdr = parameters.get(1).ok_or(Error::UnsupportedTransaction {
+        message: "Second parameter must be the contract method".to_string(),
+    })?;
+    let (_, params) = parameters.split_at(2);
 
     let contract_id: [u8; 32] = if let ScVal::Object(Some(ScObject::Bytes(bytes))) = contract_xdr {
         bytes
@@ -356,7 +376,8 @@ fn execute_transaction(
 
     // TODO: Check the parameters match the contract spec, or return a helpful error message
 
-    let res = h.invoke_function(HostFunction::InvokeContract, args.try_into()?)?;
+    // TODO: Handle installing code and creating contracts here as well
+    let res = h.invoke_function(HostFunction::InvokeContract(args.try_into()?))?;
 
     let (storage, budget, _) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(

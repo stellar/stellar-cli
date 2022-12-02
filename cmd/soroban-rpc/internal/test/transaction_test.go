@@ -83,7 +83,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(t, account.AccountID, true),
+			createInstallContractCodeOperation(t, account.AccountID, testContract, true),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -115,7 +115,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	assert.Nil(t, response.Error)
 	assert.Equal(t,
 		[]methods.SCVal{
-			{XDR: "AAAABAAAAAEAAAAEAAAAIJL0uHwiQNNaPB0brHQ1Wg+WexdpZMjN1H4UDoxE5pQz"},
+			{XDR: "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC"},
 		},
 		response.Results,
 	)
@@ -220,7 +220,7 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
 			// without the footprint the tx will fail
-			createInvokeHostOperation(t, account.AccountID, false),
+			createInstallContractCodeOperation(t, account.AccountID, testContract, false),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{

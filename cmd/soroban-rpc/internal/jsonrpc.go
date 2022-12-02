@@ -47,6 +47,7 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 	bridge := jhttp.NewBridge(handler.Map{
 		"getHealth":            methods.NewHealthCheck(),
 		"getAccount":           methods.NewAccountHandler(params.AccountStore),
+		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.CoreClient),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
 		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.CoreClient),

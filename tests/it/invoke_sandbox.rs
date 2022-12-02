@@ -12,13 +12,13 @@ fn invoke_token() {
         .arg("--symbol=tok")
         .assert()
         .success()
-        .stdout("d55b5a3a5793539545f957f7da783f7b19159369ccdb19c53dbd117ebfc08842\n");
+        .stdout("7794c4a02357bd9063499148e709bde44aa9e643d3fa20fde202f6e84a671e1b\n");
 
     Sandbox::new_cmd()
         .arg("invoke")
         .arg("--ledger-file")
         .arg(ledger)
-        .arg("--id=d55b5a3a5793539545f957f7da783f7b19159369ccdb19c53dbd117ebfc08842")
+        .arg("--id=7794c4a02357bd9063499148e709bde44aa9e643d3fa20fde202f6e84a671e1b")
         .arg("--fn=decimals")
         .assert()
         .success()

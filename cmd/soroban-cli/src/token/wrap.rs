@@ -5,12 +5,13 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, Error as XdrError, Hash,
-        HashIdPreimage, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
-        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScHostStorageErrorCode, ScObject,
-        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Transaction,
-        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, ContractId,
+        CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
+        HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
+        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScContractCode, ScHostStorageErrorCode, ScStatic::LedgerKeyContractCode,
+        ScStatus, ScVal, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256,
+        VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -134,15 +135,10 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let mut buf: Vec<u8> = vec![];
-        asset.write_xdr(&mut buf)?;
-        let parameters: VecM<ScVal, 256_000> =
-            vec![ScVal::Object(Some(ScObject::Bytes(buf.try_into()?)))].try_into()?;
-
-        let res = h.invoke_function(
-            HostFunction::CreateTokenContractWithAsset,
-            parameters.into(),
-        )?;
+        let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
+            contract_id: ContractId::Asset(asset.clone()),
+            source: ScContractCode::Token,
+        }))?;
         let res_str = utils::vec_to_hash(&res)?;
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
@@ -173,13 +169,14 @@ impl Cmd {
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let contract_id = get_contract_id(&asset)?;
+        let network_passphrase = self.network_passphrase.as_ref().unwrap();
+        let contract_id = get_contract_id(&asset, network_passphrase)?;
         let tx = build_wrap_token_tx(
             &asset,
             &contract_id,
             sequence + 1,
             fee,
-            self.network_passphrase.as_ref().unwrap(),
+            network_passphrase,
             &key,
         )?;
 
@@ -189,8 +186,16 @@ impl Cmd {
     }
 }
 
-fn get_contract_id(asset: &Asset) -> Result<Hash, Error> {
-    let preimage = HashIdPreimage::ContractIdFromAsset(asset.clone());
+fn get_contract_id(asset: &Asset, network_passphrase: &str) -> Result<Hash, Error> {
+    let network_id = Hash(
+        Sha256::digest(network_passphrase.as_bytes())
+            .try_into()
+            .unwrap(),
+    );
+    let preimage = HashIdPreimage::ContractIdFromAsset(HashIdPreimageFromAsset {
+        network_id,
+        asset: asset.clone(),
+    });
     let preimage_xdr = preimage.to_xdr()?;
     Ok(Hash(Sha256::digest(preimage_xdr).into()))
 }
@@ -220,16 +225,13 @@ fn build_wrap_token_tx(
         }));
     }
 
-    let mut buf: Vec<u8> = vec![];
-    asset.write_xdr(&mut buf)?;
-    let parameters: VecM<ScVal, 256_000> =
-        vec![ScVal::Object(Some(ScObject::Bytes(buf.try_into()?)))].try_into()?;
-
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateTokenContractWithAsset,
-            parameters: parameters.into(),
+            function: HostFunction::CreateContract(CreateContractArgs {
+                contract_id: ContractId::Asset(asset.clone()),
+                source: ScContractCode::Token,
+            }),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
                 read_write: read_write.try_into()?,
