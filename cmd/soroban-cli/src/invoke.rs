@@ -105,8 +105,8 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("parsing argument {arg}: {error}")]
-    CannotParseArg { arg: String, error: StrValError },
+    #[error("parsing argument '{arg}' at index {index}: {error}")]
+    CannotParseArg { arg: String, error: StrValError, index: usize },
     #[error("parsing XDR arg {arg}: {error}")]
     CannotParseXdrArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
@@ -229,6 +229,7 @@ impl Cmd {
                     strval::from_string(s, &input.type_).map_err(|e| Error::CannotParseArg {
                         arg: s.clone(),
                         error: e,
+                        index: arg.0,
                     })
                 }
             })
