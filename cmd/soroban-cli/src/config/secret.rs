@@ -13,8 +13,6 @@ pub enum Error {
     PasswordRead,
     #[error(transparent)]
     Secret(#[from] stellar_strkey::DecodeError),
-    #[error("Seceret file failed to deserialize")]
-    DeserializationError,
 }
 
 #[derive(Debug, clap::Args)]

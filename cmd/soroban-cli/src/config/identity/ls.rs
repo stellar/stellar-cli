@@ -1,19 +1,21 @@
+use crate::config;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("missing default")]
-    BadConfig {},
+    #[error(transparent)]
+    Config(#[from] config::location::Error),
 }
 
 #[derive(Debug, clap::Args)]
 pub struct Cmd {
-    /// List global identities
-    #[clap(long)]
-    pub global: bool,
+    #[clap(flatten)]
+    pub config: config::location::Args,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!("{self:#?}");
+        let res = self.config.list_identities()?;
+        println!("{}", res.join("\n"));
         Ok(())
     }
 }

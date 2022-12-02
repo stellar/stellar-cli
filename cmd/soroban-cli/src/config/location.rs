@@ -5,7 +5,7 @@ use std::{
 
 use crate::utils::find_config_dir;
 
-use super::secret::{self, Secret};
+use super::secret::Secret;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,6 +21,8 @@ pub enum Error {
     DeserializationError,
     #[error("Seceret file failed to deserialize")]
     IdCreationFailed,
+    #[error("Error Identity directory is invalid: {name}")]
+    IdentityList { name: String },
 }
 
 #[derive(Debug, clap::Args)]
@@ -74,6 +76,23 @@ impl Args {
         let data = toml::to_string(secret).map_err(|_| Error::IdCreationFailed)?;
         println!("Writing to {}", source.display());
         std::fs::write(&source, &data).map_err(|_| Error::IdCreationFailed)
+    }
+
+    pub fn list_identities(&self) -> Result<Vec<String>, Error> {
+        let path = self.identity_dir()?;
+        let contents = std::fs::read_dir(&path).map_err(|_| Error::IdentityList {
+            name: format!("{}", path.display()),
+        })?;
+        let mut res = vec![];
+        for entry in contents.filter_map(Result::ok) {
+            let path = entry.path();
+            if let Some("toml") = path.extension().and_then(|s| s.to_str()) {
+                if let Some(os_str) = path.file_stem() {
+                    res.push(format!("{}", os_str.to_string_lossy()))
+                }
+            }
+        }
+        Ok(res)
     }
 }
 

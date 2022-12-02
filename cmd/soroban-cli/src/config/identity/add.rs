@@ -35,7 +35,6 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!("{self:#?}");
         self.config
             .write_identity(&self.name, &self.secrets.read_secret()?)
             .map_err(|_| Error::IdCreationFailed)
