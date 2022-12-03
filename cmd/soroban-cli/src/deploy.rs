@@ -8,10 +8,12 @@ use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::HashIdPreimageSourceAccountContractId;
 use soroban_env_host::xdr::{
-    AccountId, Error as XdrError, Hash, HashIdPreimage, HostFunction, InvokeHostFunctionOp,
-    LedgerFootprint, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, PublicKey, ScObject, ScStatic::LedgerKeyContractCode, ScVal,
-    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+    AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
+    HostFunction, InstallContractCodeArgs, InvokeHostFunctionOp, LedgerFootprint,
+    LedgerKey::ContractCode, LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScContractCode,
+    ScStatic, ScVal, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256,
+    VecM, WriteXdr,
 };
 use soroban_env_host::HostError;
 
@@ -178,31 +180,80 @@ impl Cmd {
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let (tx, contract_id) = build_create_contract_tx(
+
+        let (tx, hash) = build_install_contract_code_tx(
             contract,
             sequence + 1,
+            fee,
+            self.network_passphrase.as_ref().unwrap(),
+            &key,
+        )?;
+        client.send_transaction(&tx).await?;
+
+        let (tx, contract_id) = build_create_contract_tx(
+            hash,
+            sequence + 2,
             fee,
             self.network_passphrase.as_ref().unwrap(),
             salt,
             &key,
         )?;
-
         client.send_transaction(&tx).await?;
 
         Ok(hex::encode(contract_id.0))
     }
 }
 
-fn build_create_contract_tx(
+fn build_install_contract_code_tx(
     contract: Vec<u8>,
+    sequence: i64,
+    fee: u32,
+    network_passphrase: &str,
+    key: &ed25519_dalek::Keypair,
+) -> Result<(TransactionEnvelope, Hash), Error> {
+    let hash = utils::contract_hash(&contract)?;
+
+    let op = Operation {
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            function: HostFunction::InstallContractCode(InstallContractCodeArgs {
+                code: contract.try_into()?,
+            }),
+            footprint: LedgerFootprint {
+                read_only: VecM::default(),
+                read_write: vec![ContractCode(LedgerKeyContractCode { hash: hash.clone() })]
+                    .try_into()?,
+            },
+        }),
+    };
+
+    let tx = Transaction {
+        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        fee,
+        seq_num: SequenceNumber(sequence),
+        cond: Preconditions::None,
+        memo: Memo::None,
+        operations: vec![op].try_into()?,
+        ext: TransactionExt::V0,
+    };
+
+    let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;
+
+    Ok((envelope, hash))
+}
+
+fn build_create_contract_tx(
+    hash: Hash,
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
     salt: [u8; 32],
     key: &ed25519_dalek::Keypair,
 ) -> Result<(TransactionEnvelope, Hash), Error> {
+    let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage =
         HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
+            network_id,
             source_account: AccountId(PublicKey::PublicKeyTypeEd25519(
                 key.public.to_bytes().into(),
             )),
@@ -211,24 +262,20 @@ fn build_create_contract_tx(
     let preimage_xdr = preimage.to_xdr()?;
     let contract_id = Sha256::digest(preimage_xdr);
 
-    let contract_parameter = ScVal::Object(Some(ScObject::Bytes(contract.try_into()?)));
-    let salt_parameter = ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)));
-
-    let lk = ContractData(LedgerKeyContractData {
-        contract_id: Hash(contract_id.into()),
-        key: ScVal::Static(LedgerKeyContractCode),
-    });
-
-    let parameters: VecM<ScVal, 256_000> = vec![contract_parameter, salt_parameter].try_into()?;
-
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateContractWithSourceAccount,
-            parameters: parameters.into(),
+            function: HostFunction::CreateContract(CreateContractArgs {
+                contract_id: ContractId::SourceAccount(Uint256(salt)),
+                source: ScContractCode::WasmRef(hash.clone()),
+            }),
             footprint: LedgerFootprint {
-                read_only: VecM::default(),
-                read_write: vec![lk].try_into()?,
+                read_only: vec![ContractCode(LedgerKeyContractCode { hash })].try_into()?,
+                read_write: vec![ContractData(LedgerKeyContractData {
+                    contract_id: Hash(contract_id.into()),
+                    key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+                })]
+                .try_into()?,
             },
         }),
     };
@@ -252,9 +299,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_build_create_contract() {
-        let result = build_create_contract_tx(
+    fn test_build_install_contract_code() {
+        let result = build_install_contract_code_tx(
             b"foo".to_vec(),
+            300,
+            1,
+            "Public Global Stellar Network ; September 2015",
+            &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+                .unwrap(),
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_create_contract() {
+        let hash = hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let result = build_create_contract_tx(
+            Hash(hash),
             300,
             1,
             "Public Global Stellar Network ; September 2015",
