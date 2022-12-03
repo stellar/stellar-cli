@@ -216,7 +216,7 @@ impl Cmd {
             .zip(self.args_file.iter())
             .map(|(a, p)| {
                 let b = std::fs::read_to_string(p).map_err(|_| Error::ArgsFile)?;
-                Ok((a, Arg::ArgXdr(b)))
+                Ok((a, Arg::Arg(b)))
             })
             .collect::<Result<_, Error>>()?;
 
