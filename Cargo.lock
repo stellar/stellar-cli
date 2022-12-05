@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "0.1.2"
+version = "0.3.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2082,7 +2082,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-tools"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2267,14 +2267,14 @@ checksum = "95059e91184749cb66be6dc994f67f182b6d897cb3df74a5bf66b5e709295fd8"
 
 [[package]]
 name = "test_hello_world"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_invoker_account_exists"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "soroban-sdk",
 ]
