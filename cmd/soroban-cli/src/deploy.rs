@@ -141,17 +141,15 @@ impl Cmd {
                 filepath: wasm.clone(),
                 error: e,
             })?)
+        } else if let Some(wasm_hash) = &self.wasm_hash {
+            ContractSource::WasmHash(utils::id_from_str(wasm_hash).map_err(|e| {
+                Error::CannotParseWasmHash {
+                    wasm_hash: wasm_hash.clone(),
+                    error: e,
+                }
+            })?)
         } else {
-            if let Some(wasm_hash) = &self.wasm_hash {
-                ContractSource::WasmHash(utils::id_from_str(wasm_hash).map_err(|e| {
-                    Error::CannotParseWasmHash {
-                        wasm_hash: wasm_hash.clone(),
-                        error: e,
-                    }
-                })?)
-            } else {
-                return Err(Error::ContractSourceNotProvided);
-            }
+            return Err(Error::ContractSourceNotProvided);
         };
 
         let res_str = if self.rpc_url.is_some() {
