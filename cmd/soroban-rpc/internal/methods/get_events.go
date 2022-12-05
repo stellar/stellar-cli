@@ -150,7 +150,10 @@ func (e *EventFilter) matchesTopics(event xdr.ContractEvent) bool {
 	if len(e.Topics) == 0 {
 		return true
 	}
-	v0 := event.Body.MustV0()
+	v0, ok := event.Body.GetV0()
+	if !ok {
+		return false
+	}
 	for _, topicFilter := range e.Topics {
 		if topicFilter.Matches(v0.Topics) {
 			return true
@@ -168,33 +171,32 @@ func (t *TopicFilter) Valid() error {
 	if len(*t) > 4 {
 		return errors.New("topic cannot have more than 4 segments")
 	}
+	for i, segment := range *t {
+		if err := segment.Valid(); err != nil {
+			return errors.Wrapf(err, "segment %d invalid", i+1)
+		}
+	}
 	return nil
 }
 
 func (t TopicFilter) Matches(event []xdr.ScVal) bool {
 	for _, segmentFilter := range t {
-		if segmentFilter.wildcard != nil {
-			switch *segmentFilter.wildcard {
-			case "*":
-				// one-segment wildcard
-				if len(event) == 0 {
-					// Nothing to match, need one segment.
-					return false
-				}
-				// Ignore this token
-				event = event[1:]
-			default:
-				panic("invalid segmentFilter")
-			}
+		if len(event) == 0 {
+			// Nothing to match, need at least one segment.
+			return false
+		}
+		if segmentFilter.wildcard != nil && *segmentFilter.wildcard == "*" {
+			// one-segment wildcard
+			// Ignore this token
 		} else if segmentFilter.scval != nil {
 			// Exact match the scval
-			if len(event) == 0 || !segmentFilter.scval.Equals(event[0]) {
+			if !segmentFilter.scval.Equals(event[0]) {
 				return false
 			}
-			event = event[1:]
 		} else {
 			panic("invalid segmentFilter")
 		}
+		event = event[1:]
 	}
 	// Check we had no leftovers
 	return len(event) == 0
@@ -203,6 +205,19 @@ func (t TopicFilter) Matches(event []xdr.ScVal) bool {
 type SegmentFilter struct {
 	wildcard *string
 	scval    *xdr.ScVal
+}
+
+func (s *SegmentFilter) Valid() error {
+	if s.wildcard != nil && s.scval != nil {
+		return errors.New("cannot set both wildcard and scval")
+	}
+	if s.wildcard == nil && s.scval == nil {
+		return errors.New("must set either wildcard or scval")
+	}
+	if s.wildcard != nil && *s.wildcard != "*" {
+		return errors.New("wildcard must be '*'")
+	}
+	return nil
 }
 
 func (s *SegmentFilter) UnmarshalJSON(p []byte) error {
@@ -267,13 +282,14 @@ func (id *EventID) Parse(input string) error {
 		return errors.Wrapf(err, "invalid event id %s", input)
 	}
 	parsed := toid.Parse(idInt)
-	id.ID = &parsed
 
 	// Parse the second part (event order)
 	eventOrder, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
 		return errors.Wrapf(err, "invalid event id %s", input)
 	}
+
+	id.ID = &parsed
 	// Subtract one to go from the id to the
 	id.EventOrder = int32(eventOrder) - 1
 
@@ -343,46 +359,16 @@ func (a EventStore) GetEvents(request GetEventsRequest) ([]EventInfo, error) {
 					continue
 				}
 				if request.Matches(event) {
-					v0 := event.Body.MustV0()
-
-					eventType := "contract"
-					if event.Type == xdr.ContractEventTypeSystem {
-						eventType = "system"
-					}
-
-					// Build a lexically order-able id for this event record. This is
-					// based on Horizon's db2/history.Effect.ID method.
-					id := EventID{
-						ID:         toid.New(ledger, pagingToken.TransactionOrder, int32(operationIndex)),
-						EventOrder: int32(eventIndex),
-					}.String()
-
-					// base64-xdr encode the topic
-					topic := make([]string, 0, 4)
-					for _, segment := range v0.Topics {
-						seg, err := xdr.MarshalBase64(segment)
-						if err != nil {
-							return err
-						}
-						topic = append(topic, seg)
-					}
-
-					// base64-xdr encode the data
-					data, err := xdr.MarshalBase64(v0.Data)
+					info, err := eventInfoForEvent(
+						toid.New(ledger, pagingToken.TransactionOrder, int32(operationIndex)),
+						int32(eventIndex),
+						ledgerClosedAt,
+						event,
+					)
 					if err != nil {
 						return err
 					}
-
-					results = append(results, EventInfo{
-						EventType:      eventType,
-						Ledger:         ledger,
-						LedgerClosedAt: ledgerClosedAt,
-						ContractID:     hex.EncodeToString((*event.ContractId)[:]),
-						ID:             id,
-						PagingToken:    id,
-						Topic:          topic,
-						Value:          EventInfoValue{XDR: data},
-					})
+					results = append(results, info)
 
 					// Check if we've gotten "limit" events
 					if request.Pagination != nil && request.Pagination.Limit > 0 && uint(len(results)) >= request.Pagination.Limit {
@@ -455,6 +441,52 @@ func (a EventStore) ForEachTransaction(start, finish *toid.ID, f func(transactio
 			return nil
 		}
 	}
+}
+
+func eventInfoForEvent(opId *toid.ID, eventIndex int32, ledgerClosedAt string, event xdr.ContractEvent) (EventInfo, error) {
+	v0, ok := event.Body.GetV0()
+	if !ok {
+		return EventInfo{}, errors.New("unknown event version")
+	}
+
+	eventType := "contract"
+	if event.Type == xdr.ContractEventTypeSystem {
+		eventType = "system"
+	}
+
+	// Build a lexically order-able id for this event record. This is
+	// based on Horizon's db2/history.Effect.ID method.
+	id := EventID{
+		ID:         opId,
+		EventOrder: int32(eventIndex),
+	}.String()
+
+	// base64-xdr encode the topic
+	topic := make([]string, 0, 4)
+	for _, segment := range v0.Topics {
+		seg, err := xdr.MarshalBase64(segment)
+		if err != nil {
+			return EventInfo{}, err
+		}
+		topic = append(topic, seg)
+	}
+
+	// base64-xdr encode the data
+	data, err := xdr.MarshalBase64(v0.Data)
+	if err != nil {
+		return EventInfo{}, err
+	}
+
+	return EventInfo{
+		EventType:      eventType,
+		Ledger:         opId.LedgerSequence,
+		LedgerClosedAt: ledgerClosedAt,
+		ContractID:     hex.EncodeToString((*event.ContractId)[:]),
+		ID:             id,
+		PagingToken:    id,
+		Topic:          topic,
+		Value:          EventInfoValue{XDR: data},
+	}, nil
 }
 
 // NewGetEventsHandler returns a json rpc handler to fetch and filter events
