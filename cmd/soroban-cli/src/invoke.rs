@@ -52,6 +52,9 @@ pub struct Cmd {
     /// File containing JSON Argument to pass to the function
     #[clap(long, multiple = true)]
     args_file: Vec<PathBuf>,
+    /// File containing argument to pass to the function (base64-encoded xdr)
+    #[clap(long, multiple = true)]
+    args_xdr_file: Vec<PathBuf>,
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
@@ -166,8 +169,8 @@ pub enum Error {
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing transaction result")]
     MissingTransactionResult,
-    #[error("args file error")]
-    ArgsFile,
+    #[error("args file error {0}")]
+    ArgsFile(std::path::PathBuf),
 }
 
 #[derive(Clone, Debug)]
@@ -181,7 +184,7 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-        matches: &clap::ArgMatches,
+        arg_matches: &clap::ArgMatches,
     ) -> Result<ScVec, Error> {
         // Get the function spec from the contract code
         let spec = spec_entries
@@ -197,31 +200,46 @@ impl Cmd {
             .ok_or_else(|| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
 
         // Re-assemble the function args, to match the order given on the command line
-        let indexed_args: Vec<(usize, Arg)> = matches
+        let indexed_args: Vec<(usize, Arg)> = arg_matches
             .indices_of("args")
             .unwrap_or_default()
             .zip(self.args.iter())
             .map(|(a, b)| (a, Arg::Arg(b.to_string())))
             .collect();
-        let indexed_args_xdr: Vec<(usize, Arg)> = matches
+        let indexed_args_xdr: Vec<(usize, Arg)> = arg_matches
             .indices_of("args-xdr")
             .unwrap_or_default()
             .zip(self.args_xdr.iter())
             .map(|(a, b)| (a, Arg::ArgXdr(b.to_string())))
             .collect();
 
-        let indexed_args_files: Vec<(usize, Arg)> = matches
+        let indexed_args_files: Vec<(usize, Arg)> = arg_matches
             .indices_of("args-file")
             .unwrap_or_default()
             .zip(self.args_file.iter())
             .map(|(a, p)| {
-                let b = std::fs::read_to_string(p).map_err(|_| Error::ArgsFile)?;
+                let b = std::fs::read_to_string(p).map_err(|_| Error::ArgsFile(p.clone()))?;
                 Ok((a, Arg::Arg(b)))
             })
             .collect::<Result<_, Error>>()?;
 
-        let mut all_indexed_args: Vec<(usize, Arg)> =
-            [indexed_args, indexed_args_xdr, indexed_args_files].concat();
+        let indexed_args_xdr_files: Vec<(usize, Arg)> = arg_matches
+            .indices_of("args-xdr-file")
+            .unwrap_or_default()
+            .zip(self.args_file.iter())
+            .map(|(a, p)| {
+                let b = std::fs::read_to_string(p).map_err(|_| Error::ArgsFile(p.clone()))?;
+                Ok((a, Arg::ArgXdr(b)))
+            })
+            .collect::<Result<_, Error>>()?;
+
+        let mut all_indexed_args: Vec<(usize, Arg)> = [
+            indexed_args,
+            indexed_args_xdr,
+            indexed_args_files,
+            indexed_args_xdr_files,
+        ]
+        .concat();
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
 
         // Parse the function arguments
