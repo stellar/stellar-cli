@@ -2081,38 +2081,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soroban-tools"
-version = "0.3.0"
-dependencies = [
- "assert_cmd",
- "assert_fs",
- "base64",
- "clap",
- "clap_complete",
- "crate-git-revision 0.0.2",
- "csv",
- "ed25519-dalek",
- "hex",
- "jsonrpsee-core",
- "jsonrpsee-http-client",
- "rand 0.8.5",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "sha2 0.10.6",
- "soroban-env-host 0.0.10 (git+https://github.com/stellar/rs-soroban-env?rev=c148051)",
- "soroban-spec",
- "soroban-token-spec",
- "stellar-strkey 0.0.6 (git+https://github.com/stellar/rs-stellar-strkey?rev=5e582a8)",
- "thiserror",
- "tokio",
- "warp",
- "wasm-opt",
- "wasmparser 0.90.0",
-]
-
-[[package]]
 name = "soroban-wasmi"
 version = "0.16.0-soroban2"
 source = "git+https://github.com/stellar/wasmi?rev=862b32f5#862b32f53f9c6223911e79e0b0fc8592fb3bb04c"
