@@ -22,13 +22,18 @@ use crate::snapshot::{self, get_default_ledger_info};
 use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
+#[clap(group(
+    clap::ArgGroup::new("wasm_src")
+        .required(true)
+        .args(&["wasm", "wasm-hash"]),
+))]
 pub struct Cmd {
     /// WASM file to deploy
-    #[clap(long, parse(from_os_str))]
+    #[clap(long, parse(from_os_str), group = "wasm_src")]
     wasm: Option<std::path::PathBuf>,
 
     /// Hash of the already installed/deployed WASM file
-    #[clap(long = "wasm-hash", conflicts_with = "wasm")]
+    #[clap(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     wasm_hash: Option<String>,
 
     /// Contract ID to deploy to
@@ -125,8 +130,6 @@ pub enum Error {
     CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
-    #[error("either --wasm or --wasm-hash has to be provided")]
-    ContractSourceNotProvided,
 }
 
 enum ContractSource {
@@ -149,7 +152,7 @@ impl Cmd {
                 }
             })?)
         } else {
-            return Err(Error::ContractSourceNotProvided);
+            unreachable!("clap should ensure the WASM presence");
         };
 
         let res_str = if self.rpc_url.is_some() {
