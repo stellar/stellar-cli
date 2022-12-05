@@ -11,6 +11,7 @@ edition = "2021"
 rust-version = "1.65"
 autobins = false
 build = "build.rs"
+publish = false
 
 [build-dependencies]
 crate-git-revision = "0.0.2"
