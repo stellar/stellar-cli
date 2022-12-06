@@ -81,7 +81,7 @@ jobs:
       - run: rustup target add wasm32-unknown-unknown
       # TODO: we should probably manage the container in the test itself
       - run: make build-test-wasms
-      - run: docker run -d -p 8000:8000 stellar/quickstart:pr-389-soroban-dev --standalone --enable-soroban-rpc --enable-core-artificially-accelerate-time-for-testing --protocol-version 20
+      - run: docker run -d -p 8000:8000 stellar/quickstart:soroban-dev --standalone --enable-soroban-rpc --enable-core-artificially-accelerate-time-for-testing --protocol-version 20
       - run: while ! [ "$(curl -s --fail localhost:8000 | jq '.history_latest_ledger')" -gt 0 ]; do echo waiting; sleep 1; done
       # Run e2e tests sequentially to avoid	sequence number	mismatches
       # TODO: use different accounts in different tests to avoid the data race
