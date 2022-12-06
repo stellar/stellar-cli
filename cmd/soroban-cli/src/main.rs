@@ -4,6 +4,7 @@ mod completion;
 mod deploy;
 mod gen;
 mod inspect;
+mod install;
 mod invoke;
 mod jsonrpc;
 mod network;
@@ -51,6 +52,8 @@ enum Cmd {
     Token(token::Root),
     /// Deploy a WASM file as a contract
     Deploy(deploy::Cmd),
+    /// Install a WASM file to the ledger without creating a contract instance
+    Install(install::Cmd),
     /// Generate code client bindings for a contract
     Gen(gen::Cmd),
 
@@ -84,6 +87,8 @@ enum CmdError {
     #[error(transparent)]
     Deploy(#[from] deploy::Error),
     #[error(transparent)]
+    Install(#[from] install::Error),
+    #[error(transparent)]
     Xdr(#[from] xdr::Error),
 }
 
@@ -100,6 +105,7 @@ async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
         Cmd::Token(token) => token.run().await?,
         Cmd::Gen(gen) => gen.run()?,
         Cmd::Deploy(deploy) => deploy.run().await?,
+        Cmd::Install(install) => install.run().await?,
         Cmd::Xdr(xdr) => xdr.run()?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
