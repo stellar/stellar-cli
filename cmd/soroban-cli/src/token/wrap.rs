@@ -9,9 +9,9 @@ use soroban_env_host::{
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
         HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractCode, ScHostStorageErrorCode, ScStatic::LedgerKeyContractCode,
-        ScStatus, ScVal, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256,
-        VecM, WriteXdr,
+        PublicKey, ScContractCode, ScHostStorageErrorCode, ScObject,
+        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
