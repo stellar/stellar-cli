@@ -9,9 +9,9 @@ use soroban_env_host::{
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
         HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractCode, ScHostStorageErrorCode, ScStatic::LedgerKeyContractCode,
-        ScStatus, ScVal, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256,
-        VecM, WriteXdr,
+        PublicKey, ScContractCode, ScHostStorageErrorCode, ScObject,
+        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -215,13 +215,17 @@ fn build_wrap_token_tx(
         }),
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Symbol("Metadata".try_into().unwrap()),
+            key: ScVal::Object(Some(ScObject::Vec(
+                vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
+            ))),
         }),
     ];
     if asset != &Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Symbol("Admin".try_into().unwrap()),
+            key: ScVal::Object(Some(ScObject::Vec(
+                vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
+            ))),
         }));
     }
 

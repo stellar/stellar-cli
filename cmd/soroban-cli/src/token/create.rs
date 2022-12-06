@@ -118,7 +118,7 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
         let salt: [u8; 32] =
-            utils::contract_id_from_str(&self.salt).map_err(|_| Error::CannotParseSalt {
+            utils::id_from_str(&self.salt).map_err(|_| Error::CannotParseSalt {
                 salt: self.salt.clone(),
             })?;
 

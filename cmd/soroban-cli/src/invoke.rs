@@ -380,8 +380,10 @@ impl Cmd {
                 filepath: f.clone(),
                 error: e,
             })?;
-            utils::add_contract_to_ledger_entries(&mut state.1, contract_id, contract)
-                .map_err(Error::CannotAddContractToLedgerEntries)?;
+            let wasm_hash = utils::add_contract_code_to_ledger_entries(&mut state.1, contract)
+                .map_err(Error::CannotAddContractToLedgerEntries)?
+                .0;
+            utils::add_contract_to_ledger_entries(&mut state.1, contract_id, wasm_hash);
         }
 
         // Create source account, adding it to the ledger if not already present.
@@ -464,7 +466,7 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
+        utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
             contract_id: self.contract_id.clone(),
             error: e,
         })

@@ -33,6 +33,37 @@ where
     .success();
 }
 
+// e2e tests are ignore by default
+#[test]
+#[ignore]
+fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
+    // This test assumes a fresh standalone network rpc server on port 8000
+    Standalone::new_cmd("install")
+        .arg("--wasm")
+        .arg(test_wasm("test_hello_world"))
+        .assert()
+        .stdout("86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc\n")
+        .stderr("success\n")
+        .success();
+
+    Standalone::new_cmd("deploy")
+        .arg("--wasm-hash=86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc")
+        .arg("--salt=0")
+        .assert()
+        .stdout("b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b\n")
+        .stderr("success\n")
+        .success();
+
+    Standalone::new_cmd("invoke")
+        .arg("--id=b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b")
+        .arg("--fn=hello")
+        .arg("--arg=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .stderr("success\n")
+        .success();
+}
+
 #[test]
 #[ignore]
 fn create_and_invoke_token_contract_against_rpc_server() {
