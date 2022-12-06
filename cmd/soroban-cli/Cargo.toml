@@ -44,7 +44,7 @@ regex = "1.6.0"
 wasm-opt = "0.110.1"
 
 [build-dependencies]
-crate-git-revision = "0.0.2"
+crate-git-revision = "0.0.4"
 
 [dev_dependencies]
 assert_cmd = "2.0.4"

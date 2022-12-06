@@ -255,11 +255,9 @@ impl Cmd {
 
     pub async fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
         let contract_id: [u8; 32] =
-            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractId {
-                    contract_id: self.contract_id.clone(),
-                    error: e,
-                }
+            utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
+                contract_id: self.contract_id.clone(),
+                error: e,
             })?;
 
         if self.rpc_url.is_some() {
@@ -360,8 +358,10 @@ impl Cmd {
                 filepath: f.clone(),
                 error: e,
             })?;
-            utils::add_contract_to_ledger_entries(&mut state.1, contract_id, contract)
-                .map_err(Error::CannotAddContractToLedgerEntries)?;
+            let wasm_hash = utils::add_contract_code_to_ledger_entries(&mut state.1, contract)
+                .map_err(Error::CannotAddContractToLedgerEntries)?
+                .0;
+            utils::add_contract_to_ledger_entries(&mut state.1, contract_id, wasm_hash);
         }
 
         // Create source account, adding it to the ledger if not already present.

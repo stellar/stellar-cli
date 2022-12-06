@@ -94,11 +94,9 @@ impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] =
-            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractId {
-                    contract_id: self.contract_id.clone(),
-                    error: e,
-                }
+            utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
+                contract_id: self.contract_id.clone(),
+                error: e,
             })?;
         let key = if let Some(key) = &self.key {
             Some(
