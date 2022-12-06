@@ -105,9 +105,17 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("parsing argument '{arg}' at index {index}: {error}")]
-    CannotParseArg { arg: String, error: StrValError, index: usize },
-    #[error("parsing XDR arg {arg}: {error}")]
-    CannotParseXdrArg { arg: String, error: XdrError },
+    CannotParseArg {
+        arg: String,
+        error: StrValError,
+        index: usize,
+    },
+    #[error("parsing XDR arg '{arg}' at index {index}: {error}")]
+    CannotParseXdrArg {
+        arg: String,
+        error: XdrError,
+        index: usize,
+    },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(XdrError),
     #[error(transparent)]
@@ -216,21 +224,29 @@ impl Cmd {
             });
         }
 
+        let mut idx = 0;
         let parsed_args = all_indexed_args
             .iter()
             .zip(inputs.iter())
-            .map(|(arg, input)| match &arg.1 {
-                Arg::ArgXdr(s) => ScVal::from_xdr_base64(s).map_err(|e| Error::CannotParseXdrArg {
-                    arg: s.clone(),
-                    error: e,
-                }),
-                Arg::Arg(s) => {
-                    strval::from_string(s, &input.type_).map_err(|e| Error::CannotParseArg {
-                        arg: s.clone(),
-                        error: e,
-                        index: arg.0,
-                    })
-                }
+            .map(|(arg, input)| {
+                let a = match &arg.1 {
+                    Arg::ArgXdr(s) => {
+                        ScVal::from_xdr_base64(s).map_err(|e| Error::CannotParseXdrArg {
+                            arg: s.clone(),
+                            error: e,
+                            index: idx,
+                        })
+                    }
+                    Arg::Arg(s) => {
+                        strval::from_string(s, &input.type_).map_err(|e| Error::CannotParseArg {
+                            arg: s.clone(),
+                            error: e,
+                            index: idx,
+                        })
+                    }
+                };
+                idx += 1;
+                a
             })
             .collect::<Result<Vec<_>, _>>()?;
 
