@@ -16,7 +16,6 @@ pub fn arg_file(arg: &str) -> PathBuf {
     path
 }
 
-
 /// Create a command with the correct env variables
 pub trait SorobanCommand {
     /// Default is with none
