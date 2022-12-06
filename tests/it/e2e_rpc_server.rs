@@ -7,8 +7,7 @@ use crate::util::{test_wasm, SorobanCommand, Standalone};
 #[ignore]
 fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
-    Standalone::new_cmd()
-        .arg("deploy")
+    Standalone::new_cmd("deploy")
         .arg("--wasm")
         .arg(test_wasm("test_hello_world"))
         .arg("--salt=0")
@@ -25,8 +24,7 @@ fn test_hello_world<F>(f: F)
 where
     F: FnOnce(&mut Command) -> &mut Command,
 {
-    f(Standalone::new_cmd()
-        .arg("invoke")
+    f(Standalone::new_cmd("invoke")
         .arg("--id=1f3eb7b8dc051d6aa46db5454588a142c671a0cdcdb36a2f754d9675a64bf613")
         .arg("--fn=hello"))
     .assert()
@@ -40,9 +38,8 @@ where
 fn create_and_invoke_token_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
-    Standalone::new_cmd()
+    Standalone::new_cmd("token")
         .args([
-            "token",
             "create",
             "--name=Stellar Lumens",
             "--symbol=XLM",
@@ -53,9 +50,8 @@ fn create_and_invoke_token_contract_against_rpc_server() {
         .stderr("success\nsuccess\n")
         .success();
 
-    Standalone::new_cmd()
+    Standalone::new_cmd("invoke")
         .args([
-            "invoke",
             "--id=1bd2a2473623e73904d35a334476d1fe3cd192811bd823b7815fd9ce57c82232",
             "--fn=symbol",
         ])

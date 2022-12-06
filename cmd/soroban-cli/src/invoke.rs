@@ -212,7 +212,6 @@ impl Cmd {
             .zip(self.args_xdr.iter())
             .map(|(a, b)| (a, Arg::ArgXdr(b.to_string())))
             .collect();
-
         let indexed_args_files: Vec<(usize, Arg)> = arg_matches
             .indices_of("args-file")
             .unwrap_or_default()
@@ -222,7 +221,6 @@ impl Cmd {
                 Ok((a, Arg::Arg(b)))
             })
             .collect::<Result<_, Error>>()?;
-
         let indexed_args_xdr_files: Vec<(usize, Arg)> = arg_matches
             .indices_of("args-xdr-file")
             .unwrap_or_default()

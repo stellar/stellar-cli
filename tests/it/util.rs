@@ -13,8 +13,10 @@ pub fn test_wasm(name: &str) -> PathBuf {
 /// Create a command with the correct env variables
 pub trait SorobanCommand {
     /// Default is with none
-    fn new_cmd() -> Command {
-        Command::cargo_bin("soroban").expect("failed to find local soroban binary")
+    fn new_cmd(name: &str) -> Command {
+        let mut this = Command::cargo_bin("soroban").expect("failed to find local soroban binary");
+        this.arg(name);
+        this
     }
 }
 
@@ -27,8 +29,8 @@ impl SorobanCommand for Sandbox {}
 pub struct Standalone {}
 
 impl SorobanCommand for Standalone {
-    fn new_cmd() -> Command {
-        let mut this = Sandbox::new_cmd();
+    fn new_cmd(name: &str) -> Command {
+        let mut this = Sandbox::new_cmd(name);
         this.env("SOROBAN_RPC_URL", "http://localhost:8000/soroban/rpc")
             .env(
                 "SOROBAN_SECRET_KEY",
