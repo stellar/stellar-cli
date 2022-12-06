@@ -12,6 +12,8 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
+    #[error("json decoding error: {0}")]
+    Serde(#[from] serde_json::Error),
     #[error("transaction submission failed")]
     TransactionSubmissionFailed,
     #[error("expected transaction status: {0}")]
@@ -81,6 +83,35 @@ pub struct SimulateTransactionResponse {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
     // TODO: add results and latestLedger
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetEventsResponse {
+    pub events: Vec<Event>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct Event {
+    #[serde(rename = "eventType")]
+    pub event_type: String,
+    pub id: String,
+
+    pub ledger: String,
+    #[serde(rename = "ledgerClosedAt")]
+    pub ledger_closed_at: String,
+
+    #[serde(rename = "contractId")]
+    pub contract_id: String,
+    pub topic: Vec<String>,
+    pub value: EventValue,
+
+    #[serde(rename = "pagingToken")]
+    pub paging_token: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct EventValue {
+    pub xdr: String,
 }
 
 pub struct Client {
@@ -187,5 +218,24 @@ impl Client {
             .client()?
             .request("getLedgerEntry", rpc_params![base64_key])
             .await?)
+    }
+
+    pub fn get_events(
+        &self,
+        _contract_ids: &[String],
+        _topics: &[String],
+    ) -> Result<GetEventsResponse, Error> {
+        // Ok(self
+        //     .client()?
+        //     .request("getEvents", rpc_params![contract_ids, topics])
+        //     .await?)
+
+        let mut reader = std::fs::OpenOptions::new()
+            .read(true)
+            .open("./fixtures/event_response.json")
+            .unwrap();
+        let mock_events: GetEventsResponse = serde_json::from_reader(&mut reader)?;
+
+        Ok(mock_events)
     }
 }

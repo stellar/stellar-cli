@@ -404,7 +404,7 @@ fn execute_transaction(
     let footprint = create_ledger_footprint(&storage.footprint);
 
     if commit {
-        snapshot::commit(state.1, ledger_info, &storage.map, ledger_file)?;
+        snapshot::commit(state.1, &ledger_info, &storage.map, ledger_file)?;
     }
 
     Ok(json!({

@@ -1,13 +1,18 @@
 use std::{fs::create_dir_all, fs::File, io, iter::IntoIterator};
 
 use soroban_env_host::{
+    events,
     im_rc::OrdMap,
     storage::SnapshotSource,
-    xdr::{Error as XdrError, LedgerEntry, LedgerKey, ScHostStorageErrorCode, ScStatus, VecM},
+    xdr::{
+        self, Error as XdrError, LedgerEntry, LedgerKey, ScHostStorageErrorCode, ScStatus, VecM,
+        WriteXdr,
+    },
     HostError, LedgerInfo,
 };
 
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
+use crate::rpc;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -67,7 +72,8 @@ pub fn read(
     let mut file = match File::open(input_file) {
         Ok(f) => f,
         Err(e) => {
-            //File doesn't exist, so treat this as an empty database and the file will be created later
+            // File doesn't exist, so treat this as an empty database and the
+            // file will be created later
             if e.kind() == io::ErrorKind::NotFound {
                 return Ok((get_default_ledger_info(), entries));
             }
@@ -89,14 +95,15 @@ pub fn read(
 
 pub fn commit<'a, I>(
     mut new_state: OrdMap<LedgerKey, LedgerEntry>,
-    ledger_info: LedgerInfo,
+    ledger_info: &LedgerInfo,
     storage_map: I,
     output_file: &std::path::PathBuf,
 ) -> Result<(), Error>
 where
     I: IntoIterator<Item = (&'a Box<LedgerKey>, &'a Option<Box<LedgerEntry>>)>,
 {
-    //Need to start off with the existing snapshot (new_state) since it's possible the storage_map did not touch every existing entry
+    // Need to start off with the existing snapshot (new_state) since it's
+    // possible the storage_map did not touch every existing entry
     if let Some(dir) = output_file.parent() {
         if !dir.exists() {
             create_dir_all(dir)?;
@@ -120,10 +127,93 @@ where
         protocol_version: ledger_info.protocol_version,
         sequence_number: ledger_info.sequence_number,
         timestamp: ledger_info.timestamp,
-        network_passphrase: ledger_info.network_passphrase,
+        network_passphrase: ledger_info.network_passphrase.clone(),
         base_reserve: ledger_info.base_reserve,
     };
     serde_json::to_writer(&file, &output)?;
+
+    Ok(())
+}
+
+/// Returns a list of events from the on-disk event store, which stores events
+/// exactly as they'd be returned by an RPC server.
+pub fn read_events(path: &std::path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
+    let reader = std::fs::OpenOptions::new().read(true).open(path)?;
+    let events: rpc::GetEventsResponse = serde_json::from_reader(reader)?;
+
+    Ok(events.events)
+}
+
+// Reads the existing event file, appends the new events, and writes it all to
+// disk. Note that this almost certainly isn't safe to call in parallel.
+pub fn commit_events(
+    new_events: &Vec<events::HostEvent>,
+    ledger_info: &LedgerInfo,
+    output_file: &std::path::PathBuf,
+) -> Result<(), Error> {
+    for (i, event) in new_events.iter().enumerate() {
+        eprintln!("#{i}: {:#?}", event);
+    }
+
+    // Create the directory tree if necessary, since these are unlikely to be
+    // the first events.
+    if let Some(dir) = output_file.parent() {
+        if !dir.exists() {
+            create_dir_all(dir)?;
+        }
+    }
+
+    eprintln!("Appending to file: {:#?}", output_file);
+
+    let mut file = std::fs::OpenOptions::new().read(true).open(output_file)?;
+    let mut events: rpc::GetEventsResponse = serde_json::from_reader(&mut file)?;
+
+    for event in new_events.iter() {
+        let contract_event = match event {
+            events::HostEvent::Contract(e) => e,
+            events::HostEvent::Debug(e) => {
+                panic!("debug events unsupported: {:#?}", e);
+            }
+        };
+
+        // TODO: Handle decoding errors cleanly; I miss errors.Wrap(err, ...) :(
+        let topics = match &contract_event.body {
+            xdr::ContractEventBody::V0(e) => &e.topics,
+        }
+        .iter()
+        .map(|t| t.to_xdr_base64().unwrap())
+        .collect(); // try_collect()? would be nice here
+
+        let cereal_event = rpc::Event {
+            event_type: "contract".to_string(),
+            id: String::new(),
+            paging_token: String::new(),
+            ledger: ledger_info.sequence_number.to_string(),
+            ledger_closed_at: ledger_info.timestamp.to_string(),
+            contract_id: hex::encode(
+                contract_event
+                    .contract_id
+                    .as_ref()
+                    .unwrap_or(&xdr::Hash([0; 32])),
+            ),
+            topic: topics,
+            value: rpc::EventValue {
+                xdr: match &contract_event.body {
+                    xdr::ContractEventBody::V0(e) => &e.data,
+                }
+                .to_xdr_base64()?,
+            },
+        };
+
+        events.events.push(cereal_event);
+    }
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(output_file)?;
+
+    serde_json::to_writer_pretty(&mut file, &events)?;
 
     Ok(())
 }
