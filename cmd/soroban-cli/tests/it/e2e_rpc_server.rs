@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 use std::str;
 
-use crate::util::{test_wasm, OutputStr, SorobanCommand, Standalone};
+use crate::util::{arg_file, test_wasm, OutputStr, SorobanCommand, Standalone};
 
 // e2e tests are ignore by default
 #[test]
@@ -18,9 +18,7 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
         .output_line();
 
     test_hello_world(&id, |cmd| cmd.arg("--arg=world"));
-    test_hello_world(&id, |cmd| {
-        cmd.arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world")
-    });
+    test_hello_world(&id, |cmd| cmd.arg("--arg-file").arg(arg_file("world")));
 }
 
 fn test_hello_world<F>(id: &str, f: F)

@@ -10,6 +10,13 @@ pub fn test_wasm(name: &str) -> PathBuf {
     path
 }
 
+pub fn arg_file(arg: &str) -> PathBuf {
+    let path = PathBuf::from("tests/fixtures/args").join(arg);
+    assert!(path.is_file(), "missing input file {}", path.display());
+    path
+}
+
+
 /// Create a command with the correct env variables
 pub trait SorobanCommand {
     /// Default is with none

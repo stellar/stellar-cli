@@ -1,4 +1,4 @@
-use crate::util::{temp_ledger_file, test_wasm, Sandbox, SorobanCommand};
+use crate::util::{arg_file, temp_ledger_file, test_wasm, Sandbox, SorobanCommand};
 
 #[test]
 fn invoke_token() {
@@ -100,7 +100,8 @@ fn invoke_hello_world_with_deploy_first() {
     Sandbox::new_cmd("invoke")
         .arg("--ledger-file")
         .arg(&ledger)
-        .arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world")
+        .arg("--arg-file")
+        .arg(arg_file("world"))
         .arg("--id")
         .arg(id)
         .arg("--fn=hello")
