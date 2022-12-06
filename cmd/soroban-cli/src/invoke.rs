@@ -309,14 +309,10 @@ impl Cmd {
         let sequence = account_details.sequence.parse::<i64>()?;
 
         // Get the contract
-        let spec_entries = if let Some(f) = &self.wasm {
-            // Get the contract from a file
-            let wasm = fs::read(f).map_err(|e| Error::CannotReadContractFile {
-                filepath: f.clone(),
-                error: e,
-            })?;
-            soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)?
+        let spec_entries = if let Some(spec) = self.spec_entries()? {
+            spec
         } else {
+            // async closures are not yet stable
             get_remote_contract_spec_entries(&client, &contract_id).await?
         };
 
@@ -375,11 +371,7 @@ impl Cmd {
             })?;
 
         // If a file is specified, deploy the contract to storage
-        if let Some(f) = &self.wasm {
-            let contract = fs::read(f).map_err(|e| Error::CannotReadContractFile {
-                filepath: f.clone(),
-                error: e,
-            })?;
+        if let Some(contract) = self.read_wasm()? {
             let wasm_hash = utils::add_contract_code_to_ledger_entries(&mut state.1, contract)
                 .map_err(Error::CannotAddContractToLedgerEntries)?
                 .0;
@@ -461,6 +453,25 @@ impl Cmd {
             }
         })?;
         Ok(())
+    }
+
+    pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
+        Ok(if let Some(wasm) = self.wasm.as_ref() {
+            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile {
+                filepath: wasm.clone(),
+                error: e,
+            })?)
+        } else {
+            None
+        })
+    }
+
+    pub fn spec_entries(&self) -> Result<Option<Vec<ScSpecEntry>>, Error> {
+        self.read_wasm()?
+            .map(|wasm| {
+                soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)
+            })
+            .transpose()
     }
 }
 
