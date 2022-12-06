@@ -18,7 +18,9 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
         .output_line();
 
     test_hello_world(&id, |cmd| cmd.arg("--arg=world"));
-    test_hello_world(&id, |cmd| cmd.arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world"))
+    test_hello_world(&id, |cmd| {
+        cmd.arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world")
+    })
 }
 
 fn test_hello_world<F>(id: &str, f: F)
