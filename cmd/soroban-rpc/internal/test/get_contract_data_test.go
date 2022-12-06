@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
 	"testing"
@@ -28,7 +29,7 @@ func TestGetContractDataNotFound(t *testing.T) {
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	keyB64, err := xdr.MarshalBase64(getContractCodeLedgerKey())
 	require.NoError(t, err)
-	contractID := getContractID(t, sourceAccount, testSalt)
+	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
 	request := methods.GetContractDataRequest{
 		ContractID: hex.EncodeToString(contractID[:]),
 		Key:        keyB64,
@@ -63,7 +64,7 @@ func TestGetContractDataInvalidParams(t *testing.T) {
 	assert.Equal(t, "contract id is not 32 bytes", jsonRPCErr.Message)
 	assert.Equal(t, code.InvalidParams, jsonRPCErr.Code)
 
-	contractID := getContractID(t, keypair.Root(StandaloneNetworkPassphrase).Address(), testSalt)
+	contractID := getContractID(t, keypair.Root(StandaloneNetworkPassphrase).Address(), testSalt, StandaloneNetworkPassphrase)
 	request.ContractID = hex.EncodeToString(contractID[:])
 	request.Key = "@#$!@#!@#"
 	jsonRPCErr = client.CallResult(context.Background(), "getContractData", request, &result).(*jrpc2.Error)
@@ -83,7 +84,7 @@ func TestGetContractDataDeadlineError(t *testing.T) {
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	keyB64, err := xdr.MarshalBase64(getContractCodeLedgerKey())
 	require.NoError(t, err)
-	contractID := getContractID(t, sourceAccount, testSalt)
+	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
 	request := methods.GetContractDataRequest{
 		ContractID: hex.EncodeToString(contractID[:]),
 		Key:        keyB64,
@@ -104,17 +105,46 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	kp := keypair.Root(StandaloneNetworkPassphrase)
 	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
 
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
-		SourceAccount:        &account,
-		IncrementSequenceNum: true,
-		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(t, account.AccountID, true),
-		},
-		BaseFee: txnbuild.MinBaseFee,
-		Preconditions: txnbuild.Preconditions{
-			TimeBounds: txnbuild.NewInfiniteTimeout(),
-		},
-	})
+	// Install and create the contract first
+	for _, op := range []txnbuild.Operation{
+		createInstallContractCodeOperation(t, account.AccountID, testContract, true),
+		createCreateContractOperation(t, account.AccountID, testContract, StandaloneNetworkPassphrase, true),
+	} {
+		assertSendTransaction(t, client, kp, txnbuild.TransactionParams{
+			SourceAccount:        &account,
+			IncrementSequenceNum: true,
+			Operations:           []txnbuild.Operation{op},
+			BaseFee:              txnbuild.MinBaseFee,
+			Preconditions: txnbuild.Preconditions{
+				TimeBounds: txnbuild.NewInfiniteTimeout(),
+			},
+		})
+	}
+
+	keyB64, err := xdr.MarshalBase64(getContractCodeLedgerKey())
+	require.NoError(t, err)
+	contractID := getContractID(t, kp.Address(), testSalt, StandaloneNetworkPassphrase)
+	request := methods.GetContractDataRequest{
+		ContractID: hex.EncodeToString(contractID[:]),
+		Key:        keyB64,
+	}
+
+	var result methods.GetContractDataResponse
+	err = client.CallResult(context.Background(), "getContractData", request, &result)
+	assert.NoError(t, err)
+	assert.Greater(t, result.LatestLedger, int64(0))
+	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
+	var scVal xdr.ScVal
+	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &scVal))
+
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: testContract}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := sha256.Sum256(installContractCodeArgs)
+	assert.Equal(t, xdr.Hash(contractHash), scVal.MustObj().MustContractCode().MustWasmId())
+}
+
+func assertSendTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, txnParams txnbuild.TransactionParams) {
+	tx, err := txnbuild.NewTransaction(txnParams)
 	assert.NoError(t, err)
 	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
 	assert.NoError(t, err)
@@ -128,22 +158,9 @@ func TestGetContractDataSucceeds(t *testing.T) {
 	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
 
 	txStatusResponse := getTransactionStatus(t, client, sendTxResponse.ID)
-	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
-
-	keyB64, err := xdr.MarshalBase64(getContractCodeLedgerKey())
-	require.NoError(t, err)
-	contractID := getContractID(t, kp.Address(), testSalt)
-	request := methods.GetContractDataRequest{
-		ContractID: hex.EncodeToString(contractID[:]),
-		Key:        keyB64,
+	errorMessage := ""
+	if txStatusResponse.Error != nil {
+		errorMessage = txStatusResponse.Error.Message
 	}
-
-	var result methods.GetContractDataResponse
-	err = client.CallResult(context.Background(), "getContractData", request, &result)
-	assert.NoError(t, err)
-	assert.Greater(t, result.LatestLedger, int64(0))
-	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
-	var scVal xdr.ScVal
-	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &scVal))
-	assert.Equal(t, testContract, scVal.MustObj().MustContractCode().MustWasm())
+	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status, errorMessage)
 }

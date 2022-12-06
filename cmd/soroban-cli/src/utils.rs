@@ -1,50 +1,73 @@
 use ed25519_dalek::Signer;
 use hex::FromHexError;
 use sha2::{Digest, Sha256};
-use soroban_env_host::storage::{AccessType, Footprint};
-use soroban_env_host::xdr::{
-    AccountEntry, AccountEntryExt, AccountId, DecoratedSignature, LedgerFootprint, ScSpecEntry,
-    SequenceNumber, Signature, SignatureHint, StringM, Thresholds, TransactionEnvelope,
-    TransactionV1Envelope, VecM,
-};
 use soroban_env_host::{
     im_rc::OrdMap,
-    storage::Storage,
+    storage::{AccessType, Footprint, Storage},
     xdr::{
-        ContractDataEntry, Error as XdrError, Hash, LedgerEntry, LedgerEntryData, LedgerEntryExt,
-        LedgerKey, LedgerKeyContractData, ScContractCode, ScObject, ScStatic, ScVal, Transaction,
-        TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction, WriteXdr,
+        AccountEntry, AccountEntryExt, AccountId, ContractCodeEntry, ContractDataEntry,
+        DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, InstallContractCodeArgs,
+        LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
+        LedgerKeyContractCode, LedgerKeyContractData, ScContractCode, ScObject, ScSpecEntry,
+        ScStatic, ScVal, SequenceNumber, Signature, SignatureHint, StringM, Thresholds,
+        Transaction, TransactionEnvelope, TransactionSignaturePayload,
+        TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
 };
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPrivateKeyEd25519;
 
+pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
+    let args_xdr = InstallContractCodeArgs {
+        code: contract.try_into()?,
+    }
+    .to_xdr()?;
+    Ok(Hash(Sha256::digest(args_xdr).into()))
+}
+
+pub fn add_contract_code_to_ledger_entries(
+    entries: &mut OrdMap<LedgerKey, LedgerEntry>,
+    contract: Vec<u8>,
+) -> Result<Hash, XdrError> {
+    // Install the code
+    let hash = contract_hash(contract.as_slice())?;
+    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() });
+    let code_entry = LedgerEntry {
+        last_modified_ledger_seq: 0,
+        data: LedgerEntryData::ContractCode(ContractCodeEntry {
+            code: contract.try_into()?,
+            ext: ExtensionPoint::V0,
+            hash: hash.clone(),
+        }),
+        ext: LedgerEntryExt::V0,
+    };
+    entries.insert(code_key, code_entry);
+    Ok(hash)
+}
+
 pub fn add_contract_to_ledger_entries(
     entries: &mut OrdMap<LedgerKey, LedgerEntry>,
     contract_id: [u8; 32],
-    contract: Vec<u8>,
-) -> Result<(), XdrError> {
-    let key = LedgerKey::ContractData(LedgerKeyContractData {
+    wasm_hash: [u8; 32],
+) {
+    // Create the contract
+    let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: contract_id.into(),
         key: ScVal::Static(ScStatic::LedgerKeyContractCode),
     });
 
-    let data = LedgerEntryData::ContractData(ContractDataEntry {
-        contract_id: contract_id.into(),
-        key: ScVal::Static(ScStatic::LedgerKeyContractCode),
-        val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Wasm(
-            contract.try_into()?,
-        )))),
-    });
-
-    let entry = LedgerEntry {
+    let contract_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
-        data,
+        data: LedgerEntryData::ContractData(ContractDataEntry {
+            contract_id: contract_id.into(),
+            key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::WasmRef(Hash(
+                wasm_hash,
+            ))))),
+        }),
         ext: LedgerEntryExt::V0,
     };
-
-    entries.insert(key, entry);
-    Ok(())
+    entries.insert(contract_key, contract_entry);
 }
 
 pub fn padded_hex_from_str(s: &String, n: usize) -> Result<Vec<u8>, FromHexError> {
@@ -81,8 +104,8 @@ pub fn sign_transaction(
     }))
 }
 
-pub fn contract_id_from_str(contract_id: &String) -> Result<[u8; 32], FromHexError> {
-    padded_hex_from_str(contract_id, 32)?
+pub fn id_from_str<const N: usize>(contract_id: &String) -> Result<[u8; N], FromHexError> {
+    padded_hex_from_str(contract_id, N)?
         .try_into()
         .map_err(|_| FromHexError::InvalidStringLength)
 }
@@ -104,17 +127,23 @@ pub fn get_contract_spec_from_storage(
         ..
     }) = storage.get(&key)
     {
-        contract_code_to_spec_entries(c)
+        match c {
+            ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+                .map_err(FromWasmError::Parse),
+            ScContractCode::WasmRef(hash) => {
+                if let Ok(LedgerEntry {
+                    data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
+                    ..
+                }) = storage.get(&LedgerKey::ContractCode(LedgerKeyContractCode { hash }))
+                {
+                    soroban_spec::read::from_wasm(&code)
+                } else {
+                    Err(FromWasmError::NotFound)
+                }
+            }
+        }
     } else {
         Err(FromWasmError::NotFound)
-    }
-}
-
-pub fn contract_code_to_spec_entries(c: ScContractCode) -> Result<Vec<ScSpecEntry>, FromWasmError> {
-    match c {
-        ScContractCode::Wasm(wasm) => soroban_spec::read::from_wasm(&wasm),
-        ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
-            .map_err(FromWasmError::Parse),
     }
 }
 

@@ -1,11 +1,10 @@
 use serde_json::Value;
 use std::{error::Error, fmt::Display, str::FromStr};
 
-use num_bigint::{BigInt, Sign};
 use soroban_env_host::xdr::{
-    AccountId, BytesM, Error as XdrError, PublicKey, ScBigInt, ScMap, ScMapEntry, ScObject,
-    ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic,
-    ScVal, ScVec, Uint256,
+    AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecTypeDef,
+    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple, ScSpecTypeVec, ScStatic, ScVal, ScVec,
+    Uint256,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
@@ -65,21 +64,26 @@ pub fn from_string(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
             }
         }
 
-        // Might have wrapping quotes if it is negative. e.g. "-5"
-        ScSpecTypeDef::BigInt => {
+        ScSpecTypeDef::U128 => {
             if let Ok(Value::String(raw)) = serde_json::from_str(s) {
                 // First, see if it is a json string, strip the quotes and recurse
                 from_string(&raw, t)?
             } else {
-                let big =
-                    BigInt::from_str(s).map_err(|_| StrValError::InvalidValue(Some(t.clone())))?;
-                let (sign, bytes) = big.to_bytes_be();
-                let b: BytesM<256_000_u32> = bytes.try_into().map_err(StrValError::Xdr)?;
-                ScVal::Object(Some(ScObject::BigInt(match sign {
-                    Sign::NoSign => ScBigInt::Zero,
-                    Sign::Minus => ScBigInt::Negative(b),
-                    Sign::Plus => ScBigInt::Positive(b),
-                })))
+                u128::from_str(s)
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
+                    .into()
+            }
+        }
+
+        // Might have wrapping quotes if it is negative. e.g. "-5"
+        ScSpecTypeDef::I128 => {
+            if let Ok(Value::String(raw)) = serde_json::from_str(s) {
+                // First, see if it is a json string, strip the quotes and recurse
+                from_string(&raw, t)?
+            } else {
+                i128::from_str(s)
+                    .map_err(|_| StrValError::InvalidValue(Some(t.clone())))?
+                    .into()
             }
         }
 
@@ -110,8 +114,21 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, StrValError> {
         }
 
         // Number parsing
-        (ScSpecTypeDef::BigInt, Value::String(s)) => from_string(s, t)?,
-        (ScSpecTypeDef::BigInt, Value::Number(n)) => from_json(&Value::String(format!("{n}")), t)?,
+        (ScSpecTypeDef::U128 | ScSpecTypeDef::I128, Value::String(s)) => from_string(s, t)?,
+        (ScSpecTypeDef::U128, Value::Number(n)) => {
+            let val: u128 = n
+                .as_u64()
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
+                .into();
+            ScVal::Object(Some(val.into()))
+        }
+        (ScSpecTypeDef::I128, Value::Number(n)) => {
+            let val: i128 = n
+                .as_i64()
+                .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
+                .into();
+            ScVal::Object(Some(val.into()))
+        }
         (ScSpecTypeDef::I32, Value::Number(n)) => ScVal::I32(
             n.as_i64()
                 .ok_or_else(|| StrValError::InvalidValue(Some(t.clone())))?
@@ -300,17 +317,19 @@ pub fn to_json(v: &ScVal) -> Result<Value, StrValError> {
                 Value::String(StrkeyPublicKeyEd25519(*k).to_string())
             }
         },
-        ScVal::Object(Some(ScObject::BigInt(n))) => {
-            // Always output bigints as strings
-            Value::String(match n {
-                ScBigInt::Zero => "0".to_string(),
-                ScBigInt::Negative(bytes) => {
-                    BigInt::from_bytes_be(Sign::Minus, bytes.as_ref()).to_str_radix(10)
-                }
-                ScBigInt::Positive(bytes) => {
-                    BigInt::from_bytes_be(Sign::Plus, bytes.as_ref()).to_str_radix(10)
-                }
-            })
+        ScVal::Object(Some(ScObject::U128(n))) => {
+            // Always output u128s as strings
+            let v: u128 = ScObject::U128(n.clone())
+                .try_into()
+                .map_err(|_| StrValError::InvalidValue(Some(ScSpecTypeDef::U128)))?;
+            Value::String(v.to_string())
+        }
+        ScVal::Object(Some(ScObject::I128(n))) => {
+            // Always output i128s as strings
+            let v: i128 = ScObject::I128(n.clone())
+                .try_into()
+                .map_err(|_| StrValError::InvalidValue(Some(ScSpecTypeDef::I128)))?;
+            Value::String(v.to_string())
         }
         // TODO: Implement these
         ScVal::Object(Some(ScObject::ContractCode(_))) | ScVal::Bitset(_) | ScVal::Status(_) => {

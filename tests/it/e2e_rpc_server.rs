@@ -12,13 +12,47 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
         .arg(test_wasm("test_hello_world"))
         .arg("--salt=0")
         .assert()
-        .stdout("1f3eb7b8dc051d6aa46db5454588a142c671a0cdcdb36a2f754d9675a64bf613\n")
+        .stdout("b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b\n")
+        .stderr("success\nsuccess\n")
+        .success();
+
+    Standalone::new_cmd()
+        .arg("invoke")
+        .arg("--id=b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b")
+        .arg("--fn=hello")
+        .arg("--arg=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .stderr("success\n")
+        .success();
+}
+
+// e2e tests are ignore by default
+#[test]
+#[ignore]
+fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
+    // This test assumes a fresh standalone network rpc server on port 8000
+    Standalone::new_cmd()
+        .arg("install")
+        .arg("--wasm")
+        .arg(test_wasm("test_hello_world"))
+        .assert()
+        .stdout("86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc\n")
+        .stderr("success\n")
+        .success();
+
+    Standalone::new_cmd()
+        .arg("deploy")
+        .arg("--wasm-hash=86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc")
+        .arg("--salt=0")
+        .assert()
+        .stdout("b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b\n")
         .stderr("success\n")
         .success();
 
     Standalone::new_cmd()
         .arg("invoke")
-        .arg("--id=1f3eb7b8dc051d6aa46db5454588a142c671a0cdcdb36a2f754d9675a64bf613")
+        .arg("--id=b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b")
         .arg("--fn=hello")
         .arg("--arg=world")
         .assert()
@@ -41,14 +75,14 @@ fn create_and_invoke_token_contract_against_rpc_server() {
             "--salt=1",
         ])
         .assert()
-        .stdout("8af3f0c5c2c4b5a3c6ac67b390f84d9db843b48827376f42e5bad215c42588f7\n")
+        .stdout("1bd2a2473623e73904d35a334476d1fe3cd192811bd823b7815fd9ce57c82232\n")
         .stderr("success\nsuccess\n")
         .success();
 
     Standalone::new_cmd()
         .args([
             "invoke",
-            "--id=8af3f0c5c2c4b5a3c6ac67b390f84d9db843b48827376f42e5bad215c42588f7",
+            "--id=1bd2a2473623e73904d35a334476d1fe3cd192811bd823b7815fd9ce57c82232",
             "--fn=symbol",
         ])
         .assert()
