@@ -5,8 +5,16 @@ pub struct Contract;
 
 #[contractimpl]
 impl Contract {
-    pub fn hello(env: Env, s: Symbol) -> Vec<Symbol> {
-        vec![&env, symbol!("Hello"), s]
+    pub fn hello(env: Env, world: Symbol) -> Vec<Symbol> {
+        vec![&env, symbol!("Hello"), world]
+    }
+
+    pub fn world(env: Env, hello: Symbol) -> Vec<Symbol> {
+        vec![&env, symbol!("Hello"), hello]
+    }
+
+    pub fn not(env: Env, boolean: bool) -> Vec<bool> {
+        vec![&env, !boolean]
     }
 }
 

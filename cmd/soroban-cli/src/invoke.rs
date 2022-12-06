@@ -1,14 +1,18 @@
+use std::collections::{HashMap};
+use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::Parser;
+use clap::{Args, FromArgMatches, Parser};
 use hex::FromHexError;
+use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
     LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
-    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScStatic, ScVec,
-    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode,
+    ScSpecFunctionInputV0, ScSpecTypeDef, ScStatic, ScVec, SequenceNumber, Transaction,
+    TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -107,6 +111,10 @@ pub struct Cmd {
         help_heading = HEADING_RPC,
     )]
     network_passphrase: Option<String>,
+
+    // Arguments for contract as `--arg-name value`, `--arg-xdr-name base64-encoded-xdr`
+    #[clap(last = true, name = "ARGS")]
+    pub slop: Vec<OsString>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -178,6 +186,7 @@ enum Arg {
     Arg(String),
     ArgXdr(String),
 }
+static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
 
 impl Cmd {
     fn build_host_function_parameters(
@@ -242,6 +251,7 @@ impl Cmd {
 
         // Parse the function arguments
         let inputs = &spec.inputs;
+        build_custom_cmd(&self.function, inputs, &self.slop);
         if all_indexed_args.len() != inputs.len() {
             return Err(Error::UnexpectedArgumentCount {
                 provided: all_indexed_args.len(),
@@ -553,4 +563,58 @@ async fn get_remote_contract_spec_entries(
             .map_err(Error::CannotParseContractSpec)?,
         scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
     })
+}
+
+
+fn build_custom_cmd(name: &str, inputs: &VecM<ScSpecFunctionInputV0, 10>, slop: &[OsString]) {
+    let inputs_map = inputs
+        .iter()
+        .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
+        .collect::<HashMap<String, ScSpecTypeDef>>();
+    INSTANCE
+        .set(inputs_map.keys().map(Clone::clone).collect::<Vec<String>>())
+        .unwrap();
+
+    let names: &'static [String] = INSTANCE.get().unwrap();
+    let mut cmd = clap::Command::new(name).no_binary_name(true);
+
+    for (i, type_) in inputs_map.values().enumerate() {
+        let name = names[i].as_str();
+        let mut arg = clap::Arg::new(name);
+        arg = arg.long(name).takes_value(true);
+
+        // continue;
+        arg = match type_ {
+            xdr::ScSpecTypeDef::Val => todo!(),
+            xdr::ScSpecTypeDef::U64 => todo!(),
+            xdr::ScSpecTypeDef::I64 => todo!(),
+            xdr::ScSpecTypeDef::U128 => todo!(),
+            xdr::ScSpecTypeDef::I128 => todo!(),
+            xdr::ScSpecTypeDef::U32 => todo!(),
+            xdr::ScSpecTypeDef::I32 => todo!(),
+            xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
+            xdr::ScSpecTypeDef::Symbol => {
+                arg.value_parser(clap::builder::NonEmptyStringValueParser::new())
+            }
+            xdr::ScSpecTypeDef::Bitset => todo!(),
+            xdr::ScSpecTypeDef::Status => todo!(),
+            xdr::ScSpecTypeDef::Bytes => todo!(),
+            xdr::ScSpecTypeDef::Invoker => todo!(),
+            xdr::ScSpecTypeDef::AccountId => todo!(),
+            xdr::ScSpecTypeDef::Option(_) => todo!(),
+            xdr::ScSpecTypeDef::Result(_) => todo!(),
+            xdr::ScSpecTypeDef::Vec(_) => todo!(),
+            xdr::ScSpecTypeDef::Map(_) => todo!(),
+            xdr::ScSpecTypeDef::Set(_) => todo!(),
+            xdr::ScSpecTypeDef::Tuple(_) => todo!(),
+            xdr::ScSpecTypeDef::BytesN(_) => todo!(),
+            xdr::ScSpecTypeDef::Udt(_) => todo!(),
+        };
+        cmd = cmd.arg(arg);
+    }
+    cmd.build();
+    let arg_matches = cmd.get_matches_from(slop);
+    println!("{}", arg_matches.is_present("boolean"));
+    println!("{:#?}", arg_matches);
+    todo!();
 }
