@@ -29,7 +29,6 @@ pub struct Cmd {
     #[clap(long,
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
-        conflicts_with = "ledger-file", 
         conflicts_with = "events-file",
         conflicts_with = "follow",
     )]
@@ -45,17 +44,6 @@ pub struct Cmd {
         conflicts_with = "rpc-url",
     )]
     events_file: Option<std::path::PathBuf>,
-
-    /// Local sandboxed ledger file
-    #[clap(
-        long,
-        parse(from_os_str),
-        value_name = "PATH",
-        env = "SOROBAN_LEDGER_FILE",
-        help_heading = HEADING_SANDBOX,
-        conflicts_with = "rpc-url",
-    )]
-    ledger_file: Option<std::path::PathBuf>,
 
     /// Whether or not we should keep watching the events file and displaying
     /// them in real time.
