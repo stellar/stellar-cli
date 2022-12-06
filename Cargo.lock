@@ -343,9 +343,9 @@ dependencies = [
 
 [[package]]
 name = "crate-git-revision"
-version = "0.0.2"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07bf26dd21fe3d2cfed5afaedba648f944ba425e39083d1b86b6993e0d71b430"
+checksum = "78cea8a8c6f40508aa6292231db40fe5b4968f6959fefcad608e528b50657564"
 dependencies = [
  "serde",
  "serde_derive",
@@ -354,9 +354,9 @@ dependencies = [
 
 [[package]]
 name = "crate-git-revision"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78cea8a8c6f40508aa6292231db40fe5b4968f6959fefcad608e528b50657564"
+checksum = "f998aef136a4e7833b0e4f0fc0939a59c40140b28e0ffbf524ad84fb2cc568c8"
 dependencies = [
  "serde",
  "serde_derive",
@@ -1857,7 +1857,7 @@ dependencies = [
  "base64",
  "clap",
  "clap_complete",
- "crate-git-revision 0.0.2",
+ "crate-git-revision 0.0.4",
  "csv",
  "ed25519-dalek",
  "hex",
