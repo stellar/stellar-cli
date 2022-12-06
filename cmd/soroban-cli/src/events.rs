@@ -151,22 +151,37 @@ impl Cmd {
                         error: err.to_string(),
                     })?
                     .iter()
-                    .filter_map(|evt| {
-                        // Contract ID filter(s) are optional, so we should render
-                        // all events if they're omitted.
-                        if self.contract_ids.len() > 0 {
-                            for id in &self.contract_ids {
-                                if evt.contract_id == *id {
-                                    return Some(evt);
-                                }
+                    // The ledger range isn't optional, so filter on that first.
+                    .filter(|evt| {
+                        let seq = match evt.ledger.parse::<u32>() {
+                            Ok(i) => i,
+                            Err(e) => {
+                                eprintln!("error parsing key 'ledger': {:?}", e);
+                                return false; // eat error
                             }
-                        } else {
-                            return Some(evt);
+                        };
+
+                        seq >= self.start_ledger && seq <= self.end_ledger
+                    })
+                    .filter(|evt| {
+                        // Contract ID filter(s) are optional, so we should
+                        // render all events if they're omitted.
+                        if self.contract_ids.len() == 0 {
+                            return true;
                         }
 
-                        None
+                        for id in self.contract_ids.iter() {
+                            if *id == evt.contract_id {
+                                return true;
+                            }
+                        }
+
+                        false
                     })
                     .cloned()
+                    // FIXME: Bubble up errors rather than ignoring them as soon
+                    // as I understand the Rust-isms necessary... ideally we
+                    // could try_collect() here.
                     .collect::<Vec<Event>>(),
             );
         } else {
@@ -226,7 +241,7 @@ pub fn pretty_print_event(event: &Event) -> Result<(), Box<dyn std::error::Error
 
     let color = match event.event_type.as_str() {
         "system" => Color::Yellow,
-        _ => Color::Green,
+        _ => Color::Blue,
     };
     colored!(
         stdout,
