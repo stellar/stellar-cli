@@ -1,4 +1,5 @@
 use crate::util::{test_wasm, SorobanCommand, Standalone};
+use std::str;
 
 // e2e tests are ignore by default
 #[test]
@@ -6,19 +7,20 @@ use crate::util::{test_wasm, SorobanCommand, Standalone};
 fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
-    Standalone::new_cmd()
+    let result = &Standalone::new_cmd()
         .arg("deploy")
         .arg("--wasm")
         .arg(test_wasm("test_hello_world"))
-        .arg("--salt=0")
         .assert()
-        .stdout("b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b\n")
         .stderr("success\nsuccess\n")
         .success();
 
+    let id = str::from_utf8(&result.get_output().stdout).unwrap().trim();
+
     Standalone::new_cmd()
         .arg("invoke")
-        .arg("--id=b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b")
+        .arg("--id")
+        .arg(id)
         .arg("--fn=hello")
         .arg("--arg=world")
         .assert()
@@ -32,27 +34,34 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
 #[ignore]
 fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
-    Standalone::new_cmd()
+    let install_result = Standalone::new_cmd()
         .arg("install")
         .arg("--wasm")
         .arg(test_wasm("test_hello_world"))
         .assert()
-        .stdout("86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc\n")
         .stderr("success\n")
         .success();
 
-    Standalone::new_cmd()
+    let wasm_hash = str::from_utf8(&install_result.get_output().stdout)
+        .unwrap()
+        .trim();
+
+    let deploy_result = &Standalone::new_cmd()
         .arg("deploy")
-        .arg("--wasm-hash=86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc")
-        .arg("--salt=2")
+        .arg("--wasm-hash")
+        .arg(wasm_hash)
         .assert()
-        .stdout("d437d1a67f0ae578b36dd863e60995bfc8850528b9a85c3e643e1c28eb51c141\n")
         .stderr("success\n")
         .success();
+
+    let id = str::from_utf8(&deploy_result.get_output().stdout)
+        .unwrap()
+        .trim();
 
     Standalone::new_cmd()
         .arg("invoke")
-        .arg("--id=d437d1a67f0ae578b36dd863e60995bfc8850528b9a85c3e643e1c28eb51c141")
+        .arg("--id")
+        .arg(id)
         .arg("--fn=hello")
         .arg("--arg=world")
         .assert()
@@ -66,25 +75,19 @@ fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
 fn create_and_invoke_token_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
 
-    Standalone::new_cmd()
-        .args([
-            "token",
-            "create",
-            "--name=Stellar Lumens",
-            "--symbol=XLM",
-            "--salt=1",
-        ])
+    let result = Standalone::new_cmd()
+        .args(["token", "create", "--name=Stellar Lumens", "--symbol=XLM"])
         .assert()
-        .stdout("1bd2a2473623e73904d35a334476d1fe3cd192811bd823b7815fd9ce57c82232\n")
         .stderr("success\nsuccess\n")
         .success();
 
+    let id = str::from_utf8(&result.get_output().stdout).unwrap().trim();
+
     Standalone::new_cmd()
-        .args([
-            "invoke",
-            "--id=1bd2a2473623e73904d35a334476d1fe3cd192811bd823b7815fd9ce57c82232",
-            "--fn=symbol",
-        ])
+        .arg("invoke")
+        .arg("--id")
+        .arg(id)
+        .arg("--fn=symbol")
         .assert()
         .stdout("[88,76,77]\n")
         .stderr("success\n")
