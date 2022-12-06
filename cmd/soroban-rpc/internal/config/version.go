@@ -2,7 +2,7 @@ package config
 
 var (
 	// Version is the soroban-rpc version number, which is injected during build time.
-	Version = "0.3.0"
+	Version = "0.0.0"
 
 	// CommitHash is the soroban-rpc git commit hash, which is injected during build time.
 	CommitHash = ""
