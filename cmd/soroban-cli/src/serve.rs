@@ -208,7 +208,7 @@ fn get_contract_data(
 ) -> Result<Value, Error> {
     // Initialize storage and host
     let state = snapshot::read(ledger_file)?;
-    let contract_id: [u8; 32] = utils::contract_id_from_str(&contract_id_hex.to_string())?;
+    let contract_id: [u8; 32] = utils::id_from_str(&contract_id_hex.to_string())?;
     let key = ScVal::from_xdr_base64(key_xdr)?;
 
     let snap = Rc::new(snapshot::Snap {

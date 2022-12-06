@@ -39,3 +39,41 @@ fn source_account_exists() {
         .success()
         .stdout("true\n");
 }
+
+#[test]
+fn install_wasm_then_deploy_contract() {
+    let ledger = temp_ledger_file();
+    Sandbox::new_cmd()
+        .arg("install")
+        .arg("--ledger-file")
+        .arg(&ledger)
+        .arg("--wasm")
+        .arg(test_wasm("test_hello_world"))
+        .assert()
+        .success()
+        .stdout("86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc\n");
+
+    Sandbox::new_cmd()
+        .arg("deploy")
+        .arg("--ledger-file")
+        .arg(&ledger)
+        .arg("--wasm-hash=86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc")
+        .arg("--id=1")
+        .assert()
+        .success()
+        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
+}
+
+#[test]
+fn deploy_contract_with_wasm_file() {
+    Sandbox::new_cmd()
+        .arg("deploy")
+        .arg("--ledger-file")
+        .arg(temp_ledger_file())
+        .arg("--wasm")
+        .arg(test_wasm("test_hello_world"))
+        .arg("--id=1")
+        .assert()
+        .success()
+        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
+}
