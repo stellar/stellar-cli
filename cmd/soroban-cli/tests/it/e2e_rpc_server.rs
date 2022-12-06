@@ -44,15 +44,15 @@ fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
     Standalone::new_cmd()
         .arg("deploy")
         .arg("--wasm-hash=86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc")
-        .arg("--salt=0")
+        .arg("--salt=2")
         .assert()
-        .stdout("b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b\n")
+        .stdout("d437d1a67f0ae578b36dd863e60995bfc8850528b9a85c3e643e1c28eb51c141\n")
         .stderr("success\n")
         .success();
 
     Standalone::new_cmd()
         .arg("invoke")
-        .arg("--id=b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b")
+        .arg("--id=d437d1a67f0ae578b36dd863e60995bfc8850528b9a85c3e643e1c28eb51c141")
         .arg("--fn=hello")
         .arg("--arg=world")
         .assert()
