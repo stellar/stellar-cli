@@ -1,3 +1,4 @@
+use std::str;
 use assert_cmd::Command;
 
 use crate::util::{test_wasm, SorobanCommand, Standalone};

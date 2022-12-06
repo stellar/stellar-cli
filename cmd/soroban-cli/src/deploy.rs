@@ -211,13 +211,13 @@ impl Cmd {
         // Get the account sequence number
         let public_strkey =
             stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
-        let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
-        let sequence = account_details.sequence.parse::<i64>()?;
 
         let wasm_hash = match contract_src {
             ContractSource::Wasm(wasm) => {
+                let account_details = client.get_account(&public_strkey).await?;
+                let sequence = account_details.sequence.parse::<i64>()?;
                 let (tx, hash) = build_install_contract_code_tx(
                     wasm,
                     sequence + 1,
@@ -231,9 +231,11 @@ impl Cmd {
             ContractSource::WasmHash(wasm_hash) => Hash(wasm_hash),
         };
 
+        let account_details = client.get_account(&public_strkey).await?;
+        let sequence = account_details.sequence.parse::<i64>()?;
         let (tx, contract_id) = build_create_contract_tx(
             wasm_hash,
-            sequence + 2,
+            sequence + 1,
             fee,
             self.network_passphrase.as_ref().unwrap(),
             salt,
