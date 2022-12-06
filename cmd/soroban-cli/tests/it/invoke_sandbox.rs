@@ -100,7 +100,7 @@ fn invoke_hello_world_with_deploy_first() {
     Sandbox::new_cmd("invoke")
         .arg("--ledger-file")
         .arg(&ledger)
-        .arg("--args-file=./cmd/soroban-cli/tests/fixtures/args/world")
+        .arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world")
         .arg("--id")
         .arg(id)
         .arg("--fn=hello")

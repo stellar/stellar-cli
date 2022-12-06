@@ -1,32 +1,32 @@
-use std::str;
 use assert_cmd::Command;
+use std::str;
 
-use crate::util::{test_wasm, SorobanCommand, Standalone};
+use crate::util::{test_wasm, OutputStr, SorobanCommand, Standalone};
 
 // e2e tests are ignore by default
 #[test]
 #[ignore]
 fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     // This test assumes a fresh standalone network rpc server on port 8000
-    Standalone::new_cmd("deploy")
+    let id = Standalone::new_cmd("deploy")
         .arg("--wasm")
         .arg(test_wasm("test_hello_world"))
         .arg("--salt=0")
         .assert()
-        .stdout("b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b\n")
         .stderr("success\nsuccess\n")
-        .success();
+        .success()
+        .output_line();
 
-    test_hello_world(|cmd| cmd.arg("--arg=world"));
-    test_hello_world(|cmd| cmd.arg("--args-file=./cmd/soroban-cli/tests/fixtures/args/world"))
+    test_hello_world(&id, |cmd| cmd.arg("--arg=world"));
+    test_hello_world(&id, |cmd| cmd.arg("--arg-file=./cmd/soroban-cli/tests/fixtures/args/world"))
 }
 
-fn test_hello_world<F>(f: F)
+fn test_hello_world<F>(id: &str, f: F)
 where
     F: FnOnce(&mut Command) -> &mut Command,
 {
     f(Standalone::new_cmd("invoke")
-        .arg("--id=1f3eb7b8dc051d6aa46db5454588a142c671a0cdcdb36a2f754d9675a64bf613")
+        .args(["--id", id])
         .arg("--fn=hello"))
     .assert()
     .stdout("[\"Hello\",\"world\"]\n")

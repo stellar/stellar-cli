@@ -50,10 +50,10 @@ pub struct Cmd {
     #[clap(long = "arg-xdr", value_name = "arg-xdr", multiple = true)]
     args_xdr: Vec<String>,
     /// File containing JSON Argument to pass to the function
-    #[clap(long, multiple = true)]
+    #[clap(long = "arg-file", value_name = "arg-file", multiple = true)]
     args_file: Vec<PathBuf>,
     /// File containing argument to pass to the function (base64-encoded xdr)
-    #[clap(long, multiple = true)]
+    #[clap(long = "arg-xdr-file", value_name = "arg-xdr-file", multiple = true)]
     args_xdr_file: Vec<PathBuf>,
     /// Output the cost execution to stderr
     #[clap(long = "cost")]

@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use assert_cmd::Command;
+use assert_cmd::{assert::Assert, Command};
 use assert_fs::{prelude::PathChild, TempDir};
 
 pub fn test_wasm(name: &str) -> PathBuf {
@@ -50,4 +50,17 @@ pub fn temp_ledger_file() -> OsString {
         .child("ledger.json")
         .as_os_str()
         .into()
+}
+
+pub trait OutputStr {
+    fn output_line(&self) -> String;
+}
+
+impl OutputStr for Assert {
+    fn output_line(&self) -> String {
+        String::from_utf8(self.get_output().stdout.clone())
+            .expect("failed to make str")
+            .trim()
+            .to_owned()
+    }
 }
