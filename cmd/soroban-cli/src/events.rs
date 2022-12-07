@@ -152,15 +152,16 @@ impl Cmd {
                     .iter()
                     // The ledger range isn't optional, so filter on that first.
                     .filter(|evt| {
-                        let seq = match evt.ledger.parse::<u32>() {
-                            Ok(i) => i,
+                        match evt.ledger.parse::<u32>() {
+                            Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
                             Err(e) => {
-                                eprintln!("error parsing key 'ledger' ({:?}): {:?}", evt.ledger, e);
-                                return false; // eat error
+                                eprintln!(
+                                    "error parsing key 'ledger' ('{:?}'): {:#?}",
+                                    evt.ledger, e
+                                );
+                                false // eat error
                             }
-                        };
-
-                        seq >= self.start_ledger && seq <= self.end_ledger
+                        }
                     })
                     .filter(|evt| {
                         // Contract ID filter(s) are optional, so we should
@@ -213,8 +214,11 @@ impl Cmd {
 }
 
 pub fn print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Event {}:", event.id);
-    println!("  Type:     {}", event.event_type);
+    println!(
+        "Event {} [{}]:",
+        event.paging_token,
+        event.event_type.to_ascii_uppercase()
+    );
     println!(
         "  Ledger:   {} (closed at {})",
         event.ledger, event.ledger_closed_at
