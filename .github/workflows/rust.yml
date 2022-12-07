@@ -60,7 +60,7 @@ jobs:
     - run: rustup target add ${{ matrix.target }}
     - run: rustup target add wasm32-unknown-unknown
     - if: matrix.target == 'aarch64-unknown-linux-gnu'
-      run: sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
     - if: startsWith(matrix.target, 'x86_64')
