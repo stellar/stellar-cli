@@ -111,7 +111,7 @@ pub enum OutputFormat {
 }
 
 impl Cmd {
-    pub fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub async fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
         if self.start_ledger > self.end_ledger {
             return Err(Error::InvalidLedgerRange {
                 low: self.start_ledger,
@@ -132,7 +132,7 @@ impl Cmd {
         let mut events: Vec<Event> = Vec::new();
         if let Some(rpc_url) = self.rpc_url.as_ref() {
             let client = Client::new(rpc_url);
-            let rpc_event = client.get_events(&self.contract_ids, &self.topics)?;
+            let rpc_event = client.get_events(&self.contract_ids, &self.topics).await?;
             events = rpc_event.events;
         } else if let Some(path) = self.events_file.as_ref() {
             if !path.exists() {
@@ -155,7 +155,7 @@ impl Cmd {
                         let seq = match evt.ledger.parse::<u32>() {
                             Ok(i) => i,
                             Err(e) => {
-                                eprintln!("error parsing key 'ledger': {:?}", e);
+                                eprintln!("error parsing key 'ledger' ({:?}): {:?}", evt.ledger, e);
                                 return false; // eat error
                             }
                         };
@@ -167,6 +167,15 @@ impl Cmd {
                         // render all events if they're omitted.
                         self.contract_ids.is_empty()
                             || self.contract_ids.iter().any(|id| *id == evt.contract_id)
+                    })
+                    .filter(|evt| {
+                        // Like before, no topic means pass everything through.
+                        self.topics.is_empty()
+                            || self
+                                .topics
+                                .iter()
+                                // quadratic but both are <= 5 long
+                                .any(|t| evt.topic.iter().any(|t2| *t == *t2))
                     })
                     .cloned()
                     // FIXME: Bubble up errors rather than ignoring them as soon

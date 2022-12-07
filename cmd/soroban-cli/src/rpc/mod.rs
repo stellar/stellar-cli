@@ -220,22 +220,14 @@ impl Client {
             .await?)
     }
 
-    pub fn get_events(
+    pub async fn get_events(
         &self,
-        _contract_ids: &[String],
-        _topics: &[String],
+        contract_ids: &[String],
+        topics: &[String],
     ) -> Result<GetEventsResponse, Error> {
-        // Ok(self
-        //     .client()?
-        //     .request("getEvents", rpc_params![contract_ids, topics])
-        //     .await?)
-
-        let mut reader = std::fs::OpenOptions::new()
-            .read(true)
-            .open("./fixtures/event_response.json")
-            .unwrap();
-        let mock_events: GetEventsResponse = serde_json::from_reader(&mut reader)?;
-
-        Ok(mock_events)
+        Ok(self
+            .client()?
+            .request("getEvents", rpc_params![contract_ids, topics])
+            .await?)
     }
 }
