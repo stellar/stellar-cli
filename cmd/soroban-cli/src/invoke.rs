@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::path::PathBuf;
@@ -11,8 +11,8 @@ use soroban_env_host::xdr::{
     self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
     LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
     Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode,
-    ScSpecFunctionInputV0, ScSpecTypeDef, ScStatic, ScVec, SequenceNumber, Transaction,
-    TransactionEnvelope, TransactionExt, VecM,
+    ScSpecFunctionInputV0, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, StringM,
+    Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -565,7 +565,6 @@ async fn get_remote_contract_spec_entries(
     })
 }
 
-
 fn build_custom_cmd(name: &str, inputs: &VecM<ScSpecFunctionInputV0, 10>, slop: &[OsString]) {
     let inputs_map = inputs
         .iter()
@@ -604,11 +603,11 @@ fn build_custom_cmd(name: &str, inputs: &VecM<ScSpecFunctionInputV0, 10>, slop: 
             xdr::ScSpecTypeDef::Option(_) => todo!(),
             xdr::ScSpecTypeDef::Result(_) => todo!(),
             xdr::ScSpecTypeDef::Vec(_) => todo!(),
-            xdr::ScSpecTypeDef::Map(_) => todo!(),
+            xdr::ScSpecTypeDef::Map(map) => todo!("{map:#?}"),
             xdr::ScSpecTypeDef::Set(_) => todo!(),
             xdr::ScSpecTypeDef::Tuple(_) => todo!(),
             xdr::ScSpecTypeDef::BytesN(_) => todo!(),
-            xdr::ScSpecTypeDef::Udt(_) => todo!(),
+            xdr::ScSpecTypeDef::Udt(strukt) => todo!("{strukt:#?}"),
         };
         cmd = cmd.arg(arg);
     }
@@ -617,4 +616,155 @@ fn build_custom_cmd(name: &str, inputs: &VecM<ScSpecFunctionInputV0, 10>, slop: 
     println!("{}", arg_matches.is_present("boolean"));
     println!("{:#?}", arg_matches);
     todo!();
+}
+
+fn parse_json(
+    defs: &HashMap<StringM<60>, &ScSpecEntry>,
+    def: &xdr::ScSpecTypeDef,
+    json_val: &serde_json::Value,
+) -> Result<String, strval::StrValError> {
+    use serde_json::Value;
+    let res = match (def, json_val) {
+        // ScSpecTypeDef::Val => todo!(),
+        (ScSpecTypeDef::U32, Value::Number(num)) => format!("{{\"u32\":{num}}}"),
+        (ScSpecTypeDef::I32, Value::Number(num)) => format!("{{\"i32\":{num}}}"),
+        (ScSpecTypeDef::U64, Value::Number(num)) => format!("{{\"u63\":{num}}}"),
+        (ScSpecTypeDef::I64, Value::Number(num)) => format!("{{\"u63\":{num}}}"),
+        (ScSpecTypeDef::U128, Value::String(_)) => todo!(),
+        (ScSpecTypeDef::I128, Value::String(_)) => todo!(),
+        (ScSpecTypeDef::Bool, Value::Bool(b)) => format!(r#"{{"static":"{b}"}}"#),
+        (ScSpecTypeDef::Symbol, Value::String(s)) => format!(r#""{s}""#),
+        // ScSpecTypeDef::Bitset => todo!(),
+        // ScSpecTypeDef::Status => todo!(),
+        (ScSpecTypeDef::Bytes, Value::String(s)) => format!(r#""bytes":"{s}""#),
+        // ScSpecTypeDef::Invoker => todo!(),
+        // ScSpecTypeDef::AccountId => todo!(),
+        // ScSpecTypeDef::Option(_) => todo!(),
+        // ScSpecTypeDef::Result(_) => todo!(),
+        // ScSpecTypeDef::Vec(_) => todo!(),
+        // ScSpecTypeDef::Map(_) => todo!(),
+        // ScSpecTypeDef::Set(_) => todo!(),
+        // ScSpecTypeDef::Tuple(_) => todo!(),
+        // ScSpecTypeDef::BytesN(_) => todo!(),
+        (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), Value::Object(o)) => {
+            let type_ = defs.get(name).ok_or(strval::StrValError::UnknownError)?;
+            let items = match type_ {
+                ScSpecEntry::UdtStructV0(strukt) => strukt
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        let name = field.name.to_string().unwrap();
+                        let val = o.get(&name).ok_or(strval::StrValError::UnknownError)?;
+                        let mut value = parse_json(defs, &field.type_, val)?;
+                        if matches!(&field.type_, &ScSpecTypeDef::Symbol) {
+                            value = format!(r#"{{"symbol": {value}}}"#);
+                        }
+                        Ok(format!(r#"{{"key": {{"symbol":"{name}"}}, "val": {value}}}"#))
+                    })
+                    .collect::<Result<Vec<_>, strval::StrValError>>()?
+                    .join(", "),
+                ScSpecEntry::FunctionV0(_) => todo!(),
+                ScSpecEntry::UdtUnionV0(_) => todo!(),
+                ScSpecEntry::UdtEnumV0(_) => todo!(),
+                ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
+            };
+            // let items = "";
+
+            format!(
+                r#"{{"object": {{
+        "map": [{items}]
+    }}
+}}"#
+            )
+        }
+        (a, b) => todo!("{a:#?}\n\n{b:#?}"),
+    };
+    Ok(res)
+}
+
+
+fn generate_type_map(entries: &[ScSpecEntry]) -> HashMap<StringM<60>, &ScSpecEntry> {
+    entries
+            .into_iter()
+            .filter_map(|entry| {
+                Some((
+                    match &entry {
+                        ScSpecEntry::FunctionV0(x) => return None,
+                        ScSpecEntry::UdtStructV0(x) => x.name.clone(),
+                        ScSpecEntry::UdtUnionV0(x) => x.name.clone(),
+                        ScSpecEntry::UdtEnumV0(x) => x.name.clone(),
+                        ScSpecEntry::UdtErrorEnumV0(x) => x.name.clone(),
+                    },
+                    entry,
+                ))
+            })
+            .collect::<HashMap<_, _>>()
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use crate::{invoke::parse_json, strval};
+    use serde_json::json;
+    use soroban_env_host::xdr::ScSpecTypeDef;
+
+    #[test]
+    fn parse_bool() {
+        let b = true;
+        let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::Bool, &json! {b}).unwrap();
+        println!("{res}");
+        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::Bool));
+    }
+
+    #[test]
+    fn parse_u32() {
+        let _u32 = 42u32;
+        let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::U32, &json! {_u32}).unwrap();
+        println!("{res}");
+        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::U32));
+    }
+
+    #[test]
+    fn parse_i32() {
+        let _i32 = -42_i32;
+        let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::I32, &json! {_i32}).unwrap();
+        println!("{res}");
+        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::I32));
+    }
+
+    #[test]
+    fn parse_u64() {
+        let b = 42_000_000_000u64;
+        let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::U64, &json! {b}).unwrap();
+        println!("{res}");
+        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::U64));
+    }
+
+    #[test]
+    fn parse_symbol() {
+        // let b = "hello";
+        // let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::Symbol, &json! {b}).unwrap();
+        // println!("{res}");
+        println!(
+            "{:#?}",
+            strval::from_string(r#""hello""#, &ScSpecTypeDef::Symbol)
+        );
+    }
+
+    #[test]
+    fn parse_obj() {
+        let type_ = ScSpecTypeDef::Udt(ScSpecTypeUdt {
+            name: "Test".parse().unwrap(),
+        });
+        let res = soroban_spec::read::from_wasm(
+            &fs::read("../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm")
+                .unwrap(),
+        )
+        .unwrap();
+        let defs = generate_type_map(&res);
+        let res = &parse_json(&defs, &type_, &json!({"a": 42, "b": false, "c": "world"})).unwrap();
+        println!("{res}");
+        println!("{:#?}", strval::from_string(res, &type_));
+    }
 }

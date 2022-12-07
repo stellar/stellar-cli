@@ -2165,6 +2165,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95059e91184749cb66be6dc994f67f182b6d897cb3df74a5bf66b5e709295fd8"
 
 [[package]]
+name = "test_custom_types"
+version = "0.3.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "test_hello_world"
 version = "0.3.1"
 dependencies = [
