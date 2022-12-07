@@ -1,5 +1,4 @@
 use clap::{ArgEnum, Parser};
-use hex;
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 
@@ -112,7 +111,7 @@ pub enum OutputFormat {
 }
 
 impl Cmd {
-    pub async fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
         if self.start_ledger > self.end_ledger {
             return Err(Error::InvalidLedgerRange {
                 low: self.start_ledger,
@@ -166,17 +165,8 @@ impl Cmd {
                     .filter(|evt| {
                         // Contract ID filter(s) are optional, so we should
                         // render all events if they're omitted.
-                        if self.contract_ids.len() == 0 {
-                            return true;
-                        }
-
-                        for id in self.contract_ids.iter() {
-                            if *id == evt.contract_id {
-                                return true;
-                            }
-                        }
-
-                        false
+                        self.contract_ids.is_empty()
+                            || self.contract_ids.iter().any(|id| *id == evt.contract_id)
                     })
                     .cloned()
                     // FIXME: Bubble up errors rather than ignoring them as soon

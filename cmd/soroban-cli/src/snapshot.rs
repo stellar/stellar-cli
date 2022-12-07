@@ -147,14 +147,10 @@ pub fn read_events(path: &std::path::PathBuf) -> Result<Vec<rpc::Event>, Error> 
 // Reads the existing event file, appends the new events, and writes it all to
 // disk. Note that this almost certainly isn't safe to call in parallel.
 pub fn commit_events(
-    new_events: &Vec<events::HostEvent>,
+    new_events: &[events::HostEvent],
     ledger_info: &LedgerInfo,
     output_file: &std::path::PathBuf,
 ) -> Result<(), Error> {
-    for (i, event) in new_events.iter().enumerate() {
-        eprintln!("#{i}: {:#?}", event);
-    }
-
     // Create the directory tree if necessary, since these are unlikely to be
     // the first events.
     if let Some(dir) = output_file.parent() {
@@ -163,17 +159,13 @@ pub fn commit_events(
         }
     }
 
-    eprintln!("Appending to file: {:#?}", output_file);
-
     let mut file = std::fs::OpenOptions::new().read(true).open(output_file)?;
     let mut events: rpc::GetEventsResponse = serde_json::from_reader(&mut file)?;
 
     for event in new_events.iter() {
         let contract_event = match event {
             events::HostEvent::Contract(e) => e,
-            events::HostEvent::Debug(e) => {
-                panic!("debug events unsupported: {:#?}", e);
-            }
+            events::HostEvent::Debug(_e) => todo!(),
         };
 
         // TODO: Handle decoding errors cleanly; I miss errors.Wrap(err, ...) :(
