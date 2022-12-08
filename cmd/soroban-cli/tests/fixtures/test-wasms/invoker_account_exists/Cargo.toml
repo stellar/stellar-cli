@@ -1,6 +1,6 @@
 [package]
 name = "test_invoker_account_exists"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
