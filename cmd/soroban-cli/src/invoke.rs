@@ -188,6 +188,10 @@ enum Arg {
 }
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
 
+fn json_str(s: &String) -> String {
+    format!("\"{s}\"")
+}
+
 impl Cmd {
     fn build_host_function_parameters(
         &self,
@@ -196,37 +200,29 @@ impl Cmd {
         arg_matches: &clap::ArgMatches,
     ) -> Result<ScVec, Error> {
         // Get the function spec from the contract code
-        let spec = spec_entries
-            .iter()
-            .find_map(|e| {
-                if let ScSpecEntry::FunctionV0(f) = e {
-                    if f.name.to_string_lossy() == self.function {
-                        return Some(f);
-                    }
-                }
-                None
-            })
-            .ok_or_else(|| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
+        let spec = get_function(spec_entries, &self.function)?;
 
         let defs = generate_type_map(spec_entries);
 
         // Parse the function arguments
-        let inputs = &spec.inputs;
-        let inputs_map = inputs
+        let inputs_map = &spec
+            .inputs
             .iter()
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
             .collect::<HashMap<String, ScSpecTypeDef>>();
-        let mut cmd = build_custom_cmd(&self.function, &inputs_map);
+        let cmd = build_custom_cmd(&self.function, inputs_map);
         let _matches = cmd.get_matches_from(&self.slop);
         let parsed_args = inputs_map
             .iter()
             .map(|(name, t)| {
+                let json_s = _matches.get_one::<String>(name).map(json_str);
                 let s = match t {
                     ScSpecTypeDef::Bool => format!("{}", _matches.contains_id(name)),
-                    ScSpecTypeDef::Symbol => {
-                        format!("\"{}\"", _matches.get_one::<String>(name).unwrap())
+                    ScSpecTypeDef::Symbol => json_s.unwrap(),
+                    _ => {
+                        let res = json_s.unwrap();
+                        res
                     }
-                    _ => _matches.get_one::<String>(name).unwrap().to_string(),
                 };
                 (s, t)
             })
@@ -574,7 +570,7 @@ fn build_custom_cmd<'a>(
             xdr::ScSpecTypeDef::Set(_) => todo!(),
             xdr::ScSpecTypeDef::Tuple(_) => todo!(),
             xdr::ScSpecTypeDef::BytesN(_) => todo!(),
-            xdr::ScSpecTypeDef::Udt(strukt) => arg
+            xdr::ScSpecTypeDef::Udt(_strukt) => arg
                 .value_parser(clap::builder::NonEmptyStringValueParser::new())
                 .value_name("struct"),
         };
@@ -607,7 +603,7 @@ fn parse_json_as_str(
         (ScSpecTypeDef::U128, Value::String(_)) => todo!(),
         (ScSpecTypeDef::I128, Value::String(_)) => todo!(),
         (ScSpecTypeDef::Bool, Value::Bool(b)) => format!(r#"{{"static":"{b}"}}"#),
-        (ScSpecTypeDef::Symbol, Value::String(s)) => format!(r#"{s}"#),
+        (ScSpecTypeDef::Symbol, Value::String(s)) => s.to_string(),
         // ScSpecTypeDef::Bitset => todo!(),
         // ScSpecTypeDef::Status => todo!(),
         (ScSpecTypeDef::Bytes, Value::String(s)) => format!(r#""bytes":"{s}""#),
@@ -640,13 +636,34 @@ fn parse_json_as_str(
                     .collect::<Result<Vec<_>, strval::StrValError>>()?
                     .join(", "),
                 ScSpecEntry::FunctionV0(_) => todo!(),
-                ScSpecEntry::UdtUnionV0(_) => todo!(),
+                ScSpecEntry::UdtUnionV0(_union_) => todo!(),
                 ScSpecEntry::UdtEnumV0(_) => todo!(),
                 ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
             };
             // let items = "";
 
             format!(r#"{{ "object" : {{ "map" : [{items}] }} }}"#)
+        }
+        (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), Value::String(s)) => {
+            let case = match defs.get(name).ok_or(strval::StrValError::UnknownError)? {
+                ScSpecEntry::FunctionV0(_) => todo!(),
+                ScSpecEntry::UdtStructV0(_) => todo!(),
+                ScSpecEntry::UdtUnionV0(union_) => union_
+                    .cases
+                    .to_vec()
+                    .iter()
+                    .find(|c| s == &c.name.to_string_lossy())
+                    .map(|c| c.name.to_string_lossy()),
+                ScSpecEntry::UdtEnumV0(_) => todo!(),
+                ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
+            }
+            .ok_or_else(|| strval::StrValError::Other(format!("Unknown case {s} for {name}")))?;
+            format!(
+                r#"{{ "object": 
+                            {{ "vec" : [{{ "symbol": "{case}" }}]
+                            }}
+                        }}"#
+            )
         }
         (a, b) => todo!("{a:#?}\n\n{b:#?}"),
     };
@@ -655,7 +672,7 @@ fn parse_json_as_str(
 
 fn generate_type_map(entries: &[ScSpecEntry]) -> HashMap<StringM<60>, &ScSpecEntry> {
     entries
-        .into_iter()
+        .iter()
         .filter_map(|entry| {
             Some((
                 match &entry {
@@ -669,6 +686,23 @@ fn generate_type_map(entries: &[ScSpecEntry]) -> HashMap<StringM<60>, &ScSpecEnt
             ))
         })
         .collect::<HashMap<_, _>>()
+}
+
+pub fn get_function<'a>(
+    spec_entries: &'a [ScSpecEntry],
+    name: &'a str,
+) -> Result<&'a ScSpecFunctionV0, Error> {
+    spec_entries
+        .iter()
+        .find_map(|e| {
+            if let ScSpecEntry::FunctionV0(f) = e {
+                if f.name.to_string_lossy() == name {
+                    return Some(f);
+                }
+            }
+            None
+        })
+        .ok_or_else(|| Error::FunctionNotFoundInContractSpec(name.to_owned()))
 }
 
 #[cfg(test)]
@@ -737,5 +771,20 @@ mod test {
             &parse_json_as_str(&defs, &type_, &json!({"a": 42, "b": false, "c": "world"})).unwrap();
         println!("{res}");
         println!("{:#?}", strval::from_string(res, &type_));
+    }
+
+    #[test]
+    fn parse_enum() {
+        let res = soroban_spec::read::from_wasm(
+            &fs::read("../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm")
+                .unwrap(),
+        )
+        .unwrap();
+        let func = get_function(&res, "enum_2_str").unwrap();
+        let type_ = &func.inputs.as_slice()[0].type_;
+        let defs = generate_type_map(&res);
+        let res = &parse_json_as_str(&defs, type_, &json!("First")).unwrap();
+        println!("{res}");
+        println!("{:#?}", strval::from_string(res, type_));
     }
 }

@@ -20,6 +20,7 @@ impl Contract {
 
 #[cfg(test)]
 mod test {
+
     use soroban_sdk::{symbol, vec, Env};
 
     use crate::{Contract, ContractClient};
@@ -29,8 +30,8 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Contract);
         let client = ContractClient::new(&env, &contract_id);
-
-        let res = client.hello(&symbol!("world"));
-        assert_eq!(res, vec![&env, symbol!("Hello"), symbol!("world")]);
+        let world = symbol!("world");
+        let res = client.hello(&world);
+        assert_eq!(res, vec![&env, symbol!("Hello"), world]);
     }
 }

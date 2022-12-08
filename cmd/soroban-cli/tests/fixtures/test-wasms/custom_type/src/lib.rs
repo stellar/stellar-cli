@@ -10,16 +10,41 @@ pub struct Test {
     pub c: Symbol,
 }
 
+#[contracttype]
+pub enum SimpleEnum {
+    First,
+    Second,
+    Third,
+}
+
+#[contracttype]
+pub struct TupleStruct(Test, SimpleEnum);
+
+#[contracttype]
+pub enum ComplexEnum {
+    Struct(Test),
+    Tuple(TupleStruct),
+    Enum(SimpleEnum),
+}
+
 #[contractimpl]
 impl Contract {
     pub fn hello(env: Env, test: Test) -> Vec<Symbol> {
         vec![&env, symbol!("Hello"), test.c]
     }
+
+    pub fn enum_2_str(env: Env, simple: SimpleEnum) -> Vec<SimpleEnum> {
+        vec![&env, simple]
+    }
+
+    pub fn e_2_s(env: Env, complex: ComplexEnum) -> Vec<ComplexEnum> {
+        vec![&env, complex]
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use soroban_sdk::{symbol, vec, Env};
+    use soroban_sdk::{log, symbol, vec, Env};
 
     use crate::{Contract, ContractClient, Test};
 
