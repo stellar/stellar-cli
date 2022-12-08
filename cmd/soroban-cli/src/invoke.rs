@@ -4,15 +4,15 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::{Args, FromArgMatches, Parser};
+use clap::Parser;
 use hex::FromHexError;
 use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
     LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
-    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode,
-    ScSpecFunctionInputV0, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, StringM,
-    Transaction, TransactionEnvelope, TransactionExt, VecM,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScSpecFunctionV0,
+    ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, StringM, Transaction,
+    TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -197,7 +197,6 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-        arg_matches: &clap::ArgMatches,
     ) -> Result<ScVec, Error> {
         // Get the function spec from the contract code
         let spec = get_function(spec_entries, &self.function)?;
@@ -253,15 +252,15 @@ impl Cmd {
             })
     }
 
-    pub async fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         if self.rpc_url.is_some() {
-            self.run_against_rpc_server(matches).await
+            self.run_against_rpc_server().await
         } else {
-            self.run_in_sandbox(matches)
+            self.run_in_sandbox()
         }
     }
 
-    async fn run_against_rpc_server(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+    async fn run_against_rpc_server(&self) -> Result<(), Error> {
         let contract_id = self.contract_id()?;
         let client = Client::new(self.rpc_url.as_ref().unwrap());
         let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
@@ -284,7 +283,7 @@ impl Cmd {
 
         // Get the ledger footprint
         let host_function_params =
-            self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
+            self.build_host_function_parameters(contract_id, &spec_entries)?;
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
             None,
@@ -326,7 +325,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+    fn run_in_sandbox(&self) -> Result<(), Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -371,7 +370,7 @@ impl Cmd {
         h.set_ledger_info(ledger_info.clone());
 
         let host_function_params =
-            self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
+            self.build_host_function_parameters(contract_id, &spec_entries)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
         let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {

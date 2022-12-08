@@ -17,6 +17,8 @@ pub enum StrValError {
     InvalidValue(Option<ScSpecTypeDef>),
     Xdr(XdrError),
     Serde(serde_json::Error),
+    Other(String),
+
 }
 
 impl Error for StrValError {
@@ -34,6 +36,7 @@ impl Display for StrValError {
             Self::InvalidValue(None) => write!(f, "value is not parseable to type")?,
             Self::Serde(e) => write!(f, "{e}")?,
             Self::Xdr(e) => write!(f, "{e}")?,
+            Self::Other(e) => write!(f, "{e}")?,
         };
         Ok(())
     }

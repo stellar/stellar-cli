@@ -92,14 +92,11 @@ enum CmdError {
     Xdr(#[from] xdr::Error),
 }
 
-async fn run(cmd: Cmd, matches: &mut clap::ArgMatches) -> Result<(), CmdError> {
+async fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Optimize(opt) => opt.run()?,
-        Cmd::Invoke(invoke) => {
-            let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
-            invoke.run(&sub_arg_matches).await?;
-        }
+        Cmd::Invoke(invoke) => invoke.run().await?,
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Token(token) => token.run().await?,
@@ -127,7 +124,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = run(root.cmd, &mut saved_matches).await {
+    if let Err(e) = run(root.cmd).await {
         eprintln!("error: {e}");
     }
 }
