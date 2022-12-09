@@ -10,8 +10,8 @@ use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
     LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
-    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScSpecFunctionV0,
-    ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, StringM, Transaction,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode,
+    ScSpecTypeDef, ScStatic, ScVec, SequenceNumber, Transaction,
     TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
@@ -185,9 +185,6 @@ enum Arg {
 }
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
 
-fn json_str(s: &String) -> String {
-    format!("\"{s}\"")
-}
 
 impl Cmd {
     fn build_host_function_parameters(
@@ -209,11 +206,11 @@ impl Cmd {
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
             .collect::<HashMap<String, ScSpecTypeDef>>();
         let cmd = build_custom_cmd(&self.function, inputs_map);
-        let _matches = cmd.get_matches_from(&self.slop);
+        let matches_ = cmd.get_matches_from(&self.slop);
         let parsed_args = inputs_map
             .iter()
             .map(|(name, t)| {
-                let s = _matches.get_one::<String>(name).unwrap();
+                let s = matches_.get_one::<String>(name).unwrap();
                 (s, t)
             })
             .map(|(s, t)| spec.from_string(s, t))
@@ -575,7 +572,7 @@ mod test {
     use super::*;
     use crate::strval;
     use serde_json::json;
-    use soroban_env_host::xdr::ScSpecTypeDef;
+    use soroban_env_host::xdr::{ScSpecTypeDef, ScSpecTypeUdt};
 
     #[test]
     fn parse_bool() {
@@ -587,8 +584,8 @@ mod test {
 
     #[test]
     fn parse_u32() {
-        let _u32 = 42u32;
-        let res = &format!("{_u32}");
+        let u32_ = 42u32;
+        let res = &format!("{u32_}");
         println!(
             "{:#?}",
             strval::from_string_primitive(res, &ScSpecTypeDef::U32,).unwrap()
@@ -597,8 +594,8 @@ mod test {
 
     #[test]
     fn parse_i32() {
-        let _i32 = -42_i32;
-        let res = &format!("{_i32}");
+        let i32_ = -42_i32;
+        let res = &format!("{i32_}");
         println!(
             "{:#?}",
             strval::from_string_primitive(res, &ScSpecTypeDef::I32,).unwrap()

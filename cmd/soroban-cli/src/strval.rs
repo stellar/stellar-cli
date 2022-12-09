@@ -3,9 +3,8 @@ use std::str::FromStr;
 
 use soroban_env_host::xdr::{
     AccountId, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
-    ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScStatic, ScVal, ScVec,
-    StringM, Uint256,
+    ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple,
+    ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScStatic, ScVal, ScVec, StringM, Uint256,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
@@ -32,6 +31,7 @@ impl From<()> for Error {
     }
 }
 
+#[derive(Default)]
 pub struct Spec(pub Option<Vec<ScSpecEntry>>);
 
 impl Spec {
@@ -60,37 +60,37 @@ impl Spec {
         }
     }
     pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
-        Self(None).from_string(s, t)
+        Self::default().from_string(s, t)
     }
 
     #[allow(clippy::wrong_self_convention)]
     pub fn from_string(&self, s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
-        let val: ScVal = match t {
+        match t {
             // These ones have special processing when they're the top-level args. This is so we don't
             // need extra quotes around string args.
-            ScSpecTypeDef::Symbol => ScVal::Symbol(
-                s.as_bytes()
-                    .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
-            ),
+            ScSpecTypeDef::Symbol => s
+                .as_bytes()
+                .try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))
+                .map(ScVal::Symbol),
 
             // This might either be a json array of u8s, or just the raw utf-8 bytes
             ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_) => {
                 match serde_json::from_str(s) {
                     // First, see if it is a json array
-                    Ok(v @ (Value::Array(_) | Value::String(_))) => self.from_json(&v, t)?,
-                    _ => self.from_json(&Value::String(s.to_string()), t)?,
+                    Ok(v @ (Value::Array(_) | Value::String(_))) => self.from_json(&v, t),
+                    _ => self.from_json(&Value::String(s.to_string()), t),
                 }
             }
 
             ScSpecTypeDef::U128 => {
                 if let Ok(Value::String(raw)) = serde_json::from_str(s) {
                     // First, see if it is a json string, strip the quotes and recurse
-                    self.from_string(&raw, t)?
+                    self.from_string(&raw, t)
                 } else {
                     u128::from_str(s)
-                        .map_err(|_| Error::InvalidValue(Some(t.clone())))?
-                        .into()
+                        .map(Into::into)
+                        .map_err(|_| Error::InvalidValue(Some(t.clone())))
                 }
             }
 
@@ -98,11 +98,11 @@ impl Spec {
             ScSpecTypeDef::I128 => {
                 if let Ok(Value::String(raw)) = serde_json::from_str(s) {
                     // First, see if it is a json string, strip the quotes and recurse
-                    self.from_string(&raw, t)?
+                    self.from_string(&raw, t)
                 } else {
                     i128::from_str(s)
-                        .map_err(|_| Error::InvalidValue(Some(t.clone())))?
-                        .into()
+                        .map(Into::into)
+                        .map_err(|_| Error::InvalidValue(Some(t.clone())))
                 }
             }
             ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
@@ -111,15 +111,14 @@ impl Spec {
                     ScSpecEntry::UdtUnionV0(_)
                 ) =>
             {
-                self.from_json(&Value::String(s.to_string()), t)?
+                self.from_json(&Value::String(s.to_string()), t)
             }
 
             // For all others we just use the json parser
             _ => serde_json::from_str(s)
                 .map_err(Error::Serde)
-                .and_then(|raw| self.from_json(&raw, t))?,
-        };
-        Ok(val)
+                .and_then(|raw| self.from_json(&raw, t)),
+        }
     }
 
     #[allow(clippy::wrong_self_convention)]
@@ -152,6 +151,7 @@ impl Spec {
         }
     }
 
+    #[allow(clippy::too_many_lines, clippy::wrong_self_convention)]
     pub fn from_json_complex(&self, v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
         let val: ScVal = match (t, v) {
             // Boolean parsing

@@ -115,7 +115,7 @@ async fn main() {
     // We expand the Root::parse() invocation, so that we can save
     // Clap's ArgMatches (for later argument processing)
     let mut matches = Root::command().get_matches();
-    let mut saved_matches = matches.clone();
+    let _saved_matches = matches.clone();
     let root = match Root::from_arg_matches_mut(&mut matches) {
         Ok(s) => s,
         Err(e) => {
