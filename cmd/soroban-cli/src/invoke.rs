@@ -28,6 +28,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
+use crate::strval::Spec;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
 use crate::{rpc, snapshot, strval, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
@@ -195,12 +196,14 @@ impl Cmd {
         spec_entries: &[ScSpecEntry],
     ) -> Result<ScVec, Error> {
         // Get the function spec from the contract code
-        let spec = get_function(spec_entries, &self.function)?;
+        let spec = Spec(Some(spec_entries.to_vec()));
+        let func = spec
+            .find_function(&self.function)
+            .map_err(|_| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
 
-        let defs = generate_type_map(spec_entries);
 
         // Parse the function arguments
-        let inputs_map = &spec
+        let inputs_map = &func
             .inputs
             .iter()
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
@@ -210,18 +213,10 @@ impl Cmd {
         let parsed_args = inputs_map
             .iter()
             .map(|(name, t)| {
-                let json_s = _matches.get_one::<String>(name).map(json_str);
-                let s = match t {
-                    ScSpecTypeDef::Bool => format!("{}", _matches.contains_id(name)),
-                    ScSpecTypeDef::Symbol => json_s.unwrap(),
-                    _ => {
-                        let res = json_s.unwrap();
-                        res
-                    }
-                };
+                let s = _matches.get_one::<String>(name).unwrap();
                 (s, t)
             })
-            .map(|(s, t)| parse_json(&defs, t, &serde_json::from_str(&s).unwrap()))
+            .map(|(s, t)| spec.from_string(s, t))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| Error::CannotParseArg {
                 arg: "Arg".to_string(),
@@ -532,7 +527,6 @@ fn build_custom_cmd<'a>(
         let mut arg = clap::Arg::new(name);
         arg = arg.long(name).takes_value(true);
 
-        // continue;
         arg = match type_ {
             xdr::ScSpecTypeDef::Val => todo!(),
             xdr::ScSpecTypeDef::U64 => arg
@@ -575,169 +569,50 @@ fn build_custom_cmd<'a>(
     cmd
 }
 
-fn parse_json(
-    defs: &HashMap<StringM<60>, &ScSpecEntry>,
-    def: &xdr::ScSpecTypeDef,
-    json_val: &serde_json::Value,
-) -> Result<ScVal, strval::StrValError> {
-    parse_json_as_str(defs, def, json_val).and_then(|s| strval::from_string(&s, def))
-}
-
-fn parse_json_as_str(
-    defs: &HashMap<StringM<60>, &ScSpecEntry>,
-    def: &xdr::ScSpecTypeDef,
-    json_val: &serde_json::Value,
-) -> Result<String, strval::StrValError> {
-    use serde_json::Value;
-    let res = match (def, json_val) {
-        // ScSpecTypeDef::Val => todo!(),
-        (ScSpecTypeDef::U32, Value::Number(num)) => format!("{{\"u32\":{num}}}"),
-        (ScSpecTypeDef::I32, Value::Number(num)) => format!("{{\"i32\":{num}}}"),
-        (ScSpecTypeDef::U64, Value::Number(num)) => format!("{{\"u63\":{num}}}"),
-        (ScSpecTypeDef::I64, Value::Number(num)) => format!("{{\"u63\":{num}}}"),
-        (ScSpecTypeDef::U128, Value::String(_)) => todo!(),
-        (ScSpecTypeDef::I128, Value::String(_)) => todo!(),
-        (ScSpecTypeDef::Bool, Value::Bool(b)) => format!(r#"{{"static":"{b}"}}"#),
-        (ScSpecTypeDef::Symbol, Value::String(s)) => s.to_string(),
-        // ScSpecTypeDef::Bitset => todo!(),
-        // ScSpecTypeDef::Status => todo!(),
-        (ScSpecTypeDef::Bytes, Value::String(s)) => format!(r#""bytes":"{s}""#),
-        // ScSpecTypeDef::Invoker => todo!(),
-        // ScSpecTypeDef::AccountId => todo!(),
-        // ScSpecTypeDef::Option(_) => todo!(),
-        // ScSpecTypeDef::Result(_) => todo!(),
-        // ScSpecTypeDef::Vec(_) => todo!(),
-        // ScSpecTypeDef::Map(_) => todo!(),
-        // ScSpecTypeDef::Set(_) => todo!(),
-        // ScSpecTypeDef::Tuple(_) => todo!(),
-        // ScSpecTypeDef::BytesN(_) => todo!(),
-        (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), Value::Object(o)) => {
-            let type_ = defs.get(name).ok_or(strval::StrValError::UnknownError)?;
-            let items = match type_ {
-                ScSpecEntry::UdtStructV0(strukt) => strukt
-                    .fields
-                    .iter()
-                    .map(|field| {
-                        let name = field.name.to_string().unwrap();
-                        let val = o.get(&name).ok_or(strval::StrValError::UnknownError)?;
-                        let mut value = parse_json_as_str(defs, &field.type_, val)?;
-                        if matches!(&field.type_, &ScSpecTypeDef::Symbol) {
-                            value = format!(r#"{{"symbol": {value}}}"#);
-                        }
-                        Ok(format!(
-                            r#"{{"key": {{"symbol":"{name}"}}, "val": {value}}}"#
-                        ))
-                    })
-                    .collect::<Result<Vec<_>, strval::StrValError>>()?
-                    .join(", "),
-                ScSpecEntry::FunctionV0(_) => todo!(),
-                ScSpecEntry::UdtUnionV0(_union_) => todo!(),
-                ScSpecEntry::UdtEnumV0(_) => todo!(),
-                ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
-            };
-            // let items = "";
-
-            format!(r#"{{ "object" : {{ "map" : [{items}] }} }}"#)
-        }
-        (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), Value::String(s)) => {
-            let case = match defs.get(name).ok_or(strval::StrValError::UnknownError)? {
-                ScSpecEntry::FunctionV0(_) => todo!(),
-                ScSpecEntry::UdtStructV0(_) => todo!(),
-                ScSpecEntry::UdtUnionV0(union_) => union_
-                    .cases
-                    .to_vec()
-                    .iter()
-                    .find(|c| s == &c.name.to_string_lossy())
-                    .map(|c| c.name.to_string_lossy()),
-                ScSpecEntry::UdtEnumV0(_) => todo!(),
-                ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
-            }
-            .ok_or_else(|| strval::StrValError::Other(format!("Unknown case {s} for {name}")))?;
-            format!(
-                r#"{{ "object": 
-                            {{ "vec" : [{{ "symbol": "{case}" }}]
-                            }}
-                        }}"#
-            )
-        }
-        (a, b) => todo!("{a:#?}\n\n{b:#?}"),
-    };
-    Ok(res)
-}
-
-fn generate_type_map(entries: &[ScSpecEntry]) -> HashMap<StringM<60>, &ScSpecEntry> {
-    entries
-        .iter()
-        .filter_map(|entry| {
-            Some((
-                match &entry {
-                    ScSpecEntry::FunctionV0(x) => return None,
-                    ScSpecEntry::UdtStructV0(x) => x.name.clone(),
-                    ScSpecEntry::UdtUnionV0(x) => x.name.clone(),
-                    ScSpecEntry::UdtEnumV0(x) => x.name.clone(),
-                    ScSpecEntry::UdtErrorEnumV0(x) => x.name.clone(),
-                },
-                entry,
-            ))
-        })
-        .collect::<HashMap<_, _>>()
-}
-
-pub fn get_function<'a>(
-    spec_entries: &'a [ScSpecEntry],
-    name: &'a str,
-) -> Result<&'a ScSpecFunctionV0, Error> {
-    spec_entries
-        .iter()
-        .find_map(|e| {
-            if let ScSpecEntry::FunctionV0(f) = e {
-                if f.name.to_string_lossy() == name {
-                    return Some(f);
-                }
-            }
-            None
-        })
-        .ok_or_else(|| Error::FunctionNotFoundInContractSpec(name.to_owned()))
-}
-
 #[cfg(test)]
 mod test {
 
     use super::*;
-    use crate::{invoke::parse_json_as_str, strval};
+    use crate::strval;
     use serde_json::json;
     use soroban_env_host::xdr::ScSpecTypeDef;
 
     #[test]
     fn parse_bool() {
-        let b = true;
-        let res = &parse_json_as_str(&HashMap::new(), &ScSpecTypeDef::Bool, &json! {b}).unwrap();
-        println!("{res}");
-        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::Bool));
+        println!(
+            "{:#?}",
+            strval::from_string_primitive("true", &ScSpecTypeDef::Bool,).unwrap()
+        );
     }
 
     #[test]
     fn parse_u32() {
         let _u32 = 42u32;
-        let res = &parse_json_as_str(&HashMap::new(), &ScSpecTypeDef::U32, &json! {_u32}).unwrap();
-        println!("{res}");
-        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::U32));
+        let res = &format!("{_u32}");
+        println!(
+            "{:#?}",
+            strval::from_string_primitive(res, &ScSpecTypeDef::U32,).unwrap()
+        );
     }
 
     #[test]
     fn parse_i32() {
         let _i32 = -42_i32;
-        let res = &parse_json_as_str(&HashMap::new(), &ScSpecTypeDef::I32, &json! {_i32}).unwrap();
-        println!("{res}");
-        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::I32));
+        let res = &format!("{_i32}");
+        println!(
+            "{:#?}",
+            strval::from_string_primitive(res, &ScSpecTypeDef::I32,).unwrap()
+        );
     }
 
     #[test]
     fn parse_u64() {
         let b = 42_000_000_000u64;
-        let res = &parse_json_as_str(&HashMap::new(), &ScSpecTypeDef::U64, &json! {b}).unwrap();
-        println!("{res}");
-        println!("{:#?}", strval::from_string(res, &ScSpecTypeDef::U64));
+        let res = &format!("{b}");
+        println!(
+            "{:#?}",
+            strval::from_string_primitive(res, &ScSpecTypeDef::U64,).unwrap()
+        );
     }
 
     #[test]
@@ -747,39 +622,53 @@ mod test {
         // println!("{res}");
         println!(
             "{:#?}",
-            strval::from_string(r#""hello""#, &ScSpecTypeDef::Symbol)
+            strval::from_string_primitive(r#""hello""#, &ScSpecTypeDef::Symbol).unwrap()
+        );
+    }
+
+    #[test]
+    fn parse_symbol_with_no_quotation_marks() {
+        // let b = "hello";
+        // let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::Symbol, &json! {b}).unwrap();
+        // println!("{res}");
+        println!(
+            "{:#?}",
+            strval::from_string_primitive("hello", &ScSpecTypeDef::Symbol).unwrap()
         );
     }
 
     #[test]
     fn parse_obj() {
-        let type_ = ScSpecTypeDef::Udt(ScSpecTypeUdt {
+        let type_ = &ScSpecTypeDef::Udt(ScSpecTypeUdt {
             name: "Test".parse().unwrap(),
         });
-        let res = soroban_spec::read::from_wasm(
-            &fs::read("../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm")
-                .unwrap(),
-        )
-        .unwrap();
-        let defs = generate_type_map(&res);
-        let res =
-            &parse_json_as_str(&defs, &type_, &json!({"a": 42, "b": false, "c": "world"})).unwrap();
-        println!("{res}");
-        println!("{:#?}", strval::from_string(res, &type_));
+        let entries = get_spec();
+        let val = &json!({"a": 42, "b": false, "c": "world"});
+        println!("{:#?}", entries.from_json(val, type_));
+        //     let res =
+        //         &parse_json_as_str(&defs, &type_, &j)).unwrap();
+        //     println!("{res}");
+        //     println!("{:#?}", strval::from_string_primitive(res, &type_, None));
     }
 
     #[test]
     fn parse_enum() {
+        let entries = get_spec();
+        let func = entries.find_function("enum_2_str").unwrap();
+        println!("{func:#?}");
+        let type_ = &func.inputs.as_slice()[0].type_;
+        println!("{:#?}", entries.from_json(&json!("First"), type_));
+        // let res = &parse_json_as_str(&defs, type_, &json!("First")).unwrap();
+        // println!("{res}");
+        // println!("{:#?}", strval::from_string_primitive(res, type_, None));
+    }
+
+    fn get_spec() -> Spec {
         let res = soroban_spec::read::from_wasm(
             &fs::read("../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm")
                 .unwrap(),
         )
         .unwrap();
-        let func = get_function(&res, "enum_2_str").unwrap();
-        let type_ = &func.inputs.as_slice()[0].type_;
-        let defs = generate_type_map(&res);
-        let res = &parse_json_as_str(&defs, type_, &json!("First")).unwrap();
-        println!("{res}");
-        println!("{:#?}", strval::from_string(res, type_));
+        Spec(Some(res))
     }
 }
