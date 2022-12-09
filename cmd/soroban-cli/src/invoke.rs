@@ -25,11 +25,7 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
-use crate::{
-    rpc, snapshot,
-    strval::{self, StrValError},
-    utils,
-};
+use crate::{rpc, snapshot, strval, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -112,7 +108,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
-    CannotParseArg { arg: String, error: StrValError },
+    CannotParseArg { arg: String, error: strval::Error },
     #[error("parsing XDR arg {arg}: {error}")]
     CannotParseXdrArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
@@ -156,7 +152,7 @@ pub enum Error {
     #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: StrValError },
+    CannotPrintResult { result: ScVal, error: strval::Error },
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]

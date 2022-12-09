@@ -13,11 +13,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{
-    snapshot,
-    strval::{self, StrValError},
-    utils, HEADING_SANDBOX,
-};
+use crate::{snapshot, strval, utils, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -58,7 +54,7 @@ pub enum Output {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("parsing key {key}: {error}")]
-    CannotParseKey { key: String, error: StrValError },
+    CannotParseKey { key: String, error: strval::Error },
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
     #[error("reading file {filepath}: {error}")]
@@ -72,7 +68,7 @@ pub enum Error {
         error: FromHexError,
     },
     #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: StrValError },
+    CannotPrintResult { result: ScVal, error: strval::Error },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintJsonResult {
         result: ScVal,

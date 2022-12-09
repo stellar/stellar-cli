@@ -22,7 +22,7 @@ use warp::{http::Response, Filter};
 
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 use crate::snapshot;
-use crate::strval::StrValError;
+use crate::strval;
 use crate::utils::{self, create_ledger_footprint};
 use crate::{jsonrpc, HEADING_SANDBOX};
 
@@ -48,7 +48,7 @@ pub enum Error {
     #[error("io")]
     Io(#[from] io::Error),
     #[error("strval")]
-    StrVal(#[from] StrValError),
+    StrVal(#[from] strval::Error),
     #[error("xdr")]
     Xdr(#[from] XdrError),
     #[error("host")]
