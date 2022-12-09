@@ -1,5 +1,5 @@
 use serde_json::Value;
-use std::{error::Error, fmt::Display, str::FromStr};
+use std::str::FromStr;
 
 use soroban_env_host::xdr::{
     AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecTypeDef,
@@ -11,32 +11,16 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::utils;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum StrValError {
+    #[error("an unknown error occurred")]
     UnknownError,
+    #[error("value is not parseable to {0:#?}")]
     InvalidValue(Option<ScSpecTypeDef>),
+    #[error(transparent)]
     Xdr(XdrError),
+    #[error(transparent)]
     Serde(serde_json::Error),
-}
-
-impl Error for StrValError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
-    }
-}
-
-impl Display for StrValError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "parse error: ")?;
-        match self {
-            Self::UnknownError => write!(f, "an unknown error occurred")?,
-            Self::InvalidValue(Some(s)) => write!(f, "value is not parseable to {:?}", s)?,
-            Self::InvalidValue(None) => write!(f, "value is not parseable to type")?,
-            Self::Serde(e) => write!(f, "{e}")?,
-            Self::Xdr(e) => write!(f, "{e}")?,
-        };
-        Ok(())
-    }
 }
 
 impl From<()> for StrValError {
