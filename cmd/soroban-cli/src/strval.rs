@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use soroban_env_host::xdr::{
     AccountId, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple,
-    ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScStatic, ScVal, ScVec, StringM, Uint256,
+    ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeTuple, ScSpecTypeUdt,
+    ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScSymbol, ScVal, ScVec, StringM, Uint256,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
@@ -111,7 +111,8 @@ impl Spec {
                     ScSpecEntry::UdtUnionV0(_)
                 ) =>
             {
-                self.from_json(&Value::String(s.to_string()), t)
+                let value = serde_json::from_str(s).unwrap_or_else(|_| Value::String(s.to_owned()));
+                self.from_json(&value, t)
             }
 
             // For all others we just use the json parser
@@ -123,38 +124,7 @@ impl Spec {
 
     #[allow(clippy::wrong_self_convention)]
     pub fn from_json(&self, v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
-        match (t, v) {
-            // Boolean parsing
-            (
-                ScSpecTypeDef::Bool
-                | ScSpecTypeDef::U128
-                | ScSpecTypeDef::I128
-                | ScSpecTypeDef::I32
-                | ScSpecTypeDef::I64
-                | ScSpecTypeDef::U32
-                | ScSpecTypeDef::U64
-                | ScSpecTypeDef::Symbol
-                | ScSpecTypeDef::AccountId
-                | ScSpecTypeDef::Bytes
-                | ScSpecTypeDef::BytesN(_),
-                _,
-            ) => from_json_primitives(v, t),
-
-            _ => self.from_json_complex(v, t),
-            // // TODO: Implement the rest of these
-            // // ScSpecTypeDef::Bitset => {},
-            // // ScSpecTypeDef::Status => {},
-            // // ScSpecTypeDef::Result(Box<ScSpecTypeResult>) => {},
-            // // ScSpecTypeDef::Set(Box<ScSpecTypeSet>) => {},
-            // // ScSpecTypeDef::Udt(ScSpecTypeUdt) => {},
-            // (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
-        }
-    }
-
-    #[allow(clippy::too_many_lines, clippy::wrong_self_convention)]
-    pub fn from_json_complex(&self, v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
         let val: ScVal = match (t, v) {
-            // Boolean parsing
             (
                 ScSpecTypeDef::Bool
                 | ScSpecTypeDef::U128
@@ -170,109 +140,33 @@ impl Spec {
                 _,
             ) => from_json_primitives(v, t)?,
 
-            (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), Value::Object(o)) => {
-                let type_ = self.find(&name.to_string_lossy())?;
-                let items = match type_ {
-                    ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { fields, .. }) => fields
-                        .to_vec()
-                        .iter()
-                        .map(|f| {
-                            let name = &f.name.to_string_lossy();
-                            let v = o.get(name).ok_or(Error::Unknown)?;
-                            let val = self.from_json(v, &f.type_)?;
-                            let key = StringM::from_str(name).unwrap();
-                            Ok(ScMapEntry {
-                                key: ScVal::Symbol(key),
-                                val,
-                            })
-                        })
-                        .collect::<Result<Vec<_>, Error>>()?,
-                    ScSpecEntry::FunctionV0(_) => todo!(),
-                    ScSpecEntry::UdtUnionV0(_union_) => todo!(),
-                    ScSpecEntry::UdtEnumV0(_) => todo!(),
-                    ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
-                };
-                let map = ScMap::sorted_from(items).map_err(Error::Xdr)?;
-
-                ScVal::Object(Some(ScObject::Map(map)))
-            }
-            (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), Value::String(s)) => {
-                let case = match self.find(&name.to_string_lossy())? {
-                    ScSpecEntry::UdtUnionV0(union_) => union_
-                        .cases
-                        .to_vec()
-                        .iter()
-                        .find(|c| s == &c.name.to_string_lossy())
-                        .map(|c| c.name.to_string_lossy()),
-                    ScSpecEntry::FunctionV0(_)
-                    | ScSpecEntry::UdtStructV0(_)
-                    | ScSpecEntry::UdtEnumV0(_)
-                    | ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
-                }
-                .ok_or_else(|| Error::EnumCase(s.to_string(), name.to_string_lossy()))?;
-                let val = ScVal::Symbol(case.try_into().map_err(Error::Xdr)?);
-                let s_vec = vec![val];
-                let s_vec = s_vec.try_into().map_err(Error::Xdr)?;
-                ScVal::Object(Some(ScObject::Vec(s_vec)))
-            }
-
             // Vec parsing
             (ScSpecTypeDef::Vec(elem), Value::Array(raw)) => {
-                let ScSpecTypeVec { element_type } = &**elem;
-                let parsed: Result<Vec<ScVal>, Error> = raw
+                let converted: ScVec = raw
                     .iter()
-                    .map(|item| -> Result<ScVal, Error> { self.from_json(item, element_type) })
-                    .collect();
-                let converted: ScVec = parsed?.try_into().map_err(Error::Xdr)?;
+                    .map(|item| self.from_json(item, &elem.element_type))
+                    .collect::<Result<Vec<ScVal>, Error>>()?
+                    .try_into()
+                    .map_err(Error::Xdr)?;
                 ScVal::Object(Some(ScObject::Vec(converted)))
             }
 
             // Map parsing
-            (ScSpecTypeDef::Map(map), Value::Object(raw)) => {
-                let ScSpecTypeMap {
-                    key_type,
-                    value_type,
-                } = &**map;
-                // TODO: What do we do if the expected key_type is not a string or symbol?
-                let parsed: Result<Vec<ScMapEntry>, Error> = raw
-                    .iter()
-                    .map(|(k, v)| -> Result<ScMapEntry, Error> {
-                        let key = self.from_string(k, key_type)?;
-                        let val = self.from_json(v, value_type)?;
-                        Ok(ScMapEntry { key, val })
-                    })
-                    .collect();
-                ScVal::Object(Some(ScObject::Map(
-                    ScMap::sorted_from(parsed?).map_err(Error::Xdr)?,
-                )))
-            }
+            (ScSpecTypeDef::Map(map), Value::Object(raw)) => self.parse_map(map, raw)?,
 
             // Option parsing
             // is null -> void the right thing here?
             (ScSpecTypeDef::Option(_), Value::Null) => ScVal::Object(None),
-            (ScSpecTypeDef::Option(elem), v) => {
-                let ScSpecTypeOption { value_type } = &**elem;
-                ScVal::Object(Some(
-                    self.from_json(v, value_type)?
-                        .try_into()
-                        .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
-                ))
-            }
+            (ScSpecTypeDef::Option(elem), v) => ScVal::Object(Some(
+                self.from_json(v, &elem.value_type)?
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+            )),
 
             // Tuple parsing
-            (ScSpecTypeDef::Tuple(elem), Value::Array(raw)) => {
-                let ScSpecTypeTuple { value_types } = &**elem;
-                if raw.len() != value_types.len() {
-                    return Err(Error::InvalidValue(Some(t.clone())));
-                };
-                let parsed: Result<Vec<ScVal>, Error> = raw
-                    .iter()
-                    .zip(value_types.iter())
-                    .map(|(item, t)| self.from_json(item, t))
-                    .collect();
-                let converted: ScVec = parsed?.try_into().map_err(Error::Xdr)?;
-                ScVal::Object(Some(ScObject::Vec(converted)))
-            }
+            (ScSpecTypeDef::Tuple(elem), Value::Array(raw)) => self.parse_tuple(t, elem, raw)?,
+
+            (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), _) => self.parse_udt(name, v)?,
 
             // TODO: Implement the rest of these
             // ScSpecTypeDef::Bitset => {},
@@ -283,6 +177,114 @@ impl Spec {
             (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
         };
         Ok(val)
+    }
+
+    fn parse_udt(&self, name: &StringM<60>, value: &Value) -> Result<ScVal, Error> {
+        let name = &name.to_string_lossy();
+        match (self.find(name)?, value) {
+            (ScSpecEntry::UdtStructV0(strukt), Value::Object(map)) => {
+                self.parse_strukt(strukt, map)
+            }
+            (ScSpecEntry::UdtUnionV0(union), val @ (Value::String(_) | Value::Object(_))) => {
+                self.parse_union(union, val)
+            }
+
+            (ScSpecEntry::UdtEnumV0(_), Value::Number(_)) => todo!("Number Enums"),
+            _ => todo!("Other User defined types"),
+        }
+    }
+
+    fn parse_strukt(
+        &self,
+        strukt: &ScSpecUdtStructV0,
+        map: &serde_json::Map<String, Value>,
+    ) -> Result<ScVal, Error> {
+        let items = strukt
+            .fields
+            .to_vec()
+            .iter()
+            .map(|f| {
+                let name = &f.name.to_string_lossy();
+                let v = map.get(name).ok_or(Error::Unknown)?;
+                let val = self.from_json(v, &f.type_)?;
+                let key = StringM::from_str(name).unwrap();
+                Ok(ScMapEntry {
+                    key: ScVal::Symbol(key),
+                    val,
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        let map = ScMap::sorted_from(items).map_err(Error::Xdr)?;
+        Ok(ScVal::Object(Some(ScObject::Map(map))))
+    }
+
+    fn parse_union(&self, union: &ScSpecUdtUnionV0, value: &Value) -> Result<ScVal, Error> {
+        let (enum_case, kind) = match value {
+            Value::String(s) => (s, None),
+            Value::Object(o) if o.len() == 1 => (o.keys().next().unwrap(), o.values().next()),
+            _ => todo!(),
+        };
+        let (case, type_) = union
+            .cases
+            .to_vec()
+            .iter()
+            .find(|c| enum_case == &c.name.to_string_lossy())
+            .map(|c| (c.name.to_string_lossy(), c.type_.clone()))
+            .ok_or_else(|| Error::EnumCase(enum_case.to_string(), union.name.to_string_lossy()))?;
+        let s_vec = if let Some(value) = kind {
+            let val = self.from_json(value, type_.as_ref().unwrap())?;
+            let key = ScVal::Symbol(StringM::from_str(enum_case).map_err(Error::Xdr)?);
+            vec![key, val]
+            // let map = ScMap::sorted_from(vec![ScMapEntry { key, val }]).map_err(Error::Xdr)?;
+        } else {
+            let val = ScVal::Symbol(case.try_into().map_err(Error::Xdr)?);
+            vec![val]
+        };
+        Ok(ScVal::Object(Some(ScObject::Vec(
+            s_vec.try_into().map_err(Error::Xdr)?,
+        ))))
+    }
+
+    fn parse_tuple(
+        &self,
+        t: &ScSpecTypeDef,
+        tuple: &ScSpecTypeTuple,
+        items: &[Value],
+    ) -> Result<ScVal, Error> {
+        let ScSpecTypeTuple { value_types } = tuple;
+        if items.len() != value_types.len() {
+            return Err(Error::InvalidValue(Some(t.clone())));
+        };
+        let parsed: Result<Vec<ScVal>, Error> = items
+            .iter()
+            .zip(value_types.iter())
+            .map(|(item, t)| self.from_json(item, t))
+            .collect();
+        let converted: ScVec = parsed?.try_into().map_err(Error::Xdr)?;
+        Ok(ScVal::Object(Some(ScObject::Vec(converted))))
+    }
+
+    fn parse_map(
+        &self,
+        map: &ScSpecTypeMap,
+        value_map: &serde_json::Map<String, Value>,
+    ) -> Result<ScVal, Error> {
+        let ScSpecTypeMap {
+            key_type,
+            value_type,
+        } = map;
+        // TODO: What do we do if the expected key_type is not a string or symbol?
+        let parsed: Result<Vec<ScMapEntry>, Error> = value_map
+            .iter()
+            .map(|(k, v)| -> Result<ScMapEntry, Error> {
+                let key = self.from_string(k, key_type)?;
+                let val = self.from_json(v, value_type)?;
+                Ok(ScMapEntry { key, val })
+            })
+            .collect();
+        Ok(ScVal::Object(Some(ScObject::Map(
+            ScMap::sorted_from(parsed?).map_err(Error::Xdr)?,
+        ))))
     }
 }
 

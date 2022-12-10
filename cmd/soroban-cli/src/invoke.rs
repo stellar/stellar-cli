@@ -10,9 +10,8 @@ use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
     LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
-    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode,
-    ScSpecTypeDef, ScStatic, ScVec, SequenceNumber, Transaction,
-    TransactionEnvelope, TransactionExt, VecM,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScSpecTypeDef,
+    ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -185,7 +184,6 @@ enum Arg {
 }
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
 
-
 impl Cmd {
     fn build_host_function_parameters(
         &self,
@@ -197,7 +195,6 @@ impl Cmd {
         let func = spec
             .find_function(&self.function)
             .map_err(|_| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
-
 
         // Parse the function arguments
         let inputs_map = &func
