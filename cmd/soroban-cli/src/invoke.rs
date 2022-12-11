@@ -207,10 +207,13 @@ impl Cmd {
         let parsed_args = inputs_map
             .iter()
             .map(|(name, t)| {
-                let s = matches_.get_one::<String>(name).unwrap();
+                let s = match t {
+                    ScSpecTypeDef::Bool => matches_.is_present(name).to_string(),
+                    _ => matches_.get_one::<String>(name).unwrap().to_string(),
+                };
                 (s, t)
             })
-            .map(|(s, t)| spec.from_string(s, t))
+            .map(|(s, t)| spec.from_string(&s, t))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| Error::CannotParseArg {
                 arg: "Arg".to_string(),
