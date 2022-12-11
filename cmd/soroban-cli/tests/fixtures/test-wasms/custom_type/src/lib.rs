@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contractimpl, contracttype, symbol, vec, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, contracttype, symbol, vec, Env, Symbol, Vec, AccountId, Bytes};
 
 pub struct Contract;
 
@@ -39,6 +39,14 @@ impl Contract {
 
     pub fn e_2_s(env: Env, complex: ComplexEnum) -> Vec<ComplexEnum> {
         vec![&env, complex]
+    }
+
+    pub fn account(env: Env, account_id: AccountId) -> Vec<AccountId> {
+        vec![&env, account_id]
+    }
+
+    pub fn bytes(env: Env, bytes: Bytes) -> Vec<Bytes> {
+        vec![&env, bytes]
     }
 }
 
