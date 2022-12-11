@@ -519,7 +519,10 @@ fn build_custom_cmd<'a>(
     for (i, type_) in inputs_map.values().enumerate() {
         let name = names[i].as_str();
         let mut arg = clap::Arg::new(name);
-        arg = arg.long(name).takes_value(true);
+        arg = arg
+            .long(name)
+            .takes_value(true)
+            .value_parser(clap::builder::NonEmptyStringValueParser::new());
 
         arg = match type_ {
             xdr::ScSpecTypeDef::Val => todo!(),
@@ -538,24 +541,23 @@ fn build_custom_cmd<'a>(
                 .value_name("i32")
                 .value_parser(clap::builder::RangedU64ValueParser::<i32>::new()),
             xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
-            xdr::ScSpecTypeDef::Symbol => arg
-                .value_parser(clap::builder::NonEmptyStringValueParser::new())
-                .value_name("symbol"),
+            xdr::ScSpecTypeDef::Symbol => arg.value_name("symbol"),
             xdr::ScSpecTypeDef::Bitset => todo!(),
             xdr::ScSpecTypeDef::Status => todo!(),
-            xdr::ScSpecTypeDef::Bytes => todo!(),
+            xdr::ScSpecTypeDef::Bytes => arg.value_name("bytes"),
             xdr::ScSpecTypeDef::Invoker => todo!(),
-            xdr::ScSpecTypeDef::AccountId => todo!(),
-            xdr::ScSpecTypeDef::Option(_) => todo!(),
+            xdr::ScSpecTypeDef::AccountId => arg
+                .value_name("AccountId")
+                .next_line_help(true)
+                .help("ed25519 Public Key"),
+            xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
             xdr::ScSpecTypeDef::Result(_) => todo!(),
             xdr::ScSpecTypeDef::Vec(_) => todo!(),
             xdr::ScSpecTypeDef::Map(map) => todo!("{map:#?}"),
             xdr::ScSpecTypeDef::Set(_) => todo!(),
             xdr::ScSpecTypeDef::Tuple(_) => todo!(),
             xdr::ScSpecTypeDef::BytesN(_) => todo!(),
-            xdr::ScSpecTypeDef::Udt(_strukt) => arg
-                .value_parser(clap::builder::NonEmptyStringValueParser::new())
-                .value_name("struct"),
+            xdr::ScSpecTypeDef::Udt(_strukt) => arg.value_name("struct"),
         };
         cmd = cmd.arg(arg);
     }
