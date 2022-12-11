@@ -2,12 +2,14 @@ use serde_json::Value;
 use std::str::FromStr;
 
 use soroban_env_host::xdr::{
-    AccountId, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
+    AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
     ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeTuple, ScSpecTypeUdt,
-    ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScSymbol, ScVal, ScVec, StringM, Uint256,
+    ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
+
+use crate::utils;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -65,61 +67,26 @@ impl Spec {
 
     #[allow(clippy::wrong_self_convention)]
     pub fn from_string(&self, s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
-        match t {
-            // These ones have special processing when they're the top-level args. This is so we don't
-            // need extra quotes around string args.
-            ScSpecTypeDef::Symbol => s
-                .as_bytes()
-                .try_into()
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))
-                .map(ScVal::Symbol),
-
-            // This might either be a json array of u8s, or just the raw utf-8 bytes
-            ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_) => {
-                match serde_json::from_str(s) {
-                    // First, see if it is a json array
-                    Ok(v @ (Value::Array(_) | Value::String(_))) => self.from_json(&v, t),
-                    _ => self.from_json(&Value::String(s.to_string()), t),
+        // Parse as string and for special types assume Value::String
+        serde_json::from_str(s)
+            .or_else(|e| match t {
+                ScSpecTypeDef::Symbol
+                | ScSpecTypeDef::Bytes
+                | ScSpecTypeDef::BytesN(_)
+                | ScSpecTypeDef::U128
+                | ScSpecTypeDef::I128
+                | ScSpecTypeDef::AccountId => Ok(Value::String(s.to_owned())),
+                ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
+                    if matches!(
+                        self.find(&name.to_string_lossy())?,
+                        ScSpecEntry::UdtUnionV0(_)
+                    ) =>
+                {
+                    Ok(Value::String(s.to_owned()))
                 }
-            }
-
-            ScSpecTypeDef::U128 => {
-                if let Ok(Value::String(raw)) = serde_json::from_str(s) {
-                    // First, see if it is a json string, strip the quotes and recurse
-                    self.from_string(&raw, t)
-                } else {
-                    u128::from_str(s)
-                        .map(Into::into)
-                        .map_err(|_| Error::InvalidValue(Some(t.clone())))
-                }
-            }
-
-            // Might have wrapping quotes if it is negative. e.g. "-5"
-            ScSpecTypeDef::I128 => {
-                if let Ok(Value::String(raw)) = serde_json::from_str(s) {
-                    // First, see if it is a json string, strip the quotes and recurse
-                    self.from_string(&raw, t)
-                } else {
-                    i128::from_str(s)
-                        .map(Into::into)
-                        .map_err(|_| Error::InvalidValue(Some(t.clone())))
-                }
-            }
-            ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
-                if matches!(
-                    self.find(&name.to_string_lossy())?,
-                    ScSpecEntry::UdtUnionV0(_)
-                ) =>
-            {
-                let value = serde_json::from_str(s).unwrap_or_else(|_| Value::String(s.to_owned()));
-                self.from_json(&value, t)
-            }
-
-            // For all others we just use the json parser
-            _ => serde_json::from_str(s)
-                .map_err(Error::Serde)
-                .and_then(|raw| self.from_json(&raw, t)),
-        }
+                _ => Err(Error::Serde(e)),
+            })
+            .and_then(|raw| self.from_json(&raw, t))
     }
 
     #[allow(clippy::wrong_self_convention)]
@@ -299,9 +266,7 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
         (ScSpecTypeDef::Bool, Value::Bool(false)) => ScVal::Static(ScStatic::False),
 
         // Number parsing
-        (ScSpecTypeDef::U128 | ScSpecTypeDef::I128, Value::String(s)) => {
-            from_string_primitive(s, t)?
-        }
+        // TODO: Decide if numbers are appropriate for (i/u)128
         (ScSpecTypeDef::U128, Value::Number(n)) => {
             let val: u128 = n
                 .as_u64()
@@ -316,6 +281,20 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
                 .into();
             ScVal::Object(Some(val.into()))
         }
+        (ScSpecTypeDef::U128, Value::String(s)) => {
+            let val: u128 = u128::from_str(s)
+                .map(Into::into)
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            ScVal::Object(Some(val.into()))
+        }
+
+        (ScSpecTypeDef::I128, Value::String(s)) => {
+            let val: i128 = i128::from_str(s)
+                .map(Into::into)
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            ScVal::Object(Some(val.into()))
+        }
+
         (ScSpecTypeDef::I32, Value::Number(n)) => ScVal::I32(
             n.as_i64()
                 .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?
@@ -348,8 +327,42 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
         (ScSpecTypeDef::AccountId, Value::String(s)) => ScVal::Object(Some(ScObject::AccountId({
             StrkeyPublicKeyEd25519::from_string(s)
                 .map(|key| AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(key.0))))
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+                .map_err(|e| Error::InvalidValue(Some(t.clone())))?
         }))),
+
+        // Bytes parsing
+        (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
+            if let Ok(key) = StrkeyPublicKeyEd25519::from_string(s) {
+                key.0
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+            } else {
+                utils::padded_hex_from_str(s, bytes.n as usize)
+                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+            }
+        }))),
+        (ScSpecTypeDef::Bytes, Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
+            hex::decode(s)
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+                .try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+        ))),
+        (ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_), Value::Array(raw)) => {
+            let b: Result<Vec<u8>, Error> = raw
+                .iter()
+                .map(|item| {
+                    item.as_u64()
+                        .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?
+                        .try_into()
+                        .map_err(|_| Error::InvalidValue(Some(t.clone())))
+                })
+                .collect();
+            let converted: BytesM<256_000_u32> = b?.try_into().map_err(Error::Xdr)?;
+            ScVal::Object(Some(ScObject::Bytes(converted)))
+        }
+
         // Todo make proper error Which shouldn't exist
         (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
     };
