@@ -62,7 +62,7 @@ pub struct Cmd {
         max_values(5),
         help_heading = "FILTERS"
     )]
-    topics: Vec<String>,
+    topic_filters: Vec<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -166,7 +166,7 @@ impl Cmd {
                 self.start_ledger,
                 self.end_ledger,
                 &self.contract_ids,
-                &self.topics,
+                &self.topic_filters,
             )
             .await?
             .events)
@@ -200,17 +200,17 @@ impl Cmd {
             // `snapshot::read_events()`.
             .rev()
             // The ledger range isn't optional, so filter on that first.
-            .filter(|evt| {
-                match evt.ledger.parse::<u32>() {
-                    Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
-                    Err(e) => {
-                        eprintln!("error parsing key 'ledger' ('{:?}'): {:#?}", evt.ledger, e);
-                        eprintln!(
-                            "your sandbox events file ('{}') may be corrupt",
-                            path.to_str().unwrap(),
-                        );
-                        false // FIXME: error eaten, item skipped
-                    }
+            .filter(|evt| match evt.ledger.parse::<u32>() {
+                Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
+                Err(e) => {
+                    eprintln!("error parsing key 'ledger': {:?}", e);
+                    eprintln!(
+                        "your sandbox events file ('{}') may be corrupt",
+                        path.to_str().unwrap(),
+                    );
+                    eprintln!("ignoring this event: {:#?}", evt);
+
+                    false
                 }
             })
             .filter(|evt| {
@@ -221,13 +221,12 @@ impl Cmd {
             })
             .filter(|evt| {
                 // Like before, no topic filters means pass everything through.
-                self.topics.is_empty()
+                self.topic_filters.is_empty()
                     || self
-                        .topics
+                        .topic_filters
                         .iter()
                         // quadratic but both are <= 5 long
-                        // FIXME: wildcards and stuff
-                        .any(|f| evt.topic.iter().any(|t| does_topic_match(t, f)))
+                        .any(|f| does_topic_match(&evt.topic, f))
             })
             .take(count)
             .cloned()
@@ -235,13 +234,16 @@ impl Cmd {
     }
 }
 
-pub fn does_topic_match(topic: &str, filter: &str) -> bool {
-    if topic == filter {
+pub fn does_topic_match(topics: &Vec<String>, filter: &str) -> bool {
+    // FIXME: Do actual topic matching.
+    if filter == "*" || filter == "#" {
         return true;
     }
 
-    if filter == "*" || filter == "#" {
-        return true;
+    for topic in topics {
+        if topic == filter {
+            return true;
+        }
     }
 
     false

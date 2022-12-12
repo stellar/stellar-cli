@@ -15,6 +15,7 @@ mod rpc;
 mod serve;
 mod snapshot;
 mod strval;
+mod toid;
 mod token;
 mod utils;
 mod version;

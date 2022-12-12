@@ -12,7 +12,7 @@ use soroban_env_host::{
 };
 
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
-use crate::rpc;
+use crate::{rpc, toid};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -165,7 +165,7 @@ pub fn commit_events(
         .open(output_file)?;
     let mut events: rpc::GetEventsResponse = serde_json::from_reader(&mut file)?;
 
-    for event in new_events.iter() {
+    for (i, event) in new_events.iter().enumerate() {
         let contract_event = match event {
             events::HostEvent::Contract(e) => e,
             events::HostEvent::Debug(_e) => todo!(),
@@ -178,10 +178,20 @@ pub fn commit_events(
         .map(|t| t.to_xdr_base64())
         .collect::<Result<Vec<String>, _>>()?;
 
+        let id = toid::Toid::new(
+            ledger_info.sequence_number,
+            // we should technically inject the tx order here from the ledger
+            // info, but the sandbox does one tx/op per ledger anyway, so this
+            // is a safe assumption
+            1,
+            1,
+        );
         let cereal_event = rpc::Event {
             event_type: "contract".to_string(),
-            id: String::new(),
-            paging_token: String::new(),
+            id: id.to_string(),
+            // stolen from
+            // https://github.com/stellar/soroban-tools/blob/main/cmd/soroban-rpc/internal/methods/get_events.go#L264
+            paging_token: format!("{}-{:010}", id.to_paging_token(), i + 1),
             ledger: ledger_info.sequence_number.to_string(),
             ledger_closed_at: ledger_info.timestamp.to_string(),
             contract_id: hex::encode(
