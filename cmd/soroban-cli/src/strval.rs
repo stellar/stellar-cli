@@ -4,7 +4,8 @@ use std::str::FromStr;
 use soroban_env_host::xdr::{
     AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
     ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeTuple, ScSpecTypeUdt,
-    ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256,
+    ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256,
+    VecM,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
@@ -19,6 +20,8 @@ pub enum Error {
     InvalidValue(Option<ScSpecTypeDef>),
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
+    #[error("Unknown const case {0}")]
+    EnumConst(u32),
     #[error("Missing Entry {0}")]
     MissingEntry(String),
     #[error(transparent)]
@@ -79,7 +82,7 @@ impl Spec {
                 ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
                     if matches!(
                         self.find(&name.to_string_lossy())?,
-                        ScSpecEntry::UdtUnionV0(_)
+                        ScSpecEntry::UdtUnionV0(_) | ScSpecEntry::UdtStructV0(_)
                     ) =>
                 {
                     Ok(Value::String(s.to_owned()))
@@ -152,13 +155,52 @@ impl Spec {
             (ScSpecEntry::UdtStructV0(strukt), Value::Object(map)) => {
                 self.parse_strukt(strukt, map)
             }
+            (ScSpecEntry::UdtStructV0(strukt), Value::Array(arr)) => {
+                self.parse_tuple_strukt(strukt, arr)
+            }
             (ScSpecEntry::UdtUnionV0(union), val @ (Value::String(_) | Value::Object(_))) => {
                 self.parse_union(union, val)
             }
 
-            (ScSpecEntry::UdtEnumV0(_), Value::Number(_)) => todo!("Number Enums"),
-            _ => todo!("Other User defined types"),
+            (ScSpecEntry::UdtEnumV0(enum_), Value::Number(num)) => {
+                self.parse_const_enum(enum_, num)
+            }
+            (s, v) => todo!("Not implemented for {s:#?} {v:#?}"),
         }
+    }
+
+    fn parse_const_enum(
+        &self,
+        enum_: &ScSpecUdtEnumV0,
+        num: &serde_json::Number,
+    ) -> Result<ScVal, Error> {
+        let num = num.as_u64().ok_or(Error::Unknown)? as u32;
+        enum_
+            .cases
+            .iter()
+            .find(|c| c.value == num)
+            .ok_or(Error::EnumConst(num))
+            .map(|c| ScVal::U32(c.value))
+    }
+
+    fn parse_tuple_strukt(
+        &self,
+        strukt: &ScSpecUdtStructV0,
+        array: &[Value],
+    ) -> Result<ScVal, Error> {
+        let items = strukt
+            .fields
+            .to_vec()
+            .iter()
+            .zip(array.iter())
+            .map(|(f, v)| {
+                let val = self.from_json(v, &f.type_)?;
+                Ok(val)
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(ScVal::Object(Some(ScObject::Vec(
+            items.try_into().map_err(Error::Xdr)?,
+        ))))
     }
 
     fn parse_strukt(
@@ -327,7 +369,7 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
         (ScSpecTypeDef::AccountId, Value::String(s)) => ScVal::Object(Some(ScObject::AccountId({
             StrkeyPublicKeyEd25519::from_string(s)
                 .map(|key| AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(key.0))))
-                .map_err(|e| Error::InvalidValue(Some(t.clone())))?
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
         }))),
 
         // Bytes parsing

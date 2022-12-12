@@ -4,7 +4,13 @@ use assert_cmd::{assert::Assert, Command};
 use assert_fs::{prelude::PathChild, TempDir};
 
 pub fn test_wasm(name: &str) -> PathBuf {
-    let mut path = PathBuf::from("../../target/wasm32-unknown-unknown/test-wasms").join(name);
+    let mut path = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .map_or_else(|_| "", |_| "../..")
+            .to_string(),
+    )
+    .join("target/wasm32-unknown-unknown/test-wasms")
+    .join(name);
     path.set_extension("wasm");
     assert!(path.is_file(), "File not found: {}. run 'make build-test-wasms' to generate .wasm files before running this test", path.display());
     path
@@ -58,15 +64,24 @@ pub fn temp_ledger_file() -> OsString {
         .into()
 }
 
-pub trait OutputStr {
+pub trait AssertUtil {
     fn output_line(&self) -> String;
 }
 
-impl OutputStr for Assert {
+impl AssertUtil for Assert {
     fn output_line(&self) -> String {
         String::from_utf8(self.get_output().stdout.clone())
             .expect("failed to make str")
             .trim()
             .to_owned()
+    }
+}
+pub trait CommandUtil {
+    fn json_arg(&mut self, j: serde_json::Value) -> &mut Self;
+}
+
+impl CommandUtil for Command {
+    fn json_arg(&mut self, j: serde_json::Value) -> &mut Self {
+        self.arg(OsString::from(j.to_string()))
     }
 }

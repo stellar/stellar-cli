@@ -11,7 +11,8 @@ use soroban_env_host::xdr::{
     self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
     LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
     Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScSpecTypeDef,
-    ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
+    ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+    TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -117,8 +118,8 @@ pub struct Cmd {
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg { arg: String, error: strval::Error },
-    #[error("parsing XDR arg {arg}: {error}")]
-    CannotParseXdrArg { arg: String, error: XdrError },
+    // #[error("parsing XDR arg {arg}: {error}")]
+    // CannotParseXdrArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(XdrError),
     #[error(transparent)]
@@ -149,12 +150,12 @@ pub enum Error {
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
-    #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
-    UnexpectedArgumentCount {
-        provided: usize,
-        expected: usize,
-        function: String,
-    },
+    // #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
+    // UnexpectedArgumentCount {
+    //     provided: usize,
+    //     expected: usize,
+    //     function: String,
+    // },
     #[error("function name {0} is too long")]
     FunctionNameTooLong(String),
     #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
@@ -173,15 +174,12 @@ pub enum Error {
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing transaction result")]
     MissingTransactionResult,
-    #[error("args file error {0}")]
-    ArgsFile(std::path::PathBuf),
+    // #[error("args file error {0}")]
+    // ArgsFile(std::path::PathBuf),
+    #[error(transparent)]
+    StrVal(#[from] strval::Error),
 }
 
-#[derive(Clone, Debug)]
-enum Arg {
-    Arg(String),
-    ArgXdr(String),
-}
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
 
 impl Cmd {
@@ -202,14 +200,23 @@ impl Cmd {
             .iter()
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
             .collect::<HashMap<String, ScSpecTypeDef>>();
-        let cmd = build_custom_cmd(&self.function, inputs_map);
+
+        let cmd = build_custom_cmd(&self.function, inputs_map, &spec)?;
         let matches_ = cmd.get_matches_from(&self.slop);
+        // let res = ;
         let parsed_args = inputs_map
             .iter()
             .map(|(name, t)| {
                 let s = match t {
                     ScSpecTypeDef::Bool => matches_.is_present(name).to_string(),
-                    _ => matches_.get_one::<String>(name).unwrap().to_string(),
+                    _ => matches_
+                        .get_raw(name)
+                        .unwrap()
+                        .next()
+                        .to_owned()
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string(),
                 };
                 (s, t)
             })
@@ -511,7 +518,9 @@ async fn get_remote_contract_spec_entries(
 fn build_custom_cmd<'a>(
     name: &'a str,
     inputs_map: &'a HashMap<String, ScSpecTypeDef>,
-) -> clap::App<'a> {
+    spec: &Spec,
+) -> Result<clap::App<'a>, Error> {
+    // Todo make new error
     INSTANCE
         .set(inputs_map.keys().map(Clone::clone).collect::<Vec<String>>())
         .unwrap();
@@ -560,12 +569,22 @@ fn build_custom_cmd<'a>(
             xdr::ScSpecTypeDef::Set(_) => todo!(),
             xdr::ScSpecTypeDef::Tuple(_) => todo!(),
             xdr::ScSpecTypeDef::BytesN(_) => todo!(),
-            xdr::ScSpecTypeDef::Udt(_strukt) => arg.value_name("struct"),
+            xdr::ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => {
+                match spec.find(&name.to_string_lossy())? {
+                    ScSpecEntry::FunctionV0(_) => todo!(),
+                    ScSpecEntry::UdtStructV0(_) => arg.value_name("struct"),
+                    ScSpecEntry::UdtUnionV0(_) => arg.value_name("enum"),
+                    ScSpecEntry::UdtEnumV0(_) => arg
+                        .value_name("u32")
+                        .value_parser(clap::builder::RangedU64ValueParser::<u32>::new()),
+                    ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
+                }
+            }
         };
         cmd = cmd.arg(arg);
     }
     cmd.build();
-    cmd
+    Ok(cmd)
 }
 
 #[cfg(test)]
@@ -644,10 +663,6 @@ mod test {
         let entries = get_spec();
         let val = &json!({"a": 42, "b": false, "c": "world"});
         println!("{:#?}", entries.from_json(val, type_));
-        //     let res =
-        //         &parse_json_as_str(&defs, &type_, &j)).unwrap();
-        //     println!("{res}");
-        //     println!("{:#?}", strval::from_string_primitive(res, &type_, None));
     }
 
     #[test]
@@ -657,9 +672,15 @@ mod test {
         println!("{func:#?}");
         let type_ = &func.inputs.as_slice()[0].type_;
         println!("{:#?}", entries.from_json(&json!("First"), type_));
-        // let res = &parse_json_as_str(&defs, type_, &json!("First")).unwrap();
-        // println!("{res}");
-        // println!("{:#?}", strval::from_string_primitive(res, type_, None));
+    }
+
+    #[test]
+    fn parse_enum_const() {
+        let entries = get_spec();
+        let func = entries.find_function("card").unwrap();
+        println!("{func:#?}");
+        let type_ = &func.inputs.as_slice()[0].type_;
+        println!("{:#?}", entries.from_json(&json!(11), type_));
     }
 
     fn get_spec() -> Spec {

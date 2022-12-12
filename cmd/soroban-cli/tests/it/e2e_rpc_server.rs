@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 use std::str;
 
-use crate::util::{arg_file, test_wasm, OutputStr, SorobanCommand, Standalone};
+use crate::util::{arg_file, test_wasm, AssertUtil, SorobanCommand, Standalone};
 
 // e2e tests are ignore by default
 #[test]
