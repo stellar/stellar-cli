@@ -1,9 +1,8 @@
-/// A barebones implementation of Total Order IDs (TOIDs) from SEP-35, using the
-/// reference implementation from the Go `stellar/go/toid` package.
-///
-/// References:
-///  - https://stellar.org/protocol/sep-35
-///  - https://github.com/stellar/go/blob/b4ba6f8e67f274bf84d21b0effb01ea8a914b766/toid/main.go#L8-L56
+/// A barebones implementation of Total Order IDs (TOIDs) from
+/// [SEP-35](https://stellar.org/protocol/sep-35), using the reference
+/// implementation from the Go
+/// [`stellar/go/toid`](https://github.com/stellar/go/blob/b4ba6f8e67f274bf84d21b0effb01ea8a914b766/toid/main.go#L8-L56)
+/// package.
 #[derive(Copy, Clone)]
 pub struct Toid {
     ledger_sequence: u32,
@@ -20,15 +19,15 @@ const OPERATION_SHIFT: u64 = 0;
 
 impl Toid {
     pub fn new(ledger: u32, tx_order: u32, op_order: u32) -> Toid {
-        return Toid {
+        Toid {
             ledger_sequence: ledger,
             transaction_order: tx_order,
             operation_order: op_order,
-        };
+        }
     }
 
-    pub fn to_paging_token(&self) -> String {
-        let u: u64 = (*self).into();
+    pub fn to_paging_token(self) -> String {
+        let u: u64 = self.into();
         format!("{:019}", u)
     }
 }

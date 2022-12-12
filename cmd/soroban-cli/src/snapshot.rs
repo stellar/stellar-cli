@@ -175,7 +175,7 @@ pub fn commit_events(
             xdr::ContractEventBody::V0(e) => &e.topics,
         }
         .iter()
-        .map(|t| t.to_xdr_base64())
+        .map(xdr::WriteXdr::to_xdr_base64)
         .collect::<Result<Vec<String>, _>>()?;
 
         let id = toid::Toid::new(

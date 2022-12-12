@@ -12,11 +12,13 @@ use crate::{HEADING_RPC, HEADING_SANDBOX};
 #[derive(Parser, Debug)]
 #[clap()]
 pub struct Cmd {
-    /// The first ledger sequence number in the range to pull events
+    /// The first ledger sequence number in the range to pull events (required
+    /// if not in sandbox mode).
     #[clap(short, long)]
     start_ledger: u32,
 
-    /// The last (and inclusive) ledger sequence number in the range to pull events
+    /// The last (and inclusive) ledger sequence number in the range to pull
+    /// events (required if not in sandbox mode).
     /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
     #[clap(short, long)]
     end_ledger: u32,
@@ -26,7 +28,7 @@ pub struct Cmd {
     output: OutputFormat,
 
     /// The maximum number of events to display (0 = all)
-    #[clap(short, long, default_value = "10", conflicts_with = "rpc-url")]
+    #[clap(short, long, default_value = "10")]
     count: usize,
 
     /// RPC server endpoint
@@ -90,6 +92,9 @@ pub enum Error {
 
     #[error("you must specify either an RPC server or sandbox filepath(s)")]
     TargetRequired,
+
+    #[error("ledger range is required when specifying an RPC server")]
+    LedgerRangeRequired,
 
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
@@ -159,7 +164,11 @@ impl Cmd {
         Ok(())
     }
 
-    async fn run_against_rpc_server(&self, rpc_url: &String) -> Result<Vec<Event>, Error> {
+    async fn run_against_rpc_server(&self, rpc_url: &str) -> Result<Vec<Event>, Error> {
+        if self.start_ledger == 0 && self.end_ledger == 0 {
+            return Err(Error::LedgerRangeRequired);
+        }
+
         let client = Client::new(rpc_url);
         Ok(client
             .get_events(
@@ -167,6 +176,7 @@ impl Cmd {
                 self.end_ledger,
                 &self.contract_ids,
                 &self.topic_filters,
+                self.count,
             )
             .await?
             .events)
@@ -199,18 +209,24 @@ impl Cmd {
             // though it's likely that this logic belongs more in
             // `snapshot::read_events()`.
             .rev()
-            // The ledger range isn't optional, so filter on that first.
-            .filter(|evt| match evt.ledger.parse::<u32>() {
-                Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
-                Err(e) => {
-                    eprintln!("error parsing key 'ledger': {:?}", e);
-                    eprintln!(
-                        "your sandbox events file ('{}') may be corrupt",
-                        path.to_str().unwrap(),
-                    );
-                    eprintln!("ignoring this event: {:#?}", evt);
+            // The ledger range is optional in sandbox mode.
+            .filter(|evt| {
+                if self.start_ledger == 0 && self.end_ledger == 0 {
+                    return true;
+                }
 
-                    false
+                match evt.ledger.parse::<u32>() {
+                    Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
+                    Err(e) => {
+                        eprintln!("error parsing key 'ledger': {:?}", e);
+                        eprintln!(
+                            "your sandbox events file ('{}') may be corrupt",
+                            path.to_str().unwrap(),
+                        );
+                        eprintln!("ignoring this event: {:#?}", evt);
+
+                        false
+                    }
                 }
             })
             .filter(|evt| {

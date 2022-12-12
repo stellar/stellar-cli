@@ -1,4 +1,4 @@
-use jsonrpsee_core::{client::ClientT, rpc_params};
+use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
 use std::time::{Duration, Instant};
@@ -226,13 +226,14 @@ impl Client {
         end_ledger: u32,
         contract_ids: &[String],
         topics: &[String],
+        limit: usize,
     ) -> Result<GetEventsResponse, Error> {
         Ok(self
             .client()?
             .request(
                 "getEvents",
                 // FIXME
-                rpc_params![start_ledger, end_ledger, contract_ids, topics],
+                rpc_params![start_ledger, end_ledger, contract_ids, topics, limit],
             )
             .await?)
     }
