@@ -222,12 +222,18 @@ impl Client {
 
     pub async fn get_events(
         &self,
+        start_ledger: u32,
+        end_ledger: u32,
         contract_ids: &[String],
         topics: &[String],
     ) -> Result<GetEventsResponse, Error> {
         Ok(self
             .client()?
-            .request("getEvents", rpc_params![contract_ids, topics])
+            .request(
+                "getEvents",
+                // FIXME
+                rpc_params![start_ledger, end_ledger, contract_ids, topics],
+            )
             .await?)
     }
 }

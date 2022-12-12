@@ -159,7 +159,10 @@ pub fn commit_events(
         }
     }
 
-    let mut file = std::fs::OpenOptions::new().read(true).open(output_file)?;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .open(output_file)?;
     let mut events: rpc::GetEventsResponse = serde_json::from_reader(&mut file)?;
 
     for event in new_events.iter() {
@@ -168,13 +171,12 @@ pub fn commit_events(
             events::HostEvent::Debug(_e) => todo!(),
         };
 
-        // TODO: Handle decoding errors cleanly; I miss errors.Wrap(err, ...) :(
         let topics = match &contract_event.body {
             xdr::ContractEventBody::V0(e) => &e.topics,
         }
         .iter()
-        .map(|t| t.to_xdr_base64().unwrap())
-        .collect(); // try_collect()? would be nice here
+        .map(|t| t.to_xdr_base64())
+        .collect::<Result<Vec<String>, _>>()?;
 
         let cereal_event = rpc::Event {
             event_type: "contract".to_string(),

@@ -1,4 +1,5 @@
 use clap::{ArgEnum, Parser};
+use std::path;
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 
@@ -20,16 +21,19 @@ pub struct Cmd {
     #[clap(short, long)]
     end_ledger: u32,
 
-    /// Formatting options for outputted events
+    /// Output formatting options for event stream
     #[clap(long, arg_enum, default_value = "pretty")]
-    format: OutputFormat,
+    output: OutputFormat,
+
+    /// The maximum number of events to display (0 = all)
+    #[clap(short, long, default_value = "10", conflicts_with = "rpc-url")]
+    count: usize,
 
     /// RPC server endpoint
     #[clap(long,
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
         conflicts_with = "events-file",
-        conflicts_with = "follow",
     )]
     rpc_url: Option<String>,
 
@@ -44,20 +48,14 @@ pub struct Cmd {
     )]
     events_file: Option<std::path::PathBuf>,
 
-    /// Whether or not we should keep watching the events file and displaying
-    /// them in real time.
-    #[clap(
-        short, long,
-        help_heading = HEADING_SANDBOX,
-        conflicts_with = "rpc-url",
-    )]
-    follow: bool,
-
-    /// A set of (up to 5) contract IDs to filter events on
+    /// A set of (up to 5) contract IDs to filter events on. This parameter can
+    /// be passed multiple times, e.g. --id abc --id def, or passed with
+    /// multiple parameters, e.g. --id abd def.
     #[clap(long = "id", multiple = true, max_values(5), help_heading = "FILTERS")]
     contract_ids: Vec<String>,
 
-    /// A set of (up to 5) topic filters to filter events on
+    /// A set of (up to 5) topic filters to filter events on. See the help for
+    /// --id to understand how to pass multiple.
     #[clap(
         long = "topic",
         multiple = true,
@@ -129,67 +127,16 @@ impl Cmd {
             })?;
         }
 
-        let mut events: Vec<Event> = Vec::new();
-        if let Some(rpc_url) = self.rpc_url.as_ref() {
-            let client = Client::new(rpc_url);
-            let rpc_event = client.get_events(&self.contract_ids, &self.topics).await?;
-            events = rpc_event.events;
-        } else if let Some(path) = self.events_file.as_ref() {
-            if !path.exists() {
-                return Err(Error::InvalidFile {
-                    path: path.to_str().unwrap().to_string(),
-                });
-            }
-
-            // Read the JSON events from disk and find the ones that match the
-            // contract ID filter(s) that were passed in.
-            events.extend(
-                snapshot::read_events(path)
-                    .map_err(|err| Error::CannotReadFile {
-                        path: path.to_str().unwrap().to_string(),
-                        error: err.to_string(),
-                    })?
-                    .iter()
-                    // The ledger range isn't optional, so filter on that first.
-                    .filter(|evt| {
-                        match evt.ledger.parse::<u32>() {
-                            Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
-                            Err(e) => {
-                                eprintln!(
-                                    "error parsing key 'ledger' ('{:?}'): {:#?}",
-                                    evt.ledger, e
-                                );
-                                false // eat error
-                            }
-                        }
-                    })
-                    .filter(|evt| {
-                        // Contract ID filter(s) are optional, so we should
-                        // render all events if they're omitted.
-                        self.contract_ids.is_empty()
-                            || self.contract_ids.iter().any(|id| *id == evt.contract_id)
-                    })
-                    .filter(|evt| {
-                        // Like before, no topic means pass everything through.
-                        self.topics.is_empty()
-                            || self
-                                .topics
-                                .iter()
-                                // quadratic but both are <= 5 long
-                                .any(|t| evt.topic.iter().any(|t2| *t == *t2))
-                    })
-                    .cloned()
-                    // FIXME: Bubble up errors rather than ignoring them as soon
-                    // as I understand the Rust-isms necessary... ideally we
-                    // could try_collect() here.
-                    .collect::<Vec<Event>>(),
-            );
-        } else {
-            return Err(Error::TargetRequired);
-        }
+        let events = match self.rpc_url.as_ref() {
+            Some(rpc_url) => self.run_against_rpc_server(rpc_url).await?,
+            _ => match self.events_file.as_ref() {
+                Some(path) => self.run_in_sandbox(path)?,
+                _ => return Err(Error::TargetRequired),
+            },
+        };
 
         for event in &events {
-            match self.format {
+            match self.output {
                 // Should we pretty-print the JSON like we're doing here or just
                 // dump an event in raw JSON on each line? The latter is easier
                 // to consume programmatically.
@@ -211,6 +158,93 @@ impl Cmd {
 
         Ok(())
     }
+
+    async fn run_against_rpc_server(&self, rpc_url: &String) -> Result<Vec<Event>, Error> {
+        let client = Client::new(rpc_url);
+        Ok(client
+            .get_events(
+                self.start_ledger,
+                self.end_ledger,
+                &self.contract_ids,
+                &self.topics,
+            )
+            .await?
+            .events)
+    }
+
+    fn run_in_sandbox(&self, path: &path::PathBuf) -> Result<Vec<Event>, Error> {
+        if !path.exists() {
+            return Err(Error::InvalidFile {
+                path: path.to_str().unwrap().to_string(),
+            });
+        }
+
+        let count: usize = if self.count == 0 {
+            std::usize::MAX
+        } else {
+            self.count
+        };
+
+        // Read the JSON events from disk and find the ones that match the
+        // contract ID filter(s) that were passed in.
+        Ok(snapshot::read_events(path)
+            .map_err(|err| Error::CannotReadFile {
+                path: path.to_str().unwrap().to_string(),
+                error: err.to_string(),
+            })?
+            .iter()
+            // FIXME: We assume here that events are read off-disk in
+            // chronological order, but we should probably be sorting by ledger
+            // number (and ID, for events within the same ledger), instead,
+            // though it's likely that this logic belongs more in
+            // `snapshot::read_events()`.
+            .rev()
+            // The ledger range isn't optional, so filter on that first.
+            .filter(|evt| {
+                match evt.ledger.parse::<u32>() {
+                    Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
+                    Err(e) => {
+                        eprintln!("error parsing key 'ledger' ('{:?}'): {:#?}", evt.ledger, e);
+                        eprintln!(
+                            "your sandbox events file ('{}') may be corrupt",
+                            path.to_str().unwrap(),
+                        );
+                        false // FIXME: error eaten, item skipped
+                    }
+                }
+            })
+            .filter(|evt| {
+                // Contract ID filter(s) are optional, so we should render all
+                // events if they're omitted.
+                self.contract_ids.is_empty()
+                    || self.contract_ids.iter().any(|id| *id == evt.contract_id)
+            })
+            .filter(|evt| {
+                // Like before, no topic filters means pass everything through.
+                self.topics.is_empty()
+                    || self
+                        .topics
+                        .iter()
+                        // quadratic but both are <= 5 long
+                        // FIXME: wildcards and stuff
+                        .any(|f| evt.topic.iter().any(|t| does_topic_match(t, f)))
+            })
+            .take(count)
+            .cloned()
+            .collect::<Vec<Event>>())
+    }
+}
+
+pub fn does_topic_match(topic: &str, filter: &str) -> bool {
+    if topic == filter {
+        return true;
+    }
+
+    if filter == "*" || filter == "#" {
+        return true;
+    }
+
+    false
 }
 
 pub fn print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
