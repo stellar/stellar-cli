@@ -123,7 +123,7 @@ fn number_arg() {
         .assert()
         .success()
         .stdout(
-            r#"[42]
+            r#"42
 "#,
         );
 }
@@ -174,7 +174,7 @@ fn boolean() {
         .assert()
         .success()
         .stdout(
-            r#"[false]
+            r#"false
 "#,
         );
 }
@@ -185,7 +185,7 @@ fn boolean_no_flag() {
         .assert()
         .success()
         .stdout(
-            r#"[true]
+            r#"true
 "#,
         );
 }

@@ -5,7 +5,6 @@ use soroban_env_host::xdr::{
     AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
     ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeTuple, ScSpecTypeUdt,
     ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256,
-    VecM,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;

@@ -44,8 +44,8 @@ impl Contract {
         vec![&env, symbol!("Hello"), world]
     }
 
-    pub fn u32_(env: Env, u32_: u32) -> Vec<u32> {
-        vec![&env, u32_]
+    pub fn u32_(_env: Env, u32_: u32) -> u32 {
+        u32_
     }
     pub fn strukt(env: Env, strukt: Test) -> Vec<Symbol> {
         vec![&env, symbol!("Hello"), strukt.c]
@@ -71,8 +71,8 @@ impl Contract {
         vec![&env, card]
     }
 
-    pub fn not(env: Env, boolean: bool) -> Vec<bool> {
-        vec![&env, !boolean]
+    pub fn not(_env: Env, boolean: bool) -> bool {
+        !boolean
     }
 }
 
