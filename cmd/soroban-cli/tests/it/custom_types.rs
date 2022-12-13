@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 use serde_json::json;
 
-use crate::util::{temp_ledger_file, test_wasm, CommandUtil, Sandbox, SorobanCommand};
+use crate::util::{temp_ledger_file, test_wasm, CommandExt, Sandbox, SorobanCommand};
 
 fn invoke(func: &str) -> Command {
     let mut s = Sandbox::new_cmd("invoke");
@@ -42,7 +42,6 @@ fn symbol_with_quotes() {
 "#,
         );
 }
-
 
 #[test]
 fn generate_help() {
@@ -114,7 +113,6 @@ fn e_2_s_strukt() {
         );
 }
 
-
 #[test]
 fn number_arg() {
     invoke("u32_")
@@ -169,23 +167,16 @@ fn const_enum() {
 
 #[test]
 fn boolean() {
-    invoke("not")
-        .arg("--boolean")
-        .assert()
-        .success()
-        .stdout(
-            r#"false
+    invoke("not").arg("--boolean").assert().success().stdout(
+        r#"false
 "#,
-        );
+    );
 }
 
 #[test]
 fn boolean_no_flag() {
-    invoke("not")
-        .assert()
-        .success()
-        .stdout(
-            r#"true
+    invoke("not").assert().success().stdout(
+        r#"true
 "#,
-        );
+    );
 }

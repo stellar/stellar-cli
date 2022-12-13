@@ -213,7 +213,6 @@ impl Cmd {
                         .get_raw(name)
                         .unwrap()
                         .next()
-                        .to_owned()
                         .unwrap()
                         .to_string_lossy()
                         .to_string(),

@@ -64,11 +64,11 @@ pub fn temp_ledger_file() -> OsString {
         .into()
 }
 
-pub trait AssertUtil {
+pub trait AssertExt {
     fn output_line(&self) -> String;
 }
 
-impl AssertUtil for Assert {
+impl AssertExt for Assert {
     fn output_line(&self) -> String {
         String::from_utf8(self.get_output().stdout.clone())
             .expect("failed to make str")
@@ -76,11 +76,11 @@ impl AssertUtil for Assert {
             .to_owned()
     }
 }
-pub trait CommandUtil {
+pub trait CommandExt {
     fn json_arg(&mut self, j: serde_json::Value) -> &mut Self;
 }
 
-impl CommandUtil for Command {
+impl CommandExt for Command {
     fn json_arg(&mut self, j: serde_json::Value) -> &mut Self {
         self.arg(OsString::from(j.to_string()))
     }

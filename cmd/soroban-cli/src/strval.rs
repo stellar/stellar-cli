@@ -21,6 +21,8 @@ pub enum Error {
     EnumCase(String, String),
     #[error("Unknown const case {0}")]
     EnumConst(u32),
+    #[error("Enum const value must be a u32 or smaller")]
+    EnumConstTooLarge(u64),
     #[error("Missing Entry {0}")]
     MissingEntry(String),
     #[error(transparent)]
@@ -160,26 +162,9 @@ impl Spec {
             (ScSpecEntry::UdtUnionV0(union), val @ (Value::String(_) | Value::Object(_))) => {
                 self.parse_union(union, val)
             }
-
-            (ScSpecEntry::UdtEnumV0(enum_), Value::Number(num)) => {
-                self.parse_const_enum(enum_, num)
-            }
+            (ScSpecEntry::UdtEnumV0(enum_), Value::Number(num)) => parse_const_enum(num, enum_),
             (s, v) => todo!("Not implemented for {s:#?} {v:#?}"),
         }
-    }
-
-    fn parse_const_enum(
-        &self,
-        enum_: &ScSpecUdtEnumV0,
-        num: &serde_json::Number,
-    ) -> Result<ScVal, Error> {
-        let num = num.as_u64().ok_or(Error::Unknown)? as u32;
-        enum_
-            .cases
-            .iter()
-            .find(|c| c.value == num)
-            .ok_or(Error::EnumConst(num))
-            .map(|c| ScVal::U32(c.value))
     }
 
     fn parse_tuple_strukt(
@@ -298,6 +283,17 @@ impl Spec {
 
 pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
     Spec::from_string_primitive(s, t)
+}
+
+fn parse_const_enum(num: &serde_json::Number, enum_: &ScSpecUdtEnumV0) -> Result<ScVal, Error> {
+    let num = num.as_u64().ok_or(Error::Unknown)?;
+    let num = u32::try_from(num).map_err(|_| Error::EnumConstTooLarge(num))?;
+    enum_
+        .cases
+        .iter()
+        .find(|c| c.value == num)
+        .ok_or(Error::EnumConst(num))
+        .map(|c| ScVal::U32(c.value))
 }
 
 pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
