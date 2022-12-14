@@ -4,6 +4,7 @@ use ed25519_dalek::Signer;
 use hex::FromHexError;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
+    budget::Budget,
     storage::{AccessType, Footprint, Storage},
     xdr::{
         AccountEntry, AccountEntryExt, AccountId, ContractCodeEntry, ContractDataEntry,
@@ -149,7 +150,7 @@ pub fn get_contract_spec_from_storage(
                 ..
             }),
         ..
-    }) = storage.get(&key, &soroban_env_host::budget::Budget::default())
+    }) = storage.get(&key, &Budget::default())
     {
         match c {
             ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
@@ -160,7 +161,7 @@ pub fn get_contract_spec_from_storage(
                     ..
                 }) = storage.get(
                     &LedgerKey::ContractCode(LedgerKeyContractCode { hash }),
-                    &soroban_env_host::budget::Budget::default(),
+                    &Budget::default(),
                 ) {
                     soroban_spec::read::from_wasm(&code)
                 } else {
