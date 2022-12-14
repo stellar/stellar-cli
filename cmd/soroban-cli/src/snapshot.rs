@@ -139,9 +139,7 @@ where
 /// exactly as they'd be returned by an RPC server.
 pub fn read_events(path: &std::path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
     let reader = std::fs::OpenOptions::new().read(true).open(path)?;
-    let events: rpc::GetEventsResponse = serde_json::from_reader(reader)?;
-
-    Ok(events.events)
+    Ok(serde_json::from_reader(reader)?)
 }
 
 // Reads the existing event file, appends the new events, and writes it all to
@@ -209,7 +207,7 @@ pub fn commit_events(
             },
         };
 
-        events.events.push(cereal_event);
+        events.push(cereal_event);
     }
 
     let mut file = std::fs::OpenOptions::new()

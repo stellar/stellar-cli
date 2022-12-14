@@ -1,4 +1,4 @@
-use clap::{ArgEnum, Parser};
+use clap::Parser;
 use std::path;
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
@@ -53,11 +53,14 @@ pub struct Cmd {
     /// A set of (up to 5) contract IDs to filter events on. This parameter can
     /// be passed multiple times, e.g. --id abc --id def, or passed with
     /// multiple parameters, e.g. --id abd def.
+    ///
+    /// Though the specification supports multiple sets of contract/topic
+    /// filters, only one set can be specified on the command-line today.
     #[clap(long = "id", multiple = true, max_values(5), help_heading = "FILTERS")]
     contract_ids: Vec<String>,
 
     /// A set of (up to 5) topic filters to filter events on. See the help for
-    /// --id to understand how to pass multiple.
+    /// --id to understand how to pass multiple and the limitations therein.
     #[clap(
         long = "topic",
         multiple = true,
@@ -65,6 +68,15 @@ pub struct Cmd {
         help_heading = "FILTERS"
     )]
     topic_filters: Vec<String>,
+
+    /// Specifies which type of contract events to display.
+    #[clap(
+        long = "type",
+        arg_enum,
+        default_value = "all",
+        help_heading = "FILTERS"
+    )]
+    event_type: rpc::EventType,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -103,7 +115,7 @@ pub enum Error {
     Generic(#[from] Box<dyn std::error::Error>),
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ArgEnum)]
 pub enum OutputFormat {
     /// Colorful, human-oriented console output
     Pretty,
@@ -174,12 +186,12 @@ impl Cmd {
             .get_events(
                 self.start_ledger,
                 self.end_ledger,
+                Some(self.event_type),
                 &self.contract_ids,
                 &self.topic_filters,
-                self.count,
+                Some(self.count),
             )
-            .await?
-            .events)
+            .await?)
     }
 
     fn run_in_sandbox(&self, path: &path::PathBuf) -> Result<Vec<Event>, Error> {

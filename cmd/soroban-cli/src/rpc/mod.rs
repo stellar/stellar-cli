@@ -1,7 +1,10 @@
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
-use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
+use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
-use std::time::{Duration, Instant};
+use std::{
+    collections,
+    time::{Duration, Instant},
+};
 use tokio::time::sleep;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
@@ -85,33 +88,37 @@ pub struct SimulateTransactionResponse {
     // TODO: add results and latestLedger
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetEventsResponse {
-    pub events: Vec<Event>,
-}
+pub type GetEventsResponse = Vec<Event>;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Event {
-    #[serde(rename = "eventType")]
+    #[serde(rename = "type")]
     pub event_type: String,
-    pub id: String,
 
     pub ledger: String,
     #[serde(rename = "ledgerClosedAt")]
     pub ledger_closed_at: String,
 
+    pub id: String,
+    #[serde(rename = "pagingToken")]
+    pub paging_token: String,
+
     #[serde(rename = "contractId")]
     pub contract_id: String,
     pub topic: Vec<String>,
     pub value: EventValue,
-
-    #[serde(rename = "pagingToken")]
-    pub paging_token: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct EventValue {
     pub xdr: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ArgEnum)]
+pub enum EventType {
+    All,
+    Contract,
+    System,
 }
 
 pub struct Client {
@@ -224,17 +231,40 @@ impl Client {
         &self,
         start_ledger: u32,
         end_ledger: u32,
+        event_type: Option<EventType>,
         contract_ids: &[String],
         topics: &[String],
-        limit: usize,
+        limit: Option<usize>,
     ) -> Result<GetEventsResponse, Error> {
+        let mut filters = serde_json::Map::new();
+        filters.insert(
+            "type".to_string(),
+            match event_type {
+                Some(t) => match t {
+                    EventType::All => "",
+                    EventType::Contract => "contract",
+                    EventType::System => "system",
+                },
+                None => "",
+            }
+            .into(),
+        );
+        filters.insert("topics".to_string(), topics.into());
+        filters.insert("contractIds".to_string(), contract_ids.into());
+
+        let mut pagination = serde_json::Map::new();
+        pagination.insert("limit".to_string(), limit.unwrap_or(10).into());
+        // TODO: cursor
+
+        let mut object = collections::BTreeMap::<&str, jsonrpsee_core::JsonValue>::new();
+        object.insert("startLedger", start_ledger.to_string().into());
+        object.insert("endLedger", end_ledger.to_string().into());
+        object.insert("filters", vec![filters].into());
+        object.insert("pagination", pagination.into());
+
         Ok(self
             .client()?
-            .request(
-                "getEvents",
-                // FIXME
-                rpc_params![start_ledger, end_ledger, contract_ids, topics, limit],
-            )
+            .request("getEvents", Some(types::ParamsSer::Map(object)))
             .await?)
     }
 }
