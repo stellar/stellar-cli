@@ -3,13 +3,13 @@ use crate::config;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Config(#[from] config::location::Error),
+    Config(#[from] config::args::Error),
 }
 
 #[derive(Debug, clap::Args)]
 pub struct Cmd {
     #[clap(flatten)]
-    pub config: config::location::Args,
+    pub config: config::Args,
 }
 
 impl Cmd {

@@ -1,8 +1,10 @@
 use clap::Parser;
 
 pub mod identity;
-pub mod location;
+pub mod args;
 pub mod secret;
+
+pub use args::Args;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {

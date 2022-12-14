@@ -14,7 +14,7 @@ pub struct Cmd {
     pub default_name: String,
 
     #[clap(flatten)]
-    pub config: config::location::Args,
+    pub config: config::Args,
 }
 
 impl Cmd {
