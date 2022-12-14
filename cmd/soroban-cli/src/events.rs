@@ -14,13 +14,13 @@ use crate::{HEADING_RPC, HEADING_SANDBOX};
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required
     /// if not in sandbox mode).
-    #[clap(short, long)]
+    #[clap(short, long, default_value = "0")]
     start_ledger: u32,
 
     /// The last (and inclusive) ledger sequence number in the range to pull
     /// events (required if not in sandbox mode).
     /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
-    #[clap(short, long)]
+    #[clap(short, long, default_value = "0")]
     end_ledger: u32,
 
     /// Output formatting options for event stream
