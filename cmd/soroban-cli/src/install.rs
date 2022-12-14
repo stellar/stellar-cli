@@ -12,7 +12,6 @@ use soroban_env_host::xdr::{
 use soroban_env_host::HostError;
 
 use crate::rpc::{self, Client};
-use crate::snapshot::{self, get_default_ledger_info};
 use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -71,7 +70,7 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("reading file {filepath}: {error}")]
     CannotReadContractFile {
@@ -81,7 +80,7 @@ pub enum Error {
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse secret key")]
     CannotParseSecretKey,
@@ -106,19 +105,21 @@ impl Cmd {
     }
 
     fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {
-        let mut state =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
+        })?;
+        let wasm_hash =
+            utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)?;
+
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
-        let wasm_hash = utils::add_contract_code_to_ledger_entries(&mut state.1, contract)?;
-
-        snapshot::commit(state.1, get_default_ledger_info(), [], &self.ledger_file).map_err(
-            |e| Error::CannotCommitLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            },
-        )?;
         Ok(hex::encode(wasm_hash))
     }
 
