@@ -105,7 +105,7 @@ pub enum Error {
     #[error("you must specify either an RPC server or sandbox filepath(s)")]
     TargetRequired,
 
-    #[error("ledger range is required when specifying an RPC server")]
+    #[error("ledger range (-s and -e) is required when specifying an RPC server")]
     LedgerRangeRequired,
 
     #[error(transparent)]
