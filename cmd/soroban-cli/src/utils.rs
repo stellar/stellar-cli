@@ -20,6 +20,8 @@ use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPrivateKeyEd25519;
 
+use crate::network::SANDBOX_NETWORK_PASSPHRASE;
+
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
     let args_xdr = InstallContractCodeArgs {
         code: contract.try_into()?,
@@ -34,7 +36,10 @@ pub fn ledger_snapshot_read_or_default(
     match LedgerSnapshot::read_file(p) {
         Ok(snapshot) => Ok(snapshot),
         Err(soroban_ledger_snapshot::Error::Io(e)) if e.kind() == ErrorKind::NotFound => {
-            Ok(LedgerSnapshot::default())
+            Ok(LedgerSnapshot {
+                network_passphrase: SANDBOX_NETWORK_PASSPHRASE.as_bytes().to_vec(),
+                ..Default::default()
+            })
         }
         Err(e) => Err(e),
     }
