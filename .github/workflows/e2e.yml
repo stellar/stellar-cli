@@ -1,0 +1,40 @@
+name: Soroban Tools e2e
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+
+jobs:
+
+  integration:
+    name: System tests
+    strategy:
+      matrix:
+        scenario-filter: ["^TestDappDevelop$/^.*$"]
+    runs-on: ubuntu-latest
+    env:
+      SYSTEM_TEST_DOCKER_REPO_TAG: "sreuland/system-test:latest" 
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "main"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
+      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "1.65.0"
+      SYSTEM_TEST_CORE_DEBIAN_VERSION: "19.5.1-1137.b3a6bc281.focal~soroban"
+      SYSTEM_TEST_HORIZON_DEBIAN_VERSION: "2.22.0~soroban-318"
+      SYSTEM_TEST_VERBOSE_OUTPUT: "true"
+    steps:
+      - uses: actions/checkout@v3
+     
+      - name: Run system test scenarios
+        run: |
+          docker run --platform linux/amd64 --rm \
+          -v "$(pwd):/soroban-tools" "$SYSTEM_TEST_DOCKER_REPO_TAG" \
+          --SorobanCLISourceVolume "/soroban-tools" \
+          --SorobanRPCSourceVolume "/soroban-tools" \
+          --SorobanExamplesGitHash "$SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH" \
+          --SorobanExamplesRepoURL "$SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO" \
+          --RustToolchainVersion "$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION" \
+          --CoreDebianVersion "$SYSTEM_TEST_CORE_DEBIAN_VERSION" \
+          --HorizonDebianVersion "$SYSTEM_TEST_HORIZON_DEBIAN_VERSION" \
+          --TestFilter "${{ matrix.scenario-filter }}" \
+          --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT 
+     
