@@ -169,7 +169,7 @@ impl Cmd {
 
         // Validate that topics are made up of segments.
         for topic in &self.topic_filters {
-            for (i, segment) in topic.split(",").enumerate() {
+            for (i, segment) in topic.split(',').enumerate() {
                 if i > 4 {
                     return Err(Error::InvalidTopicFilter {
                         topic: topic.to_string(),
@@ -301,7 +301,7 @@ impl Cmd {
                 self.topic_filters
                     .iter()
                     // quadratic but both are <= 5 long
-                    .any(|f| does_topic_match(&evt.topic, &f.split(",").collect()))
+                    .any(|f| does_topic_match(&evt.topic, &f.split(',').collect()))
             })
             .take(count)
             .cloned()
