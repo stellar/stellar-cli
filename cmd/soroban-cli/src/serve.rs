@@ -21,7 +21,6 @@ use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
-use crate::snapshot;
 use crate::strval;
 use crate::utils::{self, create_ledger_footprint};
 use crate::{jsonrpc, HEADING_SANDBOX};
@@ -54,7 +53,7 @@ pub enum Error {
     #[error("host")]
     Host(#[from] HostError),
     #[error("snapshot")]
-    Snapshot(#[from] snapshot::Error),
+    Snapshot(#[from] soroban_ledger_snapshot::Error),
     #[error("serde")]
     Serde(#[from] serde_json::Error),
     #[error("unsupported transaction: {message}")]
@@ -207,18 +206,19 @@ fn get_contract_data(
     ledger_file: &PathBuf,
 ) -> Result<Value, Error> {
     // Initialize storage and host
-    let state = snapshot::read(ledger_file)?;
+    let state = utils::ledger_snapshot_read_or_default(ledger_file)?;
     let contract_id: [u8; 32] = utils::id_from_str(&contract_id_hex.to_string())?;
     let key = ScVal::from_xdr_base64(key_xdr)?;
 
-    let snap = Rc::new(snapshot::Snap {
-        ledger_entries: state.1,
-    });
+    let snap = Rc::new(state);
     let mut storage = Storage::with_recording_footprint(snap);
-    let ledger_entry = storage.get(&LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: xdr::Hash(contract_id),
-        key,
-    }))?;
+    let ledger_entry = storage.get(
+        &LedgerKey::ContractData(LedgerKeyContractData {
+            contract_id: xdr::Hash(contract_id),
+            key,
+        }),
+        &soroban_env_host::budget::Budget::default(),
+    )?;
 
     let value = if let LedgerEntryData::ContractData(entry) = ledger_entry.data {
         entry.val
@@ -237,14 +237,12 @@ fn get_contract_data(
 fn get_ledger_entry(k: Box<[String]>, ledger_file: &PathBuf) -> Result<Value, Error> {
     if let Some(key_xdr) = k.into_vec().first() {
         // Initialize storage and host
-        let state = snapshot::read(ledger_file)?;
+        let state = utils::ledger_snapshot_read_or_default(ledger_file).map_err(Error::Snapshot)?;
         let key = LedgerKey::from_xdr_base64(key_xdr)?;
 
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: state.1,
-        });
+        let snap = Rc::new(state);
         let mut storage = Storage::with_recording_footprint(snap);
-        let ledger_entry = storage.get(&key)?;
+        let ledger_entry = storage.get(&key, &soroban_env_host::budget::Budget::default())?;
 
         Ok(json!({
             "xdr": ledger_entry.data.to_xdr_base64()?,
@@ -359,17 +357,15 @@ fn execute_transaction(
     commit: bool,
 ) -> Result<Value, Error> {
     // Initialize storage and host
-    let state = snapshot::read(ledger_file)?;
+    let mut state = utils::ledger_snapshot_read_or_default(ledger_file).map_err(Error::Snapshot)?;
 
-    let snap = Rc::new(snapshot::Snap {
-        ledger_entries: state.1.clone(),
-    });
+    let snap = Rc::new(state.clone());
     let storage = Storage::with_recording_footprint(snap);
     let h = Host::with_storage_and_budget(storage, Budget::default());
 
     h.set_source_account(source_account);
 
-    let mut ledger_info = state.0.clone();
+    let mut ledger_info = state.ledger_info();
     ledger_info.sequence_number += 1;
     ledger_info.timestamp += 5;
     h.set_ledger_info(ledger_info.clone());
@@ -404,7 +400,9 @@ fn execute_transaction(
     let footprint = create_ledger_footprint(&storage.footprint);
 
     if commit {
-        snapshot::commit(state.1, ledger_info, &storage.map, ledger_file)?;
+        state.set_ledger_info(ledger_info);
+        state.update_entries(&storage.map);
+        state.write_file(ledger_file).map_err(Error::Snapshot)?;
     }
 
     Ok(json!({
