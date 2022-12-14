@@ -15,22 +15,22 @@ rev = "995386a"
 [workspace.dependencies.soroban-spec]
 version = "0.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a114890d"
+rev = "309e63c"
 
 [workspace.dependencies.soroban-token-spec]
 version = "0.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a114890d"
+rev = "309e63c"
 
 [workspace.dependencies.soroban-sdk]
 version = "0.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a114890d"
+rev = "309e63c"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "0.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a114890d"
+rev = "309e63c"
 
 [workspace.dependencies.stellar-strkey]
 version = "0.0.6"
