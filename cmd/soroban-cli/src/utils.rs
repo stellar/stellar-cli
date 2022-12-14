@@ -56,12 +56,13 @@ pub fn add_contract_code_to_ledger_entries(
         }),
         ext: LedgerEntryExt::V0,
     };
-    for (k, e) in entries {
+    for (k, e) in entries.iter_mut() {
         if **k == code_key {
             **e = code_entry;
-            break;
+            return Ok(hash);
         }
     }
+    entries.push((Box::new(code_key), Box::new(code_entry)));
     Ok(hash)
 }
 
@@ -87,12 +88,13 @@ pub fn add_contract_to_ledger_entries(
         }),
         ext: LedgerEntryExt::V0,
     };
-    for (k, e) in entries {
+    for (k, e) in entries.iter_mut() {
         if **k == contract_key {
             **e = contract_entry;
-            break;
+            return;
         }
     }
+    entries.push((Box::new(contract_key), Box::new(contract_entry)));
 }
 
 pub fn padded_hex_from_str(s: &String, n: usize) -> Result<Vec<u8>, FromHexError> {
