@@ -235,7 +235,7 @@ impl Client {
         contract_ids: &[String],
         topics: &[String],
         limit: Option<usize>,
-    ) -> Result<GetEventsResponse, Error> {
+    ) -> Result<Option<GetEventsResponse>, Error> {
         let mut filters = serde_json::Map::new();
         filters.insert(
             "type".to_string(),

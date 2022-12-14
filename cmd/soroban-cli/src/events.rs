@@ -51,16 +51,29 @@ pub struct Cmd {
     events_file: Option<std::path::PathBuf>,
 
     /// A set of (up to 5) contract IDs to filter events on. This parameter can
-    /// be passed multiple times, e.g. --id abc --id def, or passed with
-    /// multiple parameters, e.g. --id abd def.
+    /// be passed multiple times, e.g. `--id abc --id def`, or passed with
+    /// multiple parameters, e.g. `--id abd def`.
     ///
-    /// Though the specification supports multiple sets of contract/topic
-    /// filters, only one set can be specified on the command-line today.
+    /// Though the specification supports multiple filter objects (i.e.
+    /// combinations of type, IDs, and topics), only one set can be specified on
+    /// the command-line today, though that set can have multiple IDs/topics.
     #[clap(long = "id", multiple = true, max_values(5), help_heading = "FILTERS")]
     contract_ids: Vec<String>,
 
-    /// A set of (up to 5) topic filters to filter events on. See the help for
-    /// --id to understand how to pass multiple and the limitations therein.
+    /// A set of (up to 4) topic filters to filter event topics on. A single
+    /// topic filter can contain 1-4 different segment filters, separated by
+    /// commas, with an asterisk (* character) indicating a wildcard segment.
+    ///
+    /// For example, this is one topic filter with two segments:
+    ///
+    ///     --topic "AAAABQAAAAdDT1VOVEVSAA==,*"
+    ///
+    /// This is two topic filters with one and two segments each:
+    ///
+    ///     --topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'
+    ///
+    /// Note that all of these topic filters are combined with the contract IDs
+    /// into a single filter (i.e. combination of type, IDs, and topics).
     #[clap(
         long = "topic",
         multiple = true,
@@ -89,6 +102,16 @@ pub enum Error {
 
     #[error("filepath ({path}) cannot be read: {error}")]
     CannotReadFile { path: String, error: String },
+
+    #[error("cannot parse topic filter {topic} into 1-4 segments")]
+    InvalidTopicFilter { topic: String },
+
+    #[error("invalid segment ({segment}) in topic filter ({topic}): {error}")]
+    InvalidSegment {
+        topic: String,
+        segment: String,
+        error: xdr::Error,
+    },
 
     #[error("cannot parse contract ID {contract_id}: {error}")]
     InvalidContractId {
@@ -144,6 +167,27 @@ impl Cmd {
             })?;
         }
 
+        // Validate that topics are made up of segments.
+        for topic in &self.topic_filters {
+            for (i, segment) in topic.split(",").enumerate() {
+                if i > 4 {
+                    return Err(Error::InvalidTopicFilter {
+                        topic: topic.to_string(),
+                    });
+                }
+
+                if segment != "*" {
+                    if let Err(e) = xdr::ScVal::from_xdr_base64(segment) {
+                        return Err(Error::InvalidSegment {
+                            topic: topic.to_string(),
+                            segment: segment.to_string(),
+                            error: e,
+                        });
+                    }
+                }
+            }
+        }
+
         let events = match self.rpc_url.as_ref() {
             Some(rpc_url) => self.run_against_rpc_server(rpc_url).await?,
             _ => match self.events_file.as_ref() {
@@ -191,7 +235,8 @@ impl Cmd {
                 &self.topic_filters,
                 Some(self.count),
             )
-            .await?)
+            .await?
+            .unwrap_or_default())
     }
 
     fn run_in_sandbox(&self, path: &path::PathBuf) -> Result<Vec<Event>, Error> {
@@ -249,12 +294,14 @@ impl Cmd {
             })
             .filter(|evt| {
                 // Like before, no topic filters means pass everything through.
-                self.topic_filters.is_empty()
-                    || self
-                        .topic_filters
-                        .iter()
-                        // quadratic but both are <= 5 long
-                        .any(|f| does_topic_match(&evt.topic, f))
+                self.topic_filters.is_empty() ||
+                // Reminder: All of the topic filters are part of a single
+                // filter object, and each one contains segments, so we need to
+                // apply all of them to the given event.
+                self.topic_filters
+                    .iter()
+                    // quadratic but both are <= 5 long
+                    .any(|f| does_topic_match(&evt.topic, &f.split(",").collect()))
             })
             .take(count)
             .cloned()
@@ -262,19 +309,41 @@ impl Cmd {
     }
 }
 
-pub fn does_topic_match(topics: &Vec<String>, filter: &str) -> bool {
-    // FIXME: Do actual topic matching.
-    if filter == "*" || filter == "#" {
-        return true;
-    }
+// Determines whether or not a particular filter matches a topic based on the
+// same semantics as the RPC server:
+//
+//  - for an exact segment match, the filter is a base64-encoded ScVal
+//  - for a wildcard, single-segment match, the string "*" matches exactly one
+//    segment
+//
+// The expectation is that a `topic_filter` is a comma-separated list of
+// segments that has previously been validated.
+//
+// [API
+// Reference](https://docs.google.com/document/d/1TZUDgo_3zPz7TiPMMHVW_mtogjLyPL0plvzGMsxSz6A/edit#bookmark=id.35t97rnag3tx)
+// [Code
+// Reference](https://github.com/stellar/soroban-tools/blob/bac1be79e8c2590c9c35ad8a0168aab0ae2b4171/cmd/soroban-rpc/internal/methods/get_events.go#L182-L203)
+pub fn does_topic_match(topics: &Vec<String>, segments: &Vec<&str>) -> bool {
+    let mut idx = 0;
 
-    for topic in topics {
-        if topic == filter {
-            return true;
+    for segment in segments {
+        if idx >= topics.len() {
+            // Nothing to match, need at least one segment.
+            return false;
         }
+
+        if *segment != "*" {
+            // One-segment wildcard: ignore this token
+        } else if *segment != topics[idx] {
+            // Exact match the ScVal (decodability is assumed)
+            return false;
+        }
+
+        idx += 1;
     }
 
-    false
+    // Check we had no leftovers
+    idx >= topics.len()
 }
 
 pub fn print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
