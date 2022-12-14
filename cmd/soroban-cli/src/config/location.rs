@@ -63,7 +63,7 @@ impl Args {
         })
     }
 
-    pub fn read_idendity(&self, name: &str) -> Result<Secret, Error> {
+    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
         let path = self.identity_path(name)?;
         let data = fs::read(&path).map_err(|_| Error::SecretFileReadError {
             path: path.to_string_lossy().to_string(),

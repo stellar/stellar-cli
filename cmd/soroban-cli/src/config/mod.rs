@@ -6,6 +6,7 @@ pub mod secret;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
+    /// Configure different identities to sign transactions.
     #[clap(subcommand)]
     Identity(identity::Cmd),
 }

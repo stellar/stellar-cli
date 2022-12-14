@@ -20,11 +20,6 @@ pub struct Cmd {
     #[clap(flatten)]
     pub secrets: secret::Args,
 
-    // TODO: generate key
-    /// Generate a new key pair and print seed phrase
-    #[clap(long)]
-    pub generate: bool,
-
     /// Set as default identity
     #[clap(long)]
     pub default: bool,

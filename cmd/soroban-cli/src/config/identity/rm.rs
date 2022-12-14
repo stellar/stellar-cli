@@ -5,7 +5,7 @@ pub enum Error {
     #[error("No such identity {name}")]
     MissingIdentity { name: String },
     #[error("Error deleting {path}")]
-    DeletingIdFile { path: String }
+    DeletingIdFile { path: String },
 }
 
 #[derive(Debug, clap::Args)]
