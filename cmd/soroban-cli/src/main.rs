@@ -12,7 +12,6 @@ mod optimize;
 mod read;
 mod rpc;
 mod serve;
-mod snapshot;
 mod strval;
 mod token;
 mod utils;

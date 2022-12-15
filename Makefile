@@ -16,7 +16,7 @@ Cargo.lock: Cargo.toml
 	cargo update --workspace
 
 install: Cargo.lock
-	cargo install --path .
+	cargo install --path ./cmd/soroban-cli
 	go install -ldflags="${GOLDFLAGS}" ./...
 
 build: Cargo.lock
