@@ -5,9 +5,10 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::Parser;
 use hex::FromHexError;
 use soroban_env_host::xdr::{
-    InvokeHostFunctionOp, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount,
-    Operation, OperationBody, Preconditions, ScStatic, ScVec, SequenceNumber, Transaction,
-    TransactionEnvelope, TransactionExt, VecM,
+    self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
+    LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScStatic, ScVec,
+    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -23,14 +24,8 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
-use crate::utils::{
-    contract_code_to_spec_entries, create_ledger_footprint, default_account_ledger_entry,
-};
-use crate::{
-    rpc, snapshot,
-    strval::{self, StrValError},
-    utils,
-};
+use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
+use crate::{rpc, strval, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -110,7 +105,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
-    CannotParseArg { arg: String, error: StrValError },
+    CannotParseArg { arg: String, error: strval::Error },
     #[error("parsing XDR arg {arg}: {error}")]
     CannotParseXdrArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
@@ -122,7 +117,7 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("reading file {filepath}: {error}")]
     CannotReadContractFile {
@@ -132,7 +127,7 @@ pub enum Error {
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -154,7 +149,7 @@ pub enum Error {
     #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: StrValError },
+    CannotPrintResult { result: ScVal, error: strval::Error },
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]
@@ -164,7 +159,7 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
-    UnexpectedContractCodeDataType(ScVal),
+    UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing transaction result")]
     MissingTransactionResult,
     #[error("args file error")]
@@ -302,19 +297,7 @@ impl Cmd {
             })?;
             soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)?
         } else {
-            // Get the contract from the network
-            let contract_data = client
-                .get_contract_data(
-                    &hex::encode(contract_id),
-                    ScVal::Static(ScStatic::LedgerKeyContractCode),
-                )
-                .await?;
-            match ScVal::from_xdr_base64(contract_data.xdr)? {
-                ScVal::Object(Some(ScObject::ContractCode(c))) => {
-                    contract_code_to_spec_entries(c).map_err(Error::CannotParseContractSpec)?
-                }
-                scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
-            }
+            get_remote_contract_spec_entries(&client, &contract_id).await?
         };
 
         // Get the ledger footprint
@@ -365,11 +348,12 @@ impl Cmd {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            })?;
+            }
+        })?;
 
         // If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
@@ -377,8 +361,15 @@ impl Cmd {
                 filepath: f.clone(),
                 error: e,
             })?;
-            utils::add_contract_to_ledger_entries(&mut state.1, contract_id, contract)
-                .map_err(Error::CannotAddContractToLedgerEntries)?;
+            let wasm_hash =
+                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
+                    .map_err(Error::CannotAddContractToLedgerEntries)?
+                    .0;
+            utils::add_contract_to_ledger_entries(
+                &mut state.ledger_entries,
+                contract_id,
+                wasm_hash,
+            );
         }
 
         // Create source account, adding it to the ledger if not already present.
@@ -386,23 +377,25 @@ impl Cmd {
         let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
             account_id: source_account.clone(),
         });
-        if !state.1.contains_key(&source_account_ledger_key) {
-            state.1.insert(
-                source_account_ledger_key,
-                default_account_ledger_entry(source_account.clone()),
-            );
+        if !state
+            .ledger_entries
+            .iter()
+            .any(|(k, _)| **k == source_account_ledger_key)
+        {
+            state.ledger_entries.push((
+                Box::new(source_account_ledger_key),
+                Box::new(default_account_ledger_entry(source_account.clone())),
+            ));
         }
 
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: state.1.clone(),
-        });
+        let snap = Rc::new(state.clone());
         let mut storage = Storage::with_recording_footprint(snap);
         let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
             .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
         h.set_source_account(source_account);
 
-        let mut ledger_info = state.0.clone();
+        let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
@@ -410,7 +403,7 @@ impl Cmd {
         let host_function_params =
             self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
 
-        let res = h.invoke_function(HostFunction::InvokeContract, host_function_params)?;
+        let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
         let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
             result: res,
             error: e,
@@ -449,19 +442,22 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(state.1, ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+        state.set_ledger_info(ledger_info);
+        state.update_entries(&storage.map);
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            }
-        })?;
+            })?;
+
         Ok(())
     }
 }
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
+        utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
             contract_id: self.contract_id.clone(),
             error: e,
         })
@@ -484,8 +480,7 @@ fn build_invoke_contract_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::InvokeContract,
-            parameters,
+            function: HostFunction::InvokeContract(parameters),
             footprint: final_footprint,
         }),
     };
@@ -500,4 +495,42 @@ fn build_invoke_contract_tx(
     };
 
     Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
+}
+
+async fn get_remote_contract_spec_entries(
+    client: &Client,
+    contract_id: &[u8; 32],
+) -> Result<Vec<ScSpecEntry>, Error> {
+    // Get the contract from the network
+    let contract_ref = client
+        .get_ledger_entry(LedgerKey::ContractData(LedgerKeyContractData {
+            contract_id: xdr::Hash(*contract_id),
+            key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+        }))
+        .await?;
+
+    Ok(match LedgerEntryData::from_xdr_base64(contract_ref.xdr)? {
+        LedgerEntryData::ContractData(ContractDataEntry {
+            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::WasmRef(hash)))),
+            ..
+        }) => {
+            let contract_data = client
+                .get_ledger_entry(LedgerKey::ContractCode(LedgerKeyContractCode { hash }))
+                .await?;
+
+            match LedgerEntryData::from_xdr_base64(contract_data.xdr)? {
+                LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
+                    soroban_spec::read::from_wasm(&code).map_err(Error::CannotParseContractSpec)?
+                }
+                scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+            }
+        }
+        LedgerEntryData::ContractData(ContractDataEntry {
+            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))),
+            ..
+        }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+            .map_err(FromWasmError::Parse)
+            .map_err(Error::CannotParseContractSpec)?,
+        scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+    })
 }

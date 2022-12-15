@@ -1,61 +1,5 @@
-[package]
-name = "soroban-tools"
-description = "Soroban Tools"
-homepage = "https://github.com/stellar/soroban-cli"
-repository = "https://github.com/stellar/soroban-cli"
-authors = ["Stellar Development Foundation <info@stellar.org>"]
-license = "Apache-2.0"
-readme = "README.md"
-version = "0.2.1"
-edition = "2021"
-rust-version = "1.65"
-autobins = false
-build = "build.rs"
-
-[build-dependencies]
-crate-git-revision = "0.0.2"
-
-[[bin]]
-name = "soroban"
-path = "cmd/soroban-cli/src/main.rs"
-
-[dependencies]
-soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
-soroban-spec = { workspace = true }
-soroban-token-spec = { workspace = true }
-stellar-strkey = { workspace = true }
-clap = { version = "3.1.18", features = ["derive", "env"] }
-base64 = "0.13.0"
-thiserror = "1.0.31"
-serde = "1.0.82"
-serde_derive = "1.0.82"
-serde_json = "1.0.82"
-hex = "0.4.3"
-num-bigint = "0.4"
-tokio = { version = "1", features = ["full"] }
-warp = "0.3"
-clap_complete = "3.2.3"
-rand = "0.8.5"
-wasmparser = "0.90.0"
-sha2 = "0.10.6"
-csv = "1.1.6"
-ed25519-dalek = "1.0.1"
-jsonrpsee-http-client = "0.15.1"
-jsonrpsee-core = "0.15.1"
-regex = "1.6.0"
-wasm-opt = "0.110.1"
-rpassword = "7.2.0"
-dirs = "4.0.0"
-config = "0.13.1"
-toml = "0.5.9"
-slip10 = "0.4.3"
-
-
-[dev_dependencies]
-assert_cmd = "2.0.4"
-assert_fs = "1.0.7"
-
 [workspace]
+resolver = "2"
 members = [
     "cmd/soroban-cli",
     "cmd/soroban-cli/tests/fixtures/test-wasms/hello_world",
@@ -64,29 +8,34 @@ members = [
 default-members = ["cmd/soroban-cli"]
 
 [workspace.dependencies.soroban-env-host]
-version = "0.0.9"
+version = "0.0.11"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "99de1bf0"
+rev = "995386a"
 
 [workspace.dependencies.soroban-spec]
-version = "0.2.1"
+version = "0.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "63bef69c"
+rev = "309e63c"
 
 [workspace.dependencies.soroban-token-spec]
-version = "0.2.1"
+version = "0.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "63bef69c"
+rev = "309e63c"
 
 [workspace.dependencies.soroban-sdk]
-version = "0.2.1"
+version = "0.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "63bef69c"
+rev = "309e63c"
+
+[workspace.dependencies.soroban-ledger-snapshot]
+version = "0.3.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "309e63c"
 
 [workspace.dependencies.stellar-strkey]
 version = "0.0.6"
 git = "https://github.com/stellar/rs-stellar-strkey"
-rev = "d1b68fd1"
+rev = "5e582a8"
 
 # [patch."https://github.com/stellar/rs-soroban-env"]
 # soroban-env-host = { path = "../rs-soroban-env/soroban-env-host/" }

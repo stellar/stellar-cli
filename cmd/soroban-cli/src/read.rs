@@ -13,11 +13,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{
-    snapshot,
-    strval::{self, StrValError},
-    utils, HEADING_SANDBOX,
-};
+use crate::{strval, utils, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -58,13 +54,13 @@ pub enum Output {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("parsing key {key}: {error}")]
-    CannotParseKey { key: String, error: StrValError },
+    CannotParseKey { key: String, error: strval::Error },
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -72,7 +68,7 @@ pub enum Error {
         error: FromHexError,
     },
     #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: StrValError },
+    CannotPrintResult { result: ScVal, error: strval::Error },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintJsonResult {
         result: ScVal,
@@ -94,11 +90,9 @@ impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] =
-            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
-                Error::CannotParseContractId {
-                    contract_id: self.contract_id.clone(),
-                    error: e,
-                }
+            utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
+                contract_id: self.contract_id.clone(),
+                error: e,
             })?;
         let key = if let Some(key) = &self.key {
             Some(
@@ -120,24 +114,30 @@ impl Cmd {
             None
         };
 
-        let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-            filepath: self.ledger_file.clone(),
-            error: e,
+        let state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
         })?;
-        let ledger_entries = state.1;
+        let ledger_entries = &state.ledger_entries;
 
         let contract_id = xdr::Hash(contract_id);
         let entries: Vec<ContractDataEntry> = if let Some(key) = key {
             ledger_entries
-                .get(&LedgerKey::ContractData(LedgerKeyContractData {
-                    contract_id,
-                    key,
-                }))
+                .iter()
+                .find(|(k, _)| {
+                    k.as_ref()
+                        == &LedgerKey::ContractData(LedgerKeyContractData {
+                            contract_id: contract_id.clone(),
+                            key: key.clone(),
+                        })
+                })
                 .iter()
                 .copied()
                 .cloned()
                 .filter_map(|val| {
-                    if let LedgerEntryData::ContractData(d) = val.data {
+                    if let LedgerEntryData::ContractData(d) = val.1.data {
                         Some(d)
                     } else {
                         None
@@ -148,7 +148,7 @@ impl Cmd {
             ledger_entries
                 .iter()
                 .filter_map(|(k, v)| {
-                    if let LedgerKey::ContractData(kd) = k {
+                    if let LedgerKey::ContractData(kd) = *k.clone() {
                         if kd.contract_id == contract_id
                             && kd.key != ScVal::Static(xdr::ScStatic::LedgerKeyContractCode)
                         {

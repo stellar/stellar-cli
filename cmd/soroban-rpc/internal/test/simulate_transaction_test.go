@@ -23,37 +23,48 @@ var (
 	testSalt     = sha256.Sum256([]byte("a1"))
 )
 
-func createInvokeHostOperation(t *testing.T, sourceAccount string, includeFootprint bool) *txnbuild.InvokeHostFunction {
-	contractNameParameterAddr := &xdr.ScObject{
+// createInvokeHostOperation creates a dummy InvokeHostFunctionOp. In this case by installing a contract code.
+func createInvokeHostOperation(t *testing.T, sourceAccount string, footprint xdr.LedgerFootprint, contractId xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
+	var contractIdBytes []byte = contractId[:]
+	contractIdObj := &xdr.ScObject{
 		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &testContract,
+		Bin:  &contractIdBytes,
 	}
-	contractNameParameter := xdr.ScVal{
-		Type: xdr.ScValTypeScvObject,
-		Obj:  &contractNameParameterAddr,
+	methodSymbol := xdr.ScSymbol(method)
+	parameters := xdr.ScVec{
+		xdr.ScVal{
+			Type: xdr.ScValTypeScvObject,
+			Obj:  &contractIdObj,
+		},
+		xdr.ScVal{
+			Type: xdr.ScValTypeScvSymbol,
+			Sym:  &methodSymbol,
+		},
 	}
+	parameters = append(parameters, args...)
+	return &txnbuild.InvokeHostFunction{
+		Footprint: footprint,
+		Function: xdr.HostFunction{
+			Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeArgs: &parameters,
+		},
+		SourceAccount: sourceAccount,
+	}
+}
 
-	saltySlice := testSalt[:]
-	saltParameterAddr := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &saltySlice,
-	}
-	saltParameter := xdr.ScVal{
-		Type: xdr.ScValTypeScvObject,
-		Obj:  &saltParameterAddr,
-	}
-
+func createInstallContractCodeOperation(t *testing.T, sourceAccount string, contractCode []byte, includeFootprint bool) *txnbuild.InvokeHostFunction {
 	var footprint xdr.LedgerFootprint
 	if includeFootprint {
-		ledgerKey := xdr.LedgerKeyContractData{
-			ContractId: xdr.Hash(getContractID(t, sourceAccount, testSalt)),
-			Key:        getContractCodeLedgerKey(),
-		}
+		installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+		assert.NoError(t, err)
+		contractHash := sha256.Sum256(installContractCodeArgs)
 		footprint = xdr.LedgerFootprint{
 			ReadWrite: []xdr.LedgerKey{
 				{
-					Type:         xdr.LedgerEntryTypeContractData,
-					ContractData: &ledgerKey,
+					Type: xdr.LedgerEntryTypeContractCode,
+					ContractCode: &xdr.LedgerKeyContractCode{
+						Hash: xdr.Hash(contractHash),
+					},
 				},
 			},
 		}
@@ -61,10 +72,63 @@ func createInvokeHostOperation(t *testing.T, sourceAccount string, includeFootpr
 
 	return &txnbuild.InvokeHostFunction{
 		Footprint: footprint,
-		Function:  xdr.HostFunctionHostFnCreateContractWithSourceAccount,
-		Parameters: xdr.ScVec{
-			contractNameParameter,
-			saltParameter,
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeInstallContractCode,
+			InstallContractCodeArgs: &xdr.InstallContractCodeArgs{
+				Code: contractCode,
+			},
+		},
+		SourceAccount: sourceAccount,
+	}
+}
+
+func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string, includeFootprint bool) *txnbuild.InvokeHostFunction {
+	saltParam := xdr.Uint256(testSalt)
+
+	var footprint xdr.LedgerFootprint
+	if includeFootprint {
+		installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+		assert.NoError(t, err)
+		contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
+		footprint = xdr.LedgerFootprint{
+			ReadWrite: []xdr.LedgerKey{
+				{
+					Type: xdr.LedgerEntryTypeContractData,
+					ContractData: &xdr.LedgerKeyContractData{
+						ContractId: xdr.Hash(getContractID(t, sourceAccount, testSalt, networkPassphrase)),
+						Key:        getContractCodeLedgerKey(),
+					},
+				},
+			},
+			ReadOnly: []xdr.LedgerKey{
+				{
+					Type: xdr.LedgerEntryTypeContractCode,
+					ContractCode: &xdr.LedgerKeyContractCode{
+						Hash: xdr.Hash(contractHash),
+					},
+				},
+			},
+		}
+	}
+
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
+
+	return &txnbuild.InvokeHostFunction{
+		Footprint: footprint,
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+			CreateContractArgs: &xdr.CreateContractArgs{
+				ContractId: xdr.ContractId{
+					Type: xdr.ContractIdTypeContractIdFromSourceAccount,
+					Salt: &saltParam,
+				},
+				Source: xdr.ScContractCode{
+					Type:   xdr.ScContractCodeTypeSccontractCodeWasmRef,
+					WasmId: &contractHash,
+				},
+			},
 		},
 		SourceAccount: sourceAccount,
 	}
@@ -79,11 +143,13 @@ func getContractCodeLedgerKey() xdr.ScVal {
 	return contractCodeLedgerKey
 }
 
-func getContractID(t *testing.T, sourceAccount string, salt [32]byte) [32]byte {
+func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPassphrase string) [32]byte {
+	networkId := xdr.Hash(sha256.Sum256([]byte(networkPassphrase)))
 	preImage := xdr.HashIdPreimage{
 		Type: xdr.EnvelopeTypeEnvelopeTypeContractIdFromSourceAccount,
 		SourceAccountContractId: &xdr.HashIdPreimageSourceAccountContractId{
-			Salt: salt,
+			NetworkId: networkId,
+			Salt:      salt,
 		},
 	}
 	preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount)
@@ -106,9 +172,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			Sequence:  0,
 		},
 		IncrementSequenceNum: false,
-		Operations:           []txnbuild.Operation{createInvokeHostOperation(t, sourceAccount, false)},
-		BaseFee:              txnbuild.MinBaseFee,
-		Memo:                 nil,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -127,13 +195,13 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(
 		t,
 		methods.SimulateTransactionResponse{
-			Footprint: "AAAAAAAAAAEAAAAGkvS4fCJA01o8HRusdDVaD5Z7F2lkyM3UfhQOjETmlDMAAAADAAAAAw==",
+			Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
 			Cost: methods.SimulateTransactionCost{
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
 			Results: []methods.InvokeHostFunctionResult{
-				{XDR: "AAAABAAAAAEAAAAEAAAAIJL0uHwiQNNaPB0brHQ1Wg+WexdpZMjN1H4UDoxE5pQz"},
+				{XDR: "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC"},
 			},
 			LatestLedger: result.LatestLedger,
 		},
@@ -141,7 +209,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	)
 
 	// test operation which does not have a source account
-	withoutSourceAccountOp := createInvokeHostOperation(t, "", false)
+	withoutSourceAccountOp := createInstallContractCodeOperation(t, "", testContract, false)
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: sourceAccount,
@@ -172,9 +240,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			Sequence:  0,
 		},
 		IncrementSequenceNum: false,
-		Operations:           []txnbuild.Operation{createInvokeHostOperation(t, sourceAccount, false)},
-		BaseFee:              txnbuild.MinBaseFee,
-		Memo:                 nil,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -200,8 +270,8 @@ func TestSimulateTransactionError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	invokeHostOp := createInvokeHostOperation(t, sourceAccount, false)
-	invokeHostOp.Parameters = invokeHostOp.Parameters[:len(invokeHostOp.Parameters)-1]
+	invokeHostOp := createInvokeHostOperation(t, sourceAccount, xdr.LedgerFootprint{}, xdr.Hash{}, "noMethod")
+	invokeHostOp.Function.InvokeArgs = &xdr.ScVec{}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
@@ -242,8 +312,8 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(t, sourceAccount, false),
-			createInvokeHostOperation(t, sourceAccount, false),
+			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+			createCreateContractOperation(t, sourceAccount, testContract, StandaloneNetworkPassphrase, false),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -339,9 +409,11 @@ func TestSimulateTransactionDeadlineError(t *testing.T) {
 			Sequence:  0,
 		},
 		IncrementSequenceNum: false,
-		Operations:           []txnbuild.Operation{createInvokeHostOperation(t, sourceAccount, false)},
-		BaseFee:              txnbuild.MinBaseFee,
-		Memo:                 nil,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},

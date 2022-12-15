@@ -13,8 +13,8 @@ pub enum Error {
     HomeDirNotFound,
     #[error("Failed read current directory")]
     CurrentDirNotFound,
-    #[error("Failed to create directory: {path}")]
-    DirCreationFailed { path: String },
+    #[error("Failed to create directory: {path:?}")]
+    DirCreationFailed { path: PathBuf },
     #[error("Failed to read secret's file: {path}")]
     SecretFileReadError { path: String },
     #[error("Seceret file failed to deserialize")]
@@ -103,6 +103,6 @@ fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
 
 fn dir_creation_failed(p: &Path) -> Error {
     Error::DirCreationFailed {
-        path: format!("{}", p.display()),
+        path: p.to_path_buf(),
     }
 }

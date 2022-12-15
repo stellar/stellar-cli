@@ -6,11 +6,10 @@ repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.1.2"
+version = "0.3.1"
 edition = "2021"
-rust-version = "1.64"
+rust-version = "1.65"
 autobins = false
-build = "../../build.rs"
 
 [[bin]]
 name = "soroban"
@@ -20,6 +19,7 @@ path = "src/main.rs"
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
 soroban-spec = { workspace = true }
 soroban-token-spec = { workspace = true }
+soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 clap = { version = "3.1.18", features = ["derive", "env"] }
@@ -50,7 +50,7 @@ slip10 = "0.4.3"
 
 
 [build-dependencies]
-crate-git-revision = "0.0.2"
+crate-git-revision = "0.0.4"
 
 [dev_dependencies]
 assert_cmd = "2.0.4"

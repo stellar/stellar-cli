@@ -16,7 +16,7 @@ Cargo.lock: Cargo.toml
 	cargo update --workspace
 
 install: Cargo.lock
-	cargo install --path .
+	cargo install --path ./cmd/soroban-cli
 	go install -ldflags="${GOLDFLAGS}" ./...
 
 build: Cargo.lock
@@ -30,7 +30,7 @@ test: build-test-wasms
 	cargo test --workspace
 
 e2e-test:
-	cargo test --test 'e2e*' -- --ignored
+	cargo test --test it -- --ignored
 
 check: Cargo.lock
 	cargo clippy --all-targets
