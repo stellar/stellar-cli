@@ -26,7 +26,7 @@ jobs:
      
       - name: Run system test scenarios
         run: |
-          docker run --platform linux/amd64 --rm \
+          docker run --platform linux/amd64 -t --rm \
           -v "$(pwd):/soroban-tools" "$SYSTEM_TEST_DOCKER_REPO_TAG" \
           --SorobanCLISourceVolume "/soroban-tools" \
           --SorobanRPCSourceVolume "/soroban-tools" \
