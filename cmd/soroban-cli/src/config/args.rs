@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, ffi::OsStr,
 };
 
 use crate::utils::find_config_dir;
@@ -55,7 +55,19 @@ impl Args {
         ensure_directory(self.config_dir()?).map(|p| p.join("identities"))
     }
 
+    pub fn network_dir(&self) -> Result<PathBuf, Error> {
+        ensure_directory(self.config_dir()?).map(|p| p.join("networks"))
+    }
+
     pub fn identity_path(&self, name: &str) -> Result<PathBuf, Error> {
+        self.identity_dir().map(|p| {
+            let mut source = p.join(name);
+            source.set_extension("toml");
+            source
+        })
+    }
+
+    pub fn network_path(&self, name: &str) -> Result<PathBuf, Error> {
         self.identity_dir().map(|p| {
             let mut source = p.join(name);
             source.set_extension("toml");
@@ -78,22 +90,24 @@ impl Args {
         std::fs::write(&source, &data).map_err(|_| Error::IdCreationFailed)
     }
 
+    pub fn write_network(&self, name: &str, secret: &Secret) -> Result<(), Error> {
+        let source = self.identity_path(name)?;
+        let data = toml::to_string(secret).map_err(|_| Error::IdCreationFailed)?;
+        println!("Writing to {}", source.display());
+        std::fs::write(&source, &data).map_err(|_| Error::IdCreationFailed)
+    }
+
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
         let path = self.identity_dir()?;
-        let contents = std::fs::read_dir(&path).map_err(|_| Error::IdentityList {
-            name: format!("{}", path.display()),
-        })?;
-        let mut res = vec![];
-        for entry in contents.filter_map(Result::ok) {
-            let path = entry.path();
-            if let Some("toml") = path.extension().and_then(|s| s.to_str()) {
-                if let Some(os_str) = path.file_stem() {
-                    res.push(format!("{}", os_str.to_string_lossy()))
-                }
-            }
-        }
-        Ok(res)
+        read_dir(&path)
     }
+
+    pub fn list_networks(&self) -> Result<Vec<String>, Error> {
+        let path = self.network_dir()?;
+        read_dir(&path)
+    }
+
+
 }
 
 fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
@@ -105,4 +119,20 @@ fn dir_creation_failed(p: &Path) -> Error {
     Error::DirCreationFailed {
         path: p.to_path_buf(),
     }
+}
+
+fn read_dir(dir: &Path) -> Result<Vec<String>, Error> {
+    let contents = std::fs::read_dir(&dir).map_err(|_| Error::IdentityList {
+        name: format!("{}", dir.display()),
+    })?;
+    let mut res = vec![];
+    for entry in contents.filter_map(Result::ok) {
+        let path = entry.path();
+        if let Some("toml") = path.extension().and_then(OsStr::to_str) {
+            if let Some(os_str) = path.file_stem() {
+                res.push(format!("{}", os_str.to_string_lossy()))
+            }
+        }
+    }
+    Ok(res)
 }
