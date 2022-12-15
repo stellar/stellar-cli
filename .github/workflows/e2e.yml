@@ -23,7 +23,7 @@ jobs:
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
     steps:
       - uses: actions/checkout@v3
-     
+      - uses: stellar/actions/rust-cache@main
       - name: Run system test scenarios
         run: |
           docker run --platform linux/amd64 -t --rm \
