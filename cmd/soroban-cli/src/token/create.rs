@@ -21,7 +21,7 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 use crate::{
     network,
     rpc::{Client, Error as SorobanRpcError},
-    snapshot, utils, HEADING_RPC, HEADING_SANDBOX,
+    utils, HEADING_RPC, HEADING_SANDBOX,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -29,12 +29,12 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse secret key")]
     CannotParseSecretKey,
@@ -166,14 +166,14 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-            filepath: self.ledger_file.clone(),
-            error: e,
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
         })?;
 
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: state.1.clone(),
-        });
+        let snap = Rc::new(state.clone());
         let h = Host::with_storage_and_budget(
             Storage::with_recording_footprint(snap),
             Budget::default(),
@@ -181,7 +181,7 @@ impl Cmd {
 
         h.set_source_account(admin.clone());
 
-        let mut ledger_info = state.0.clone();
+        let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
@@ -209,12 +209,14 @@ impl Cmd {
             ))
         })?;
 
-        snapshot::commit(state.1, ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+        state.set_ledger_info(ledger_info);
+        state.update_entries(&storage.map);
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            }
-        })?;
+            })?;
         Ok(res_str)
     }
 

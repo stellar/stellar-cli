@@ -18,7 +18,6 @@ use soroban_env_host::HostError;
 
 use crate::install::build_install_contract_code_tx;
 use crate::rpc::{self, Client};
-use crate::snapshot::{self, get_default_ledger_info};
 use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -104,7 +103,7 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("reading file {filepath}: {error}")]
     CannotReadContractFile {
@@ -114,7 +113,7 @@ pub enum Error {
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -173,25 +172,27 @@ impl Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let mut state =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            })?;
+            }
+        })?;
         let wasm_hash = match contract_src {
             ContractSource::Wasm(wasm) => {
-                utils::add_contract_code_to_ledger_entries(&mut state.1, wasm)?.0
+                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, wasm)?.0
             }
             ContractSource::WasmHash(wasm_hash) => wasm_hash,
         };
-        utils::add_contract_to_ledger_entries(&mut state.1, contract_id, wasm_hash);
+        utils::add_contract_to_ledger_entries(&mut state.ledger_entries, contract_id, wasm_hash);
 
-        snapshot::commit(state.1, get_default_ledger_info(), [], &self.ledger_file).map_err(
-            |e| Error::CannotCommitLedgerFile {
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            },
-        )?;
+            })?;
+
         Ok(hex::encode(contract_id))
     }
 
