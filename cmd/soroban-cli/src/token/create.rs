@@ -7,20 +7,21 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageSourceAccountContractId,
-        HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
-        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScHostStorageErrorCode, ScMap, ScMapEntry, ScObject,
-        ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec, SequenceNumber, Transaction,
-        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+        AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
+        HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
+        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+        OperationBody, Preconditions, PublicKey, ScContractCode, ScHostStorageErrorCode, ScMap,
+        ScMapEntry, ScObject, ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec,
+        SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
+    network,
     rpc::{Client, Error as SorobanRpcError},
-    snapshot, utils, HEADING_RPC, HEADING_SANDBOX,
+    utils, HEADING_RPC, HEADING_SANDBOX,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -28,12 +29,12 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse secret key")]
     CannotParseSecretKey,
@@ -117,7 +118,7 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
         let salt: [u8; 32] =
-            utils::contract_id_from_str(&self.salt).map_err(|_| Error::CannotParseSalt {
+            utils::id_from_str(&self.salt).map_err(|_| Error::CannotParseSalt {
                 salt: self.salt.clone(),
             })?;
 
@@ -165,14 +166,14 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-            filepath: self.ledger_file.clone(),
-            error: e,
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
         })?;
 
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: state.1.clone(),
-        });
+        let snap = Rc::new(state.clone());
         let h = Host::with_storage_and_budget(
             Storage::with_recording_footprint(snap),
             Budget::default(),
@@ -180,22 +181,27 @@ impl Cmd {
 
         h.set_source_account(admin.clone());
 
-        let mut ledger_info = state.0.clone();
+        let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let res = h.invoke_function(
-            HostFunction::CreateTokenContractWithSourceAccount,
-            vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))].try_into()?,
-        )?;
+        let contract_id =
+            get_contract_id(salt, admin.clone(), network::SANDBOX_NETWORK_PASSPHRASE)?;
+
+        let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
+            contract_id: ContractId::SourceAccount(Uint256(salt)),
+            source: ScContractCode::Token,
+        }))?;
         let res_str = utils::vec_to_hash(&res)?;
 
-        let contract_id = get_contract_id(salt, admin.clone())?;
-        h.invoke_function(
-            HostFunction::InvokeContract,
-            init_parameters(contract_id, &admin, name, symbol, decimal),
-        )?;
+        h.invoke_function(HostFunction::InvokeContract(init_parameters(
+            contract_id,
+            &admin,
+            name,
+            symbol,
+            decimal,
+        )))?;
 
         let (storage, _, _) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
@@ -203,12 +209,14 @@ impl Cmd {
             ))
         })?;
 
-        snapshot::commit(state.1, ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+        state.set_ledger_info(ledger_info);
+        state.update_entries(&storage.map);
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            }
-        })?;
+            })?;
         Ok(res_str)
     }
 
@@ -241,14 +249,15 @@ impl Cmd {
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
-        let contract_id = get_contract_id(salt_val, admin_key.clone())?;
+        let network_passphrase = self.network_passphrase.as_ref().unwrap();
+        let contract_id = get_contract_id(salt_val, admin_key.clone(), network_passphrase)?;
 
         client
             .send_transaction(&build_tx(
                 build_create_token_op(&Hash(contract_id), salt_val)?,
                 sequence + 1,
                 fee,
-                self.network_passphrase.as_ref().unwrap(),
+                network_passphrase,
                 &key,
             )?)
             .await?;
@@ -261,7 +270,7 @@ impl Cmd {
                 )?,
                 sequence + 2,
                 fee,
-                self.network_passphrase.as_ref().unwrap(),
+                network_passphrase,
                 &key,
             )?)
             .await?;
@@ -270,9 +279,19 @@ impl Cmd {
     }
 }
 
-fn get_contract_id(salt: [u8; 32], source_account: AccountId) -> Result<[u8; 32], Error> {
+fn get_contract_id(
+    salt: [u8; 32],
+    source_account: AccountId,
+    network_passphrase: &str,
+) -> Result<[u8; 32], Error> {
+    let network_id = Hash(
+        Sha256::digest(network_passphrase.as_bytes())
+            .try_into()
+            .unwrap(),
+    );
     let preimage =
         HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
+            network_id,
             source_account,
             salt: Uint256(salt),
         });
@@ -306,14 +325,13 @@ fn build_create_token_op(contract_id: &Hash, salt: [u8; 32]) -> Result<Operation
         key: ScVal::Static(LedgerKeyContractCode),
     });
 
-    let parameters: VecM<ScVal, 256_000> =
-        vec![ScVal::Object(Some(ScObject::Bytes(salt.try_into()?)))].try_into()?;
-
     Ok(Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateTokenContractWithSourceAccount,
-            parameters: parameters.into(),
+            function: HostFunction::CreateContract(CreateContractArgs {
+                contract_id: ContractId::SourceAccount(Uint256(salt)),
+                source: ScContractCode::Token,
+            }),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
                 read_write: vec![lk].try_into()?,
@@ -370,8 +388,7 @@ fn build_init_op(contract_id: &Hash, parameters: ScVec) -> Result<Operation, Err
     Ok(Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::InvokeContract,
-            parameters,
+            function: HostFunction::InvokeContract(parameters),
             footprint: LedgerFootprint {
                 read_only: vec![ContractData(LedgerKeyContractData {
                     contract_id: contract_id.clone(),
