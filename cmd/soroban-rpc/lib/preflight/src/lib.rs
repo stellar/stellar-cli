@@ -84,15 +84,14 @@ impl From<CLedgerInfo> for LedgerInfo {
 }
 
 fn storage_footprint_to_ledger_footprint(
-    foot: storage::Footprint,
+    foot: &storage::Footprint,
 ) -> Result<LedgerFootprint, xdr::Error> {
     let mut read_only: Vec<LedgerKey> = Vec::new();
     let mut read_write: Vec<LedgerKey> = Vec::new();
-    for (k, v) in foot.0 {
-        let k2 = Rc::try_unwrap(k).unwrap();
+    for (k, v) in &foot.0 {
         match v {
-            AccessType::ReadOnly => read_only.push(k2.clone()),
-            AccessType::ReadWrite => read_write.push(k2.clone()),
+            AccessType::ReadOnly => read_only.push((**k).clone()),
+            AccessType::ReadWrite => read_write.push((**k).clone()),
         }
     }
     Ok(LedgerFootprint {
@@ -187,7 +186,7 @@ fn preflight_host_function_or_maybe_panic(
         Err(err) => return preflight_error(err.to_string()),
     };
 
-    let fp = match storage_footprint_to_ledger_footprint(storage.footprint) {
+    let fp = match storage_footprint_to_ledger_footprint(&storage.footprint) {
         Ok(fp) => fp,
         Err(err) => {
             return preflight_error(err.to_string());
