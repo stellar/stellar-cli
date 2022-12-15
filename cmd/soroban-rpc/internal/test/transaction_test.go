@@ -123,7 +123,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	expectedContractId, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
 	assert.NoError(t, err)
 	expectedObj := &xdr.ScObject{Type: xdr.ScObjectTypeScoBytes, Bin: &expectedContractId}
-	assert.Equal(t, xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}, resultVal)
+	assert.True(t, xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}.Equals(resultVal))
 
 	accountInfoRequest := methods.AccountRequest{
 		Address: address,
