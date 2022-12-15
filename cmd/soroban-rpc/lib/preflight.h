@@ -20,7 +20,6 @@ typedef struct CPreflightResult {
 } CPreflightResult;
 
 CPreflightResult *preflight_host_function(const char *hf, // HostFunction XDR in base64
-                                          const char *args, // ScVec XDR in base64
                                           const char *source_account, // AccountId XDR in base64
                                           const struct CLedgerInfo ledger_info);
 

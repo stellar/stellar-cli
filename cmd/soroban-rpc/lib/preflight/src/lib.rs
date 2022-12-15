@@ -4,7 +4,7 @@ extern crate soroban_env_host;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
 use soroban_env_host::xdr::{
-    self, AccountId, HostFunction, LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode, ScVec,
+    self, AccountId, HostFunction, LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode,
     WriteXdr,
 };
 use soroban_env_host::{Host, HostError, LedgerInfo};
@@ -84,14 +84,15 @@ impl From<CLedgerInfo> for LedgerInfo {
 }
 
 fn storage_footprint_to_ledger_footprint(
-    foot: &storage::Footprint,
+    foot: storage::Footprint,
 ) -> Result<LedgerFootprint, xdr::Error> {
     let mut read_only: Vec<LedgerKey> = Vec::new();
     let mut read_write: Vec<LedgerKey> = Vec::new();
-    for (k, v) in foot.0.iter() {
+    for (k, v) in foot.0 {
+        let k2 = Rc::try_unwrap(k).unwrap();
         match v {
-            AccessType::ReadOnly => read_only.push(*k.clone()),
-            AccessType::ReadWrite => read_write.push(*k.clone()),
+            AccessType::ReadOnly => read_only.push(k2.clone()),
+            AccessType::ReadWrite => read_write.push(k2.clone()),
         }
     }
     Ok(LedgerFootprint {
@@ -125,14 +126,13 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
 #[no_mangle]
 pub extern "C" fn preflight_host_function(
     hf: *const libc::c_char,             // HostFunction XDR in base64
-    args: *const libc::c_char,           // ScVec XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        preflight_host_function_or_maybe_panic(hf, args, source_account, ledger_info)
+        preflight_host_function_or_maybe_panic(hf, source_account, ledger_info)
     }));
     match res {
         Err(panic) => match panic.downcast::<String>() {
@@ -150,7 +150,6 @@ pub extern "C" fn preflight_host_function(
 
 fn preflight_host_function_or_maybe_panic(
     hf: *const libc::c_char,             // HostFunction XDR in base64
-    args: *const libc::c_char,           // ScVec XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
@@ -158,11 +157,6 @@ fn preflight_host_function_or_maybe_panic(
     let hf = match HostFunction::from_xdr_base64(hf_cstr.to_str().unwrap()) {
         Ok(hf) => hf,
         Err(err) => return preflight_error(format!("decoding host function: {}", err)),
-    };
-    let args_cstr = unsafe { CStr::from_ptr(args) };
-    let args = match ScVec::from_xdr_base64(args_cstr.to_str().unwrap()) {
-        Ok(args) => args,
-        Err(err) => return preflight_error(format!("decoding args: {}", err)),
     };
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
     let source_account = match AccountId::from_xdr_base64(source_account_cstr.to_str().unwrap()) {
@@ -178,7 +172,7 @@ fn preflight_host_function_or_maybe_panic(
     host.set_ledger_info(ledger_info.into());
 
     // Run the preflight.
-    let res = host.invoke_function(hf, args);
+    let res = host.invoke_function(hf);
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, _) = match host.try_finish() {
@@ -193,7 +187,7 @@ fn preflight_host_function_or_maybe_panic(
         Err(err) => return preflight_error(err.to_string()),
     };
 
-    let fp = match storage_footprint_to_ledger_footprint(&storage.footprint) {
+    let fp = match storage_footprint_to_ledger_footprint(storage.footprint) {
         Ok(fp) => fp,
         Err(err) => {
             return preflight_error(err.to_string());
@@ -213,7 +207,7 @@ fn preflight_host_function_or_maybe_panic(
 }
 
 #[no_mangle]
-pub extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
+pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
     if result.is_null() {
         return;
     }

@@ -122,26 +122,20 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string) 
 				Error: "Cannot marshal host function",
 			}
 		}
-		argsB64, err := xdr.MarshalBase64(xdrOp.Parameters)
-		if err != nil {
-			return SimulateTransactionResponse{
-				Error: "Cannot marshal host function parameters",
-			}
-		}
+		hfCString := C.CString(hfB64)
 		sourceAccountB64, err := xdr.MarshalBase64(sourceAccount)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error: "Cannot marshal source account",
 			}
 		}
-		argsCString := C.CString(argsB64)
+
 		sourceAccountCString := C.CString(sourceAccountB64)
-		res := C.preflight_host_function(C.CString(hfB64),
-			argsCString,
+		res := C.preflight_host_function(hfCString,
 			sourceAccountCString,
 			li,
 		)
-		C.free(unsafe.Pointer(argsCString))
+		C.free(unsafe.Pointer(hfCString))
 		C.free(unsafe.Pointer(sourceAccountCString))
 		defer C.free_preflight_result(res)
 
