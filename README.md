@@ -5,3 +5,20 @@ This repo is home to the suite of Soroban development tools.
 - [soroban-rpc](https://github.com/stellar/soroban-tools/tree/main/cmd/soroban-rpc): The jsonrpc server for interacting with a running Soroban network.
 
 Soroban: https://soroban.stellar.org
+
+# linting
+
+Before submitting a PR for review, please run
+
+```
+make lint-changes
+```
+
+to review all the linting issues with the PR. Alternatively, you can run
+
+```
+make lint
+```
+
+to review all the linting issues with the current codebase.
+
