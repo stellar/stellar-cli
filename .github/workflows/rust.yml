@@ -65,8 +65,10 @@ jobs:
     - run: make build-test-wasms
     - if: startsWith(matrix.target, 'x86_64')
       # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
-      run: cargo test --target ${{ matrix.target }} cmd/soroban-cli cmd/soroban-cli/tests/fixtures/test-wasms/hello_world cmd/soroban-cli/tests/fixtures/test-wasms/invoker_account_exists
-
+      run: |
+        for I in cmd/soroban-cli cmd/soroban-cli/tests/fixtures/test-wasms/hello_world cmd/soroban-cli/tests/fixtures/test-wasms/invoker_account_exists; do
+          cargo test --target ${{ matrix.target }} $I
+        done
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
