@@ -12,7 +12,6 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
         .arg("--wasm")
         .arg(test_wasm("test_hello_world"))
         .arg("--salt=0")
-       
         .assert()
         .stderr("success\nsuccess\n")
         .success()
