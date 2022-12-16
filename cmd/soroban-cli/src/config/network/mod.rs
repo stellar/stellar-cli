@@ -7,7 +7,7 @@ pub mod ls;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Add a new netowrk
+    /// Add a new network
     Add(add::Cmd),
     /// Remove a network
     Rm(rm::Cmd),
