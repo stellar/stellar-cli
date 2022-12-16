@@ -12,13 +12,13 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
         .arg("--wasm")
         .arg(test_wasm("test_hello_world"))
         .arg("--salt=0")
+       
         .assert()
         .stderr("success\nsuccess\n")
         .success()
         .output_line();
 
-    test_hello_world(&id, |cmd| cmd.arg("--arg=world"));
-    test_hello_world(&id, |cmd| cmd.arg("--arg-file").arg(arg_file("world")));
+    test_hello_world(&id, |cmd| cmd.arg("--").args(["--hello", "world"]));
 }
 
 fn test_hello_world<F>(id: &str, f: F)
@@ -58,7 +58,8 @@ fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
     Standalone::new_cmd("invoke")
         .arg("--id=b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b")
         .arg("--fn=hello")
-        .arg("--arg=world")
+        .arg("--")
+        .arg("--hello=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
         .stderr("success\n")
