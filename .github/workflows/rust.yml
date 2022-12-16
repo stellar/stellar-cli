@@ -5,8 +5,6 @@ on:
     branches: [main, release/**]
   pull_request:
 
-env:
-  RUSTFLAGS: -Dwarnings -Dclippy::all -Dclippy::pedantic
 
 defaults:
   run:
@@ -27,7 +25,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: rustup update
-    - run: cargo fmt --all --check
+    - run: cargo fmt --check
+    - run: cargo clippy -- -Dwarnings -Dclippy::all -Dclippy::pedantic
 
   rust-analyzer-compat:
     runs-on: ubuntu-latest
@@ -61,7 +60,6 @@ jobs:
     - run: rustup target add wasm32-unknown-unknown
     - if: matrix.target == 'aarch64-unknown-linux-gnu'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-    - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
     - if: startsWith(matrix.target, 'x86_64')
       run: cargo test --workspace --target ${{ matrix.target }}
