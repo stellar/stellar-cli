@@ -94,7 +94,7 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("invalid ledger range: low bigger than high ({low} > {high})")]
+    #[error("invalid ledger range: --start-ledger bigger than --end-ledger ({low} > {high})")]
     InvalidLedgerRange { low: u32, high: u32 },
 
     #[error("filepath does not exist: {path}")]
