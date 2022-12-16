@@ -17,20 +17,15 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
         .success()
         .output_line();
 
-    test_hello_world(&id, |cmd| cmd.arg("--").args(["--hello", "world"]));
-}
-
-fn test_hello_world<F>(id: &str, f: F)
-where
-    F: FnOnce(&mut Command) -> &mut Command,
-{
-    f(Standalone::new_cmd("invoke")
-        .args(["--id", id])
-        .arg("--fn=hello"))
-    .assert()
-    .stdout("[\"Hello\",\"world\"]\n")
-    .stderr("success\n")
-    .success();
+    Standalone::new_cmd("invoke")
+        .args(["--id", &id])
+        .arg("--fn=hello")
+        .arg("--")
+        .args(["--world", "world"])
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .stderr("success\n")
+        .success();
 }
 
 // e2e tests are ignore by default
@@ -58,7 +53,7 @@ fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
         .arg("--id=b392cd0044315873f32307bfd535a9cbbb0402a57133ff7283afcae66be8174b")
         .arg("--fn=hello")
         .arg("--")
-        .arg("--hello=world")
+        .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
         .stderr("success\n")
