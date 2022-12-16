@@ -10,9 +10,9 @@ use soroban_env_host::{
         AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
         HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
         LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScContractCode, ScHostStorageErrorCode, ScMap,
-        ScMapEntry, ScObject, ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec,
-        SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+        OperationBody, Preconditions, PublicKey, ScContractCode, ScMap, ScMapEntry, ScObject,
+        ScStatic::LedgerKeyContractCode, ScVal, ScVec, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -184,7 +184,7 @@ impl Cmd {
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info.clone());
+        h.set_ledger_info(ledger_info);
 
         let contract_id =
             get_contract_id(salt, admin.clone(), network::SANDBOX_NETWORK_PASSPHRASE)?;
@@ -203,14 +203,7 @@ impl Cmd {
             decimal,
         )))?;
 
-        let (storage, _, _) = h.try_finish().map_err(|_h| {
-            HostError::from(ScStatus::HostStorageError(
-                ScHostStorageErrorCode::UnknownError,
-            ))
-        })?;
-
-        state.set_ledger_info(ledger_info);
-        state.update_entries(&storage.map);
+        state.update(&h);
         state
             .write_file(&self.ledger_file)
             .map_err(|e| Error::CannotCommitLedgerFile {
