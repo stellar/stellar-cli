@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::num::ParseIntError;
-use std::path::PathBuf;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
@@ -44,18 +43,6 @@ pub struct Cmd {
     /// Function name to execute
     #[clap(long = "fn")]
     function: String,
-    /// Argument to pass to the function
-    #[clap(long = "arg", value_name = "arg", multiple = true)]
-    args: Vec<String>,
-    /// Argument to pass to the function (base64-encoded xdr)
-    #[clap(long = "arg-xdr", value_name = "arg-xdr", multiple = true)]
-    args_xdr: Vec<String>,
-    /// File containing JSON Argument to pass to the function
-    #[clap(long = "arg-file", value_name = "arg-file", multiple = true)]
-    args_file: Vec<PathBuf>,
-    /// File containing argument to pass to the function (base64-encoded xdr)
-    #[clap(long = "arg-xdr-file", value_name = "arg-xdr-file", multiple = true)]
-    args_xdr_file: Vec<PathBuf>,
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
@@ -187,7 +174,7 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-    ) -> Result<ScVec, Error> {
+    ) -> Result<(Spec, ScVec), Error> {
         // Get the function spec from the contract code
         let spec = Spec(Some(spec_entries.to_vec()));
         let func = spec
@@ -238,12 +225,15 @@ impl Cmd {
         complete_args.extend_from_slice(parsed_args.as_slice());
         let complete_args_len = complete_args.len();
 
-        complete_args
-            .try_into()
-            .map_err(|_| Error::MaxNumberOfArgumentsReached {
-                current: complete_args_len,
-                maximum: ScVec::default().max_len(),
-            })
+        Ok((
+            spec,
+            complete_args
+                .try_into()
+                .map_err(|_| Error::MaxNumberOfArgumentsReached {
+                    current: complete_args_len,
+                    maximum: ScVec::default().max_len(),
+                })?,
+        ))
     }
 
     pub async fn run(&self) -> Result<(), Error> {
@@ -276,7 +266,7 @@ impl Cmd {
         };
 
         // Get the ledger footprint
-        let host_function_params =
+        let (spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
@@ -308,11 +298,7 @@ impl Cmd {
             return Err(Error::MissingTransactionResult);
         }
         let res = ScVal::from_xdr_base64(&results[0].xdr)?;
-        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
-            result: res,
-            error: e,
-        })?;
-
+        let res_str = self.output_to_string(&spec, &res)?;
         println!("{res_str}");
         // TODO: print cost
 
@@ -363,14 +349,12 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let host_function_params =
+        let (spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
-        let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
-            result: res,
-            error: e,
-        })?;
+
+        let res_str = self.output_to_string(&spec, &res)?;
 
         println!("{res_str}");
 
@@ -431,6 +415,20 @@ impl Cmd {
                 soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)
             })
             .transpose()
+    }
+
+    pub fn output_to_string(&self, spec: &Spec, res: &ScVal) -> Result<String, Error> {
+        let mut res_str = String::new();
+        if let Some(output) = spec.find_function(&self.function)?.outputs.get(0) {
+            res_str = spec
+                .xdr_to_json(res, output)
+                .map_err(|e| Error::CannotPrintResult {
+                    result: res.clone(),
+                    error: e,
+                })?
+                .to_string();
+        }
+        Ok(res_str)
     }
 }
 

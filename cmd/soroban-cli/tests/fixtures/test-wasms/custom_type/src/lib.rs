@@ -40,35 +40,43 @@ pub enum ComplexEnum {
 
 #[contractimpl]
 impl Contract {
-    pub fn hello(env: Env, world: Symbol) -> Vec<Symbol> {
-        vec![&env, symbol!("Hello"), world]
+    pub fn hello(_env: Env, hello: Symbol) -> Symbol {
+        hello
     }
 
     pub fn u32_(_env: Env, u32_: u32) -> u32 {
         u32_
     }
-    pub fn strukt(env: Env, strukt: Test) -> Vec<Symbol> {
+    pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
         vec![&env, symbol!("Hello"), strukt.c]
     }
 
-    pub fn enum_2_str(env: Env, simple: SimpleEnum) -> Vec<SimpleEnum> {
-        vec![&env, simple]
+    pub fn strukt(_env: Env, strukt: Test) -> Test {
+        strukt
     }
 
-    pub fn e_2_s(env: Env, complex: ComplexEnum) -> Vec<ComplexEnum> {
-        vec![&env, complex]
+    pub fn simple(_env: Env, simple: SimpleEnum) -> SimpleEnum {
+        simple
     }
 
-    pub fn account(env: Env, account_id: AccountId) -> Vec<AccountId> {
-        vec![&env, account_id]
+    pub fn complex(_env: Env, complex: ComplexEnum) -> ComplexEnum {
+        complex
     }
 
-    pub fn bytes(env: Env, bytes: Bytes) -> Vec<Bytes> {
-        vec![&env, bytes]
+    pub fn account(_env: Env, account: AccountId) -> AccountId {
+        account
     }
 
-    pub fn card(env: Env, card: RoyalCard) -> Vec<RoyalCard> {
-        vec![&env, card]
+    pub fn bytes(_env: Env, bytes: Bytes) -> Bytes {
+        bytes
+    }
+
+    pub fn card(_env: Env, card: RoyalCard) -> RoyalCard {
+        card
+    }
+
+    pub fn boolean(_: Env, boolean: bool) -> bool {
+        boolean
     }
 
     pub fn not(_env: Env, boolean: bool) -> bool {
@@ -88,7 +96,7 @@ mod test {
         let contract_id = env.register_contract(None, Contract);
         let client = ContractClient::new(&env, &contract_id);
 
-        let res = client.strukt(&Test {
+        let res = client.strukt_hel(&Test {
             a: 0,
             b: false,
             c: symbol!("world"),

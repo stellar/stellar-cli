@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use assert_cmd::Command;
 use serde_json::json;
 
@@ -5,7 +7,6 @@ use crate::util::{temp_ledger_file, test_wasm, CommandExt, Sandbox, SorobanComma
 
 fn invoke(func: &str) -> Command {
     let mut s = Sandbox::new_cmd("invoke");
-
     s.arg("--ledger-file")
         .arg(temp_ledger_file())
         .arg("--id=1")
@@ -17,30 +18,34 @@ fn invoke(func: &str) -> Command {
     s
 }
 
+fn invoke_with_roundtrip<D>(func: &str, data: D)
+where
+    D: Display,
+{
+    invoke(func)
+        .arg(&format!("--{func}"))
+        .json_arg(&data)
+        .assert()
+        .success()
+        .stdout(format!("{data}\n"));
+}
+
 #[test]
 fn symbol() {
     invoke("hello")
-        .arg("--world")
+        .arg("--hello")
         .arg("world")
         .assert()
         .success()
         .stdout(
-            r#"["Hello","world"]
+            r#""world"
 "#,
         );
 }
 
 #[test]
 fn symbol_with_quotes() {
-    invoke("hello")
-        .arg("--world")
-        .json_arg(json!("world"))
-        .assert()
-        .success()
-        .stdout(
-            r#"["Hello","world"]
-"#,
-        );
+    invoke_with_roundtrip("hello", json!("world"));
 }
 
 #[test]
@@ -50,123 +55,79 @@ fn generate_help() {
 
 #[test]
 fn strukt() {
-    invoke("strukt")
-        .arg("--strukt")
-        .json_arg(json!({"a": 42, "b": true, "c": "world"}))
-        .assert()
-        .success()
-        .stdout(
-            r#"["Hello","world"]
-"#,
-        );
+    invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"}));
 }
 
 #[test]
 fn enum_2_str() {
-    invoke("enum_2_str")
-        .arg("--simple")
-        .arg("First")
-        .assert()
-        .success()
-        .stdout(
-            r#"[["First"]]
-"#,
-        );
+    invoke_with_roundtrip("simple", json!("First"));
 }
 
 #[test]
 fn e_2_s_enum() {
-    invoke("e_2_s")
-        .arg("--complex")
-        .json_arg(json!({"Enum": "First"}))
-        .assert()
-        .success()
-        .stdout(
-            r#"[["Enum",["First"]]]
-"#,
-        );
+    invoke_with_roundtrip("complex", json!({"Enum": "First"}));
 }
 
 #[test]
 fn e_2_s_tuple() {
-    invoke("e_2_s")
-        .arg("--complex")
-        .json_arg(json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]}))
-        .assert()
-        .success()
-        .stdout(
-            r#"[["Tuple",[{"a":42,"b":true,"c":"world"},["First"]]]]
-"#,
-        );
+    invoke_with_roundtrip(
+        "complex",
+        json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]}),
+    );
 }
 
 #[test]
 fn e_2_s_strukt() {
-    invoke("e_2_s")
-        .arg("--complex")
-        .json_arg(json!({"Struct": {"a": 42, "b": true, "c": "world"}}))
-        .assert()
-        .success()
-        .stdout(
-            r#"[["Struct",{"a":42,"b":true,"c":"world"}]]
-"#,
-        );
+    invoke_with_roundtrip(
+        "complex",
+        json!({"Struct": {"a": 42, "b": true, "c": "world"}}),
+    );
 }
 
 #[test]
 fn number_arg() {
-    invoke("u32_")
-        .arg("--u32_")
-        .arg("42")
-        .assert()
-        .success()
-        .stdout(
-            r#"42
-"#,
-        );
+    invoke_with_roundtrip("u32_", 42);
 }
 
 #[test]
 fn account() {
-    invoke("account")
-        .arg("--account_id")
-        .arg("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
-        .assert()
-        .success()
-        .stdout(
-            r#"["GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS"]
-"#,
-        );
+    invoke_with_roundtrip(
+        "account",
+        json!("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS"),
+    );
 }
 
 #[test]
 fn bytes() {
-    invoke("bytes")
-        .arg("--bytes")
-        .arg("7374656c6c6172")
-        .assert()
-        .success()
-        .stdout(
-            r#"[[115,116,101,108,108,97,114]]
-"#,
-        );
+    invoke_with_roundtrip("bytes", json!("7374656c6c6172"));
 }
 
 #[test]
 fn const_enum() {
-    invoke("card")
-        .arg("--card")
-        .arg("11")
-        .assert()
-        .success()
-        .stdout(
-            r#"[11]
-"#,
-        );
+    invoke_with_roundtrip("card", "11");
 }
 
 #[test]
 fn boolean() {
+    invoke("boolean")
+        .arg("--boolean")
+        .assert()
+        .success()
+        .stdout(
+            r#"true
+"#,
+        );
+}
+#[test]
+fn boolean_no_flag() {
+    invoke("boolean").assert().success().stdout(
+        r#"false
+"#,
+    );
+}
+
+#[test]
+fn boolean_not() {
     invoke("not").arg("--boolean").assert().success().stdout(
         r#"false
 "#,
@@ -174,7 +135,7 @@ fn boolean() {
 }
 
 #[test]
-fn boolean_no_flag() {
+fn boolean_not_no_flag() {
     invoke("not").assert().success().stdout(
         r#"true
 "#,

@@ -5,6 +5,7 @@ use soroban_env_host::xdr::{
     AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
     ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeTuple, ScSpecTypeUdt,
     ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256,
+    VecM,
 };
 
 use stellar_strkey::StrkeyPublicKeyEd25519;
@@ -19,6 +20,8 @@ pub enum Error {
     InvalidValue(Option<ScSpecTypeDef>),
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
+    #[error("Enum {0} missing value for type {1}")]
+    EnumMissingSecondValue(String, String),
     #[error("Unknown const case {0}")]
     EnumConst(u32),
     #[error("Enum const value must be a u32 or smaller")]
@@ -281,6 +284,187 @@ impl Spec {
     }
 }
 
+impl Spec {
+    pub fn xdr_to_json(&self, res: &ScVal, output: &ScSpecTypeDef) -> Result<Value, Error> {
+        Ok(match (res, output) {
+            (ScVal::Static(v), _) => match v {
+                ScStatic::True => Value::Bool(true),
+                ScStatic::False => Value::Bool(false),
+                ScStatic::Void => Value::Null,
+                ScStatic::LedgerKeyContractCode => return Err(Error::InvalidValue(None)),
+            },
+            (ScVal::U63(v), _) => Value::Number(serde_json::Number::from(*v)),
+            (ScVal::U32(v), _) => Value::Number(serde_json::Number::from(*v)),
+            (ScVal::I32(v), _) => Value::Number(serde_json::Number::from(*v)),
+            (ScVal::Symbol(v), _) => Value::String(
+                std::str::from_utf8(v.as_slice())
+                    .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::Symbol)))?
+                    .to_string(),
+            ),
+
+            (ScVal::Object(None), ScSpecTypeDef::Option(_)) => Value::Null,
+            (ScVal::Object(Some(inner)), ScSpecTypeDef::Option(type_)) => {
+                self.sc_object_to_json(inner, &type_.value_type)?
+            }
+            (ScVal::Object(Some(inner)), type_) => self.sc_object_to_json(inner, type_)?,
+
+            (ScVal::Bitset(_), ScSpecTypeDef::Bitset) => todo!(),
+
+            (ScVal::Status(_), ScSpecTypeDef::Status) => todo!(),
+            (v, typed) => todo!("{v:#?} doesn't have a matching {typed:#?}"),
+        })
+    }
+
+    pub fn vec_m_to_json(
+        &self,
+        vec_m: &VecM<ScVal, 256_000>,
+        type_: &ScSpecTypeDef,
+    ) -> Result<Value, Error> {
+        Ok(Value::Array(
+            vec_m
+                .to_vec()
+                .iter()
+                .map(|sc_val| self.xdr_to_json(sc_val, type_))
+                .collect::<Result<Vec<_>, Error>>()?,
+        ))
+    }
+
+    pub fn sc_map_to_json(&self, sc_map: &ScMap, type_: &ScSpecTypeMap) -> Result<Value, Error> {
+        let v = sc_map
+            .iter()
+            .map(|ScMapEntry { key, val }| {
+                let key_s = self.xdr_to_json(key, &type_.key_type)?.to_string();
+                let val_value = self.xdr_to_json(val, &type_.value_type)?;
+                Ok((key_s, val_value))
+            })
+            .collect::<Result<serde_json::Map<String, Value>, Error>>()?;
+        Ok(Value::Object(v))
+    }
+
+    pub fn udt_to_json(&self, name: &StringM<60>, sc_obj: &ScObject) -> Result<Value, Error> {
+        let name = &name.to_string_lossy();
+        let udt = self.find(name)?;
+        Ok(match (udt, sc_obj) {
+            (ScSpecEntry::UdtStructV0(strukt), ScObject::Map(map)) => serde_json::Value::Object(
+                strukt
+                    .fields
+                    .iter()
+                    .zip(map.iter())
+                    .map(|(field, entry)| {
+                        let val = self.xdr_to_json(&entry.val, &field.type_)?;
+                        Ok((field.name.to_string_lossy(), val))
+                    })
+                    .collect::<Result<serde_json::Map<String, _>, Error>>()?,
+            ),
+            (ScSpecEntry::UdtStructV0(strukt), ScObject::Vec(vec_)) => Value::Array(
+                strukt
+                    .fields
+                    .iter()
+                    .zip(vec_.iter())
+                    .map(|(field, entry)| self.xdr_to_json(entry, &field.type_))
+                    .collect::<Result<Vec<_>, Error>>()?,
+            ),
+            (ScSpecEntry::UdtUnionV0(union), ScObject::Vec(vec_)) => {
+                let v = vec_.to_vec();
+                let val = &v[0];
+                let second_val = v.get(1);
+
+                let case = if let ScVal::Symbol(symbol) = val {
+                    union
+                        .cases
+                        .iter()
+                        .find(|case| case.name.as_vec() == symbol.as_vec())
+                        .ok_or(Error::Unknown)?
+                } else {
+                    return Err(Error::Unknown);
+                };
+
+                let case_name = case.name.to_string_lossy();
+                if let Some(type_) = &case.type_ {
+                    let second_val = second_val.ok_or_else(|| {
+                        Error::EnumMissingSecondValue(case_name.clone(), type_.name().to_string())
+                    })?;
+                    let map: serde_json::Map<String, _> =
+                        [(case_name, self.xdr_to_json(second_val, type_)?)]
+                            .into_iter()
+                            .collect();
+                    Value::Object(map)
+                } else {
+                    Value::String(case_name)
+                }
+            }
+            (ScSpecEntry::UdtEnumV0(_enum_), _) => todo!(),
+            (s, v) => todo!("Not implemented for {s:#?} {v:#?}"),
+        })
+    }
+
+    pub fn sc_object_to_json(
+        &self,
+        obj: &ScObject,
+        spec_type: &ScSpecTypeDef,
+    ) -> Result<Value, Error> {
+        Ok(match (obj, spec_type) {
+            (ScObject::Vec(ScVec(vec_m)), ScSpecTypeDef::Vec(type_)) => {
+                self.vec_m_to_json(vec_m, &type_.element_type)?
+            }
+            // (ScObject::Vec(_), ScSpecTypeDef::Map(_)) => todo!(),
+            // (ScObject::Vec(_), ScSpecTypeDef::Set(_)) => todo!(),
+            // (ScObject::Vec(_), ScSpecTypeDef::Tuple(_)) => todo!(),
+            // (ScObject::Vec(_), ScSpecTypeDef::BytesN(_)) => todo!(),
+            (
+                sc_obj @ (ScObject::Vec(_) | ScObject::Map(_)),
+                ScSpecTypeDef::Udt(ScSpecTypeUdt { name }),
+            ) => self.udt_to_json(name, sc_obj)?,
+
+            (ScObject::Map(map), ScSpecTypeDef::Map(map_type)) => {
+                self.sc_map_to_json(map, map_type)?
+            }
+
+            // Is set a map with no values?
+            (ScObject::Map(_), ScSpecTypeDef::Set(_)) => todo!(),
+
+            (ScObject::U64(u64_), ScSpecTypeDef::U64) => {
+                Value::Number(serde_json::Number::from(*u64_))
+            }
+
+            (ScObject::I64(i64_), ScSpecTypeDef::I64) => {
+                Value::Number(serde_json::Number::from(*i64_))
+            }
+            (int @ ScObject::U128(_), ScSpecTypeDef::U128) => {
+                // Always output u128s as strings
+                let v: u128 = int
+                    .clone()
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::U128)))?;
+                Value::String(v.to_string())
+            }
+
+            (int @ ScObject::I128(_), ScSpecTypeDef::I128) => {
+                // Always output u128s as strings
+                let v: i128 = int
+                    .clone()
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::I128)))?;
+                Value::String(v.to_string())
+            }
+
+            (ScObject::Bytes(v), ScSpecTypeDef::Bytes) => Value::String(to_lower_hex(v.as_slice())),
+            (ScObject::Bytes(_), ScSpecTypeDef::BytesN(_)) => todo!(),
+
+            (ScObject::Bytes(_), ScSpecTypeDef::Udt(_)) => todo!(),
+
+            (ScObject::ContractCode(_), _) => todo!(),
+
+            (
+                ScObject::AccountId(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(bytes)))),
+                ScSpecTypeDef::AccountId,
+            ) => Value::String(StrkeyPublicKeyEd25519(*bytes).to_string()),
+
+            _ => return Err(Error::Unknown),
+        })
+    }
+}
+
 pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
     Spec::from_string_primitive(s, t)
 }
@@ -488,4 +672,12 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         }
     };
     Ok(val)
+}
+
+fn to_lower_hex(bytes: &[u8]) -> String {
+    let mut res = String::with_capacity(bytes.len());
+    for b in bytes {
+        res.push_str(&format!("{b:02x}"));
+    }
+    res
 }

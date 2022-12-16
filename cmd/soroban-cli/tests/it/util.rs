@@ -1,4 +1,4 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::{ffi::OsString, path::PathBuf, fmt::Display};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{prelude::PathChild, TempDir};
@@ -77,11 +77,16 @@ impl AssertExt for Assert {
     }
 }
 pub trait CommandExt {
-    fn json_arg(&mut self, j: serde_json::Value) -> &mut Self;
+    fn json_arg<A>(&mut self, j: A) -> &mut Self
+    where
+        A: Display;
 }
 
 impl CommandExt for Command {
-    fn json_arg(&mut self, j: serde_json::Value) -> &mut Self {
+    fn json_arg<A>(&mut self, j: A) -> &mut Self
+    where
+        A: Display,
+    {
         self.arg(OsString::from(j.to_string()))
     }
 }
