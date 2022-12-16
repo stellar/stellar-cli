@@ -51,7 +51,7 @@ fn install_wasm_then_deploy_contract() {
         .arg(test_wasm("test_hello_world"))
         .assert()
         .success()
-        .stdout("730c7cb530a5626159f58e7f632db9c9a96c5616b6e9c2c3eb6ad3c5e920b31d\n");
+        .stdout("1b459482ade00a540177e7e4c9417a4fe6ea50f79819bf53319e845e7c65e435\n");
 
     Sandbox::new_cmd()
         .arg("deploy")
