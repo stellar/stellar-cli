@@ -47,12 +47,12 @@ fn install_wasm_then_deploy_contract() {
         .arg(test_wasm("test_hello_world"))
         .assert()
         .success()
-        .stdout("86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc\n");
+        .stdout("1b459482ade00a540177e7e4c9417a4fe6ea50f79819bf53319e845e7c65e435\n");
 
     Sandbox::new_cmd("deploy")
         .arg("--ledger-file")
         .arg(&ledger)
-        .arg("--wasm-hash=86270dcca8dd4e7131c89dcc61223f096d7a1fa4a1d90c39dd6542b562369ecc")
+        .arg("--wasm-hash=1b459482ade00a540177e7e4c9417a4fe6ea50f79819bf53319e845e7c65e435")
         .arg("--id=1")
         .assert()
         .success()
