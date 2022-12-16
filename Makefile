@@ -16,7 +16,7 @@ Cargo.lock: Cargo.toml
 	cargo update --workspace
 
 install: Cargo.lock
-	cargo install --path .
+	cargo install --path ./cmd/soroban-cli
 	go install -ldflags="${GOLDFLAGS}" ./...
 
 build: Cargo.lock
@@ -47,3 +47,18 @@ clean:
 
 publish:
 	cargo workspaces publish --all --force '*' --from-git --yes
+
+# the build-soroban-rpc build target is an optimized build target used by 
+# https://github.com/stellar/pipelines/stellar-horizon/Jenkinsfile-soroban-rpc-package-builder
+# as part of the package building.
+build-soroban-rpc:
+	go build -ldflags="${GOLDFLAGS}" -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
+
+lint-changes:
+	golangci-lint run ./... --new-from-rev $$(git rev-parse HEAD)
+
+lint:
+	golangci-lint run ./...
+
+# PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
+.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc lint lint-changes

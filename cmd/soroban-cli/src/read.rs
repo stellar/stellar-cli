@@ -13,7 +13,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{snapshot, strval, utils, HEADING_SANDBOX};
+use crate::{strval, utils, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -60,7 +60,7 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -114,24 +114,30 @@ impl Cmd {
             None
         };
 
-        let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-            filepath: self.ledger_file.clone(),
-            error: e,
+        let state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
         })?;
-        let ledger_entries = state.1;
+        let ledger_entries = &state.ledger_entries;
 
         let contract_id = xdr::Hash(contract_id);
         let entries: Vec<ContractDataEntry> = if let Some(key) = key {
             ledger_entries
-                .get(&LedgerKey::ContractData(LedgerKeyContractData {
-                    contract_id,
-                    key,
-                }))
+                .iter()
+                .find(|(k, _)| {
+                    k.as_ref()
+                        == &LedgerKey::ContractData(LedgerKeyContractData {
+                            contract_id: contract_id.clone(),
+                            key: key.clone(),
+                        })
+                })
                 .iter()
                 .copied()
                 .cloned()
                 .filter_map(|val| {
-                    if let LedgerEntryData::ContractData(d) = val.data {
+                    if let LedgerEntryData::ContractData(d) = val.1.data {
                         Some(d)
                     } else {
                         None
@@ -142,7 +148,7 @@ impl Cmd {
             ledger_entries
                 .iter()
                 .filter_map(|(k, v)| {
-                    if let LedgerKey::ContractData(kd) = k {
+                    if let LedgerKey::ContractData(kd) = *k.clone() {
                         if kd.contract_id == contract_id
                             && kd.key != ScVal::Static(xdr::ScStatic::LedgerKeyContractCode)
                         {

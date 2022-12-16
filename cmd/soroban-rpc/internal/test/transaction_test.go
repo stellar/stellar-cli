@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/go/xdr"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -113,12 +115,15 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	assert.Equal(t, methods.TransactionSuccess, response.Status)
 	assert.Equal(t, expectedHash, response.ID)
 	assert.Nil(t, response.Error)
-	assert.Equal(t,
-		[]methods.SCVal{
-			{XDR: "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC"},
-		},
-		response.Results,
-	)
+
+	// Check the result is what we expect
+	assert.Equal(t, 1, len(response.Results))
+	var resultVal xdr.ScVal
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.Results[0].XDR, &resultVal))
+	expectedContractId, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
+	assert.NoError(t, err)
+	expectedObj := &xdr.ScObject{Type: xdr.ScObjectTypeScoBytes, Bin: &expectedContractId}
+	assert.True(t, xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}.Equals(resultVal))
 
 	accountInfoRequest := methods.AccountRequest{
 		Address: address,
