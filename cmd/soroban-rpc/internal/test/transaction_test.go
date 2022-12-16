@@ -48,18 +48,21 @@ func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
 	assert.NoError(t, err)
 
-	expectedHash, err := tx.HashHex(StandaloneNetworkPassphrase)
+	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
 	assert.Equal(t, methods.SendTransactionResponse{
-		ID:     expectedHash,
+		ID:     expectedHashHex,
 		Status: methods.TransactionPending,
 	}, result)
 
-	response := getTransactionStatus(t, client, expectedHash)
+	response := getTransactionStatus(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionSuccess, response.Status)
-	assert.Equal(t, expectedHash, response.ID)
+	assert.Equal(t, expectedHashHex, response.ID)
 	assert.Nil(t, response.Error)
+	assert.NotNil(t, response.EnvelopeXdr)
+	assert.NotNil(t, response.ResultXdr)
+	assert.NotNil(t, response.ResultMetaXdr)
 	assert.Empty(t, response.Results)
 
 	accountInfoRequest := methods.AccountRequest{
@@ -103,27 +106,63 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
 	assert.NoError(t, err)
 
-	expectedHash, err := tx.HashHex(StandaloneNetworkPassphrase)
+	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
 	assert.Equal(t, methods.SendTransactionResponse{
-		ID:     expectedHash,
+		ID:     expectedHashHex,
 		Status: methods.TransactionPending,
 	}, result)
 
-	response := getTransactionStatus(t, client, expectedHash)
+	response := getTransactionStatus(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionSuccess, response.Status)
-	assert.Equal(t, expectedHash, response.ID)
+	assert.Equal(t, expectedHashHex, response.ID)
 	assert.Nil(t, response.Error)
 
 	// Check the result is what we expect
+	assert.NotNil(t, response.EnvelopeXdr)
 	assert.Equal(t, 1, len(response.Results))
 	var resultVal xdr.ScVal
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.Results[0].XDR, &resultVal))
 	expectedContractId, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
 	assert.NoError(t, err)
 	expectedObj := &xdr.ScObject{Type: xdr.ScObjectTypeScoBytes, Bin: &expectedContractId}
-	assert.True(t, xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}.Equals(resultVal))
+	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}
+	assert.True(t, expectedScVal.Equals(resultVal))
+
+	expectedResult := xdr.TransactionResult{
+		FeeCharged: 100,
+		Result: xdr.TransactionResultResult{
+			Code: xdr.TransactionResultCodeTxSuccess,
+			Results: &[]xdr.OperationResult{
+				{
+					Code: xdr.OperationResultCodeOpInner,
+					Tr: &xdr.OperationResultTr{
+						Type: xdr.OperationTypeInvokeHostFunction,
+						InvokeHostFunctionResult: &xdr.InvokeHostFunctionResult{
+							Code:    xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess,
+							Success: &expectedScVal,
+						},
+					},
+				},
+			},
+		},
+	}
+	var resultXdr xdr.TransactionResult
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
+	assert.Equal(t, expectedResult, resultXdr)
+
+	var resultMetaXdr xdr.TransactionMeta
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &resultMetaXdr))
+
+	// Check the txmeta is as expected
+	resultMetaV3 := resultMetaXdr.MustV3()
+	assert.Len(t, resultMetaV3.Operations, 1)
+	assert.Len(t, *resultMetaV3.TxResult.Result.Results, 1)
+	assert.True(
+		t,
+		(*resultMetaV3.TxResult.Result.Results)[0].Tr.MustInvokeHostFunctionResult().Success.Equals(expectedScVal),
+	)
 
 	accountInfoRequest := methods.AccountRequest{
 		Address: address,
@@ -183,17 +222,17 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
 	assert.NoError(t, err)
 
-	expectedHash, err := tx.HashHex(StandaloneNetworkPassphrase)
+	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
 	assert.Equal(t, methods.SendTransactionResponse{
-		ID:     expectedHash,
+		ID:     expectedHashHex,
 		Status: methods.TransactionPending,
 	}, result)
 
-	response := getTransactionStatus(t, client, expectedHash)
+	response := getTransactionStatus(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionError, response.Status)
-	assert.Equal(t, expectedHash, response.ID)
+	assert.Equal(t, expectedHashHex, response.ID)
 	assert.Empty(t, response.Results)
 	assert.Equal(t, "tx_submission_failed", response.Error.Code)
 	assert.Equal(t, map[string]interface{}{
@@ -243,17 +282,17 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
 	assert.NoError(t, err)
 
-	expectedHash, err := tx.HashHex(StandaloneNetworkPassphrase)
+	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
 	assert.Equal(t, methods.SendTransactionResponse{
-		ID:     expectedHash,
+		ID:     expectedHashHex,
 		Status: methods.TransactionPending,
 	}, result)
 
-	response := getTransactionStatus(t, client, expectedHash)
+	response := getTransactionStatus(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionError, response.Status)
-	assert.Equal(t, expectedHash, response.ID)
+	assert.Equal(t, expectedHashHex, response.ID)
 	assert.Empty(t, response.Results)
 	assert.Equal(t, "tx_failed", response.Error.Code)
 	assert.Equal(t, "transaction included in ledger but failed", response.Error.Message)

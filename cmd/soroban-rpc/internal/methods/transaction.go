@@ -42,9 +42,12 @@ type TransactionResponseError struct {
 }
 
 type TransactionStatusResponse struct {
-	ID      string  `json:"id"`
-	Status  string  `json:"status"`
-	Results []SCVal `json:"results,omitempty"`
+	ID            string  `json:"id"`
+	Status        string  `json:"status"`
+	EnvelopeXdr   string  `json:"envelopeXdr,omitempty"`
+	ResultXdr     string  `json:"resultXdr,omitempty"`
+	ResultMetaXdr string  `json:"resultMetaXdr,omitempty"`
+	Results       []SCVal `json:"results,omitempty"`
 	// Error will be nil unless Status is equal to "error"
 	Error *TransactionResponseError `json:"error,omitempty"`
 }
@@ -277,8 +280,11 @@ func (p *TransactionProxy) GetTransactionStatus(ctx context.Context, request Get
 		if herr, ok := err.(*horizonclient.Error); ok {
 			if herr.Problem.Status != http.StatusNotFound {
 				return TransactionStatusResponse{
-					ID:     request.Hash,
-					Status: TransactionError,
+					ID:            request.Hash,
+					Status:        TransactionError,
+					EnvelopeXdr:   tx.EnvelopeXdr,
+					ResultXdr:     tx.ResultXdr,
+					ResultMetaXdr: tx.ResultMetaXdr,
 					Error: &TransactionResponseError{
 						Code:    herr.Problem.Title,
 						Message: herr.Problem.Detail,
@@ -288,8 +294,11 @@ func (p *TransactionProxy) GetTransactionStatus(ctx context.Context, request Get
 			}
 		} else {
 			return TransactionStatusResponse{
-				ID:     request.Hash,
-				Status: TransactionError,
+				ID:            request.Hash,
+				Status:        TransactionError,
+				EnvelopeXdr:   tx.EnvelopeXdr,
+				ResultXdr:     tx.ResultXdr,
+				ResultMetaXdr: tx.ResultMetaXdr,
 				Error: &TransactionResponseError{
 					Code:    "http_error",
 					Message: fmt.Sprintf("transaction submission failed: %v", err),
@@ -299,8 +308,11 @@ func (p *TransactionProxy) GetTransactionStatus(ctx context.Context, request Get
 	} else {
 		if !tx.Successful {
 			return TransactionStatusResponse{
-				ID:     request.Hash,
-				Status: TransactionError,
+				ID:            request.Hash,
+				Status:        TransactionError,
+				EnvelopeXdr:   tx.EnvelopeXdr,
+				ResultXdr:     tx.ResultXdr,
+				ResultMetaXdr: tx.ResultMetaXdr,
 				Error: &TransactionResponseError{
 					Code:    "tx_failed",
 					Message: "transaction included in ledger but failed",
@@ -317,10 +329,13 @@ func (p *TransactionProxy) GetTransactionStatus(ctx context.Context, request Get
 			status = TransactionError
 		}
 		return TransactionStatusResponse{
-			ID:      request.Hash,
-			Status:  status,
-			Results: results,
-			Error:   err,
+			ID:            request.Hash,
+			Status:        status,
+			EnvelopeXdr:   tx.EnvelopeXdr,
+			ResultXdr:     tx.ResultXdr,
+			ResultMetaXdr: tx.ResultMetaXdr,
+			Results:       results,
+			Error:         err,
 		}
 	}
 
