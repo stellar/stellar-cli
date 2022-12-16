@@ -11,13 +11,13 @@ jobs:
     name: Integration tests
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-20.04]
         go: [1.19.1]
     runs-on: ${{ matrix.os }}
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_19_CORE_DEBIAN_PKG_VERSION: 19.5.1-1111.eba1d3de9.focal~soroban
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.5.1-1137.b3a6bc281.focal~soroban
     steps:
       - uses: actions/checkout@v3
         with:
@@ -40,7 +40,7 @@ jobs:
           
           sudo wget -qO - https://apt.stellar.org/SDF.asc | APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=true sudo apt-key add -
           sudo bash -c 'echo "deb https://apt.stellar.org focal unstable" > /etc/apt/sources.list.d/SDF-unstable.list'
-          sudo apt-get update && sudo apt-get install -y stellar-core="$PROTOCOL_19_CORE_DEBIAN_PKG_VERSION"
+          sudo apt-get update && sudo apt-get install -y stellar-core="$PROTOCOL_20_CORE_DEBIAN_PKG_VERSION"
           echo "Using stellar core version $(stellar-core version)"
 
       - name: Build Soroban RPC reproducible build

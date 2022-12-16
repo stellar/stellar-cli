@@ -1,21 +1,24 @@
-# soroban-cli
+# soroban-tools
 
-CLI for running Soroban contracts locally in a test VM. Executes WASM files built using the [rs-soroban-sdk](https://github.com/stellar/rs-soroban-sdk).
+This repo is home to the suite of Soroban development tools.
+- [soroban](https://github.com/stellar/soroban-tools/tree/main/cmd/soroban-cli): The command-line multi-tool for running and deploying Soroban contracts.
+- [soroban-rpc](https://github.com/stellar/soroban-tools/tree/main/cmd/soroban-rpc): The jsonrpc server for interacting with a running Soroban network.
 
 Soroban: https://soroban.stellar.org
 
-## Install
+# linting
+
+Before submitting a PR for review, please run
 
 ```
-cargo install --locked soroban-cli
+make lint-changes
 ```
 
-## Usage
-
-All values passed to `--arg` are the JSON representation of SCVals.
-
-## Example
+to review all the linting issues with the PR. Alternatively, you can run
 
 ```
-soroban invoke --id <HEX_CONTRACTID> --wasm <WASMFILE> --fn <FUNCNAME> --arg 32 --arg 4
+make lint
 ```
+
+to review all the linting issues with the current codebase.
+

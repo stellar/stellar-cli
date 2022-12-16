@@ -1,6 +1,6 @@
 use jsonrpsee_core::{client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
-use soroban_env_host::xdr::{Error as XdrError, ScVal, TransactionEnvelope, WriteXdr};
+use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
@@ -55,6 +55,13 @@ pub struct GetTransactionStatusResponse {
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetContractDataResponse {
+    pub xdr: String,
+    // TODO: add lastModifiedLedgerSeq and latestLedger
+}
+
+// TODO: this should also be used by serve
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetLedgerEntryResponse {
     pub xdr: String,
     // TODO: add lastModifiedLedgerSeq and latestLedger
 }
@@ -174,15 +181,11 @@ impl Client {
             .await?)
     }
 
-    pub async fn get_contract_data(
-        &self,
-        contract_id: &str,
-        key: ScVal,
-    ) -> Result<GetContractDataResponse, Error> {
+    pub async fn get_ledger_entry(&self, key: LedgerKey) -> Result<GetLedgerEntryResponse, Error> {
         let base64_key = key.to_xdr_base64()?;
         Ok(self
             .client()?
-            .request("getContractData", rpc_params![contract_id, base64_key])
+            .request("getLedgerEntry", rpc_params![base64_key])
             .await?)
     }
 }

@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/go/xdr"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -83,7 +85,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(t, account.AccountID, true),
+			createInstallContractCodeOperation(t, account.AccountID, testContract, true),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -113,12 +115,15 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	assert.Equal(t, methods.TransactionSuccess, response.Status)
 	assert.Equal(t, expectedHash, response.ID)
 	assert.Nil(t, response.Error)
-	assert.Equal(t,
-		[]methods.SCVal{
-			{XDR: "AAAABAAAAAEAAAAEAAAAIJL0uHwiQNNaPB0brHQ1Wg+WexdpZMjN1H4UDoxE5pQz"},
-		},
-		response.Results,
-	)
+
+	// Check the result is what we expect
+	assert.Equal(t, 1, len(response.Results))
+	var resultVal xdr.ScVal
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.Results[0].XDR, &resultVal))
+	expectedContractId, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
+	assert.NoError(t, err)
+	expectedObj := &xdr.ScObject{Type: xdr.ScObjectTypeScoBytes, Bin: &expectedContractId}
+	assert.True(t, xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}.Equals(resultVal))
 
 	accountInfoRequest := methods.AccountRequest{
 		Address: address,
@@ -220,7 +225,7 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
 			// without the footprint the tx will fail
-			createInvokeHostOperation(t, account.AccountID, false),
+			createInstallContractCodeOperation(t, account.AccountID, testContract, false),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{

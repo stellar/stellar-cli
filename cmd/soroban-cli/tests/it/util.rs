@@ -4,7 +4,7 @@ use assert_cmd::Command;
 use assert_fs::{prelude::PathChild, TempDir};
 
 pub fn test_wasm(name: &str) -> PathBuf {
-    let mut path = PathBuf::from("target/wasm32-unknown-unknown/test-wasms").join(name);
+    let mut path = PathBuf::from("../../target/wasm32-unknown-unknown/test-wasms").join(name);
     path.set_extension("wasm");
     assert!(path.is_file(), "File not found: {}. run 'make test-wasms' to generate .wasm files before running this test", path.display());
     path
