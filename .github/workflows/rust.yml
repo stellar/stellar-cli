@@ -51,7 +51,7 @@ jobs:
         - os: macos-latest
           target: aarch64-apple-darwin
         - os: windows-latest
-          target: x86_64-pc-windows-gnu
+          target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
@@ -64,8 +64,8 @@ jobs:
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
     - if: startsWith(matrix.target, 'x86_64')
-      # do not attempt testing the preflight library, which fails in certain platforms due to missing symbols
-      run: cargo test --workspace --target ${{ matrix.target }} bins
+      # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
+      run: cargo test --target ${{ matrix.target }} cmd/soroban-cli cmd/soroban-cli/tests/fixtures/test-wasms/hello_world cmd/soroban-cli/tests/fixtures/test-wasms/invoker_account_exists
 
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
