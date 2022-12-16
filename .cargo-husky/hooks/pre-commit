@@ -8,6 +8,6 @@
 set -e
 
 echo '+cargo fmt --check'
-cargo fmt --check
+cargo fmt
 echo '+cargo clippy -- -Dwarnings -Dclippy::all -Dclippy::pedantic'
 cargo clippy -- -Dwarnings -Dclippy::all -Dclippy::pedantic
