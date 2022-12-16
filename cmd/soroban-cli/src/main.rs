@@ -4,14 +4,13 @@ mod completion;
 mod contract;
 mod install;
 mod jsonrpc;
+mod lab;
 mod network;
 mod rpc;
 mod serve;
 mod strval;
-mod token;
 mod utils;
 mod version;
-mod xdr;
 
 const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
 const HEADING_RPC: &str = "OPTIONS (RPC)";
@@ -37,14 +36,11 @@ enum Cmd {
     Contract(contract::SubCmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
-    /// Wrap, create, and manage token contracts
-    Token(token::Root),
     /// Install a WASM file to the ledger without creating a contract instance
     Install(install::Cmd),
-
-    /// Decode xdr
-    Xdr(xdr::Cmd),
-
+    /// Experiment with early features and expert tools
+    #[clap(subcommand)]
+    Lab(lab::SubCmd),
     /// Print version information
     Version(version::Cmd),
     /// Print shell completion code for the specified shell.
@@ -60,20 +56,17 @@ enum CmdError {
     #[error(transparent)]
     Serve(#[from] serve::Error),
     #[error(transparent)]
-    Token(#[from] token::Error),
-    #[error(transparent)]
     Install(#[from] install::Error),
     #[error(transparent)]
-    Xdr(#[from] xdr::Error),
+    Lab(#[from] lab::Error),
 }
 
 async fn run(cmd: Cmd, sub_arg_matches: &clap::ArgMatches) -> Result<(), CmdError> {
     match cmd {
         Cmd::Contract(contract) => contract.run(sub_arg_matches).await?,
         Cmd::Serve(serve) => serve.run().await?,
-        Cmd::Token(token) => token.run().await?,
         Cmd::Install(install) => install.run().await?,
-        Cmd::Xdr(xdr) => xdr.run()?,
+        Cmd::Lab(lab) => lab.run().await?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(&mut Root::command()),
     };
