@@ -676,7 +676,7 @@ mod test {
     #[test]
     fn parse_enum() {
         let entries = get_spec();
-        let func = entries.find_function("enum_2_str").unwrap();
+        let func = entries.find_function("simple").unwrap();
         println!("{func:#?}");
         let type_ = &func.inputs.as_slice()[0].type_;
         println!("{:#?}", entries.from_json(&json!("First"), type_));
