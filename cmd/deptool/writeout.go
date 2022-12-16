@@ -30,6 +30,7 @@ func writeUpdatesGoMod(dir string, deps map[string]analyzedProjectDependency, in
 		exitErr()
 	}
 
+	changed := false
 	for _, analyzed := range deps {
 		if analyzed.class != depClassMod {
 			continue
@@ -64,12 +65,21 @@ func writeUpdatesGoMod(dir string, deps map[string]analyzedProjectDependency, in
 				fmt.Printf("Unable to add requirement : %v\n", err)
 				exitErr()
 			}
+			changed = true
 		}
 	}
+
+	if !changed {
+		return
+	}
+
 	outputBytes, err := modFile.Format()
-	err = os.WriteFile(fileName+".proposed", outputBytes, 0666)
+	if !inplace {
+		fileName += ".proposed"
+	}
+	err = os.WriteFile(fileName, outputBytes, 0666)
 	if err != nil {
-		fmt.Printf("Unable to write go.mod.proposed file : %v\n", err)
+		fmt.Printf("Unable to write %s file : %v\n", fileName, err)
 		exitErr()
 	}
 }
@@ -83,6 +93,7 @@ func writeUpdatesCargoToml(dir string, deps map[string]analyzedProjectDependency
 		exitErr()
 	}
 
+	changed := false
 	for _, analyzed := range deps {
 		if analyzed.class != depClassCargo {
 			continue
@@ -93,11 +104,20 @@ func writeUpdatesCargoToml(dir string, deps map[string]analyzedProjectDependency
 		newCommit := analyzed.latestBranchCommit[:len(analyzed.githubCommit)]
 		// we want to replace every instance of analyzed.githubCommit with newCommit
 		modFileBytes = bytes.ReplaceAll(modFileBytes, []byte(analyzed.githubCommit), []byte(newCommit))
+
+		// set the changed flag
+		changed = true
 	}
 
-	err = os.WriteFile(fileName+".proposed", modFileBytes, 0666)
+	if !changed {
+		return
+	}
+	if !inplace {
+		fileName = fileName + ".proposed"
+	}
+	err = os.WriteFile(fileName, modFileBytes, 0666)
 	if err != nil {
-		fmt.Printf("Unable to write Cargo.toml.proposed file : %v\n", err)
+		fmt.Printf("Unable to write %s file : %v\n", fileName, err)
 		exitErr()
 	}
 }

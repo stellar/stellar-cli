@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	toml "github.com/pelletier/go-toml"
@@ -20,16 +21,24 @@ const (
 	depClassMod
 )
 
+type projectDependencies struct {
+	dependencies    []*projectDependency
+	dependencyNames map[string]*projectDependency
+}
+
 type projectDependency struct {
 	class        depClass
 	githubPath   string
 	githubCommit string
 	direct       bool
+	version      string
+	name         string
 }
 
 type cargoDependencyToml struct {
-	Git string `toml:"git"`
-	Rev string `toml:"rev"`
+	Git     string `toml:"git"`
+	Rev     string `toml:"rev"`
+	Version string `toml:"version"`
 }
 
 type workspaceDepenenciesToml struct {
@@ -45,8 +54,10 @@ type cargoToml struct {
 	Patch     patchCratesIOToml        // this is the patch.crates-io entry
 }
 
-func scanProject(dir string) map[string]projectDependency {
-	dependencies := make(map[string]projectDependency)
+func scanProject(dir string) *projectDependencies {
+	dependencies := &projectDependencies{
+		dependencyNames: make(map[string]*projectDependency),
+	}
 
 	loadParseCargoToml(dir, dependencies)
 	loadParseGoMod(dir, dependencies)
@@ -54,7 +65,7 @@ func scanProject(dir string) map[string]projectDependency {
 	return dependencies
 }
 
-func loadParseCargoToml(dir string, dependencies map[string]projectDependency) {
+func loadParseCargoToml(dir string, dependencies *projectDependencies) {
 	cargoFileBytes, err := os.ReadFile(path.Join(dir, cargoTomlFile))
 	if err != nil {
 		fmt.Printf("Unable to read Cargo.toml file : %v\n", err)
@@ -67,36 +78,36 @@ func loadParseCargoToml(dir string, dependencies map[string]projectDependency) {
 		fmt.Printf("Unable to parse Cargo.toml file : %v\n", err)
 		exitErr()
 	}
+	addTomlDependencies(dependencies, parsedCargo.Patch.CratesIO, false)
+	addTomlDependencies(dependencies, parsedCargo.Workspace.Dependencies, true)
+}
 
-	for crateName, crateGit := range parsedCargo.Patch.CratesIO {
-		current := projectDependency{
-			class:        depClassCargo,
-			githubPath:   crateGit.Git,
-			githubCommit: crateGit.Rev,
-			direct:       false,
-		}
-		if existing, has := dependencies[crateName]; has && (existing.githubCommit != current.githubCommit || existing.githubPath != current.githubPath) {
-			fmt.Printf("Conflicting entries in Cargo.toml file :\n%v\nvs.\n%v\n", existing, current)
-			exitErr()
-		}
-		dependencies[crateName] = current
+func addTomlDependencies(dependencies *projectDependencies, tomlDeps map[string]cargoDependencyToml, direct bool) {
+	names := make([]string, 0, len(tomlDeps))
+	for name := range tomlDeps {
+		names = append(names, name)
 	}
-	for crateName, crateGit := range parsedCargo.Workspace.Dependencies {
-		current := projectDependency{
+	sort.Strings(names)
+	for _, pkgName := range names {
+		crateGit := tomlDeps[pkgName]
+		current := &projectDependency{
 			class:        depClassCargo,
 			githubPath:   crateGit.Git,
 			githubCommit: crateGit.Rev,
-			direct:       true,
+			version:      crateGit.Version,
+			direct:       direct,
+			name:         pkgName,
 		}
-		if existing, has := dependencies[crateName]; has && (existing.githubCommit != current.githubCommit || existing.githubPath != current.githubPath) {
+		if existing, has := dependencies.dependencyNames[pkgName]; has && (existing.githubCommit != current.githubCommit || existing.githubPath != current.githubPath) {
 			fmt.Printf("Conflicting entries in Cargo.toml file :\n%v\nvs.\n%v\n", existing, current)
 			exitErr()
 		}
-		dependencies[crateName] = current
+		dependencies.dependencyNames[pkgName] = current
+		dependencies.dependencies = append(dependencies.dependencies, current)
 	}
 }
 
-func loadParseGoMod(dir string, dependencies map[string]projectDependency) {
+func loadParseGoMod(dir string, dependencies *projectDependencies) {
 	fileName := path.Join(dir, goModFile)
 
 	cargoFileBytes, err := os.ReadFile(fileName)
@@ -123,17 +134,19 @@ func loadParseGoMod(dir string, dependencies map[string]projectDependency) {
 		pathComp := strings.Split(require.Mod.Path, "/")
 		pkgName := pathComp[len(pathComp)-1]
 
-		current := projectDependency{
+		current := &projectDependency{
 			class:        depClassMod,
 			githubPath:   require.Mod.Path,
 			githubCommit: splittedVersion[2],
 			direct:       true,
+			name:         pkgName,
 		}
 
-		if existing, has := dependencies[pkgName]; has && (existing.githubCommit != current.githubCommit || existing.githubPath != current.githubPath) {
+		if existing, has := dependencies.dependencyNames[pkgName]; has && (existing.githubCommit != current.githubCommit || existing.githubPath != current.githubPath) {
 			fmt.Printf("Conflicting entries in go.mod file :\n%v\nvs.\n%v\n", existing, current)
 			exitErr()
 		}
-		dependencies[pkgName] = current
+		dependencies.dependencyNames[pkgName] = current
+		dependencies.dependencies = append(dependencies.dependencies, current)
 	}
 }
