@@ -10,6 +10,10 @@ set -e
 echo '+cargo fmt --check'
 cargo fmt --check || (cargo fmt && exit 1)
 
+echo "unstaged changes"
+echo 'git diff-index --quiet HEAD --'
+git diff-index --quiet HEAD --
+
 echo '+cargo clippy -- -Dwarnings -Dclippy::all -Dclippy::pedantic'
 cargo clippy -- -Dwarnings -Dclippy::all -Dclippy::pedantic
 
