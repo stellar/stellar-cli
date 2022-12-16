@@ -258,56 +258,60 @@ func findCargoVersionForCommit(repo *git.Repository, pkgName string, commit *obj
 		return "", false, err
 	}
 	rootCargoFile, err := treeRoot.File("Cargo.toml")
-	internalWorkspacePackage := false
-	if err == nil {
-		rootCargoFileLines, err := rootCargoFile.Lines()
-		if err != nil {
-			return "", false, err
-		}
-		var section string
-		var curPkgName string
-		for _, line := range rootCargoFileLines {
-			if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-				section = line[1 : len(line)-1]
-				continue
-			}
-			if strings.HasPrefix(line, "members") {
-				section = "members"
-				continue
-			}
-			switch section {
-			case "members":
-				if strings.Contains(line, pkgName) {
-					// this is a workspace that points to an internal member;
-					// the member is the package we're after.
-					internalWorkspacePackage = true
-				}
-			case "workspace.package":
-				lineParts := strings.Split(line, "=")
-				if len(lineParts) != 2 {
-					continue
-				}
-				if !strings.HasPrefix(lineParts[0], "version") {
-					continue
-				}
-				version := strings.ReplaceAll(strings.TrimSpace(lineParts[1]), "\"", "")
-				return version, true, nil
-			case "package":
-				lineParts := strings.Split(line, "=")
-				if len(lineParts) != 2 {
-					continue
-				}
-				if strings.HasPrefix(lineParts[0], "name") {
-					curPkgName = strings.ReplaceAll(strings.TrimSpace(lineParts[1]), "\"", "")
-					continue
-				} else if strings.HasPrefix(lineParts[0], "version") && curPkgName == pkgName {
-					version := strings.ReplaceAll(strings.TrimSpace(lineParts[1]), "\"", "")
-					return version, false, nil
-				}
-			}
-		}
-		// fall-back to package specific versioning.
+	if err != nil {
+		fmt.Printf("The package %s has unsupported repository structure\n", pkgName)
+		return "", false, errors.New("unsupported repository structure")
 	}
+	internalWorkspacePackage := false
+
+	rootCargoFileLines, err := rootCargoFile.Lines()
+	if err != nil {
+		return "", false, err
+	}
+	var section string
+	var curPkgName string
+	for _, line := range rootCargoFileLines {
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = line[1 : len(line)-1]
+			continue
+		}
+		if strings.HasPrefix(line, "members") {
+			section = "members"
+			continue
+		}
+		switch section {
+		case "members":
+			if strings.Contains(line, pkgName) {
+				// this is a workspace that points to an internal member;
+				// the member is the package we're after.
+				internalWorkspacePackage = true
+			}
+		case "workspace.package":
+			lineParts := strings.Split(line, "=")
+			if len(lineParts) != 2 {
+				continue
+			}
+			if !strings.HasPrefix(lineParts[0], "version") {
+				continue
+			}
+			version := strings.ReplaceAll(strings.TrimSpace(lineParts[1]), "\"", "")
+			return version, true, nil
+		case "package":
+			lineParts := strings.Split(line, "=")
+			if len(lineParts) != 2 {
+				continue
+			}
+			if strings.HasPrefix(lineParts[0], "name") {
+				curPkgName = strings.ReplaceAll(strings.TrimSpace(lineParts[1]), "\"", "")
+				continue
+			} else if strings.HasPrefix(lineParts[0], "version") && curPkgName == pkgName {
+				version := strings.ReplaceAll(strings.TrimSpace(lineParts[1]), "\"", "")
+				return version, false, nil
+			}
+		}
+	}
+	// fall-back to package specific versioning.
+
 	if internalWorkspacePackage {
 		pkgCargoFile, err := treeRoot.File(pkgName + "/Cargo.toml")
 		if err != nil {
