@@ -1,4 +1,4 @@
-use std::{ffi::OsString, path::PathBuf, fmt::Display};
+use std::{ffi::OsString, fmt::Display, path::PathBuf};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{prelude::PathChild, TempDir};
