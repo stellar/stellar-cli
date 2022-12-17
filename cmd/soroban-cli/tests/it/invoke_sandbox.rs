@@ -1,4 +1,4 @@
-use crate::util::{arg_file, temp_ledger_file, test_wasm, Sandbox, SorobanCommand};
+use crate::util::{output_line, temp_ledger_file, test_wasm, Sandbox, SorobanCommand};
 
 #[test]
 fn invoke_token() {
@@ -40,19 +40,21 @@ fn source_account_exists() {
 #[test]
 fn install_wasm_then_deploy_contract() {
     let ledger = temp_ledger_file();
-    Sandbox::new_cmd("install")
-        .arg("--ledger-file")
-        .arg(&ledger)
-        .arg("--wasm")
-        .arg(test_wasm("test_hello_world"))
-        .assert()
-        .success()
-        .stdout("1b459482ade00a540177e7e4c9417a4fe6ea50f79819bf53319e845e7c65e435\n");
+    let id = output_line(
+        Sandbox::new_cmd("install")
+            .arg("--ledger-file")
+            .arg(&ledger)
+            .arg("--wasm")
+            .arg(test_wasm("test_hello_world"))
+            .assert()
+            .success(),
+    );
 
     Sandbox::new_cmd("deploy")
         .arg("--ledger-file")
         .arg(&ledger)
-        .arg("--wasm-hash=1b459482ade00a540177e7e4c9417a4fe6ea50f79819bf53319e845e7c65e435")
+        .arg("--wasm-hash")
+        .arg(&id)
         .arg("--id=1")
         .assert()
         .success()
@@ -89,22 +91,11 @@ fn invoke_hello_world_with_deploy_first() {
     Sandbox::new_cmd("invoke")
         .arg("--ledger-file")
         .arg(&ledger)
-        .arg("--arg=world")
         .arg("--id")
         .arg(id)
         .arg("--fn=hello")
-        .assert()
-        .stdout("[\"Hello\",\"world\"]\n")
-        .success();
-
-    Sandbox::new_cmd("invoke")
-        .arg("--ledger-file")
-        .arg(&ledger)
-        .arg("--arg-file")
-        .arg(arg_file("world"))
-        .arg("--id")
-        .arg(id)
-        .arg("--fn=hello")
+        .arg("--")
+        .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
         .success();
@@ -121,7 +112,8 @@ fn invoke_hello_world() {
         .arg("--ledger-file")
         .arg(&ledger)
         .arg("--fn=hello")
-        .arg("--arg=world")
+        .arg("--")
+        .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
         .success();
