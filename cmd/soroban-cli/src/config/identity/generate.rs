@@ -25,6 +25,9 @@ impl Cmd {
             self.name,
             self.seed.as_deref().unwrap_or("random")
         );
+        if false {
+            return Err(Error::Unknown);
+        }
         Ok(())
     }
 }

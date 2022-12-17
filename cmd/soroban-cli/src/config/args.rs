@@ -1,6 +1,7 @@
 use std::{
+    ffi::OsStr,
     fs,
-    path::{Path, PathBuf}, ffi::OsStr,
+    path::{Path, PathBuf},
 };
 
 use crate::utils::find_config_dir;
@@ -16,9 +17,9 @@ pub enum Error {
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
     #[error("Failed to read secret's file: {path}")]
-    SecretFileReadError { path: String },
+    SecretFileRead { path: String },
     #[error("Seceret file failed to deserialize")]
-    DeserializationError,
+    Deserialization,
     #[error("Seceret file failed to deserialize")]
     IdCreationFailed,
     #[error("Error Identity directory is invalid: {name}")]
@@ -75,26 +76,27 @@ impl Args {
         })
     }
 
+    #[allow(dead_code)]
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
         let path = self.identity_path(name)?;
-        let data = fs::read(&path).map_err(|_| Error::SecretFileReadError {
+        let data = fs::read(&path).map_err(|_| Error::SecretFileRead {
             path: path.to_string_lossy().to_string(),
         })?;
-        toml::from_slice::<Secret>(&data).map_err(|_| Error::DeserializationError)
+        toml::from_slice::<Secret>(&data).map_err(|_| Error::Deserialization)
     }
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
         let source = self.identity_path(name)?;
         let data = toml::to_string(secret).map_err(|_| Error::IdCreationFailed)?;
         println!("Writing to {}", source.display());
-        std::fs::write(&source, &data).map_err(|_| Error::IdCreationFailed)
+        std::fs::write(&source, data).map_err(|_| Error::IdCreationFailed)
     }
 
-    pub fn write_network(&self, name: &str, secret: &Secret) -> Result<(), Error> {
+    pub fn write_network(&self, name: &str, network: &Secret) -> Result<(), Error> {
         let source = self.identity_path(name)?;
-        let data = toml::to_string(secret).map_err(|_| Error::IdCreationFailed)?;
+        let data = toml::to_string(network).map_err(|_| Error::IdCreationFailed)?;
         println!("Writing to {}", source.display());
-        std::fs::write(&source, &data).map_err(|_| Error::IdCreationFailed)
+        std::fs::write(&source, data).map_err(|_| Error::IdCreationFailed)
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -106,8 +108,6 @@ impl Args {
         let path = self.network_dir()?;
         read_dir(&path)
     }
-
-
 }
 
 fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
@@ -122,7 +122,7 @@ fn dir_creation_failed(p: &Path) -> Error {
 }
 
 fn read_dir(dir: &Path) -> Result<Vec<String>, Error> {
-    let contents = std::fs::read_dir(&dir).map_err(|_| Error::IdentityList {
+    let contents = std::fs::read_dir(dir).map_err(|_| Error::IdentityList {
         name: format!("{}", dir.display()),
     })?;
     let mut res = vec![];
@@ -130,7 +130,7 @@ fn read_dir(dir: &Path) -> Result<Vec<String>, Error> {
         let path = entry.path();
         if let Some("toml") = path.extension().and_then(OsStr::to_str) {
             if let Some(os_str) = path.file_stem() {
-                res.push(format!("{}", os_str.to_string_lossy()))
+                res.push(format!("{}", os_str.to_string_lossy()));
             }
         }
     }

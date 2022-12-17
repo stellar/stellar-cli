@@ -1,8 +1,8 @@
 use clap::Parser;
 
+pub mod args;
 pub mod identity;
 pub mod network;
-pub mod args;
 pub mod secret;
 
 pub use args::Args;
