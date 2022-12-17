@@ -41,7 +41,7 @@ fn source_account_exists() {
 fn install_wasm_then_deploy_contract() {
     let ledger = temp_ledger_file();
     let id = output_line(
-        Sandbox::new_cmd("install")
+        &Sandbox::new_cmd("install")
             .arg("--ledger-file")
             .arg(&ledger)
             .arg("--wasm")

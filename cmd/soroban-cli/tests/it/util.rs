@@ -85,6 +85,6 @@ impl CommandExt for Command {
     }
 }
 
-pub fn output_line(a: Assert) -> String {
+pub fn output_line(a: &Assert) -> String {
     a.output_line()
 }
