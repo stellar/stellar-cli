@@ -80,7 +80,7 @@ fn create_and_invoke_token_contract_against_rpc_server() {
             "--fn=symbol",
         ])
         .assert()
-        .stdout("[88,76,77]\n")
+        .stdout("\"584c4d\"\n")
         .stderr("success\n")
         .success();
 }
