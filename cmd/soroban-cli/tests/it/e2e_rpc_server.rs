@@ -1,4 +1,4 @@
-use crate::util::{test_wasm, SorobanCommand, Standalone};
+use crate::util::{hello_world, SorobanCommand, Standalone};
 use std::str;
 
 // e2e tests are ignore by default
@@ -10,7 +10,7 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     let result = &Standalone::new_cmd()
         .arg("deploy")
         .arg("--wasm")
-        .arg(test_wasm("test_hello_world"))
+        .arg(hello_world.path())
         .assert()
         .stderr("success\nsuccess\n")
         .success();
@@ -37,7 +37,7 @@ fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
     let install_result = Standalone::new_cmd()
         .arg("install")
         .arg("--wasm")
-        .arg(test_wasm("test_hello_world"))
+        .arg(hello_world.path())
         .assert()
         .stderr("success\n")
         .success();
