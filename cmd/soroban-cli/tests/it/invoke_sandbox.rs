@@ -1,4 +1,4 @@
-use crate::util::{temp_ledger_file, test_wasm, Sandbox, SorobanCommand};
+use crate::util::{hello_world, invoker_account_exists, temp_ledger_file, Sandbox, SorobanCommand};
 
 #[test]
 fn invoke_token() {
@@ -33,7 +33,7 @@ fn source_account_exists() {
         .arg(temp_ledger_file())
         .arg("--id=1")
         .arg("--wasm")
-        .arg(test_wasm("test_invoker_account_exists"))
+        .arg(invoker_account_exists.path())
         .arg("--fn=invkexists")
         .assert()
         .success()
@@ -43,21 +43,23 @@ fn source_account_exists() {
 #[test]
 fn install_wasm_then_deploy_contract() {
     let ledger = temp_ledger_file();
+    let hash = hello_world.hash();
     Sandbox::new_cmd()
         .arg("install")
         .arg("--ledger-file")
         .arg(&ledger)
         .arg("--wasm")
-        .arg(test_wasm("test_hello_world"))
+        .arg(hello_world.path())
         .assert()
         .success()
-        .stdout("1b459482ade00a540177e7e4c9417a4fe6ea50f79819bf53319e845e7c65e435\n");
+        .stdout(format!("{hash}\n"));
 
     Sandbox::new_cmd()
         .arg("deploy")
         .arg("--ledger-file")
         .arg(&ledger)
-        .arg("--wasm-hash=1b459482ade00a540177e7e4c9417a4fe6ea50f79819bf53319e845e7c65e435")
+        .arg("--wasm-hash")
+        .arg(&format!("{hash}"))
         .arg("--id=1")
         .assert()
         .success()
@@ -71,7 +73,7 @@ fn deploy_contract_with_wasm_file() {
         .arg("--ledger-file")
         .arg(temp_ledger_file())
         .arg("--wasm")
-        .arg(test_wasm("test_hello_world"))
+        .arg(hello_world.path())
         .arg("--id=1")
         .assert()
         .success()
