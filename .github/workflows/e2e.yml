@@ -14,7 +14,7 @@ jobs:
         scenario-filter: ["^TestDappDevelop$/^.*$"]
     runs-on: ubuntu-latest
     env:
-      SYSTEM_TEST_DOCKER_REPO_TAG: "sreuland/system-test:latest" 
+      SYSTEM_TEST_DOCKER_REPO_TAG: "stellar/system-test:latest" 
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "main"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "1.65.0"
