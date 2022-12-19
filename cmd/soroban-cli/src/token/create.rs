@@ -10,9 +10,9 @@ use soroban_env_host::{
         AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
         HashIdPreimageSourceAccountContractId, HostFunction, InvokeHostFunctionOp, LedgerFootprint,
         LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScContractCode, ScHostStorageErrorCode, ScMap,
-        ScMapEntry, ScObject, ScStatic::LedgerKeyContractCode, ScStatus, ScVal, ScVec,
-        SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+        OperationBody, Preconditions, PublicKey, ScContractCode, ScMap, ScMapEntry, ScObject,
+        ScStatic::LedgerKeyContractCode, ScVal, ScVec, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -21,7 +21,7 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 use crate::{
     network,
     rpc::{Client, Error as SorobanRpcError},
-    snapshot, utils, HEADING_RPC, HEADING_SANDBOX,
+    utils, HEADING_RPC, HEADING_SANDBOX,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -29,12 +29,12 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse secret key")]
     CannotParseSecretKey,
@@ -166,14 +166,14 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let state = snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
-            filepath: self.ledger_file.clone(),
-            error: e,
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
         })?;
 
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: state.1.clone(),
-        });
+        let snap = Rc::new(state.clone());
         let h = Host::with_storage_and_budget(
             Storage::with_recording_footprint(snap),
             Budget::default(),
@@ -181,10 +181,10 @@ impl Cmd {
 
         h.set_source_account(admin.clone());
 
-        let mut ledger_info = state.0.clone();
+        let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info.clone());
+        h.set_ledger_info(ledger_info);
 
         let contract_id =
             get_contract_id(salt, admin.clone(), network::SANDBOX_NETWORK_PASSPHRASE)?;
@@ -203,18 +203,13 @@ impl Cmd {
             decimal,
         )))?;
 
-        let (storage, _, _) = h.try_finish().map_err(|_h| {
-            HostError::from(ScStatus::HostStorageError(
-                ScHostStorageErrorCode::UnknownError,
-            ))
-        })?;
-
-        snapshot::commit(state.1, &ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+        state.update(&h);
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            }
-        })?;
+            })?;
         Ok(res_str)
     }
 

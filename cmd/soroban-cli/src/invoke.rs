@@ -24,7 +24,7 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
-use crate::{rpc, snapshot, strval, utils};
+use crate::{rpc, strval, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -123,7 +123,7 @@ pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("reading file {filepath}: {error}")]
     CannotReadContractFile {
@@ -133,7 +133,7 @@ pub enum Error {
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
-        error: snapshot::Error,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -352,11 +352,12 @@ impl Cmd {
     ) -> Result<(), Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state =
-            snapshot::read(&self.ledger_file).map_err(|e| Error::CannotReadLedgerFile {
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            })?;
+            }
+        })?;
 
         // If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
@@ -364,10 +365,15 @@ impl Cmd {
                 filepath: f.clone(),
                 error: e,
             })?;
-            let wasm_hash = utils::add_contract_code_to_ledger_entries(&mut state.1, contract)
-                .map_err(Error::CannotAddContractToLedgerEntries)?
-                .0;
-            utils::add_contract_to_ledger_entries(&mut state.1, contract_id, wasm_hash);
+            let wasm_hash =
+                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
+                    .map_err(Error::CannotAddContractToLedgerEntries)?
+                    .0;
+            utils::add_contract_to_ledger_entries(
+                &mut state.ledger_entries,
+                contract_id,
+                wasm_hash,
+            );
         }
 
         // Create source account, adding it to the ledger if not already present.
@@ -375,26 +381,28 @@ impl Cmd {
         let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
             account_id: source_account.clone(),
         });
-        if !state.1.contains_key(&source_account_ledger_key) {
-            state.1.insert(
-                source_account_ledger_key,
-                default_account_ledger_entry(source_account.clone()),
-            );
+        if !state
+            .ledger_entries
+            .iter()
+            .any(|(k, _)| **k == source_account_ledger_key)
+        {
+            state.ledger_entries.push((
+                Box::new(source_account_ledger_key),
+                Box::new(default_account_ledger_entry(source_account.clone())),
+            ));
         }
 
-        let snap = Rc::new(snapshot::Snap {
-            ledger_entries: state.1.clone(),
-        });
+        let snap = Rc::new(state.clone());
         let mut storage = Storage::with_recording_footprint(snap);
         let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
             .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
         h.set_source_account(source_account);
 
-        let mut ledger_info = state.0.clone();
+        let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info.clone());
+        h.set_ledger_info(ledger_info);
 
         let host_function_params =
             self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
@@ -406,6 +414,8 @@ impl Cmd {
         })?;
 
         println!("{res_str}");
+
+        state.update(&h);
 
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
@@ -438,12 +448,12 @@ impl Cmd {
             }
         }
 
-        snapshot::commit(state.1, &ledger_info, &storage.map, &self.ledger_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
                 filepath: self.ledger_file.clone(),
                 error: e,
-            }
-        })?;
+            })?;
 
         snapshot::commit_events(&events.0, &ledger_info, &self.events_file).map_err(|e| {
             Error::CannotCommitLedgerFile {

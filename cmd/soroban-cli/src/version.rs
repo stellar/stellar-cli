@@ -10,7 +10,7 @@ pub struct Cmd;
 impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) {
-        println!("soroban {} ({})", env!("CARGO_PKG_VERSION"), GIT_REVISION);
+        println!("soroban {} ({GIT_REVISION})", env!("CARGO_PKG_VERSION"));
 
         let env = soroban_env_host::VERSION;
         println!("soroban-env {} ({})", env.pkg, env.rev);
