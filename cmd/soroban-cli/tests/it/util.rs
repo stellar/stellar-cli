@@ -1,8 +1,4 @@
-use std::{
-    ffi::{OsStr, OsString},
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{ffi::OsString, fs, path::PathBuf};
 
 use assert_cmd::Command;
 use assert_fs::{prelude::PathChild, TempDir};
@@ -79,6 +75,5 @@ pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
     Ok(Hash(Sha256::digest(args_xdr).into()))
 }
 
-pub const hello_world: &Wasm = &Wasm("test_hello_world");
-pub const invoker_account_exists: &Wasm = &Wasm("test_invoker_account_exists");
-pub const custom_types: &Wasm = &Wasm("test_custom_types");
+pub const HELLO_WORLD: &Wasm = &Wasm("test_hello_world");
+pub const INVOKER_ACCOUNT_EXISTS: &Wasm = &Wasm("test_invoker_account_exists");
