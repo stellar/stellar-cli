@@ -584,9 +584,9 @@ mod tests {
 
         struct TestCase<'a> {
             name: &'a str,
-            filter: Vec<String>,
-            includes: Vec<Vec<String>>,
-            excludes: Vec<Vec<String>>,
+            filter: Vec<&'a str>,
+            includes: Vec<Vec<&'a str>>,
+            excludes: Vec<Vec<&'a str>>,
         }
 
         for tc in vec![
@@ -595,36 +595,30 @@ mod tests {
                 name: "<empty>",
                 filter: vec![],
                 includes: vec![],
-                excludes: vec![vec![xfer.to_string()]],
+                excludes: vec![vec![xfer]],
             },
             // "*" should match "transfer/" but not "transfer/transfer" or
             // "transfer/amount", because * is specified as a SINGLE segment
             // wildcard.
             TestCase {
                 name: "*",
-                filter: vec![star.to_string()],
-                includes: vec![vec![xfer.to_string()]],
-                excludes: vec![
-                    vec![xfer.to_string(), xfer.to_string()],
-                    vec![xfer.to_string(), number.to_string()],
-                ],
+                filter: vec![star],
+                includes: vec![vec![xfer]],
+                excludes: vec![vec![xfer, xfer], vec![xfer, number]],
             },
             // "*/transfer" should match anything preceding "transfer", but
             // nothing that isn't exactly two segments long.
             TestCase {
                 name: "*/transfer",
-                filter: vec![star.to_string(), xfer.to_string()],
-                includes: vec![
-                    vec![number.to_string(), xfer.to_string()],
-                    vec![xfer.to_string(), xfer.to_string()],
-                ],
+                filter: vec![star, xfer],
+                includes: vec![vec![number, xfer], vec![xfer, xfer]],
                 excludes: vec![
-                    vec![number.to_string()],
-                    vec![number.to_string(), number.to_string()],
-                    vec![number.to_string(), xfer.to_string(), number.to_string()],
-                    vec![xfer.to_string()],
-                    vec![xfer.to_string(), number.to_string()],
-                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
+                    vec![number],
+                    vec![number, number],
+                    vec![number, xfer, number],
+                    vec![xfer],
+                    vec![xfer, number],
+                    vec![xfer, xfer, xfer],
                 ],
             },
             // The inverse case of before: "transfer/*" should match any single
@@ -632,45 +626,29 @@ mod tests {
             // additional segments.
             TestCase {
                 name: "transfer/*",
-                filter: vec![xfer.to_string(), star.to_string()],
-                includes: vec![
-                    vec![xfer.to_string(), number.to_string()],
-                    vec![xfer.to_string(), xfer.to_string()],
-                ],
+                filter: vec![xfer, star],
+                includes: vec![vec![xfer, number], vec![xfer, xfer]],
                 excludes: vec![
-                    vec![number.to_string()],
-                    vec![number.to_string(), number.to_string()],
-                    vec![number.to_string(), xfer.to_string(), number.to_string()],
-                    vec![xfer.to_string()],
-                    vec![number.to_string(), xfer.to_string()],
-                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
+                    vec![number],
+                    vec![number, number],
+                    vec![number, xfer, number],
+                    vec![xfer],
+                    vec![number, xfer],
+                    vec![xfer, xfer, xfer],
                 ],
             },
             // Here, we extend to exactly two wild segments after transfer.
             TestCase {
                 name: "transfer/*/*",
-                filter: vec![xfer.to_string(), star.to_string(), star.to_string()],
-                includes: vec![
-                    vec![xfer.to_string(), number.to_string(), number.to_string()],
-                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
-                ],
+                filter: vec![xfer, star, star],
+                includes: vec![vec![xfer, number, number], vec![xfer, xfer, xfer]],
                 excludes: vec![
-                    vec![number.to_string()],
-                    vec![number.to_string(), number.to_string()],
-                    vec![number.to_string(), xfer.to_string()],
-                    vec![
-                        number.to_string(),
-                        xfer.to_string(),
-                        number.to_string(),
-                        number.to_string(),
-                    ],
-                    vec![xfer.to_string()],
-                    vec![
-                        xfer.to_string(),
-                        xfer.to_string(),
-                        xfer.to_string(),
-                        xfer.to_string(),
-                    ],
+                    vec![number],
+                    vec![number, number],
+                    vec![number, xfer],
+                    vec![number, xfer, number, number],
+                    vec![xfer],
+                    vec![xfer, xfer, xfer, xfer],
                 ],
             },
             // Here, we ensure wildcards can be in the middle of a filter: only
@@ -678,26 +656,29 @@ mod tests {
             // anything.
             TestCase {
                 name: "transfer/*/number",
-                filter: vec![xfer.to_string(), star.to_string(), number.to_string()],
-                includes: vec![
-                    vec![xfer.to_string(), number.to_string(), number.to_string()],
-                    vec![xfer.to_string(), xfer.to_string(), number.to_string()],
-                ],
+                filter: vec![xfer, star, number],
+                includes: vec![vec![xfer, number, number], vec![xfer, xfer, number]],
                 excludes: vec![
-                    vec![number.to_string()],
-                    vec![number.to_string(), number.to_string()],
-                    vec![number.to_string(), number.to_string(), number.to_string()],
-                    vec![number.to_string(), xfer.to_string(), number.to_string()],
-                    vec![xfer.to_string()],
-                    vec![number.to_string(), xfer.to_string()],
-                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
-                    vec![xfer.to_string(), number.to_string(), xfer.to_string()],
+                    vec![number],
+                    vec![number, number],
+                    vec![number, number, number],
+                    vec![number, xfer, number],
+                    vec![xfer],
+                    vec![number, xfer],
+                    vec![xfer, xfer, xfer],
+                    vec![xfer, number, xfer],
                 ],
             },
         ] {
             for topic in tc.includes {
                 assert!(
-                    does_topic_match(&topic, &tc.filter),
+                    does_topic_match(
+                        &topic.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                        &tc.filter
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<String>>()
+                    ),
                     "test: {}, topic ({:?}) should be matched by filter ({:?})",
                     tc.name,
                     topic,
@@ -707,7 +688,14 @@ mod tests {
 
             for topic in tc.excludes {
                 assert!(
-                    !does_topic_match(&topic, &tc.filter),
+                    !does_topic_match(
+                        // make deep copies of the vecs
+                        &topic.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                        &tc.filter
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<String>>()
+                    ),
                     "test: {}, topic ({:?}) should NOT be matched by filter ({:?})",
                     tc.name,
                     topic,
