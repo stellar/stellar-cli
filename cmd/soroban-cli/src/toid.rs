@@ -28,7 +28,7 @@ impl Toid {
 
     pub fn to_paging_token(self) -> String {
         let u: u64 = self.into();
-        format!("{:019}", u)
+        format!("{u:019}")
     }
 }
 

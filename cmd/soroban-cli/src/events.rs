@@ -5,7 +5,7 @@ use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 
 use soroban_env_host::{
-    events,
+    events::{self},
     xdr::{self, ReadXdr, WriteXdr},
 };
 
@@ -221,7 +221,7 @@ impl Cmd {
                         "{}",
                         serde_json::to_string_pretty(&event).map_err(|e| {
                             Error::InvalidJson {
-                                debug: format!("{:#?}", event),
+                                debug: format!("{event:#?}"),
                                 error: e,
                             }
                         })?,
@@ -290,12 +290,12 @@ impl Cmd {
                 match evt.ledger.parse::<u32>() {
                     Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
                     Err(e) => {
-                        eprintln!("error parsing key 'ledger': {:?}", e);
+                        eprintln!("error parsing key 'ledger': {e:?}");
                         eprintln!(
                             "your sandbox events file ('{}') may be corrupt",
                             path.to_str().unwrap(),
                         );
-                        eprintln!("ignoring this event: {:#?}", evt);
+                        eprintln!("ignoring this event: {evt:#?}");
 
                         false
                     }
@@ -385,10 +385,10 @@ pub fn print_event(event: &rpc::Event) -> Result<(), Box<dyn std::error::Error>>
     println!("  Topics:");
     for topic in &event.topic {
         let scval = xdr::ScVal::from_xdr_base64(topic)?;
-        println!("            {:?}", scval);
+        println!("            {scval:?}");
     }
     let scval = xdr::ScVal::from_xdr_base64(&event.value.xdr)?;
-    println!("  Value:    {:?}", scval);
+    println!("  Value:    {scval:?}");
 
     Ok(())
 }
@@ -483,16 +483,22 @@ pub fn commit_events(
         }
     }
 
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .read(true)
-        .open(output_file)?;
-    let mut events: rpc::GetEventsResponse = serde_json::from_reader(&mut file)?;
+    let mut events: rpc::GetEventsResponse = match path::Path::exists(output_file) {
+        true => {
+            let mut file = fs::OpenOptions::new().read(true).open(output_file)?;
+            serde_json::from_reader(&mut file)?
+        }
+        false => vec![],
+    };
 
     for (i, event) in new_events.iter().enumerate() {
         let contract_event = match event {
             events::HostEvent::Contract(e) => e,
-            events::HostEvent::Debug(_e) => todo!(),
+            events::HostEvent::Debug(e) => {
+                return Err(Error::Generic(
+                    format!("debug events unsupported: {e:#?}").into(),
+                ))
+            }
         };
 
         let topics = match &contract_event.body {
@@ -537,7 +543,11 @@ pub fn commit_events(
         let dt: DateTime<Utc> = DateTime::from_utc(ndt, Utc);
 
         let cereal_event = rpc::Event {
-            event_type: "contract".to_string(),
+            event_type: match contract_event.type_ {
+                xdr::ContractEventType::Contract => "contract",
+                xdr::ContractEventType::System => "system",
+            }
+            .to_string(),
             paging_token: id.clone(),
             id,
             ledger: ledger_info.sequence_number.to_string(),
@@ -561,6 +571,7 @@ pub fn commit_events(
     }
 
     let mut file = std::fs::OpenOptions::new()
+        .create(true)
         .write(true)
         .truncate(true)
         .open(output_file)?;
@@ -572,22 +583,24 @@ pub fn commit_events(
 
 #[cfg(test)]
 mod tests {
+    use assert_fs::NamedTempFile;
+
     use super::*;
 
     #[test]
     // Taken from [RPC server
     // tests](https://github.com/stellar/soroban-tools/blob/main/cmd/soroban-rpc/internal/methods/get_events_test.go#L21).
     fn test_does_topic_match() {
-        let xfer = "AAAABQAAAAh0cmFuc2Zlcg==";
-        let number = "AAAAAQB6Mcc=";
-        let star = "*";
-
         struct TestCase<'a> {
             name: &'a str,
             filter: Vec<&'a str>,
             includes: Vec<Vec<&'a str>>,
             excludes: Vec<Vec<&'a str>>,
         }
+
+        let xfer = "AAAABQAAAAh0cmFuc2Zlcg==";
+        let number = "AAAAAQB6Mcc=";
+        let star = "*";
 
         for tc in vec![
             // No filter means match nothing.
@@ -703,5 +716,53 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_does_event_serialization_match() {
+        let temp = NamedTempFile::new("events.json").unwrap();
+
+        // Make a couple of fake events with slightly different properties and
+        // write them to disk, then read the serialized versions from disk and
+        // ensure the properties match.
+
+        let events: Vec<events::HostEvent> = vec![
+            events::HostEvent::Contract(xdr::ContractEvent {
+                ext: xdr::ExtensionPoint::V0,
+                contract_id: Some(xdr::Hash([0; 32])),
+                type_: xdr::ContractEventType::Contract,
+                body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
+                    topics: xdr::ScVec(vec![].try_into().unwrap()),
+                    data: xdr::ScVal::U32(12345),
+                }),
+            }),
+            events::HostEvent::Contract(xdr::ContractEvent {
+                ext: xdr::ExtensionPoint::V0,
+                contract_id: Some(xdr::Hash([0x1; 32])),
+                type_: xdr::ContractEventType::Contract,
+                body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
+                    topics: xdr::ScVec(vec![].try_into().unwrap()),
+                    data: xdr::ScVal::I32(67890),
+                }),
+            }),
+        ];
+
+        let snapshot = soroban_ledger_snapshot::LedgerSnapshot {
+            protocol_version: 1,
+            sequence_number: 2, // this is the only value that matters
+            timestamp: 3,
+            network_passphrase: "four".into(),
+            base_reserve: 5,
+            ledger_entries: vec![],
+        };
+
+        commit_events(&events, &snapshot, &temp.to_path_buf()).unwrap();
+
+        let events = read_events(&temp.to_path_buf()).unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].ledger, "2");
+        assert_eq!(events[1].ledger, "2");
+        assert_eq!(events[0].contract_id, "0".repeat(64));
+        assert_eq!(events[1].contract_id, "01".repeat(32));
     }
 }
