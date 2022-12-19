@@ -1,4 +1,4 @@
-use jsonrpsee_core::{client::ClientT, rpc_params};
+sue jsonrpsee_core::{client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
 use std::time::{Duration, Instant};
@@ -48,6 +48,12 @@ pub struct TransactionStatusResult {
 pub struct GetTransactionStatusResponse {
     pub id: String,
     pub status: String,
+    #[serde(rename = "envelopeXdr", skip_serializing_if = "Option::is_none", default)]
+    pub envelope_xdr: Option<String>,
+    #[serde(rename = "resultXdr", skip_serializing_if = "Option::is_none"), default)]
+    pub result_xdr: Option<String>,
+    #[serde(rename = "resultMetaXdr", skip_serializing_if = "Option::is_none", default)]
+    pub result_meta_xdr: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub results: Vec<TransactionStatusResult>,
 }
