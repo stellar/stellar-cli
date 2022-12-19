@@ -269,7 +269,7 @@ impl Cmd {
 
         // Read the JSON events from disk and find the ones that match the
         // contract ID filter(s) that were passed in.
-        Ok(read_events(path)
+        Ok(read(path)
             .map_err(|err| Error::CannotReadFile {
                 path: path.to_str().unwrap().to_string(),
                 error: err.to_string(),
@@ -323,7 +323,9 @@ impl Cmd {
                             // split filter, because passing a slice of
                             // references is too much for this language to
                             // handle
-                            &f.split(',').map(|s| s.to_string()).collect::<Vec<String>>()
+                            &f.split(',')
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>()
                         )
                     })
             })
@@ -463,14 +465,14 @@ pub fn pretty_print_event(event: &rpc::Event) -> Result<(), Box<dyn std::error::
 
 /// Returns a list of events from the on-disk event store, which stores events
 /// exactly as they'd be returned by an RPC server.
-pub fn read_events(path: &std::path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
+pub fn read(path: &std::path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
     let reader = std::fs::OpenOptions::new().read(true).open(path)?;
     Ok(serde_json::from_reader(reader)?)
 }
 
 /// Reads the existing event file, appends the new events, and writes it all to
 /// disk. Note that this almost certainly isn't safe to call in parallel.
-pub fn commit_events(
+pub fn commit(
     new_events: &[events::HostEvent],
     ledger_info: &soroban_ledger_snapshot::LedgerSnapshot,
     output_file: &std::path::PathBuf,
@@ -483,12 +485,11 @@ pub fn commit_events(
         }
     }
 
-    let mut events: rpc::GetEventsResponse = match path::Path::exists(output_file) {
-        true => {
-            let mut file = fs::OpenOptions::new().read(true).open(output_file)?;
-            serde_json::from_reader(&mut file)?
-        }
-        false => vec![],
+    let mut events: rpc::GetEventsResponse = if path::Path::exists(output_file) {
+        let mut file = fs::OpenOptions::new().read(true).open(output_file)?;
+        serde_json::from_reader(&mut file)?
+    } else {
+        vec![]
     };
 
     for (i, event) in new_events.iter().enumerate() {
@@ -686,10 +687,13 @@ mod tests {
             for topic in tc.includes {
                 assert!(
                     does_topic_match(
-                        &topic.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                        &topic
+                            .iter()
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>(),
                         &tc.filter
                             .iter()
-                            .map(|s| s.to_string())
+                            .map(std::string::ToString::to_string)
                             .collect::<Vec<String>>()
                     ),
                     "test: {}, topic ({:?}) should be matched by filter ({:?})",
@@ -703,10 +707,13 @@ mod tests {
                 assert!(
                     !does_topic_match(
                         // make deep copies of the vecs
-                        &topic.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                        &topic
+                            .iter()
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>(),
                         &tc.filter
                             .iter()
-                            .map(|s| s.to_string())
+                            .map(std::string::ToString::to_string)
                             .collect::<Vec<String>>()
                     ),
                     "test: {}, topic ({:?}) should NOT be matched by filter ({:?})",
@@ -756,9 +763,9 @@ mod tests {
             ledger_entries: vec![],
         };
 
-        commit_events(&events, &snapshot, &temp.to_path_buf()).unwrap();
+        commit(&events, &snapshot, &temp.to_path_buf()).unwrap();
 
-        let events = read_events(&temp.to_path_buf()).unwrap();
+        let events = read(&temp.to_path_buf()).unwrap();
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].ledger, "2");
         assert_eq!(events[1].ledger, "2");

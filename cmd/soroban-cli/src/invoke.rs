@@ -460,7 +460,7 @@ impl Cmd {
                 error: e,
             })?;
 
-        events::commit_events(&events.0, &state, &self.events_file).map_err(|e| {
+        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
             Error::CannotCommitEventsFile {
                 filepath: self.events_file.clone(),
                 error: e,
