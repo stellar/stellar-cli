@@ -176,20 +176,26 @@ pub fn commit_events(
         .map(xdr::WriteXdr::to_xdr_base64)
         .collect::<Result<Vec<String>, _>>()?;
 
-        let id = toid::Toid::new(
-            ledger_info.sequence_number,
-            // we should technically inject the tx order here from the ledger
-            // info, but the sandbox does one tx/op per ledger anyway, so this
-            // is a safe assumption
-            1,
-            1,
+        // stolen from
+        // https://github.com/stellar/soroban-tools/blob/main/cmd/soroban-rpc/internal/methods/get_events.go#L264
+        let id = format!(
+            "{}-{:010}",
+            toid::Toid::new(
+                ledger_info.sequence_number,
+                // we should technically inject the tx order here from the ledger
+                // info, but the sandbox does one tx/op per ledger anyway, so this
+                // is a safe assumption
+                1,
+                1,
+            )
+            .to_paging_token(),
+            i + 1
         );
+
         let cereal_event = rpc::Event {
             event_type: "contract".to_string(),
-            id: id.to_string(),
-            // stolen from
-            // https://github.com/stellar/soroban-tools/blob/main/cmd/soroban-rpc/internal/methods/get_events.go#L264
-            paging_token: format!("{}-{:010}", id.to_paging_token(), i + 1),
+            paging_token: id.clone(),
+            id,
             ledger: ledger_info.sequence_number.to_string(),
             ledger_closed_at: ledger_info.timestamp.to_string(),
             contract_id: hex::encode(

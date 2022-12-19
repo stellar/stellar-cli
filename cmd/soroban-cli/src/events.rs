@@ -188,13 +188,11 @@ impl Cmd {
             }
         }
 
-        let events = match self.rpc_url.as_ref() {
-            Some(rpc_url) => self.run_against_rpc_server(rpc_url).await?,
-            _ => match self.events_file.as_ref() {
-                Some(path) => self.run_in_sandbox(path)?,
-                _ => return Err(Error::TargetRequired),
-            },
-        };
+        let events = match (self.rpc_url.as_ref(), self.events_file.as_ref()) {
+            (Some(rpc_url), _) => self.run_against_rpc_server(rpc_url).await,
+            (_, Some(path)) => self.run_in_sandbox(path),
+            _ => Err(Error::TargetRequired),
+        }?;
 
         for event in &events {
             match self.output {
@@ -266,8 +264,8 @@ impl Cmd {
             // though it's likely that this logic belongs more in
             // `snapshot::read_events()`.
             .rev()
-            // The ledger range is optional in sandbox mode.
             .filter(|evt| {
+                // The ledger range is optional in sandbox mode.
                 if self.start_ledger == 0 && self.end_ledger == 0 {
                     return true;
                 }
@@ -300,8 +298,17 @@ impl Cmd {
                 // apply all of them to the given event.
                 self.topic_filters
                     .iter()
-                    // quadratic but both are <= 5 long
-                    .any(|f| does_topic_match(&evt.topic, &f.split(',').collect()))
+                    // quadratic, but both are <= 5 long
+                    .any(|f| {
+                        does_topic_match(
+                            &evt.topic,
+                            // misc. Rust nonsense: make a copy over the given
+                            // split filter, because passing a slice of
+                            // references is too much for this language to
+                            // handle
+                            &f.split(',').map(|s| s.to_string()).collect::<Vec<String>>()
+                        )
+                    })
             })
             .take(count)
             .cloned()
@@ -323,18 +330,18 @@ impl Cmd {
 // Reference](https://docs.google.com/document/d/1TZUDgo_3zPz7TiPMMHVW_mtogjLyPL0plvzGMsxSz6A/edit#bookmark=id.35t97rnag3tx)
 // [Code
 // Reference](https://github.com/stellar/soroban-tools/blob/bac1be79e8c2590c9c35ad8a0168aab0ae2b4171/cmd/soroban-rpc/internal/methods/get_events.go#L182-L203)
-pub fn does_topic_match(topics: &Vec<String>, segments: &Vec<&str>) -> bool {
+pub fn does_topic_match(topic: &[String], filter: &[String]) -> bool {
     let mut idx = 0;
 
-    for segment in segments {
-        if idx >= topics.len() {
+    for segment in filter {
+        if idx >= topic.len() {
             // Nothing to match, need at least one segment.
             return false;
         }
 
-        if *segment != "*" {
+        if *segment == "*" {
             // One-segment wildcard: ignore this token
-        } else if *segment != topics[idx] {
+        } else if *segment != topic[idx] {
             // Exact match the ScVal (decodability is assumed)
             return false;
         }
@@ -343,7 +350,7 @@ pub fn does_topic_match(topics: &Vec<String>, segments: &Vec<&str>) -> bool {
     }
 
     // Check we had no leftovers
-    idx >= topics.len()
+    idx >= topic.len()
 }
 
 pub fn print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
@@ -434,4 +441,151 @@ pub fn pretty_print_event(event: &Event) -> Result<(), Box<dyn std::error::Error
     )?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    // Taken from [RPC server
+    // tests](https://github.com/stellar/soroban-tools/blob/main/cmd/soroban-rpc/internal/methods/get_events_test.go#L21).
+    fn test_does_topic_match() {
+        let xfer = "AAAABQAAAAh0cmFuc2Zlcg==";
+        let number = "AAAAAQB6Mcc=";
+        let star = "*";
+
+        struct TestCase<'a> {
+            name: &'a str,
+            filter: Vec<String>,
+            includes: Vec<Vec<String>>,
+            excludes: Vec<Vec<String>>,
+        }
+
+        for tc in vec![
+            // No filter means match nothing.
+            TestCase {
+                name: "<empty>",
+                filter: vec![],
+                includes: vec![],
+                excludes: vec![vec![xfer.to_string()]],
+            },
+            // "*" should match "transfer/" but not "transfer/transfer" or
+            // "transfer/amount", because * is specified as a SINGLE segment
+            // wildcard.
+            TestCase {
+                name: "*",
+                filter: vec![star.to_string()],
+                includes: vec![vec![xfer.to_string()]],
+                excludes: vec![
+                    vec![xfer.to_string(), xfer.to_string()],
+                    vec![xfer.to_string(), number.to_string()],
+                ],
+            },
+            // "*/transfer" should match anything preceding "transfer", but
+            // nothing that isn't exactly two segments long.
+            TestCase {
+                name: "*/transfer",
+                filter: vec![star.to_string(), xfer.to_string()],
+                includes: vec![
+                    vec![number.to_string(), xfer.to_string()],
+                    vec![xfer.to_string(), xfer.to_string()],
+                ],
+                excludes: vec![
+                    vec![number.to_string()],
+                    vec![number.to_string(), number.to_string()],
+                    vec![number.to_string(), xfer.to_string(), number.to_string()],
+                    vec![xfer.to_string()],
+                    vec![xfer.to_string(), number.to_string()],
+                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
+                ],
+            },
+            // The inverse case of before: "transfer/*" should match any single
+            // segment after a segment that is exactly "transfer", but no
+            // additional segments.
+            TestCase {
+                name: "transfer/*",
+                filter: vec![xfer.to_string(), star.to_string()],
+                includes: vec![
+                    vec![xfer.to_string(), number.to_string()],
+                    vec![xfer.to_string(), xfer.to_string()],
+                ],
+                excludes: vec![
+                    vec![number.to_string()],
+                    vec![number.to_string(), number.to_string()],
+                    vec![number.to_string(), xfer.to_string(), number.to_string()],
+                    vec![xfer.to_string()],
+                    vec![number.to_string(), xfer.to_string()],
+                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
+                ],
+            },
+            // Here, we extend to exactly two wild segments after transfer.
+            TestCase {
+                name: "transfer/*/*",
+                filter: vec![xfer.to_string(), star.to_string(), star.to_string()],
+                includes: vec![
+                    vec![xfer.to_string(), number.to_string(), number.to_string()],
+                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
+                ],
+                excludes: vec![
+                    vec![number.to_string()],
+                    vec![number.to_string(), number.to_string()],
+                    vec![number.to_string(), xfer.to_string()],
+                    vec![
+                        number.to_string(),
+                        xfer.to_string(),
+                        number.to_string(),
+                        number.to_string(),
+                    ],
+                    vec![xfer.to_string()],
+                    vec![
+                        xfer.to_string(),
+                        xfer.to_string(),
+                        xfer.to_string(),
+                        xfer.to_string(),
+                    ],
+                ],
+            },
+            TestCase {
+                name: "transfer/*/number",
+                filter: vec![xfer.to_string(), star.to_string(), number.to_string()],
+                includes: vec![
+                    vec![xfer.to_string(), number.to_string(), number.to_string()],
+                    vec![xfer.to_string(), xfer.to_string(), number.to_string()],
+                ],
+                excludes: vec![
+                    vec![number.to_string()],
+                    vec![number.to_string(), number.to_string()],
+                    vec![number.to_string(), number.to_string(), number.to_string()],
+                    vec![number.to_string(), xfer.to_string(), number.to_string()],
+                    vec![xfer.to_string()],
+                    vec![number.to_string(), xfer.to_string()],
+                    vec![xfer.to_string(), xfer.to_string(), xfer.to_string()],
+                    vec![xfer.to_string(), number.to_string(), xfer.to_string()],
+                ],
+            },
+        ] {
+            for topic in tc.includes {
+                assert_eq!(
+                    true,
+                    does_topic_match(&topic, &tc.filter),
+                    "test: {}, topic ({:?}) should be matched by filter ({:?})",
+                    tc.name,
+                    topic,
+                    tc.filter
+                );
+            }
+
+            for topic in tc.excludes {
+                assert_eq!(
+                    false,
+                    does_topic_match(&topic, &tc.filter),
+                    "test: {}, topic ({:?}) should NOT be matched by filter ({:?})",
+                    tc.name,
+                    topic,
+                    tc.filter
+                );
+            }
+        }
+    }
 }

@@ -237,23 +237,22 @@ impl Client {
         limit: Option<usize>,
     ) -> Result<Option<GetEventsResponse>, Error> {
         let mut filters = serde_json::Map::new();
-        filters.insert(
-            "type".to_string(),
-            match event_type {
-                Some(t) => match t {
-                    EventType::All => "",
-                    EventType::Contract => "contract",
-                    EventType::System => "system",
-                },
-                None => "",
-            }
-            .into(),
-        );
+
+        event_type
+            .and_then(|t| match t {
+                EventType::All => None, // all is the default, so avoid incl. the param
+                EventType::Contract => Some("contract"),
+                EventType::System => Some("system"),
+            })
+            .map(|t| filters.insert("type".to_string(), t.into()));
+
         filters.insert("topics".to_string(), topics.into());
         filters.insert("contractIds".to_string(), contract_ids.into());
 
         let mut pagination = serde_json::Map::new();
-        pagination.insert("limit".to_string(), limit.unwrap_or(10).into());
+        if let Some(limit) = limit {
+            pagination.insert("limit".to_string(), limit.into());
+        }
         // TODO: cursor
 
         let mut object = collections::BTreeMap::<&str, jsonrpsee_core::JsonValue>::new();
