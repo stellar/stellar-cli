@@ -340,8 +340,9 @@ impl Cmd {
 //  - for a wildcard, single-segment match, the string "*" matches exactly one
 //    segment
 //
-// The expectation is that a `topic_filter` is a comma-separated list of
-// segments that has previously been validated.
+// The expectation is that a `filter` is a comma-separated list of segments that
+// has previously been validated, and `topic` is the list of segments applicable
+// for this event.
 //
 // [API
 // Reference](https://docs.google.com/document/d/1TZUDgo_3zPz7TiPMMHVW_mtogjLyPL0plvzGMsxSz6A/edit#bookmark=id.35t97rnag3tx)
