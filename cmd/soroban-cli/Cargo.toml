@@ -44,6 +44,7 @@ jsonrpsee-http-client = "0.15.1"
 jsonrpsee-core = "0.15.1"
 regex = "1.6.0"
 wasm-opt = "0.110.1"
+chrono = "0.4.23"
 
 [build-dependencies]
 crate-git-revision = "0.0.4"

@@ -1,12 +1,15 @@
+use chrono::{DateTime, NaiveDateTime, Utc};
 use clap::Parser;
-use std::path;
+use std::{fs, io, path};
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 
-use soroban_env_host::xdr::{self, ReadXdr};
+use soroban_env_host::{
+    events,
+    xdr::{self, ReadXdr, WriteXdr},
+};
 
-use crate::rpc::{Client, Event};
-use crate::{rpc, snapshot, utils};
+use crate::{rpc, toid, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -125,6 +128,9 @@ pub enum Error {
         error: serde_json::Error,
     },
 
+    #[error("invalid timestamp in event: {ts}")]
+    InvalidTimestamp { ts: String },
+
     #[error("you must specify either an RPC server or sandbox filepath(s)")]
     TargetRequired,
 
@@ -136,6 +142,15 @@ pub enum Error {
 
     #[error(transparent)]
     Generic(#[from] Box<dyn std::error::Error>),
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    Xdr(#[from] xdr::Error),
+
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ArgEnum)]
@@ -218,12 +233,12 @@ impl Cmd {
         Ok(())
     }
 
-    async fn run_against_rpc_server(&self, rpc_url: &str) -> Result<Vec<Event>, Error> {
+    async fn run_against_rpc_server(&self, rpc_url: &str) -> Result<Vec<rpc::Event>, Error> {
         if self.start_ledger == 0 && self.end_ledger == 0 {
             return Err(Error::LedgerRangeRequired);
         }
 
-        let client = Client::new(rpc_url);
+        let client = rpc::Client::new(rpc_url);
         Ok(client
             .get_events(
                 self.start_ledger,
@@ -237,7 +252,7 @@ impl Cmd {
             .unwrap_or_default())
     }
 
-    fn run_in_sandbox(&self, path: &path::PathBuf) -> Result<Vec<Event>, Error> {
+    fn run_in_sandbox(&self, path: &path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
         if !path.exists() {
             return Err(Error::InvalidFile {
                 path: path.to_str().unwrap().to_string(),
@@ -252,7 +267,7 @@ impl Cmd {
 
         // Read the JSON events from disk and find the ones that match the
         // contract ID filter(s) that were passed in.
-        Ok(snapshot::read_events(path)
+        Ok(read_events(path)
             .map_err(|err| Error::CannotReadFile {
                 path: path.to_str().unwrap().to_string(),
                 error: err.to_string(),
@@ -312,7 +327,7 @@ impl Cmd {
             })
             .take(count)
             .cloned()
-            .collect::<Vec<Event>>())
+            .collect::<Vec<rpc::Event>>())
     }
 }
 
@@ -353,7 +368,7 @@ pub fn does_topic_match(topic: &[String], filter: &[String]) -> bool {
     idx >= topic.len()
 }
 
-pub fn print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
+pub fn print_event(event: &rpc::Event) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "Event {} [{}]:",
         event.paging_token,
@@ -375,7 +390,7 @@ pub fn print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn pretty_print_event(event: &Event) -> Result<(), Box<dyn std::error::Error>> {
+pub fn pretty_print_event(event: &rpc::Event) -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     if !stdout.supports_color() {
         print_event(event)?;
@@ -439,6 +454,115 @@ pub fn pretty_print_event(event: &Event) -> Result<(), Box<dyn std::error::Error
         scval,
         reset!(),
     )?;
+
+    Ok(())
+}
+
+/// Returns a list of events from the on-disk event store, which stores events
+/// exactly as they'd be returned by an RPC server.
+pub fn read_events(path: &std::path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
+    let reader = std::fs::OpenOptions::new().read(true).open(path)?;
+    Ok(serde_json::from_reader(reader)?)
+}
+
+/// Reads the existing event file, appends the new events, and writes it all to
+/// disk. Note that this almost certainly isn't safe to call in parallel.
+pub fn commit_events(
+    new_events: &[events::HostEvent],
+    ledger_info: &soroban_ledger_snapshot::LedgerSnapshot,
+    output_file: &std::path::PathBuf,
+) -> Result<(), Error> {
+    // Create the directory tree if necessary, since these are unlikely to be
+    // the first events.
+    if let Some(dir) = output_file.parent() {
+        if !dir.exists() {
+            fs::create_dir_all(dir)?;
+        }
+    }
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .open(output_file)?;
+    let mut events: rpc::GetEventsResponse = serde_json::from_reader(&mut file)?;
+
+    for (i, event) in new_events.iter().enumerate() {
+        let contract_event = match event {
+            events::HostEvent::Contract(e) => e,
+            events::HostEvent::Debug(_e) => todo!(),
+        };
+
+        let topics = match &contract_event.body {
+            xdr::ContractEventBody::V0(e) => &e.topics,
+        }
+        .iter()
+        .map(xdr::WriteXdr::to_xdr_base64)
+        .collect::<Result<Vec<String>, _>>()?;
+
+        // stolen from
+        // https://github.com/stellar/soroban-tools/blob/main/cmd/soroban-rpc/internal/methods/get_events.go#L264
+        let id = format!(
+            "{}-{:010}",
+            toid::Toid::new(
+                ledger_info.sequence_number,
+                // we should technically inject the tx order here from the
+                // ledger info, but the sandbox does one tx/op per ledger
+                // anyway, so this is a safe assumption
+                1,
+                1,
+            )
+            .to_paging_token(),
+            i + 1
+        );
+
+        // Misc. timestamp to RFC 3339-formatted datetime nonsense, with an
+        // absurd amount of verbosity because every edge case needs its own
+        // chain of error-handling methods.
+        //
+        // Reference: https://stackoverflow.com/a/50072164
+        let ts: i64 = ledger_info
+            .timestamp
+            .try_into()
+            .map_err(|_e| Error::InvalidTimestamp {
+                ts: ledger_info.timestamp.to_string(),
+            })?;
+        let ndt =
+            NaiveDateTime::from_timestamp_opt(ts, 0).ok_or_else(|| Error::InvalidTimestamp {
+                ts: ledger_info.timestamp.to_string(),
+            })?;
+
+        let dt: DateTime<Utc> = DateTime::from_utc(ndt, Utc);
+
+        let cereal_event = rpc::Event {
+            event_type: "contract".to_string(),
+            paging_token: id.clone(),
+            id,
+            ledger: ledger_info.sequence_number.to_string(),
+            ledger_closed_at: dt.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+            contract_id: hex::encode(
+                contract_event
+                    .contract_id
+                    .as_ref()
+                    .unwrap_or(&xdr::Hash([0; 32])),
+            ),
+            topic: topics,
+            value: rpc::EventValue {
+                xdr: match &contract_event.body {
+                    xdr::ContractEventBody::V0(e) => &e.data,
+                }
+                .to_xdr_base64()?,
+            },
+        };
+
+        events.push(cereal_event);
+    }
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(output_file)?;
+
+    serde_json::to_writer_pretty(&mut file, &events)?;
 
     Ok(())
 }
@@ -546,6 +670,9 @@ mod tests {
                     ],
                 ],
             },
+            // Here, we ensure wildcards can be in the middle of a filter: only
+            // exact matches happen on the ends, while the middle can be
+            // anything.
             TestCase {
                 name: "transfer/*/number",
                 filter: vec![xfer.to_string(), star.to_string(), number.to_string()],
@@ -566,8 +693,7 @@ mod tests {
             },
         ] {
             for topic in tc.includes {
-                assert_eq!(
-                    true,
+                assert!(
                     does_topic_match(&topic, &tc.filter),
                     "test: {}, topic ({:?}) should be matched by filter ({:?})",
                     tc.name,
@@ -577,9 +703,8 @@ mod tests {
             }
 
             for topic in tc.excludes {
-                assert_eq!(
-                    false,
-                    does_topic_match(&topic, &tc.filter),
+                assert!(
+                    !does_topic_match(&topic, &tc.filter),
                     "test: {}, topic ({:?}) should NOT be matched by filter ({:?})",
                     tc.name,
                     topic,

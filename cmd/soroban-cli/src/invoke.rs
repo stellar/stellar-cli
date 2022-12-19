@@ -24,7 +24,7 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
-use crate::{rpc, strval, utils};
+use crate::{events, rpc, strval, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -134,6 +134,11 @@ pub enum Error {
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
         error: soroban_ledger_snapshot::Error,
+    },
+    #[error("committing file {filepath}: {error}")]
+    CannotCommitEventsFile {
+        filepath: std::path::PathBuf,
+        error: events::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -455,8 +460,8 @@ impl Cmd {
                 error: e,
             })?;
 
-        snapshot::commit_events(&events.0, &ledger_info, &self.events_file).map_err(|e| {
-            Error::CannotCommitLedgerFile {
+        events::commit_events(&events.0, &state, &self.events_file).map_err(|e| {
+            Error::CannotCommitEventsFile {
                 filepath: self.events_file.clone(),
                 error: e,
             }
