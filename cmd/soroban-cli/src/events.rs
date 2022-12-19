@@ -174,16 +174,6 @@ impl Cmd {
             });
         }
 
-        for raw_contract_id in &self.contract_ids {
-            // We parse the contract IDs to ensure they're the correct format,
-            // but since we'll be passing them as-is to the RPC server anyway,
-            // we disregard the return value.
-            utils::id_from_str::<32>(raw_contract_id).map_err(|e| Error::InvalidContractId {
-                contract_id: raw_contract_id.clone(),
-                error: e,
-            })?;
-        }
-
         // Validate that topics are made up of segments.
         for topic in &self.topic_filters {
             for (i, segment) in topic.split(',').enumerate() {
@@ -238,6 +228,16 @@ impl Cmd {
     async fn run_against_rpc_server(&self, rpc_url: &str) -> Result<Vec<rpc::Event>, Error> {
         if self.start_ledger == 0 && self.end_ledger == 0 {
             return Err(Error::LedgerRangeRequired);
+        }
+
+        for raw_contract_id in &self.contract_ids {
+            // We parse the contract IDs to ensure they're the correct format,
+            // but since we'll be passing them as-is to the RPC server anyway,
+            // we disregard the return value.
+            utils::id_from_str::<32>(raw_contract_id).map_err(|e| Error::InvalidContractId {
+                contract_id: raw_contract_id.clone(),
+                error: e,
+            })?;
         }
 
         let client = rpc::Client::new(rpc_url);
