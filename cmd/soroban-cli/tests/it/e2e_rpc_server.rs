@@ -8,7 +8,6 @@ fn e2e_deploy_and_invoke_contract_against_rpc_server() {
     let id = Standalone::new_cmd("deploy")
         .arg("--wasm")
         .arg(test_wasm("test_hello_world"))
-        .arg("--salt=1")
         .assert()
         .stderr("success\nsuccess\n")
         .success()
