@@ -30,7 +30,9 @@ pub struct Cmd {
     #[clap(long, arg_enum, default_value = "pretty")]
     output: OutputFormat,
 
-    /// The maximum number of events to display (0 = all)
+    /// The maximum number of events to display (specify "0" to show all events
+    /// when using sandbox, or to defer to the server-defined limit if using
+    /// RPC).
     #[clap(short, long, default_value = "10")]
     count: usize,
 
