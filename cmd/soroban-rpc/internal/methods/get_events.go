@@ -185,32 +185,40 @@ func (t *TopicFilter) Valid() error {
 	return nil
 }
 
+// An event matches a topic filter iff:
+//   - the event has EXACTLY as many topic segments as the filter AND
+//   - each segment either: matches exactly OR is a wildcard.
 func (t TopicFilter) Matches(event []xdr.ScVal) bool {
-	for _, segmentFilter := range t {
-		if len(event) == 0 {
-			// Nothing to match, need at least one segment.
+	if len(event) != len(t) {
+		return false
+	}
+
+	for i, segmentFilter := range t {
+		if !segmentFilter.Matches(event[i]) {
 			return false
 		}
-		if segmentFilter.wildcard != nil && *segmentFilter.wildcard == "*" {
-			// one-segment wildcard
-			// Ignore this token
-		} else if segmentFilter.scval != nil {
-			// Exact match the scval
-			if !segmentFilter.scval.Equals(event[0]) {
-				return false
-			}
-		} else {
-			panic("invalid segmentFilter")
-		}
-		event = event[1:]
 	}
-	// Check we had no leftovers
-	return len(event) == 0
+
+	return true
 }
 
 type SegmentFilter struct {
 	wildcard *string
 	scval    *xdr.ScVal
+}
+
+func (s *SegmentFilter) Matches(segment xdr.ScVal) bool {
+	if s.wildcard != nil && *s.wildcard == "*" {
+		return true
+	} else if s.scval != nil {
+		if !s.scval.Equals(segment) {
+			return false
+		}
+	} else {
+		panic("invalid segmentFilter")
+	}
+
+	return true
 }
 
 func (s *SegmentFilter) Valid() error {
