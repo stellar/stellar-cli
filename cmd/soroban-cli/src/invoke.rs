@@ -28,7 +28,7 @@ use crate::config::network::Network;
 use crate::rpc::Client;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
 use crate::HEADING_SANDBOX;
-use crate::{rpc, strval, utils};
+use crate::{events, rpc, strval, utils};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -65,6 +65,16 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     account_id: StrkeyPublicKeyEd25519,
+    /// File to persist event output
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value(".soroban/events.json"),
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_EVENTS_FILE",
+        help_heading = HEADING_SANDBOX,
+    )]
+    events_file: std::path::PathBuf,
 
     #[clap(flatten)]
     config: config::Args,
@@ -92,6 +102,11 @@ pub enum Error {
     CannotReadContractFile {
         filepath: std::path::PathBuf,
         error: io::Error,
+    },
+    #[error("committing file {filepath}: {error}")]
+    CannotCommitEventsFile {
+        filepath: std::path::PathBuf,
+        error: events::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -406,6 +421,13 @@ impl Cmd {
         }
 
         self.config.set_state(&mut state)?;
+
+        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
+            Error::CannotCommitEventsFile {
+                filepath: self.events_file.clone(),
+                error: e,
+            }
+        })?;
 
         Ok(())
     }
