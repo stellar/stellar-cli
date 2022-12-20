@@ -58,7 +58,6 @@ pub struct Args {
     /// RPC server endpoint
     #[clap(
         long,
-        conflicts_with = "account-id",
         requires = "secret-key",
         requires = "network-passphrase",
         env = "SOROBAN_RPC_URL",
