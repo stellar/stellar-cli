@@ -368,12 +368,14 @@ fn execute_transaction(
     let mut ledger_info = state.ledger_info();
     ledger_info.sequence_number += 1;
     ledger_info.timestamp += 5;
-    h.set_ledger_info(ledger_info.clone());
+    h.set_ledger_info(ledger_info);
 
     // TODO: Check the parameters match the contract spec, or return a helpful error message
 
     // TODO: Handle installing code and creating contracts here as well
     let res = h.invoke_function(HostFunction::InvokeContract(args.try_into()?))?;
+
+    state.update(&h);
 
     let (storage, budget, _) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(
@@ -400,8 +402,6 @@ fn execute_transaction(
     let footprint = create_ledger_footprint(&storage.footprint);
 
     if commit {
-        state.set_ledger_info(ledger_info);
-        state.update_entries(&storage.map);
         state.write_file(ledger_file).map_err(Error::Snapshot)?;
     }
 

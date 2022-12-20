@@ -392,7 +392,7 @@ impl Cmd {
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info.clone());
+        h.set_ledger_info(ledger_info);
 
         let host_function_params =
             self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
@@ -404,6 +404,8 @@ impl Cmd {
         })?;
 
         println!("{res_str}");
+
+        state.update(&h);
 
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
@@ -436,8 +438,6 @@ impl Cmd {
             }
         }
 
-        state.set_ledger_info(ledger_info);
-        state.update_entries(&storage.map);
         state
             .write_file(&self.ledger_file)
             .map_err(|e| Error::CannotCommitLedgerFile {
