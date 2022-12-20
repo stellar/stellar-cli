@@ -23,10 +23,12 @@ use soroban_env_host::{
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
+use crate::config;
+use crate::config::network::Network;
 use crate::rpc::Client;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
+use crate::HEADING_SANDBOX;
 use crate::{rpc, strval, utils};
-use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -63,47 +65,19 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     account_id: StrkeyPublicKeyEd25519,
-    /// File to persist ledger state
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value(".soroban/ledger.json"),
-        conflicts_with = "rpc-url",
-        env = "SOROBAN_LEDGER_FILE",
-        help_heading = HEADING_SANDBOX,
-    )]
-    ledger_file: std::path::PathBuf,
 
-    /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(
-        long = "secret-key",
-        requires = "rpc-url",
-        env = "SOROBAN_SECRET_KEY",
-        help_heading = HEADING_RPC,
-    )]
-    secret_key: Option<String>,
-    /// RPC server endpoint
-    #[clap(
-        long,
-        conflicts_with = "account-id",
-        requires = "secret-key",
-        requires = "network-passphrase",
-        env = "SOROBAN_RPC_URL",
-        help_heading = HEADING_RPC,
-    )]
-    rpc_url: Option<String>,
-    /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(
-        long = "network-passphrase",
-        requires = "rpc-url",
-        env = "SOROBAN_NETWORK_PASSPHRASE",
-        help_heading = HEADING_RPC,
-    )]
-    network_passphrase: Option<String>,
+    #[clap(flatten)]
+    config: config::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Config(#[from] config::Error),
+
+    #[error(transparent)]
+    Ledger(#[from] config::ledger::Error),
+
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg { arg: String, error: strval::Error },
     #[error("parsing XDR arg {arg}: {error}")]
@@ -115,19 +89,9 @@ pub enum Error {
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
     #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
-    #[error("reading file {filepath}: {error}")]
     CannotReadContractFile {
         filepath: std::path::PathBuf,
         error: io::Error,
-    },
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -154,8 +118,6 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
-    #[error("cannot parse secret key")]
-    CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
@@ -268,18 +230,21 @@ impl Cmd {
     }
 
     pub async fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
-        if self.rpc_url.is_some() {
-            self.run_against_rpc_server(matches).await
-        } else {
+        if self.config.no_network() {
             self.run_in_sandbox(matches)
+        } else {
+            self.run_against_rpc_server(matches).await
         }
     }
 
     async fn run_against_rpc_server(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
         let contract_id = self.contract_id()?;
-        let client = Client::new(self.rpc_url.as_ref().unwrap());
-        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
-            .map_err(|_| Error::CannotParseSecretKey)?;
+        let Network {
+            rpc_url,
+            network_passphrase,
+        } = &self.config.get_network()?;
+        let client = Client::new(rpc_url);
+        let key = self.config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey = StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
@@ -303,12 +268,13 @@ impl Cmd {
         // Get the ledger footprint
         let host_function_params =
             self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
+
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
             None,
             sequence + 1,
             fee,
-            self.network_passphrase.as_ref().unwrap(),
+            network_passphrase,
             &key,
         )?;
         let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
@@ -324,7 +290,7 @@ impl Cmd {
             Some(footprint),
             sequence + 1,
             fee,
-            self.network_passphrase.as_ref().unwrap(),
+            network_passphrase,
             &key,
         )?;
 
@@ -348,12 +314,7 @@ impl Cmd {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
-            Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            }
-        })?;
+        let mut state = self.config.get_state()?;
 
         // If a file is specified, deploy the contract to storage
         if let Some(f) = &self.wasm {
@@ -444,12 +405,7 @@ impl Cmd {
             }
         }
 
-        state
-            .write_file(&self.ledger_file)
-            .map_err(|e| Error::CannotCommitLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
+        self.config.set_state(&mut state)?;
 
         Ok(())
     }

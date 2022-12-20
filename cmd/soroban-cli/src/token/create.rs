@@ -19,23 +19,16 @@ use soroban_env_host::{
 use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
+    config::ledger,
     network,
     rpc::{Client, Error as SorobanRpcError},
-    utils, HEADING_RPC, HEADING_SANDBOX,
+    utils, HEADING_RPC,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
     #[error("cannot parse secret key")]
     CannotParseSecretKey,
     #[error("cannot parse salt: {salt}")]
@@ -77,16 +70,8 @@ pub struct Cmd {
     )]
     salt: String,
 
-    /// File to persist ledger state (if using the sandbox)
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value = ".soroban/ledger.json",
-        conflicts_with = "rpc-url",
-        env = "SOROBAN_LEDGER_FILE",
-        help_heading = HEADING_SANDBOX,
-    )]
-    ledger_file: std::path::PathBuf,
+    #[clap(flatten)]
+    ledger: ledger::Args,
 
     /// RPC server endpoint
     #[clap(
@@ -166,12 +151,7 @@ impl Cmd {
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
-            Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            }
-        })?;
+        let mut state = self.ledger.read()?;
 
         let snap = Rc::new(state.clone());
         let h = Host::with_storage_and_budget(
@@ -204,12 +184,7 @@ impl Cmd {
         )))?;
 
         state.update(&h);
-        state
-            .write_file(&self.ledger_file)
-            .map_err(|e| Error::CannotCommitLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
+        self.ledger.write(&mut state)?;
         Ok(res_str)
     }
 

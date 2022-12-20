@@ -6,7 +6,7 @@ use std::{
 
 use crate::utils::find_config_dir;
 
-use super::secret::Secret;
+use super::{network::Network, secret::Secret, Config};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -18,15 +18,27 @@ pub enum Error {
     DirCreationFailed { path: PathBuf },
     #[error("Failed to read secret's file: {path}")]
     SecretFileRead { path: String },
+    #[error("Failed to read network file: {path}")]
+    NetworkFileRead { path: String },
     #[error("Seceret file failed to deserialize")]
     Deserialization,
-    #[error("Seceret file failed to deserialize")]
+    #[error("Failed to write secerets file")]
     IdCreationFailed,
+    #[error("Seceret file failed to deserialize")]
+    NetworkDeserialization,
+    #[error("Failed to write network file")]
+    NetworkCreationFailed,
     #[error("Error Identity directory is invalid: {name}")]
     IdentityList { name: String },
+    #[error("Config file failed to deserialize")]
+    CannotReadConfigFile,
+    #[error("Config file failed to serialize")]
+    ConfigSerialization,
+    #[error("Config file failed write")]
+    CannotWriteConfigFile,
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Default)]
 pub struct Args {
     /// Use global config
     #[clap(long)]
@@ -85,18 +97,25 @@ impl Args {
         toml::from_slice::<Secret>(&data).map_err(|_| Error::Deserialization)
     }
 
+    #[allow(dead_code)]
+    pub fn read_network(&self, name: &str) -> Result<Network, Error> {
+        let path = self.network_path(name)?;
+        let data = fs::read(&path).map_err(|_| Error::NetworkFileRead {
+            path: path.to_string_lossy().to_string(),
+        })?;
+        toml::from_slice::<Network>(&data).map_err(|_| Error::NetworkDeserialization)
+    }
+
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
         let source = self.identity_path(name)?;
         let data = toml::to_string(secret).map_err(|_| Error::IdCreationFailed)?;
-        println!("Writing to {}", source.display());
-        std::fs::write(&source, data).map_err(|_| Error::IdCreationFailed)
+        std::fs::write(source, data).map_err(|_| Error::IdCreationFailed)
     }
 
-    pub fn write_network(&self, name: &str, network: &Secret) -> Result<(), Error> {
+    pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
         let source = self.identity_path(name)?;
-        let data = toml::to_string(network).map_err(|_| Error::IdCreationFailed)?;
-        println!("Writing to {}", source.display());
-        std::fs::write(&source, data).map_err(|_| Error::IdCreationFailed)
+        let data = toml::to_string(network).map_err(|_| Error::Deserialization)?;
+        std::fs::write(source, data).map_err(|_| Error::NetworkCreationFailed)
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -107,6 +126,38 @@ impl Args {
     pub fn list_networks(&self) -> Result<Vec<String>, Error> {
         let path = self.network_dir()?;
         read_dir(&path)
+    }
+
+    pub fn config_path(&self) -> Result<PathBuf, Error> {
+        Ok(self.config_dir()?.join("config.toml"))
+    }
+
+    pub fn get_config_file(&self) -> Result<Config, Error> {
+        let path = self.config_path()?;
+        if path.exists() {
+            let data = fs::read(&path).map_err(|_| Error::CannotReadConfigFile)?;
+            toml::from_slice::<Config>(&data).map_err(|_| Error::Deserialization)
+        } else {
+            Ok(Config::default())
+        }
+    }
+
+    pub fn write_config_file(&self, config: &Config) -> Result<(), Error> {
+        let path = self.config_path()?;
+        let data = toml::to_string(config).map_err(|_| Error::ConfigSerialization)?;
+        fs::write(path, data).map_err(|_| Error::CannotWriteConfigFile)
+    }
+
+    pub fn set_default_identity(&self, identity: &str) -> Result<(), Error> {
+        let mut config = self.get_config_file()?;
+        config.default_identity = Some(identity.to_owned());
+        self.write_config_file(&config)
+    }
+
+    pub fn set_default_network(&self, network: &str) -> Result<(), Error> {
+        let mut config = self.get_config_file()?;
+        config.default_network = Some(network.to_owned());
+        self.write_config_file(&config)
     }
 }
 

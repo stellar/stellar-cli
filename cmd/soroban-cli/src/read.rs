@@ -13,7 +13,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{strval, utils, HEADING_SANDBOX};
+use crate::{config::ledger, strval, utils};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -30,15 +30,8 @@ pub struct Cmd {
     #[clap(long, arg_enum, default_value("string"))]
     output: Output,
 
-    /// File to persist ledger state
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value(".soroban/ledger.json"),
-        env = "SOROBAN_LEDGER_FILE",
-        help_heading = HEADING_SANDBOX,
-    )]
-    ledger_file: std::path::PathBuf,
+    #[clap(flatten)]
+    ledger: ledger::Args,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
@@ -53,15 +46,12 @@ pub enum Output {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
     #[error("parsing key {key}: {error}")]
     CannotParseKey { key: String, error: strval::Error },
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
-    #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
@@ -114,12 +104,7 @@ impl Cmd {
             None
         };
 
-        let state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
-            Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            }
-        })?;
+        let state = self.ledger.read()?;
         let ledger_entries = &state.ledger_entries;
 
         let contract_id = xdr::Hash(contract_id);

@@ -1,5 +1,4 @@
-use jsonrpsee_core::Serialize;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use stellar_strkey::{StrkeyPrivateKeyEd25519, StrkeyPublicKeyEd25519};
 
@@ -18,11 +17,11 @@ pub enum Error {
 #[derive(Debug, clap::Args)]
 pub struct Args {
     /// Add using secret_key
-    #[clap(long)]
+    #[clap(long, conflicts_with = "seed_phrase")]
     pub secret_key: bool,
 
     /// Add using 12 word seed phrase to generate secret_key
-    #[clap(long)]
+    #[clap(long, conflicts_with = "seceret_key")]
     pub seed_phrase: bool,
     // /// Use MacOS Keychain
     // #[clap(long)]

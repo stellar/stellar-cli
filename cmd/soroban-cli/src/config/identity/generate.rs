@@ -1,4 +1,4 @@
-use crate::config;
+use crate::config::location;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -15,7 +15,7 @@ pub struct Cmd {
     pub seed: Option<String>,
 
     #[clap(flatten)]
-    pub config: config::Args,
+    pub config: location::Args,
 }
 
 impl Cmd {

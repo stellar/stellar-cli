@@ -1,4 +1,9 @@
 use clap::Parser;
+use serde::{Deserialize, Serialize};
+
+use crate::HEADING_RPC;
+
+use super::location;
 
 pub mod add;
 pub mod default;
@@ -30,6 +35,9 @@ pub enum Error {
 
     #[error(transparent)]
     Ls(#[from] ls::Error),
+
+    #[error(transparent)]
+    Config(#[from] location::Error),
 }
 
 impl Cmd {
@@ -42,4 +50,69 @@ impl Cmd {
         };
         Ok(())
     }
+}
+
+#[derive(Debug, clap::Args)]
+
+pub struct Args {
+    /// RPC server endpoint
+    #[clap(
+        long,
+        conflicts_with = "account-id",
+        requires = "secret-key",
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
+    )]
+    pub rpc_url: Option<String>,
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[clap(
+        long = "network-passphrase",
+        requires = "rpc-url",
+        env = "SOROBAN_NETWORK_PASSPHRASE",
+        help_heading = HEADING_RPC,
+    )]
+    pub network_passphrase: Option<String>,
+
+    /// Name of network to use from config
+    #[clap(
+        long,
+        conflicts_with = "network-passphrase",
+        conflicts_with = "rpc-url"
+    )]
+    pub network: Option<String>,
+}
+
+impl Args {
+    pub fn get_network(&self, config: &location::Args) -> Result<Network, Error> {
+        if let Some(name) = self.network.as_deref() {
+            Ok(config.read_network(name)?)
+        } else {
+            Ok(Network {
+                rpc_url: self.rpc_url.clone().unwrap(),
+                network_passphrase: self.network_passphrase.clone().unwrap(),
+            })
+        }
+    }
+}
+
+#[derive(Debug, clap::Args, Serialize, Deserialize)]
+pub struct Network {
+    #[clap(
+        long,
+        conflicts_with = "account-id",
+        requires = "secret-key",
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
+    )]
+    pub rpc_url: String,
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[clap(
+            long = "network-passphrase",
+            requires = "rpc-url",
+            env = "SOROBAN_NETWORK_PASSPHRASE",
+            help_heading = HEADING_RPC,
+        )]
+    pub network_passphrase: String,
 }

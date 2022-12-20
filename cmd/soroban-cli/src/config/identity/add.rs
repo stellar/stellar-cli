@@ -1,4 +1,4 @@
-use crate::config::{args, secret};
+use crate::config::{location, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -6,7 +6,7 @@ pub enum Error {
     Secret(#[from] secret::Error),
 
     #[error(transparent)]
-    Config(#[from] args::Error),
+    Config(#[from] location::Error),
 
     #[error("Failed to write identity file")]
     IdCreationFailed,
@@ -25,7 +25,7 @@ pub struct Cmd {
     pub default: bool,
 
     #[clap(flatten)]
-    pub config: args::Args,
+    pub config: location::Args,
 }
 
 impl Cmd {

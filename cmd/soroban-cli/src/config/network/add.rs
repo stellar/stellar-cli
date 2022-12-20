@@ -1,4 +1,4 @@
-use crate::config::{args, secret};
+use crate::config::{location, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -6,10 +6,10 @@ pub enum Error {
     Secret(#[from] secret::Error),
 
     #[error(transparent)]
-    Config(#[from] args::Error),
+    Config(#[from] location::Error),
 
     #[error("Failed to write network file")]
-    IdCreationFailed,
+    NetworkCreationFailed,
 }
 
 #[derive(Debug, clap::Args)]
@@ -18,20 +18,20 @@ pub struct Cmd {
     pub name: String,
 
     #[clap(flatten)]
-    pub secrets: secret::Args,
+    pub network: super::Network,
 
     /// Set as default network
     #[clap(long)]
     pub default: bool,
 
     #[clap(flatten)]
-    pub config: args::Args,
+    pub config: location::Args,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         self.config
-            .write_network(&self.name, &self.secrets.read_secret()?)
-            .map_err(|_| Error::IdCreationFailed)
+            .write_network(&self.name, &self.network)
+            .map_err(|_| Error::NetworkCreationFailed)
     }
 }
