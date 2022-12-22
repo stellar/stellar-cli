@@ -8,7 +8,7 @@ use self::network::Network;
 
 pub mod identity;
 pub mod ledger;
-pub mod location;
+pub mod locator;
 pub mod network;
 pub mod secret;
 
@@ -38,7 +38,7 @@ pub enum Error {
     Secret(#[from] secret::Error),
 
     #[error(transparent)]
-    Config(#[from] location::Error),
+    Config(#[from] locator::Error),
 
     #[error("cannot parse secret key")]
     CannotParseSecretKey,
@@ -60,7 +60,7 @@ pub struct Args {
     pub secrets: secret::Args,
 
     #[clap(flatten)]
-    pub location: location::Args,
+    pub config_locator: locator::Args,
 
     #[clap(flatten)]
     pub network: network::Args,
@@ -68,16 +68,17 @@ pub struct Args {
     #[clap(flatten)]
     pub ledger: ledger::Args,
 
-    pub r#as: Option<String>,
+    /// Use specified identity to sign transaction
+    pub identity: Option<String>,
 }
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
         // TODO remove unwrap and provide error
-        let key = self
-            .secrets
-            .read_secret()
-            .or_else(|_| self.location.read_identity(self.r#as.as_ref().unwrap()))?;
+        let key = self.secrets.read_secret().or_else(|_| {
+            self.config_locator
+                .read_identity(self.identity.as_ref().unwrap())
+        })?;
         let str_key = match &key {
             secret::Secret::SecretKey { secret_key } => secret_key,
             secret::Secret::SeedPhrase { seed_phrase: _ } => {
@@ -88,7 +89,7 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        Ok(self.network.get_network(&self.location)?)
+        Ok(self.network.get_network(&self.config_locator)?)
     }
 
     pub fn no_network(&self) -> bool {

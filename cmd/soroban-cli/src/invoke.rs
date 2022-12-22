@@ -84,10 +84,6 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Config(#[from] config::Error),
-
-    #[error(transparent)]
-    Ledger(#[from] config::ledger::Error),
-
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg { arg: String, error: strval::Error },
     #[error("parsing XDR arg {arg}: {error}")]

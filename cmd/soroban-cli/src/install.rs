@@ -49,7 +49,6 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let contract = self.wasm.read()?;
-
         let res_str = if self.config.no_network() {
             self.run_in_sandbox(contract)?
         } else {

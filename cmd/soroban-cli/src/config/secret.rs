@@ -33,7 +33,6 @@ impl Args {
         if self.secret_key {
             println!("Type a secret key: ");
             let secret_key = read_password()?;
-
             let secret_key = PrivateKey::from_string(&secret_key)
                 .map_err(|_| Error::InvalidSecretKey)?
                 .to_string();

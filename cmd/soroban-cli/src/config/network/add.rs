@@ -1,4 +1,4 @@
-use crate::config::{location, secret};
+use crate::config::{locator, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -6,7 +6,7 @@ pub enum Error {
     Secret(#[from] secret::Error),
 
     #[error(transparent)]
-    Config(#[from] location::Error),
+    Config(#[from] locator::Error),
 
     #[error("Failed to write network file")]
     NetworkCreationFailed,
@@ -25,7 +25,7 @@ pub struct Cmd {
     pub default: bool,
 
     #[clap(flatten)]
-    pub config_locator: location::Args,
+    pub config_locator: locator::Args,
 }
 
 impl Cmd {

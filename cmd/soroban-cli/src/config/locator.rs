@@ -168,7 +168,6 @@ impl Args {
 }
 
 fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
-    dbg!("creating directory {:?}", &dir);
     std::fs::create_dir_all(&dir).map_err(|_| dir_creation_failed(&dir))?;
     Ok(dir)
 }

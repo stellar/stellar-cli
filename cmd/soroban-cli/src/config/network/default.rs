@@ -1,9 +1,9 @@
-use crate::config::location;
+use crate::config::locator;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Location(#[from] location::Error),
+    Location(#[from] locator::Error),
 }
 
 #[derive(Debug, clap::Args)]
@@ -12,7 +12,7 @@ pub struct Cmd {
     pub default_name: String,
 
     #[clap(flatten)]
-    pub config_locator: location::Args,
+    pub config_locator: locator::Args,
 }
 
 impl Cmd {

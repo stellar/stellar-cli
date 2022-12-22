@@ -1,15 +1,15 @@
-use crate::config::location;
+use crate::config::locator;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Config(#[from] location::Error),
+    Config(#[from] locator::Error),
 }
 
 #[derive(Debug, clap::Args)]
 pub struct Cmd {
     #[clap(flatten)]
-    pub config_locator: location::Args,
+    pub config_locator: locator::Args,
 }
 
 impl Cmd {

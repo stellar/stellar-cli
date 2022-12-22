@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::HEADING_RPC;
 
-use super::location;
+use super::locator;
 
 pub mod add;
 pub mod default;
@@ -37,7 +37,7 @@ pub enum Error {
     Ls(#[from] ls::Error),
 
     #[error(transparent)]
-    Config(#[from] location::Error),
+    Config(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -83,7 +83,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn get_network(&self, config_locator: &location::Args) -> Result<Network, Error> {
+    pub fn get_network(&self, config_locator: &locator::Args) -> Result<Network, Error> {
         if let Some(name) = self.network.as_deref() {
             Ok(config_locator.read_network(name)?)
         } else {
@@ -99,17 +99,12 @@ impl Args {
 pub struct Network {
     #[clap(
         long,
-        conflicts_with = "account-id",
-        requires = "secret-key",
-        requires = "network-passphrase",
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(
-            long = "network-passphrase",
-            requires = "rpc-url",
             env = "SOROBAN_NETWORK_PASSPHRASE",
             help_heading = HEADING_RPC,
         )]
