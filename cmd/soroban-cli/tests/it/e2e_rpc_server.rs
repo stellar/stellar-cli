@@ -69,27 +69,3 @@ fn e2e_install_deploy_and_invoke_contract_against_rpc_server() {
         .stderr("success\n")
         .success();
 }
-
-#[test]
-#[ignore]
-fn create_and_invoke_token_contract_against_rpc_server() {
-    // This test assumes a fresh standalone network rpc server on port 8000
-
-    let result = Standalone::new_cmd()
-        .args(["token", "create", "--name=Stellar Lumens", "--symbol=XLM"])
-        .assert()
-        .stderr("success\nsuccess\n")
-        .success();
-
-    let id = str::from_utf8(&result.get_output().stdout).unwrap().trim();
-
-    Standalone::new_cmd()
-        .arg("invoke")
-        .arg("--id")
-        .arg(id)
-        .arg("--fn=symbol")
-        .assert()
-        .stdout("[88,76,77]\n")
-        .stderr("success\n")
-        .success();
-}
