@@ -2,7 +2,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use soroban_ledger_snapshot::LedgerSnapshot;
 
-use crate::{utils, HEADING_RPC};
+use crate::utils;
 
 use self::network::Network;
 
@@ -56,13 +56,8 @@ impl Cmd {
 
 #[derive(Debug, clap::Args)]
 pub struct Args {
-    /// Secret key to sign the transaction sent to the rpc server
-    #[clap(
-            long = "secret-key",
-            env = "SOROBAN_SECRET_KEY",
-            help_heading = HEADING_RPC,
-        )]
-    secret_key: Option<String>,
+    #[clap(flatten)]
+    pub secrets: secret::Args,
 
     #[clap(flatten)]
     pub location: location::Args,
@@ -72,12 +67,24 @@ pub struct Args {
 
     #[clap(flatten)]
     pub ledger: ledger::Args,
+
+    pub r#as: Option<String>,
 }
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
-        utils::parse_secret_key(self.secret_key.as_deref().unwrap())
-            .map_err(|_| Error::CannotParseSecretKey)
+        // TODO remove unwrap and provide error
+        let key = self
+            .secrets
+            .read_secret()
+            .or_else(|_| self.location.read_identity(self.r#as.as_ref().unwrap()))?;
+        let str_key = match &key {
+            secret::Secret::SecretKey { secret_key } => secret_key,
+            secret::Secret::SeedPhrase { seed_phrase: _ } => {
+                todo!("Still need to implement seedphrase")
+            }
+        };
+        utils::parse_secret_key(str_key).map_err(|_| Error::CannotParseSecretKey)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
