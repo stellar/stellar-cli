@@ -1,6 +1,6 @@
 use std::{
     ffi::OsStr,
-    fs,
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -22,8 +22,11 @@ pub enum Error {
     NetworkFileRead { path: String },
     #[error("Seceret file failed to deserialize")]
     Deserialization,
-    #[error("Failed to write secerets file")]
-    IdCreationFailed,
+    #[error("Failed to write identity file:{filepath}: {error}")]
+    IdCreationFailed {
+        filepath: std::path::PathBuf,
+        error: io::Error,
+    },
     #[error("Seceret file failed to deserialize")]
     NetworkDeserialization,
     #[error("Failed to write network file")]
@@ -65,11 +68,11 @@ impl Args {
     }
 
     pub fn identity_dir(&self) -> Result<PathBuf, Error> {
-        ensure_directory(self.config_dir()?).map(|p| p.join("identities"))
+        ensure_directory(self.config_dir()?.join("identities"))
     }
 
     pub fn network_dir(&self) -> Result<PathBuf, Error> {
-        ensure_directory(self.config_dir()?).map(|p| p.join("networks"))
+        ensure_directory(self.config_dir()?.join("networks"))
     }
 
     pub fn identity_path(&self, name: &str) -> Result<PathBuf, Error> {
@@ -108,8 +111,11 @@ impl Args {
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
         let source = self.identity_path(name)?;
-        let data = toml::to_string(secret).map_err(|_| Error::IdCreationFailed)?;
-        std::fs::write(source, data).map_err(|_| Error::IdCreationFailed)
+        let data = toml::to_string(secret).map_err(|_| Error::ConfigSerialization)?;
+        std::fs::write(&source, data).map_err(|error| Error::IdCreationFailed {
+            filepath: source.clone(),
+            error,
+        })
     }
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
@@ -162,6 +168,7 @@ impl Args {
 }
 
 fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
+    dbg!("creating directory {:?}", &dir);
     std::fs::create_dir_all(&dir).map_err(|_| dir_creation_failed(&dir))?;
     Ok(dir)
 }

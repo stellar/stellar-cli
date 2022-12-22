@@ -7,9 +7,6 @@ pub enum Error {
 
     #[error(transparent)]
     Config(#[from] location::Error),
-
-    #[error("Failed to write identity file")]
-    IdCreationFailed,
 }
 
 #[derive(Debug, clap::Args)]
@@ -30,8 +27,8 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        self.config
-            .write_identity(&self.name, &self.secrets.read_secret()?)
-            .map_err(|_| Error::IdCreationFailed)
+        Ok(self
+            .config
+            .write_identity(&self.name, &self.secrets.read_secret()?)?)
     }
 }

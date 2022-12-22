@@ -1,2 +1,8 @@
 target/
-.soroban/
+./.soroban/
+!test.toml
+./cmd/soroban-cli/.soroban/*
+./.soroban/**/*
+.soroban/identities/
+
+cmd/soroban-cli/.soroban/events.json
