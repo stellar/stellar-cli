@@ -12,11 +12,13 @@ pub struct Cmd {
     pub default_name: String,
 
     #[clap(flatten)]
-    pub config: location::Args,
+    pub config_locator: location::Args,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        Ok(self.config.set_default_network(&self.default_name)?)
+        Ok(self
+            .config_locator
+            .set_default_network(&self.default_name)?)
     }
 }

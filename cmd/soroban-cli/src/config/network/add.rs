@@ -25,12 +25,12 @@ pub struct Cmd {
     pub default: bool,
 
     #[clap(flatten)]
-    pub config: location::Args,
+    pub config_locator: location::Args,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        self.config
+        self.config_locator
             .write_network(&self.name, &self.network)
             .map_err(|_| Error::NetworkCreationFailed)
     }

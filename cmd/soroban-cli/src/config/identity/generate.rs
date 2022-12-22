@@ -15,7 +15,7 @@ pub struct Cmd {
     pub seed: Option<String>,
 
     #[clap(flatten)]
-    pub config: location::Args,
+    pub config_locator: location::Args,
 }
 
 impl Cmd {

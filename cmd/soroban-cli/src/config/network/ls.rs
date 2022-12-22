@@ -9,12 +9,12 @@ pub enum Error {
 #[derive(Debug, clap::Args)]
 pub struct Cmd {
     #[clap(flatten)]
-    pub config: location::Args,
+    pub config_locator: location::Args,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let res = self.config.list_networks()?;
+        let res = self.config_locator.list_networks()?;
         println!("{}", res.join("\n"));
         Ok(())
     }
