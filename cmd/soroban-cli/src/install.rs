@@ -1,6 +1,6 @@
 use std::array::TryFromSliceError;
+use std::fmt::Debug;
 use std::num::ParseIntError;
-use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
 use soroban_env_host::xdr::{
@@ -11,16 +11,15 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::HostError;
 
-use crate::config;
 use crate::config::network::Network;
 use crate::rpc::{self, Client};
 use crate::utils;
+use crate::{config, wasm};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// WASM file to install
-    #[clap(long, parse(from_os_str))]
-    wasm: std::path::PathBuf,
+    #[clap(flatten)]
+    wasm: wasm::Args,
 
     #[clap(flatten)]
     config: config::Args,
@@ -32,6 +31,8 @@ pub enum Error {
     Host(#[from] HostError),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
@@ -40,21 +41,13 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
-    #[error("reading file {filepath}: {error}")]
-    CannotReadContractFile {
-        filepath: std::path::PathBuf,
-        error: io::Error,
-    },
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let contract = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
-            filepath: self.wasm.clone(),
-            error: e,
-        })?;
+        let contract = self.wasm.read()?;
 
         let res_str = if self.config.no_network() {
             self.run_in_sandbox(contract)?

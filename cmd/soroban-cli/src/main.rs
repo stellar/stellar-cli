@@ -19,6 +19,7 @@ mod toid;
 mod token;
 mod utils;
 mod version;
+mod wasm;
 mod xdr;
 
 const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
