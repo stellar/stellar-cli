@@ -21,7 +21,7 @@ use soroban_env_host::{
     Host, HostError,
 };
 use soroban_spec::read::FromWasmError;
-use stellar_strkey::StrkeyPublicKeyEd25519;
+use stellar_strkey::ed25519;
 
 use crate::config;
 use crate::config::network::Network;
@@ -64,7 +64,7 @@ pub struct Cmd {
         conflicts_with = "rpc-url",
         help_heading = HEADING_SANDBOX,
     )]
-    account_id: StrkeyPublicKeyEd25519,
+    account_id: ed25519::PublicKey,
     /// File to persist event output
     #[clap(
         long,
@@ -262,7 +262,7 @@ impl Cmd {
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey = StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        let public_strkey = ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;

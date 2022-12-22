@@ -7,7 +7,7 @@ use soroban_env_host::xdr::{
     Uint256,
 };
 
-use stellar_strkey::StrkeyPublicKeyEd25519;
+use stellar_strkey::ed25519;
 
 use crate::utils;
 
@@ -163,14 +163,14 @@ pub fn from_json(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
 
         // AccountID parsing
         (ScSpecTypeDef::AccountId, Value::String(s)) => ScVal::Object(Some(ScObject::AccountId({
-            StrkeyPublicKeyEd25519::from_string(s)
+            ed25519::PublicKey::from_string(s)
                 .map(|key| AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(key.0))))
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?
         }))),
 
         // Bytes parsing
         (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
-            if let Ok(key) = StrkeyPublicKeyEd25519::from_string(s) {
+            if let Ok(key) = ed25519::PublicKey::from_string(s) {
                 key.0
                     .try_into()
                     .map_err(|_| Error::InvalidValue(Some(t.clone())))?
@@ -298,7 +298,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         ),
         ScVal::Object(Some(ScObject::AccountId(v))) => match v {
             AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(k))) => {
-                Value::String(StrkeyPublicKeyEd25519(*k).to_string())
+                Value::String(ed25519::PublicKey(*k).to_string())
             }
         },
         ScVal::Object(Some(ScObject::U128(n))) => {

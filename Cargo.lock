@@ -2034,7 +2034,7 @@ dependencies = [
  "soroban-sdk",
  "soroban-spec",
  "soroban-token-spec",
- "stellar-strkey 0.0.6 (git+https://github.com/stellar/rs-stellar-strkey?rev=5e582a8)",
+ "stellar-strkey 0.0.6 (git+https://github.com/stellar/rs-stellar-strkey?rev=2c2273b)",
  "termcolor",
  "termcolor_output",
  "thiserror",
@@ -2227,7 +2227,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stellar-strkey"
 version = "0.0.6"
-source = "git+https://github.com/stellar/rs-stellar-strkey?rev=5e582a8#5e582a8b48f85443df60dc78e2e98959862400d6"
+source = "git+https://github.com/stellar/rs-stellar-strkey?rev=2c2273b#2c2273b28fac175e55aa6b1b4652555afd34827b"
 dependencies = [
  "base32",
  "thiserror",
