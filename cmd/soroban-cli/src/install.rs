@@ -124,6 +124,7 @@ impl Cmd {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
+
         Ok(hex::encode(wasm_hash))
     }
 

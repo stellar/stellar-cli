@@ -29,7 +29,7 @@ use stellar_strkey::StrkeyPublicKeyEd25519;
 use crate::rpc::Client;
 use crate::strval::Spec;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
-use crate::{rpc, strval, utils};
+use crate::{events, rpc, strval, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -68,6 +68,16 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
+    /// File to persist event output
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value(".soroban/events.json"),
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_EVENTS_FILE",
+        help_heading = HEADING_SANDBOX,
+    )]
+    events_file: std::path::PathBuf,
 
     /// Secret 'S' key used to sign the transaction sent to the rpc server
     #[clap(
@@ -127,6 +137,11 @@ pub enum Error {
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
         error: soroban_ledger_snapshot::Error,
+    },
+    #[error("committing file {filepath}: {error}")]
+    CannotCommitEventsFile {
+        filepath: std::path::PathBuf,
+        error: events::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -405,6 +420,13 @@ impl Cmd {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
+
+        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
+            Error::CannotCommitEventsFile {
+                filepath: self.events_file.clone(),
+                error: e,
+            }
+        })?;
 
         Ok(())
     }

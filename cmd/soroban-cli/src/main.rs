@@ -2,6 +2,7 @@ use clap::{AppSettings, CommandFactory, FromArgMatches, Parser, Subcommand};
 
 mod completion;
 mod deploy;
+mod events;
 mod gen;
 mod inspect;
 mod install;
@@ -13,6 +14,7 @@ mod read;
 mod rpc;
 mod serve;
 mod strval;
+mod toid;
 mod token;
 mod utils;
 mod version;
@@ -47,6 +49,8 @@ enum Cmd {
     Read(read::Cmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
+    /// Watch the network for contract events
+    Events(events::Cmd),
     /// Wrap, create, and manage token contracts
     Token(token::Root),
     /// Deploy a WASM file as a contract
@@ -76,6 +80,8 @@ enum CmdError {
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
     #[error(transparent)]
+    Events(#[from] events::Error),
+    #[error(transparent)]
     Read(#[from] read::Error),
     #[error(transparent)]
     Serve(#[from] serve::Error),
@@ -96,6 +102,7 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
         Cmd::Inspect(inspect) => inspect.run()?,
         Cmd::Optimize(opt) => opt.run()?,
         Cmd::Invoke(invoke) => invoke.run().await?,
+        Cmd::Events(events) => events.run().await?,
         Cmd::Read(read) => read.run()?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Token(token) => token.run().await?,
