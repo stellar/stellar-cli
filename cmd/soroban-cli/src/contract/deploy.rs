@@ -16,7 +16,7 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::HostError;
 
-use crate::install::build_install_contract_code_tx;
+use crate::contract::install::build_install_contract_code_tx;
 use crate::rpc::{self, Client};
 use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 

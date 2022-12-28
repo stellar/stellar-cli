@@ -3,7 +3,6 @@ use clap::{AppSettings, CommandFactory, FromArgMatches, Parser};
 mod completion;
 mod contract;
 mod events;
-mod install;
 mod jsonrpc;
 mod lab;
 mod network;
@@ -40,8 +39,6 @@ enum Cmd {
     Serve(serve::Cmd),
     /// Watch the network for contract events
     Events(events::Cmd),
-    /// Install a WASM file to the ledger without creating a contract instance
-    Install(install::Cmd),
     /// Experiment with early features and expert tools
     #[clap(subcommand)]
     Lab(lab::SubCmd),
@@ -62,20 +59,17 @@ enum CmdError {
     #[error(transparent)]
     Serve(#[from] serve::Error),
     #[error(transparent)]
-    Install(#[from] install::Error),
-    #[error(transparent)]
     Lab(#[from] lab::Error),
 }
 
-async fn run(cmd: Cmd, sub_arg_matches: &clap::ArgMatches) -> Result<(), CmdError> {
+async fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
-        Cmd::Contract(contract) => contract.run(sub_arg_matches).await?,
+        Cmd::Contract(contract) => contract.run().await?,
         Cmd::Events(events) => events.run().await?,
         Cmd::Serve(serve) => serve.run().await?,
-        Cmd::Install(install) => install.run().await?,
         Cmd::Lab(lab) => lab.run().await?,
         Cmd::Version(version) => version.run(),
-        Cmd::Completion(completion) => completion.run(&mut Root::command()),
+        Cmd::Completion(completion) => completion.run(),
     };
     Ok(())
 }
@@ -85,16 +79,12 @@ async fn main() {
     // We expand the Root::parse() invocation, so that we can save
     // Clap's ArgMatches (for later argument processing)
     let mut matches = Root::command().get_matches();
-    let root = match Root::from_arg_matches_mut(&mut matches) {
-        Ok(s) => s,
-        Err(e) => {
-            let mut cmd = Root::command();
-            e.format(&mut cmd).exit();
-        }
-    };
+    let root = Root::from_arg_matches_mut(&mut matches).unwrap_or_else(|e| {
+        let mut cmd = Root::command();
+        e.format(&mut cmd).exit();
+    });
 
-    let (_, sub_arg_matches) = matches.remove_subcommand().unwrap();
-    if let Err(e) = run(root.cmd, &sub_arg_matches).await {
+    if let Err(e) = run(root.cmd).await {
         eprintln!("error: {e}");
     }
 }
