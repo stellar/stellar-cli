@@ -2,6 +2,7 @@ use clap::{AppSettings, CommandFactory, FromArgMatches, Parser};
 
 mod completion;
 mod contract;
+mod events;
 mod install;
 mod jsonrpc;
 mod lab;
@@ -9,6 +10,7 @@ mod network;
 mod rpc;
 mod serve;
 mod strval;
+mod toid;
 mod utils;
 mod version;
 
@@ -36,6 +38,8 @@ enum Cmd {
     Contract(contract::SubCmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
+    /// Watch the network for contract events
+    Events(events::Cmd),
     /// Install a WASM file to the ledger without creating a contract instance
     Install(install::Cmd),
     /// Experiment with early features and expert tools
@@ -54,6 +58,8 @@ enum CmdError {
     #[error(transparent)]
     Contract(#[from] contract::Error),
     #[error(transparent)]
+    Events(#[from] events::Error),
+    #[error(transparent)]
     Serve(#[from] serve::Error),
     #[error(transparent)]
     Install(#[from] install::Error),
@@ -64,6 +70,7 @@ enum CmdError {
 async fn run(cmd: Cmd, sub_arg_matches: &clap::ArgMatches) -> Result<(), CmdError> {
     match cmd {
         Cmd::Contract(contract) => contract.run(sub_arg_matches).await?,
+        Cmd::Events(events) => events.run().await?,
         Cmd::Serve(serve) => serve.run().await?,
         Cmd::Install(install) => install.run().await?,
         Cmd::Lab(lab) => lab.run().await?,
