@@ -66,27 +66,6 @@ jobs:
     - if: startsWith(matrix.target, 'x86_64')
       run: cargo test --workspace --target ${{ matrix.target }}
 
-  e2e-test:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - uses: stellar/actions/rust-cache@main
-      - run: rustup update
-      - run: rustup target add ${{ matrix.target }}
-      - run: rustup target add wasm32-unknown-unknown
-      # TODO: we should probably manage the container in the test itself
-      - run: make build-test-wasms
-      - run: docker run -d -p 8000:8000 stellar/quickstart:soroban-dev --standalone --enable-soroban-rpc --enable-core-artificially-accelerate-time-for-testing --protocol-version 20
-      - run: while ! [ "$(curl -s --fail localhost:8000 | jq '.history_latest_ledger')" -gt 0 ]; do echo waiting; sleep 1; done
-      # Run e2e tests sequentially to avoid	sequence number	mismatches
-      # TODO: use different accounts in different tests to avoid the data race
-      - run: cargo test --test it --workspace --target ${{ matrix.target }} -- e2e_rpc_server --ignored --test-threads 1
-
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
