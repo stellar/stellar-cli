@@ -235,7 +235,7 @@ func findLatestVersion(repo *git.Repository, latestCommitRef *plumbing.Reference
 	var versions []string
 	var workspaceVer []bool
 	for _, commit := range commits {
-		version, workspaceVersion, err := findCargoVersionForCommit(repo, pkgName, commit)
+		version, workspaceVersion, err := findCargoVersionForCommit(pkgName, commit)
 		if err != nil {
 			return nil, "", false, err
 		}
@@ -252,7 +252,8 @@ func findLatestVersion(repo *git.Repository, latestCommitRef *plumbing.Reference
 	return commits[len(commits)-1], versions[len(commits)-1], workspaceVer[len(commits)-1], nil
 }
 
-func findCargoVersionForCommit(repo *git.Repository, pkgName string, commit *object.Commit) (string, bool, error) {
+//lint:ignore funlen gocyclo
+func findCargoVersionForCommit(pkgName string, commit *object.Commit) (string, bool, error) {
 	treeRoot, err := commit.Tree()
 	if err != nil {
 		return "", false, err
