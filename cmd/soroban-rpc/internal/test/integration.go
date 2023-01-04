@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -98,10 +97,13 @@ func NewTest(t *testing.T) *Test {
 func (i *Test) configureJSONRPCServer() {
 	logger := log.New()
 
+	const transactionProxyWorkers = 10
+	const transactionQueueSize = 10
+
 	proxy := methods.NewTransactionProxy(
 		i.horizonClient,
-		10,
-		10,
+		transactionProxyWorkers,
+		transactionQueueSize,
 		StandaloneNetworkPassphrase,
 		2*time.Minute,
 	)
@@ -279,7 +281,7 @@ func panicIf(err error) {
 func findProjectRoot(current string) string {
 	// Lets you check if a particular directory contains a file.
 	directoryContainsFilename := func(dir string, filename string) bool {
-		files, innerErr := ioutil.ReadDir(dir)
+		files, innerErr := os.ReadDir(dir)
 		panicIf(innerErr)
 
 		for _, file := range files {
@@ -287,7 +289,6 @@ func findProjectRoot(current string) string {
 				return true
 			}
 		}
-
 		return false
 	}
 	var err error
@@ -309,7 +310,6 @@ func findProjectRoot(current string) string {
 // findDockerComposePath performs a best-effort attempt to find the project's
 // Docker Compose files.
 func findDockerComposePath() string {
-
 	current, err := os.Getwd()
 	panicIf(err)
 
