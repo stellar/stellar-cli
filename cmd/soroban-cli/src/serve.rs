@@ -16,7 +16,6 @@ use soroban_env_host::{
     },
     Host, HostError,
 };
-use stellar_strkey::StrkeyPublicKeyEd25519;
 use tokio::sync::Mutex;
 use warp::{http::Response, Filter};
 
@@ -472,7 +471,7 @@ fn hash_bytes(b: Vec<u8>) -> [u8; 32] {
 
 fn get_account(b: Box<[String]>) -> Result<Value, Error> {
     if let Some(address) = b.into_vec().first() {
-        if let Ok(_key) = StrkeyPublicKeyEd25519::from_string(address) {
+        if let Ok(_key) = stellar_strkey::ed25519::PublicKey::from_string(address) {
             Ok(json!({
                 "id": address,
                 "sequence": "1", // TODO: Increment and persist this in sendTransaction.
