@@ -52,7 +52,7 @@ require (
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/cast v0.0.0-20150508191742-4d07383ffe94 // indirect
 	github.com/spf13/jwalterweatherman v0.0.0-20141219030609-3d60171a6431 // indirect
-	github.com/stellar/go v0.0.0-20221201205727-49dc8a987555
+	github.com/stellar/go v0.0.0-20221221170028-a8148965dfd4
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
