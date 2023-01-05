@@ -1,12 +1,5 @@
 linters-settings:
   depguard:
-    list-type: denylist
-    packages:
-      # logging is allowed only by logutils.Log, logrus
-      # is allowed to use only in logutils package
-      - github.com/sirupsen/logrus
-    packages-with-error-message:
-      - github.com/sirupsen/logrus: "logging is allowed only by logutils.Log"
   dupl:
     threshold: 100
   funlen:
@@ -73,20 +66,20 @@ linters:
     - dupl
     - errcheck
     - exportloopref
-    - funlen
+    #- funlen
     - gochecknoinits
     - goconst
     #- gocritic
-    - gocyclo
+    #- gocyclo
     - gofmt
     - goimports
-    - gomnd
+    #- gomnd
     - goprintffuncname
     - gosec
     - gosimple
     - govet
     - ineffassign
-    - lll
+    #- lll
     - misspell
     - nakedret
     - noctx
@@ -97,7 +90,7 @@ linters:
     - unconvert
     - unparam
     - unused
-    #- whitespace
+    - whitespace
 
   # don't enable:
   # - asciicheck

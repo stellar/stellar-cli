@@ -124,9 +124,9 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	assert.Equal(t, 1, len(response.Results))
 	var resultVal xdr.ScVal
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.Results[0].XDR, &resultVal))
-	expectedContractId, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
+	expectedContractID, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
 	assert.NoError(t, err)
-	expectedObj := &xdr.ScObject{Type: xdr.ScObjectTypeScoBytes, Bin: &expectedContractId}
+	expectedObj := &xdr.ScObject{Type: xdr.ScObjectTypeScoBytes, Bin: &expectedContractID}
 	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}
 	assert.True(t, expectedScVal.Equals(resultVal))
 

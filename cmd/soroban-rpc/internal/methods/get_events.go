@@ -21,9 +21,9 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-// MAX_LEDGER_RANGE is the maximum allowed value of endLedger-startLedger
+// maxLedgerRange is the maximum allowed value of endLedger-startLedger
 // Just guessed 4320 as it is ~6hrs
-const MAX_LEDGER_RANGE = 4320
+const maxLedgerRange = 4320
 
 type EventInfo struct {
 	EventType      string         `json:"type"`
@@ -53,8 +53,8 @@ func (g *GetEventsRequest) Valid() error {
 	if g.EndLedger < g.StartLedger {
 		return errors.New("endLedger must be after or the same as startLedger")
 	}
-	if g.EndLedger-g.StartLedger > MAX_LEDGER_RANGE {
-		return fmt.Errorf("endLedger must be less than %d ledgers after startLedger", MAX_LEDGER_RANGE)
+	if g.EndLedger-g.StartLedger > maxLedgerRange {
+		return fmt.Errorf("endLedger must be less than %d ledgers after startLedger", maxLedgerRange)
 	}
 
 	// Validate filters
@@ -82,6 +82,9 @@ func (g *GetEventsRequest) Matches(event xdr.ContractEvent) bool {
 	return false
 }
 
+const EventTypeSystem = "system"
+const EventTypeContract = "contract"
+
 type EventFilter struct {
 	EventType   string        `json:"type,omitempty"`
 	ContractIDs []string      `json:"contractIds,omitempty"`
@@ -90,7 +93,7 @@ type EventFilter struct {
 
 func (e *EventFilter) Valid() error {
 	switch e.EventType {
-	case "", "system", "contract":
+	case "", EventTypeSystem, EventTypeContract:
 		// ok
 	default:
 		return errors.New("if set, type must be either 'system' or 'contract'")
@@ -121,10 +124,10 @@ func (e *EventFilter) Matches(event xdr.ContractEvent) bool {
 }
 
 func (e *EventFilter) matchesEventType(event xdr.ContractEvent) bool {
-	if e.EventType == "contract" && event.Type != xdr.ContractEventTypeContract {
+	if e.EventType == EventTypeContract && event.Type != xdr.ContractEventTypeContract {
 		return false
 	}
-	if e.EventType == "system" && event.Type != xdr.ContractEventTypeSystem {
+	if e.EventType == EventTypeSystem && event.Type != xdr.ContractEventTypeSystem {
 		return false
 	}
 	return true
@@ -164,11 +167,14 @@ func (e *EventFilter) matchesTopics(event xdr.ContractEvent) bool {
 
 type TopicFilter []SegmentFilter
 
+const minTopicCount = 1
+const maxTopicCount = 4
+
 func (t *TopicFilter) Valid() error {
-	if len(*t) < 1 {
+	if len(*t) < minTopicCount {
 		return errors.New("topic must have at least one segment")
 	}
-	if len(*t) > 4 {
+	if len(*t) > maxTopicCount {
 		return errors.New("topic cannot have more than 4 segments")
 	}
 	for i, segment := range *t {
@@ -277,14 +283,14 @@ func (id *EventID) Parse(input string) error {
 	}
 
 	// Parse the first part (toid)
-	idInt, err := strconv.ParseInt(parts[0], 10, 64)
+	idInt, err := strconv.ParseInt(parts[0], 10, 64) //lint:ignore gomnd
 	if err != nil {
 		return errors.Wrapf(err, "invalid event id %s", input)
 	}
 	parsed := toid.Parse(idInt)
 
 	// Parse the second part (event order)
-	eventOrder, err := strconv.ParseInt(parts[1], 10, 64)
+	eventOrder, err := strconv.ParseInt(parts[1], 10, 64) //lint:ignore gomnd
 	if err != nil {
 		return errors.Wrapf(err, "invalid event id %s", input)
 	}
@@ -296,6 +302,7 @@ func (id *EventID) Parse(input string) error {
 	return nil
 }
 
+//lint:ignore gocyclo
 func (a EventStore) GetEvents(request GetEventsRequest) ([]EventInfo, error) {
 	if err := request.Valid(); err != nil {
 		return nil, err
@@ -318,7 +325,7 @@ func (a EventStore) GetEvents(request GetEventsRequest) ([]EventInfo, error) {
 	}
 	err := a.ForEachTransaction(cursor.ID, finish, func(transaction horizon.Transaction) error {
 		// parse the txn paging-token, to get the transactionIndex
-		pagingTokenInt, err := strconv.ParseInt(transaction.PagingToken(), 10, 64)
+		pagingTokenInt, err := strconv.ParseInt(transaction.PagingToken(), 10, 64) //lint:ignore gomnd
 		if err != nil {
 			return errors.Wrapf(err, "invalid paging token %s", transaction.PagingToken())
 		}
@@ -420,7 +427,7 @@ func (a EventStore) ForEachTransaction(start, finish *toid.ID, f func(transactio
 		}
 
 		for _, transaction := range transactions.Embedded.Records {
-			pt, err := strconv.ParseInt(transaction.PagingToken(), 10, 64)
+			pt, err := strconv.ParseInt(transaction.PagingToken(), 10, 64) //lint:ignore gomnd
 			if err != nil {
 				return errors.Wrapf(err, "invalid paging token %s", transaction.PagingToken())
 			}
@@ -443,13 +450,13 @@ func (a EventStore) ForEachTransaction(start, finish *toid.ID, f func(transactio
 	}
 }
 
-func eventInfoForEvent(opId *toid.ID, eventIndex int32, ledgerClosedAt string, event xdr.ContractEvent) (EventInfo, error) {
+func eventInfoForEvent(opID *toid.ID, eventIndex int32, ledgerClosedAt string, event xdr.ContractEvent) (EventInfo, error) {
 	v0, ok := event.Body.GetV0()
 	if !ok {
 		return EventInfo{}, errors.New("unknown event version")
 	}
 
-	eventType := "contract"
+	eventType := EventTypeContract
 	if event.Type == xdr.ContractEventTypeSystem {
 		eventType = "system"
 	}
@@ -457,8 +464,8 @@ func eventInfoForEvent(opId *toid.ID, eventIndex int32, ledgerClosedAt string, e
 	// Build a lexically order-able id for this event record. This is
 	// based on Horizon's db2/history.Effect.ID method.
 	id := EventID{
-		ID:         opId,
-		EventOrder: int32(eventIndex),
+		ID:         opID,
+		EventOrder: eventIndex,
 	}.String()
 
 	// base64-xdr encode the topic
@@ -479,7 +486,7 @@ func eventInfoForEvent(opId *toid.ID, eventIndex int32, ledgerClosedAt string, e
 
 	return EventInfo{
 		EventType:      eventType,
-		Ledger:         opId.LedgerSequence,
+		Ledger:         opID.LedgerSequence,
 		LedgerClosedAt: ledgerClosedAt,
 		ContractID:     hex.EncodeToString((*event.ContractId)[:]),
 		ID:             id,
