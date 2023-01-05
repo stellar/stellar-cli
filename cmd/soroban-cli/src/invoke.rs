@@ -20,7 +20,6 @@ use soroban_env_host::{
     Host, HostError,
 };
 use soroban_spec::read::FromWasmError;
-use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
@@ -58,7 +57,7 @@ pub struct Cmd {
         conflicts_with = "rpc-url",
         help_heading = HEADING_SANDBOX,
     )]
-    account_id: StrkeyPublicKeyEd25519,
+    account_id: stellar_strkey::ed25519::PublicKey,
     /// File to persist ledger state
     #[clap(
         long,
@@ -288,7 +287,7 @@ impl Cmd {
             .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
-        let public_strkey = StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;

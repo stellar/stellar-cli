@@ -131,7 +131,7 @@ impl Cmd {
 
         // Get the account sequence number
         let public_strkey =
-            stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+            stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
