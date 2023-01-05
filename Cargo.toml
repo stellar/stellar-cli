@@ -13,24 +13,24 @@ git = "https://github.com/stellar/rs-soroban-env"
 rev = "65498c8"
 
 [workspace.dependencies.soroban-spec]
-version = "0.4.0"
+version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "7a02609e"
+rev = "980778ec"
 
 [workspace.dependencies.soroban-token-spec]
-version = "0.4.0"
+version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "7a02609e"
+rev = "980778ec"
 
 [workspace.dependencies.soroban-sdk]
-version = "0.4.0"
+version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "7a02609e"
+rev = "980778ec"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "0.4.0"
+version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "7a02609e"
+rev = "980778ec"
 
 [workspace.dependencies.stellar-strkey]
 version = "0.0.7"
