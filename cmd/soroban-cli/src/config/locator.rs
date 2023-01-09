@@ -84,7 +84,7 @@ impl Args {
     }
 
     pub fn network_path(&self, name: &str) -> Result<PathBuf, Error> {
-        self.identity_dir().map(|p| {
+        self.network_dir().map(|p| {
             let mut source = p.join(name);
             source.set_extension("toml");
             source
