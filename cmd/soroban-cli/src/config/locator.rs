@@ -46,17 +46,11 @@ pub struct Args {
     /// Use global config
     #[clap(long)]
     pub global: bool,
-
-    /// root config folder
-    #[clap(long)]
-    config_dir: Option<PathBuf>,
 }
 
 impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        let config_dir = if let Some(config_dir) = self.config_dir.as_ref() {
-            config_dir.clone()
-        } else if self.global {
+        let config_dir = if self.global {
             dirs::home_dir()
                 .ok_or(Error::HomeDirNotFound)?
                 .join(".soroban")
@@ -91,26 +85,19 @@ impl Args {
         })
     }
 
-    #[allow(dead_code)]
-    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
-        let path = self.identity_path(name)?;
-        let data = fs::read(&path).map_err(|_| Error::SecretFileRead {
-            path: path.to_string_lossy().to_string(),
-        })?;
-        toml::from_slice::<Secret>(&data).map_err(|_| Error::Deserialization)
-    }
-
-    #[allow(dead_code)]
-    pub fn read_network(&self, name: &str) -> Result<Network, Error> {
-        let path = self.network_path(name)?;
-        let data = fs::read(&path).map_err(|_| Error::NetworkFileRead {
-            path: path.to_string_lossy().to_string(),
-        })?;
-        toml::from_slice::<Network>(&data).map_err(|_| Error::NetworkDeserialization)
-    }
-
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
         let source = self.identity_path(name)?;
+        let name_collision = Args {
+            global: !self.global,
+        }
+        .identity_path(name);
+
+        if name_collision.is_ok() {
+            println!("Name collision!\n\n  Old identity: {}\n  New identity: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config identity rm {}{}`", name_collision.unwrap().display(), source.display(), name, if self.global { "" } else { " --global" });
+        } else {
+            println!("Writing to {}", source.display());
+        }
+
         let data = toml::to_string(secret).map_err(|_| Error::ConfigSerialization)?;
         std::fs::write(&source, data).map_err(|error| Error::IdCreationFailed {
             filepath: source.clone(),
@@ -119,7 +106,18 @@ impl Args {
     }
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
-        let source = self.identity_path(name)?;
+        let source = self.network_path(name)?;
+        let name_collision = Args {
+            global: !self.global,
+        }
+        .network_path(name);
+
+        if name_collision.is_ok() {
+            println!("Name collision!\n\n  Old network: {}\n  New network: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config network rm {}{}`", name_collision.unwrap().display(), source.display(), name, if self.global { "" } else { " --global" });
+        } else {
+            println!("Writing to {}", source.display());
+        }
+
         let data = toml::to_string(network).map_err(|_| Error::Deserialization)?;
         std::fs::write(source, data).map_err(|_| Error::NetworkCreationFailed)
     }
@@ -165,6 +163,44 @@ impl Args {
         config.default_network = Some(network.to_owned());
         self.write_config_file(&config)
     }
+}
+
+pub fn read_identity(name: &str) -> Result<Secret, Error> {
+    // 1. check workspace config files for `name`
+    let local_identity = Args { global: false }.identity_path(name);
+    // 2. if found, use
+    let path = if local_identity.is_ok() {
+        local_identity.unwrap()
+    } else {
+        // 3. else, check global config files for `name`
+        Args { global: true }.identity_path(name)?
+    };
+
+    println!("Found identity \"{}\" at {}", name, path.display());
+
+    let data = fs::read(&path).map_err(|_| Error::SecretFileRead {
+        path: path.to_string_lossy().to_string(),
+    })?;
+    toml::from_slice::<Secret>(&data).map_err(|_| Error::Deserialization)
+}
+
+pub fn read_network(name: &str) -> Result<Network, Error> {
+    // 1. check workspace config files for `name`
+    let local_network = Args { global: false }.network_path(name);
+    // 2. if found, use
+    let path = if local_network.is_ok() {
+        local_network.unwrap()
+    } else {
+        // 3. else, check global config files for `name`
+        Args { global: true }.network_path(name)?
+    };
+
+    println!("Found network \"{}\" at {}", name, path.display());
+
+    let data = fs::read(&path).map_err(|_| Error::NetworkFileRead {
+        path: path.to_string_lossy().to_string(),
+    })?;
+    toml::from_slice::<Network>(&data).map_err(|_| Error::NetworkDeserialization)
 }
 
 fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {

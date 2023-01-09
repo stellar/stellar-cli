@@ -60,9 +60,6 @@ pub struct Args {
     pub secrets: secret::Args,
 
     #[clap(flatten)]
-    pub config_locator: locator::Args,
-
-    #[clap(flatten)]
     pub network: network::Args,
 
     #[clap(flatten)]
@@ -76,10 +73,10 @@ pub struct Args {
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
         // TODO remove unwrap and provide error
-        let key = self.secrets.read_secret().or_else(|_| {
-            self.config_locator
-                .read_identity(self.identity.as_ref().unwrap())
-        })?;
+        let key = self
+            .secrets
+            .read_secret()
+            .or_else(|_| locator::read_identity(self.identity.as_ref().unwrap()))?;
         let str_key = match &key {
             secret::Secret::SecretKey { secret_key } => secret_key,
             secret::Secret::SeedPhrase { seed_phrase: _ } => {
@@ -90,7 +87,7 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        Ok(self.network.get_network(&self.config_locator)?)
+        Ok(self.network.get_network()?)
     }
 
     pub fn no_network(&self) -> bool {

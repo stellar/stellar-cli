@@ -83,9 +83,9 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn get_network(&self, config_locator: &locator::Args) -> Result<Network, Error> {
+    pub fn get_network(&self) -> Result<Network, Error> {
         if let Some(name) = self.network.as_deref() {
-            Ok(config_locator.read_network(name)?)
+            Ok(locator::read_network(name)?)
         } else {
             Ok(Network {
                 rpc_url: self.rpc_url.clone().unwrap(),
