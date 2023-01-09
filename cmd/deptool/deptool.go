@@ -61,7 +61,7 @@ var analyzeCmd = &cobra.Command{
 	},
 }
 
-func init() {
+func initCommandHandlers() {
 	rootCmd.Flags().BoolVarP(&versionCheck, "version", "v", false, "Display and write current build version and exit")
 	scanCmd.Flags().StringVarP(&projectDir, "directory", "d", ".", "The directory where the project resides")
 	analyzeCmd.Flags().StringVarP(&projectDir, "directory", "d", ".", "The directory where the project resides")
@@ -70,10 +70,10 @@ func init() {
 
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(analyzeCmd)
-
 }
 
 func main() {
+	initCommandHandlers()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		exitErr()

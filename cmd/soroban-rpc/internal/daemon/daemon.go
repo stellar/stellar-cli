@@ -13,6 +13,8 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
+const transactionProxyTTL = 5 * time.Minute
+
 func Start(cfg config.LocalConfig) (exitCode int) {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
@@ -31,7 +33,7 @@ func Start(cfg config.LocalConfig) (exitCode int) {
 		cfg.TxConcurrency,
 		cfg.TxQueueSize,
 		cfg.NetworkPassphrase,
-		5*time.Minute,
+		transactionProxyTTL,
 	)
 
 	handler, err := internal.NewJSONRPCHandler(internal.HandlerParams{

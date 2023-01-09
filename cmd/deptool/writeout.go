@@ -74,12 +74,21 @@ func writeUpdatesGoMod(dir string, deps map[string]analyzedProjectDependency, in
 	}
 
 	outputBytes, err := modFile.Format()
+	if err != nil {
+		fmt.Printf("Unable to format mod file : %v\n", err)
+		exitErr()
+	}
 	if !inplace {
 		fileName += ".proposed"
 	}
-	err = os.WriteFile(fileName, outputBytes, 0666)
+	err = os.WriteFile(fileName, outputBytes, 0200)
 	if err != nil {
 		fmt.Printf("Unable to write %s file : %v\n", fileName, err)
+		exitErr()
+	}
+	err = os.Chmod(fileName, 0644)
+	if err != nil {
+		fmt.Printf("Unable to chmod %s file : %v\n", fileName, err)
 		exitErr()
 	}
 }
@@ -115,9 +124,14 @@ func writeUpdatesCargoToml(dir string, deps map[string]analyzedProjectDependency
 	if !inplace {
 		fileName = fileName + ".proposed"
 	}
-	err = os.WriteFile(fileName, modFileBytes, 0666)
+	err = os.WriteFile(fileName, modFileBytes, 0200)
 	if err != nil {
 		fmt.Printf("Unable to write %s file : %v\n", fileName, err)
+		exitErr()
+	}
+	err = os.Chmod(fileName, 0644)
+	if err != nil {
+		fmt.Printf("Unable to chmod %s file : %v\n", fileName, err)
 		exitErr()
 	}
 }

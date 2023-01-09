@@ -52,12 +52,12 @@ func NewGetContractDataHandler(logger *log.Entry, coreClient *stellarcore.Client
 				Message: "contract id is not 32 bytes",
 			}
 		}
-		var contractId xdr.Hash
-		copy(contractId[:], contractIDBytes)
+		var contractID xdr.Hash
+		copy(contractID[:], contractIDBytes)
 		lk := xdr.LedgerKey{
 			Type: xdr.LedgerEntryTypeContractData,
 			ContractData: &xdr.LedgerKeyContractData{
-				ContractId: contractId,
+				ContractId: contractID,
 				Key:        scVal,
 			},
 		}

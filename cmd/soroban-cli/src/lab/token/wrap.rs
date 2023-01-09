@@ -15,7 +15,6 @@ use soroban_env_host::{
     Host, HostError,
 };
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
-use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::{
     rpc::{Client, Error as SorobanRpcError},
@@ -156,8 +155,7 @@ impl Cmd {
             .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
@@ -289,7 +287,7 @@ fn parse_asset(str: &str) -> Result<Asset, Error> {
 }
 
 fn parse_account_id(str: &str) -> Result<AccountId, Error> {
-    let pk_bytes = StrkeyPublicKeyEd25519::from_string(str)
+    let pk_bytes = stellar_strkey::ed25519::PublicKey::from_string(str)
         .map_err(|_| Error::CannotParseAccountId {
             account_id: str.to_string(),
         })?
