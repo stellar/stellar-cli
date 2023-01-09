@@ -68,6 +68,7 @@ pub struct Args {
     #[clap(flatten)]
     pub ledger: ledger::Args,
 
+    #[clap(long)]
     /// Use specified identity to sign transaction
     pub identity: Option<String>,
 }
