@@ -399,7 +399,8 @@ func findCommitHash(shortCommitHash string) (string, error) {
 			if reviewedHashes[pHash] {
 				continue
 			}
-			pCommit, err := repo.CommitObject(pHash)
+			var pCommit *object.Commit
+			pCommit, err = repo.CommitObject(pHash)
 			if err != nil {
 				fmt.Printf("unable to get commit hash %s", pHash.String())
 				return err
@@ -430,6 +431,7 @@ func findGoMonorepoCommit(composePath string) string {
 	panicIf(err)
 	commitHash, err := findCommitHash(shortCommitHash)
 	panicIf(err)
+
 	return commitHash
 }
 
