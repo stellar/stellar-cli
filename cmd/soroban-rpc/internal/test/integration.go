@@ -402,7 +402,7 @@ func findCommitHash(shortCommitHash string) (string, error) {
 		return revCommit, nil
 	}
 	// otherwise, this commit might be in one of the branches.
-	return "", errors.New("unable to find full hash")
+	return "", fmt.Errorf("unable to find full hash for commit hash '%s'", shortCommitHash)
 }
 
 func findGoMonorepoCommit(composePath string) string {
