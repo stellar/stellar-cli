@@ -42,11 +42,33 @@ type TransactionResponseError struct {
 }
 
 type TransactionStatusResponse struct {
-	ID      string  `json:"id"`
-	Status  string  `json:"status"`
-	Results []SCVal `json:"results,omitempty"`
+	ID            string  `json:"id"`
+	Status        string  `json:"status"`
+	EnvelopeXdr   string  `json:"envelopeXdr,omitempty"`
+	ResultXdr     string  `json:"resultXdr,omitempty"`
+	ResultMetaXdr string  `json:"resultMetaXdr,omitempty"`
+	Results       []SCVal `json:"results,omitempty"`
 	// Error will be nil unless Status is equal to "error"
 	Error *TransactionResponseError `json:"error,omitempty"`
+}
+
+func NewTransactionStatusResponse(tx horizon.Transaction, err *TransactionResponseError) TransactionStatusResponse {
+	resp := TransactionStatusResponse{
+		ID:            tx.ID,
+		Status:        TransactionSuccess,
+		EnvelopeXdr:   tx.EnvelopeXdr,
+		ResultXdr:     tx.ResultXdr,
+		ResultMetaXdr: tx.ResultMetaXdr,
+		Error:         err,
+	}
+	if resp.Error == nil {
+		// Try to parse the results, if we should have some
+		resp.Results, resp.Error = parseResults(tx)
+	}
+	if resp.Error != nil {
+		resp.Status = TransactionError
+	}
+	return resp
 }
 
 type SendTransactionResponse struct {
@@ -276,52 +298,39 @@ func (p *TransactionProxy) GetTransactionStatus(ctx context.Context, request Get
 	if err != nil {
 		if herr, ok := err.(*horizonclient.Error); ok {
 			if herr.Problem.Status != http.StatusNotFound {
-				return TransactionStatusResponse{
-					ID:     request.Hash,
-					Status: TransactionError,
-					Error: &TransactionResponseError{
+				return NewTransactionStatusResponse(
+					tx,
+					&TransactionResponseError{
 						Code:    herr.Problem.Title,
 						Message: herr.Problem.Detail,
 						Data:    herr.Problem.Extras,
 					},
-				}
+				)
 			}
 		} else {
-			return TransactionStatusResponse{
-				ID:     request.Hash,
-				Status: TransactionError,
-				Error: &TransactionResponseError{
+			return NewTransactionStatusResponse(
+				tx,
+				&TransactionResponseError{
 					Code:    "http_error",
 					Message: fmt.Sprintf("transaction submission failed: %v", err),
 				},
-			}
+			)
 		}
 	} else {
 		if !tx.Successful {
-			return TransactionStatusResponse{
-				ID:     request.Hash,
-				Status: TransactionError,
-				Error: &TransactionResponseError{
+			return NewTransactionStatusResponse(
+				tx,
+				&TransactionResponseError{
 					Code:    "tx_failed",
 					Message: "transaction included in ledger but failed",
 					Data: map[string]interface{}{
 						"transaction": tx,
 					},
 				},
-			}
+			)
 		}
 
-		results, err := parseResults(tx)
-		status := TransactionSuccess
-		if err != nil {
-			status = TransactionError
-		}
-		return TransactionStatusResponse{
-			ID:      request.Hash,
-			Status:  status,
-			Results: results,
-			Error:   err,
-		}
+		return NewTransactionStatusResponse(tx, nil)
 	}
 
 	// herr.Problem.Status == http.StatusNotFound
