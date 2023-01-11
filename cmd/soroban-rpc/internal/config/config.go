@@ -13,4 +13,5 @@ type LocalConfig struct {
 	LogLevel              logrus.Level
 	TxConcurrency         int
 	TxQueueSize           int
+	SQLiteDBPath          string
 }

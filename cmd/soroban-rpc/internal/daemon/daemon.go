@@ -14,6 +14,7 @@ import (
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -59,7 +60,12 @@ func Start(cfg config.LocalConfig) (exitCode int) {
 		logger.Fatalf("could not connect to history archive: %v", err)
 	}
 
-	storage, err := internal.NewLedgerEntryStorage(cfg.NetworkPassphrase, historyArchive, core)
+	db, err := ledgerentry_storage.OpenSQLiteDB(cfg.SQLiteDBPath)
+	if err != nil {
+		logger.Fatalf("could not open database: %v", err)
+	}
+
+	storage, err := ledgerentry_storage.NewLedgerEntryStorage(logger, db, cfg.NetworkPassphrase, historyArchive, core)
 	if err != nil {
 		logger.Fatalf("could not initialize ledger entry storage: %v", err)
 	}

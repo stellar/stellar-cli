@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,8 +20,10 @@ import (
 )
 
 func main() {
-	var endpoint, horizonURL, binaryPath, configPath, networkPassphrase string
-	var captiveCoreHTTPPort uint16
+	// CPU profiling by default
+	defer profile.Start().Stop()
+	var endpoint, horizonURL, binaryPath, configPath, networkPassphrase, dbPath string
+	var captiveCoreHTTPPort uint
 	var historyArchiveURLs []string
 	var txConcurrency, txQueueSize int
 	var logLevel logrus.Level
@@ -43,13 +46,12 @@ func main() {
 			Usage:       "URL used to query Horizon",
 		},
 		&config.ConfigOption{
-			Name:           "stellar-captive-core-http-port",
-			ConfigKey:      &captiveCoreHTTPPort,
-			OptType:        types.Uint,
-			CustomSetValue: config.SetOptionalUint,
-			Required:       false,
-			FlagDefault:    uint(11626),
-			Usage:          "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
+			Name:        "stellar-captive-core-http-port",
+			ConfigKey:   &captiveCoreHTTPPort,
+			OptType:     types.Uint,
+			Required:    false,
+			FlagDefault: uint(11626),
+			Usage:       "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
 		},
 		&config.ConfigOption{
 			Name:        "log-level",
@@ -121,6 +123,14 @@ func main() {
 			FlagDefault: 10,
 			Required:    false,
 		},
+		{
+			Name:        "db-path",
+			Usage:       "SQLite DB path",
+			OptType:     types.String,
+			ConfigKey:   &dbPath,
+			FlagDefault: "soroban_rpc.sqlite",
+			Required:    false,
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -137,12 +147,13 @@ func main() {
 				HorizonURL:            horizonURL,
 				StellarCoreBinaryPath: binaryPath,
 				CaptiveCoreConfigPath: configPath,
-				CaptiveCoreHTTPPort:   captiveCoreHTTPPort,
+				CaptiveCoreHTTPPort:   uint16(captiveCoreHTTPPort),
 				NetworkPassphrase:     networkPassphrase,
 				HistoryArchiveURLs:    historyArchiveURLs,
 				LogLevel:              logLevel,
 				TxConcurrency:         txConcurrency,
 				TxQueueSize:           txQueueSize,
+				SQLiteDBPath:          dbPath,
 			}
 			exitCode := daemon.Start(config)
 			os.Exit(exitCode)
