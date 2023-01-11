@@ -18,7 +18,6 @@ use soroban_env_host::{
 };
 use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
-use stellar_strkey::StrkeyPrivateKeyEd25519;
 
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 
@@ -200,7 +199,7 @@ pub enum ParseSecretKeyError {
 }
 
 pub fn parse_secret_key(strkey: &str) -> Result<ed25519_dalek::Keypair, ParseSecretKeyError> {
-    let seed = StrkeyPrivateKeyEd25519::from_string(strkey)
+    let seed = stellar_strkey::ed25519::PrivateKey::from_string(strkey)
         .map_err(|_| ParseSecretKeyError::CannotParseSecretKey)?;
     let secret_key = ed25519_dalek::SecretKey::from_bytes(&seed.0)
         .map_err(|_| ParseSecretKeyError::CannotParseSecretKey)?;

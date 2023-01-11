@@ -19,6 +19,7 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/storage/memory"
@@ -382,27 +383,46 @@ func findCommitHash(shortCommitHash string) (string, error) {
 		fmt.Printf("unable to get log entries at %s for %s: %v\n", path, shortCommitHash, err)
 		return "", err
 	}
+	reviewedHashes := make(map[plumbing.Hash]bool, 0)
 	// ... just iterates over the commits, looking for a commit with a specific hash.
 	var revCommit string
-	err = cIter.ForEach(func(c *object.Commit) error {
+	var lookupRecursive func(c *object.Commit) error
+	lookupRecursive = func(c *object.Commit) error {
 		revString := strings.ToLower(c.Hash.String())
 		if strings.HasPrefix(revString, lookoutCommit) {
 			// found !
 			revCommit = revString
 			return storer.ErrStop
 		}
+		reviewedHashes[c.Hash] = true
+		for _, pHash := range c.ParentHashes {
+			if reviewedHashes[pHash] {
+				continue
+			}
+			var pCommit *object.Commit
+			pCommit, err = repo.CommitObject(pHash)
+			if err != nil {
+				fmt.Printf("unable to get commit hash %s", pHash.String())
+				return err
+			}
+			err = lookupRecursive(pCommit)
+			if err != nil {
+				return err
+			}
+		}
 		return nil
-	})
-
+	}
+	err = cIter.ForEach(lookupRecursive)
 	if err != nil && err != storer.ErrStop {
-		fmt.Printf("unable to iterate on lof entries for %s : %v\n", path, err)
+		fmt.Printf("unable to iterate on log entries for %s : %v\n", path, err)
 		return "", err
 	}
+
 	if revCommit != "" {
 		return revCommit, nil
 	}
 	// otherwise, this commit might be in one of the branches.
-	return "", errors.New("unable to find full hash")
+	return "", fmt.Errorf("unable to find full hash for commit hash '%s' for '%s'", lookoutCommit, path)
 }
 
 func findGoMonorepoCommit(composePath string) string {
