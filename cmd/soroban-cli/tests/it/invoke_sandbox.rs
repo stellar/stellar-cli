@@ -3,6 +3,7 @@ use crate::util::{temp_ledger_file, test_wasm, Sandbox, SorobanCommand};
 #[test]
 fn source_account_exists() {
     Sandbox::new_cmd()
+        .arg("contract")
         .arg("invoke")
         .arg("--ledger-file")
         .arg(temp_ledger_file())
@@ -19,6 +20,7 @@ fn source_account_exists() {
 fn install_wasm_then_deploy_contract() {
     let ledger = temp_ledger_file();
     Sandbox::new_cmd()
+        .arg("contract")
         .arg("install")
         .arg("--ledger-file")
         .arg(&ledger)
@@ -29,10 +31,11 @@ fn install_wasm_then_deploy_contract() {
         .stdout("8b40470842ce645059cfa689bdfb02e74a33384ac860a4a0f1bcc2e963c42000\n");
 
     Sandbox::new_cmd()
+        .arg("contract")
         .arg("deploy")
         .arg("--ledger-file")
         .arg(&ledger)
-        .arg("--wasm-hash=8b40470842ce645059cfa689bdfb02e74a33384ac860a4a0f1bcc2e963c42000")
+        .arg("--wasm-hash=6dc273aaeee27b626d18b40614168f588b90cb5dea92a4f4f82abaf92f6844e3")
         .arg("--id=1")
         .assert()
         .success()
@@ -42,6 +45,7 @@ fn install_wasm_then_deploy_contract() {
 #[test]
 fn deploy_contract_with_wasm_file() {
     Sandbox::new_cmd()
+        .arg("contract")
         .arg("deploy")
         .arg("--ledger-file")
         .arg(temp_ledger_file())

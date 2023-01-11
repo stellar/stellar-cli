@@ -166,7 +166,7 @@ pub enum OutputFormat {
 }
 
 impl Cmd {
-    pub async fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         if self.start_ledger > self.end_ledger {
             return Err(Error::InvalidLedgerRange {
                 low: self.start_ledger,
