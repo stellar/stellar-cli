@@ -55,7 +55,7 @@ func main() {
 			CustomSetValue: func(co *config.ConfigOption) error {
 				ll, err := logrus.ParseLevel(viper.GetString(co.Name))
 				if err != nil {
-					return fmt.Errorf("Could not parse log-level: %v", viper.GetString(co.Name))
+					return fmt.Errorf("could not parse log-level: %v", viper.GetString(co.Name))
 				}
 				*(co.ConfigKey.(*logrus.Level)) = ll
 				return nil
@@ -92,8 +92,11 @@ func main() {
 		Short: "Run the remote soroban-rpc server",
 		Run: func(_ *cobra.Command, _ []string) {
 			configOpts.Require()
-			configOpts.SetValues()
-
+			err := configOpts.SetValues()
+			if err != nil {
+				fmt.Printf("failed to set values : %v\n", err)
+				os.Exit(-1)
+			}
 			config := localConfig.LocalConfig{
 				EndPoint:          endpoint,
 				HorizonURL:        horizonURL,

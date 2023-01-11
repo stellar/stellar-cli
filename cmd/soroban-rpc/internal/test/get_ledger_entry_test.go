@@ -131,7 +131,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractCode,
 		ContractCode: &xdr.LedgerKeyContractCode{
-			Hash: xdr.Hash(contractHash),
+			Hash: contractHash,
 		},
 	})
 	require.NoError(t, err)

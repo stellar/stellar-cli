@@ -16,7 +16,7 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::HostError;
 
-use crate::install::build_install_contract_code_tx;
+use crate::contract::install::build_install_contract_code_tx;
 use crate::rpc::{self, Client};
 use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 
@@ -210,8 +210,7 @@ impl Cmd {
             .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
 

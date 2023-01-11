@@ -39,25 +39,6 @@ pub struct Sandbox {}
 
 impl SorobanCommand for Sandbox {}
 
-/// Standalone Network
-pub struct Standalone {}
-
-impl SorobanCommand for Standalone {
-    fn new_cmd() -> Command {
-        let mut this = Sandbox::new_cmd();
-        this.env("SOROBAN_RPC_URL", "http://localhost:8000/soroban/rpc")
-            .env(
-                "SOROBAN_SECRET_KEY",
-                "SC5O7VZUXDJ6JBDSZ74DSERXL7W3Y5LTOAMRF7RQRL3TAGAPS7LUVG3L",
-            )
-            .env(
-                "SOROBAN_NETWORK_PASSPHRASE",
-                "Standalone Network ; February 2017",
-            );
-        this
-    }
-}
-
 pub fn temp_ledger_file() -> OsString {
     TempDir::new()
         .unwrap()

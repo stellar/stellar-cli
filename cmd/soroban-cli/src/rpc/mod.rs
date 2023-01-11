@@ -1,7 +1,10 @@
-use jsonrpsee_core::{client::ClientT, rpc_params};
-use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
+use jsonrpsee_core::{self, client::ClientT, rpc_params};
+use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
-use std::time::{Duration, Instant};
+use std::{
+    collections,
+    time::{Duration, Instant},
+};
 use tokio::time::sleep;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
@@ -12,6 +15,8 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
+    #[error("json decoding error: {0}")]
+    Serde(#[from] serde_json::Error),
     #[error("transaction submission failed")]
     TransactionSubmissionFailed,
     #[error("expected transaction status: {0}")]
@@ -48,6 +53,20 @@ pub struct TransactionStatusResult {
 pub struct GetTransactionStatusResponse {
     pub id: String,
     pub status: String,
+    #[serde(
+        rename = "envelopeXdr",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub envelope_xdr: Option<String>,
+    #[serde(rename = "resultXdr", skip_serializing_if = "Option::is_none", default)]
+    pub result_xdr: Option<String>,
+    #[serde(
+        rename = "resultMetaXdr",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub result_meta_xdr: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub results: Vec<TransactionStatusResult>,
 }
@@ -81,6 +100,39 @@ pub struct SimulateTransactionResponse {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
     // TODO: add results and latestLedger
+}
+
+pub type GetEventsResponse = Vec<Event>;
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct Event {
+    #[serde(rename = "type")]
+    pub event_type: String,
+
+    pub ledger: String,
+    #[serde(rename = "ledgerClosedAt")]
+    pub ledger_closed_at: String,
+
+    pub id: String,
+    #[serde(rename = "pagingToken")]
+    pub paging_token: String,
+
+    #[serde(rename = "contractId")]
+    pub contract_id: String,
+    pub topic: Vec<String>,
+    pub value: EventValue,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct EventValue {
+    pub xdr: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ArgEnum)]
+pub enum EventType {
+    All,
+    Contract,
+    System,
 }
 
 pub struct Client {
@@ -186,6 +238,46 @@ impl Client {
         Ok(self
             .client()?
             .request("getLedgerEntry", rpc_params![base64_key])
+            .await?)
+    }
+
+    pub async fn get_events(
+        &self,
+        start_ledger: u32,
+        end_ledger: u32,
+        event_type: Option<EventType>,
+        contract_ids: &[String],
+        topics: &[String],
+        limit: Option<usize>,
+    ) -> Result<Option<GetEventsResponse>, Error> {
+        let mut filters = serde_json::Map::new();
+
+        event_type
+            .and_then(|t| match t {
+                EventType::All => None, // all is the default, so avoid incl. the param
+                EventType::Contract => Some("contract"),
+                EventType::System => Some("system"),
+            })
+            .map(|t| filters.insert("type".to_string(), t.into()));
+
+        filters.insert("topics".to_string(), topics.into());
+        filters.insert("contractIds".to_string(), contract_ids.into());
+
+        let mut pagination = serde_json::Map::new();
+        if let Some(limit) = limit {
+            pagination.insert("limit".to_string(), limit.into());
+        }
+        // TODO: cursor
+
+        let mut object = collections::BTreeMap::<&str, jsonrpsee_core::JsonValue>::new();
+        object.insert("startLedger", start_ledger.to_string().into());
+        object.insert("endLedger", end_ledger.to_string().into());
+        object.insert("filters", vec![filters].into());
+        object.insert("pagination", pagination.into());
+
+        Ok(self
+            .client()?
+            .request("getEvents", Some(types::ParamsSer::Map(object)))
             .await?)
     }
 }

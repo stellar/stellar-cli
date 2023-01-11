@@ -20,11 +20,10 @@ use soroban_env_host::{
     Host, HostError,
 };
 use soroban_spec::read::FromWasmError;
-use stellar_strkey::StrkeyPublicKeyEd25519;
 
 use crate::rpc::Client;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
-use crate::{rpc, strval, utils};
+use crate::{events, rpc, strval, utils};
 use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
@@ -41,9 +40,6 @@ pub struct Cmd {
     /// Argument to pass to the function
     #[clap(long = "arg", value_name = "arg", multiple = true)]
     args: Vec<String>,
-    /// Argument to pass to the function (base64-encoded xdr)
-    #[clap(long = "arg-xdr", value_name = "arg-xdr", multiple = true)]
-    args_xdr: Vec<String>,
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
@@ -58,7 +54,7 @@ pub struct Cmd {
         conflicts_with = "rpc-url",
         help_heading = HEADING_SANDBOX,
     )]
-    account_id: StrkeyPublicKeyEd25519,
+    account_id: stellar_strkey::ed25519::PublicKey,
     /// File to persist ledger state
     #[clap(
         long,
@@ -69,6 +65,16 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     ledger_file: std::path::PathBuf,
+    /// File to persist event output
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value(".soroban/events.json"),
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_EVENTS_FILE",
+        help_heading = HEADING_SANDBOX,
+    )]
+    events_file: std::path::PathBuf,
 
     /// Secret 'S' key used to sign the transaction sent to the rpc server
     #[clap(
@@ -102,8 +108,6 @@ pub struct Cmd {
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg { arg: String, error: strval::Error },
-    #[error("parsing XDR arg {arg}: {error}")]
-    CannotParseXdrArg { arg: String, error: XdrError },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(XdrError),
     #[error(transparent)]
@@ -124,6 +128,11 @@ pub enum Error {
     CannotCommitLedgerFile {
         filepath: std::path::PathBuf,
         error: soroban_ledger_snapshot::Error,
+    },
+    #[error("committing file {filepath}: {error}")]
+    CannotCommitEventsFile {
+        filepath: std::path::PathBuf,
+        error: events::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -163,7 +172,6 @@ pub enum Error {
 #[derive(Clone, Debug)]
 enum Arg {
     Arg(String),
-    ArgXdr(String),
 }
 
 impl Cmd {
@@ -171,7 +179,6 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-        matches: &clap::ArgMatches,
     ) -> Result<ScVec, Error> {
         // Get the function spec from the contract code
         let spec = spec_entries
@@ -187,19 +194,13 @@ impl Cmd {
             .ok_or_else(|| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
 
         // Re-assemble the function args, to match the order given on the command line
-        let indexed_args: Vec<(usize, Arg)> = matches
-            .indices_of("args")
-            .unwrap_or_default()
-            .zip(self.args.iter())
+        let indexed_args: Vec<(usize, Arg)> = self
+            .args
+            .iter()
+            .enumerate()
             .map(|(a, b)| (a, Arg::Arg(b.to_string())))
             .collect();
-        let indexed_args_xdr: Vec<(usize, Arg)> = matches
-            .indices_of("args-xdr")
-            .unwrap_or_default()
-            .zip(self.args_xdr.iter())
-            .map(|(a, b)| (a, Arg::ArgXdr(b.to_string())))
-            .collect();
-        let mut all_indexed_args: Vec<(usize, Arg)> = [indexed_args, indexed_args_xdr].concat();
+        let mut all_indexed_args: Vec<(usize, Arg)> = indexed_args;
         all_indexed_args.sort_by(|a, b| a.0.cmp(&b.0));
 
         // Parse the function arguments
@@ -216,10 +217,6 @@ impl Cmd {
             .iter()
             .zip(inputs.iter())
             .map(|(arg, input)| match &arg.1 {
-                Arg::ArgXdr(s) => ScVal::from_xdr_base64(s).map_err(|e| Error::CannotParseXdrArg {
-                    arg: s.clone(),
-                    error: e,
-                }),
                 Arg::Arg(s) => {
                     strval::from_string(s, &input.type_).map_err(|e| Error::CannotParseArg {
                         arg: s.clone(),
@@ -249,7 +246,7 @@ impl Cmd {
             })
     }
 
-    pub async fn run(&self, matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
                 contract_id: self.contract_id.clone(),
@@ -257,23 +254,19 @@ impl Cmd {
             })?;
 
         if self.rpc_url.is_some() {
-            return self.run_against_rpc_server(contract_id, matches).await;
+            return self.run_against_rpc_server(contract_id).await;
         }
 
-        self.run_in_sandbox(contract_id, matches)
+        self.run_in_sandbox(contract_id)
     }
 
-    async fn run_against_rpc_server(
-        &self,
-        contract_id: [u8; 32],
-        matches: &clap::ArgMatches,
-    ) -> Result<(), Error> {
+    async fn run_against_rpc_server(&self, contract_id: [u8; 32]) -> Result<(), Error> {
         let client = Client::new(self.rpc_url.as_ref().unwrap());
         let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
             .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
-        let public_strkey = StrkeyPublicKeyEd25519(key.public.to_bytes()).to_string();
+        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
@@ -293,7 +286,7 @@ impl Cmd {
 
         // Get the ledger footprint
         let host_function_params =
-            self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
+            self.build_host_function_parameters(contract_id, &spec_entries)?;
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
             None,
@@ -335,11 +328,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(
-        &self,
-        contract_id: [u8; 32],
-        matches: &clap::ArgMatches,
-    ) -> Result<(), Error> {
+    fn run_in_sandbox(&self, contract_id: [u8; 32]) -> Result<(), Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
@@ -395,7 +384,7 @@ impl Cmd {
         h.set_ledger_info(ledger_info);
 
         let host_function_params =
-            self.build_host_function_parameters(contract_id, &spec_entries, matches)?;
+            self.build_host_function_parameters(contract_id, &spec_entries)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
         let res_str = strval::to_string(&res).map_err(|e| Error::CannotPrintResult {
@@ -444,6 +433,13 @@ impl Cmd {
                 filepath: self.ledger_file.clone(),
                 error: e,
             })?;
+
+        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
+            Error::CannotCommitEventsFile {
+                filepath: self.events_file.clone(),
+                error: e,
+            }
+        })?;
 
         Ok(())
     }
