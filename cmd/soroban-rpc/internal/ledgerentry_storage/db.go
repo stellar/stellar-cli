@@ -74,9 +74,9 @@ func getLedgerEntry(tx *sqlx.Tx, buffer *xdr.EncodingBuffer, key xdr.LedgerKey) 
 	if len(results) != 1 {
 		return xdr.LedgerEntry{}, sql.ErrNoRows
 	}
-	ledgerEntryBase64 := results[0]
+	ledgerEntryBin := results[0]
 	var result xdr.LedgerEntry
-	err = xdr.SafeUnmarshalBase64(ledgerEntryBase64, &result)
+	err = xdr.SafeUnmarshal([]byte(ledgerEntryBin), &result)
 	return result, err
 }
 
@@ -217,11 +217,13 @@ func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerE
 	if err != nil {
 		return err
 	}
-	encodedEntry, err := l.buffer.MarshalBase64(&entry)
+	// safe since we cast to string right away
+	encodedEntry, err := l.buffer.UnsafeMarshalBinary(&entry)
 	if err != nil {
 		return err
 	}
-	l.keyToEntryBatch[encodedKey] = &encodedEntry
+	encodedEntryStr := string(encodedEntry)
+	l.keyToEntryBatch[encodedKey] = &encodedEntryStr
 	if len(l.keyToEntryBatch) >= l.maxBatchSize {
 		if err := flushLedgerEntryBatch(l.tx, l.keyToEntryBatch); err != nil {
 			l.tx.Rollback()
@@ -262,7 +264,6 @@ func (l *ledgerUpdaterTx) Done() error {
 }
 
 func encodeLedgerKey(buffer *xdr.EncodingBuffer, key xdr.LedgerKey) (string, error) {
-	// TODO: we probably want to base64-encode it before it goes into the DB
 	// this is safe since we are converting to string right away, which causes a copy
 	binKey, err := buffer.LedgerKeyUnsafeMarshalBinaryCompress(key)
 	if err != nil {

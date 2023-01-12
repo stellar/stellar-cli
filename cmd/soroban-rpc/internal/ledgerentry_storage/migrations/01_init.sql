@@ -1,7 +1,7 @@
 -- +migrate Up
 CREATE TABLE ledger_entries (
-    key bigint NOT NULL PRIMARY KEY,
-    entry TEXT NOT NULL
+    key BLOB NOT NULL PRIMARY KEY,
+    entry BLOB NOT NULL
 );
 
 -- metadata about the content in the ledger_entries table
