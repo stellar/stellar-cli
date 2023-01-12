@@ -189,7 +189,7 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 					panic(err)
 				}
 			} else {
-				key, relevant, err := getRelevantLedgerKeyFromData(change.Pre.Data)
+				key, relevant, err := getRelevantLedgerKeyFromData(change.Post.Data)
 				if err != nil {
 					// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
 					panic(err)
