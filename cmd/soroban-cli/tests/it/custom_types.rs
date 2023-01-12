@@ -3,15 +3,16 @@ use std::fmt::Display;
 use assert_cmd::Command;
 use serde_json::json;
 
-use crate::util::{temp_ledger_file, test_wasm, CommandExt, Sandbox, SorobanCommand};
+use crate::util::{temp_ledger_file, CommandExt, Sandbox, SorobanCommand, CUSTOM_TYPES};
 
 fn invoke(func: &str) -> Command {
-    let mut s = Sandbox::new_cmd("invoke");
-    s.arg("--ledger-file")
+    let mut s = Sandbox::new_cmd("contract");
+    s.arg("invoke")
+        .arg("--ledger-file")
         .arg(temp_ledger_file())
         .arg("--id=1")
         .arg("--wasm")
-        .arg(test_wasm("test_custom_types"))
+        .arg(CUSTOM_TYPES.path())
         .arg("--fn")
         .arg(func)
         .arg("--");

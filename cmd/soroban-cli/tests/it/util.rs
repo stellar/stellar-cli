@@ -1,19 +1,33 @@
-use std::{ffi::OsString, fmt::Display, path::PathBuf};
+use std::{ffi::OsString, fmt::Display, fs, path::PathBuf};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{prelude::PathChild, TempDir};
+use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::{Error as XdrError, Hash, InstallContractCodeArgs, WriteXdr};
 
-pub fn test_wasm(name: &str) -> PathBuf {
-    let mut path = PathBuf::from(
-        std::env::var("CARGO_MANIFEST_DIR")
-            .map_or_else(|_| "", |_| "../..")
-            .to_string(),
-    )
-    .join("target/wasm32-unknown-unknown/test-wasms")
-    .join(name);
-    path.set_extension("wasm");
-    assert!(path.is_file(), "File not found: {}. run 'make build-test-wasms' to generate .wasm files before running this test", path.display());
-    path
+pub struct Wasm<'a>(pub &'a str);
+
+impl Wasm<'_> {
+    pub fn path(&self) -> PathBuf {
+        let mut path = PathBuf::from(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .map_or_else(|_| "", |_| "../..")
+                .to_string(),
+        )
+        .join("target/wasm32-unknown-unknown/test-wasms")
+        .join(self.0);
+        path.set_extension("wasm");
+        assert!(path.is_file(), "File not found: {}. run 'make build-test-wasms' to generate .wasm files before running this test", path.display());
+        path
+    }
+
+    pub fn bytes(&self) -> Vec<u8> {
+        fs::read(self.path()).unwrap()
+    }
+
+    pub fn hash(&self) -> Hash {
+        contract_hash(&self.bytes()).unwrap()
+    }
 }
 
 /// Create a command with the correct env variables
@@ -66,6 +80,15 @@ impl CommandExt for Command {
     }
 }
 
-pub fn output_line(a: &Assert) -> String {
-    a.output_line()
+// TODO add a `lib.rs` so that this can be imported
+pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
+    let args_xdr = InstallContractCodeArgs {
+        code: contract.try_into()?,
+    }
+    .to_xdr()?;
+    Ok(Hash(Sha256::digest(args_xdr).into()))
 }
+
+pub const HELLO_WORLD: &Wasm = &Wasm("test_hello_world");
+pub const INVOKER_ACCOUNT_EXISTS: &Wasm = &Wasm("test_invoker_account_exists");
+pub const CUSTOM_TYPES: &Wasm = &Wasm("test_custom_types");

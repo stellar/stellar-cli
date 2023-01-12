@@ -179,7 +179,6 @@ func TestTopicFilterMatches(t *testing.T) {
 					exclude,
 				)
 			}
-
 		})
 	}
 }
@@ -599,12 +598,12 @@ func TestEventStoreGetEvents(t *testing.T) {
 	t.Run("no filtering returns all", func(t *testing.T) {
 		client := &mockTransactionClient{}
 		results := []horizon.Transaction{}
-		contractId := xdr.Hash([32]byte{})
+		contractID := xdr.Hash([32]byte{})
 		for i := 0; i < 10; i++ {
 			meta := transactionMetaWithEvents(t,
 				[]xdr.ContractEvent{
 					contractEvent(
-						contractId,
+						contractID,
 						xdr.ScVec{xdr.ScVal{
 							Type: xdr.ScValTypeScvSymbol,
 							Sym:  &counter,
@@ -649,7 +648,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 			})
 			assert.NoError(t, err)
 			expected = append(expected, EventInfo{
-				EventType:      "contract",
+				EventType:      EventTypeContract,
 				Ledger:         tx.Ledger,
 				LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
 				ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
@@ -729,14 +728,14 @@ func TestEventStoreGetEvents(t *testing.T) {
 	t.Run("filtering by topic", func(t *testing.T) {
 		client := &mockTransactionClient{}
 		results := []horizon.Transaction{}
-		contractId := xdr.Hash([32]byte{})
+		contractID := xdr.Hash([32]byte{})
 		for i := 0; i < 10; i++ {
 			number := xdr.Int64(i)
 			meta := transactionMetaWithEvents(t,
 				[]xdr.ContractEvent{
 					// Generate a unique topic like /counter/4 for each event so we can check
 					contractEvent(
-						contractId,
+						contractID,
 						xdr.ScVec{
 							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
@@ -788,7 +787,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 		assert.NoError(t, err)
 		expected := []EventInfo{
 			{
-				EventType:      "contract",
+				EventType:      EventTypeContract,
 				Ledger:         tx.Ledger,
 				LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
 				ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
@@ -803,8 +802,8 @@ func TestEventStoreGetEvents(t *testing.T) {
 
 	t.Run("filtering by both contract id and topic", func(t *testing.T) {
 		client := &mockTransactionClient{}
-		contractId := xdr.Hash([32]byte{})
-		otherContractId := xdr.Hash([32]byte{1})
+		contractID := xdr.Hash([32]byte{})
+		otherContractID := xdr.Hash([32]byte{1})
 		number := xdr.Int64(1)
 		results := []horizon.Transaction{
 			// This matches neither the contract id nor the topic
@@ -816,7 +815,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 				ResultMetaXdr: transactionMetaWithEvents(t,
 					[]xdr.ContractEvent{
 						contractEvent(
-							otherContractId,
+							otherContractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 							},
@@ -834,7 +833,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 				ResultMetaXdr: transactionMetaWithEvents(t,
 					[]xdr.ContractEvent{
 						contractEvent(
-							contractId,
+							contractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 							},
@@ -852,7 +851,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 				ResultMetaXdr: transactionMetaWithEvents(t,
 					[]xdr.ContractEvent{
 						contractEvent(
-							otherContractId,
+							otherContractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 								xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
@@ -871,7 +870,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 				ResultMetaXdr: transactionMetaWithEvents(t,
 					[]xdr.ContractEvent{
 						contractEvent(
-							contractId,
+							contractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 								xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
@@ -896,7 +895,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 			EndLedger:   2,
 			Filters: []EventFilter{
 				{
-					ContractIDs: []string{contractId.HexString()},
+					ContractIDs: []string{contractID.HexString()},
 					Topics: []TopicFilter{
 						[]SegmentFilter{
 							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
@@ -918,10 +917,10 @@ func TestEventStoreGetEvents(t *testing.T) {
 		assert.NoError(t, err)
 		expected := []EventInfo{
 			{
-				EventType:      "contract",
+				EventType:      EventTypeContract,
 				Ledger:         tx.Ledger,
 				LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-				ContractID:     contractId.HexString(),
+				ContractID:     contractID.HexString(),
 				ID:             id,
 				PagingToken:    id,
 				Topic:          []string{counterXdr, value},
@@ -933,7 +932,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 
 	t.Run("filtering by event type", func(t *testing.T) {
 		client := &mockTransactionClient{}
-		contractId := xdr.Hash([32]byte{})
+		contractID := xdr.Hash([32]byte{})
 		results := []horizon.Transaction{
 			{
 				ID:              fmt.Sprintf("%d", 0),
@@ -943,14 +942,14 @@ func TestEventStoreGetEvents(t *testing.T) {
 				ResultMetaXdr: transactionMetaWithEvents(t,
 					[]xdr.ContractEvent{
 						contractEvent(
-							contractId,
+							contractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 							},
 							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 						),
 						systemEvent(
-							contractId,
+							contractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 							},
@@ -973,7 +972,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 			StartLedger: 1,
 			EndLedger:   2,
 			Filters: []EventFilter{
-				{EventType: "system"},
+				{EventType: EventTypeSystem},
 			},
 		})
 		assert.NoError(t, err)
@@ -983,10 +982,10 @@ func TestEventStoreGetEvents(t *testing.T) {
 		id := EventID{ID: toid.New(tx.Ledger, int32(0), 0), EventOrder: 1}.String()
 		expected := []EventInfo{
 			{
-				EventType:      "system",
+				EventType:      EventTypeSystem,
 				Ledger:         tx.Ledger,
 				LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-				ContractID:     contractId.HexString(),
+				ContractID:     contractID.HexString(),
 				ID:             id,
 				PagingToken:    id,
 				Topic:          []string{counterXdr},
@@ -998,7 +997,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 
 	t.Run("pagination", func(t *testing.T) {
 		client := &mockTransactionClient{}
-		contractId := xdr.Hash([32]byte{})
+		contractID := xdr.Hash([32]byte{})
 		results := []horizon.Transaction{}
 		for i := 0; i < 180; i++ {
 			number := xdr.Int64(i)
@@ -1010,7 +1009,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 				ResultMetaXdr: transactionMetaWithEvents(t,
 					[]xdr.ContractEvent{
 						contractEvent(
-							contractId,
+							contractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
 							},
@@ -1030,7 +1029,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 				ResultMetaXdr: transactionMetaWithEvents(t,
 					[]xdr.ContractEvent{
 						contractEvent(
-							contractId,
+							contractID,
 							xdr.ScVec{
 								xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
 							},
@@ -1080,10 +1079,10 @@ func TestEventStoreGetEvents(t *testing.T) {
 		id := EventID{ID: toid.New(tx.Ledger, int32(25), 0), EventOrder: 0}.String()
 		expected := []EventInfo{
 			{
-				EventType:      "contract",
+				EventType:      EventTypeContract,
 				Ledger:         tx.Ledger,
 				LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-				ContractID:     contractId.HexString(),
+				ContractID:     contractID.HexString(),
 				ID:             id,
 				PagingToken:    id,
 				Topic:          []string{numberXdr},
@@ -1095,7 +1094,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 
 	t.Run("starting cursor in the middle of operations and events", func(t *testing.T) {
 		client := &mockTransactionClient{}
-		contractId := xdr.Hash([32]byte{})
+		contractID := xdr.Hash([32]byte{})
 		results := []horizon.Transaction{}
 		datas := []xdr.ScSymbol{
 			// ledger/transaction/operation/event
@@ -1112,14 +1111,14 @@ func TestEventStoreGetEvents(t *testing.T) {
 			ResultMetaXdr: transactionMetaWithEvents(t,
 				[]xdr.ContractEvent{
 					contractEvent(
-						contractId,
+						contractID,
 						xdr.ScVec{
 							counterScVal,
 						},
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[0]},
 					),
 					contractEvent(
-						contractId,
+						contractID,
 						xdr.ScVec{
 							counterScVal,
 						},
@@ -1128,14 +1127,14 @@ func TestEventStoreGetEvents(t *testing.T) {
 				},
 				[]xdr.ContractEvent{
 					contractEvent(
-						contractId,
+						contractID,
 						xdr.ScVec{
 							counterScVal,
 						},
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[2]},
 					),
 					contractEvent(
-						contractId,
+						contractID,
 						xdr.ScVec{
 							counterScVal,
 						},
@@ -1169,10 +1168,10 @@ func TestEventStoreGetEvents(t *testing.T) {
 		tx := results[0]
 		expected := []EventInfo{
 			{
-				EventType:      "contract",
+				EventType:      EventTypeContract,
 				Ledger:         tx.Ledger,
 				LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-				ContractID:     contractId.HexString(),
+				ContractID:     contractID.HexString(),
 				ID:             id,
 				PagingToken:    id,
 				Topic:          []string{counterXdr},
@@ -1207,9 +1206,9 @@ func transactionMetaWithEvents(t *testing.T, events ...[]xdr.ContractEvent) stri
 	return meta
 }
 
-func contractEvent(contractId xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.ContractEvent {
+func contractEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.ContractEvent {
 	return xdr.ContractEvent{
-		ContractId: &contractId,
+		ContractId: &contractID,
 		Type:       xdr.ContractEventTypeContract,
 		Body: xdr.ContractEventBody{
 			V: 0,
@@ -1221,9 +1220,9 @@ func contractEvent(contractId xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.C
 	}
 }
 
-func systemEvent(contractId xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.ContractEvent {
+func systemEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.ContractEvent {
 	return xdr.ContractEvent{
-		ContractId: &contractId,
+		ContractId: &contractID,
 		Type:       xdr.ContractEventTypeSystem,
 		Body: xdr.ContractEventBody{
 			V: 0,

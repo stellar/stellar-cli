@@ -24,17 +24,17 @@ var (
 )
 
 // createInvokeHostOperation creates a dummy InvokeHostFunctionOp. In this case by installing a contract code.
-func createInvokeHostOperation(t *testing.T, sourceAccount string, footprint xdr.LedgerFootprint, contractId xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
-	var contractIdBytes []byte = contractId[:]
-	contractIdObj := &xdr.ScObject{
+func createInvokeHostOperation(sourceAccount string, footprint xdr.LedgerFootprint, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
+	var contractIDBytes []byte = contractID[:]
+	contractIDObj := &xdr.ScObject{
 		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &contractIdBytes,
+		Bin:  &contractIDBytes,
 	}
 	methodSymbol := xdr.ScSymbol(method)
 	parameters := xdr.ScVec{
 		xdr.ScVal{
 			Type: xdr.ScValTypeScvObject,
-			Obj:  &contractIdObj,
+			Obj:  &contractIDObj,
 		},
 		xdr.ScVal{
 			Type: xdr.ScValTypeScvSymbol,
@@ -63,7 +63,7 @@ func createInstallContractCodeOperation(t *testing.T, sourceAccount string, cont
 				{
 					Type: xdr.LedgerEntryTypeContractCode,
 					ContractCode: &xdr.LedgerKeyContractCode{
-						Hash: xdr.Hash(contractHash),
+						Hash: contractHash,
 					},
 				},
 			},
@@ -104,7 +104,7 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 				{
 					Type: xdr.LedgerEntryTypeContractCode,
 					ContractCode: &xdr.LedgerKeyContractCode{
-						Hash: xdr.Hash(contractHash),
+						Hash: contractHash,
 					},
 				},
 			},
@@ -144,15 +144,18 @@ func getContractCodeLedgerKey() xdr.ScVal {
 }
 
 func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPassphrase string) [32]byte {
-	networkId := xdr.Hash(sha256.Sum256([]byte(networkPassphrase)))
+	networkID := xdr.Hash(sha256.Sum256([]byte(networkPassphrase)))
 	preImage := xdr.HashIdPreimage{
 		Type: xdr.EnvelopeTypeEnvelopeTypeContractIdFromSourceAccount,
 		SourceAccountContractId: &xdr.HashIdPreimageSourceAccountContractId{
-			NetworkId: networkId,
+			NetworkId: networkID,
 			Salt:      salt,
 		},
 	}
-	preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount)
+	if err := preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount); err != nil {
+		t.Errorf("failed to set address : %v", err)
+		t.FailNow()
+	}
 	xdrPreImageBytes, err := preImage.MarshalBinary()
 	require.NoError(t, err)
 	hashedContractID := sha256.Sum256(xdrPreImageBytes)
@@ -270,7 +273,7 @@ func TestSimulateTransactionError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	invokeHostOp := createInvokeHostOperation(t, sourceAccount, xdr.LedgerFootprint{}, xdr.Hash{}, "noMethod")
+	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.LedgerFootprint{}, xdr.Hash{}, "noMethod")
 	invokeHostOp.Function.InvokeArgs = &xdr.ScVec{}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
