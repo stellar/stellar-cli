@@ -62,7 +62,7 @@ pub enum CmdError {
     Lab(#[from] lab::Error),
 }
 
-pub async fn run(cmd: Cmd) -> Result<(), CmdError> {
+async fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
         Cmd::Contract(contract) => contract.run().await?,
         Cmd::Events(events) => events.run().await?,
