@@ -1,20 +1,20 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser};
 
-pub mod completion;
-pub mod contract;
-pub mod events;
-pub mod jsonrpc;
-pub mod lab;
-pub mod network;
-pub mod rpc;
-pub mod serve;
-pub mod strval;
-pub mod toid;
-pub mod utils;
-pub mod version;
+mod completion;
+mod contract;
+mod events;
+mod jsonrpc;
+mod lab;
+mod network;
+mod rpc;
+mod serve;
+mod strval;
+mod toid;
+mod utils;
+mod version;
 
-pub const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
-pub const HEADING_RPC: &str = "OPTIONS (RPC)";
+const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
+const HEADING_RPC: &str = "OPTIONS (RPC)";
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -25,13 +25,13 @@ pub const HEADING_RPC: &str = "OPTIONS (RPC)";
     disable_version_flag = true
 )]
 #[clap(global_setting(AppSettings::DeriveDisplayOrder))]
-pub struct Root {
+struct Root {
     #[clap(subcommand)]
     cmd: Cmd,
 }
 
 #[derive(Parser, Debug)]
-pub enum Cmd {
+enum Cmd {
     /// Tools for smart contract developers
     #[clap(subcommand)]
     Contract(contract::SubCmd),
@@ -50,7 +50,7 @@ pub enum Cmd {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum CmdError {
+enum CmdError {
     // TODO: stop using Debug for displaying errors
     #[error(transparent)]
     Contract(#[from] contract::Error),
