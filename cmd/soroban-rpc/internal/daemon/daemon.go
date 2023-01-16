@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -100,7 +99,7 @@ func Start(cfg config.LocalConfig) (exitCode int) {
 		EventStore:       methods.EventStore{Client: hc},
 		Logger:           logger,
 		TransactionProxy: transactionProxy,
-		CoreClient:       &stellarcore.Client{URL: fmt.Sprintf("http://localhost:%d/", cfg.CaptiveCoreHTTPPort)},
+		CoreClient:       &stellarcore.Client{URL: cfg.StellarCoreURL},
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)

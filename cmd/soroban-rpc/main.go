@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	var endpoint, horizonURL, binaryPath, configPath, networkPassphrase, dbPath string
+	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, networkPassphrase, dbPath string
 	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
 	var historyArchiveURLs []string
 	var txConcurrency, txQueueSize int
@@ -42,6 +42,14 @@ func main() {
 			Required:    true,
 			FlagDefault: "",
 			Usage:       "URL used to query Horizon",
+		},
+		&config.ConfigOption{
+			Name:        "stellar-core-url",
+			ConfigKey:   &stellarCoreURL,
+			OptType:     types.String,
+			Required:    true,
+			FlagDefault: "http://localhost:11626",
+			Usage:       "URL used to query Stellar Core (local captive core by default)",
 		},
 		&config.ConfigOption{
 			Name:        "stellar-captive-core-http-port",
@@ -151,6 +159,7 @@ func main() {
 			config := localConfig.LocalConfig{
 				EndPoint:                  endpoint,
 				HorizonURL:                horizonURL,
+				StellarCoreURL:            stellarCoreURL,
 				StellarCoreBinaryPath:     binaryPath,
 				CaptiveCoreConfigPath:     configPath,
 				CaptiveCoreHTTPPort:       uint16(captiveCoreHTTPPort),

@@ -9,6 +9,7 @@ import (
 type LocalConfig struct {
 	EndPoint                  string
 	HorizonURL                string
+	StellarCoreURL            string
 	StellarCoreBinaryPath     string
 	CaptiveCoreConfigPath     string
 	CaptiveCoreHTTPPort       uint16
