@@ -6,7 +6,6 @@ require (
 	github.com/creachadair/jrpc2 v0.41.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/mattn/go-sqlite3 v1.9.0
-	github.com/pkg/profile v1.7.0
 	github.com/rubenv/sql-migrate v0.0.0-20190717103323-87ce952f7079
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
@@ -15,11 +14,7 @@ require (
 	golang.org/x/mod v0.6.0
 )
 
-require (
-	github.com/felixge/fgprof v0.9.3 // indirect
-	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
-	gopkg.in/gorp.v1 v1.7.1 // indirect
-)
+require gopkg.in/gorp.v1 v1.7.1 // indirect
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect

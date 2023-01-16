@@ -112,7 +112,6 @@ func flushLedgerEntryBatch(tx *sqlx.Tx, encodedKeyEntries map[string]*string) er
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(sqlStr, args...)
 		if _, err = tx.Exec(sqlStr, args...); err != nil {
 			return err
 		}
