@@ -2,12 +2,13 @@ package ledgerentry_storage
 
 import (
 	"fmt"
-	"github.com/stellar/go/xdr"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/stellar/go/xdr"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSimpleDB(t *testing.T) {
@@ -54,6 +55,7 @@ func TestSimpleDB(t *testing.T) {
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
 
 	obtainedLedgerSequence, err = db.GetLatestLedgerSequence()
+	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	// Do another round, overwriting the ledger entry
@@ -89,6 +91,7 @@ func TestSimpleDB(t *testing.T) {
 	assert.False(t, present)
 
 	obtainedLedgerSequence, err = db.GetLatestLedgerSequence()
+	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
 
@@ -155,6 +158,7 @@ func TestConcurrency(t *testing.T) {
 	assert.NoError(t, err)
 
 	obtainedLedgerSequence, err := db.GetLatestLedgerSequence()
+	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	obtainedEntry, present, obtainedLedgerSequence, err := db.GetLedgerEntry(key)

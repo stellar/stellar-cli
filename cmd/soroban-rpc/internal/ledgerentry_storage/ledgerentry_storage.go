@@ -201,7 +201,6 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 			panic(err)
 		}
 	}
-
 }
 
 func getRelevantLedgerKeyFromData(data xdr.LedgerEntryData) (xdr.LedgerKey, bool) {

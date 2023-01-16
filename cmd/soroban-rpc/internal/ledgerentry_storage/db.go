@@ -70,7 +70,7 @@ func getLedgerEntry(tx *sqlx.Tx, buffer *xdr.EncodingBuffer, key xdr.LedgerKey) 
 		return xdr.LedgerEntry{}, err
 	}
 	var results []string
-	if err := tx.Select(&results, sqlStr, args...); err != nil {
+	if err = tx.Select(&results, sqlStr, args...); err != nil {
 		return xdr.LedgerEntry{}, err
 	}
 	if len(results) != 1 {
@@ -125,7 +125,7 @@ func getLatestLedgerSequence(tx *sqlx.Tx) (uint32, error) {
 		return 0, err
 	}
 	var results []string
-	if err := tx.Select(&results, sqlStr, args...); err != nil {
+	if err = tx.Select(&results, sqlStr, args...); err != nil {
 		return 0, err
 	}
 	if len(results) != 1 {
