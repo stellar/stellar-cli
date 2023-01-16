@@ -44,6 +44,9 @@ impl From<()> for Error {
 pub struct Spec(pub Option<Vec<ScSpecEntry>>);
 
 impl Spec {
+    /// # Errors
+    ///
+    /// Might return errors
     pub fn find(&self, name: &str) -> Result<&ScSpecEntry, Error> {
         self.0
             .as_ref()
@@ -62,16 +65,26 @@ impl Spec {
             .ok_or_else(|| Error::MissingEntry(name.to_owned()))
     }
 
+    /// # Errors
+    ///
+    /// Might return errors
     pub fn find_function(&self, name: &str) -> Result<&ScSpecFunctionV0, Error> {
         match self.find(name)? {
             ScSpecEntry::FunctionV0(f) => Ok(f),
             _ => Err(Error::MissingEntry(name.to_owned())),
         }
     }
+
+    /// # Errors
+    ///
+    /// Might return errors
     pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
         Self::default().from_string(s, t)
     }
 
+    /// # Errors
+    ///
+    /// Might return errors
     #[allow(clippy::wrong_self_convention)]
     pub fn from_string(&self, s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
         // Parse as string and for special types assume Value::String
@@ -96,6 +109,9 @@ impl Spec {
             .and_then(|raw| self.from_json(&raw, t))
     }
 
+    /// # Errors
+    ///
+    /// Might return errors
     #[allow(clippy::wrong_self_convention)]
     pub fn from_json(&self, v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
         let val: ScVal = match (t, v) {
@@ -285,6 +301,13 @@ impl Spec {
 }
 
 impl Spec {
+    /// # Errors
+    ///
+    /// Might return `Error::InvalidValue`
+    ///
+    /// # Panics
+    ///
+    /// May panic
     pub fn xdr_to_json(&self, res: &ScVal, output: &ScSpecTypeDef) -> Result<Value, Error> {
         Ok(match (res, output) {
             (ScVal::Static(v), _) => match v {
@@ -315,6 +338,9 @@ impl Spec {
         })
     }
 
+    /// # Errors
+    ///
+    /// Might return an error
     pub fn vec_m_to_json(
         &self,
         vec_m: &VecM<ScVal, 256_000>,
@@ -329,6 +355,9 @@ impl Spec {
         ))
     }
 
+    /// # Errors
+    ///
+    /// Might return an error
     pub fn sc_map_to_json(&self, sc_map: &ScMap, type_: &ScSpecTypeMap) -> Result<Value, Error> {
         let v = sc_map
             .iter()
@@ -341,6 +370,13 @@ impl Spec {
         Ok(Value::Object(v))
     }
 
+    /// # Errors
+    ///
+    /// Might return an error
+    ///
+    /// # Panics
+    ///
+    /// May panic
     pub fn udt_to_json(&self, name: &StringM<60>, sc_obj: &ScObject) -> Result<Value, Error> {
         let name = &name.to_string_lossy();
         let udt = self.find(name)?;
@@ -398,6 +434,13 @@ impl Spec {
         })
     }
 
+    /// # Errors
+    ///
+    /// Might return an error
+    ///
+    /// # Panics
+    ///
+    /// Some types are not yet supported and will cause a panic if supplied
     pub fn sc_object_to_json(
         &self,
         obj: &ScObject,
@@ -465,6 +508,9 @@ impl Spec {
     }
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
     Spec::from_string_primitive(s, t)
 }
@@ -480,6 +526,9 @@ fn parse_const_enum(num: &serde_json::Number, enum_: &ScSpecUdtEnumV0) -> Result
         .map(|c| ScVal::U32(c.value))
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
     let val: ScVal = match (t, v) {
         // Boolean parsing
@@ -590,6 +639,9 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
     Ok(val)
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn to_string(v: &ScVal) -> Result<String, Error> {
     #[allow(clippy::match_same_arms)]
     Ok(match v {
@@ -602,6 +654,9 @@ pub fn to_string(v: &ScVal) -> Result<String, Error> {
     })
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn to_json(v: &ScVal) -> Result<Value, Error> {
     #[allow(clippy::match_same_arms)]
     let val: Value = match v {

@@ -21,6 +21,9 @@ use soroban_spec::read::FromWasmError;
 
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 
+/// # Errors
+///
+/// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
     let args_xdr = InstallContractCodeArgs {
         code: contract.try_into()?,
@@ -29,6 +32,9 @@ pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
     Ok(Hash(Sha256::digest(args_xdr).into()))
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn ledger_snapshot_read_or_default(
     p: impl AsRef<Path>,
 ) -> Result<LedgerSnapshot, soroban_ledger_snapshot::Error> {
@@ -44,6 +50,9 @@ pub fn ledger_snapshot_read_or_default(
     }
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn add_contract_code_to_ledger_entries(
     entries: &mut Vec<(Box<LedgerKey>, Box<LedgerEntry>)>,
     contract: Vec<u8>,
@@ -101,6 +110,9 @@ pub fn add_contract_to_ledger_entries(
     entries.push((Box::new(contract_key), Box::new(contract_entry)));
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn padded_hex_from_str(s: &String, n: usize) -> Result<Vec<u8>, FromHexError> {
     let mut decoded = vec![0u8; n];
     let padded = format!("{s:0>width$}", width = n * 2);
@@ -108,6 +120,9 @@ pub fn padded_hex_from_str(s: &String, n: usize) -> Result<Vec<u8>, FromHexError
     Ok(decoded)
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u8; 32], XdrError> {
     let signature_payload = TransactionSignaturePayload {
         network_id: Hash(Sha256::digest(network_passphrase).into()),
@@ -116,6 +131,9 @@ pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u
     Ok(Sha256::digest(signature_payload.to_xdr()?).into())
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn sign_transaction(
     key: &ed25519_dalek::Keypair,
     tx: &Transaction,
@@ -135,12 +153,18 @@ pub fn sign_transaction(
     }))
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn id_from_str<const N: usize>(contract_id: &String) -> Result<[u8; N], FromHexError> {
     padded_hex_from_str(contract_id, N)?
         .try_into()
         .map_err(|_| FromHexError::InvalidStringLength)
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn get_contract_spec_from_storage(
     storage: &mut Storage,
     contract_id: [u8; 32],
@@ -180,6 +204,9 @@ pub fn get_contract_spec_from_storage(
     }
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {
     if let ScVal::Object(Some(ScObject::Bytes(res_hash))) = &res {
         let mut hash_bytes: [u8; 32] = [0; 32];
@@ -198,6 +225,9 @@ pub enum ParseSecretKeyError {
     CannotParseSecretKey,
 }
 
+/// # Errors
+///
+/// Might return an error
 pub fn parse_secret_key(strkey: &str) -> Result<ed25519_dalek::Keypair, ParseSecretKeyError> {
     let seed = stellar_strkey::ed25519::PrivateKey::from_string(strkey)
         .map_err(|_| ParseSecretKeyError::CannotParseSecretKey)?;
@@ -210,6 +240,10 @@ pub fn parse_secret_key(strkey: &str) -> Result<ed25519_dalek::Keypair, ParseSec
     })
 }
 
+/// # Panics
+///
+/// May panic
+#[must_use]
 pub fn create_ledger_footprint(footprint: &Footprint) -> LedgerFootprint {
     let mut read_only: Vec<LedgerKey> = vec![];
     let mut read_write: Vec<LedgerKey> = vec![];
@@ -227,6 +261,7 @@ pub fn create_ledger_footprint(footprint: &Footprint) -> LedgerFootprint {
     }
 }
 
+#[must_use]
 pub fn default_account_ledger_entry(account_id: AccountId) -> LedgerEntry {
     // TODO: Consider moving the definition of a default account ledger entry to
     // a location shared by the SDK and CLI. The SDK currently defines the same
