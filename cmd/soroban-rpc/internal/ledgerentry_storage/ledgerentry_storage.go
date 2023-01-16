@@ -103,10 +103,7 @@ func (ls *ledgerEntryStorage) fillEntriesFromLatestCheckpoint(ctx context.Contex
 		}
 
 		entry := change.Post
-		key, relevant, err := getRelevantLedgerKeyFromData(entry.Data)
-		if err != nil {
-			return 0, err
-		}
+		key, relevant := getRelevantLedgerKeyFromData(entry.Data)
 		if !relevant {
 			continue
 		}
@@ -135,18 +132,16 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 	// First, make sure the DB has a complete ledger entry baseline
 
 	startCheckpointLedger, err := ls.db.GetLatestLedgerSequence()
-	if err != nil && err != ErrEmptyDB {
-		// TODO: implement retries?
-		panic(err)
-	}
 	if err == ErrEmptyDB {
 		// DB is empty, let's fill it from a checkpoint
 		ls.logger.Infof("Found an empty database, filling it in from the most recent checkpoint (this can take up to 30 minutes, depending on the network)")
 		startCheckpointLedger, err = ls.fillEntriesFromLatestCheckpoint(ctx, archive)
-		// TODO: implement retries?
 		if err != nil {
 			panic(err)
 		}
+	}
+	if err != nil {
+		panic(err)
 	}
 
 	// Secondly, continuously process txmeta deltas
@@ -154,7 +149,6 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 	// TODO: we can probably do the preparation in parallel with the checkpoint processing above
 	prepareRangeCtx, cancelPrepareRange := context.WithTimeout(ctx, ls.timeout)
 	if err := ledgerBackend.PrepareRange(prepareRangeCtx, backends.UnboundedRange(startCheckpointLedger)); err != nil {
-		// TODO: we probably shouldn't panic, at least in case of timeout
 		panic(err)
 	}
 	cancelPrepareRange()
@@ -164,12 +158,10 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 		fmt.Println("Processing txmeta of ledger", nextLedger)
 		reader, err := ingest.NewLedgerChangeReader(ctx, ledgerBackend, ls.networkPassPhrase, nextLedger)
 		if err != nil {
-			// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
 			panic(err)
 		}
 		tx, err := ls.db.NewLedgerEntryUpdaterTx(nextLedger, maxBatchSize)
 		if err != nil {
-			// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
 			panic(err)
 		}
 
@@ -179,43 +171,24 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 				break
 			}
 			if err != nil {
-				// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
 				panic(err)
 			}
 			if change.Post == nil {
-				key, relevant, err := getRelevantLedgerKeyFromData(change.Pre.Data)
-				if err != nil {
-					// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
-					panic(err)
-				}
+				key, relevant := getRelevantLedgerKeyFromData(change.Pre.Data)
 				if !relevant {
 					continue
 				}
-				if err != nil {
-					// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
-					panic(err)
-				}
-				err = tx.DeleteLedgerEntry(key)
-				if err != nil {
-					// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
+
+				if err := tx.DeleteLedgerEntry(key); err != nil {
 					panic(err)
 				}
 			} else {
-				key, relevant, err := getRelevantLedgerKeyFromData(change.Post.Data)
-				if err != nil {
-					// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
-					panic(err)
-				}
+				key, relevant := getRelevantLedgerKeyFromData(change.Post.Data)
 				if !relevant {
 					continue
 				}
-				if err != nil {
-					// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
-					panic(err)
-				}
-				err = tx.UpsertLedgerEntry(key, *change.Post)
-				if err != nil {
-					// TODO: we probably shouldn't panic, at least in case of timeout/cancellation
+
+				if err := tx.UpsertLedgerEntry(key, *change.Post); err != nil {
 					panic(err)
 				}
 			}
@@ -231,24 +204,24 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 
 }
 
-func getRelevantLedgerKeyFromData(data xdr.LedgerEntryData) (xdr.LedgerKey, bool, error) {
+func getRelevantLedgerKeyFromData(data xdr.LedgerEntryData) (xdr.LedgerKey, bool) {
 	var key xdr.LedgerKey
 	switch data.Type {
 	case xdr.LedgerEntryTypeAccount:
 		if err := key.SetAccount(data.Account.AccountId); err != nil {
-			return xdr.LedgerKey{}, false, err
+			panic(err)
 		}
 	case xdr.LedgerEntryTypeTrustline:
 		if err := key.SetTrustline(data.TrustLine.AccountId, data.TrustLine.Asset); err != nil {
-			return xdr.LedgerKey{}, false, err
+			panic(err)
 		}
 	case xdr.LedgerEntryTypeContractData:
 		if err := key.SetContractData(data.ContractData.ContractId, data.ContractData.Val); err != nil {
-			return xdr.LedgerKey{}, false, err
+			panic(err)
 		}
 	default:
 		// we don't care about any other entry types for now
-		return xdr.LedgerKey{}, false, nil
+		return xdr.LedgerKey{}, false
 	}
-	return key, true, nil
+	return key, true
 }

@@ -183,10 +183,10 @@ func (s *sqlDB) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32
 	}
 	buffer := xdr.NewEncodingBuffer()
 	entry, err := getLedgerEntry(tx, buffer, key)
+	if err == sql.ErrNoRows {
+		return xdr.LedgerEntry{}, false, seq, nil
+	}
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return xdr.LedgerEntry{}, false, seq, nil
-		}
 		_ = tx.Rollback()
 		return xdr.LedgerEntry{}, false, seq, err
 	}
