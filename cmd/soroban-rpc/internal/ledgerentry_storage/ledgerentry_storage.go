@@ -14,30 +14,43 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-// TODO: Make this configurable?
-const maxBatchSize = 150
+const (
+	maxBatchSize                      = 150
+	checkpointLedgerEntryPrintoutFreq = 10000
+)
 
 type LedgerEntryStorage interface {
 	GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error)
 	io.Closer
 }
 
-func NewLedgerEntryStorage(logger *log.Entry, db DB, networkPassPhrase string, archive historyarchive.ArchiveInterface, ledgerBackend backends.LedgerBackend) (LedgerEntryStorage, error) {
+type LedgerEntryStorageCfg struct {
+	Logger            *log.Entry
+	DB                DB
+	NetworkPassPhrase string
+	Archive           historyarchive.ArchiveInterface
+	LedgerBackend     backends.LedgerBackend
+	Timeout           time.Duration
+}
+
+func NewLedgerEntryStorage(cfg LedgerEntryStorageCfg) (LedgerEntryStorage, error) {
 	ctx, done := context.WithCancel(context.Background())
 	ls := ledgerEntryStorage{
-		logger:            logger,
-		db:                db,
-		networkPassPhrase: networkPassPhrase,
+		logger:            cfg.Logger,
+		db:                cfg.DB,
+		networkPassPhrase: cfg.NetworkPassPhrase,
+		timeout:           cfg.Timeout,
 		done:              done,
 	}
 	ls.wg.Add(1)
-	go ls.run(ctx, archive, ledgerBackend)
+	go ls.run(ctx, cfg.Archive, cfg.LedgerBackend)
 	return &ls, nil
 }
 
 type ledgerEntryStorage struct {
 	logger            *log.Entry
 	db                DB
+	timeout           time.Duration
 	networkPassPhrase string
 	done              context.CancelFunc
 	wg                sync.WaitGroup
@@ -50,8 +63,7 @@ func (ls *ledgerEntryStorage) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry
 func (ls *ledgerEntryStorage) Close() error {
 	ls.done()
 	ls.wg.Wait()
-	ls.db.Close()
-	return nil
+	return ls.db.Close()
 }
 
 func (ls *ledgerEntryStorage) fillEntriesFromLatestCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface) (uint32, error) {
@@ -62,8 +74,7 @@ func (ls *ledgerEntryStorage) fillEntriesFromLatestCheckpoint(ctx context.Contex
 	startCheckpointLedger := root.CurrentLedger
 
 	ls.logger.Infof("Starting processing of checkpoint %d", startCheckpointLedger)
-	// TODO: should we make this configurable?
-	checkpointCtx, cancelCheckpointCtx := context.WithTimeout(ctx, 30*time.Minute)
+	checkpointCtx, cancelCheckpointCtx := context.WithTimeout(ctx, ls.timeout)
 	defer cancelCheckpointCtx()
 	reader, err := ingest.NewCheckpointChangeReader(checkpointCtx, archive, startCheckpointLedger)
 	if err != nil {
@@ -88,8 +99,7 @@ func (ls *ledgerEntryStorage) fillEntriesFromLatestCheckpoint(ctx context.Contex
 			break
 		}
 		if err != nil {
-			// TODO: we probably shouldn't panic, at least in case of timeout
-			panic(err)
+			return 0, err
 		}
 
 		entry := change.Post
@@ -100,10 +110,12 @@ func (ls *ledgerEntryStorage) fillEntriesFromLatestCheckpoint(ctx context.Contex
 		if !relevant {
 			continue
 		}
-		tx.UpsertLedgerEntry(key, *entry)
+		if err := tx.UpsertLedgerEntry(key, *entry); err != nil {
+			return 0, err
+		}
 		entryCount++
 
-		if entryCount%10000 == 0 {
+		if entryCount%checkpointLedgerEntryPrintoutFreq == 0 {
 			ls.logger.Infof("  processed %d checkpoint ledger entry changes", entryCount)
 		}
 	}
@@ -140,7 +152,7 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 	// Secondly, continuously process txmeta deltas
 
 	// TODO: we can probably do the preparation in parallel with the checkpoint processing above
-	prepareRangeCtx, cancelPrepareRange := context.WithTimeout(ctx, 30*time.Minute)
+	prepareRangeCtx, cancelPrepareRange := context.WithTimeout(ctx, ls.timeout)
 	if err := ledgerBackend.PrepareRange(prepareRangeCtx, backends.UnboundedRange(startCheckpointLedger)); err != nil {
 		// TODO: we probably shouldn't panic, at least in case of timeout
 		panic(err)
@@ -208,9 +220,13 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 				}
 			}
 		}
-		tx.Done()
+		if err := tx.Done(); err != nil {
+			panic(err)
+		}
 		nextLedger++
-		reader.Close()
+		if err := reader.Close(); err != nil {
+			panic(err)
+		}
 	}
 
 }

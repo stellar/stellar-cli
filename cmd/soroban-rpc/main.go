@@ -5,8 +5,8 @@ import (
 	"go/types"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -20,10 +20,8 @@ import (
 )
 
 func main() {
-	// CPU profiling by default
-	defer profile.Start().Stop()
 	var endpoint, horizonURL, binaryPath, configPath, networkPassphrase, dbPath string
-	var captiveCoreHTTPPort uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
 	var historyArchiveURLs []string
 	var txConcurrency, txQueueSize int
 	var logLevel logrus.Level
@@ -131,6 +129,14 @@ func main() {
 			FlagDefault: "soroban_rpc.sqlite",
 			Required:    false,
 		},
+		{
+			Name:        "ledgerstorage-timeout-minutes",
+			Usage:       "Ledger Entry Storage Timeout (when bootstrapping and reading each ledger)",
+			OptType:     types.Uint,
+			ConfigKey:   &ledgerEntryStorageTimeoutMinutes,
+			FlagDefault: uint(30),
+			Required:    false,
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -143,17 +149,18 @@ func main() {
 				os.Exit(-1)
 			}
 			config := localConfig.LocalConfig{
-				EndPoint:              endpoint,
-				HorizonURL:            horizonURL,
-				StellarCoreBinaryPath: binaryPath,
-				CaptiveCoreConfigPath: configPath,
-				CaptiveCoreHTTPPort:   uint16(captiveCoreHTTPPort),
-				NetworkPassphrase:     networkPassphrase,
-				HistoryArchiveURLs:    historyArchiveURLs,
-				LogLevel:              logLevel,
-				TxConcurrency:         txConcurrency,
-				TxQueueSize:           txQueueSize,
-				SQLiteDBPath:          dbPath,
+				EndPoint:                  endpoint,
+				HorizonURL:                horizonURL,
+				StellarCoreBinaryPath:     binaryPath,
+				CaptiveCoreConfigPath:     configPath,
+				CaptiveCoreHTTPPort:       uint16(captiveCoreHTTPPort),
+				NetworkPassphrase:         networkPassphrase,
+				HistoryArchiveURLs:        historyArchiveURLs,
+				LogLevel:                  logLevel,
+				TxConcurrency:             txConcurrency,
+				TxQueueSize:               txQueueSize,
+				LedgerEntryStorageTimeout: time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute,
+				SQLiteDBPath:              dbPath,
 			}
 			exitCode := daemon.Start(config)
 			os.Exit(exitCode)

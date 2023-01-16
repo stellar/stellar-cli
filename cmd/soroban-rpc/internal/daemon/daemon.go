@@ -65,7 +65,14 @@ func Start(cfg config.LocalConfig) (exitCode int) {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	storage, err := ledgerentry_storage.NewLedgerEntryStorage(logger, db, cfg.NetworkPassphrase, historyArchive, core)
+	storage, err := ledgerentry_storage.NewLedgerEntryStorage(ledgerentry_storage.LedgerEntryStorageCfg{
+		Logger:            logger,
+		DB:                db,
+		NetworkPassPhrase: cfg.NetworkPassphrase,
+		Archive:           historyArchive,
+		LedgerBackend:     core,
+		Timeout:           cfg.LedgerEntryStorageTimeout,
+	})
 	if err != nil {
 		logger.Fatalf("could not initialize ledger entry storage: %v", err)
 	}

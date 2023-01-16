@@ -11,11 +11,11 @@ import (
 )
 
 func TestSimpleDB(t *testing.T) {
-	db, path := NewTestDB()
+	db, dbPath := NewTestDB()
 	defer func() {
 		assert.NoError(t, db.Close())
+		assert.NoError(t, os.Remove(dbPath))
 	}()
-	defer os.Remove(path)
 
 	// Check that we get an empty DB error
 	_, err := db.GetLatestLedgerSequence()
@@ -112,11 +112,11 @@ func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.
 func TestConcurrency(t *testing.T) {
 	// Make sure that reads can happen while a write-transaction is ongoing
 	// and writes are only visible once the transaction is committed
-	db, path := NewTestDB()
+	db, dbPath := NewTestDB()
 	defer func() {
 		assert.NoError(t, db.Close())
+		assert.NoError(t, os.Remove(dbPath))
 	}()
-	defer os.Remove(path)
 
 	// Check that we get an empty DB error
 	_, err := db.GetLatestLedgerSequence()
@@ -165,9 +165,17 @@ func TestConcurrency(t *testing.T) {
 }
 
 func BenchmarkLedgerUpdate(b *testing.B) {
-	db, path := NewTestDB()
-	defer db.Close()
-	defer os.Remove(path)
+	db, dbPath := NewTestDB()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+		err = os.Remove(dbPath)
+		if err != nil {
+			panic(err)
+		}
+	}()
 	keyUint32 := xdr.Uint32(0)
 	data := xdr.ContractDataEntry{
 		ContractId: xdr.Hash{0xca, 0xfe},
@@ -202,10 +210,10 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 }
 
 func NewTestDB() (DB, string) {
-	path := path.Join(os.TempDir(), fmt.Sprintf("%08x.sqlite", rand.Int63()))
-	db, err := OpenSQLiteDB(path)
+	dbPath := path.Join(os.TempDir(), fmt.Sprintf("%08x.sqlite", rand.Int63()))
+	db, err := OpenSQLiteDB(dbPath)
 	if err != nil {
 		panic(err)
 	}
-	return db, path
+	return db, dbPath
 }
