@@ -22,7 +22,7 @@ var ErrEmptyDB = errors.New("DB is empty")
 
 const (
 	ledgerEntriesTableName      = "ledger_entries"
-	ledgerEntriesMetaTableName  = "ledger_entries_meta"
+	metaTableName               = "metadata"
 	latestLedgerSequenceMetaKey = "LatestLedgerSequence"
 )
 
@@ -87,13 +87,13 @@ func getLedgerEntry(tx *sqlx.Tx, buffer *xdr.EncodingBuffer, key xdr.LedgerKey) 
 func flushLedgerEntryBatch(tx *sqlx.Tx, encodedKeyEntries map[string]*string) error {
 	upsertCount := 0
 	upsertSQL := sq.Replace(ledgerEntriesTableName)
-	var deleteKeys = make([]interface{}, 0, len(encodedKeyEntries))
+	var deleteKeys = make([]string, 0, len(encodedKeyEntries))
 	for key, entry := range encodedKeyEntries {
 		if entry != nil {
 			upsertSQL = upsertSQL.Values(key, entry)
 			upsertCount += 1
 		} else {
-			deleteKeys = append(deleteKeys, interface{}(key))
+			deleteKeys = append(deleteKeys, key)
 		}
 	}
 
@@ -120,7 +120,7 @@ func flushLedgerEntryBatch(tx *sqlx.Tx, encodedKeyEntries map[string]*string) er
 }
 
 func getLatestLedgerSequence(tx *sqlx.Tx) (uint32, error) {
-	sqlStr, args, err := sq.Select("value").From(ledgerEntriesMetaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
+	sqlStr, args, err := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
 	if err != nil {
 		return 0, err
 	}
@@ -128,8 +128,13 @@ func getLatestLedgerSequence(tx *sqlx.Tx) (uint32, error) {
 	if err = tx.Select(&results, sqlStr, args...); err != nil {
 		return 0, err
 	}
-	if len(results) != 1 {
+	switch len(results) {
+	case 0:
 		return 0, ErrEmptyDB
+	case 1:
+	// expected length on an initialized DB
+	default:
+		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), latestLedgerSequenceMetaKey, metaTableName))
 	}
 	latestLedgerStr := results[0]
 	latestLedger, err := strconv.ParseUint(latestLedgerStr, 10, 32)
@@ -140,7 +145,7 @@ func getLatestLedgerSequence(tx *sqlx.Tx) (uint32, error) {
 }
 
 func upsertLatestLedgerSequence(tx *sqlx.Tx, sequence uint32) error {
-	sqlStr, args, err := sq.Replace(ledgerEntriesMetaTableName).Values(latestLedgerSequenceMetaKey, fmt.Sprintf("%d", sequence)).ToSql()
+	sqlStr, args, err := sq.Replace(metaTableName).Values(latestLedgerSequenceMetaKey, fmt.Sprintf("%d", sequence)).ToSql()
 	if err != nil {
 		return err
 	}

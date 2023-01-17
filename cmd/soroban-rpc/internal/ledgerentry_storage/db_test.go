@@ -95,6 +95,52 @@ func TestSimpleDB(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
 
+func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
+	db, dbPath := NewTestDB()
+	defer func() {
+		assert.NoError(t, db.Close())
+		assert.NoError(t, os.Remove(dbPath))
+	}()
+
+	// Simulate a ledger which creates and deletes a ledger entry
+	// which would result in trying to delete a ledger entry which isn't there
+	ledgerSequence := uint32(23)
+	tx, err := db.NewLedgerEntryUpdaterTx(ledgerSequence, 150)
+	assert.NoError(t, err)
+
+	four := xdr.Uint32(4)
+	six := xdr.Uint32(6)
+	data := xdr.ContractDataEntry{
+		ContractId: xdr.Hash{0xca, 0xfe},
+		Key: xdr.ScVal{
+			Type: xdr.ScValTypeScvU32,
+			U32:  &four,
+		},
+		Val: xdr.ScVal{
+			Type: xdr.ScValTypeScvU32,
+			U32:  &six,
+		},
+	}
+	key, entry := getContractDataLedgerEntry(data)
+	err = tx.UpsertLedgerEntry(key, entry)
+	assert.NoError(t, err)
+	err = tx.DeleteLedgerEntry(key)
+	assert.NoError(t, err)
+
+	err = tx.Done()
+	assert.NoError(t, err)
+
+	// Make sure that the ledger number was submitted
+	obtainedLedgerSequence, err := db.GetLatestLedgerSequence()
+	assert.NoError(t, err)
+	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
+
+	// And that the entry doesn't exist
+	_, present, _, err := db.GetLedgerEntry(key)
+	assert.NoError(t, err)
+	assert.False(t, present)
+}
+
 func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
 	entry := xdr.LedgerEntry{
 		LastModifiedLedgerSeq: 1,
@@ -166,6 +212,8 @@ func TestConcurrency(t *testing.T) {
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
+
+	// Start another
 }
 
 func BenchmarkLedgerUpdate(b *testing.B) {

@@ -4,8 +4,8 @@ CREATE TABLE ledger_entries (
     entry BLOB NOT NULL
 );
 
--- metadata about the content in the ledger_entries table
-CREATE TABLE ledger_entries_meta (
+-- metadata key-value store
+CREATE TABLE metadata (
     key TEXT NOT NULL PRIMARY KEY,
     value TEXT NOT NULL
 );

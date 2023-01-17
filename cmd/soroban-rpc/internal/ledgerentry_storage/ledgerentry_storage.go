@@ -90,7 +90,6 @@ func (ls *ledgerEntryStorage) fillEntriesFromLatestCheckpoint(ctx context.Contex
 	for {
 		select {
 		case <-ctx.Done():
-			cancelCheckpointCtx()
 			return 0, context.Canceled
 		default:
 		}
