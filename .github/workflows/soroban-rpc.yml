@@ -42,6 +42,11 @@ jobs:
           sudo bash -c 'echo "deb https://apt.stellar.org focal unstable" > /etc/apt/sources.list.d/SDF-unstable.list'
           sudo apt-get update && sudo apt-get install -y stellar-core="$PROTOCOL_20_CORE_DEBIAN_PKG_VERSION"
           echo "Using stellar core version $(stellar-core version)"
+      
+      # Docker-compose's remote contexts on Ubuntu 20 started failing with an OpenSSL versioning error.
+      # See https://stackoverflow.com/questions/66579446/error-executing-docker-compose-building-webserver-unable-to-prepare-context-un
+      - name: Work around Docker Compose problem
+        run: sudo pip3 install docker-compose
 
       - name: Build Soroban RPC reproducible build
         run: |
