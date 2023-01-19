@@ -200,6 +200,9 @@ func (s *sqlDB) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32
 	buffer := xdr.NewEncodingBuffer()
 	entry, err := getLedgerEntry(tx, buffer, key)
 	if err == sql.ErrNoRows {
+		if err = tx.Commit(); err != nil {
+			return xdr.LedgerEntry{}, false, 0, err
+		}
 		return xdr.LedgerEntry{}, false, seq, nil
 	}
 	if err != nil {
