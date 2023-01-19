@@ -18,7 +18,7 @@ use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 pub struct Cmd {
     /// WASM file to install
     #[clap(long, parse(from_os_str))]
-    wasm: std::path::PathBuf,
+    pub wasm: std::path::PathBuf,
     /// File to persist ledger state
     #[clap(
         long,
@@ -28,7 +28,7 @@ pub struct Cmd {
         env = "SOROBAN_LEDGER_FILE",
         help_heading = HEADING_SANDBOX,
     )]
-    ledger_file: std::path::PathBuf,
+    pub ledger_file: std::path::PathBuf,
 
     /// Secret 'S' key used to sign the transaction sent to the rpc server
     #[clap(
@@ -36,7 +36,7 @@ pub struct Cmd {
         env = "SOROBAN_SECRET_KEY",
         help_heading = HEADING_RPC,
     )]
-    secret_key: Option<String>,
+    pub secret_key: Option<String>,
     /// RPC server endpoint
     #[clap(
         long,
@@ -45,14 +45,14 @@ pub struct Cmd {
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
     )]
-    rpc_url: Option<String>,
+    pub rpc_url: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(
         long = "network-passphrase",
         env = "SOROBAN_NETWORK_PASSPHRASE",
         help_heading = HEADING_RPC,
     )]
-    network_passphrase: Option<String>,
+    pub network_passphrase: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -90,18 +90,22 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
+        let res_str = self.run_and_get_hash().await?;
+        println!("{res_str}");
+        Ok(())
+    }
+
+    pub async fn run_and_get_hash(&self) -> Result<String, Error> {
         let contract = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
             filepath: self.wasm.clone(),
             error: e,
         })?;
 
-        let res_str = if self.rpc_url.is_some() {
-            self.run_against_rpc_server(contract).await?
+        if self.rpc_url.is_some() {
+            self.run_against_rpc_server(contract).await
         } else {
-            self.run_in_sandbox(contract)?
-        };
-        println!("{res_str}");
-        Ok(())
+            self.run_in_sandbox(contract)
+        }
     }
 
     fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {

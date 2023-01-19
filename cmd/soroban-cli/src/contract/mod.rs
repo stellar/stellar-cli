@@ -60,7 +60,7 @@ impl SubCmd {
             SubCmd::Bindings(bindings) => bindings.run()?,
             SubCmd::Deploy(deploy) => deploy.run().await?,
             SubCmd::Inspect(inspect) => inspect.run()?,
-            SubCmd::Install(invoke) => invoke.run().await?,
+            SubCmd::Install(install) => install.run().await?,
             SubCmd::Invoke(invoke) => invoke.run().await?,
             SubCmd::Optimize(optimize) => optimize.run()?,
             SubCmd::Read(read) => read.run()?,
