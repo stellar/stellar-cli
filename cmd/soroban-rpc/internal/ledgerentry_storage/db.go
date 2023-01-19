@@ -6,7 +6,6 @@ import (
 	"embed"
 	"fmt"
 	"strconv"
-	"sync"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
@@ -40,18 +39,11 @@ type LedgerEntryUpdaterTx interface {
 }
 
 type sqlDB struct {
-	// This lock is used to ensure we only commit to the DB
-	// when there are no ongoing reader transactions.
-	// Otherwise, write-commits to SQLite will fail with a DB-locked error
-	// when read transactions are ongoing.
-	// Also, we want to give priority to commit over reads (since we don't want ingestion to starve,
-	// which is exactly what RWMutex does, see https://medium.com/golangspec/sync-rwmutex-ca6c6c3208a0 )
-	writeCommitLock sync.RWMutex
-	db              *sqlx.DB
+	db *sqlx.DB
 }
 
 func OpenSQLiteDB(dbFilePath string) (DB, error) {
-	db, err := sqlx.Open("sqlite3", dbFilePath)
+	db, err := sqlx.Open("sqlite3", fmt.Sprintf("file://%s?_journal_mode=WAL", dbFilePath))
 	if err != nil {
 		return nil, errors.Wrap(err, "open failed")
 	}
@@ -165,8 +157,6 @@ func (s *sqlDB) GetLatestLedgerSequence() (uint32, error) {
 	opts := sql.TxOptions{
 		ReadOnly: true,
 	}
-	s.writeCommitLock.RLock()
-	defer s.writeCommitLock.RUnlock()
 	tx, err := s.db.BeginTxx(context.Background(), &opts)
 	if err != nil {
 		return 0, err
@@ -186,8 +176,6 @@ func (s *sqlDB) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32
 	opts := sql.TxOptions{
 		ReadOnly: true,
 	}
-	s.writeCommitLock.RLock()
-	defer s.writeCommitLock.RUnlock()
 	tx, err := s.db.BeginTxx(context.Background(), &opts)
 	if err != nil {
 		return xdr.LedgerEntry{}, false, 0, err
@@ -228,7 +216,6 @@ type ledgerUpdaterTx struct {
 	buffer            *xdr.EncodingBuffer
 	// nil entries imply deletion
 	keyToEntryBatch map[string]*string
-	writeCommitLock *sync.RWMutex
 }
 
 func (s *sqlDB) NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize int) (LedgerEntryUpdaterTx, error) {
@@ -242,7 +229,6 @@ func (s *sqlDB) NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize i
 		forLedgerSequence: forLedgerSequence,
 		buffer:            xdr.NewEncodingBuffer(),
 		keyToEntryBatch:   make(map[string]*string, maxBatchSize),
-		writeCommitLock:   &s.writeCommitLock,
 	}, nil
 }
 
@@ -294,10 +280,7 @@ func (l *ledgerUpdaterTx) Done() error {
 	if err := upsertLatestLedgerSequence(l.tx, l.forLedgerSequence); err != nil {
 		return err
 	}
-	l.writeCommitLock.Lock()
-	err := l.tx.Commit()
-	l.writeCommitLock.Unlock()
-	return err
+	return l.tx.Commit()
 }
 
 func encodeLedgerKey(buffer *xdr.EncodingBuffer, key xdr.LedgerKey) (string, error) {

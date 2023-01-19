@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/assert"
 )
@@ -233,8 +234,9 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
 }
 
-// A SQLite write transaction cannot be committed with an ongoing read transaction
-func TestSQLiteWriteTxCommitErrortDuringReadTx(t *testing.T) {
+// Make sure that a write transaction can happen while multiple read transactions are ongoing,
+// and write is only visible once the transaction is committed
+func TestWriteTxsDuringReadTxs(t *testing.T) {
 	db, dbPath := NewTestDB()
 	defer func() {
 		assert.NoError(t, db.Close())
@@ -245,11 +247,22 @@ func TestSQLiteWriteTxCommitErrortDuringReadTx(t *testing.T) {
 	_, err := db.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
 
-	// Create a multiple transactions, interleaved with the writing process
+	// Create a multiple read transactions, interleaved with the writing process
+	internalDB := db.(*sqlDB).db
+	// First read transaction, before the write transaction is created
+	readTx1, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
+		ReadOnly: true,
+	})
+	assert.NoError(t, err)
 
 	// Start filling the DB with a single entry (enforce flushing right away)
 	ledgerSequence := uint32(23)
 	writeTx, err := db.NewLedgerEntryUpdaterTx(ledgerSequence, 0)
+
+	// Second read transaction, after the write transaction is created
+	readTx2, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
+		ReadOnly: true,
+	})
 
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
@@ -268,33 +281,31 @@ func TestSQLiteWriteTxCommitErrortDuringReadTx(t *testing.T) {
 	err = writeTx.UpsertLedgerEntry(key, entry)
 	assert.NoError(t, err)
 
-	// Create a read transaction
-	readTx, err := db.(*sqlDB).db.BeginTxx(context.Background(), &sql.TxOptions{
+	// Third read transaction, after the first insert has happened in the write transaction
+	readTx3, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
 		ReadOnly: true,
 	})
 	assert.NoError(t, err)
 
-	// Make sure the DB hasn't been filled yet for any of the read transaction and that
-	// we can't commit the write transactions until all the (used) read transactions are done
+	// Make sure that all the read transactions get an emptyDB error before and after the write transaction is committed
+	for _, readTx := range []*sqlx.Tx{readTx1, readTx2, readTx3} {
+		_, err = getLatestLedgerSequence(readTx)
+		assert.Equal(t, ErrEmptyDB, err)
+		_, err = getLedgerEntry(readTx, xdr.NewEncodingBuffer(), key)
+		assert.Equal(t, sql.ErrNoRows, err)
+	}
 
-	_, err = getLatestLedgerSequence(readTx)
-	assert.Equal(t, ErrEmptyDB, err)
-	_, err = getLedgerEntry(readTx, xdr.NewEncodingBuffer(), key)
-	assert.Equal(t, sql.ErrNoRows, err)
-	assert.Error(t, writeTx.Done(), "database is locked")
-	assert.NoError(t, readTx.Commit())
+	// commit the write transaction
+	assert.NoError(t, writeTx.Done())
 
-	// Unfortunately, we cannot simply retry committing because the semantics of sql.Commit()
-	// ensure the transaction is destroyed if commit fails, so we need to start again
-	// https://github.com/mattn/go-sqlite3/pull/300
-	writeTx, err = db.NewLedgerEntryUpdaterTx(ledgerSequence, 0)
-	assert.NoError(t, err)
-	err = writeTx.UpsertLedgerEntry(key, entry)
-	assert.NoError(t, err)
+	for _, readTx := range []*sqlx.Tx{readTx1, readTx2, readTx3} {
+		_, err = getLatestLedgerSequence(readTx)
+		assert.Equal(t, ErrEmptyDB, err)
+		_, err = getLedgerEntry(readTx, xdr.NewEncodingBuffer(), key)
+		assert.Equal(t, sql.ErrNoRows, err)
+	}
 
-	// Finish the write transaction and check that the results are present
-	err = writeTx.Done()
-	assert.NoError(t, err)
+	// Check that the results are present in the transactions happening after the commit
 
 	obtainedLedgerSequence, err := db.GetLatestLedgerSequence()
 	assert.NoError(t, err)
@@ -391,7 +402,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 	wg.Add(1)
 	go writer()
 
-	for i := 0; i < 32; i++ {
+	for i := 1; i <= 32; i++ {
 		wg.Add(1)
 		go reader(i)
 	}
