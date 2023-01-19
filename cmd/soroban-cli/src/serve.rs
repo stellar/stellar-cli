@@ -276,18 +276,14 @@ fn parse_transaction(
     }
     let op = ops.first().ok_or(Error::Xdr(XdrError::Invalid))?;
     let source_account = parse_op_source_account(&transaction, op);
-    let body = if let OperationBody::InvokeHostFunction(b) = &op.body {
-        b
-    } else {
+    let OperationBody::InvokeHostFunction(body) = &op.body else {
         return Err(Error::UnsupportedTransaction {
             message: "Operation must be invokeHostFunction".to_string(),
         });
     };
 
     // TODO: Support creating contracts and token wrappers here as well.
-    let parameters = if let HostFunction::InvokeContract(p) = &body.function {
-        p
-    } else {
+    let HostFunction::InvokeContract(parameters) = &body.function else {
         return Err(Error::UnsupportedTransaction {
             message: "Function must be invokeContract".to_string(),
         });
