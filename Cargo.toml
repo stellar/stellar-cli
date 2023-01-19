@@ -2,8 +2,7 @@
 resolver = "2"
 members = [
     "cmd/soroban-cli",
-    "cmd/soroban-cli/tests/fixtures/test-wasms/hello_world",
-    "cmd/soroban-cli/tests/fixtures/test-wasms/invoker_account_exists",
+    "cmd/soroban-cli/tests/fixtures/test-wasms/*",
 ]
 default-members = ["cmd/soroban-cli"]
 

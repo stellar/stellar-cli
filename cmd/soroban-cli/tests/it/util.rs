@@ -1,19 +1,23 @@
-use std::{ffi::OsString, fs, path::PathBuf};
+use std::{ffi::OsString, fmt::Display, fs, path::PathBuf};
 
-use assert_cmd::Command;
+use assert_cmd::{assert::Assert, Command};
 use assert_fs::{prelude::PathChild, TempDir};
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{Error as XdrError, Hash, InstallContractCodeArgs, WriteXdr};
-
-// pub fn test_wasm(name: &str) -> PathBuf {}
 
 pub struct Wasm<'a>(pub &'a str);
 
 impl Wasm<'_> {
     pub fn path(&self) -> PathBuf {
-        let mut path = PathBuf::from("../../target/wasm32-unknown-unknown/test-wasms").join(self.0);
+        let mut path = PathBuf::from(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .map_or_else(|_| "", |_| "../..")
+                .to_string(),
+        )
+        .join("target/wasm32-unknown-unknown/test-wasms")
+        .join(self.0);
         path.set_extension("wasm");
-        assert!(path.is_file(), "File not found: {}. run 'make test-wasms' to generate .wasm files before running this test", path.display());
+        assert!(path.is_file(), "File not found: {}. run 'make build-test-wasms' to generate .wasm files before running this test", path.display());
         path
     }
 
@@ -29,8 +33,10 @@ impl Wasm<'_> {
 /// Create a command with the correct env variables
 pub trait SorobanCommand {
     /// Default is with none
-    fn new_cmd() -> Command {
-        Command::cargo_bin("soroban").expect("failed to find local soroban binary")
+    fn new_cmd(name: &str) -> Command {
+        let mut this = Command::cargo_bin("soroban").expect("failed to find local soroban binary");
+        this.arg(name);
+        this
     }
 }
 
@@ -47,6 +53,33 @@ pub fn temp_ledger_file() -> OsString {
         .into()
 }
 
+pub trait AssertExt {
+    fn output_line(&self) -> String;
+}
+
+impl AssertExt for Assert {
+    fn output_line(&self) -> String {
+        String::from_utf8(self.get_output().stdout.clone())
+            .expect("failed to make str")
+            .trim()
+            .to_owned()
+    }
+}
+pub trait CommandExt {
+    fn json_arg<A>(&mut self, j: A) -> &mut Self
+    where
+        A: Display;
+}
+
+impl CommandExt for Command {
+    fn json_arg<A>(&mut self, j: A) -> &mut Self
+    where
+        A: Display,
+    {
+        self.arg(OsString::from(j.to_string()))
+    }
+}
+
 // TODO add a `lib.rs` so that this can be imported
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
     let args_xdr = InstallContractCodeArgs {
@@ -58,3 +91,4 @@ pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
 
 pub const HELLO_WORLD: &Wasm = &Wasm("test_hello_world");
 pub const INVOKER_ACCOUNT_EXISTS: &Wasm = &Wasm("test_invoker_account_exists");
+pub const CUSTOM_TYPES: &Wasm = &Wasm("test_custom_types");
