@@ -88,6 +88,9 @@ impl Spec {
     #[allow(clippy::wrong_self_convention)]
     pub fn from_string(&self, s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
         if let ScSpecTypeDef::Option(b) = t {
+            if s == "null" {
+                return Ok(ScVal::Static(ScStatic::Void));
+            }
             let ScSpecTypeOption { value_type } = b.as_ref().clone();
             let v = value_type.as_ref().clone();
             return self.from_string(s, &v);
