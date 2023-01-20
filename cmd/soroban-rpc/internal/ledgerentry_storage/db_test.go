@@ -318,7 +318,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
 }
 
-// Check that we can have coexisting reader and writer goroutines without locks or errors
+// Check that we can have coexisting reader and writer goroutines without deadlocks or errors
 func TestConcurrentReadersAndWriter(t *testing.T) {
 	db, dbPath := NewTestDB()
 	defer func() {
@@ -336,23 +336,22 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 	var wg sync.WaitGroup
 	writer := func() {
 		defer wg.Done()
-		zero := xdr.Uint32(0)
+		val := xdr.Uint32(0)
 		data := xdr.ContractDataEntry{
 			ContractId: contractID,
 			Key: xdr.ScVal{
 				Type: xdr.ScValTypeScvU32,
-				U32:  &zero,
+				U32:  &val,
 			},
 			Val: xdr.ScVal{
 				Type: xdr.ScValTypeScvU32,
-				U32:  &zero,
+				U32:  &val,
 			},
 		}
 		for ledgerSequence := uint32(0); ledgerSequence < 1000; ledgerSequence++ {
 			writeTx, err := db.NewLedgerEntryUpdaterTx(ledgerSequence, 10)
 			for i := 0; i < 200; i++ {
-				*data.Key.U32 = (*data.Key.U32 + 1)
-				*data.Val.U32 = (*data.Val.U32 + 1)
+				val++
 				key, entry := getContractDataLedgerEntry(data)
 				err = writeTx.UpsertLedgerEntry(key, entry)
 				assert.NoError(t, err)
@@ -389,10 +388,10 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 					t.Fatalf("reader %d failed with error %v\n", keyVal, err)
 				}
 			} else {
-				fmt.Printf("reader %d: entry_present=%t for ledger %d\n", keyVal, found, ledger)
-				if found {
-					assert.Equal(t, xdr.Uint32(keyVal), *ledgerEntry.Data.ContractData.Val.U32)
-				}
+				// All entries should be found once the first write commit is done
+				assert.True(t, found)
+				fmt.Printf("reader %d: for ledger %d\n", keyVal, ledger)
+				assert.Equal(t, xdr.Uint32(keyVal), *ledgerEntry.Data.ContractData.Val.U32)
 			}
 			time.Sleep(time.Duration(rand.Int31n(30)) * time.Millisecond)
 		}
