@@ -145,8 +145,7 @@ impl Spec {
             (ScSpecTypeDef::Map(map), Value::Object(raw)) => self.parse_map(map, raw)?,
 
             // Option parsing
-            // is null -> void the right thing here?
-            (ScSpecTypeDef::Option(_), Value::Null) => ScVal::Object(None),
+            (ScSpecTypeDef::Option(_), Value::Null) => ScVal::Static(ScStatic::Void),
             (ScSpecTypeDef::Option(elem), v) => ScVal::Object(Some(
                 self.from_json(v, &elem.value_type)?
                     .try_into()
