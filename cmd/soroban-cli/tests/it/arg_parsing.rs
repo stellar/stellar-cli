@@ -1,7 +1,7 @@
 use crate::util::CUSTOM_TYPES;
 use serde_json::json;
 use soroban_cli::strval::{self, Spec};
-use soroban_env_host::xdr::{ScVal, ScStatic, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt};
+use soroban_env_host::xdr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScStatic, ScVal};
 
 #[test]
 fn parse_bool() {
@@ -13,7 +13,13 @@ fn parse_bool() {
 
 #[test]
 fn parse_null() {
-    let parsed = strval::from_string_primitive("null", &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption { value_type: Box::new(ScSpecTypeDef::Bool) })),).unwrap();
+    let parsed = strval::from_string_primitive(
+        "null",
+        &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Bool),
+        })),
+    )
+    .unwrap();
     println!("{:#?}", parsed);
     assert!(parsed == ScVal::Static(ScStatic::Void))
 }
