@@ -77,6 +77,32 @@ fn parse_symbol_with_no_quotation_marks() {
 }
 
 #[test]
+fn parse_optional_symbol_with_no_quotation_marks() {
+    let parsed = strval::from_string_primitive(
+        "hello",
+        &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Symbol),
+        })),
+    )
+    .unwrap();
+    println!("{:#?}", parsed);
+    assert!(parsed == ScVal::Symbol("hello".try_into().unwrap()))
+}
+
+#[test]
+fn parse_optional_bool_with_no_quotation_marks() {
+    let parsed = strval::from_string_primitive(
+        "true",
+        &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Bool),
+        })),
+    )
+    .unwrap();
+    println!("{:#?}", parsed);
+    assert!(parsed == ScVal::Static(ScStatic::True))
+}
+
+#[test]
 fn parse_obj() {
     let type_ = &ScSpecTypeDef::Udt(ScSpecTypeUdt {
         name: "Test".parse().unwrap(),
