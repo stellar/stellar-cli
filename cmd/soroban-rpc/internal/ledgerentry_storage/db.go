@@ -44,7 +44,7 @@ type sqlDB struct {
 }
 
 func OpenSQLiteDB(dbFilePath string) (DB, error) {
-	db, err := sqlx.Open("sqlite3", fmt.Sprintf("file://%s?_journal_mode=WAL", dbFilePath))
+	db, err := sqlx.Open("sqlite3", fmt.Sprintf("file:%s?_journal_mode=WAL", dbFilePath))
 	if err != nil {
 		return nil, errors.Wrap(err, "open failed")
 	}
