@@ -2,7 +2,6 @@ package ledgerentry_storage
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -154,7 +153,7 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 
 	nextLedger := startCheckpointLedger + 1
 	for {
-		fmt.Println("Processing txmeta of ledger", nextLedger)
+		ls.logger.Info("Processing txmeta of ledger", nextLedger)
 		reader, err := ingest.NewLedgerChangeReader(ctx, ledgerBackend, ls.networkPassPhrase, nextLedger)
 		if err != nil {
 			panic(err)

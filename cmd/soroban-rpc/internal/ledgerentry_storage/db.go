@@ -209,18 +209,14 @@ func (s *sqlDB) NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize i
 	}
 	ret := &ledgerUpdaterTx{
 		tx:                  tx,
+		stmtCache:           sq.NewStmtCache(tx),
 		postWriteCommitHook: s.postWriteCommitHook,
 		forLedgerSequence:   forLedgerSequence,
 		maxBatchSize:        maxBatchSize,
 		buffer:              xdr.NewEncodingBuffer(),
 		keyToEntryBatch:     make(map[string]*string, maxBatchSize),
 	}
-	ret.stmtCache = sq.NewStmtCache(tx)
 	return ret, nil
-}
-
-func (l *ledgerUpdaterTx) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
-	return l.tx.PrepareContext(ctx, query)
 }
 
 func (l *ledgerUpdaterTx) flushLedgerEntryBatch() error {
