@@ -84,41 +84,6 @@ func getLedgerEntry(tx *sqlx.Tx, buffer *xdr.EncodingBuffer, key xdr.LedgerKey) 
 	return result, nil
 }
 
-func flushLedgerEntryBatch(tx *sqlx.Tx, encodedKeyEntries map[string]*string) error {
-	upsertCount := 0
-	upsertSQL := sq.Replace(ledgerEntriesTableName)
-	var deleteKeys = make([]string, 0, len(encodedKeyEntries))
-	for key, entry := range encodedKeyEntries {
-		if entry != nil {
-			upsertSQL = upsertSQL.Values(key, entry)
-			upsertCount += 1
-		} else {
-			deleteKeys = append(deleteKeys, key)
-		}
-	}
-
-	if upsertCount > 0 {
-		sqlStr, args, err := upsertSQL.ToSql()
-		if err != nil {
-			return err
-		}
-		if _, err = tx.Exec(sqlStr, args...); err != nil {
-			return err
-		}
-	}
-
-	if len(deleteKeys) > 0 {
-		sqlStr, args, err := sq.Delete(ledgerEntriesTableName).Where(sq.Eq{"key": deleteKeys}).ToSql()
-		if err != nil {
-			return err
-		}
-		if _, err = tx.Exec(sqlStr, args...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func getLatestLedgerSequence(tx *sqlx.Tx) (uint32, error) {
 	sqlStr, args, err := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
 	if err != nil {
@@ -209,7 +174,8 @@ func (s *sqlDB) Close() error {
 }
 
 type ledgerUpdaterTx struct {
-	tx *sqlx.Tx
+	tx        *sqlx.Tx
+	stmtCache *sq.StmtCache
 	// Value to set "latestSequence" to once we are done
 	forLedgerSequence uint32
 	maxBatchSize      int
@@ -223,13 +189,47 @@ func (s *sqlDB) NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize i
 	if err != nil {
 		return nil, err
 	}
-	return &ledgerUpdaterTx{
+	ret := &ledgerUpdaterTx{
 		maxBatchSize:      maxBatchSize,
 		tx:                tx,
 		forLedgerSequence: forLedgerSequence,
 		buffer:            xdr.NewEncodingBuffer(),
 		keyToEntryBatch:   make(map[string]*string, maxBatchSize),
-	}, nil
+	}
+	ret.stmtCache = sq.NewStmtCache(tx)
+	return ret, nil
+}
+
+func (l *ledgerUpdaterTx) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+	return l.tx.PrepareContext(ctx, query)
+}
+
+func (l *ledgerUpdaterTx) flushLedgerEntryBatch() error {
+	upsertCount := 0
+	upsertSQL := sq.StatementBuilder.RunWith(l.stmtCache).Replace(ledgerEntriesTableName)
+	var deleteKeys = make([]string, 0, len(l.keyToEntryBatch))
+	for key, entry := range l.keyToEntryBatch {
+		if entry != nil {
+			upsertSQL = upsertSQL.Values(key, entry)
+			upsertCount += 1
+		} else {
+			deleteKeys = append(deleteKeys, key)
+		}
+	}
+
+	if upsertCount > 0 {
+		if _, err := upsertSQL.Exec(); err != nil {
+			return err
+		}
+	}
+
+	if len(deleteKeys) > 0 {
+		deleteSQL := sq.StatementBuilder.RunWith(l.stmtCache).Delete(ledgerEntriesTableName).Where(sq.Eq{"key": deleteKeys})
+		if _, err := deleteSQL.Exec(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
@@ -245,7 +245,7 @@ func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerE
 	encodedEntryStr := string(encodedEntry)
 	l.keyToEntryBatch[encodedKey] = &encodedEntryStr
 	if len(l.keyToEntryBatch) >= l.maxBatchSize {
-		if err := flushLedgerEntryBatch(l.tx, l.keyToEntryBatch); err != nil {
+		if err := l.flushLedgerEntryBatch(); err != nil {
 			_ = l.tx.Rollback()
 			return err
 		}
@@ -262,7 +262,7 @@ func (l *ledgerUpdaterTx) DeleteLedgerEntry(key xdr.LedgerKey) error {
 	}
 	l.keyToEntryBatch[encodedKey] = nil
 	if len(l.keyToEntryBatch) > l.maxBatchSize {
-		if err := flushLedgerEntryBatch(l.tx, l.keyToEntryBatch); err != nil {
+		if err := l.flushLedgerEntryBatch(); err != nil {
 			_ = l.tx.Rollback()
 			return err
 		}
@@ -273,7 +273,7 @@ func (l *ledgerUpdaterTx) DeleteLedgerEntry(key xdr.LedgerKey) error {
 }
 
 func (l *ledgerUpdaterTx) Done() error {
-	if err := flushLedgerEntryBatch(l.tx, l.keyToEntryBatch); err != nil {
+	if err := l.flushLedgerEntryBatch(); err != nil {
 		_ = l.tx.Rollback()
 		return err
 	}
