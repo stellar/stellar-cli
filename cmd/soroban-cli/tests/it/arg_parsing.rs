@@ -20,8 +20,8 @@ fn parse_null() {
         })),
     )
     .unwrap();
-    println!("{:#?}", parsed);
-    assert!(parsed == ScVal::Static(ScStatic::Void))
+    println!("{parsed:#?}");
+    assert!(parsed == ScVal::Static(ScStatic::Void));
 }
 
 #[test]
@@ -85,8 +85,8 @@ fn parse_optional_symbol_with_no_quotation_marks() {
         })),
     )
     .unwrap();
-    println!("{:#?}", parsed);
-    assert!(parsed == ScVal::Symbol("hello".try_into().unwrap()))
+    println!("{parsed:#?}");
+    assert!(parsed == ScVal::Symbol("hello".try_into().unwrap()));
 }
 
 #[test]
@@ -98,8 +98,8 @@ fn parse_optional_bool_with_no_quotation_marks() {
         })),
     )
     .unwrap();
-    println!("{:#?}", parsed);
-    assert!(parsed == ScVal::Static(ScStatic::True))
+    println!("{parsed:#?}");
+    assert!(parsed == ScVal::Static(ScStatic::True));
 }
 
 #[test]
