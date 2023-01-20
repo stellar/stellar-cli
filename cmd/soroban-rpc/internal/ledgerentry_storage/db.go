@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 
@@ -73,8 +74,13 @@ func getLedgerEntry(tx *sqlx.Tx, buffer *xdr.EncodingBuffer, key xdr.LedgerKey) 
 	if err = tx.Select(&results, sqlStr, args...); err != nil {
 		return xdr.LedgerEntry{}, err
 	}
-	if len(results) != 1 {
+	switch len(results) {
+	case 0:
 		return xdr.LedgerEntry{}, sql.ErrNoRows
+	case 1:
+		// expected length
+	default:
+		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName))
 	}
 	ledgerEntryBin := results[0]
 	var result xdr.LedgerEntry
