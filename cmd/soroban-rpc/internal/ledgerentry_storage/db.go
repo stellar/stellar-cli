@@ -143,12 +143,11 @@ func (s *sqlDB) GetLatestLedgerSequence() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
+	// Since it's a read-only transaction, we don't
+	// care whether we commit it or roll it back as long as we close it
+	defer tx.Rollback()
 	ret, err := getLatestLedgerSequence(tx)
 	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
-	}
-	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
 	return ret, nil
@@ -162,24 +161,19 @@ func (s *sqlDB) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32
 	if err != nil {
 		return xdr.LedgerEntry{}, false, 0, err
 	}
+	// Since it's a read-only transaction, we don't
+	// care whether we commit it or roll it back as long as we close it
+	defer tx.Rollback()
 	seq, err := getLatestLedgerSequence(tx)
 	if err != nil {
-		_ = tx.Rollback()
 		return xdr.LedgerEntry{}, false, 0, err
 	}
 	buffer := xdr.NewEncodingBuffer()
 	entry, err := getLedgerEntry(tx, buffer, key)
 	if err == sql.ErrNoRows {
-		if err = tx.Commit(); err != nil {
-			return xdr.LedgerEntry{}, false, 0, err
-		}
 		return xdr.LedgerEntry{}, false, seq, nil
 	}
 	if err != nil {
-		_ = tx.Rollback()
-		return xdr.LedgerEntry{}, false, seq, err
-	}
-	if err := tx.Commit(); err != nil {
 		return xdr.LedgerEntry{}, false, seq, err
 	}
 	return entry, true, seq, nil
@@ -255,6 +249,7 @@ func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerE
 	// safe since we cast to string right away
 	encodedEntry, err := l.buffer.UnsafeMarshalBinary(&entry)
 	if err != nil {
+		_ = l.tx.Rollback()
 		return err
 	}
 	encodedEntryStr := string(encodedEntry)
@@ -273,6 +268,7 @@ func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerE
 func (l *ledgerUpdaterTx) DeleteLedgerEntry(key xdr.LedgerKey) error {
 	encodedKey, err := encodeLedgerKey(l.buffer, key)
 	if err != nil {
+		_ = l.tx.Rollback()
 		return err
 	}
 	l.keyToEntryBatch[encodedKey] = nil
@@ -299,7 +295,7 @@ func (l *ledgerUpdaterTx) Done() error {
 	if err := l.tx.Commit(); err != nil {
 		return err
 	}
-	if l.postWriteCommitHook() != nil {
+	if l.postWriteCommitHook != nil {
 		if err := l.postWriteCommitHook(); err != nil {
 			return err
 		}
