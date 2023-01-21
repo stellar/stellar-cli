@@ -242,6 +242,15 @@ func (l *ledgerUpdaterTx) flushLedgerEntryBatch() error {
 }
 
 func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
+	if err := l.upsertLedgerEntry(key, entry); err != nil {
+		_ = l.tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+// UpsertLedgerEntry() counterpart with no rollbacks (so that we only rollback in one place)
+func (l *ledgerUpdaterTx) upsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
 	encodedKey, err := encodeLedgerKey(l.buffer, key)
 	if err != nil {
 		return err
@@ -249,14 +258,12 @@ func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerE
 	// safe since we cast to string right away
 	encodedEntry, err := l.buffer.UnsafeMarshalBinary(&entry)
 	if err != nil {
-		_ = l.tx.Rollback()
 		return err
 	}
 	encodedEntryStr := string(encodedEntry)
 	l.keyToEntryBatch[encodedKey] = &encodedEntryStr
 	if len(l.keyToEntryBatch) >= l.maxBatchSize {
 		if err := l.flushLedgerEntryBatch(); err != nil {
-			_ = l.tx.Rollback()
 			return err
 		}
 		// reset map
@@ -266,15 +273,22 @@ func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerE
 }
 
 func (l *ledgerUpdaterTx) DeleteLedgerEntry(key xdr.LedgerKey) error {
+	if err := l.deleteLedgerEntry(key); err != nil {
+		_ = l.tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+// DeleteLedgerEntry() counterpart with no rollbacks (so that we only rollback in one place)
+func (l *ledgerUpdaterTx) deleteLedgerEntry(key xdr.LedgerKey) error {
 	encodedKey, err := encodeLedgerKey(l.buffer, key)
 	if err != nil {
-		_ = l.tx.Rollback()
 		return err
 	}
 	l.keyToEntryBatch[encodedKey] = nil
 	if len(l.keyToEntryBatch) > l.maxBatchSize {
 		if err := l.flushLedgerEntryBatch(); err != nil {
-			_ = l.tx.Rollback()
 			return err
 		}
 		// reset map
@@ -284,11 +298,7 @@ func (l *ledgerUpdaterTx) DeleteLedgerEntry(key xdr.LedgerKey) error {
 }
 
 func (l *ledgerUpdaterTx) Done() error {
-	if err := l.flushLedgerEntryBatch(); err != nil {
-		_ = l.tx.Rollback()
-		return err
-	}
-	if err := upsertLatestLedgerSequence(l.tx, l.forLedgerSequence); err != nil {
+	if err := l.done(); err != nil {
 		_ = l.tx.Rollback()
 		return err
 	}
@@ -301,6 +311,14 @@ func (l *ledgerUpdaterTx) Done() error {
 		}
 	}
 	return nil
+}
+
+// Done() counterpart with no rollbacks or commits (so that we only rollback in one place)
+func (l *ledgerUpdaterTx) done() error {
+	if err := l.flushLedgerEntryBatch(); err != nil {
+		return err
+	}
+	return upsertLatestLedgerSequence(l.tx, l.forLedgerSequence)
 }
 
 func encodeLedgerKey(buffer *xdr.EncodingBuffer, key xdr.LedgerKey) (string, error) {
