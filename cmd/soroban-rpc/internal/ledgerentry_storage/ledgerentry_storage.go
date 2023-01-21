@@ -219,6 +219,10 @@ func getRelevantLedgerKeyFromData(data xdr.LedgerEntryData) (xdr.LedgerKey, bool
 		if err := key.SetContractData(data.ContractData.ContractId, data.ContractData.Val); err != nil {
 			panic(err)
 		}
+	case xdr.LedgerEntryTypeContractCode:
+		if err := key.SetContractCode(data.ContractCode.Hash); err != nil {
+			panic(err)
+		}
 	default:
 		// we don't care about any other entry types for now
 		return xdr.LedgerKey{}, false
