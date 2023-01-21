@@ -46,7 +46,10 @@ jobs:
       # Docker-compose's remote contexts on Ubuntu 20 started failing with an OpenSSL versioning error.
       # See https://stackoverflow.com/questions/66579446/error-executing-docker-compose-building-webserver-unable-to-prepare-context-un
       - name: Work around Docker Compose problem
-        run: sudo pip3 install docker-compose
+        run: |
+          sudo pip3 install pip --upgrade
+          sudo pip3 install pyopenssl --upgrade
+          sudo pip3 install docker-compose
 
       - name: Build Soroban RPC reproducible build
         run: |
