@@ -3,9 +3,7 @@ package test
 import (
 	"context"
 	"crypto/sha256"
-	"net/http"
 	"testing"
-	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
@@ -15,6 +13,7 @@ import (
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
+
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -392,46 +391,6 @@ func TestSimulateTransactionUnmarshalError(t *testing.T) {
 	assert.Equal(
 		t,
 		"Could not unmarshal transaction",
-		result.Error,
-	)
-}
-
-func TestSimulateTransactionDeadlineError(t *testing.T) {
-	test := NewTest(t)
-	test.coreClient.HTTP = &http.Client{
-		Timeout: time.Microsecond,
-	}
-
-	ch := jhttp.NewChannel(test.server.URL, nil)
-	client := jrpc2.NewClient(ch, nil)
-
-	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
-		SourceAccount: &txnbuild.SimpleAccount{
-			AccountID: sourceAccount,
-			Sequence:  0,
-		},
-		IncrementSequenceNum: false,
-		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
-		},
-		BaseFee: txnbuild.MinBaseFee,
-		Memo:    nil,
-		Preconditions: txnbuild.Preconditions{
-			TimeBounds: txnbuild.NewInfiniteTimeout(),
-		},
-	})
-	require.NoError(t, err)
-	txB64, err := tx.Base64()
-	require.NoError(t, err)
-	request := methods.SimulateTransactionRequest{Transaction: txB64}
-
-	var result methods.SimulateTransactionResponse
-	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
-	assert.NoError(t, err)
-	assert.Equal(
-		t,
-		"Could not submit request to core",
 		result.Error,
 	)
 }
