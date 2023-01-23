@@ -288,6 +288,8 @@ pub fn default_account_ledger_entry(account_id: AccountId) -> LedgerEntry {
     }
 }
 
+/// # Errors
+/// May not find a config dir
 pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path::PathBuf> {
     let soroban_dir = |p: &std::path::Path| p.join(".soroban");
     while !soroban_dir(&pwd).exists() {

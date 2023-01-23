@@ -2,7 +2,7 @@ use clap::Parser;
 use std::fmt::Debug;
 use wasm_opt::{OptimizationError, OptimizationOptions};
 
-use crate::wasm;
+use soroban_cli::wasm;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {

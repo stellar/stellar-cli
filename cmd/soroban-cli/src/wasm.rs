@@ -31,6 +31,8 @@ pub struct Args {
 }
 
 impl Args {
+    /// # Errors
+    /// May fail to read wasm file
     pub fn read(&self) -> Result<Vec<u8>, Error> {
         fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
             filepath: self.wasm.clone(),
@@ -38,10 +40,20 @@ impl Args {
         })
     }
 
+    /// # Errors
+    /// May fail to read wasm file
     pub fn len(&self) -> Result<u64, Error> {
         len(&self.wasm)
     }
 
+    /// # Errors
+    /// May fail to read wasm file
+    pub fn is_empty(&self) -> Result<bool, Error> {
+        self.len().map(|len| len == 0)
+    }
+
+    /// # Errors
+    /// May fail to read wasm file or parse xdr section
     pub fn parse(&self) -> Result<ContractSpec, Error> {
         let contents = self.read()?;
         let mut env_meta: Option<&[u8]> = None;
@@ -142,6 +154,8 @@ impl Display for ContractSpec {
     }
 }
 
+/// # Errors
+/// May fail to read wasm file
 pub fn len(p: &Path) -> Result<u64, Error> {
     Ok(std::fs::metadata(p)
         .map_err(|e| Error::CannotReadContractFile {

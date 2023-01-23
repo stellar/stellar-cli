@@ -17,9 +17,9 @@ pub enum Error {
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
     #[error("Failed to read secret's file: {path}")]
-    SecretFileRead { path: String },
+    SecretFileRead { path: PathBuf },
     #[error("Failed to read network file: {path}")]
-    NetworkFileRead { path: String },
+    NetworkFileRead { path: PathBuf },
     #[error("Seceret file failed to deserialize")]
     Deserialization,
     #[error("Failed to write identity file:{filepath}: {error}")]
@@ -93,7 +93,7 @@ impl Args {
         .identity_path(name);
 
         if name_collision.is_ok() {
-            println!("Name collision!\n\n  Old identity: {}\n  New identity: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config identity rm {}{}`", name_collision.unwrap().display(), source.display(), name, if self.global { "" } else { " --global" });
+            println!("Name collision!\n\n  Old identity: {}\n  New identity: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config identity rm {name}{}`", name_collision.unwrap().display(), source.display(), if self.global { "" } else { " --global" });
         } else {
             println!("Writing to {}", source.display());
         }
@@ -113,7 +113,7 @@ impl Args {
         .network_path(name);
 
         if name_collision.is_ok() {
-            println!("Name collision!\n\n  Old network: {}\n  New network: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config network rm {}{}`", name_collision.unwrap().display(), source.display(), name, if self.global { "" } else { " --global" });
+            println!("Name collision!\n\n  Old network: {}\n  New network: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config network rm {name}{}`", name_collision.unwrap().display(), source.display(), if self.global { "" } else { " --global" });
         } else {
             println!("Writing to {}", source.display());
         }
@@ -168,38 +168,24 @@ impl Args {
 pub fn read_identity(name: &str) -> Result<Secret, Error> {
     // 1. check workspace config files for `name`
     let local_identity = Args { global: false }.identity_path(name);
-    // 2. if found, use
-    let path = if local_identity.is_ok() {
-        local_identity.unwrap()
-    } else {
-        // 3. else, check global config files for `name`
-        Args { global: true }.identity_path(name)?
-    };
+    // 2. use if found, else, check global config files for `name`
+    let path = local_identity.or_else(|_| Args { global: true }.identity_path(name))?;
 
-    println!("Found identity \"{}\" at {}", name, path.display());
+    println!("Found identity \"{name}\" at {}", path.display());
 
-    let data = fs::read(&path).map_err(|_| Error::SecretFileRead {
-        path: path.to_string_lossy().to_string(),
-    })?;
+    let data = fs::read(&path).map_err(|_| Error::SecretFileRead { path })?;
     toml::from_slice::<Secret>(&data).map_err(|_| Error::Deserialization)
 }
 
 pub fn read_network(name: &str) -> Result<Network, Error> {
     // 1. check workspace config files for `name`
     let local_network = Args { global: false }.network_path(name);
-    // 2. if found, use
-    let path = if local_network.is_ok() {
-        local_network.unwrap()
-    } else {
-        // 3. else, check global config files for `name`
-        Args { global: true }.network_path(name)?
-    };
+    // 2. use if found, else, check global config files for `name`
+    let path = local_network.or_else(|_| Args { global: true }.identity_path(name))?;
 
-    println!("Found network \"{}\" at {}", name, path.display());
+    println!("Found network \"{name}\" at {}", path.display());
 
-    let data = fs::read(&path).map_err(|_| Error::NetworkFileRead {
-        path: path.to_string_lossy().to_string(),
-    })?;
+    let data = fs::read(&path).map_err(|_| Error::NetworkFileRead { path })?;
     toml::from_slice::<Network>(&data).map_err(|_| Error::NetworkDeserialization)
 }
 

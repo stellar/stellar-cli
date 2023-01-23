@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::fmt::Debug;
 
-use crate::wasm;
+use soroban_cli::wasm;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {

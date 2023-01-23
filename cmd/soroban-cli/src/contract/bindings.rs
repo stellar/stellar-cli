@@ -6,7 +6,7 @@ use soroban_spec::gen::{
     rust::{self, ToFormattedString},
 };
 
-use crate::wasm;
+use soroban_cli::wasm;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
