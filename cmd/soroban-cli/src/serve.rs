@@ -10,9 +10,8 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, LedgerEntryData,
-        LedgerKey, LedgerKeyContractData, OperationBody, ReadXdr, ScHostStorageErrorCode, ScObject,
-        ScStatus, ScVal, TransactionEnvelope, WriteXdr,
+        self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, LedgerKey, OperationBody,
+        ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus, ScVal, TransactionEnvelope, WriteXdr,
     },
     Host, HostError,
 };
@@ -193,40 +192,6 @@ fn reply(
             })
         }
     }
-}
-
-fn get_contract_data(
-    contract_id_hex: &str,
-    key_xdr: String,
-    ledger_file: &PathBuf,
-) -> Result<Value, Error> {
-    // Initialize storage and host
-    let state = utils::ledger_snapshot_read_or_default(ledger_file)?;
-    let contract_id: [u8; 32] = utils::id_from_str(&contract_id_hex.to_string())?;
-    let key = ScVal::from_xdr_base64(key_xdr)?;
-
-    let snap = Rc::new(state);
-    let mut storage = Storage::with_recording_footprint(snap);
-    let ledger_entry = storage.get(
-        &LedgerKey::ContractData(LedgerKeyContractData {
-            contract_id: xdr::Hash(contract_id),
-            key,
-        }),
-        &soroban_env_host::budget::Budget::default(),
-    )?;
-
-    let value = if let LedgerEntryData::ContractData(entry) = ledger_entry.data {
-        entry.val
-    } else {
-        unreachable!();
-    };
-
-    Ok(json!({
-        "xdr": value.to_xdr_base64()?,
-        "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
-        // TODO: Find "real" ledger seq number here
-        "latestLedger": 1,
-    }))
 }
 
 fn get_ledger_entry(k: Box<[String]>, ledger_file: &PathBuf) -> Result<Value, Error> {
