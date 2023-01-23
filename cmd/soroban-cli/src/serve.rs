@@ -68,7 +68,6 @@ pub enum Error {
 #[serde(untagged)]
 enum Requests {
     NoArg(),
-    GetContractData((String, String)),
     StringArg(Box<[String]>),
 }
 
@@ -141,9 +140,6 @@ async fn handler(
     let result = match (request.method.as_str(), request.params) {
         ("getAccount", Some(Requests::StringArg(b))) => get_account(b),
         ("getHealth", Some(Requests::NoArg()) | None) => Ok(get_health()),
-        ("getContractData", Some(Requests::GetContractData((contract_id, key)))) => {
-            get_contract_data(&contract_id, key, &ledger_file)
-        }
         ("getLedgerEntry", Some(Requests::StringArg(key))) => get_ledger_entry(key, &ledger_file),
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             get_transaction_status(&transaction_status_map, b).await
