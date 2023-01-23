@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 use soroban_env_host::xdr::{
     AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeTuple, ScSpecTypeUdt,
-    ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256,
-    VecM,
+    ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple,
+    ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec,
+    StringM, Uint256, VecM,
 };
 
 use stellar_strkey::ed25519;
@@ -87,6 +87,14 @@ impl Spec {
     /// Might return errors
     #[allow(clippy::wrong_self_convention)]
     pub fn from_string(&self, s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
+        if let ScSpecTypeDef::Option(b) = t {
+            if s == "null" {
+                return Ok(ScVal::Static(ScStatic::Void));
+            }
+            let ScSpecTypeOption { value_type } = b.as_ref().clone();
+            let v = value_type.as_ref().clone();
+            return self.from_string(s, &v);
+        }
         // Parse as string and for special types assume Value::String
         serde_json::from_str(s)
             .or_else(|e| match t {
@@ -145,8 +153,7 @@ impl Spec {
             (ScSpecTypeDef::Map(map), Value::Object(raw)) => self.parse_map(map, raw)?,
 
             // Option parsing
-            // is null -> void the right thing here?
-            (ScSpecTypeDef::Option(_), Value::Null) => ScVal::Object(None),
+            (ScSpecTypeDef::Option(_), Value::Null) => ScVal::Static(ScStatic::Void),
             (ScSpecTypeDef::Option(elem), v) => ScVal::Object(Some(
                 self.from_json(v, &elem.value_type)?
                     .try_into()

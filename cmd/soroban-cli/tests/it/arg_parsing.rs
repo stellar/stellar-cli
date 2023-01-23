@@ -1,7 +1,7 @@
 use crate::util::CUSTOM_TYPES;
 use serde_json::json;
 use soroban_cli::strval::{self, Spec};
-use soroban_env_host::xdr::{ScSpecTypeDef, ScSpecTypeUdt};
+use soroban_env_host::xdr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScStatic, ScVal};
 
 #[test]
 fn parse_bool() {
@@ -9,6 +9,19 @@ fn parse_bool() {
         "{:#?}",
         strval::from_string_primitive("true", &ScSpecTypeDef::Bool,).unwrap()
     );
+}
+
+#[test]
+fn parse_null() {
+    let parsed = strval::from_string_primitive(
+        "null",
+        &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Bool),
+        })),
+    )
+    .unwrap();
+    println!("{parsed:#?}");
+    assert!(parsed == ScVal::Static(ScStatic::Void));
 }
 
 #[test]
@@ -61,6 +74,32 @@ fn parse_symbol_with_no_quotation_marks() {
         "{:#?}",
         strval::from_string_primitive("hello", &ScSpecTypeDef::Symbol).unwrap()
     );
+}
+
+#[test]
+fn parse_optional_symbol_with_no_quotation_marks() {
+    let parsed = strval::from_string_primitive(
+        "hello",
+        &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Symbol),
+        })),
+    )
+    .unwrap();
+    println!("{parsed:#?}");
+    assert!(parsed == ScVal::Symbol("hello".try_into().unwrap()));
+}
+
+#[test]
+fn parse_optional_bool_with_no_quotation_marks() {
+    let parsed = strval::from_string_primitive(
+        "true",
+        &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Bool),
+        })),
+    )
+    .unwrap();
+    println!("{parsed:#?}");
+    assert!(parsed == ScVal::Static(ScStatic::True));
 }
 
 #[test]
