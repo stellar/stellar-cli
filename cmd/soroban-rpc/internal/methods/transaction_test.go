@@ -50,5 +50,4 @@ func TestDeleteExpiredTransaction(t *testing.T) {
 		assert.Equal(t, notYetExpired, proxy.results["c"])
 		assert.Equal(t, pending, proxy.results["d"])
 	})
-
 }

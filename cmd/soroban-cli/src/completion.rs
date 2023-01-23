@@ -1,6 +1,8 @@
-use clap::{Command, Parser};
+use clap::{CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use std::io;
+
+use crate::Root;
 
 pub const LONG_ABOUT: &str = "\
 Print shell completion code for the specified shell
@@ -22,7 +24,8 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self, cmd: &mut Command) {
+    pub fn run(&self) {
+        let cmd = &mut Root::command();
         generate(self.shell, cmd, env!("CARGO_BIN_NAME"), &mut io::stdout());
     }
 }

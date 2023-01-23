@@ -1,6 +1,6 @@
 use std::array::TryFromSliceError;
+use std::fmt::Debug;
 use std::num::ParseIntError;
-use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
 use hex::FromHexError;
@@ -16,8 +16,7 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::HostError;
 
-use crate::config;
-use crate::install::build_install_contract_code_tx;
+use crate::contract::install;
 use crate::rpc::{self, Client};
 use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
 
@@ -43,6 +42,24 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     contract_id: Option<String>,
+    /// File to persist ledger state
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value = ".soroban/ledger.json",
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
+    )]
+    ledger_file: std::path::PathBuf,
+
+    /// Secret 'S' key used to sign the transaction sent to the rpc server
+    #[clap(
+        long = "secret-key",
+        env = "SOROBAN_SECRET_KEY",
+        help_heading = HEADING_RPC,
+    )]
+    secret_key: Option<String>,
     /// Custom salt 32-byte salt for the token id
     #[clap(
         long,
@@ -50,17 +67,31 @@ pub struct Cmd {
         help_heading = HEADING_RPC,
     )]
     salt: Option<String>,
-
-    #[clap(flatten)]
-    config: config::Args,
+    /// RPC server endpoint
+    #[clap(
+        long,
+        conflicts_with = "contract-id",
+        requires = "secret-key",
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
+    )]
+    rpc_url: Option<String>,
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[clap(
+        long = "network-passphrase",
+        env = "SOROBAN_NETWORK_PASSPHRASE",
+        help_heading = HEADING_RPC,
+    )]
+    network_passphrase: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Host(#[from] HostError),
+    Install(#[from] install::Error),
     #[error(transparent)]
-    Config(#[from] config::Error),
+    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
@@ -72,9 +103,14 @@ pub enum Error {
     #[error("cannot parse salt: {salt}")]
     CannotParseSalt { salt: String },
     #[error("reading file {filepath}: {error}")]
-    CannotReadContractFile {
+    CannotReadLedgerFile {
         filepath: std::path::PathBuf,
-        error: io::Error,
+        error: soroban_ledger_snapshot::Error,
+    },
+    #[error("committing file {filepath}: {error}")]
+    CannotCommitLedgerFile {
+        filepath: std::path::PathBuf,
+        error: soroban_ledger_snapshot::Error,
     },
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
@@ -86,43 +122,51 @@ pub enum Error {
         wasm_hash: String,
         error: FromHexError,
     },
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 }
 
-enum ContractSource {
-    Wasm(Vec<u8>),
-    WasmHash([u8; 32]),
-}
-
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let source = if let Some(wasm) = &self.wasm {
-            ContractSource::Wasm(fs::read(wasm).map_err(|e| Error::CannotReadContractFile {
-                filepath: wasm.clone(),
-                error: e,
-            })?)
-        } else if let Some(wasm_hash) = &self.wasm_hash {
-            ContractSource::WasmHash(utils::id_from_str(wasm_hash).map_err(|e| {
-                Error::CannotParseWasmHash {
-                    wasm_hash: wasm_hash.clone(),
-                    error: e,
-                }
-            })?)
-        } else {
-            unreachable!("clap should ensure the WASM presence");
-        };
-
-        let res_str = if self.config.no_network() {
-            self.run_in_sandbox(source)?
-        } else {
-            self.run_against_rpc_server(source).await?
-        };
+        let res_str = self.run_and_get_contract_id().await?;
         println!("{res_str}");
         Ok(())
     }
 
-    fn run_in_sandbox(&self, contract_src: ContractSource) -> Result<String, Error> {
+    pub async fn run_and_get_contract_id(&self) -> Result<String, Error> {
+        let wasm_hash = if let Some(wasm) = &self.wasm {
+            install::Cmd {
+                wasm: wasm.clone(),
+                ledger_file: self.ledger_file.clone(),
+                secret_key: self.secret_key.clone(),
+                rpc_url: self.rpc_url.clone(),
+                network_passphrase: self.network_passphrase.clone(),
+            }
+            .run_and_get_hash()
+            .await?
+        } else {
+            self.wasm_hash.as_ref().unwrap().to_string()
+        };
+
+        let hash =
+            Hash(
+                utils::id_from_str(&wasm_hash).map_err(|e| Error::CannotParseWasmHash {
+                    wasm_hash: wasm_hash.clone(),
+                    error: e,
+                })?,
+            );
+
+        if self.rpc_url.is_some() {
+            self.run_against_rpc_server(hash).await
+        } else {
+            self.run_in_sandbox(hash)
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
         let contract_id: [u8; 32] = match &self.contract_id {
             Some(id) => utils::id_from_str(id).map_err(|e| Error::CannotParseContractId {
                 contract_id: self.contract_id.as_ref().unwrap().clone(),
@@ -131,21 +175,25 @@ impl Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let mut state = self.config.get_state()?;
-        let wasm_hash = match contract_src {
-            ContractSource::Wasm(wasm) => {
-                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, wasm)?.0
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
             }
-            ContractSource::WasmHash(wasm_hash) => wasm_hash,
-        };
-        utils::add_contract_to_ledger_entries(&mut state.ledger_entries, contract_id, wasm_hash);
+        })?;
+        utils::add_contract_to_ledger_entries(&mut state.ledger_entries, contract_id, wasm_hash.0);
 
-        self.config.set_state(&mut state)?;
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            })?;
 
         Ok(hex::encode(contract_id))
     }
 
-    async fn run_against_rpc_server(&self, contract_src: ContractSource) -> Result<String, Error> {
+    async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {
         let salt: [u8; 32] = match &self.salt {
             // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
             Some(h) => {
@@ -153,32 +201,15 @@ impl Cmd {
             }
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
-        let network = self.config.get_network()?;
 
-        let client = Client::new(&network.rpc_url);
-        let key = self.config.key_pair()?;
+        let client = Client::new(self.rpc_url.as_ref().unwrap());
+        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
+            .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
-
-        let wasm_hash = match contract_src {
-            ContractSource::Wasm(wasm) => {
-                let account_details = client.get_account(&public_strkey).await?;
-                let sequence = account_details.sequence.parse::<i64>()?;
-                let (tx, hash) = build_install_contract_code_tx(
-                    wasm,
-                    sequence + 1,
-                    fee,
-                    &network.network_passphrase,
-                    &key,
-                )?;
-                client.send_transaction(&tx).await?;
-                hash
-            }
-            ContractSource::WasmHash(wasm_hash) => Hash(wasm_hash),
-        };
 
         let account_details = client.get_account(&public_strkey).await?;
         let sequence = account_details.sequence.parse::<i64>()?;
@@ -186,7 +217,7 @@ impl Cmd {
             wasm_hash,
             sequence + 1,
             fee,
-            &network.network_passphrase,
+            self.network_passphrase.as_ref().unwrap(),
             salt,
             &key,
         )?;

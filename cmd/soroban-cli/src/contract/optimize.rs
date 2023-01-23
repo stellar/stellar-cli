@@ -41,6 +41,11 @@ impl Cmd {
         let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
         options.converge = true;
 
+        // Don't let wasm-opt use any optional features,
+        // including the default signext, and mutable globals.
+        // Soroban disables all optional wasm features in wasmi.
+        options.mvp_features_only();
+
         options
             .run(&self.wasm.wasm, &wasm_out)
             .map_err(Error::OptimizationError)?;

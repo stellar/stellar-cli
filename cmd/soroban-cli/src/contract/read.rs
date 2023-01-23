@@ -86,7 +86,7 @@ impl Cmd {
             })?;
         let key = if let Some(key) = &self.key {
             Some(
-                strval::from_string(key, &ScSpecTypeDef::Symbol).map_err(|e| {
+                strval::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(|e| {
                     Error::CannotParseKey {
                         key: key.clone(),
                         error: e,

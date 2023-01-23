@@ -166,7 +166,7 @@ pub enum OutputFormat {
 }
 
 impl Cmd {
-    pub async fn run(&self, _matches: &clap::ArgMatches) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         if self.start_ledger > self.end_ledger {
             return Err(Error::InvalidLedgerRange {
                 low: self.start_ledger,
@@ -351,26 +351,11 @@ impl Cmd {
 // [Code
 // Reference](https://github.com/stellar/soroban-tools/blob/bac1be79e8c2590c9c35ad8a0168aab0ae2b4171/cmd/soroban-rpc/internal/methods/get_events.go#L182-L203)
 pub fn does_topic_match(topic: &[String], filter: &[String]) -> bool {
-    let mut idx = 0;
-
-    for segment in filter {
-        if idx >= topic.len() {
-            // Nothing to match, need at least one segment.
-            return false;
-        }
-
-        if *segment == "*" {
-            // One-segment wildcard: ignore this token
-        } else if *segment != topic[idx] {
-            // Exact match the ScVal (decodability is assumed)
-            return false;
-        }
-
-        idx += 1;
-    }
-
-    // Check we had no leftovers
-    idx >= topic.len()
+    filter.len() == topic.len()
+        && filter
+            .iter()
+            .enumerate()
+            .all(|(i, s)| *s == "*" || topic[i] == *s)
 }
 
 pub fn print_event(event: &rpc::Event) -> Result<(), Box<dyn std::error::Error>> {

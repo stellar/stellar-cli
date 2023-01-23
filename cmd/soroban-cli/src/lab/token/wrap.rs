@@ -15,23 +15,30 @@ use soroban_env_host::{
     Host, HostError,
 };
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
-use stellar_strkey::ed25519;
 
 use crate::{
-    config::{self, network::Network},
     rpc::{Client, Error as SorobanRpcError},
-    utils,
+    utils, HEADING_RPC, HEADING_SANDBOX,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Config(#[from] config::Error),
-
     #[error("cannot parse account id: {account_id}")]
     CannotParseAccountId { account_id: String },
     #[error("cannot parse asset: {asset}")]
     CannotParseAsset { asset: String },
+    #[error("cannot parse secret key")]
+    CannotParseSecretKey,
+    #[error("reading file {filepath}: {error}")]
+    CannotReadLedgerFile {
+        filepath: std::path::PathBuf,
+        error: soroban_ledger_snapshot::Error,
+    },
+    #[error("committing file {filepath}: {error}")]
+    CannotCommitLedgerFile {
+        filepath: std::path::PathBuf,
+        error: soroban_ledger_snapshot::Error,
+    },
     #[error(transparent)]
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
@@ -54,8 +61,41 @@ pub struct Cmd {
     #[clap(long)]
     asset: String,
 
-    #[clap(flatten)]
-    config: config::Args,
+    /// File to persist ledger state (if using the sandbox)
+    #[clap(
+        long,
+        parse(from_os_str),
+        default_value = ".soroban/ledger.json",
+        conflicts_with = "rpc-url",
+        env = "SOROBAN_LEDGER_FILE",
+        help_heading = HEADING_SANDBOX,
+    )]
+    ledger_file: std::path::PathBuf,
+
+    /// Secret key to sign the transaction sent to the rpc server
+    #[clap(
+        long = "secret-key",
+        env = "SOROBAN_SECRET_KEY",
+        help_heading = HEADING_RPC,
+    )]
+    secret_key: Option<String>,
+    /// RPC server endpoint
+    #[clap(
+        long,
+        conflicts_with = "ledger-file",
+        requires = "secret-key",
+        requires = "network-passphrase",
+        env = "SOROBAN_RPC_URL",
+        help_heading = HEADING_RPC,
+    )]
+    rpc_url: Option<String>,
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[clap(
+        long = "network-passphrase",
+        env = "SOROBAN_NETWORK_PASSPHRASE",
+        help_heading = HEADING_RPC,
+    )]
+    network_passphrase: Option<String>,
 }
 
 impl Cmd {
@@ -63,10 +103,10 @@ impl Cmd {
         // Parse asset
         let asset = parse_asset(&self.asset)?;
 
-        let res_str = if self.config.no_network() {
-            self.run_in_sandbox(&asset)?
-        } else {
+        let res_str = if self.rpc_url.is_some() {
             self.run_against_rpc_server(asset).await?
+        } else {
+            self.run_in_sandbox(&asset)?
         };
         println!("{res_str}");
         Ok(())
@@ -75,7 +115,12 @@ impl Cmd {
     fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state = self.config.get_state()?;
+        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
+            Error::CannotReadLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            }
+        })?;
 
         let snap = Rc::new(state.clone());
         let h = Host::with_storage_and_budget(
@@ -95,26 +140,28 @@ impl Cmd {
         let res_str = utils::vec_to_hash(&res)?;
 
         state.update(&h);
-        self.config.set_state(&mut state)?;
+        state
+            .write_file(&self.ledger_file)
+            .map_err(|e| Error::CannotCommitLedgerFile {
+                filepath: self.ledger_file.clone(),
+                error: e,
+            })?;
         Ok(res_str)
     }
 
     async fn run_against_rpc_server(&self, asset: Asset) -> Result<String, Error> {
-        let Network {
-            rpc_url,
-            network_passphrase,
-        } = &self.config.get_network()?;
-
-        let client = Client::new(rpc_url);
-        let key = self.config.key_pair()?;
+        let client = Client::new(self.rpc_url.as_ref().unwrap());
+        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
+            .map_err(|_| Error::CannotParseSecretKey)?;
 
         // Get the account sequence number
-        let public_strkey = ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
         let sequence = account_details.sequence.parse::<i64>()?;
+        let network_passphrase = self.network_passphrase.as_ref().unwrap();
         let contract_id = get_contract_id(&asset, network_passphrase)?;
         let tx = build_wrap_token_tx(
             &asset,
@@ -240,7 +287,7 @@ fn parse_asset(str: &str) -> Result<Asset, Error> {
 }
 
 fn parse_account_id(str: &str) -> Result<AccountId, Error> {
-    let pk_bytes = ed25519::PublicKey::from_string(str)
+    let pk_bytes = stellar_strkey::ed25519::PublicKey::from_string(str)
         .map_err(|_| Error::CannotParseAccountId {
             account_id: str.to_string(),
         })?

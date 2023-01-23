@@ -22,3 +22,12 @@ make lint
 
 to review all the linting issues with the current codebase.
 
+# Adding git hooks
+
+To add git hooks for commits and pushes run:
+
+```
+./install_githooks.sh
+```
+
+which copies the git hooks found at `.cargo-husky/hooks` to `.git/hooks`.
