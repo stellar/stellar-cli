@@ -17,19 +17,19 @@ import (
 	"testing"
 	"time"
 
-	git "github.com/go-git/go-git/v5"
-
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/sirupsen/logrus"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
 
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/clients/stellarcore"
-	"github.com/stellar/go/support/log"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
-
 	"golang.org/x/mod/modfile"
 )
 
@@ -47,7 +47,7 @@ type Test struct {
 	composePath string // docker compose yml file
 	composeEnv  string // docker compose env file ( used to define env var to override the go monorepo commit )
 
-	handler       internal.Handler
+	daemon        *daemon.Daemon
 	server        *httptest.Server
 	horizonClient *horizonclient.Client
 
@@ -90,39 +90,57 @@ func NewTest(t *testing.T) *Test {
 	i.horizonClient = &horizonclient.Client{HorizonURL: "http://localhost:8000"}
 	i.waitForCore()
 	i.waitForHorizon()
-	i.configureJSONRPCServer()
+	i.launchDaemon()
 
 	return i
 }
 
-func (i *Test) configureJSONRPCServer() {
-	logger := log.New()
-
-	const transactionProxyWorkers = 10
-	const transactionQueueSize = 10
-
-	proxy := methods.NewTransactionProxy(
-		i.horizonClient,
-		transactionProxyWorkers,
-		transactionQueueSize,
-		StandaloneNetworkPassphrase,
-		2*time.Minute,
-	)
-
-	var err error
-	i.handler, err = internal.NewJSONRPCHandler(internal.HandlerParams{
-		AccountStore: methods.AccountStore{
-			Client: i.horizonClient,
-		},
-		TransactionProxy: proxy,
-		CoreClient:       i.coreClient,
-		Logger:           logger,
-	})
-	if err != nil {
-		i.t.Fatalf("cannot create handler: %v", err)
+func (i *Test) launchDaemon() {
+	config := config.LocalConfig{
+		HorizonURL:                "http://localhost:8000",
+		StellarCoreURL:            "http://localhost:" + strconv.Itoa(stellarCorePort),
+		StellarCoreBinaryPath:     os.Getenv("SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN"),
+		CaptiveCoreConfigPath:     path.Join(i.composePath, "captive-core-integration-tests.cfg"),
+		CaptiveCoreHTTPPort:       0,
+		CaptiveCoreStoragePath:    i.t.TempDir(),
+		NetworkPassphrase:         StandaloneNetworkPassphrase,
+		HistoryArchiveURLs:        []string{"http://localhost:1570"},
+		LogLevel:                  logrus.DebugLevel,
+		TxConcurrency:             10,
+		TxQueueSize:               10,
+		SQLiteDBPath:              path.Join(i.t.TempDir(), "soroban_rpc.sqlite"),
+		LedgerEntryStorageTimeout: 10 * time.Minute,
+		// Needed when Core is run with ARTIFICIALLY_ACCELERATE_TIME_FOR_TESTING=true
+		CheckpointFrequency: 8,
 	}
-	i.handler.Start()
-	i.server = httptest.NewServer(i.handler)
+	i.daemon = daemon.MustNew(config)
+	i.server = httptest.NewServer(i.daemon)
+
+	// wait for the storage to catch up for 1 minute
+	info, err := i.coreClient.Info(context.Background())
+	if err != nil {
+		i.t.Fatalf("cannot obtain latest ledger from core: %v", err)
+	}
+	targetLedgerSequence := uint32(info.Info.Ledger.Num)
+
+	success := false
+	for t := 30; t >= 0; t -= 1 {
+		sequence, err := i.daemon.GetLedgerStorage().GetLatestLedgerSequence()
+		if err != nil {
+			if err != ledgerentry_storage.ErrEmptyDB {
+				i.t.Fatalf("cannot access ledger entry storage: %v", err)
+			}
+		} else {
+			if sequence >= targetLedgerSequence {
+				success = true
+				break
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	if !success {
+		i.t.Fatalf("LedgerEntryStorage failed to sync in 1 minute")
+	}
 }
 
 // Runs a docker-compose command applied to the above configs
@@ -147,11 +165,11 @@ func (i *Test) runComposeCommand(args ...string) {
 func (i *Test) prepareShutdownHandlers() {
 	i.shutdownCalls = append(i.shutdownCalls,
 		func() {
-			if i.handler.Handler != nil {
-				i.handler.Close()
-			}
 			if i.server != nil {
 				i.server.Close()
+			}
+			if i.daemon != nil {
+				i.daemon.Close()
 			}
 			i.runComposeCommand("down", "-v")
 		},

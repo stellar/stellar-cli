@@ -2,13 +2,14 @@ package methods
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
-	"github.com/stellar/go/clients/stellarcore"
-	proto "github.com/stellar/go/protocols/stellarcore"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
+
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 )
@@ -24,7 +25,7 @@ type GetLedgerEntryResponse struct {
 }
 
 // NewGetLedgerEntryHandler returns a json rpc handler to retrieve the specified ledger entry from stellar core
-func NewGetLedgerEntryHandler(logger *log.Entry, coreClient *stellarcore.Client) jrpc2.Handler {
+func NewGetLedgerEntryHandler(logger *log.Entry, storage ledgerentry_storage.LedgerEntryStorage) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetLedgerEntryRequest) (GetLedgerEntryResponse, error) {
 		var key xdr.LedgerKey
 		if err := xdr.SafeUnmarshalBase64(request.Key, &key); err != nil {
@@ -36,41 +37,29 @@ func NewGetLedgerEntryHandler(logger *log.Entry, coreClient *stellarcore.Client)
 			}
 		}
 
-		coreResponse, err := coreClient.GetLedgerEntry(ctx, key)
+		ledgerEntry, present, latestLedger, err := storage.GetLedgerEntry(key)
 		if err != nil {
 			logger.WithError(err).WithField("request", request).
-				Info("could not submit getLedgerEntry request to core")
+				Info("could not obtain ledger entry from storage")
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
 				Code:    code.InternalError,
-				Message: "could not submit request to core",
+				Message: "could not obtain ledger entry from storage",
 			}
 		}
 
-		if coreResponse.State == proto.DeadState {
+		if !present {
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
 				Code:    code.InvalidRequest,
-				Message: "not found",
-			}
-		}
-
-		var ledgerEntry xdr.LedgerEntry
-		if err = xdr.SafeUnmarshalBase64(coreResponse.Entry, &ledgerEntry); err != nil {
-			logger.WithError(err).WithField("request", request).
-				WithField("response", coreResponse).
-				Info("could not parse ledger entry")
-			return GetLedgerEntryResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
-				Message: "could not parse core response",
+				Message: fmt.Sprintf("not found (at ledger %d)", latestLedger),
 			}
 		}
 
 		response := GetLedgerEntryResponse{
 			LastModifiedLedger: int64(ledgerEntry.LastModifiedLedgerSeq),
-			LatestLedger:       coreResponse.Ledger,
+			LatestLedger:       int64(latestLedger),
 		}
 		if response.XDR, err = xdr.MarshalBase64(ledgerEntry.Data); err != nil {
 			logger.WithError(err).WithField("request", request).
-				WithField("response", coreResponse).
 				Info("could not serialize ledger entry data")
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
 				Code:    code.InternalError,
