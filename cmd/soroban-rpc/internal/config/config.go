@@ -7,11 +7,11 @@ import (
 )
 
 type LocalConfig struct {
-	EndPoint                  string
 	HorizonURL                string
 	StellarCoreURL            string
 	StellarCoreBinaryPath     string
 	CaptiveCoreConfigPath     string
+	CaptiveCoreStoragePath    string
 	CaptiveCoreHTTPPort       uint16
 	NetworkPassphrase         string
 	HistoryArchiveURLs        []string
@@ -20,4 +20,5 @@ type LocalConfig struct {
 	TxQueueSize               int
 	SQLiteDBPath              string
 	LedgerEntryStorageTimeout time.Duration
+	CheckpointFrequency       uint32
 }

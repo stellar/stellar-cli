@@ -20,8 +20,9 @@ import (
 )
 
 func main() {
-	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, networkPassphrase, dbPath string
+	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, networkPassphrase, dbPath, captivecoreStoragePath string
 	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
+	var checkpointFrequency uint32
 	var historyArchiveURLs []string
 	var txConcurrency, txQueueSize int
 	var logLevel logrus.Level
@@ -43,7 +44,7 @@ func main() {
 			FlagDefault: "",
 			Usage:       "URL used to query Horizon",
 		},
-		&config.ConfigOption{
+		{
 			Name:        "stellar-core-url",
 			ConfigKey:   &stellarCoreURL,
 			OptType:     types.String,
@@ -51,7 +52,7 @@ func main() {
 			FlagDefault: "http://localhost:11626",
 			Usage:       "URL used to query Stellar Core (local captive core by default)",
 		},
-		&config.ConfigOption{
+		{
 			Name:        "stellar-captive-core-http-port",
 			ConfigKey:   &captiveCoreHTTPPort,
 			OptType:     types.Uint,
@@ -59,7 +60,7 @@ func main() {
 			FlagDefault: uint(11626),
 			Usage:       "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
 		},
-		&config.ConfigOption{
+		{
 			Name:        "log-level",
 			ConfigKey:   &logLevel,
 			OptType:     types.String,
@@ -74,7 +75,7 @@ func main() {
 			},
 			Usage: "minimum log severity (debug, info, warn, error) to log",
 		},
-		&config.ConfigOption{
+		{
 			Name:        "stellar-core-binary-path",
 			OptType:     types.String,
 			FlagDefault: "",
@@ -82,7 +83,7 @@ func main() {
 			Usage:       "path to stellar core binary",
 			ConfigKey:   &binaryPath,
 		},
-		&config.ConfigOption{
+		{
 			Name:        "captive-core-config-path",
 			OptType:     types.String,
 			FlagDefault: "",
@@ -90,7 +91,26 @@ func main() {
 			Usage:       "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
 			ConfigKey:   &configPath,
 		},
-		&config.ConfigOption{
+		{
+			Name:    "captive-core-storage-path",
+			OptType: types.String,
+			CustomSetValue: func(opt *config.ConfigOption) error {
+				existingValue := viper.GetString(opt.Name)
+				if existingValue == "" || existingValue == "." {
+					cwd, err := os.Getwd()
+					if err != nil {
+						return fmt.Errorf("Unable to determine the current directory: %s", err)
+					}
+					existingValue = cwd
+				}
+				*opt.ConfigKey.(*string) = existingValue
+				return nil
+			},
+			Required:  false,
+			Usage:     "Storage location for Captive Core bucket data",
+			ConfigKey: &captivecoreStoragePath,
+		},
+		{
 			Name:        "history-archive-urls",
 			ConfigKey:   &historyArchiveURLs,
 			OptType:     types.String,
@@ -145,10 +165,18 @@ func main() {
 			FlagDefault: uint(30),
 			Required:    false,
 		},
+		{
+			Name:        "checkpoint-frequency",
+			Usage:       "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
+			OptType:     types.Uint32,
+			ConfigKey:   &checkpointFrequency,
+			FlagDefault: uint32(64),
+			Required:    false,
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
-		Short: "Run the remote soroban-rpc server",
+		Short: "Start the remote soroban-rpc server",
 		Run: func(_ *cobra.Command, _ []string) {
 			configOpts.Require()
 			err := configOpts.SetValues()
@@ -157,12 +185,12 @@ func main() {
 				os.Exit(-1)
 			}
 			config := localConfig.LocalConfig{
-				EndPoint:                  endpoint,
 				HorizonURL:                horizonURL,
 				StellarCoreURL:            stellarCoreURL,
 				StellarCoreBinaryPath:     binaryPath,
 				CaptiveCoreConfigPath:     configPath,
 				CaptiveCoreHTTPPort:       uint16(captiveCoreHTTPPort),
+				CaptiveCoreStoragePath:    captivecoreStoragePath,
 				NetworkPassphrase:         networkPassphrase,
 				HistoryArchiveURLs:        historyArchiveURLs,
 				LogLevel:                  logLevel,
@@ -170,8 +198,9 @@ func main() {
 				TxQueueSize:               txQueueSize,
 				LedgerEntryStorageTimeout: time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute,
 				SQLiteDBPath:              dbPath,
+				CheckpointFrequency:       checkpointFrequency,
 			}
-			exitCode := daemon.Start(config)
+			exitCode := daemon.Run(config, endpoint)
 			os.Exit(exitCode)
 		},
 	}

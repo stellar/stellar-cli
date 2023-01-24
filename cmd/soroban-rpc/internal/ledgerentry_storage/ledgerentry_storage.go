@@ -2,6 +2,7 @@ package ledgerentry_storage
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ const (
 )
 
 type LedgerEntryStorage interface {
+	GetLatestLedgerSequence() (uint32, error)
 	GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error)
 	io.Closer
 }
@@ -53,6 +55,10 @@ type ledgerEntryStorage struct {
 	networkPassPhrase string
 	done              context.CancelFunc
 	wg                sync.WaitGroup
+}
+
+func (ls *ledgerEntryStorage) GetLatestLedgerSequence() (uint32, error) {
+	return ls.db.GetLatestLedgerSequence()
 }
 
 func (ls *ledgerEntryStorage) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error) {
@@ -137,6 +143,10 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 		go func() {
 			defer checkPointPrefillWg.Done()
 			if err = ls.fillEntriesFromCheckpoint(ctx, archive, startLedger); err != nil {
+				if errors.Is(err, context.Canceled) {
+					// we were told to stop
+					return
+				}
 				panic(err)
 			}
 		}()
@@ -147,6 +157,10 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 	// Secondly, continuously process txmeta deltas
 	prepareRangeCtx, cancelPrepareRange := context.WithTimeout(ctx, ls.timeout)
 	if err := ledgerBackend.PrepareRange(prepareRangeCtx, backends.UnboundedRange(startLedger)); err != nil {
+		if errors.Is(err, context.Canceled) {
+			// we were told to stop
+			return
+		}
 		panic(err)
 	}
 	cancelPrepareRange()
@@ -159,6 +173,10 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 		ls.logger.Infof("Applying txmeta ledger entries changes for ledger %d", nextLedger)
 		reader, err := ingest.NewLedgerChangeReader(ctx, ledgerBackend, ls.networkPassPhrase, nextLedger)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				// we were told to stop
+				return
+			}
 			panic(err)
 		}
 		tx, err := ls.db.NewLedgerEntryUpdaterTx(nextLedger, maxBatchSize)

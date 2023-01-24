@@ -73,13 +73,6 @@ pub struct GetTransactionStatusResponse {
 
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetContractDataResponse {
-    pub xdr: String,
-    // TODO: add lastModifiedLedgerSeq and latestLedger
-}
-
-// TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLedgerEntryResponse {
     pub xdr: String,
     // TODO: add lastModifiedLedgerSeq and latestLedger
