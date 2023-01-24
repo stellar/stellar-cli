@@ -29,14 +29,16 @@ jobs:
       - uses: ./.github/actions/setup-go
         with:
           go-version: ${{ matrix.go }}
-      - run: go test -race -cover -timeout 25m -v ./cmd/soroban-rpc/...
+      - run: |
+          go generate ./cmd/soroban-rpc/...
+          go test -race -cover -timeout 25m -v ./cmd/soroban-rpc/...
 
-  integration:
-    name: Integration tests
+  build:
+    name: Build
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             rust_target: x86_64-unknown-linux-gnu
             go_arch: amd64
           - os: ubuntu-latest
@@ -52,19 +54,10 @@ jobs:
             rust_target: x86_64-pc-windows-gnu
             go_arch: amd64
     runs-on: ${{ matrix.os }}
-    env:
-      SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
-      SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.6.1-1158.c0ad35aa1.focal~soroban
     steps:
       - uses: actions/checkout@v3
-        with:
-          # For pull requests, build and test the PR head not a merge of the PR with the destination.
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
-          # We need to full history for git-restore-mtime to know what modification dates to use.
-          # Otherwise, the Go test cache will fail (due to the modification time of fixtures changing).
-          fetch-depth: '0'
-
+      # we cannot use our own ./.github/actions/setup-go action
+      # because it uses apt-get and some OSs (e.g. windows) don't have it
       - uses: actions/setup-go@v3
         with:
           go-version: 1.19.1
@@ -88,9 +81,37 @@ jobs:
           ls -lh soroban-rpc
           file soroban-rpc
 
-      # Since we need to install Captive Core, only run tests on x86_64 linux
-      - if: matrix.rust_target == 'x86_64-unknown-linux-gnu'
-        name: Install Captive Core
+  integration:
+    name: Integration tests
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+        go: [1.19.1]
+    env:
+      SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
+      SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.6.1-1158.c0ad35aa1.focal~soroban
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # For pull requests, build and test the PR head not a merge of the PR with the destination.
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          # We need to full history for git-restore-mtime to know what modification dates to use.
+          # Otherwise, the Go test cache will fail (due to the modification time of fixtures changing).
+          fetch-depth: '0'
+
+      - uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Build soroban contract fixtures
+        run: |
+         rustup update
+         rustup target add wasm32-unknown-unknown
+         make build-test-wasms
+
+      - name: Install Captive Core
         run: |
           # Workaround for https://github.com/actions/virtual-environments/issues/5245,
           # libc++1-8 won't be installed if another version is installed (but apt won't give you a helpful
@@ -104,13 +125,11 @@ jobs:
 
       # Docker-compose's remote contexts on Ubuntu 20 started failing with an OpenSSL versioning error.
       # See https://stackoverflow.com/questions/66579446/error-executing-docker-compose-building-webserver-unable-to-prepare-context-un
-      - if: matrix.rust_target == 'x86_64-unknown-linux-gnu'
-        name: Work around Docker Compose problem
+      - name: Work around Docker Compose problem
         run: |
           sudo pip3 install pip --upgrade
           sudo pip3 install pyopenssl --upgrade
           sudo pip3 install docker-compose
 
-      - if: matrix.rust_target == 'x86_64-unknown-linux-gnu'
-        name: Run Soroban RPC Tests
+      - name: Run Soroban RPC Integration Tests
         run: go test -race -timeout 25m -v ./cmd/soroban-rpc/internal/test/...

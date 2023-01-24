@@ -3,6 +3,9 @@ package test
 import (
 	"context"
 	"crypto/sha256"
+	"os"
+	"path"
+	"runtime"
 	"testing"
 
 	"github.com/creachadair/jrpc2"
@@ -22,7 +25,17 @@ var (
 	testSalt     = sha256.Sum256([]byte("a1"))
 )
 
-// createInvokeHostOperation creates a dummy InvokeHostFunctionOp. In this case by installing a contract code.
+func getHelloWorldContract(t *testing.T) []byte {
+	_, filename, _, _ := runtime.Caller(0)
+	testDirName := path.Dir(filename)
+	contractFile := path.Join(testDirName, "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm")
+	ret, err := os.ReadFile(contractFile)
+	if err != nil {
+		t.Fatalf("test_hello_world.wasm can't be found (%v) please run `make build-test-wasms` at the top of the project", err)
+	}
+	return ret
+}
+
 func createInvokeHostOperation(sourceAccount string, footprint xdr.LedgerFootprint, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
 	var contractIDBytes []byte = contractID[:]
 	contractIDObj := &xdr.ScObject{
@@ -263,6 +276,69 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	// apart from latest ledger the response should be the same
 	resultForRequestWithDifferentTxSource.LatestLedger = result.LatestLedger
 	assert.Equal(t, result, resultForRequestWithDifferentTxSource)
+}
+
+func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
+	test := NewTest(t)
+
+	ch := jhttp.NewChannel(test.server.URL, nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
+	address := sourceAccount.Address()
+	account := txnbuild.NewSimpleAccount(address, 0)
+
+	helloWorldContract := getHelloWorldContract(t)
+
+	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(t, account.AccountID, helloWorldContract, true),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase, true),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
+	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createInvokeHostOperation(address, xdr.LedgerFootprint{}, contractID, "hello"),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+
+	assert.NoError(t, err)
+	txB64, err := tx.Base64()
+	require.NoError(t, err)
+	request := methods.SimulateTransactionRequest{Transaction: txB64}
+	var response methods.SimulateTransactionResponse
+	err = client.CallResult(context.Background(), "simulateTransaction", request, &response)
+	assert.NoError(t, err)
+	assert.Empty(t, response.Error)
 }
 
 func TestSimulateTransactionError(t *testing.T) {

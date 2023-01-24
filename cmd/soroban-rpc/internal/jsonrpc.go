@@ -56,7 +56,7 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryStorage),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
-		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase),
+		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.LedgerEntryStorage),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},

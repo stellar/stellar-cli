@@ -2,14 +2,15 @@ package methods
 
 import (
 	"context"
-	"fmt"
 	"unsafe"
+
+	"github.com/creachadair/jrpc2"
+	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
-	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/handler"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
 )
 
 //go:generate make -C ../../lib
@@ -30,14 +31,37 @@ import (
 */
 import "C"
 
+// TODO: Really ugly hack to get going, we are going to need callbacks
+var le ledgerentry_storage.LedgerEntryStorage
+
 // SnapshotSourceGet takes a LedgerKey XDR in base64 string and returns its matching LedgerEntry XDR in base64 string
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceGet
 func SnapshotSourceGet(ledger_key *C.char) *C.char {
-	// TODO: we need a way to obtain raw ledger entries
-	fmt.Println("gets to SnapshotSourceGet()")
-	return nil
+	ledgerKeyB64 := C.GoString(ledger_key)
+	var ledgerKey xdr.LedgerKey
+	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
+		// TODO: log error properly
+		log.Error(err)
+		return nil
+	}
+	entry, present, _, err := le.GetLedgerEntry(ledgerKey)
+	if err != nil {
+		// TODO: log error properly
+		log.Error(err)
+		return nil
+	}
+	if !present {
+		return nil
+	}
+	out, err := xdr.MarshalBase64(entry)
+	if err != nil {
+		// TODO: log error properly
+		log.Error(err)
+		return nil
+	}
+	return C.CString(out)
 }
 
 // SnapshotSourceHas takes LedgerKey XDR in base64 and returns whether it exists
@@ -45,7 +69,22 @@ func SnapshotSourceGet(ledger_key *C.char) *C.char {
 //
 //export SnapshotSourceHas
 func SnapshotSourceHas(ledger_key *C.char) C.int {
-	// TODO: we need a way to obtain raw ledger entries
+	ledgerKeyB64 := C.GoString(ledger_key)
+	var ledgerKey xdr.LedgerKey
+	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
+		// TODO: log error properly
+		log.Error(err)
+		return 0
+	}
+	_, present, _, err := le.GetLedgerEntry(ledgerKey)
+	if err != nil {
+		// TODO: log error properly
+		log.Error(err)
+		return 0
+	}
+	if present {
+		return 1
+	}
 	return 0
 }
 
@@ -76,8 +115,16 @@ type SimulateTransactionResponse struct {
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
-func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string) jrpc2.Handler {
+func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, storage ledgerentry_storage.LedgerEntryStorage) jrpc2.Handler {
+	// TODO: Really ugly hack to get going, we are going to need callbacks
+	le = storage
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
+		// TODO: this is race, we need a read transaction for the whole request
+		//       (otherwise we may end up supplying entries from different ledgers)
+		latestLedger, err := le.GetLatestLedgerSequence()
+		if err != nil {
+			panic(err)
+		}
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
 			logger.WithError(err).WithField("request", request).
@@ -110,9 +157,9 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string) 
 
 		li := C.CLedgerInfo{
 			network_passphrase: C.CString(networkPassphrase),
+			sequence_number:    C.uint(latestLedger),
 			// TODO: find a way to fill these parameters appropriately
 			protocol_version: 20,
-			sequence_number:  4000,
 			timestamp:        1,
 			base_reserve:     1,
 		}
@@ -141,9 +188,8 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string) 
 
 		if res.error != nil {
 			return SimulateTransactionResponse{
-				Error: C.GoString(res.error),
-				// TODO: how to fill the latest ledger?
-				LatestLedger: 4000,
+				Error:        C.GoString(res.error),
+				LatestLedger: int64(latestLedger),
 			}
 		}
 
@@ -154,8 +200,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string) 
 				CPUInstructions: uint64(res.cpu_instructions),
 				MemoryBytes:     uint64(res.memory_bytes),
 			},
-			// TODO: how to fill the latest ledger?
-			LatestLedger: 4000,
+			LatestLedger: int64(latestLedger),
 		}
 	})
 }
