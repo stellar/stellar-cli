@@ -66,6 +66,7 @@ func OpenSQLiteDB(dbFilePath string) (DB, error) {
 
 	if err = runMigrations(ret.db.DB, "sqlite3"); err != nil {
 		_ = db.Close()
+		return nil, errors.Wrap(err, "could not run migrations")
 	}
 
 	return ret, nil
