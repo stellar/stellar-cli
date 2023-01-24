@@ -10,15 +10,17 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-// Cursor represents a specific time when an event was emitted.
+// Cursor represents the position of an event within the sequence of all
+// Soroban events. Soroban events are sorted by ledger sequence, transaction
+// index, operation index, and event index.
 type Cursor struct {
 	// Ledger is the sequence of the ledger which emitted the event.
 	Ledger uint32
-	// Tx is the transaction index within the ledger which emitted the event.
+	// Tx is the index of the transaction within the ledger which emitted the event.
 	Tx uint32
-	// Op is the operation index within the transaction which emitted the event.
+	// Op is the index of the operation within the transaction which emitted the event.
 	Op uint32
-	// Event is the index within all events occurring in the operation which emitted the event.
+	// Event is the index of the event within in the operation which emitted the event.
 	Event uint32
 }
 
@@ -94,8 +96,10 @@ func NewMemoryStore(passPhrase string, ledgers []xdr.LedgerCloseMeta, retentionW
 	}, nil
 }
 
-// Scan calls f on all the events in the interval of [start, end).
-// If f returns false, the scan terminates early and no more events are applied on f.
+// Scan applies f on all the events occurring in the range of [start, end).
+// The events are processed in sorted ascending Cursor order.
+// If f returns false, the scan terminates early (f will not be applied on
+// remaining events in the range).
 func (m *MemoryStore) Scan(start, end Cursor, f func(Cursor, xdr.ContractEvent) bool) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
@@ -119,6 +123,8 @@ func (m *MemoryStore) Scan(start, end Cursor, f func(Cursor, xdr.ContractEvent) 
 }
 
 // IngestEvents adds new events from the given ledger into the store.
+// As a side effect, events which fall outside the retention window are
+// removed from the store.
 func (m *MemoryStore) IngestEvents(txReader *ingest.LedgerTransactionReader) error {
 	events, err := readEvents(txReader)
 	if err != nil {

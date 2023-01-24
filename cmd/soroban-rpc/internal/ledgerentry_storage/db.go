@@ -231,7 +231,7 @@ func (s *sqlDB) GetAllLedgers() ([]xdr.LedgerCloseMeta, error) {
 	return ledgers, err
 }
 
-// GetLedger fetches a ledger from the db.
+// GetLedger fetches a single ledger from the db.
 func (s *sqlDB) GetLedger(sequence uint32) (xdr.LedgerCloseMeta, bool, error) {
 	sqlStr, args, err := sq.Select("meta").From(ledgerCloseMetaTableName).Where(sq.Eq{"sequence": sequence}).ToSql()
 	if err != nil {
@@ -313,7 +313,7 @@ func (l *ledgerUpdaterTx) flushLedgerEntryBatch() error {
 	return nil
 }
 
-// TrimLedgers removes all ledgers which are outside the retention window.
+// TrimLedgers removes all ledgers which fall outside the retention window.
 func (l *ledgerUpdaterTx) TrimLedgers(retentionWindow uint32) error {
 	if l.forLedgerSequence+1 <= retentionWindow {
 		return nil
