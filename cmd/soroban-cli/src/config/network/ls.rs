@@ -6,7 +6,7 @@ pub enum Error {
     Config(#[from] locator::Error),
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Clone)]
 pub struct Cmd {
     #[clap(flatten)]
     pub config_locator: locator::Args,

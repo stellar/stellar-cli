@@ -92,3 +92,8 @@ pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
 pub const HELLO_WORLD: &Wasm = &Wasm("test_hello_world");
 pub const INVOKER_ACCOUNT_EXISTS: &Wasm = &Wasm("test_invoker_account_exists");
 pub const CUSTOM_TYPES: &Wasm = &Wasm("test_custom_types");
+
+#[allow(unused)]
+pub fn temp_dir() -> TempDir {
+    TempDir::new().unwrap()
+}

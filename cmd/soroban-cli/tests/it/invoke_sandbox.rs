@@ -72,6 +72,8 @@ fn invoke_hello_world_with_deploy_first() {
 
     Sandbox::new_cmd("contract")
         .arg("invoke")
+        .arg("--identity")
+        .arg("test_id")
         .arg("--ledger-file")
         .arg(&ledger)
         .arg("--id")

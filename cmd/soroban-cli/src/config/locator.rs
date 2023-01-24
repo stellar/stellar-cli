@@ -41,7 +41,7 @@ pub enum Error {
     CannotWriteConfigFile,
 }
 
-#[derive(Debug, clap::Args, Default)]
+#[derive(Debug, clap::Args, Default, Clone)]
 pub struct Args {
     /// Use global config
     #[clap(long)]

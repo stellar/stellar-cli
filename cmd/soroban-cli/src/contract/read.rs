@@ -13,7 +13,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{config::ledger, strval, utils};
+use crate::{config::ledger_file, strval, utils};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -31,7 +31,7 @@ pub struct Cmd {
     output: Output,
 
     #[clap(flatten)]
-    ledger: ledger::Args,
+    ledger: ledger_file::Args,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
@@ -47,7 +47,7 @@ pub enum Output {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Ledger(#[from] ledger::Error),
+    Ledger(#[from] ledger_file::Error),
     #[error("parsing key {key}: {error}")]
     CannotParseKey { key: String, error: strval::Error },
     #[error("parsing XDR key {key}: {error}")]

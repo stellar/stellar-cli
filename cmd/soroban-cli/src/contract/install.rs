@@ -1,6 +1,6 @@
 use std::array::TryFromSliceError;
+use std::fmt::Debug;
 use std::num::ParseIntError;
-use std::{fmt::Debug, fs, io};
 
 use clap::Parser;
 use soroban_env_host::xdr::{
@@ -12,47 +12,15 @@ use soroban_env_host::xdr::{
 use soroban_env_host::HostError;
 
 use crate::rpc::{self, Client};
-use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
+use crate::{config, utils};
+use soroban_cli::wasm;
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// WASM file to install
-    #[clap(long, parse(from_os_str))]
-    pub wasm: std::path::PathBuf,
-    /// File to persist ledger state
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value = ".soroban/ledger.json",
-        conflicts_with = "rpc-url",
-        env = "SOROBAN_LEDGER_FILE",
-        help_heading = HEADING_SANDBOX,
-    )]
-    pub ledger_file: std::path::PathBuf,
-
-    /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(
-        long = "secret-key",
-        env = "SOROBAN_SECRET_KEY",
-        help_heading = HEADING_RPC,
-    )]
-    pub secret_key: Option<String>,
-    /// RPC server endpoint
-    #[clap(
-        long,
-        requires = "secret-key",
-        requires = "network-passphrase",
-        env = "SOROBAN_RPC_URL",
-        help_heading = HEADING_RPC,
-    )]
-    pub rpc_url: Option<String>,
-    /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(
-        long = "network-passphrase",
-        env = "SOROBAN_NETWORK_PASSPHRASE",
-        help_heading = HEADING_RPC,
-    )]
-    pub network_passphrase: Option<String>,
+    #[clap(flatten)]
+    pub wasm: wasm::Args,
+    #[clap(flatten)]
+    pub config: config::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -67,25 +35,12 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
-    #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
-    #[error("reading file {filepath}: {error}")]
-    CannotReadContractFile {
-        filepath: std::path::PathBuf,
-        error: io::Error,
-    },
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
-    #[error("cannot parse secret key")]
-    CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
@@ -96,42 +51,28 @@ impl Cmd {
     }
 
     pub async fn run_and_get_hash(&self) -> Result<String, Error> {
-        let contract = fs::read(&self.wasm).map_err(|e| Error::CannotReadContractFile {
-            filepath: self.wasm.clone(),
-            error: e,
-        })?;
-
-        if self.rpc_url.is_some() {
-            self.run_against_rpc_server(contract).await
-        } else {
+        let contract = self.wasm.read()?;
+        if self.config.no_network() {
             self.run_in_sandbox(contract)
+        } else {
+            self.run_against_rpc_server(contract).await
         }
     }
 
     fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {
-        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
-            Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            }
-        })?;
+        let mut state = self.config.get_state()?;
         let wasm_hash =
             utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)?;
 
-        state
-            .write_file(&self.ledger_file)
-            .map_err(|e| Error::CannotCommitLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
+        self.config.set_state(&mut state)?;
 
         Ok(hex::encode(wasm_hash))
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<String, Error> {
-        let client = Client::new(self.rpc_url.as_ref().unwrap());
-        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
-            .map_err(|_| Error::CannotParseSecretKey)?;
+        let network = self.config.get_network()?;
+        let client = Client::new(&network.rpc_url);
+        let key = self.config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
@@ -144,7 +85,7 @@ impl Cmd {
             contract,
             sequence + 1,
             fee,
-            self.network_passphrase.as_ref().unwrap(),
+            &network.network_passphrase,
             &key,
         )?;
         client.send_transaction(&tx).await?;

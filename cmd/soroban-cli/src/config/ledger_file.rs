@@ -2,7 +2,7 @@ use soroban_ledger_snapshot::LedgerSnapshot;
 
 use crate::{utils, HEADING_SANDBOX};
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Clone)]
 pub struct Args {
     /// File to persist ledger state
     #[clap(
@@ -13,7 +13,7 @@ pub struct Args {
         env = "SOROBAN_LEDGER_FILE",
         help_heading = HEADING_SANDBOX,
     )]
-    ledger_file: std::path::PathBuf,
+    pub ledger_file: std::path::PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]

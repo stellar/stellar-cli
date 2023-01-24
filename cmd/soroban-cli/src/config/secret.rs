@@ -14,7 +14,7 @@ pub enum Error {
     Secret(#[from] stellar_strkey::DecodeError),
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Clone)]
 pub struct Args {
     /// Add using secret_key
     #[clap(long, conflicts_with = "seed-phrase")]

@@ -25,11 +25,12 @@ use soroban_env_host::{
 };
 use soroban_spec::read::FromWasmError;
 
+use crate::config;
 use crate::rpc::Client;
 use crate::strval::Spec;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
+use crate::HEADING_SANDBOX;
 use crate::{events, rpc, strval, utils};
-use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -57,16 +58,6 @@ pub struct Cmd {
         help_heading = HEADING_SANDBOX,
     )]
     account_id: stellar_strkey::ed25519::PublicKey,
-    /// File to persist ledger state
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value(".soroban/ledger.json"),
-        conflicts_with = "rpc-url",
-        env = "SOROBAN_LEDGER_FILE",
-        help_heading = HEADING_SANDBOX,
-    )]
-    ledger_file: std::path::PathBuf,
     /// File to persist event output
     #[clap(
         long,
@@ -78,36 +69,12 @@ pub struct Cmd {
     )]
     events_file: std::path::PathBuf,
 
-    /// Secret 'S' key used to sign the transaction sent to the rpc server
-    #[clap(
-        long = "secret-key",
-        requires = "rpc-url",
-        env = "SOROBAN_SECRET_KEY",
-        help_heading = HEADING_RPC,
-    )]
-    secret_key: Option<String>,
-    /// RPC server endpoint
-    #[clap(
-        long,
-        conflicts_with = "account-id",
-        requires = "secret-key",
-        requires = "network-passphrase",
-        env = "SOROBAN_RPC_URL",
-        help_heading = HEADING_RPC,
-    )]
-    rpc_url: Option<String>,
-    /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(
-        long = "network-passphrase",
-        requires = "rpc-url",
-        env = "SOROBAN_NETWORK_PASSPHRASE",
-        help_heading = HEADING_RPC,
-    )]
-    network_passphrase: Option<String>,
-
     // Arguments for contract as `--arg-name value`, `--arg-xdr-name base64-encoded-xdr`
-    #[clap(last = true, name = "ARGS")]
+    #[clap(last = true, name = "CONTRACT_FN_ARGS")]
     pub slop: Vec<OsString>,
+
+    #[clap(flatten)]
+    pub config: config::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -121,19 +88,9 @@ pub enum Error {
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
     #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
-    #[error("reading file {filepath}: {error}")]
     CannotReadContractFile {
         filepath: std::path::PathBuf,
         error: io::Error,
-    },
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitLedgerFile {
-        filepath: std::path::PathBuf,
-        error: soroban_ledger_snapshot::Error,
     },
     #[error("committing file {filepath}: {error}")]
     CannotCommitEventsFile {
@@ -165,8 +122,6 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
-    #[error("cannot parse secret key")]
-    CannotParseSecretKey,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
@@ -177,6 +132,9 @@ pub enum Error {
     // ArgsFile(std::path::PathBuf),
     #[error(transparent)]
     StrVal(#[from] strval::Error),
+
+    #[error(transparent)]
+    Config(#[from] config::Error),
 }
 
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
@@ -248,18 +206,18 @@ impl Cmd {
     }
 
     pub async fn run(&self) -> Result<(), Error> {
-        if self.rpc_url.is_some() {
-            self.run_against_rpc_server().await
-        } else {
+        if self.config.no_network() {
             self.run_in_sandbox()
+        } else {
+            self.run_against_rpc_server().await
         }
     }
 
     async fn run_against_rpc_server(&self) -> Result<(), Error> {
         let contract_id = self.contract_id()?;
-        let client = Client::new(self.rpc_url.as_ref().unwrap());
-        let key = utils::parse_secret_key(self.secret_key.as_ref().unwrap())
-            .map_err(|_| Error::CannotParseSecretKey)?;
+        let network = &self.config.get_network()?;
+        let client = Client::new(&network.rpc_url);
+        let key = self.config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
@@ -284,7 +242,7 @@ impl Cmd {
             None,
             sequence + 1,
             fee,
-            self.network_passphrase.as_ref().unwrap(),
+            &network.network_passphrase,
             &key,
         )?;
         let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
@@ -300,7 +258,7 @@ impl Cmd {
             Some(footprint),
             sequence + 1,
             fee,
-            self.network_passphrase.as_ref().unwrap(),
+            &network.network_passphrase,
             &key,
         )?;
 
@@ -320,12 +278,7 @@ impl Cmd {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
-        let mut state = utils::ledger_snapshot_read_or_default(&self.ledger_file).map_err(|e| {
-            Error::CannotReadLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            }
-        })?;
+        let mut state = self.config.get_state()?;
 
         // If a file is specified, deploy the contract to storage
         if let Some(contract) = self.read_wasm()? {
@@ -410,12 +363,7 @@ impl Cmd {
             }
         }
 
-        state
-            .write_file(&self.ledger_file)
-            .map_err(|e| Error::CannotCommitLedgerFile {
-                filepath: self.ledger_file.clone(),
-                error: e,
-            })?;
+        self.config.set_state(&mut state)?;
 
         events::commit(&events.0, &state, &self.events_file).map_err(|e| {
             Error::CannotCommitEventsFile {

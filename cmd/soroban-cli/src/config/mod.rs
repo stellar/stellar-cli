@@ -7,7 +7,7 @@ use crate::utils;
 use self::network::Network;
 
 pub mod identity;
-pub mod ledger;
+pub mod ledger_file;
 pub mod locator;
 pub mod network;
 pub mod secret;
@@ -32,7 +32,7 @@ pub enum Error {
     Network(#[from] network::Error),
 
     #[error(transparent)]
-    Ledger(#[from] ledger::Error),
+    Ledger(#[from] ledger_file::Error),
 
     #[error(transparent)]
     Secret(#[from] secret::Error),
@@ -54,7 +54,7 @@ impl Cmd {
     }
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Clone)]
 pub struct Args {
     #[clap(flatten)]
     pub secrets: secret::Args,
@@ -63,9 +63,9 @@ pub struct Args {
     pub network: network::Args,
 
     #[clap(flatten)]
-    pub ledger: ledger::Args,
+    pub ledger: ledger_file::Args,
 
-    #[clap(long)]
+    #[clap(long, alias = "as")]
     /// Use specified identity to sign transaction
     pub identity: Option<String>,
 }
