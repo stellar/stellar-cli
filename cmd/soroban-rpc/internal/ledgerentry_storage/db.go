@@ -3,6 +3,7 @@ package ledgerentry_storage
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"embed"
 	"encoding/hex"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	migrate "github.com/rubenv/sql-migrate"
+
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 )
@@ -25,15 +27,20 @@ const (
 	ledgerEntriesTableName      = "ledger_entries"
 	metaTableName               = "metadata"
 	latestLedgerSequenceMetaKey = "LatestLedgerSequence"
+	ledgerCloseMetaTableName    = "ledger_close_meta"
 )
 
 type DB interface {
 	LedgerEntryStorage
 	GetLatestLedgerSequence() (uint32, error)
+	GetLedger(sequence uint32) (xdr.LedgerCloseMeta, bool, error)
+	GetAllLedgers() ([]xdr.LedgerCloseMeta, error)
 	NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize int) (LedgerEntryUpdaterTx, error)
 }
 
 type LedgerEntryUpdaterTx interface {
+	TrimLedgers(retentionWindow uint32) error
+	InsertLedger(ledger xdr.LedgerCloseMeta) error
 	UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error
 	DeleteLedgerEntry(key xdr.LedgerKey) error
 	Done() error
@@ -180,6 +187,70 @@ func (s *sqlDB) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32
 	return entry, true, seq, nil
 }
 
+// TODO : move these Scan() and Value() functions to xdr/db.go in the monorepo
+type ledgerCloseMeta xdr.LedgerCloseMeta
+
+// Scan reads from src into a ledgerCloseMeta  struct
+func (t *ledgerCloseMeta) Scan(src any) error {
+	return safeBase64Scan(src, t)
+}
+
+// Value implements the database/sql/driver Valuer interface.
+func (c ledgerCloseMeta) Value() (driver.Value, error) {
+	return xdr.MarshalBase64(c)
+}
+
+// safeBase64Scan scans from src (which should be either a []byte or string)
+// into dest by using `SafeUnmarshalBase64`.
+func safeBase64Scan(src, dest any) error {
+	var val string
+	switch src := src.(type) {
+	case []byte:
+		val = string(src)
+	case string:
+		val = src
+	default:
+		return fmt.Errorf("Invalid value for %T", dest)
+	}
+
+	return xdr.SafeUnmarshalBase64(val, dest)
+}
+
+// GetAllLedgers returns all ledgers in the database.
+func (s *sqlDB) GetAllLedgers() ([]xdr.LedgerCloseMeta, error) {
+	sqlStr, args, err := sq.Select("meta").From(ledgerCloseMetaTableName).OrderBy("sequence asc").ToSql()
+	if err != nil {
+		return nil, err
+	}
+	var results []ledgerCloseMeta
+	err = s.db.Select(&results, sqlStr, args...)
+	ledgers := make([]xdr.LedgerCloseMeta, len(results))
+	for i, ledger := range results {
+		ledgers[i] = xdr.LedgerCloseMeta(ledger)
+	}
+	return ledgers, err
+}
+
+// GetLedger fetches a ledger from the db.
+func (s *sqlDB) GetLedger(sequence uint32) (xdr.LedgerCloseMeta, bool, error) {
+	sqlStr, args, err := sq.Select("meta").From(ledgerCloseMetaTableName).Where(sq.Eq{"sequence": sequence}).ToSql()
+	if err != nil {
+		return xdr.LedgerCloseMeta{}, false, err
+	}
+	var results []ledgerCloseMeta
+	if err = s.db.Select(&results, sqlStr, args...); err != nil {
+		return xdr.LedgerCloseMeta{}, false, err
+	}
+	switch len(results) {
+	case 0:
+		return xdr.LedgerCloseMeta{}, false, nil
+	case 1:
+		return xdr.LedgerCloseMeta(results[0]), true, nil
+	default:
+		panic(fmt.Errorf("multiple lcm entries (%d) for sequence %d in table %q", len(results), sequence, ledgerCloseMetaTableName))
+	}
+}
+
 func (s *sqlDB) Close() error {
 	// TODO: What if there is a running transaction?
 	return s.db.Close()
@@ -240,6 +311,26 @@ func (l *ledgerUpdaterTx) flushLedgerEntryBatch() error {
 		}
 	}
 	return nil
+}
+
+// TrimLedgers removes all ledgers which are outside the retention window.
+func (l *ledgerUpdaterTx) TrimLedgers(retentionWindow uint32) error {
+	if l.forLedgerSequence+1 <= retentionWindow {
+		return nil
+	}
+	cutoff := l.forLedgerSequence + 1 - retentionWindow
+	deleteSQL := sq.StatementBuilder.RunWith(l.stmtCache).Delete(ledgerCloseMetaTableName).Where(sq.Lt{"sequence": cutoff})
+	_, err := deleteSQL.Exec()
+	return err
+}
+
+// InsertLedger inserts a ledger in the db.
+func (l *ledgerUpdaterTx) InsertLedger(ledger xdr.LedgerCloseMeta) error {
+	_, err := sq.StatementBuilder.RunWith(l.stmtCache).
+		Insert(ledgerCloseMetaTableName).
+		Values(l.forLedgerSequence, ledgerCloseMeta(ledger)).
+		Exec()
+	return err
 }
 
 func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {

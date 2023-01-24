@@ -10,11 +10,12 @@ CREATE TABLE metadata (
     value TEXT NOT NULL
 );
 
-
-
-CREATE INDEX ledger_entries_key ON ledger_entries(key);
-
+CREATE TABLE ledger_close_meta (
+    sequence INTEGER NOT NULL PRIMARY KEY,
+    meta BLOB NOT NULL
+);
 
 -- +migrate Down
 drop table ledger_entries cascade;
 drop table ledger_entries_meta cascade;
+drop table ledger_close_meta cascade;

@@ -12,6 +12,8 @@ import (
 	backends "github.com/stellar/go/ingest/ledgerbackend"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 )
 
 const (
@@ -32,13 +34,25 @@ type LedgerEntryStorageCfg struct {
 	Archive           historyarchive.ArchiveInterface
 	LedgerBackend     backends.LedgerBackend
 	Timeout           time.Duration
+	RetentionWindow   uint32
 }
 
 func NewLedgerEntryStorage(cfg LedgerEntryStorageCfg) (LedgerEntryStorage, error) {
+	ledgers, err := cfg.DB.GetAllLedgers()
+	if err != nil {
+		return nil, err
+	}
+	eventStore, err := events.NewMemoryStore(cfg.NetworkPassPhrase, ledgers, cfg.RetentionWindow)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, done := context.WithCancel(context.Background())
 	ls := ledgerEntryStorage{
 		logger:            cfg.Logger,
 		db:                cfg.DB,
+		events:            eventStore,
+		retentionWindow:   cfg.RetentionWindow,
 		networkPassPhrase: cfg.NetworkPassPhrase,
 		timeout:           cfg.Timeout,
 		done:              done,
@@ -51,6 +65,8 @@ func NewLedgerEntryStorage(cfg LedgerEntryStorageCfg) (LedgerEntryStorage, error
 type ledgerEntryStorage struct {
 	logger            *log.Entry
 	db                DB
+	events            *events.MemoryStore
+	retentionWindow   uint32
 	timeout           time.Duration
 	networkPassPhrase string
 	done              context.CancelFunc
@@ -59,6 +75,10 @@ type ledgerEntryStorage struct {
 
 func (ls *ledgerEntryStorage) GetLatestLedgerSequence() (uint32, error) {
 	return ls.db.GetLatestLedgerSequence()
+}
+
+func (ls *ledgerEntryStorage) EventStore() *events.MemoryStore {
+	return ls.events
 }
 
 func (ls *ledgerEntryStorage) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error) {
@@ -171,7 +191,7 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 	nextLedger := startLedger + 1
 	for {
 		ls.logger.Infof("Applying txmeta ledger entries changes for ledger %d", nextLedger)
-		reader, err := ingest.NewLedgerChangeReader(ctx, ledgerBackend, ls.networkPassPhrase, nextLedger)
+		ledger, err := ledgerBackend.GetLedger(ctx, nextLedger)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				// we were told to stop
@@ -179,11 +199,27 @@ func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.Ar
 			}
 			panic(err)
 		}
+
+		reader, err := ingest.NewLedgerChangeReaderFromLedgerCloseMeta(ls.networkPassPhrase, ledger)
+		if err != nil {
+			panic(err)
+		}
+		if err := ls.events.IngestEvents(reader.LedgerTransactionReader); err != nil {
+			panic(err)
+		}
+
 		tx, err := ls.db.NewLedgerEntryUpdaterTx(nextLedger, maxBatchSize)
 		if err != nil {
 			panic(err)
 		}
+		if err = tx.TrimLedgers(ls.retentionWindow); err != nil {
+			panic(err)
+		}
+		if err = tx.InsertLedger(ledger); err != nil {
+			panic(err)
+		}
 
+		reader.Rewind()
 		for {
 			change, err := reader.Read()
 			if err == io.EOF {
