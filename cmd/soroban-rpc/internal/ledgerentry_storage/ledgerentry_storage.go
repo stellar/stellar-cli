@@ -234,7 +234,7 @@ func getRelevantLedgerKeyFromData(data xdr.LedgerEntryData) (xdr.LedgerKey, bool
 			panic(err)
 		}
 	case xdr.LedgerEntryTypeContractData:
-		if err := key.SetContractData(data.ContractData.ContractId, data.ContractData.Val); err != nil {
+		if err := key.SetContractData(data.ContractData.ContractId, data.ContractData.Key); err != nil {
 			panic(err)
 		}
 	case xdr.LedgerEntryTypeContractCode:
