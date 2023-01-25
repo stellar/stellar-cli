@@ -56,6 +56,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	captiveCoreTomlParams.HistoryArchiveURLs = cfg.HistoryArchiveURLs
 	captiveCoreTomlParams.NetworkPassphrase = cfg.NetworkPassphrase
 	captiveCoreTomlParams.Strict = true
+	captiveCoreTomlParams.UseDB = cfg.CaptiveCoreUseDB
 	captiveCoreToml, err := ledgerbackend.NewCaptiveCoreTomlFromFile(cfg.CaptiveCoreConfigPath, captiveCoreTomlParams)
 	if err != nil {
 		logger.WithError(err).Fatal("Invalid captive core toml")
@@ -70,6 +71,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		Log:                 logger.WithField("subservice", "stellar-core"),
 		Toml:                captiveCoreToml,
 		UserAgent:           "captivecore",
+		UseDB:               cfg.CaptiveCoreUseDB,
 	}
 	core, err := ledgerbackend.NewCaptive(captiveConfig)
 	if err != nil {
