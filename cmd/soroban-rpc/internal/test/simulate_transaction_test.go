@@ -319,11 +319,16 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
 	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
+	contractFnParameterSym := xdr.ScSymbol("world")
+	contractFnParameter := xdr.ScVal{
+		Type: xdr.ScValTypeScvSymbol,
+		Sym:  &contractFnParameterSym,
+	}
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(address, xdr.LedgerFootprint{}, contractID, "hello"),
+			createInvokeHostOperation(address, xdr.LedgerFootprint{}, contractID, "hello", contractFnParameter),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
