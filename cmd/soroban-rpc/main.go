@@ -23,7 +23,7 @@ func main() {
 	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, networkPassphrase, dbPath, captivecoreStoragePath string
 	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
 	var checkpointFrequency uint32
-	var useDb bool
+	var useDB bool
 	var historyArchiveURLs []string
 	var txConcurrency, txQueueSize int
 	var logLevel logrus.Level
@@ -117,7 +117,7 @@ func main() {
 			FlagDefault: false,
 			Required:    false,
 			Usage:       "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
-			ConfigKey:   &useDb,
+			ConfigKey:   &useDB,
 		},
 		&config.ConfigOption{
 			Name:        "history-archive-urls",
@@ -198,7 +198,7 @@ func main() {
 				StellarCoreURL:            stellarCoreURL,
 				StellarCoreBinaryPath:     binaryPath,
 				CaptiveCoreConfigPath:     configPath,
-				CaptiveCoreUseDB:          useDb,
+				CaptiveCoreUseDB:          useDB,
 				CaptiveCoreHTTPPort:       uint16(captiveCoreHTTPPort),
 				CaptiveCoreStoragePath:    captivecoreStoragePath,
 				NetworkPassphrase:         networkPassphrase,
