@@ -6,8 +6,8 @@ use stellar_strkey::{ed25519::PrivateKey, ed25519::PublicKey};
 pub enum Error {
     #[error("invalid secret key")]
     InvalidSecretKey,
-    #[error("seed_phrase must be 12 words long, found {len}")]
-    InvalidSeedPhrase { len: usize },
+    // #[error("seed_phrase must be 12 words long, found {len}")]
+    // InvalidSeedPhrase { len: usize },
     #[error("seceret input error")]
     PasswordRead,
     #[error(transparent)]
@@ -19,10 +19,9 @@ pub struct Args {
     /// Add using secret_key
     #[clap(long, conflicts_with = "seed-phrase")]
     pub secret_key: bool,
-
-    /// Add using 12 word seed phrase to generate secret_key
-    #[clap(long, conflicts_with = "secret-key")]
-    pub seed_phrase: bool,
+    // /// Add using 12 word seed phrase to generate secret_key
+    // #[clap(long, conflicts_with = "secret-key")]
+    // pub seed_phrase: bool,
     // /// Use MacOS Keychain
     // #[clap(long)]
     // pub macos_keychain: bool,
@@ -37,21 +36,21 @@ impl Args {
                 .map_err(|_| Error::InvalidSecretKey)?
                 .to_string();
             Ok(Secret::SecretKey { secret_key })
-        } else if self.seed_phrase {
-            println!("Type a 12 word seed phrase: ");
-            let seed_phrase = read_password()?;
-            let seed_phrase: Vec<&str> = seed_phrase.split_whitespace().collect();
-            if seed_phrase.len() != 12 {
-                let len = seed_phrase.len();
-                return Err(Error::InvalidSeedPhrase { len });
-            }
-            Ok(Secret::SeedPhrase {
-                seed_phrase: seed_phrase
-                    .into_iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            })
+        // } else if self.seed_phrase {
+        //     println!("Type a 12 word seed phrase: ");
+        //     let seed_phrase = read_password()?;
+        //     let seed_phrase: Vec<&str> = seed_phrase.split_whitespace().collect();
+        //     if seed_phrase.len() != 12 {
+        //         let len = seed_phrase.len();
+        //         return Err(Error::InvalidSeedPhrase { len });
+        //     }
+        //     Ok(Secret::SeedPhrase {
+        //         seed_phrase: seed_phrase
+        //             .into_iter()
+        //             .map(ToString::to_string)
+        //             .collect::<Vec<_>>()
+        //             .join(" "),
+        //     })
         } else {
             Err(Error::PasswordRead {})
         }
