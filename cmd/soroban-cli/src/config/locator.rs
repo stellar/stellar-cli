@@ -85,17 +85,6 @@ impl Args {
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
         let source = self.identity_path(name)?;
-        let name_collision = Args {
-            global: !self.global,
-        }
-        .identity_path(name);
-
-        if name_collision.is_ok() {
-            println!("Name collision!\n\n  Old identity: {}\n  New identity: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config identity rm {name}{}`", name_collision.unwrap().display(), source.display(), if self.global { "" } else { " --global" });
-        } else {
-            println!("Writing to {}", source.display());
-        }
-
         let data = toml::to_string(secret).map_err(|_| Error::ConfigSerialization)?;
         std::fs::write(&source, data).map_err(|error| Error::IdCreationFailed {
             filepath: source.clone(),
@@ -105,17 +94,6 @@ impl Args {
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
         let source = self.network_path(name)?;
-        let name_collision = Args {
-            global: !self.global,
-        }
-        .network_path(name);
-
-        if name_collision.is_ok() {
-            println!("Name collision!\n\n  Old network: {}\n  New network: {}\n\nWhen executing commands in this workspace, the local config will take precedence.\n\nYou may want to remove the old one with `soroban config network rm {name}{}`", name_collision.unwrap().display(), source.display(), if self.global { "" } else { " --global" });
-        } else {
-            println!("Writing to {}", source.display());
-        }
-
         let data = toml::to_string(network).map_err(|_| Error::Deserialization)?;
         std::fs::write(source, data).map_err(|_| Error::NetworkCreationFailed)
     }
