@@ -29,15 +29,20 @@ const (
 )
 
 type DB interface {
-	GetLatestLedgerSequence() (uint32, error)
-	GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error)
 	NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize int) (LedgerEntryUpdaterTx, error)
+	NewLedgerEntryReaderTx() (LedgerEntryReaderTx, error)
 	io.Closer
 }
 
 type LedgerEntryUpdaterTx interface {
 	UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error
 	DeleteLedgerEntry(key xdr.LedgerKey) error
+	Done() error
+}
+
+type LedgerEntryReaderTx interface {
+	GetLatestLedgerSequence() (uint32, error)
+	GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error)
 	Done() error
 }
 
@@ -74,61 +79,6 @@ func OpenSQLiteDB(dbFilePath string) (DB, error) {
 	return ret, nil
 }
 
-func getLedgerEntry(tx *sqlx.Tx, buffer *xdr.EncodingBuffer, key xdr.LedgerKey) (xdr.LedgerEntry, error) {
-	encodedKey, err := encodeLedgerKey(buffer, key)
-	if err != nil {
-		return xdr.LedgerEntry{}, err
-	}
-
-	sqlStr, args, err := sq.Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).ToSql()
-	if err != nil {
-		return xdr.LedgerEntry{}, err
-	}
-	var results []string
-	if err = tx.Select(&results, sqlStr, args...); err != nil {
-		return xdr.LedgerEntry{}, err
-	}
-	switch len(results) {
-	case 0:
-		return xdr.LedgerEntry{}, sql.ErrNoRows
-	case 1:
-		// expected length
-	default:
-		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName))
-	}
-	ledgerEntryBin := results[0]
-	var result xdr.LedgerEntry
-	if err = xdr.SafeUnmarshal([]byte(ledgerEntryBin), &result); err != nil {
-		return xdr.LedgerEntry{}, err
-	}
-	return result, nil
-}
-
-func getLatestLedgerSequence(tx *sqlx.Tx) (uint32, error) {
-	sqlStr, args, err := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
-	if err != nil {
-		return 0, err
-	}
-	var results []string
-	if err = tx.Select(&results, sqlStr, args...); err != nil {
-		return 0, err
-	}
-	switch len(results) {
-	case 0:
-		return 0, ErrEmptyDB
-	case 1:
-	// expected length on an initialized DB
-	default:
-		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), latestLedgerSequenceMetaKey, metaTableName))
-	}
-	latestLedgerStr := results[0]
-	latestLedger, err := strconv.ParseUint(latestLedgerStr, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(latestLedger), nil
-}
-
 func upsertLatestLedgerSequence(tx *sqlx.Tx, sequence uint32) error {
 	sqlStr, args, err := sq.Replace(metaTableName).Values(latestLedgerSequenceMetaKey, fmt.Sprintf("%d", sequence)).ToSql()
 	if err != nil {
@@ -136,50 +86,6 @@ func upsertLatestLedgerSequence(tx *sqlx.Tx, sequence uint32) error {
 	}
 	_, err = tx.Exec(sqlStr, args...)
 	return err
-}
-
-func (s *sqlDB) GetLatestLedgerSequence() (uint32, error) {
-	opts := sql.TxOptions{
-		ReadOnly: true,
-	}
-	tx, err := s.db.BeginTxx(context.Background(), &opts)
-	if err != nil {
-		return 0, err
-	}
-	// Since it's a read-only transaction, we don't
-	// care whether we commit it or roll it back as long as we close it
-	defer tx.Rollback()
-	ret, err := getLatestLedgerSequence(tx)
-	if err != nil {
-		return 0, err
-	}
-	return ret, nil
-}
-
-func (s *sqlDB) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error) {
-	opts := sql.TxOptions{
-		ReadOnly: true,
-	}
-	tx, err := s.db.BeginTxx(context.Background(), &opts)
-	if err != nil {
-		return xdr.LedgerEntry{}, false, 0, err
-	}
-	// Since it's a read-only transaction, we don't
-	// care whether we commit it or roll it back as long as we close it
-	defer tx.Rollback()
-	seq, err := getLatestLedgerSequence(tx)
-	if err != nil {
-		return xdr.LedgerEntry{}, false, 0, err
-	}
-	buffer := xdr.NewEncodingBuffer()
-	entry, err := getLedgerEntry(tx, buffer, key)
-	if err == sql.ErrNoRows {
-		return xdr.LedgerEntry{}, false, seq, nil
-	}
-	if err != nil {
-		return xdr.LedgerEntry{}, false, seq, err
-	}
-	return entry, true, seq, nil
 }
 
 func (s *sqlDB) Close() error {
@@ -354,4 +260,119 @@ func runMigrations(db *sql.DB, dialect string) error {
 	}
 	_, err := migrate.ExecMax(db, dialect, m, migrate.Up, 0)
 	return err
+}
+
+func (s *sqlDB) NewLedgerEntryReaderTx() (LedgerEntryReaderTx, error) {
+	opts := sql.TxOptions{
+		ReadOnly: true,
+	}
+	tx, err := s.db.BeginTxx(context.Background(), &opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ledgerReaderTx{
+		buffer: xdr.NewEncodingBuffer(),
+		tx:     tx}, nil
+}
+
+type ledgerReaderTx struct {
+	tx     *sqlx.Tx
+	buffer *xdr.EncodingBuffer
+}
+
+func (l ledgerReaderTx) GetLatestLedgerSequence() (uint32, error) {
+	sqlStr, args, err := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
+	if err != nil {
+		return 0, err
+	}
+	var results []string
+	if err = l.tx.Select(&results, sqlStr, args...); err != nil {
+		return 0, err
+	}
+	switch len(results) {
+	case 0:
+		return 0, ErrEmptyDB
+	case 1:
+	// expected length on an initialized DB
+	default:
+		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), latestLedgerSequenceMetaKey, metaTableName))
+	}
+	latestLedgerStr := results[0]
+	latestLedger, err := strconv.ParseUint(latestLedgerStr, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(latestLedger), nil
+}
+
+func (l *ledgerReaderTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+	encodedKey, err := encodeLedgerKey(l.buffer, key)
+	if err != nil {
+		return false, xdr.LedgerEntry{}, err
+	}
+
+	sqlStr, args, err := sq.Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).ToSql()
+	if err != nil {
+		return false, xdr.LedgerEntry{}, err
+	}
+	var results []string
+	if err = l.tx.Select(&results, sqlStr, args...); err != nil {
+		return false, xdr.LedgerEntry{}, err
+	}
+	switch len(results) {
+	case 0:
+		return false, xdr.LedgerEntry{}, nil
+	case 1:
+		// expected length
+	default:
+		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName))
+	}
+	ledgerEntryBin := results[0]
+	var result xdr.LedgerEntry
+	if err = xdr.SafeUnmarshal([]byte(ledgerEntryBin), &result); err != nil {
+		return false, xdr.LedgerEntry{}, err
+	}
+	return true, result, nil
+}
+
+func (l *ledgerReaderTx) Done() error {
+	// Since it's a read-only transaction, we don't
+	// care whether we commit it or roll it back as long as we close it
+	return l.tx.Rollback()
+}
+
+func GetLatestLedgerSequence(db DB) (uint32, error) {
+	tx, err := db.NewLedgerEntryReaderTx()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Done()
+	return tx.GetLatestLedgerSequence()
+}
+
+func GetLedgerEntry(db DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+	tx, err := db.NewLedgerEntryReaderTx()
+	if err != nil {
+		return false, xdr.LedgerEntry{}, err
+	}
+	defer tx.Done()
+	return tx.GetLedgerEntry(key)
+}
+
+func GetLedgerEntryAndLatestLedgerSequence(db DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
+	tx, err := db.NewLedgerEntryReaderTx()
+	if err != nil {
+		return false, xdr.LedgerEntry{}, 0, err
+	}
+	defer tx.Done()
+	seq, err := tx.GetLatestLedgerSequence()
+	if err != nil {
+		return false, xdr.LedgerEntry{}, 0, err
+	}
+	present, entry, err := tx.GetLedgerEntry(key)
+	if err != nil {
+		return false, xdr.LedgerEntry{}, 0, err
+	}
+	return present, entry, seq, nil
 }

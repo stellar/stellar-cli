@@ -1,8 +1,6 @@
 package db
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 	"math/rand"
 	"path"
@@ -10,11 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_writer"
 )
 
 func TestGoldenPath(t *testing.T) {
@@ -24,7 +19,7 @@ func TestGoldenPath(t *testing.T) {
 	}()
 
 	// Check that we get an empty DB error
-	_, err := db.GetLatestLedgerSequence()
+	_, err := GetLatestLedgerSequence(db)
 	assert.Equal(t, ErrEmptyDB, err)
 
 	// Fill the DB with a single entry and fetch it
@@ -51,7 +46,7 @@ func TestGoldenPath(t *testing.T) {
 	err = tx.Done()
 	assert.NoError(t, err)
 
-	obtainedEntry, present, obtainedLedgerSequence, err := db.GetLedgerEntry(key)
+	present, obtainedEntry, obtainedLedgerSequence, err := GetLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.NoError(t, err)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
@@ -59,7 +54,7 @@ func TestGoldenPath(t *testing.T) {
 	assert.Equal(t, xdr.Hash{0xca, 0xfe}, obtainedEntry.Data.ContractData.ContractId)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
 
-	obtainedLedgerSequence, err = db.GetLatestLedgerSequence()
+	obtainedLedgerSequence, err = GetLatestLedgerSequence(db)
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
@@ -76,7 +71,7 @@ func TestGoldenPath(t *testing.T) {
 	err = tx.Done()
 	assert.NoError(t, err)
 
-	obtainedEntry, present, obtainedLedgerSequence, err = db.GetLedgerEntry(key)
+	present, obtainedEntry, obtainedLedgerSequence, err = GetLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.NoError(t, err)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
@@ -91,11 +86,11 @@ func TestGoldenPath(t *testing.T) {
 	assert.NoError(t, err)
 	err = tx.Done()
 	assert.NoError(t, err)
-	_, present, _, err = db.GetLedgerEntry(key)
+	present, _, err = GetLedgerEntry(db, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
 
-	obtainedLedgerSequence, err = db.GetLatestLedgerSequence()
+	obtainedLedgerSequence, err = GetLatestLedgerSequence(db)
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
@@ -135,12 +130,12 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Make sure that the ledger number was submitted
-	obtainedLedgerSequence, err := db.GetLatestLedgerSequence()
+	obtainedLedgerSequence, err := GetLatestLedgerSequence(db)
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	// And that the entry doesn't exist
-	_, present, _, err := db.GetLedgerEntry(key)
+	present, _, err := GetLedgerEntry(db, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
 }
@@ -171,7 +166,7 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	}()
 
 	// Check that we get an empty DB error
-	_, err := db.GetLatestLedgerSequence()
+	_, err := GetLatestLedgerSequence(db)
 	assert.Equal(t, ErrEmptyDB, err)
 
 	// Start filling the DB with a single entry (enforce flushing right away)
@@ -197,35 +192,31 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Before committing the changes, make sure multiple concurrent transactions can query the DB
-	internalDB := db.(*sqlDB).db
-	readTx1, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
-		ReadOnly: true,
-	})
+	readTx1, err := db.NewLedgerEntryReaderTx()
 	assert.NoError(t, err)
-	readTx2, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
-		ReadOnly: true,
-	})
+	readTx2, err := db.NewLedgerEntryReaderTx()
 	assert.NoError(t, err)
-	_, err = getLatestLedgerSequence(readTx1)
-	assert.Equal(t, ErrEmptyDB, err)
-	_, err = getLedgerEntry(readTx1, xdr.NewEncodingBuffer(), key)
-	assert.Equal(t, sql.ErrNoRows, err)
-	assert.NoError(t, readTx1.Commit())
 
-	_, err = getLatestLedgerSequence(readTx2)
+	_, err = readTx1.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
-	_, err = getLedgerEntry(readTx2, xdr.NewEncodingBuffer(), key)
-	assert.Equal(t, sql.ErrNoRows, err)
-	assert.NoError(t, readTx2.Commit())
+	present, _, err := readTx1.GetLedgerEntry(key)
+	assert.False(t, present)
+	assert.NoError(t, readTx1.Done())
+
+	_, err = readTx2.GetLatestLedgerSequence()
+	assert.Equal(t, ErrEmptyDB, err)
+	present, _, err = readTx2.GetLedgerEntry(key)
+	assert.False(t, present)
+	assert.NoError(t, readTx2.Done())
 
 	// Finish the write transaction and check that the results are present
 	assert.NoError(t, writeTx.Done())
 
-	obtainedLedgerSequence, err := db.GetLatestLedgerSequence()
+	obtainedLedgerSequence, err := GetLatestLedgerSequence(db)
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
-	obtainedEntry, present, obtainedLedgerSequence, err := db.GetLedgerEntry(key)
+	present, obtainedEntry, obtainedLedgerSequence, err := GetLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.NoError(t, err)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
@@ -241,15 +232,13 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	}()
 
 	// Check that we get an empty DB error
-	_, err := db.GetLatestLedgerSequence()
+	_, err := GetLatestLedgerSequence(db)
 	assert.Equal(t, ErrEmptyDB, err)
 
 	// Create a multiple read transactions, interleaved with the writing process
-	internalDB := db.(*sqlDB).db
+
 	// First read transaction, before the write transaction is created
-	readTx1, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
-		ReadOnly: true,
-	})
+	readTx1, err := db.NewLedgerEntryReaderTx()
 	assert.NoError(t, err)
 
 	// Start filling the DB with a single entry (enforce flushing right away)
@@ -257,9 +246,8 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	writeTx, err := db.NewLedgerEntryUpdaterTx(ledgerSequence, 0)
 
 	// Second read transaction, after the write transaction is created
-	readTx2, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
-		ReadOnly: true,
-	})
+	readTx2, err := db.NewLedgerEntryReaderTx()
+	assert.NoError(t, err)
 
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
@@ -279,36 +267,36 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Third read transaction, after the first insert has happened in the write transaction
-	readTx3, err := internalDB.BeginTxx(context.Background(), &sql.TxOptions{
-		ReadOnly: true,
-	})
+	readTx3, err := db.NewLedgerEntryReaderTx()
 	assert.NoError(t, err)
 
 	// Make sure that all the read transactions get an emptyDB error before and after the write transaction is committed
-	for _, readTx := range []*sqlx.Tx{readTx1, readTx2, readTx3} {
-		_, err = getLatestLedgerSequence(readTx)
+	for _, readTx := range []LedgerEntryReaderTx{readTx1, readTx2, readTx3} {
+		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		_, err = getLedgerEntry(readTx, xdr.NewEncodingBuffer(), key)
-		assert.Equal(t, sql.ErrNoRows, err)
+		present, _, err := readTx.GetLedgerEntry(key)
+		assert.NoError(t, err)
+		assert.False(t, present)
 	}
 
 	// commit the write transaction
 	assert.NoError(t, writeTx.Done())
 
-	for _, readTx := range []*sqlx.Tx{readTx1, readTx2, readTx3} {
-		_, err = getLatestLedgerSequence(readTx)
+	for _, readTx := range []LedgerEntryReaderTx{readTx1, readTx2, readTx3} {
+		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		_, err = getLedgerEntry(readTx, xdr.NewEncodingBuffer(), key)
-		assert.Equal(t, sql.ErrNoRows, err)
+		present, _, err := readTx.GetLedgerEntry(key)
+		assert.NoError(t, err)
+		assert.False(t, present)
 	}
 
 	// Check that the results are present in the transactions happening after the commit
 
-	obtainedLedgerSequence, err := db.GetLatestLedgerSequence()
+	obtainedLedgerSequence, err := GetLatestLedgerSequence(db)
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
-	obtainedEntry, present, obtainedLedgerSequence, err := db.GetLedgerEntry(key)
+	present, obtainedEntry, obtainedLedgerSequence, err := GetLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.NoError(t, err)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
@@ -372,7 +360,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 				return
 			default:
 			}
-			ledgerEntry, found, ledger, err := db.GetLedgerEntry(key)
+			found, ledgerEntry, ledger, err := GetLedgerEntryAndLatestLedgerSequence(db, key)
 			if err != nil {
 				if err != ErrEmptyDB {
 					t.Fatalf("reader %d failed with error %v\n", keyVal, err)
@@ -420,7 +408,7 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 	const numEntriesPerOp = 3500
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tx, err := db.NewLedgerEntryUpdaterTx(uint32(i+1), ledgerentry_writer.maxBatchSize)
+		tx, err := db.NewLedgerEntryUpdaterTx(uint32(i+1), 150)
 		if err != nil {
 			panic(err)
 		}

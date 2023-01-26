@@ -32,7 +32,7 @@ import (
 import "C"
 
 type snapshotSourceHandle struct {
-	db     db.DB
+	readTx db.LedgerEntryReaderTx
 	logger *log.Entry
 }
 
@@ -48,7 +48,7 @@ func SnapshotSourceGet(handle C.uintptr_t, ledger_key *C.char) *C.char {
 		h.logger.Errorf("SnapshotSourceGet(): failed to unmarshal ledger key passed from libpreflight: %v", err)
 		return nil
 	}
-	entry, present, _, err := h.db.GetLedgerEntry(ledgerKey)
+	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey)
 	if err != nil {
 		h.logger.Errorf("SnapshotSourceGet(): GetLedgerEntry() failed: %v", err)
 		return nil
@@ -76,7 +76,7 @@ func SnapshotSourceHas(handle C.uintptr_t, ledger_key *C.char) C.int {
 		h.logger.Errorf("SnapshotSourceHas(): failed to unmarshal ledger key passed from libpreflight: %v", err)
 		return 0
 	}
-	_, present, _, err := h.db.GetLedgerEntry(ledgerKey)
+	present, _, err := h.readTx.GetLedgerEntry(ledgerKey)
 	if err != nil {
 		h.logger.Errorf("SnapshotSourceHas(): GetLedgerEntry() failed: %v", err)
 		return 0
@@ -116,12 +116,6 @@ type SimulateTransactionResponse struct {
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
 func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, db db.DB) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
-		// TODO: this is racy, we need a read transaction for the whole request
-		//       (otherwise we may end up supplying entries from different ledgers)
-		latestLedger, err := db.GetLatestLedgerSequence()
-		if err != nil {
-			panic(err)
-		}
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
 			logger.WithError(err).WithField("request", request).
@@ -152,14 +146,6 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			}
 		}
 
-		li := C.CLedgerInfo{
-			network_passphrase: C.CString(networkPassphrase),
-			sequence_number:    C.uint(latestLedger),
-			// TODO: find a way to fill these parameters appropriately
-			protocol_version: 20,
-			timestamp:        1,
-			base_reserve:     1,
-		}
 		hfB64, err := xdr.MarshalBase64(xdrOp.Function)
 		if err != nil {
 			return SimulateTransactionResponse{
@@ -173,8 +159,29 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 				Error: "Cannot marshal source account",
 			}
 		}
+		readTx, err := db.NewLedgerEntryReaderTx()
+		if err != nil {
+			return SimulateTransactionResponse{
+				Error: "Cannot create db transaction",
+			}
+		}
+		defer readTx.Done()
+		latestLedger, err := readTx.GetLatestLedgerSequence()
+		if err != nil {
+			return SimulateTransactionResponse{
+				Error: "Cannot read latest ledger",
+			}
+		}
+		li := C.CLedgerInfo{
+			network_passphrase: C.CString(networkPassphrase),
+			sequence_number:    C.uint(latestLedger),
+			// TODO: find a way to fill these parameters appropriately
+			protocol_version: 20,
+			timestamp:        1,
+			base_reserve:     1,
+		}
 
-		handle := C.uintptr_t(cgo.NewHandle(snapshotSourceHandle{db, logger}))
+		handle := C.uintptr_t(cgo.NewHandle(snapshotSourceHandle{readTx, logger}))
 		sourceAccountCString := C.CString(sourceAccountB64)
 		res := C.preflight_host_function(
 			handle,

@@ -125,7 +125,7 @@ func (i *Test) launchDaemon() {
 
 	success := false
 	for t := 30; t >= 0; t -= 1 {
-		sequence, err := i.daemon.GetDB().GetLatestLedgerSequence()
+		sequence, err := db.GetLatestLedgerSequence(i.daemon.GetDB())
 		if err != nil {
 			if err != db.ErrEmptyDB {
 				i.t.Fatalf("cannot access ledger entry storage: %v", err)

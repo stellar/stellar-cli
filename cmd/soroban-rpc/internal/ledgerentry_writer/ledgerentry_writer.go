@@ -53,14 +53,6 @@ type LedgerEntryWriter struct {
 	wg                sync.WaitGroup
 }
 
-func (ls *LedgerEntryWriter) GetLatestLedgerSequence() (uint32, error) {
-	return ls.db.GetLatestLedgerSequence()
-}
-
-func (ls *LedgerEntryWriter) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error) {
-	return ls.db.GetLedgerEntry(key)
-}
-
 func (ls *LedgerEntryWriter) Close() error {
 	ls.done()
 	ls.wg.Wait()
@@ -125,7 +117,7 @@ func (ls *LedgerEntryWriter) run(ctx context.Context, archive historyarchive.Arc
 	var checkPointPrefillWg sync.WaitGroup
 
 	// First, make sure the DB has a complete ledger entry baseline
-	startLedger, err := ls.db.GetLatestLedgerSequence()
+	startLedger, err := db.GetLatestLedgerSequence(ls.db)
 	if err == db.ErrEmptyDB {
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		ls.logger.Infof("Found an empty database, filling it in from the most recent checkpoint (this can take up to 30 minutes, depending on the network)")
