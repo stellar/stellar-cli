@@ -6,7 +6,7 @@ use std::{
 
 use crate::utils::find_config_dir;
 
-use super::{network::Network, secret::Secret, Config};
+use super::{network::Network, secret::Secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

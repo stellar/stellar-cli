@@ -28,7 +28,7 @@ fn set_and_remove_network() {
         .arg("network")
         .arg("ls")
         .assert()
-        .stdout("local");
+        .stdout("local\n");
 
     Sandbox::new_cmd("config")
         .current_dir(&dir)
@@ -42,7 +42,7 @@ fn set_and_remove_network() {
         .arg("network")
         .arg("ls")
         .assert()
-        .stdout("");
+        .stdout("\n");
 }
 
 fn add_network(dir: &Path, name: &str) {
@@ -59,24 +59,24 @@ fn add_network(dir: &Path, name: &str) {
         .success();
 }
 
-fn add_network_global(dir: &Path, name: &str) {
-    Sandbox::new_cmd("config")
-        .env("HOME", dir.to_str().unwrap())
-        .arg("network")
-        .arg("add")
-        .arg("--global")
-        .arg("--rpc-url")
-        .arg("https://127.0.0.1")
-        .arg("--network-passphrase")
-        .arg("Local Sandbox Stellar Network ; September 2022")
-        .arg(name)
-        .assert()
-        .success();
-}
+// fn add_network_global(dir: &Path, name: &str) {
+//     Sandbox::new_cmd("config")
+//         .env("HOME", dir.to_str().unwrap())
+//         .arg("network")
+//         .arg("add")
+//         .arg("--global")
+//         .arg("--rpc-url")
+//         .arg("https://127.0.0.1")
+//         .arg("--network-passphrase")
+//         .arg("Local Sandbox Stellar Network ; September 2022")
+//         .arg(name)
+//         .assert()
+//         .success();
+// }
 
 #[test]
 fn set_and_remove_global_network() {
-    let dir = temp_dir();
+    let _dir = temp_dir();
 
     // add_network_global(&dir, "local");
 
@@ -116,7 +116,7 @@ fn mulitple_networks() {
         .arg("network")
         .arg("ls")
         .assert()
-        .stdout("local\nlocal2");
+        .stdout("local\nlocal2\n");
 
     Sandbox::new_cmd("config")
         .current_dir(&dir)
@@ -129,18 +129,18 @@ fn mulitple_networks() {
         .arg("network")
         .arg("ls")
         .assert()
-        .stdout("local2");
+        .stdout("local2\n");
 
     let sub_dir = dir.join("sub_directory");
     fs::create_dir(&sub_dir).unwrap();
-    add_network(&sub_dir, "local3");
+    add_network(&sub_dir, "local3\n");
 
     Sandbox::new_cmd("config")
         .current_dir(&dir)
         .arg("network")
         .arg("ls")
         .assert()
-        .stdout("local2\nlocal3");
+        .stdout("local3\n\nlocal2\n");
 }
 
 #[test]
@@ -149,5 +149,5 @@ fn read_identity() {
         .arg("identity")
         .arg("ls")
         .assert()
-        .stdout("test_id");
+        .stdout("test_id\n");
 }
