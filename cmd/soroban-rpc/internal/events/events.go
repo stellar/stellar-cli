@@ -1,6 +1,7 @@
 package events
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"sort"
@@ -24,23 +25,6 @@ type Cursor struct {
 	Event uint32
 }
 
-var (
-	// MinCursor is the smallest possible cursor
-	MinCursor = Cursor{}
-	// MaxCursor is the largest possible cursor
-	MaxCursor = Cursor{
-		Ledger: math.MaxUint32,
-		Tx:     math.MaxUint32,
-		Op:     math.MaxUint32,
-		Event:  math.MaxUint32,
-	}
-)
-
-type event struct {
-	contents xdr.ContractEvent
-	cursor   Cursor
-}
-
 func cmp(a, b uint32) int {
 	if a < b {
 		return -1
@@ -58,68 +42,169 @@ func cmp(a, b uint32) int {
 func (c Cursor) Cmp(other Cursor) int {
 	if c.Ledger == other.Ledger {
 		if c.Tx == other.Tx {
-			return cmp(c.Event, other.Event)
+			if c.Op == other.Op {
+				return cmp(c.Event, other.Event)
+			}
+			return cmp(c.Op, other.Op)
 		}
 		return cmp(c.Tx, other.Tx)
 	}
 	return cmp(c.Ledger, other.Ledger)
 }
 
+var (
+	// MinCursor is the smallest possible cursor
+	MinCursor = Cursor{}
+	// MaxCursor is the largest possible cursor
+	MaxCursor = Cursor{
+		Ledger: math.MaxUint32,
+		Tx:     math.MaxUint32,
+		Op:     math.MaxUint32,
+		Event:  math.MaxUint32,
+	}
+)
+
+type bucket struct {
+	ledgerSeq uint32
+	events    []event
+}
+
+type event struct {
+	contents   xdr.ContractEvent
+	txIndex    uint32
+	opIndex    uint32
+	eventIndex uint32
+}
+
+func (e event) cursor(ledger uint32) Cursor {
+	return Cursor{
+		Ledger: ledger,
+		Tx:     e.txIndex,
+		Op:     e.opIndex,
+		Event:  e.eventIndex,
+	}
+}
+
 // MemoryStore is an in-memory store of soroban events.
 type MemoryStore struct {
-	lock            sync.RWMutex
-	events          []event
-	length          int
-	start           int
-	retentionWindow uint32
+	lock sync.RWMutex
+	// buckets is a circular buffer where each cell represents
+	// all events occurring within a specific ledger.
+	buckets []bucket
+	// length is equal to the number of ledgers contained within
+	// the circular buffer.
+	length uint32
+	// start is the index of the head in the circular buffer.
+	start uint32
 }
 
 // NewMemoryStore creates a new MemoryStore populated by the given ledgers.
-func NewMemoryStore(passPhrase string, ledgers []xdr.LedgerCloseMeta, retentionWindow uint32) (*MemoryStore, error) {
-	var events []event
-	for _, ledger := range ledgers {
-		reader, err := ingest.NewLedgerTransactionReaderFromLedgerCloseMeta(passPhrase, ledger)
-		if err != nil {
-			return nil, err
-		}
-		ledgerEvents, err := readEvents(reader)
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, ledgerEvents...)
+// retentionWindow defines a retention window in ledgers. All events occurring
+// within the retention window will be included in the store.
+func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
+	if retentionWindow == 0 {
+		return nil, fmt.Errorf("retention window must be positive")
 	}
-
 	return &MemoryStore{
-		events:          events,
-		retentionWindow: retentionWindow,
-		length:          len(events),
+		buckets: make([]bucket, retentionWindow),
 	}, nil
 }
 
-// Scan applies f on all the events occurring in the range of [start, end).
+// Range defines an interval in the sequence of all Soroban events.
+type Range struct {
+	// Start defines the start of the range.
+	// Start is included in the range.
+	Start Cursor
+	// ClampStart indicates whether Start should be clamped to
+	// the earliest ledger available if Start is too low.
+	ClampStart bool
+	// End defines the end of the range.
+	// End is excluded from the range.
+	End Cursor
+	// ClampEnd indicates whether End should be clamped to
+	// the latest ledger available if End is too high.
+	ClampEnd bool
+}
+
+// Scan applies f on all the events occurring in the given range.
 // The events are processed in sorted ascending Cursor order.
 // If f returns false, the scan terminates early (f will not be applied on
-// remaining events in the range).
-func (m *MemoryStore) Scan(start, end Cursor, f func(Cursor, xdr.ContractEvent) bool) {
+// remaining events in the range). Note that a read lock is held for the
+// entire duration of the Scan function so f be written in a way
+// to minimize latency.
+func (m *MemoryStore) Scan(eventRange Range, f func(Cursor, xdr.ContractEvent) bool) error {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	i := sort.Search(m.length, func(i int) bool {
-		index := (m.start + i) % m.length
-		entry := m.events[index]
-		return entry.cursor.Cmp(start) < 0
-	}) + 1
+	if err := m.validateRange(&eventRange); err != nil {
+		return err
+	}
 
-	for ; i < m.length; i++ {
-		index := (m.start + i) % m.length
-		entry := m.events[index]
-		if entry.cursor.Cmp(end) >= 0 {
-			break
+	curLedger := eventRange.Start.Ledger
+	minLedger := m.buckets[m.start].ledgerSeq
+	i := ((curLedger - minLedger) + m.start) % uint32(len(m.buckets))
+	events := seek(m.buckets[i].events, eventRange.Start)
+	for {
+		for _, event := range events {
+			cur := event.cursor(curLedger)
+			if eventRange.End.Cmp(cur) <= 0 {
+				return nil
+			}
+			if !f(cur, event.contents) {
+				return nil
+			}
 		}
-		if !f(entry.cursor, entry.contents) {
-			break
+		i = (i + 1) % uint32(len(m.buckets))
+		curLedger++
+		if m.buckets[i].ledgerSeq != curLedger {
+			return nil
+		}
+		events = m.buckets[i].events
+	}
+}
+
+// validateRange checks if the range falls within the bounds
+// of the events in the memory store.
+// validateRange should be called with the read lock.
+func (m *MemoryStore) validateRange(eventRange *Range) error {
+	if m.length == 0 {
+		return fmt.Errorf("event store is empty")
+	}
+
+	min := Cursor{Ledger: m.buckets[m.start].ledgerSeq}
+	if eventRange.Start.Cmp(min) < 0 {
+		if eventRange.ClampStart {
+			eventRange.Start = min
+		} else {
+			return fmt.Errorf("start is before oldest ledger")
 		}
 	}
+
+	max := Cursor{Ledger: min.Ledger + m.length}
+	if eventRange.End.Cmp(max) > 0 {
+		if eventRange.ClampEnd {
+			eventRange.End = max
+		} else {
+			return fmt.Errorf("end is after latest ledger")
+		}
+	}
+
+	if eventRange.Start.Cmp(eventRange.End) >= 0 {
+		return fmt.Errorf("start is not before end")
+	}
+
+	return nil
+}
+
+// seek returns the subset of all events which occur
+// at a point greater than or equal to the given cursor.
+// events must be sorted in ascending order.
+func seek(events []event, cursor Cursor) []event {
+	i := sort.Search(len(events), func(i int) bool {
+		event := events[i]
+		return cursor.Cmp(event.cursor(cursor.Ledger)) <= 0
+	})
+	return events[i:]
 }
 
 // IngestEvents adds new events from the given ledger into the store.
@@ -130,22 +215,12 @@ func (m *MemoryStore) IngestEvents(txReader *ingest.LedgerTransactionReader) err
 	if err != nil {
 		return err
 	}
-	if len(events) == 0 {
-		return nil
-	}
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	m.trim(txReader.GetSequence())
-	m.maybeResize(len(events))
-	m.append(events)
-	return nil
+	ledgerSequence := txReader.GetSequence()
+	return m.append(ledgerSequence, events)
 }
 
 func readEvents(txReader *ingest.LedgerTransactionReader) ([]event, error) {
 	var events []event
-	sequence := txReader.GetSequence()
 	for {
 		tx, err := txReader.Read()
 		if err == io.EOF {
@@ -154,24 +229,19 @@ func readEvents(txReader *ingest.LedgerTransactionReader) ([]event, error) {
 		if err != nil {
 			return nil, err
 		}
-		// TODO : add function in ingest.LedgerTransaction to obtain operation events
-		txMeta, ok := tx.UnsafeMeta.GetV3()
-		if !ok {
-			continue
-		}
-		for opIndex, op := range txMeta.Events {
-			if len(op.Events) == 0 {
-				continue
+
+		for i := range tx.Envelope.Operations() {
+			opIndex := uint32(i)
+			opEvents, err := tx.GetOperationEvents(opIndex)
+			if err != nil {
+				return nil, err
 			}
-			for eventIndex, opEvent := range op.Events {
+			for eventIndex, opEvent := range opEvents {
 				events = append(events, event{
-					contents: opEvent,
-					cursor: Cursor{
-						Ledger: sequence,
-						Tx:     tx.Index,
-						Op:     uint32(opIndex),
-						Event:  uint32(eventIndex),
-					},
+					contents:   opEvent,
+					txIndex:    tx.Index,
+					opIndex:    opIndex,
+					eventIndex: uint32(eventIndex),
 				})
 			}
 		}
@@ -179,41 +249,26 @@ func readEvents(txReader *ingest.LedgerTransactionReader) ([]event, error) {
 	return events, nil
 }
 
-func (m *MemoryStore) trim(latestSequence uint32) {
-	if latestSequence+1 <= m.retentionWindow {
-		return
-	}
-	cutoff := latestSequence + 1 - m.retentionWindow
-	start := m.start
-	end := start + m.length
-	for cur := start; cur < end; cur++ {
-		cur = cur % len(m.events)
-		if m.events[cur].cursor.Ledger < cutoff {
-			m.start++
-			m.length--
-		}
-	}
-}
+// append adds new events to the circular buffer.
+func (m *MemoryStore) append(sequence uint32, events []event) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-func (m *MemoryStore) maybeResize(extraRequiredCapacity int) {
-	if len(m.events) >= m.length+extraRequiredCapacity {
-		return
+	expectedLedgerSequence := m.buckets[m.start].ledgerSeq + m.length
+	if m.length > 0 && expectedLedgerSequence != sequence {
+		return fmt.Errorf("events not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, sequence)
 	}
-	minSize := m.length + extraRequiredCapacity
-	// scale new buffer by 120%
-	resized := make([]event, minSize+minSize/5)
-	for i := 0; i < m.length; i++ {
-		resized[i] = m.events[(m.start+i)%m.length]
-	}
-	m.events = resized
-	m.start = 0
-}
 
-func (m *MemoryStore) append(events []event) {
-	start := m.start + m.length
-	for i, event := range events {
-		index := (i + start) % len(m.events)
-		m.events[index] = event
+	index := (m.start + m.length) % uint32(len(m.buckets))
+	m.buckets[index] = bucket{
+		ledgerSeq: sequence,
+		events:    events,
 	}
-	m.length += len(events)
+	if m.length < uint32(len(m.buckets)) {
+		m.length++
+	} else {
+		m.start++
+	}
+
+	return nil
 }

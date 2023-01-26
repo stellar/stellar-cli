@@ -42,9 +42,19 @@ func NewLedgerEntryStorage(cfg LedgerEntryStorageCfg) (LedgerEntryStorage, error
 	if err != nil {
 		return nil, err
 	}
-	eventStore, err := events.NewMemoryStore(cfg.NetworkPassPhrase, ledgers, cfg.RetentionWindow)
+	eventStore, err := events.NewMemoryStore(cfg.RetentionWindow)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, ledger := range ledgers {
+		reader, err := ingest.NewLedgerTransactionReaderFromLedgerCloseMeta(cfg.NetworkPassPhrase, ledger)
+		if err != nil {
+			return nil, err
+		}
+		if err = eventStore.IngestEvents(reader); err != nil {
+			return nil, err
+		}
 	}
 
 	ctx, done := context.WithCancel(context.Background())
