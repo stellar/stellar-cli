@@ -2,6 +2,7 @@ use std::{
     ffi::OsStr,
     fs, io,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use crate::utils::find_config_dir;
@@ -36,6 +37,8 @@ pub enum Error {
     ConfigSerialization,
     // #[error("Config file failed write")]
     // CannotWriteConfigFile,
+    #[error("XDG_CONFIG_HOME env variable is not a valid path. Got {value}")]
+    XdgConfigHome { value: String },
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -48,10 +51,15 @@ pub struct Args {
 impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         let config_dir = if self.global {
-            dirs::home_dir()
-                .ok_or(Error::HomeDirNotFound)?
-                .join(".config")
-                .join("soroban")
+            if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+                PathBuf::from_str(&config_home)
+                    .map_err(|_| Error::XdgConfigHome { value: config_home })?
+            } else {
+                dirs::home_dir()
+                    .ok_or(Error::HomeDirNotFound)?
+                    .join(".config")
+            }
+            .join("soroban")
         } else {
             let pwd = std::env::current_dir().map_err(|_| Error::CurrentDirNotFound)?;
             find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".soroban"))
