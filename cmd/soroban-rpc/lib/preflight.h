@@ -19,15 +19,16 @@ typedef struct CPreflightResult {
     uint64_t memory_bytes;
 } CPreflightResult;
 
-CPreflightResult *preflight_host_function(const char *hf, // HostFunction XDR in base64
+CPreflightResult *preflight_host_function(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+                                          char *hf, // HostFunction XDR in base64
                                           const char *source_account, // AccountId XDR in base64
                                           const struct CLedgerInfo ledger_info);
 
 // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
-extern char *SnapshotSourceGet(char *ledger_key);
+extern char *SnapshotSourceGet(uintptr_t handle, char *ledger_key);
 
 // LedgerKey XDR in base64 string to bool
-extern int SnapshotSourceHas(char *ledger_key);
+extern int SnapshotSourceHas(uintptr_t handle, char *ledger_key);
 
 void free_preflight_result(CPreflightResult *result);
 

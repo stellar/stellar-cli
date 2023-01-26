@@ -18,20 +18,25 @@ use xdr::LedgerFootprint;
 // TODO: we may want to pass callbacks instead of using global functions
 extern "C" {
     // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
-    fn SnapshotSourceGet(ledger_key: *const libc::c_char) -> *const libc::c_char;
+    fn SnapshotSourceGet(
+        handle: libc::uintptr_t,
+        ledger_key: *const libc::c_char,
+    ) -> *const libc::c_char;
     // LedgerKey XDR in base64 string to bool
-    fn SnapshotSourceHas(ledger_key: *const libc::c_char) -> libc::c_int;
+    fn SnapshotSourceHas(handle: libc::uintptr_t, ledger_key: *const libc::c_char) -> libc::c_int;
     // Free Strings returned from Go functions
     fn FreeGoCString(str: *const libc::c_char);
 }
 
-struct CSnapshotSource;
+struct CSnapshotSource {
+    handle: libc::uintptr_t,
+}
 
 impl SnapshotSource for CSnapshotSource {
     fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
         let key_xdr = key.to_xdr_base64().unwrap();
         let key_cstr = CString::new(key_xdr).unwrap();
-        let res = unsafe { SnapshotSourceGet(key_cstr.as_ptr()) };
+        let res = unsafe { SnapshotSourceGet(self.handle, key_cstr.as_ptr()) };
         if res.is_null() {
             return Err(HostError::from(
                 ScHostStorageErrorCode::AccessToUnknownEntry,
@@ -49,7 +54,7 @@ impl SnapshotSource for CSnapshotSource {
     fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
         let key_xdr = key.to_xdr_base64().unwrap();
         let key_cstr = CString::new(key_xdr).unwrap();
-        let res = unsafe { SnapshotSourceHas(key_cstr.as_ptr()) };
+        let res = unsafe { SnapshotSourceHas(self.handle, key_cstr.as_ptr()) };
         Ok(match res {
             0 => false,
             _ => true,
@@ -124,14 +129,15 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
 
 #[no_mangle]
 pub extern "C" fn preflight_host_function(
-    hf: *const libc::c_char,             // HostFunction XDR in base64
+    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+    hf: *const libc::c_char, // HostFunction XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        preflight_host_function_or_maybe_panic(hf, source_account, ledger_info)
+        preflight_host_function_or_maybe_panic(handle, hf, source_account, ledger_info)
     }));
     match res {
         Err(panic) => match panic.downcast::<String>() {
@@ -148,7 +154,8 @@ pub extern "C" fn preflight_host_function(
 }
 
 fn preflight_host_function_or_maybe_panic(
-    hf: *const libc::c_char,             // HostFunction XDR in base64
+    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+    hf: *const libc::c_char, // HostFunction XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
@@ -162,7 +169,7 @@ fn preflight_host_function_or_maybe_panic(
         Ok(account_id) => account_id,
         Err(err) => return preflight_error(format!("decoding account_id: {}", err)),
     };
-    let src = Rc::new(CSnapshotSource);
+    let src = Rc::new(CSnapshotSource { handle });
     let storage = Storage::with_recording_footprint(src);
     let budget = Budget::default();
     let host = Host::with_storage_and_budget(storage, budget);

@@ -2,11 +2,11 @@ package methods
 
 import (
 	"context"
+	"runtime/cgo"
 	"unsafe"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
-
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
@@ -31,25 +31,26 @@ import (
 */
 import "C"
 
-// TODO: Really ugly hack to get going, we are going to need callbacks
-var le ledgerentry_storage.LedgerEntryStorage
+type snapshotSourceHandle struct {
+	store  ledgerentry_storage.LedgerEntryStorage
+	logger *log.Entry
+}
 
 // SnapshotSourceGet takes a LedgerKey XDR in base64 string and returns its matching LedgerEntry XDR in base64 string
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceGet
-func SnapshotSourceGet(ledger_key *C.char) *C.char {
+func SnapshotSourceGet(handle C.uintptr_t, ledger_key *C.char) *C.char {
+	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
 	ledgerKeyB64 := C.GoString(ledger_key)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
-		// TODO: log error properly
-		log.Error(err)
+		h.logger.Errorf("SnapshotSourceGet(): failed to unmarshal ledger key passed from libpreflight: %v", err)
 		return nil
 	}
-	entry, present, _, err := le.GetLedgerEntry(ledgerKey)
+	entry, present, _, err := h.store.GetLedgerEntry(ledgerKey)
 	if err != nil {
-		// TODO: log error properly
-		log.Error(err)
+		h.logger.Errorf("SnapshotSourceGet(): GetLedgerEntry() failed: %v", err)
 		return nil
 	}
 	if !present {
@@ -57,8 +58,7 @@ func SnapshotSourceGet(ledger_key *C.char) *C.char {
 	}
 	out, err := xdr.MarshalBase64(entry)
 	if err != nil {
-		// TODO: log error properly
-		log.Error(err)
+		h.logger.Errorf("SnapshotSourceGet(): failed to marshal ledger entry from store: %v", err)
 		return nil
 	}
 	return C.CString(out)
@@ -68,18 +68,17 @@ func SnapshotSourceGet(ledger_key *C.char) *C.char {
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceHas
-func SnapshotSourceHas(ledger_key *C.char) C.int {
+func SnapshotSourceHas(handle C.uintptr_t, ledger_key *C.char) C.int {
+	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
 	ledgerKeyB64 := C.GoString(ledger_key)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
-		// TODO: log error properly
-		log.Error(err)
+		h.logger.Errorf("SnapshotSourceHas(): failed to unmarshal ledger key passed from libpreflight: %v", err)
 		return 0
 	}
-	_, present, _, err := le.GetLedgerEntry(ledgerKey)
+	_, present, _, err := h.store.GetLedgerEntry(ledgerKey)
 	if err != nil {
-		// TODO: log error properly
-		log.Error(err)
+		h.logger.Errorf("SnapshotSourceHas(): GetLedgerEntry() failed: %v", err)
 		return 0
 	}
 	if present {
@@ -116,12 +115,10 @@ type SimulateTransactionResponse struct {
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
 func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, storage ledgerentry_storage.LedgerEntryStorage) jrpc2.Handler {
-	// TODO: Really ugly hack to get going, we are going to need callbacks
-	le = storage
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
-		// TODO: this is race, we need a read transaction for the whole request
+		// TODO: this is racy, we need a read transaction for the whole request
 		//       (otherwise we may end up supplying entries from different ledgers)
-		latestLedger, err := le.GetLatestLedgerSequence()
+		latestLedger, err := storage.GetLatestLedgerSequence()
 		if err != nil {
 			panic(err)
 		}
@@ -177,8 +174,11 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			}
 		}
 
+		handle := C.uintptr_t(cgo.NewHandle(snapshotSourceHandle{storage, logger}))
 		sourceAccountCString := C.CString(sourceAccountB64)
-		res := C.preflight_host_function(hfCString,
+		res := C.preflight_host_function(
+			handle,
+			hfCString,
 			sourceAccountCString,
 			li,
 		)
