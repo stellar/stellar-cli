@@ -143,7 +143,7 @@ fn mulitple_networks() {
         .arg("network")
         .arg("ls")
         .assert()
-        .stdout("local3\n\nlocal2\n");
+        .stdout("local2\nlocal3\n");
 }
 
 #[test]

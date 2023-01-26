@@ -181,9 +181,10 @@ fn read_dir(dir: &Path) -> Result<Vec<String>, Error> {
         let path = entry.path();
         if let Some("toml") = path.extension().and_then(OsStr::to_str) {
             if let Some(os_str) = path.file_stem() {
-                res.push(format!("{}", os_str.to_string_lossy()));
+                res.push(os_str.to_string_lossy().trim().to_string());
             }
         }
     }
+    res.sort();
     Ok(res)
 }
