@@ -200,12 +200,14 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	_, err = readTx1.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
 	present, _, err := readTx1.GetLedgerEntry(key)
+	assert.NoError(t, err)
 	assert.False(t, present)
 	assert.NoError(t, readTx1.Done())
 
 	_, err = readTx2.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
 	present, _, err = readTx2.GetLedgerEntry(key)
+	assert.NoError(t, err)
 	assert.False(t, present)
 	assert.NoError(t, readTx2.Done())
 
