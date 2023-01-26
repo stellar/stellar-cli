@@ -53,7 +53,8 @@ impl Args {
         let config_dir = if self.global {
             dirs::home_dir()
                 .ok_or(Error::HomeDirNotFound)?
-                .join(".soroban")
+                .join(".config")
+                .join("soroban")
         } else {
             let pwd = std::env::current_dir().map_err(|_| Error::CurrentDirNotFound)?;
             find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".soroban"))
