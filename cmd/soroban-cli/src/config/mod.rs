@@ -106,7 +106,4 @@ impl Args {
 }
 
 #[derive(Default, Serialize, Deserialize)]
-pub struct Config {
-    default_network: Option<String>,
-    default_identity: Option<String>,
-}
+pub struct Config {}

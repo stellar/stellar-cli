@@ -6,7 +6,6 @@ use crate::HEADING_RPC;
 use super::locator;
 
 pub mod add;
-pub mod default;
 pub mod ls;
 pub mod rm;
 
@@ -16,8 +15,6 @@ pub enum Cmd {
     Add(add::Cmd),
     /// Remove a network
     Rm(rm::Cmd),
-    /// Set a default network
-    Default(default::Cmd),
     /// List networks
     Ls(ls::Cmd),
 }
@@ -31,9 +28,6 @@ pub enum Error {
     Rm(#[from] rm::Error),
 
     #[error(transparent)]
-    Default(#[from] default::Error),
-
-    #[error(transparent)]
     Ls(#[from] ls::Error),
 
     #[error(transparent)]
@@ -45,7 +39,6 @@ impl Cmd {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
-            Cmd::Default(use_cmd) => use_cmd.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
         };
         Ok(())

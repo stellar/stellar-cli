@@ -33,12 +33,12 @@ pub enum Error {
     NetworkCreationFailed,
     #[error("Error Identity directory is invalid: {name}")]
     IdentityList { name: String },
-    #[error("Config file failed to deserialize")]
-    CannotReadConfigFile,
+    // #[error("Config file failed to deserialize")]
+    // CannotReadConfigFile,
     #[error("Config file failed to serialize")]
     ConfigSerialization,
-    #[error("Config file failed write")]
-    CannotWriteConfigFile,
+    // #[error("Config file failed write")]
+    // CannotWriteConfigFile,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -132,37 +132,25 @@ impl Args {
         read_dir(&path)
     }
 
-    pub fn config_path(&self) -> Result<PathBuf, Error> {
-        Ok(self.config_dir()?.join("config.toml"))
-    }
+    // pub fn config_path(&self) -> Result<PathBuf, Error> {
+    //     Ok(self.config_dir()?.join("config.toml"))
+    // }
 
-    pub fn get_config_file(&self) -> Result<Config, Error> {
-        let path = self.config_path()?;
-        if path.exists() {
-            let data = fs::read(&path).map_err(|_| Error::CannotReadConfigFile)?;
-            toml::from_slice::<Config>(&data).map_err(|_| Error::Deserialization)
-        } else {
-            Ok(Config::default())
-        }
-    }
+    // pub fn get_config_file(&self) -> Result<Config, Error> {
+    //     let path = self.config_path()?;
+    //     if path.exists() {
+    //         let data = fs::read(&path).map_err(|_| Error::CannotReadConfigFile)?;
+    //         toml::from_slice::<Config>(&data).map_err(|_| Error::Deserialization)
+    //     } else {
+    //         Ok(Config::default())
+    //     }
+    // }
 
-    pub fn write_config_file(&self, config: &Config) -> Result<(), Error> {
-        let path = self.config_path()?;
-        let data = toml::to_string(config).map_err(|_| Error::ConfigSerialization)?;
-        fs::write(path, data).map_err(|_| Error::CannotWriteConfigFile)
-    }
-
-    pub fn set_default_identity(&self, identity: &str) -> Result<(), Error> {
-        let mut config = self.get_config_file()?;
-        config.default_identity = Some(identity.to_owned());
-        self.write_config_file(&config)
-    }
-
-    pub fn set_default_network(&self, network: &str) -> Result<(), Error> {
-        let mut config = self.get_config_file()?;
-        config.default_network = Some(network.to_owned());
-        self.write_config_file(&config)
-    }
+    // pub fn write_config_file(&self, config: &Config) -> Result<(), Error> {
+    //     let path = self.config_path()?;
+    //     let data = toml::to_string(config).map_err(|_| Error::ConfigSerialization)?;
+    //     fs::write(path, data).map_err(|_| Error::CannotWriteConfigFile)
+    // }
 }
 
 pub fn read_identity(name: &str) -> Result<Secret, Error> {
