@@ -13,6 +13,7 @@ type LocalConfig struct {
 	CaptiveCoreConfigPath     string
 	CaptiveCoreStoragePath    string
 	CaptiveCoreHTTPPort       uint16
+	CaptiveCoreUseDB          bool
 	NetworkPassphrase         string
 	HistoryArchiveURLs        []string
 	LogLevel                  logrus.Level
