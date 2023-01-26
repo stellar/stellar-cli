@@ -52,6 +52,7 @@ publish:
 # https://github.com/stellar/pipelines/stellar-horizon/Jenkinsfile-soroban-rpc-package-builder
 # as part of the package building.
 build-soroban-rpc:
+	go generate ./cmd/soroban-rpc/...
 	go build -ldflags="${GOLDFLAGS}" -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
 
 lint-changes:
