@@ -56,8 +56,9 @@ impl Cmd {
 
 #[derive(Debug, clap::Args, Clone)]
 pub struct Args {
-    #[clap(flatten)]
-    pub secrets: secret::Args,
+    /// Secret Key used to sign transaction sent to the rpc server
+    #[clap(long)]
+    pub secret_key: Option<String>,
 
     #[clap(flatten)]
     pub network: network::Args,
@@ -73,10 +74,15 @@ pub struct Args {
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
         // TODO remove unwrap and provide error
-        let key = self
-            .secrets
-            .read_secret()
-            .or_else(|_| locator::read_identity(self.identity.as_ref().unwrap()))?;
+        let key = if let Some(identity) = &self.identity {
+            locator::read_identity(identity)?
+        } else if let Some(secret_key) = &self.secret_key {
+            secret::Secret::SecretKey {
+                secret_key: secret_key.clone(),
+            }
+        } else {
+            return Err(Error::CannotParseSecretKey);
+        };
         let str_key = match &key {
             secret::Secret::SecretKey { secret_key } => secret_key,
             secret::Secret::SeedPhrase { seed_phrase: _ } => {
