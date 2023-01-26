@@ -1,4 +1,4 @@
-package ledgerentry_storage
+package ledgerentry_writer
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	backends "github.com/stellar/go/ingest/ledgerbackend"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
 const (
@@ -19,24 +21,18 @@ const (
 	checkpointLedgerEntryPrintoutFreq = 10000
 )
 
-type LedgerEntryStorage interface {
-	GetLatestLedgerSequence() (uint32, error)
-	GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error)
-	io.Closer
-}
-
-type LedgerEntryStorageCfg struct {
+type LedgerEntryWriterCfg struct {
 	Logger            *log.Entry
-	DB                DB
+	DB                db.DB
 	NetworkPassPhrase string
 	Archive           historyarchive.ArchiveInterface
 	LedgerBackend     backends.LedgerBackend
 	Timeout           time.Duration
 }
 
-func NewLedgerEntryStorage(cfg LedgerEntryStorageCfg) (LedgerEntryStorage, error) {
+func NewLedgerEntryWriter(cfg LedgerEntryWriterCfg) (*LedgerEntryWriter, error) {
 	ctx, done := context.WithCancel(context.Background())
-	ls := ledgerEntryStorage{
+	ls := LedgerEntryWriter{
 		logger:            cfg.Logger,
 		db:                cfg.DB,
 		networkPassPhrase: cfg.NetworkPassPhrase,
@@ -48,30 +44,30 @@ func NewLedgerEntryStorage(cfg LedgerEntryStorageCfg) (LedgerEntryStorage, error
 	return &ls, nil
 }
 
-type ledgerEntryStorage struct {
+type LedgerEntryWriter struct {
 	logger            *log.Entry
-	db                DB
+	db                db.DB
 	timeout           time.Duration
 	networkPassPhrase string
 	done              context.CancelFunc
 	wg                sync.WaitGroup
 }
 
-func (ls *ledgerEntryStorage) GetLatestLedgerSequence() (uint32, error) {
+func (ls *LedgerEntryWriter) GetLatestLedgerSequence() (uint32, error) {
 	return ls.db.GetLatestLedgerSequence()
 }
 
-func (ls *ledgerEntryStorage) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error) {
+func (ls *LedgerEntryWriter) GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error) {
 	return ls.db.GetLedgerEntry(key)
 }
 
-func (ls *ledgerEntryStorage) Close() error {
+func (ls *LedgerEntryWriter) Close() error {
 	ls.done()
 	ls.wg.Wait()
-	return ls.db.Close()
+	return nil
 }
 
-func (ls *ledgerEntryStorage) fillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface, checkpointLedger uint32) error {
+func (ls *LedgerEntryWriter) fillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface, checkpointLedger uint32) error {
 	ls.logger.Infof("Starting processing of checkpoint %d", checkpointLedger)
 	checkpointCtx, cancelCheckpointCtx := context.WithTimeout(ctx, ls.timeout)
 	defer cancelCheckpointCtx()
@@ -124,13 +120,13 @@ func (ls *ledgerEntryStorage) fillEntriesFromCheckpoint(ctx context.Context, arc
 	return nil
 }
 
-func (ls *ledgerEntryStorage) run(ctx context.Context, archive historyarchive.ArchiveInterface, ledgerBackend backends.LedgerBackend) {
+func (ls *LedgerEntryWriter) run(ctx context.Context, archive historyarchive.ArchiveInterface, ledgerBackend backends.LedgerBackend) {
 	defer ls.wg.Done()
 	var checkPointPrefillWg sync.WaitGroup
 
 	// First, make sure the DB has a complete ledger entry baseline
 	startLedger, err := ls.db.GetLatestLedgerSequence()
-	if err == ErrEmptyDB {
+	if err == db.ErrEmptyDB {
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		ls.logger.Infof("Found an empty database, filling it in from the most recent checkpoint (this can take up to 30 minutes, depending on the network)")
 		root, err := archive.GetRootHAS()

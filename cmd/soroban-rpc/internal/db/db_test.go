@@ -1,4 +1,4 @@
-package ledgerentry_storage
+package db
 
 import (
 	"context"
@@ -13,6 +13,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_writer"
 )
 
 func TestGoldenPath(t *testing.T) {
@@ -418,7 +420,7 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 	const numEntriesPerOp = 3500
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tx, err := db.NewLedgerEntryUpdaterTx(uint32(i+1), maxBatchSize)
+		tx, err := db.NewLedgerEntryUpdaterTx(uint32(i+1), ledgerentry_writer.maxBatchSize)
 		if err != nil {
 			panic(err)
 		}

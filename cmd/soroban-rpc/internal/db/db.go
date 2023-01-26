@@ -1,4 +1,4 @@
-package ledgerentry_storage
+package db
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
@@ -28,9 +29,10 @@ const (
 )
 
 type DB interface {
-	LedgerEntryStorage
 	GetLatestLedgerSequence() (uint32, error)
+	GetLedgerEntry(key xdr.LedgerKey) (xdr.LedgerEntry, bool, uint32, error)
 	NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize int) (LedgerEntryUpdaterTx, error)
+	io.Closer
 }
 
 type LedgerEntryUpdaterTx interface {
@@ -268,7 +270,7 @@ func (l *ledgerUpdaterTx) upsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerE
 			return err
 		}
 		// reset map
-		l.keyToEntryBatch = make(map[string]*string, maxBatchSize)
+		l.keyToEntryBatch = make(map[string]*string, l.maxBatchSize)
 	}
 	return nil
 }
@@ -293,7 +295,7 @@ func (l *ledgerUpdaterTx) deleteLedgerEntry(key xdr.LedgerKey) error {
 			return err
 		}
 		// reset map
-		l.keyToEntryBatch = make(map[string]*string, maxBatchSize)
+		l.keyToEntryBatch = make(map[string]*string, l.maxBatchSize)
 	}
 	return nil
 }

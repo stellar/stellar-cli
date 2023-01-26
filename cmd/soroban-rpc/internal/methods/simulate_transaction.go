@@ -10,7 +10,7 @@ import (
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
 //go:generate make -C ../../lib
@@ -32,7 +32,7 @@ import (
 import "C"
 
 type snapshotSourceHandle struct {
-	store  ledgerentry_storage.LedgerEntryStorage
+	db     db.DB
 	logger *log.Entry
 }
 
@@ -48,7 +48,7 @@ func SnapshotSourceGet(handle C.uintptr_t, ledger_key *C.char) *C.char {
 		h.logger.Errorf("SnapshotSourceGet(): failed to unmarshal ledger key passed from libpreflight: %v", err)
 		return nil
 	}
-	entry, present, _, err := h.store.GetLedgerEntry(ledgerKey)
+	entry, present, _, err := h.db.GetLedgerEntry(ledgerKey)
 	if err != nil {
 		h.logger.Errorf("SnapshotSourceGet(): GetLedgerEntry() failed: %v", err)
 		return nil
@@ -76,7 +76,7 @@ func SnapshotSourceHas(handle C.uintptr_t, ledger_key *C.char) C.int {
 		h.logger.Errorf("SnapshotSourceHas(): failed to unmarshal ledger key passed from libpreflight: %v", err)
 		return 0
 	}
-	_, present, _, err := h.store.GetLedgerEntry(ledgerKey)
+	_, present, _, err := h.db.GetLedgerEntry(ledgerKey)
 	if err != nil {
 		h.logger.Errorf("SnapshotSourceHas(): GetLedgerEntry() failed: %v", err)
 		return 0
@@ -114,11 +114,11 @@ type SimulateTransactionResponse struct {
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
-func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, storage ledgerentry_storage.LedgerEntryStorage) jrpc2.Handler {
+func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, db db.DB) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
 		// TODO: this is racy, we need a read transaction for the whole request
 		//       (otherwise we may end up supplying entries from different ledgers)
-		latestLedger, err := storage.GetLatestLedgerSequence()
+		latestLedger, err := db.GetLatestLedgerSequence()
 		if err != nil {
 			panic(err)
 		}
@@ -174,7 +174,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			}
 		}
 
-		handle := C.uintptr_t(cgo.NewHandle(snapshotSourceHandle{storage, logger}))
+		handle := C.uintptr_t(cgo.NewHandle(snapshotSourceHandle{db, logger}))
 		sourceAccountCString := C.CString(sourceAccountB64)
 		res := C.preflight_host_function(
 			handle,

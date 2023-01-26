@@ -11,7 +11,7 @@ import (
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/support/log"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -38,13 +38,13 @@ func (h Handler) Close() {
 }
 
 type HandlerParams struct {
-	AccountStore       methods.AccountStore
-	EventStore         methods.EventStore
-	TransactionProxy   *methods.TransactionProxy
-	CoreClient         *stellarcore.Client
-	LedgerEntryStorage ledgerentry_storage.LedgerEntryStorage
-	Logger             *log.Entry
-	NetworkPassphrase  string
+	AccountStore      methods.AccountStore
+	EventStore        methods.EventStore
+	TransactionProxy  *methods.TransactionProxy
+	CoreClient        *stellarcore.Client
+	DB                db.DB
+	Logger            *log.Entry
+	NetworkPassphrase string
 }
 
 // NewJSONRPCHandler constructs a Handler instance
@@ -53,10 +53,10 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 		"getHealth":            methods.NewHealthCheck(),
 		"getAccount":           methods.NewAccountHandler(params.AccountStore),
 		"getEvents":            methods.NewGetEventsHandler(params.EventStore),
-		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryStorage),
+		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.DB),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
-		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.LedgerEntryStorage),
+		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.DB),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
