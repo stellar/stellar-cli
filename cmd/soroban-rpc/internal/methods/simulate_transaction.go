@@ -3,6 +3,7 @@ package methods
 import (
 	"context"
 	"runtime/cgo"
+	"time"
 	"unsafe"
 
 	"github.com/creachadair/jrpc2"
@@ -175,10 +176,10 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 		li := C.CLedgerInfo{
 			network_passphrase: C.CString(networkPassphrase),
 			sequence_number:    C.uint(latestLedger),
-			// TODO: find a way to fill these parameters appropriately
-			protocol_version: 20,
-			timestamp:        1,
-			base_reserve:     1,
+			protocol_version:   20,
+			timestamp:          C.uint64_t(time.Now().Unix()),
+			// Current base reserve is 0.5XLM (in stroops)
+			base_reserve: 5_000_000,
 		}
 
 		handle := C.uintptr_t(cgo.NewHandle(snapshotSourceHandle{readTx, logger}))
