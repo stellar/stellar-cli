@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use soroban_ledger_snapshot::LedgerSnapshot;
 
 use crate::{utils, HEADING_SANDBOX};
@@ -13,20 +15,20 @@ pub struct Args {
         env = "SOROBAN_LEDGER_FILE",
         help_heading = HEADING_SANDBOX,
     )]
-    pub ledger_file: std::path::PathBuf,
+    pub ledger_file: PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("reading file {filepath}: {error}")]
     CannotReadLedgerFile {
-        filepath: std::path::PathBuf,
+        filepath: PathBuf,
         error: soroban_ledger_snapshot::Error,
     },
 
     #[error("committing file {filepath}: {error}")]
     CannotCommitLedgerFile {
-        filepath: std::path::PathBuf,
+        filepath: PathBuf,
         error: soroban_ledger_snapshot::Error,
     },
 }

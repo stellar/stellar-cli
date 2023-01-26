@@ -23,10 +23,7 @@ pub enum Error {
     #[error("Seceret file failed to deserialize")]
     Deserialization,
     #[error("Failed to write identity file:{filepath}: {error}")]
-    IdCreationFailed {
-        filepath: std::path::PathBuf,
-        error: io::Error,
-    },
+    IdCreationFailed { filepath: PathBuf, error: io::Error },
     #[error("Seceret file failed to deserialize")]
     NetworkDeserialization,
     #[error("Failed to write network file")]

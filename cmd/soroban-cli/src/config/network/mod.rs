@@ -64,7 +64,6 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
-
     /// Name of network to use from config
     #[clap(
         long,
@@ -89,6 +88,7 @@ impl Args {
 
 #[derive(Debug, clap::Args, Serialize, Deserialize)]
 pub struct Network {
+    /// RPC server endpoint
     #[clap(
         long,
         env = "SOROBAN_RPC_URL",
@@ -97,6 +97,7 @@ pub struct Network {
     pub rpc_url: String,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[clap(
+            long,
             env = "SOROBAN_NETWORK_PASSPHRASE",
             help_heading = HEADING_RPC,
         )]

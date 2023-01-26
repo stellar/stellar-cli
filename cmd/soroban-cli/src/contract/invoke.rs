@@ -159,7 +159,7 @@ impl Cmd {
 
         let cmd = build_custom_cmd(&self.function, inputs_map, &spec)?;
         let matches_ = cmd.get_matches_from(&self.slop);
-        // let res = ;
+
         let parsed_args = inputs_map
             .iter()
             .map(|(name, t)| {
@@ -206,7 +206,7 @@ impl Cmd {
     }
 
     pub async fn run(&self) -> Result<(), Error> {
-        if self.config.no_network() {
+        if self.config.is_no_network() {
             self.run_in_sandbox()
         } else {
             self.run_against_rpc_server().await

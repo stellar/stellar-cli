@@ -52,7 +52,7 @@ impl Cmd {
 
     pub async fn run_and_get_hash(&self) -> Result<String, Error> {
         let contract = self.wasm.read()?;
-        if self.config.no_network() {
+        if self.config.is_no_network() {
             self.run_in_sandbox(contract)
         } else {
             self.run_against_rpc_server(contract).await

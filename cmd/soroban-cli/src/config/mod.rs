@@ -63,7 +63,7 @@ pub struct Args {
     pub network: network::Args,
 
     #[clap(flatten)]
-    pub ledger: ledger_file::Args,
+    pub ledger_file: ledger_file::Args,
 
     #[clap(long, alias = "as")]
     /// Use specified identity to sign transaction
@@ -90,18 +90,18 @@ impl Args {
         Ok(self.network.get_network()?)
     }
 
-    pub fn no_network(&self) -> bool {
+    pub fn is_no_network(&self) -> bool {
         self.network.network.is_none()
             && self.network.network_passphrase.is_none()
             && self.network.rpc_url.is_none()
     }
 
     pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {
-        Ok(self.ledger.read()?)
+        Ok(self.ledger_file.read()?)
     }
 
     pub fn set_state(&self, state: &mut LedgerSnapshot) -> Result<(), Error> {
-        Ok(self.ledger.write(state)?)
+        Ok(self.ledger_file.write(state)?)
     }
 }
 

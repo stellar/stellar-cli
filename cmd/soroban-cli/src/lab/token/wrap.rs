@@ -61,7 +61,7 @@ impl Cmd {
         // Parse asset
         let asset = parse_asset(&self.asset)?;
 
-        let res_str = if self.config.no_network() {
+        let res_str = if self.config.is_no_network() {
             self.run_in_sandbox(&asset)?
         } else {
             self.run_against_rpc_server(asset).await?
