@@ -1,4 +1,4 @@
-package ledgerentry_writer
+package ledgerentrywriter
 
 import (
 	"context"

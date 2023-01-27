@@ -44,8 +44,7 @@ func SnapshotSourceGet(handle C.uintptr_t, ledger_key *C.char) *C.char {
 	ledgerKeyB64 := C.GoString(ledger_key)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
-		h.logger.Errorf("SnapshotSourceGet(): failed to unmarshal ledger key passed from libpreflight: %v", err)
-		return nil
+		panic(err)
 	}
 	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey)
 	if err != nil {
@@ -57,8 +56,7 @@ func SnapshotSourceGet(handle C.uintptr_t, ledger_key *C.char) *C.char {
 	}
 	out, err := xdr.MarshalBase64(entry)
 	if err != nil {
-		h.logger.Errorf("SnapshotSourceGet(): failed to marshal ledger entry from store: %v", err)
-		return nil
+		panic(err)
 	}
 	return C.CString(out)
 }
@@ -72,8 +70,7 @@ func SnapshotSourceHas(handle C.uintptr_t, ledger_key *C.char) C.int {
 	ledgerKeyB64 := C.GoString(ledger_key)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
-		h.logger.Errorf("SnapshotSourceHas(): failed to unmarshal ledger key passed from libpreflight: %v", err)
-		return 0
+		panic(err)
 	}
 	present, _, err := h.readTx.GetLedgerEntry(ledgerKey)
 	if err != nil {
@@ -180,10 +177,11 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			base_reserve: 5_000_000,
 		}
 
-		handle := C.uintptr_t(cgo.NewHandle(snapshotSourceHandle{readTx, logger}))
 		sourceAccountCString := C.CString(sourceAccountB64)
+		handle := cgo.NewHandle(snapshotSourceHandle{readTx, logger})
+		defer handle.Delete()
 		res := C.preflight_host_function(
-			handle,
+			C.uintptr_t(handle),
 			hfCString,
 			sourceAccountCString,
 			li,

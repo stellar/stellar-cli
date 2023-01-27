@@ -14,7 +14,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_writer"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentrywriter"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -22,7 +22,7 @@ const transactionProxyTTL = 5 * time.Minute
 
 type Daemon struct {
 	core    *ledgerbackend.CaptiveStellarCore
-	lew     *ledgerentry_writer.LedgerEntryWriter
+	lew     *ledgerentrywriter.LedgerEntryWriter
 	db      db.DB
 	handler *internal.Handler
 	logger  *supportlog.Entry
@@ -95,7 +95,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	lew, err := ledgerentry_writer.NewLedgerEntryWriter(ledgerentry_writer.LedgerEntryWriterCfg{
+	lew, err := ledgerentrywriter.NewLedgerEntryWriter(ledgerentrywriter.LedgerEntryWriterCfg{
 		Logger:            logger,
 		DB:                db,
 		NetworkPassPhrase: cfg.NetworkPassphrase,

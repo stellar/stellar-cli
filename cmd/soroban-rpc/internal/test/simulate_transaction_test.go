@@ -344,6 +344,39 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &response)
 	assert.NoError(t, err)
 	assert.Empty(t, response.Error)
+
+	// check the footprint
+	var obtainedFootprint xdr.LedgerFootprint
+	err = xdr.SafeUnmarshalBase64(response.Footprint, &obtainedFootprint)
+	assert.NoError(t, err)
+	assert.Len(t, obtainedFootprint.ReadWrite, 0)
+	assert.Len(t, obtainedFootprint.ReadOnly, 2)
+	ro1 := obtainedFootprint.ReadOnly[0]
+	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
+	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.ContractId)
+	assert.Equal(t, xdr.ScValTypeScvStatic, ro1.ContractData.Key.Type)
+	assert.Equal(t, xdr.ScStaticScsLedgerKeyContractCode, *ro1.ContractData.Key.Ic)
+	ro2 := obtainedFootprint.ReadOnly[1]
+	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: helloWorldContract}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := sha256.Sum256(installContractCodeArgs)
+	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
+	assert.NoError(t, err)
+
+	// check the result
+	assert.Len(t, response.Results, 1)
+	var obtainedResult xdr.ScVal
+	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
+	assert.NoError(t, err)
+	assert.Equal(t, xdr.ScValTypeScvObject, obtainedResult.Type)
+	obj := *obtainedResult.Obj
+	assert.Equal(t, xdr.ScObjectTypeScoVec, obj.Type)
+	assert.Len(t, *obj.Vec, 2)
+	world := (*obj.Vec)[1]
+	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
+	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
+
 }
 
 func TestSimulateTransactionError(t *testing.T) {

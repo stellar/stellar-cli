@@ -86,7 +86,7 @@ func TestGoldenPath(t *testing.T) {
 	assert.NoError(t, err)
 	err = tx.Done()
 	assert.NoError(t, err)
-	present, _, err = GetLedgerEntry(db, key)
+	present, _, _, err = GetLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
 
@@ -135,7 +135,7 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	// And that the entry doesn't exist
-	present, _, err := GetLedgerEntry(db, key)
+	present, _, _, err := GetLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
 }
