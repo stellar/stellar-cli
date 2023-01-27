@@ -14,8 +14,6 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
-//go:generate make -C ../../lib
-
 /*
 #include "../../lib/preflight.h"
 #include <stdlib.h>
