@@ -11,9 +11,10 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-// Cursor represents the position of an event within the sequence of all
-// Soroban events. Soroban events are sorted by ledger sequence, transaction
-// index, operation index, and event index.
+// Cursor represents the position of a Soroban event.
+// Soroban events are sorted in ascending order by
+// ledger sequence, transaction index, operation index,
+// and event index.
 type Cursor struct {
 	// Ledger is the sequence of the ledger which emitted the event.
 	Ledger uint32
@@ -98,9 +99,13 @@ type MemoryStore struct {
 	start uint32
 }
 
-// NewMemoryStore creates a new MemoryStore populated by the given ledgers.
-// retentionWindow defines a retention window in ledgers. All events occurring
-// within the retention window will be included in the store.
+// NewMemoryStore creates a new MemoryStore.
+// The retention window is in units of ledgers.
+// All events occurring in the following ledger range
+// [ latestLedger - retentionWindow, latestLedger ]
+// will be included in the MemoryStore. If the MemoryStore
+// is full, any events from new ledgers will evict
+// older entries outside the retention window.
 func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
 	if retentionWindow == 0 {
 		return nil, fmt.Errorf("retention window must be positive")
@@ -110,19 +115,17 @@ func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
 	}, nil
 }
 
-// Range defines an interval in the sequence of all Soroban events.
+// Range defines a [Start, End) interval of Soroban events.
 type Range struct {
-	// Start defines the start of the range.
-	// Start is included in the range.
+	// Start defines the (inclusive) start of the range.
 	Start Cursor
-	// ClampStart indicates whether Start should be clamped to
-	// the earliest ledger available if Start is too low.
+	// ClampStart indicates whether Start should be clamped up
+	// to the earliest ledger available if Start is too low.
 	ClampStart bool
-	// End defines the end of the range.
-	// End is excluded from the range.
+	// End defines the (exclusive) end of the range.
 	End Cursor
-	// ClampEnd indicates whether End should be clamped to
-	// the latest ledger available if End is too high.
+	// ClampEnd indicates whether End should be clamped down
+	// to the latest ledger available if End is too high.
 	ClampEnd bool
 }
 
@@ -130,7 +133,7 @@ type Range struct {
 // The events are processed in sorted ascending Cursor order.
 // If f returns false, the scan terminates early (f will not be applied on
 // remaining events in the range). Note that a read lock is held for the
-// entire duration of the Scan function so f be written in a way
+// entire duration of the Scan function so f should be written in a way
 // to minimize latency.
 func (m *MemoryStore) Scan(eventRange Range, f func(Cursor, xdr.ContractEvent) bool) error {
 	m.lock.RLock()
