@@ -205,7 +205,7 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 func seek(events []event, cursor Cursor) []event {
 	i := sort.Search(len(events), func(i int) bool {
 		event := events[i]
-		return cursor.Cmp(event.cursor(cursor.Ledger)) <= 0
+		return cursor.Cmp(events[i].cursor(cursor.Ledger)) <= 0
 	})
 	return events[i:]
 }
