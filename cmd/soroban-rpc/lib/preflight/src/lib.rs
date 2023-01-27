@@ -9,6 +9,7 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::{Host, HostError, LedgerInfo};
 use std::convert::TryInto;
+use std::error;
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
@@ -149,7 +150,12 @@ pub extern "C" fn preflight_host_function(
                 "panic during preflight_host_function() call: unknown cause".to_string(),
             ),
         },
-        Ok(r) => r,
+        // transfer ownership to caller
+        // caller needs to invoke free_preflight_result(result) when done
+        Ok(r) => match r {
+            Ok(r2) => Box::into_raw(Box::new(r2)),
+            Err(e) => preflight_error(format!("{}", e)),
+        },
     }
 }
 
@@ -158,17 +164,11 @@ fn preflight_host_function_or_maybe_panic(
     hf: *const libc::c_char, // HostFunction XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
-) -> *mut CPreflightResult {
+) -> Result<CPreflightResult, Box<dyn error::Error>> {
     let hf_cstr = unsafe { CStr::from_ptr(hf) };
-    let hf = match HostFunction::from_xdr_base64(hf_cstr.to_str().unwrap()) {
-        Ok(hf) => hf,
-        Err(err) => return preflight_error(format!("decoding host function: {}", err)),
-    };
+    let hf = HostFunction::from_xdr_base64(hf_cstr.to_str().unwrap())?;
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
-    let source_account = match AccountId::from_xdr_base64(source_account_cstr.to_str().unwrap()) {
-        Ok(account_id) => account_id,
-        Err(err) => return preflight_error(format!("decoding account_id: {}", err)),
-    };
+    let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str().unwrap())?;
     let src = Rc::new(CSnapshotSource { handle });
     let storage = Storage::with_recording_footprint(src);
     let budget = Budget::default();
@@ -178,38 +178,21 @@ fn preflight_host_function_or_maybe_panic(
     host.set_ledger_info(ledger_info.into());
 
     // Run the preflight.
-    let res = host.invoke_function(hf);
+    let result = host.invoke_function(hf)?;
 
     // Recover, convert and return the storage footprint and other values to C.
-    let (storage, budget, _) = match host.try_finish() {
-        Ok(v) => v,
-        Err(err) => {
-            return preflight_error(format!("{:?}", err));
-        }
-    };
+    let (storage, budget, _) = host.try_finish().unwrap();
 
-    let result = match res {
-        Ok(val) => val,
-        Err(err) => return preflight_error(err.to_string()),
-    };
-
-    let fp = match storage_footprint_to_ledger_footprint(&storage.footprint) {
-        Ok(fp) => fp,
-        Err(err) => {
-            return preflight_error(err.to_string());
-        }
-    };
+    let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
     let fp_cstr = CString::new(fp.to_xdr_base64().unwrap()).unwrap();
     let result_cstr = CString::new(result.to_xdr_base64().unwrap()).unwrap();
-    // transfer ownership to caller
-    // caller needs to invoke free_preflight_result(result) when done
-    Box::into_raw(Box::new(CPreflightResult {
+    Ok(CPreflightResult {
         error: null_mut(),
         result: result_cstr.into_raw(),
         footprint: fp_cstr.into_raw(),
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
-    }))
+    })
 }
 
 #[no_mangle]
