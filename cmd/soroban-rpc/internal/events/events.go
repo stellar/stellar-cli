@@ -203,11 +203,10 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 // at a point greater than or equal to the given cursor.
 // events must be sorted in ascending order.
 func seek(events []event, cursor Cursor) []event {
-	i := sort.Search(len(events), func(i int) bool {
-		event := events[i]
+	j := sort.Search(len(events), func(i int) bool {
 		return cursor.Cmp(events[i].cursor(cursor.Ledger)) <= 0
 	})
-	return events[i:]
+	return events[j:]
 }
 
 // IngestEvents adds new events from the given ledger into the store.
