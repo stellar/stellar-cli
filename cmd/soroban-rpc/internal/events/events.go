@@ -1,6 +1,7 @@
 package events
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -77,9 +78,9 @@ type event struct {
 	eventIndex uint32
 }
 
-func (e event) cursor(ledger uint32) Cursor {
+func (e event) cursor(ledgerSeq uint32) Cursor {
 	return Cursor{
-		Ledger: ledger,
+		Ledger: ledgerSeq,
 		Tx:     e.txIndex,
 		Op:     e.opIndex,
 		Event:  e.eventIndex,
@@ -92,9 +93,6 @@ type MemoryStore struct {
 	// buckets is a circular buffer where each cell represents
 	// all events occurring within a specific ledger.
 	buckets []bucket
-	// length is equal to the number of ledgers contained within
-	// the circular buffer.
-	length uint32
 	// start is the index of the head in the circular buffer.
 	start uint32
 }
@@ -108,10 +106,10 @@ type MemoryStore struct {
 // older entries outside the retention window.
 func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
 	if retentionWindow == 0 {
-		return nil, fmt.Errorf("retention window must be positive")
+		return nil, errors.New("retention window must be positive")
 	}
 	return &MemoryStore{
-		buckets: make([]bucket, retentionWindow),
+		buckets: make([]bucket, 0, retentionWindow),
 	}, nil
 }
 
@@ -147,7 +145,7 @@ func (m *MemoryStore) Scan(eventRange Range, f func(Cursor, xdr.ContractEvent) b
 	minLedger := m.buckets[m.start].ledgerSeq
 	i := ((curLedger - minLedger) + m.start) % uint32(len(m.buckets))
 	events := seek(m.buckets[i].events, eventRange.Start)
-	for {
+	for ; curLedger == m.buckets[i].ledgerSeq; curLedger++ {
 		for _, event := range events {
 			cur := event.cursor(curLedger)
 			if eventRange.End.Cmp(cur) <= 0 {
@@ -158,20 +156,17 @@ func (m *MemoryStore) Scan(eventRange Range, f func(Cursor, xdr.ContractEvent) b
 			}
 		}
 		i = (i + 1) % uint32(len(m.buckets))
-		curLedger++
-		if m.buckets[i].ledgerSeq != curLedger {
-			return nil
-		}
 		events = m.buckets[i].events
 	}
+	return nil
 }
 
 // validateRange checks if the range falls within the bounds
 // of the events in the memory store.
 // validateRange should be called with the read lock.
 func (m *MemoryStore) validateRange(eventRange *Range) error {
-	if m.length == 0 {
-		return fmt.Errorf("event store is empty")
+	if len(m.buckets) == 0 {
+		return errors.New("event store is empty")
 	}
 
 	min := Cursor{Ledger: m.buckets[m.start].ledgerSeq}
@@ -179,21 +174,21 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 		if eventRange.ClampStart {
 			eventRange.Start = min
 		} else {
-			return fmt.Errorf("start is before oldest ledger")
+			return errors.New("start is before oldest ledger")
 		}
 	}
 
-	max := Cursor{Ledger: min.Ledger + m.length}
+	max := Cursor{Ledger: min.Ledger + uint32(len(m.buckets))}
 	if eventRange.End.Cmp(max) > 0 {
 		if eventRange.ClampEnd {
 			eventRange.End = max
 		} else {
-			return fmt.Errorf("end is after latest ledger")
+			return errors.New("end is after latest ledger")
 		}
 	}
 
 	if eventRange.Start.Cmp(eventRange.End) >= 0 {
-		return fmt.Errorf("start is not before end")
+		return errors.New("start is not before end")
 	}
 
 	return nil
@@ -256,19 +251,25 @@ func (m *MemoryStore) append(sequence uint32, events []event) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	expectedLedgerSequence := m.buckets[m.start].ledgerSeq + m.length
-	if m.length > 0 && expectedLedgerSequence != sequence {
-		return fmt.Errorf("events not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, sequence)
+	length := uint32(len(m.buckets))
+	if length > 0 {
+		expectedLedgerSequence := m.buckets[m.start].ledgerSeq + length
+		if expectedLedgerSequence != sequence {
+			return fmt.Errorf("events not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, sequence)
+		}
 	}
 
-	index := (m.start + m.length) % uint32(len(m.buckets))
-	m.buckets[index] = bucket{
-		ledgerSeq: sequence,
-		events:    events,
-	}
-	if m.length < uint32(len(m.buckets)) {
-		m.length++
+	if length < uint32(cap(m.buckets)) {
+		m.buckets = append(m.buckets, bucket{
+			ledgerSeq: sequence,
+			events:    events,
+		})
 	} else {
+		index := (m.start + length) % uint32(len(m.buckets))
+		m.buckets[index] = bucket{
+			ledgerSeq: sequence,
+			events:    events,
+		}
 		m.start++
 	}
 
