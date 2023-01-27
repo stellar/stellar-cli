@@ -26,6 +26,9 @@ var (
 		newEvent(2, 0, 2, 900),
 		newEvent(2, 1, 0, 1000),
 	}
+	ledger9Events = []event{
+		newEvent(1, 0, 0, 1100),
+	}
 )
 
 func newEvent(txIndex, opIndex, eventIndex, val uint32) event {
@@ -125,11 +128,13 @@ func TestAppend(t *testing.T) {
 	m, err := NewMemoryStore(3)
 	require.NoError(t, err)
 
+	// test appending first bucket of events
 	require.NoError(t, m.append(5, ledger5Events))
 	require.Equal(t, uint32(5), m.buckets[m.start].ledgerSeq)
 	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
 	require.Equal(t, uint32(1), m.length)
 
+	// the next bucket of events must follow the previous bucket (ledger 5)
 	require.EqualError(
 		t, m.append(10, ledger5Events),
 		"events not contiguous: expected ledger sequence 6 but received 10",
@@ -142,14 +147,17 @@ func TestAppend(t *testing.T) {
 		t, m.append(5, nil),
 		"events not contiguous: expected ledger sequence 6 but received 5",
 	)
+	// check that none of the calls above modified our buckets
 	require.Equal(t, ledger5Events, m.buckets[m.start].events)
 	require.Equal(t, uint32(1), m.length)
 
+	// append ledger 6 events, now we have two buckets filled
 	require.NoError(t, m.append(6, ledger6Events))
 	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger6Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
 	require.Equal(t, uint32(2), m.length)
 
+	// the next bucket of events must follow the previous bucket (ledger 6)
 	require.EqualError(
 		t, m.append(10, ledger5Events),
 		"events not contiguous: expected ledger sequence 7 but received 10",
@@ -163,24 +171,21 @@ func TestAppend(t *testing.T) {
 		"events not contiguous: expected ledger sequence 7 but received 6",
 	)
 
+	// append ledger 7 events, now we have all three buckets filled
 	require.NoError(t, m.append(7, ledger7Events))
 	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger6Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
 	eventsAreEqual(t, ledger7Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
 	require.Equal(t, uint32(3), m.length)
 
-	ledger8Events := []event{
-		newEvent(1, 0, 0, 600),
-	}
+	// append ledger 8 events, but all buckets are full, so we need to evict ledger 5
 	require.NoError(t, m.append(8, ledger8Events))
 	eventsAreEqual(t, ledger6Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger7Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
 	eventsAreEqual(t, ledger8Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
 	require.Equal(t, uint32(3), m.length)
 
-	ledger9Events := []event{
-		newEvent(1, 0, 0, 700),
-	}
+	// append ledger 9 events, but all buckets are full, so we need to evict ledger 6
 	require.NoError(t, m.append(9, ledger9Events))
 	eventsAreEqual(t, ledger7Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger8Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
