@@ -3,9 +3,10 @@ extern crate soroban_env_host;
 
 use soroban_env_host::budget::Budget;
 use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
+use soroban_env_host::xdr::ScUnknownErrorCode::{General, Xdr};
 use soroban_env_host::xdr::{
     self, AccountId, HostFunction, LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode,
-    WriteXdr,
+    ScStatus, WriteXdr,
 };
 use soroban_env_host::{Host, HostError, LedgerInfo};
 use std::convert::TryInto;
@@ -35,8 +36,10 @@ struct CSnapshotSource {
 
 impl SnapshotSource for CSnapshotSource {
     fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, HostError> {
-        let key_xdr = key.to_xdr_base64().unwrap();
-        let key_cstr = CString::new(key_xdr).unwrap();
+        let key_xdr = key
+            .to_xdr_base64()
+            .map_err(|_| ScStatus::UnknownError(Xdr))?;
+        let key_cstr = CString::new(key_xdr).map_err(|_| ScStatus::UnknownError(General))?;
         let res = unsafe { SnapshotSourceGet(self.handle, key_cstr.as_ptr()) };
         if res.is_null() {
             return Err(HostError::from(
@@ -44,17 +47,20 @@ impl SnapshotSource for CSnapshotSource {
             ));
         }
         let res_cstr = unsafe { CStr::from_ptr(res) };
-        let res_str = res_cstr.to_str().unwrap();
-        // TODO: use a proper error
-        let entry = LedgerEntry::from_xdr_base64(res_str)
-            .map_err(|_| ScHostStorageErrorCode::UnknownError)?;
+        let res_str = res_cstr
+            .to_str()
+            .map_err(|_| ScStatus::UnknownError(General))?;
+        let entry =
+            LedgerEntry::from_xdr_base64(res_str).map_err(|_| ScStatus::UnknownError(Xdr))?;
         unsafe { FreeGoCString(res) };
         Ok(entry)
     }
 
     fn has(&self, key: &LedgerKey) -> Result<bool, HostError> {
-        let key_xdr = key.to_xdr_base64().unwrap();
-        let key_cstr = CString::new(key_xdr).unwrap();
+        let key_xdr = key
+            .to_xdr_base64()
+            .map_err(|_| ScStatus::UnknownError(Xdr))?;
+        let key_cstr = CString::new(key_xdr).map_err(|_| ScStatus::UnknownError(Xdr))?;
         let res = unsafe { SnapshotSourceHas(self.handle, key_cstr.as_ptr()) };
         Ok(match res {
             0 => false,
@@ -166,9 +172,9 @@ fn preflight_host_function_or_maybe_panic(
     ledger_info: CLedgerInfo,
 ) -> Result<CPreflightResult, Box<dyn error::Error>> {
     let hf_cstr = unsafe { CStr::from_ptr(hf) };
-    let hf = HostFunction::from_xdr_base64(hf_cstr.to_str().unwrap())?;
+    let hf = HostFunction::from_xdr_base64(hf_cstr.to_str()?)?;
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
-    let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str().unwrap())?;
+    let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str()?)?;
     let src = Rc::new(CSnapshotSource { handle });
     let storage = Storage::with_recording_footprint(src);
     let budget = Budget::default();
@@ -184,8 +190,8 @@ fn preflight_host_function_or_maybe_panic(
     let (storage, budget, _) = host.try_finish().unwrap();
 
     let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
-    let fp_cstr = CString::new(fp.to_xdr_base64().unwrap()).unwrap();
-    let result_cstr = CString::new(result.to_xdr_base64().unwrap()).unwrap();
+    let fp_cstr = CString::new(fp.to_xdr_base64()?)?;
+    let result_cstr = CString::new(result.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),
         result: result_cstr.into_raw(),
