@@ -56,3 +56,7 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
+
+[profile.release-with-panic-unwind]
+inherits = 'release'
+panic = 'unwind'

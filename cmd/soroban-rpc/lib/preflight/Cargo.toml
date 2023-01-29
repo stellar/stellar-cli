@@ -9,5 +9,3 @@ crate-type = ["staticlib"]
 libc = "0.2.2"
 soroban-env-host = {workspace = true, features = ["vm"]}
 
-[profile.release]
-panic = 'unwind'

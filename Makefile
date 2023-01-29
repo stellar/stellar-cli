@@ -25,13 +25,13 @@ build: Cargo.lock
 
 
 # Always specify the build target so that libpreflight.a is always put into
-# an architecture subdirectory (i.e. target/$(CARGO_BUILD_TARGET)/release )
+# an architecture subdirectory (i.e. target/$(CARGO_BUILD_TARGET)/release-with-panic-unwind )
 # Otherwise it will be much harder for Golang to find the library since
 # it would need to distinguish when we are crosscompiling and when we are not
-# (libpreflight.a is put at target/release/ when not cross compiling)
+# (libpreflight.a is put at target/release-with-panic-unwind/ when not cross compiling)
 CARGO_BUILD_TARGET ?= $(shell rustc -vV | sed -n 's|host: ||p')
 build-libpreflight: Cargo.lock
-	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --release
+	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind
 
 build-test-wasms: Cargo.lock
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
