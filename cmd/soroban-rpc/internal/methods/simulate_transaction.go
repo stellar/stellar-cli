@@ -39,9 +39,9 @@ type snapshotSourceHandle struct {
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceGet
-func SnapshotSourceGet(handle C.uintptr_t, ledger_key *C.char) *C.char {
+func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char) *C.char {
 	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
-	ledgerKeyB64 := C.GoString(ledger_key)
+	ledgerKeyB64 := C.GoString(cLedgerKey)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
 		panic(err)
@@ -65,9 +65,9 @@ func SnapshotSourceGet(handle C.uintptr_t, ledger_key *C.char) *C.char {
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceHas
-func SnapshotSourceHas(handle C.uintptr_t, ledger_key *C.char) C.int {
+func SnapshotSourceHas(handle C.uintptr_t, cLedgerKey *C.char) C.int {
 	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
-	ledgerKeyB64 := C.GoString(ledger_key)
+	ledgerKeyB64 := C.GoString(cLedgerKey)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
 		panic(err)
@@ -161,7 +161,9 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 				Error: "Cannot create db transaction",
 			}
 		}
-		defer readTx.Done()
+		defer func() {
+			_ = readTx.Done()
+		}()
 		latestLedger, err := readTx.GetLatestLedgerSequence()
 		if err != nil {
 			return SimulateTransactionResponse{
