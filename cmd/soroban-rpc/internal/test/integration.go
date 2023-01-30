@@ -35,10 +35,11 @@ import (
 
 const (
 	StandaloneNetworkPassphrase = "Standalone Network ; February 2017"
-	stellarCoreProtocolVersion  = 20
+	StellarCoreProtocolVersion  = 20
 	stellarCorePort             = 11626
 	goModFile                   = "go.mod"
 	goMonorepoGithubPath        = "github.com/stellar/go"
+	FriendbotURL                = "http://localhost:8000/friendbot"
 )
 
 type Test struct {
@@ -103,6 +104,7 @@ func (i *Test) launchDaemon() {
 		CaptiveCoreConfigPath:     path.Join(i.composePath, "captive-core-integration-tests.cfg"),
 		CaptiveCoreHTTPPort:       0,
 		CaptiveCoreStoragePath:    i.t.TempDir(),
+		FriendbotURL:              FriendbotURL,
 		NetworkPassphrase:         StandaloneNetworkPassphrase,
 		HistoryArchiveURLs:        []string{"http://localhost:1570"},
 		LogLevel:                  logrus.DebugLevel,
@@ -216,7 +218,7 @@ func (i *Test) waitForCore() {
 		break
 	}
 
-	i.UpgradeProtocol(stellarCoreProtocolVersion)
+	i.UpgradeProtocol(StellarCoreProtocolVersion)
 
 	for t := 0; t < 5; t++ {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -250,7 +252,7 @@ func (i *Test) waitForHorizon() {
 			continue
 		}
 
-		if uint32(root.CurrentProtocolVersion) == stellarCoreProtocolVersion {
+		if uint32(root.CurrentProtocolVersion) == StellarCoreProtocolVersion {
 			i.t.Logf("Horizon protocol version matches %d: %+v",
 				root.CurrentProtocolVersion, root)
 			return

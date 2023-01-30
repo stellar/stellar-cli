@@ -10,6 +10,8 @@ import (
 	"github.com/stellar/go/clients/stellarcore"
 )
 
+type GetNetworkRequest struct{}
+
 type GetNetworkResponse struct {
 	FriendbotURL    string `json:"friendbotUrl,omitempty"`
 	Passphrase      string `json:"passphrase"`
@@ -18,7 +20,7 @@ type GetNetworkResponse struct {
 
 // NewGetNetworkHandler returns a json rpc handler to for the getNetwork method
 func NewGetNetworkHandler(networkPassphrase, friendbotURL string, coreClient *stellarcore.Client) jrpc2.Handler {
-	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) (GetNetworkResponse, error) {
+	return handler.New(func(ctx context.Context, request GetNetworkRequest) (GetNetworkResponse, error) {
 		info, err := coreClient.Info(ctx)
 		if err != nil {
 			return GetNetworkResponse{}, (&jrpc2.Error{
