@@ -1464,6 +1464,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "preflight"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "soroban-env-host",
+]
+
+[[package]]
 name = "prettyplease"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"

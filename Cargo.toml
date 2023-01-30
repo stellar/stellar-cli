@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "cmd/soroban-cli",
     "cmd/soroban-cli/tests/fixtures/test-wasms/*",
+    "cmd/soroban-rpc/lib/preflight",
 ]
 default-members = ["cmd/soroban-cli"]
 
@@ -55,3 +56,7 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
+
+[profile.release-with-panic-unwind]
+inherits = 'release'
+panic = 'unwind'

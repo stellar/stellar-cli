@@ -24,13 +24,13 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/sirupsen/logrus"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
-
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/clients/stellarcore"
 	"golang.org/x/mod/modfile"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
 const (
@@ -125,9 +125,9 @@ func (i *Test) launchDaemon() {
 
 	success := false
 	for t := 30; t >= 0; t -= 1 {
-		sequence, err := i.daemon.GetLedgerStorage().GetLatestLedgerSequence()
+		sequence, err := db.GetLatestLedgerSequence(i.daemon.GetDB())
 		if err != nil {
-			if err != ledgerentry_storage.ErrEmptyDB {
+			if err != db.ErrEmptyDB {
 				i.t.Fatalf("cannot access ledger entry storage: %v", err)
 			}
 		} else {

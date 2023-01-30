@@ -20,6 +20,12 @@ jobs:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
       - name: Setup GO
         uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # version v3.3.0
+
+      - name: Build libpreflight
+        run: |
+          rustup update
+          make build-libpreflight
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc # version v3.2.0
         with:
