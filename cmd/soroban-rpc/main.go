@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, networkPassphrase, dbPath, captivecoreStoragePath string
+	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, friendbotURL, networkPassphrase, dbPath, captivecoreStoragePath string
 	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
 	var checkpointFrequency uint32
 	var useDB bool
@@ -135,6 +135,13 @@ func main() {
 			Usage: "comma-separated list of stellar history archives to connect with",
 		},
 		{
+			Name:      "friendbot-url",
+			Usage:     "URL where friendbot requests should be sent",
+			OptType:   types.String,
+			ConfigKey: &friendbotURL,
+			Required:  false,
+		},
+		{
 			Name:        "network-passphrase",
 			Usage:       "Network passphrase of the Stellar network transactions should be signed for",
 			OptType:     types.String,
@@ -201,6 +208,7 @@ func main() {
 				CaptiveCoreUseDB:          useDB,
 				CaptiveCoreHTTPPort:       uint16(captiveCoreHTTPPort),
 				CaptiveCoreStoragePath:    captivecoreStoragePath,
+				FriendbotURL:              friendbotURL,
 				NetworkPassphrase:         networkPassphrase,
 				HistoryArchiveURLs:        historyArchiveURLs,
 				LogLevel:                  logLevel,
