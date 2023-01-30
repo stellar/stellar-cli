@@ -25,7 +25,7 @@ func main() {
 	var checkpointFrequency uint32
 	var useDB bool
 	var historyArchiveURLs []string
-	var txConcurrency, txQueueSize int
+	var txConcurrency, txQueueSize, ledgerRetentionWindow int
 	var logLevel logrus.Level
 
 	configOpts := config.ConfigOptions{
@@ -189,6 +189,15 @@ func main() {
 			FlagDefault: uint32(64),
 			Required:    false,
 		},
+		{
+			Name:        "ledger-retention-window",
+			OptType:     types.Int,
+			FlagDefault: 17280,
+			Required:    false,
+			Usage: "configures the window of ledgers which are stored in the db." +
+				" the default value is 17280 which corresponds to about 24 hours of ledgers",
+			ConfigKey: &ledgerRetentionWindow,
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -217,6 +226,7 @@ func main() {
 				LedgerEntryStorageTimeout: time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute,
 				SQLiteDBPath:              dbPath,
 				CheckpointFrequency:       checkpointFrequency,
+				LedgerRetentionWindow:     ledgerRetentionWindow,
 			}
 			exitCode := daemon.Run(config, endpoint)
 			os.Exit(exitCode)

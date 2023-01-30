@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
@@ -14,37 +16,40 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentrywriter"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
 const transactionProxyTTL = 5 * time.Minute
 
 type Daemon struct {
-	core    *ledgerbackend.CaptiveStellarCore
-	lew     *ledgerentrywriter.LedgerEntryWriter
-	db      db.DB
-	handler *internal.Handler
-	logger  *supportlog.Entry
+	core         *ledgerbackend.CaptiveStellarCore
+	ingestRunner *ingest.Runner
+	db           *sqlx.DB
+	handler      *internal.Handler
+	logger       *supportlog.Entry
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	d.handler.ServeHTTP(writer, request)
 }
 
-func (d *Daemon) GetDB() db.DB {
+func (d *Daemon) GetDB() *sqlx.DB {
 	return d.db
 }
 
 func (d *Daemon) Close() error {
 	var err error
-	if localErr := d.lew.Close(); localErr != nil {
+	if localErr := d.ingestRunner.Close(); localErr != nil {
 		err = localErr
 	}
 	if localErr := d.core.Close(); localErr != nil {
 		err = localErr
 	}
 	d.handler.Close()
+	if localErr := d.db.Close(); localErr != nil {
+		err = localErr
+	}
 	return err
 }
 
@@ -90,18 +95,19 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not connect to history archive: %v", err)
 	}
 
-	db, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
+	dbConn, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	lew, err := ledgerentrywriter.NewLedgerEntryWriter(ledgerentrywriter.LedgerEntryWriterCfg{
-		Logger:            logger,
-		DB:                db,
-		NetworkPassPhrase: cfg.NetworkPassphrase,
-		Archive:           historyArchive,
-		LedgerBackend:     core,
-		Timeout:           cfg.LedgerEntryStorageTimeout,
+	ingestRunner, err := ingest.NewRunner(ingest.Config{
+		Logger:                logger,
+		DB:                    db.NewWriter(dbConn),
+		NetworkPassPhrase:     cfg.NetworkPassphrase,
+		Archive:               historyArchive,
+		LedgerBackend:         core,
+		Timeout:               cfg.LedgerEntryStorageTimeout,
+		LedgerRetentionWindow: cfg.LedgerRetentionWindow,
 	})
 	if err != nil {
 		logger.Fatalf("could not initialize ledger entry writer: %v", err)
@@ -132,18 +138,18 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		Logger:            logger,
 		TransactionProxy:  transactionProxy,
 		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
-		DB:                db,
+		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)
 	}
 	handler.Start()
 	return &Daemon{
-		logger:  logger,
-		core:    core,
-		lew:     lew,
-		handler: &handler,
-		db:      db,
+		logger:       logger,
+		core:         core,
+		ingestRunner: ingestRunner,
+		handler:      &handler,
+		db:           dbConn,
 	}
 }
 

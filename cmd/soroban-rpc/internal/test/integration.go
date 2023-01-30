@@ -112,6 +112,7 @@ func (i *Test) launchDaemon() {
 		TxQueueSize:               10,
 		SQLiteDBPath:              path.Join(i.t.TempDir(), "soroban_rpc.sqlite"),
 		LedgerEntryStorageTimeout: 10 * time.Minute,
+		LedgerRetentionWindow:     17280,
 		// Needed when Core is run with ARTIFICIALLY_ACCELERATE_TIME_FOR_TESTING=true
 		CheckpointFrequency: 8,
 	}
@@ -125,9 +126,10 @@ func (i *Test) launchDaemon() {
 	}
 	targetLedgerSequence := uint32(info.Info.Ledger.Num)
 
+	reader := db.NewLedgerEntryReader(i.daemon.GetDB())
 	success := false
 	for t := 30; t >= 0; t -= 1 {
-		sequence, err := db.GetLatestLedgerSequence(i.daemon.GetDB())
+		sequence, err := reader.GetLatestLedgerSequence(context.Background())
 		if err != nil {
 			if err != db.ErrEmptyDB {
 				i.t.Fatalf("cannot access ledger entry storage: %v", err)
