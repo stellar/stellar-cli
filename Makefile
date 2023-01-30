@@ -23,6 +23,16 @@ build: Cargo.lock
 	cargo build
 	go build -ldflags="${GOLDFLAGS}" ./...
 
+
+# Always specify the build target so that libpreflight.a is always put into
+# an architecture subdirectory (i.e. target/$(CARGO_BUILD_TARGET)/release-with-panic-unwind )
+# Otherwise it will be much harder for Golang to find the library since
+# it would need to distinguish when we are crosscompiling and when we are not
+# (libpreflight.a is put at target/release-with-panic-unwind/ when not cross compiling)
+CARGO_BUILD_TARGET ?= $(shell rustc -vV | sed -n 's|host: ||p')
+build-libpreflight: Cargo.lock
+	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind
+
 build-test-wasms: Cargo.lock
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
 
@@ -51,7 +61,7 @@ publish:
 # the build-soroban-rpc build target is an optimized build target used by 
 # https://github.com/stellar/pipelines/stellar-horizon/Jenkinsfile-soroban-rpc-package-builder
 # as part of the package building.
-build-soroban-rpc:
+build-soroban-rpc: build-libpreflight
 	go build -ldflags="${GOLDFLAGS}" -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
 
 lint-changes:
@@ -61,4 +71,4 @@ lint:
 	golangci-lint run ./...
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc lint lint-changes
+.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes

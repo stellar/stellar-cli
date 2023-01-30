@@ -8,10 +8,10 @@ import (
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
-
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
 type GetLedgerEntryRequest struct {
@@ -25,7 +25,7 @@ type GetLedgerEntryResponse struct {
 }
 
 // NewGetLedgerEntryHandler returns a json rpc handler to retrieve the specified ledger entry from stellar core
-func NewGetLedgerEntryHandler(logger *log.Entry, storage ledgerentry_storage.LedgerEntryStorage) jrpc2.Handler {
+func NewGetLedgerEntryHandler(logger *log.Entry, database db.DB) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetLedgerEntryRequest) (GetLedgerEntryResponse, error) {
 		var key xdr.LedgerKey
 		if err := xdr.SafeUnmarshalBase64(request.Key, &key); err != nil {
@@ -37,7 +37,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, storage ledgerentry_storage.Led
 			}
 		}
 
-		ledgerEntry, present, latestLedger, err := storage.GetLedgerEntry(key)
+		present, ledgerEntry, latestLedger, err := db.GetLedgerEntryAndLatestLedgerSequence(database, key)
 		if err != nil {
 			logger.WithError(err).WithField("request", request).
 				Info("could not obtain ledger entry from storage")
