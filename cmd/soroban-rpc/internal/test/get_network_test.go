@@ -23,7 +23,7 @@ func TestGetNetworkSucceeds(t *testing.T) {
 	var result methods.GetNetworkResponse
 	err := client.CallResult(context.Background(), "getNetwork", request, &result)
 	assert.NoError(t, err)
-	assert.Equal(t, result.FriendbotURL, FriendbotURL)
-	assert.Equal(t, result.Passphrase, StandaloneNetworkPassphrase)
-	assert.Equal(t, result.ProtocolVersion, fmt.Sprint(StellarCoreProtocolVersion))
+	assert.Equal(t, FriendbotURL, result.FriendbotURL)
+	assert.Equal(t, StandaloneNetworkPassphrase, result.Passphrase)
+	assert.Equal(t, StellarCoreProtocolVersion, result.ProtocolVersion)
 }
