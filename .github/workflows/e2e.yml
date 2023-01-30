@@ -14,28 +14,31 @@ jobs:
         scenario-filter: ["^TestDappDevelop$/^.*$"]
     runs-on: ubuntu-latest
     env:
-      # TODO: restore stellar/system-test once the tests are fixed
-      SYSTEM_TEST_DOCKER_REPO_TAG: "2opremio/system-test"
+      TOOLS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SYSTEM_TEST_GIT_REF: master
+      SYSTEM_TEST_CORE_GIT_REF: f1dc39f0f146815e5e3a94ed162e2f0639cb433f
+      SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
+      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
+      SYSTEM_TEST_QUICKSTART_GIT_REF: master
+      SYSTEM_TEST_VERBOSE_OUTPUT: "true"
+      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "1.66.0"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "main"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
-      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "1.66.0"
-      SYSTEM_TEST_CORE_DEBIAN_VERSION: "19.6.1-1158.c0ad35aa1.focal~soroban"
-      SYSTEM_TEST_HORIZON_DEBIAN_VERSION: "2.22.0~soroban-322"
-      SYSTEM_TEST_VERBOSE_OUTPUT: "true"
     steps:
       - uses: actions/checkout@v3
-      - uses: stellar/actions/rust-cache@main
+        with:
+          ref: ${{ env.SYSTEM_TEST_GIT_REF }}
+      - uses: stellar/actions/rust-cache@main 
       - name: Run system test scenarios
         run: |
-          docker run --platform linux/amd64 -t --rm \
-          -v "$(pwd):/soroban-tools" "$SYSTEM_TEST_DOCKER_REPO_TAG" \
-          --SorobanCLISourceVolume "/soroban-tools" \
-          --SorobanRPCSourceVolume "/soroban-tools" \
-          --SorobanExamplesGitHash "$SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH" \
-          --SorobanExamplesRepoURL "$SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO" \
-          --RustToolchainVersion "$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION" \
-          --CoreDebianVersion "$SYSTEM_TEST_CORE_DEBIAN_VERSION" \
-          --HorizonDebianVersion "$SYSTEM_TEST_HORIZON_DEBIAN_VERSION" \
-          --TestFilter "${{ matrix.scenario-filter }}" \
-          --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT 
-     
+          make CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
+              CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
+              SOROBAN_RPC_GIT_REF=$TOOLS_SHA \
+              RUST_TOOLCHAIN_VERSION=1.66.0 \
+              SOROBAN_CLI_GIT_REF=$TOOLS_SHA \
+              QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
+              build
+
+          docker run --rm -t --name e2e_test stellar/system-test:dev \
+          --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT  \
+          --TestFilter "${{ matrix.scenario-filter }}" 
