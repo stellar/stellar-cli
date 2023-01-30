@@ -31,7 +31,7 @@ func getHelloWorldContract(t *testing.T) []byte {
 	contractFile := path.Join(testDirName, "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm")
 	ret, err := os.ReadFile(contractFile)
 	if err != nil {
-		t.Fatalf("test_hello_world.wasm can't be found (%v) please run `make build-test-wasms` at the project root directory", err)
+		t.Fatalf("unable to read test_hello_world.wasm (%v) please run `make build-test-wasms` at the project root directory", err)
 	}
 	return ret
 }
