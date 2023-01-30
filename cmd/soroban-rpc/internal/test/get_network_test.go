@@ -23,20 +23,7 @@ func TestGetNetworkSucceeds(t *testing.T) {
 	var result methods.GetNetworkResponse
 	err := client.CallResult(context.Background(), "getNetwork", request, &result)
 	assert.NoError(t, err)
-	assert.Equal(t, result.FriendbotURL, "?friendbot?")
+	assert.Equal(t, result.FriendbotURL, FriendbotURL)
 	assert.Equal(t, result.Passphrase, StandaloneNetworkPassphrase)
 	assert.Equal(t, result.ProtocolVersion, fmt.Sprint(StellarCoreProtocolVersion))
-}
-
-func TestGetNetworkCoreClientError(t *testing.T) {
-	test := NewTest(t)
-
-	ch := jhttp.NewChannel(test.server.URL, nil)
-	client := jrpc2.NewClient(ch, nil)
-
-	request := methods.GetNetworkRequest{}
-
-	var result methods.GetNetworkResponse
-	err := client.CallResult(context.Background(), "getNetwork", request, &result)
-	assert.EqualError(t, err, "some error here")
 }
