@@ -347,8 +347,15 @@ func GetLatestLedgerSequence(db DB) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Done()
-	return tx.GetLatestLedgerSequence()
+	var doneErr error
+	defer func() {
+		doneErr = tx.Done()
+	}()
+	ret, err := tx.GetLatestLedgerSequence()
+	if err != nil {
+		return 0, err
+	}
+	return ret, doneErr
 }
 
 func GetLedgerEntryAndLatestLedgerSequence(db DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
@@ -356,7 +363,10 @@ func GetLedgerEntryAndLatestLedgerSequence(db DB, key xdr.LedgerKey) (bool, xdr.
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
 	}
-	defer tx.Done()
+	var doneErr error
+	defer func() {
+		doneErr = tx.Done()
+	}()
 	seq, err := tx.GetLatestLedgerSequence()
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
@@ -365,5 +375,5 @@ func GetLedgerEntryAndLatestLedgerSequence(db DB, key xdr.LedgerKey) (bool, xdr.
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
 	}
-	return present, entry, seq, nil
+	return present, entry, seq, doneErr
 }
