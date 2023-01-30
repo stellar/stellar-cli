@@ -61,7 +61,7 @@ publish:
 # the build-soroban-rpc build target is an optimized build target used by 
 # https://github.com/stellar/pipelines/stellar-horizon/Jenkinsfile-soroban-rpc-package-builder
 # as part of the package building.
-build-soroban-rpc: build-preflight
+build-soroban-rpc: build-libpreflight
 	go build -ldflags="${GOLDFLAGS}" -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
 
 lint-changes:
