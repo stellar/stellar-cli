@@ -21,7 +21,6 @@ jobs:
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
       SYSTEM_TEST_QUICKSTART_GIT_REF: master
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
-      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "1.66.0"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "main"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
