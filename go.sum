@@ -170,8 +170,8 @@ github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189 h1:fvB1AFbBd6SfI9Rd0oo
 github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189/go.mod h1:A8kyI5cUJhb8N+3pkfONlcEcZbueH6nhAm0Fq7SrnBM=
 github.com/stellar/go v0.0.0-20230120150719-164910adff87 h1:G9TC6GyEn+sISTg5hxrcw/CD2NOKyWslvdBfnZMH1Z4=
 github.com/stellar/go v0.0.0-20230120150719-164910adff87/go.mod h1:QXwuKmYVvqQZlByv0EeNb0Rgog9AP+eMmARcdt3h2rI=
-github.com/stellar/go v0.0.0-20230125220950-1c33c875f743 h1:BSLNPq+cmFQYcFYi3o0bUwXemWgk3iPQgYrrvoCKH4s=
-github.com/stellar/go v0.0.0-20230125220950-1c33c875f743/go.mod h1:QXwuKmYVvqQZlByv0EeNb0Rgog9AP+eMmARcdt3h2rI=
+github.com/stellar/go v0.0.0-20230126104422-77cf2ca9d550 h1:GTz5CZnj0dhXin0zyTt9jZixS6X0B/aDcNn7bkKt9IU=
+github.com/stellar/go v0.0.0-20230126104422-77cf2ca9d550/go.mod h1:QXwuKmYVvqQZlByv0EeNb0Rgog9AP+eMmARcdt3h2rI=
 github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee h1:fbVs0xmXpBvVS4GBeiRmAE3Le70ofAqFMch1GTiq/e8=
 github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee/go.mod h1:yoxyU/M8nl9LKeWIoBrbDPQ7Cy+4jxRcWcOayZ4BMps=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
