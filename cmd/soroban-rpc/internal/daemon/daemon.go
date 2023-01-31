@@ -13,7 +13,8 @@ import (
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentrywriter"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -21,7 +22,8 @@ const transactionProxyTTL = 5 * time.Minute
 
 type Daemon struct {
 	core    *ledgerbackend.CaptiveStellarCore
-	les     ledgerentry_storage.LedgerEntryStorage
+	lew     *ledgerentrywriter.LedgerEntryWriter
+	db      db.DB
 	handler *internal.Handler
 	logger  *supportlog.Entry
 }
@@ -30,13 +32,13 @@ func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	d.handler.ServeHTTP(writer, request)
 }
 
-func (d *Daemon) GetLedgerStorage() ledgerentry_storage.LedgerEntryStorage {
-	return d.les
+func (d *Daemon) GetDB() db.DB {
+	return d.db
 }
 
 func (d *Daemon) Close() error {
 	var err error
-	if localErr := d.les.Close(); localErr != nil {
+	if localErr := d.lew.Close(); localErr != nil {
 		err = localErr
 	}
 	if localErr := d.core.Close(); localErr != nil {
@@ -88,12 +90,12 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not connect to history archive: %v", err)
 	}
 
-	db, err := ledgerentry_storage.OpenSQLiteDB(cfg.SQLiteDBPath)
+	db, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	storage, err := ledgerentry_storage.NewLedgerEntryStorage(ledgerentry_storage.LedgerEntryStorageCfg{
+	lew, err := ledgerentrywriter.NewLedgerEntryWriter(ledgerentrywriter.LedgerEntryWriterCfg{
 		Logger:            logger,
 		DB:                db,
 		NetworkPassPhrase: cfg.NetworkPassphrase,
@@ -102,7 +104,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		Timeout:           cfg.LedgerEntryStorageTimeout,
 	})
 	if err != nil {
-		logger.Fatalf("could not initialize ledger entry storage: %v", err)
+		logger.Fatalf("could not initialize ledger entry writer: %v", err)
 	}
 
 	hc := &horizonclient.Client{
@@ -123,12 +125,14 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	)
 
 	handler, err := internal.NewJSONRPCHandler(internal.HandlerParams{
-		AccountStore:       methods.AccountStore{Client: hc},
-		EventStore:         methods.EventStore{Client: hc},
-		Logger:             logger,
-		TransactionProxy:   transactionProxy,
-		CoreClient:         &stellarcore.Client{URL: cfg.StellarCoreURL},
-		LedgerEntryStorage: storage,
+		AccountStore:      methods.AccountStore{Client: hc},
+		EventStore:        methods.EventStore{Client: hc},
+		FriendbotURL:      cfg.FriendbotURL,
+		NetworkPassphrase: cfg.NetworkPassphrase,
+		Logger:            logger,
+		TransactionProxy:  transactionProxy,
+		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
+		DB:                db,
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)
@@ -137,8 +141,9 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	return &Daemon{
 		logger:  logger,
 		core:    core,
-		les:     storage,
+		lew:     lew,
 		handler: &handler,
+		db:      db,
 	}
 }
 

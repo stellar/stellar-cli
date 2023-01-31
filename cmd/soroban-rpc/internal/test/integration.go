@@ -24,13 +24,13 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/sirupsen/logrus"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerentry_storage"
-
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/clients/stellarcore"
 	"golang.org/x/mod/modfile"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
 const (
@@ -39,6 +39,7 @@ const (
 	stellarCorePort             = 11626
 	goModFile                   = "go.mod"
 	goMonorepoGithubPath        = "github.com/stellar/go"
+	friendbotURL                = "http://localhost:8000/friendbot"
 )
 
 type Test struct {
@@ -103,6 +104,7 @@ func (i *Test) launchDaemon() {
 		CaptiveCoreConfigPath:     path.Join(i.composePath, "captive-core-integration-tests.cfg"),
 		CaptiveCoreHTTPPort:       0,
 		CaptiveCoreStoragePath:    i.t.TempDir(),
+		FriendbotURL:              friendbotURL,
 		NetworkPassphrase:         StandaloneNetworkPassphrase,
 		HistoryArchiveURLs:        []string{"http://localhost:1570"},
 		LogLevel:                  logrus.DebugLevel,
@@ -125,9 +127,9 @@ func (i *Test) launchDaemon() {
 
 	success := false
 	for t := 30; t >= 0; t -= 1 {
-		sequence, err := i.daemon.GetLedgerStorage().GetLatestLedgerSequence()
+		sequence, err := db.GetLatestLedgerSequence(i.daemon.GetDB())
 		if err != nil {
-			if err != ledgerentry_storage.ErrEmptyDB {
+			if err != db.ErrEmptyDB {
 				i.t.Fatalf("cannot access ledger entry storage: %v", err)
 			}
 		} else {
