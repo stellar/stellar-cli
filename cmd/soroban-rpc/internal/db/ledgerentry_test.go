@@ -117,6 +117,7 @@ func TestGoldenPath(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	obtainedLedgerSequence, err = NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
+	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
 
@@ -149,6 +150,7 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 
 	// Make sure that the ledger number was submitted
 	obtainedLedgerSequence, err := NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
+	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	// And that the entry doesn't exist

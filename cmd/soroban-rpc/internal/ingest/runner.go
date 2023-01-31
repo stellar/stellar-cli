@@ -3,7 +3,6 @@ package ingest
 import (
 	"context"
 	"errors"
-	"github.com/stellar/go/xdr"
 	"sync"
 	"time"
 
@@ -11,6 +10,8 @@ import (
 	"github.com/stellar/go/ingest"
 	backends "github.com/stellar/go/ingest/ledgerbackend"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/go/xdr"
+
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
@@ -102,11 +103,12 @@ func (r *Runner) maybeFillEntriesFromCheckpoint(ctx context.Context, archive his
 	// First, make sure the DB has a complete ledger entry baseline
 	curLedgerSeq, err := r.db.GetLatestLedgerSequence(ctx)
 	if err == db.ErrEmptyDB {
-		root, err := archive.GetRootHAS()
-		if err != nil {
+		var checkpointLedger uint32
+		if root, err := archive.GetRootHAS(); err != nil {
 			return 0, checkPointFillErr, err
+		} else {
+			checkpointLedger = root.CurrentLedger
 		}
-		checkpointLedger := root.CurrentLedger
 
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		// Do it in parallel with the upcoming captive core preparation to save time
@@ -137,7 +139,11 @@ func (r *Runner) fillEntriesFromCheckpoint(ctx context.Context, archive historya
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			r.logger.WithError(err).Warn("could not rollback fillEntriesFromCheckpoint write transactions")
+		}
+	}()
 
 	if err := r.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
 		return err
@@ -171,7 +177,11 @@ func (r *Runner) ingest(ctx context.Context, sequence uint32) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			r.logger.WithError(err).Warn("could not rollback ingest write transactions")
+		}
+	}()
 
 	if err := r.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
 		return err

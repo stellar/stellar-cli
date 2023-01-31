@@ -10,6 +10,7 @@ CREATE TABLE metadata (
     value TEXT NOT NULL
 );
 
+-- table to store all ledgers
 CREATE TABLE ledger_close_meta (
     sequence INTEGER NOT NULL PRIMARY KEY,
     meta BLOB NOT NULL

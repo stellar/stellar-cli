@@ -44,7 +44,9 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 				Message: "could not create read transaction",
 			}
 		}
-		defer tx.Done()
+		defer func() {
+			_ = tx.Done()
+		}()
 
 		latestLedger, err := tx.GetLatestLedgerSequence()
 		if err != nil {
