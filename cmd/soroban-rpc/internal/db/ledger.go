@@ -20,7 +20,6 @@ type LedgerReader interface {
 }
 
 type LedgerWriter interface {
-	TrimLedgers(latestLedgerSeq uint32, retentionWindow uint32) error
 	InsertLedger(ledger xdr.LedgerCloseMeta) error
 }
 
@@ -67,8 +66,8 @@ type ledgerWriter struct {
 	stmtCache *sq.StmtCache
 }
 
-// TrimLedgers removes all ledgers which fall outside the retention window.
-func (l ledgerWriter) TrimLedgers(latestLedgerSeq uint32, retentionWindow uint32) error {
+// trimLedgers removes all ledgers which fall outside the retention window.
+func (l ledgerWriter) trimLedgers(latestLedgerSeq uint32, retentionWindow uint32) error {
 	if latestLedgerSeq+1 <= retentionWindow {
 		return nil
 	}

@@ -20,7 +20,10 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
-const transactionProxyTTL = 5 * time.Minute
+const (
+	transactionProxyTTL          = 5 * time.Minute
+	maxLedgerEntryWriteBatchSize = 150
+)
 
 type Daemon struct {
 	core         *ledgerbackend.CaptiveStellarCore
@@ -101,13 +104,12 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 
 	ingestRunner, err := ingest.NewRunner(ingest.Config{
-		Logger:                logger,
-		DB:                    db.NewWriter(dbConn),
-		NetworkPassPhrase:     cfg.NetworkPassphrase,
-		Archive:               historyArchive,
-		LedgerBackend:         core,
-		Timeout:               cfg.LedgerEntryStorageTimeout,
-		LedgerRetentionWindow: cfg.LedgerRetentionWindow,
+		Logger:            logger,
+		DB:                db.NewWriter(dbConn, maxLedgerEntryWriteBatchSize, uint32(cfg.LedgerRetentionWindow)),
+		NetworkPassPhrase: cfg.NetworkPassphrase,
+		Archive:           historyArchive,
+		LedgerBackend:     core,
+		Timeout:           cfg.LedgerEntryStorageTimeout,
 	})
 	if err != nil {
 		logger.Fatalf("could not initialize ledger entry writer: %v", err)

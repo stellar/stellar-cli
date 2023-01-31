@@ -209,6 +209,10 @@ func main() {
 				fmt.Printf("failed to set values : %v\n", err)
 				os.Exit(-1)
 			}
+			if ledgerRetentionWindow <= 0 {
+				fmt.Printf("ledger-retention-window must be positive\n")
+				os.Exit(-1)
+			}
 			config := localConfig.LocalConfig{
 				HorizonURL:                horizonURL,
 				StellarCoreURL:            stellarCoreURL,

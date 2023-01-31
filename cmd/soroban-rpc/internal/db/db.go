@@ -27,7 +27,7 @@ const (
 )
 
 type Writer interface {
-	NewTx(ctx context.Context, maxBatchSize int) (WriteTx, error)
+	NewTx(ctx context.Context) (WriteTx, error)
 	GetLatestLedgerSequence(ctx context.Context) (uint32, error)
 	WALCheckpoint(ctx context.Context) error
 }
@@ -83,11 +83,21 @@ func getLatestLedgerSequence(ctx context.Context, q sqlx.QueryerContext) (uint32
 }
 
 type writer struct {
-	db *sqlx.DB
+	db                    *sqlx.DB
+	maxBatchSize          int
+	ledgerRetentionWindow uint32
 }
 
-func NewWriter(db *sqlx.DB) Writer {
-	return writer{db: db}
+// NewWriter constructs a new Writer instance and configures
+// the size of ledger entry batches when writing ledger entries
+// and the retention window for how many historical ledgers are
+// recorded in the database.
+func NewWriter(db *sqlx.DB, maxBatchSize int, ledgerRetentionWindow uint32) Writer {
+	return writer{
+		db:                    db,
+		maxBatchSize:          maxBatchSize,
+		ledgerRetentionWindow: ledgerRetentionWindow,
+	}
 }
 
 func (w writer) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
@@ -99,7 +109,7 @@ func (w writer) WALCheckpoint(ctx context.Context) error {
 	return err
 }
 
-func (w writer) NewTx(ctx context.Context, maxBatchSize int) (WriteTx, error) {
+func (w writer) NewTx(ctx context.Context) (WriteTx, error) {
 	tx, err := w.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -112,17 +122,19 @@ func (w writer) NewTx(ctx context.Context, maxBatchSize int) (WriteTx, error) {
 		ledgerEntryWriter: ledgerEntryWriter{
 			buffer:          xdr.NewEncodingBuffer(),
 			stmtCache:       stmtCache,
-			keyToEntryBatch: make(map[string]*string, maxBatchSize),
-			maxBatchSize:    maxBatchSize,
+			keyToEntryBatch: make(map[string]*string, w.maxBatchSize),
+			maxBatchSize:    w.maxBatchSize,
 		},
+		ledgerRetentionWindow: w.ledgerRetentionWindow,
 	}, nil
 }
 
 type writeTx struct {
-	tx                *sqlx.Tx
-	stmtCache         *sq.StmtCache
-	ledgerEntryWriter ledgerEntryWriter
-	ledgerWriter      ledgerWriter
+	tx                    *sqlx.Tx
+	stmtCache             *sq.StmtCache
+	ledgerEntryWriter     ledgerEntryWriter
+	ledgerWriter          ledgerWriter
+	ledgerRetentionWindow uint32
 }
 
 func (w writeTx) LedgerEntryWriter() LedgerEntryWriter {
@@ -135,6 +147,10 @@ func (w writeTx) LedgerWriter() LedgerWriter {
 
 func (w writeTx) Commit(ledgerSeq uint32) error {
 	if err := w.ledgerEntryWriter.flush(); err != nil {
+		return err
+	}
+
+	if err := w.ledgerWriter.trimLedgers(ledgerSeq, w.ledgerRetentionWindow); err != nil {
 		return err
 	}
 

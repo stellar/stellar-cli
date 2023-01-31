@@ -16,33 +16,27 @@ import (
 )
 
 const (
-	maxBatchSize       = 150
 	changePrintOutFreq = 10000
 )
 
 type Config struct {
-	Logger                *log.Entry
-	DB                    db.Writer
-	NetworkPassPhrase     string
-	Archive               historyarchive.ArchiveInterface
-	LedgerBackend         backends.LedgerBackend
-	Timeout               time.Duration
-	LedgerRetentionWindow int
+	Logger            *log.Entry
+	DB                db.Writer
+	NetworkPassPhrase string
+	Archive           historyarchive.ArchiveInterface
+	LedgerBackend     backends.LedgerBackend
+	Timeout           time.Duration
 }
 
 func NewRunner(cfg Config) (*Runner, error) {
-	if cfg.LedgerRetentionWindow <= 0 {
-		return nil, errors.New("ledger retention window must be positive")
-	}
 	ctx, done := context.WithCancel(context.Background())
 	o := Runner{
-		logger:                cfg.Logger,
-		db:                    cfg.DB,
-		ledgerBackend:         cfg.LedgerBackend,
-		networkPassPhrase:     cfg.NetworkPassPhrase,
-		timeout:               cfg.Timeout,
-		ledgerRetentionWindow: uint32(cfg.LedgerRetentionWindow),
-		done:                  done,
+		logger:            cfg.Logger,
+		db:                cfg.DB,
+		ledgerBackend:     cfg.LedgerBackend,
+		networkPassPhrase: cfg.NetworkPassPhrase,
+		timeout:           cfg.Timeout,
+		done:              done,
 	}
 	o.wg.Add(1)
 	go func() {
@@ -135,7 +129,7 @@ func (r *Runner) fillEntriesFromCheckpoint(ctx context.Context, archive historya
 		return err
 	}
 
-	tx, err := r.db.NewTx(ctx, maxBatchSize)
+	tx, err := r.db.NewTx(ctx)
 	if err != nil {
 		return err
 	}
@@ -173,7 +167,7 @@ func (r *Runner) ingest(ctx context.Context, sequence uint32) error {
 	if err != nil {
 		return err
 	}
-	tx, err := r.db.NewTx(ctx, maxBatchSize)
+	tx, err := r.db.NewTx(ctx)
 	if err != nil {
 		return err
 	}
@@ -206,9 +200,6 @@ func (r *Runner) ingest(ctx context.Context, sequence uint32) error {
 func (r *Runner) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	ledgerWriter := tx.LedgerWriter()
 	if err := ledgerWriter.InsertLedger(ledgerCloseMeta); err != nil {
-		return err
-	}
-	if err := ledgerWriter.TrimLedgers(ledgerCloseMeta.LedgerSequence(), r.ledgerRetentionWindow); err != nil {
 		return err
 	}
 	return nil
