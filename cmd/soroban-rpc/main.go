@@ -136,7 +136,7 @@ func main() {
 		},
 		{
 			Name:      "friendbot-url",
-			Usage:     "URL where friendbot requests should be sent",
+			Usage:     "The friendbot URL to be returned by getNetwork endpoint",
 			OptType:   types.String,
 			ConfigKey: &friendbotURL,
 			Required:  false,
