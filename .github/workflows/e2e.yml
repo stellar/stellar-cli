@@ -18,7 +18,7 @@ jobs:
       SYSTEM_TEST_DOCKER_REPO_TAG: "2opremio/system-test"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "main"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
-      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "1.66.0"
+      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "stable"
       SYSTEM_TEST_CORE_DEBIAN_VERSION: "19.6.1-1158.c0ad35aa1.focal~soroban"
       SYSTEM_TEST_HORIZON_DEBIAN_VERSION: "2.22.0~soroban-322"
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
