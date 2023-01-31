@@ -137,7 +137,6 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 }
 
 type writeTx struct {
-	txCounter             int
 	postCommit            func() error
 	tx                    *sqlx.Tx
 	stmtCache             *sq.StmtCache
