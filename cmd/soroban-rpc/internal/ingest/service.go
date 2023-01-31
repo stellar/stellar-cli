@@ -83,12 +83,11 @@ func (s *Service) run(ctx context.Context, archive historyarchive.ArchiveInterfa
 		return err
 	}
 
-	for ; ctx.Err() == nil; nextLedgerSeq++ {
+	for ; ; nextLedgerSeq++ {
 		if err := s.ingest(ctx, nextLedgerSeq); err != nil {
 			return err
 		}
 	}
-	return ctx.Err()
 }
 
 func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface) (uint32, chan error, error) {
