@@ -49,14 +49,13 @@ func NewRunner(cfg Config) (*Runner, error) {
 }
 
 type Runner struct {
-	logger                *log.Entry
-	db                    db.Writer
-	ledgerBackend         backends.LedgerBackend
-	timeout               time.Duration
-	ledgerRetentionWindow uint32
-	networkPassPhrase     string
-	done                  context.CancelFunc
-	wg                    sync.WaitGroup
+	logger            *log.Entry
+	db                db.Writer
+	ledgerBackend     backends.LedgerBackend
+	timeout           time.Duration
+	networkPassPhrase string
+	done              context.CancelFunc
+	wg                sync.WaitGroup
 }
 
 func (r *Runner) Close() error {
