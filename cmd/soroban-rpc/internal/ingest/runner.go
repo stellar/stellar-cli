@@ -104,8 +104,8 @@ func (r *Runner) maybeFillEntriesFromCheckpoint(ctx context.Context, archive his
 	curLedgerSeq, err := r.db.GetLatestLedgerSequence(ctx)
 	if err == db.ErrEmptyDB {
 		var checkpointLedger uint32
-		if root, err := archive.GetRootHAS(); err != nil {
-			return 0, checkPointFillErr, err
+		if root, rootErr := archive.GetRootHAS(); rootErr != nil {
+			return 0, checkPointFillErr, rootErr
 		} else {
 			checkpointLedger = root.CurrentLedger
 		}
