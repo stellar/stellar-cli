@@ -342,8 +342,9 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 				U32:  &val,
 			},
 		}
+		rw := NewReadWriter(db, 10, 15)
 		for ledgerSequence := uint32(0); ledgerSequence < 1000; ledgerSequence++ {
-			tx, err := NewReadWriter(db, 10, 15).NewTx(context.Background())
+			tx, err := rw.NewTx(context.Background())
 			assert.NoError(t, err)
 			writer := tx.LedgerEntryWriter()
 			for i := 0; i < 200; i++ {

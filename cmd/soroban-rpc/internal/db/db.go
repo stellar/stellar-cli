@@ -22,8 +22,9 @@ var migrations embed.FS
 var ErrEmptyDB = errors.New("DB is empty")
 
 const (
-	metaTableName               = "metadata"
-	latestLedgerSequenceMetaKey = "LatestLedgerSequence"
+	metaTableName                 = "metadata"
+	latestLedgerSequenceMetaKey   = "LatestLedgerSequence"
+	executeWALCheckpointFrequency = 1000
 )
 
 type ReadWriter interface {
@@ -82,6 +83,7 @@ func getLatestLedgerSequence(ctx context.Context, q sqlx.QueryerContext) (uint32
 }
 
 type readWriter struct {
+	txCounter             int
 	db                    *sqlx.DB
 	maxBatchSize          int
 	ledgerRetentionWindow uint32
@@ -92,26 +94,32 @@ type readWriter struct {
 // and the retention window for how many historical ledgers are
 // recorded in the database.
 func NewReadWriter(db *sqlx.DB, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
-	return readWriter{
+	return &readWriter{
+		txCounter:             0,
 		db:                    db,
 		maxBatchSize:          maxBatchSize,
 		ledgerRetentionWindow: ledgerRetentionWindow,
 	}
 }
 
-func (rw readWriter) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
+func (rw *readWriter) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
 	return getLatestLedgerSequence(ctx, rw.db)
 }
 
-func (rw readWriter) NewTx(ctx context.Context) (WriteTx, error) {
+func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 	tx, err := rw.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	stmtCache := sq.NewStmtCache(tx)
 	db := rw.db
+	executeWALCheckpoint := rw.txCounter%executeWALCheckpointFrequency == 0
+	rw.txCounter = (rw.txCounter + 1) % executeWALCheckpointFrequency
 	return writeTx{
 		postCommit: func() error {
+			if !executeWALCheckpoint {
+				return nil
+			}
 			_, err = db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
 		},
@@ -129,6 +137,7 @@ func (rw readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 }
 
 type writeTx struct {
+	txCounter             int
 	postCommit            func() error
 	tx                    *sqlx.Tx
 	stmtCache             *sq.StmtCache
