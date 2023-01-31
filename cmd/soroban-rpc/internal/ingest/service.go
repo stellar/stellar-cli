@@ -21,7 +21,7 @@ const (
 
 type Config struct {
 	Logger            *log.Entry
-	DB                db.Writer
+	DB                db.ReadWriter
 	NetworkPassPhrase string
 	Archive           historyarchive.ArchiveInterface
 	LedgerBackend     backends.LedgerBackend
@@ -50,7 +50,7 @@ func NewService(cfg Config) (*Service, error) {
 
 type Service struct {
 	logger            *log.Entry
-	db                db.Writer
+	db                db.ReadWriter
 	ledgerBackend     backends.LedgerBackend
 	timeout           time.Duration
 	networkPassPhrase string

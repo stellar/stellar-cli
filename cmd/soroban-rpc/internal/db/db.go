@@ -26,7 +26,7 @@ const (
 	latestLedgerSequenceMetaKey = "LatestLedgerSequence"
 )
 
-type Writer interface {
+type ReadWriter interface {
 	NewTx(ctx context.Context) (WriteTx, error)
 	GetLatestLedgerSequence(ctx context.Context) (uint32, error)
 	WALCheckpoint(ctx context.Context) error
@@ -82,35 +82,35 @@ func getLatestLedgerSequence(ctx context.Context, q sqlx.QueryerContext) (uint32
 	return uint32(latestLedger), nil
 }
 
-type writer struct {
+type readWriter struct {
 	db                    *sqlx.DB
 	maxBatchSize          int
 	ledgerRetentionWindow uint32
 }
 
-// NewWriter constructs a new Writer instance and configures
+// NewReadWriter constructs a new ReadWriter instance and configures
 // the size of ledger entry batches when writing ledger entries
 // and the retention window for how many historical ledgers are
 // recorded in the database.
-func NewWriter(db *sqlx.DB, maxBatchSize int, ledgerRetentionWindow uint32) Writer {
-	return writer{
+func NewReadWriter(db *sqlx.DB, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
+	return readWriter{
 		db:                    db,
 		maxBatchSize:          maxBatchSize,
 		ledgerRetentionWindow: ledgerRetentionWindow,
 	}
 }
 
-func (w writer) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
-	return getLatestLedgerSequence(ctx, w.db)
+func (rw readWriter) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
+	return getLatestLedgerSequence(ctx, rw.db)
 }
 
-func (w writer) WALCheckpoint(ctx context.Context) error {
-	_, err := w.db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
+func (rw readWriter) WALCheckpoint(ctx context.Context) error {
+	_, err := rw.db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 	return err
 }
 
-func (w writer) NewTx(ctx context.Context) (WriteTx, error) {
-	tx, err := w.db.BeginTxx(ctx, nil)
+func (rw readWriter) NewTx(ctx context.Context) (WriteTx, error) {
+	tx, err := rw.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -122,10 +122,10 @@ func (w writer) NewTx(ctx context.Context) (WriteTx, error) {
 		ledgerEntryWriter: ledgerEntryWriter{
 			buffer:          xdr.NewEncodingBuffer(),
 			stmtCache:       stmtCache,
-			keyToEntryBatch: make(map[string]*string, w.maxBatchSize),
-			maxBatchSize:    w.maxBatchSize,
+			keyToEntryBatch: make(map[string]*string, rw.maxBatchSize),
+			maxBatchSize:    rw.maxBatchSize,
 		},
-		ledgerRetentionWindow: w.ledgerRetentionWindow,
+		ledgerRetentionWindow: rw.ledgerRetentionWindow,
 	}, nil
 }
 

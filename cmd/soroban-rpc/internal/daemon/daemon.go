@@ -105,7 +105,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 
 	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
-		DB:                db.NewWriter(dbConn, maxLedgerEntryWriteBatchSize, uint32(cfg.LedgerRetentionWindow)),
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, uint32(cfg.LedgerRetentionWindow)),
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,

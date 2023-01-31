@@ -63,7 +63,7 @@ func TestLedgers(t *testing.T) {
 
 	for i := 1; i <= 10; i++ {
 		ledgerSequence := uint32(i)
-		tx, err := NewWriter(db, 150, 15).NewTx(context.Background())
+		tx, err := NewReadWriter(db, 150, 15).NewTx(context.Background())
 		assert.NoError(t, err)
 		assert.NoError(t, tx.LedgerWriter().InsertLedger(createLedger(ledgerSequence)))
 		assert.NoError(t, tx.Commit(ledgerSequence))
@@ -72,7 +72,7 @@ func TestLedgers(t *testing.T) {
 	assertLedgerRange(t, reader, 1, 10)
 
 	ledgerSequence := uint32(11)
-	tx, err := NewWriter(db, 150, 15).NewTx(context.Background())
+	tx, err := NewReadWriter(db, 150, 15).NewTx(context.Background())
 	assert.NoError(t, err)
 	assert.NoError(t, tx.LedgerWriter().InsertLedger(createLedger(ledgerSequence)))
 	assert.NoError(t, tx.Commit(ledgerSequence))
@@ -80,7 +80,7 @@ func TestLedgers(t *testing.T) {
 	assertLedgerRange(t, reader, 1, 11)
 
 	ledgerSequence = uint32(12)
-	tx, err = NewWriter(db, 150, 5).NewTx(context.Background())
+	tx, err = NewReadWriter(db, 150, 5).NewTx(context.Background())
 	assert.NoError(t, err)
 	assert.NoError(t, tx.LedgerWriter().InsertLedger(createLedger(ledgerSequence)))
 	assert.NoError(t, tx.Commit(ledgerSequence))
