@@ -9,7 +9,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
-func (r *Runner) ingestLedgerEntryChanges(ctx context.Context, reader ingest.ChangeReader, tx db.WriteTx) error {
+func (s *Service) ingestLedgerEntryChanges(ctx context.Context, reader ingest.ChangeReader, tx db.WriteTx) error {
 	// Make sure we finish the updating transaction
 	entryCount := 0
 	writer := tx.LedgerEntryWriter()
@@ -24,7 +24,7 @@ func (r *Runner) ingestLedgerEntryChanges(ctx context.Context, reader ingest.Cha
 		}
 		entryCount++
 		if entryCount%changePrintOutFreq == 0 {
-			r.logger.Infof("processed %d ledger entry changes", entryCount)
+			s.logger.Infof("processed %d ledger entry changes", entryCount)
 		}
 	}
 	return ctx.Err()

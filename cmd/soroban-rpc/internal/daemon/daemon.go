@@ -26,11 +26,11 @@ const (
 )
 
 type Daemon struct {
-	core         *ledgerbackend.CaptiveStellarCore
-	ingestRunner *ingest.Runner
-	db           *sqlx.DB
-	handler      *internal.Handler
-	logger       *supportlog.Entry
+	core          *ledgerbackend.CaptiveStellarCore
+	ingestService *ingest.Service
+	db            *sqlx.DB
+	handler       *internal.Handler
+	logger        *supportlog.Entry
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -43,7 +43,7 @@ func (d *Daemon) GetDB() *sqlx.DB {
 
 func (d *Daemon) Close() error {
 	var err error
-	if localErr := d.ingestRunner.Close(); localErr != nil {
+	if localErr := d.ingestService.Close(); localErr != nil {
 		err = localErr
 	}
 	if localErr := d.core.Close(); localErr != nil {
@@ -103,7 +103,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	ingestRunner, err := ingest.NewRunner(ingest.Config{
+	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
 		DB:                db.NewWriter(dbConn, maxLedgerEntryWriteBatchSize, uint32(cfg.LedgerRetentionWindow)),
 		NetworkPassPhrase: cfg.NetworkPassphrase,
@@ -147,11 +147,11 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 	handler.Start()
 	return &Daemon{
-		logger:       logger,
-		core:         core,
-		ingestRunner: ingestRunner,
-		handler:      &handler,
-		db:           dbConn,
+		logger:        logger,
+		core:          core,
+		ingestService: ingestService,
+		handler:       &handler,
+		db:            dbConn,
 	}
 }
 

@@ -28,9 +28,9 @@ type Config struct {
 	Timeout           time.Duration
 }
 
-func NewRunner(cfg Config) (*Runner, error) {
+func NewService(cfg Config) (*Service, error) {
 	ctx, done := context.WithCancel(context.Background())
-	o := Runner{
+	o := Service{
 		logger:            cfg.Logger,
 		db:                cfg.DB,
 		ledgerBackend:     cfg.LedgerBackend,
@@ -48,7 +48,7 @@ func NewRunner(cfg Config) (*Runner, error) {
 	return &o, nil
 }
 
-type Runner struct {
+type Service struct {
 	logger            *log.Entry
 	db                db.Writer
 	ledgerBackend     backends.LedgerBackend
@@ -58,21 +58,21 @@ type Runner struct {
 	wg                sync.WaitGroup
 }
 
-func (r *Runner) Close() error {
-	r.done()
-	r.wg.Wait()
+func (s *Service) Close() error {
+	s.done()
+	s.wg.Wait()
 	return nil
 }
 
-func (r *Runner) run(ctx context.Context, archive historyarchive.ArchiveInterface) error {
-	defer r.wg.Done()
-	nextLedgerSeq, checkPointFillErr, err := r.maybeFillEntriesFromCheckpoint(ctx, archive)
+func (s *Service) run(ctx context.Context, archive historyarchive.ArchiveInterface) error {
+	defer s.wg.Done()
+	nextLedgerSeq, checkPointFillErr, err := s.maybeFillEntriesFromCheckpoint(ctx, archive)
 	if err != nil {
 		return err
 	}
 
-	prepareRangeCtx, cancelPrepareRange := context.WithTimeout(ctx, r.timeout)
-	if err := r.ledgerBackend.PrepareRange(prepareRangeCtx, backends.UnboundedRange(nextLedgerSeq)); err != nil {
+	prepareRangeCtx, cancelPrepareRange := context.WithTimeout(ctx, s.timeout)
+	if err := s.ledgerBackend.PrepareRange(prepareRangeCtx, backends.UnboundedRange(nextLedgerSeq)); err != nil {
 		cancelPrepareRange()
 		return err
 	}
@@ -84,17 +84,17 @@ func (r *Runner) run(ctx context.Context, archive historyarchive.ArchiveInterfac
 	}
 
 	for ; ctx.Err() == nil; nextLedgerSeq++ {
-		if err := r.ingest(ctx, nextLedgerSeq); err != nil {
+		if err := s.ingest(ctx, nextLedgerSeq); err != nil {
 			return err
 		}
 	}
 	return ctx.Err()
 }
 
-func (r *Runner) maybeFillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface) (uint32, chan error, error) {
+func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface) (uint32, chan error, error) {
 	checkPointFillErr := make(chan error, 1)
 	// First, make sure the DB has a complete ledger entry baseline
-	curLedgerSeq, err := r.db.GetLatestLedgerSequence(ctx)
+	curLedgerSeq, err := s.db.GetLatestLedgerSequence(ctx)
 	if err == db.ErrEmptyDB {
 		var checkpointLedger uint32
 		if root, rootErr := archive.GetRootHAS(); rootErr != nil {
@@ -105,9 +105,9 @@ func (r *Runner) maybeFillEntriesFromCheckpoint(ctx context.Context, archive his
 
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		// Do it in parallel with the upcoming captive core preparation to save time
-		r.logger.Infof("Found an empty database, filling it in from the most recent checkpoint (this can take up to 30 minutes, depending on the network)")
+		s.logger.Infof("Found an empty database, filling it in from the most recent checkpoint (this can take up to 30 minutes, depending on the network)")
 		go func() {
-			checkPointFillErr <- r.fillEntriesFromCheckpoint(ctx, archive, checkpointLedger)
+			checkPointFillErr <- s.fillEntriesFromCheckpoint(ctx, archive, checkpointLedger)
 		}()
 		return checkpointLedger + 1, checkPointFillErr, nil
 	} else if err != nil {
@@ -118,9 +118,9 @@ func (r *Runner) maybeFillEntriesFromCheckpoint(ctx context.Context, archive his
 	}
 }
 
-func (r *Runner) fillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface, checkpointLedger uint32) error {
-	r.logger.Infof("Starting processing of checkpoint %d", checkpointLedger)
-	checkpointCtx, cancelCheckpointCtx := context.WithTimeout(ctx, r.timeout)
+func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface, checkpointLedger uint32) error {
+	s.logger.Infof("Starting processing of checkpoint %d", checkpointLedger)
+	checkpointCtx, cancelCheckpointCtx := context.WithTimeout(ctx, s.timeout)
 	defer cancelCheckpointCtx()
 
 	reader, err := ingest.NewCheckpointChangeReader(checkpointCtx, archive, checkpointLedger)
@@ -128,75 +128,75 @@ func (r *Runner) fillEntriesFromCheckpoint(ctx context.Context, archive historya
 		return err
 	}
 
-	tx, err := r.db.NewTx(ctx)
+	tx, err := s.db.NewTx(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil {
-			r.logger.WithError(err).Warn("could not rollback fillEntriesFromCheckpoint write transactions")
+			s.logger.WithError(err).Warn("could not rollback fillEntriesFromCheckpoint write transactions")
 		}
 	}()
 
-	if err := r.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
+	if err := s.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
 		return err
 	}
 	if err := reader.Close(); err != nil {
 		return err
 	}
 
-	r.logger.Info("Committing checkpoint ledger entries")
+	s.logger.Info("Committing checkpoint ledger entries")
 	if err := tx.Commit(checkpointLedger); err != nil {
 		return err
 	}
-	if err := r.db.WALCheckpoint(ctx); err != nil {
+	if err := s.db.WALCheckpoint(ctx); err != nil {
 		return err
 	}
-	r.logger.Info("Finished checkpoint processing")
+	s.logger.Info("Finished checkpoint processing")
 	return nil
 }
 
-func (r *Runner) ingest(ctx context.Context, sequence uint32) error {
-	r.logger.Infof("Applying txmeta ledger entries changes for ledger %d", sequence)
-	ledgerCloseMeta, err := r.ledgerBackend.GetLedger(ctx, sequence)
+func (s *Service) ingest(ctx context.Context, sequence uint32) error {
+	s.logger.Infof("Applying txmeta ledger entries changes for ledger %d", sequence)
+	ledgerCloseMeta, err := s.ledgerBackend.GetLedger(ctx, sequence)
 	if err != nil {
 		return err
 	}
-	reader, err := ingest.NewLedgerChangeReaderFromLedgerCloseMeta(r.networkPassPhrase, ledgerCloseMeta)
+	reader, err := ingest.NewLedgerChangeReaderFromLedgerCloseMeta(s.networkPassPhrase, ledgerCloseMeta)
 	if err != nil {
 		return err
 	}
-	tx, err := r.db.NewTx(ctx)
+	tx, err := s.db.NewTx(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil {
-			r.logger.WithError(err).Warn("could not rollback ingest write transactions")
+			s.logger.WithError(err).Warn("could not rollback ingest write transactions")
 		}
 	}()
 
-	if err := r.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
+	if err := s.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
 		return err
 	}
 	if err := reader.Close(); err != nil {
 		return err
 	}
 
-	if err := r.ingestLedgerCloseMeta(tx, ledgerCloseMeta); err != nil {
+	if err := s.ingestLedgerCloseMeta(tx, ledgerCloseMeta); err != nil {
 		return err
 	}
 
 	if err := tx.Commit(sequence); err != nil {
 		return err
 	}
-	if err := r.db.WALCheckpoint(ctx); err != nil {
+	if err := s.db.WALCheckpoint(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *Runner) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.LedgerCloseMeta) error {
+func (s *Service) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	ledgerWriter := tx.LedgerWriter()
 	if err := ledgerWriter.InsertLedger(ledgerCloseMeta); err != nil {
 		return err
