@@ -148,9 +148,6 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 	if err := tx.Commit(checkpointLedger); err != nil {
 		return err
 	}
-	if err := s.db.WALCheckpoint(ctx); err != nil {
-		return err
-	}
 	s.logger.Info("Finished checkpoint processing")
 	return nil
 }
@@ -187,9 +184,6 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 	}
 
 	if err := tx.Commit(sequence); err != nil {
-		return err
-	}
-	if err := s.db.WALCheckpoint(ctx); err != nil {
 		return err
 	}
 	return nil

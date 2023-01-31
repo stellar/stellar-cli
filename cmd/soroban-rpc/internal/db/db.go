@@ -29,7 +29,6 @@ const (
 type ReadWriter interface {
 	NewTx(ctx context.Context) (WriteTx, error)
 	GetLatestLedgerSequence(ctx context.Context) (uint32, error)
-	WALCheckpoint(ctx context.Context) error
 }
 
 type WriteTx interface {
@@ -104,18 +103,18 @@ func (rw readWriter) GetLatestLedgerSequence(ctx context.Context) (uint32, error
 	return getLatestLedgerSequence(ctx, rw.db)
 }
 
-func (rw readWriter) WALCheckpoint(ctx context.Context) error {
-	_, err := rw.db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
-	return err
-}
-
 func (rw readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 	tx, err := rw.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	stmtCache := sq.NewStmtCache(tx)
+	db := rw.db
 	return writeTx{
+		postCommit: func() error {
+			_, err = db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
+			return err
+		},
 		tx:           tx,
 		stmtCache:    stmtCache,
 		ledgerWriter: ledgerWriter{stmtCache: stmtCache},
@@ -130,6 +129,7 @@ func (rw readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 }
 
 type writeTx struct {
+	postCommit            func() error
 	tx                    *sqlx.Tx
 	stmtCache             *sq.StmtCache
 	ledgerEntryWriter     ledgerEntryWriter
@@ -160,7 +160,11 @@ func (w writeTx) Commit(ledgerSeq uint32) error {
 		return err
 	}
 
-	return w.tx.Commit()
+	if err = w.tx.Commit(); err != nil {
+		return err
+	}
+
+	return w.postCommit()
 }
 
 func (w writeTx) Rollback() error {
