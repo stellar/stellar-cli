@@ -33,16 +33,6 @@ func (r *Runner) ingestLedgerEntryChanges(ctx context.Context, reader ingest.Cha
 
 func ingestLedgerEntryChange(writer db.LedgerEntryWriter, change ingest.Change) error {
 	if change.Post == nil {
-		ledgerKey, relevant, err := getRelevantLedgerKeyFromData(change.Post.Data)
-		if err != nil {
-			return err
-		}
-		if !relevant {
-			return nil
-		}
-
-		return writer.UpsertLedgerEntry(ledgerKey, *change.Post)
-	} else {
 		ledgerKey, relevant, err := getRelevantLedgerKeyFromData(change.Pre.Data)
 		if err != nil {
 			return err
@@ -52,6 +42,16 @@ func ingestLedgerEntryChange(writer db.LedgerEntryWriter, change ingest.Change) 
 		}
 
 		return writer.DeleteLedgerEntry(ledgerKey)
+	} else {
+		ledgerKey, relevant, err := getRelevantLedgerKeyFromData(change.Post.Data)
+		if err != nil {
+			return err
+		}
+		if !relevant {
+			return nil
+		}
+
+		return writer.UpsertLedgerEntry(ledgerKey, *change.Post)
 	}
 }
 
