@@ -40,6 +40,7 @@ func (h Handler) Close() {
 type HandlerParams struct {
 	AccountStore      methods.AccountStore
 	EventStore        methods.EventStore
+	FriendbotURL      string
 	TransactionProxy  *methods.TransactionProxy
 	CoreClient        *stellarcore.Client
 	DB                db.DB
@@ -54,6 +55,7 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 		"getAccount":           methods.NewAccountHandler(params.AccountStore),
 		"getEvents":            methods.NewGetEventsHandler(params.EventStore),
 		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.DB),
+		"getNetwork":           methods.NewGetNetworkHandler(params.NetworkPassphrase, params.FriendbotURL, params.CoreClient),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
 		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.DB),

@@ -39,6 +39,7 @@ const (
 	stellarCorePort             = 11626
 	goModFile                   = "go.mod"
 	goMonorepoGithubPath        = "github.com/stellar/go"
+	friendbotURL                = "http://localhost:8000/friendbot"
 )
 
 type Test struct {
@@ -103,6 +104,7 @@ func (i *Test) launchDaemon() {
 		CaptiveCoreConfigPath:     path.Join(i.composePath, "captive-core-integration-tests.cfg"),
 		CaptiveCoreHTTPPort:       0,
 		CaptiveCoreStoragePath:    i.t.TempDir(),
+		FriendbotURL:              friendbotURL,
 		NetworkPassphrase:         StandaloneNetworkPassphrase,
 		HistoryArchiveURLs:        []string{"http://localhost:1570"},
 		LogLevel:                  logrus.DebugLevel,
