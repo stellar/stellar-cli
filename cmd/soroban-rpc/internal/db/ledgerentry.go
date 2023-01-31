@@ -83,6 +83,11 @@ func (l ledgerEntryWriter) flush() error {
 		} else {
 			deleteKeys = append(deleteKeys, key)
 		}
+		// Delete each entry instead of reassigning l.keyToEntryBatch
+		// to the empty map because the map was allocated with a
+		// capacity of: make(map[string]*string, rw.maxBatchSize).
+		// We want to reuse the buckets in the map in subsequent
+		// ingestion iterations.
 		delete(l.keyToEntryBatch, key)
 	}
 
