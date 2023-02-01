@@ -225,19 +225,25 @@ func TestGetEventsRequestValid(t *testing.T) {
 		StartLedger: 1,
 		Filters:     []EventFilter{},
 		Pagination:  nil,
-	}).Valid())
+	}).Valid(1000))
+
+	assert.EqualError(t, (&GetEventsRequest{
+		StartLedger: 1,
+		Filters:     []EventFilter{},
+		Pagination:  &PaginationOptions{Limit: 1001},
+	}).Valid(1000), "limit must not exceed 1000")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 0,
 		Filters:     []EventFilter{},
 		Pagination:  nil,
-	}).Valid(), "startLedger must be positive")
+	}).Valid(1000), "startLedger must be positive")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: -100,
 		Filters:     []EventFilter{},
 		Pagination:  nil,
-	}).Valid(), "startLedger must be positive")
+	}).Valid(1000), "startLedger must be positive")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -245,7 +251,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			{}, {}, {}, {}, {}, {},
 		},
 		Pagination: nil,
-	}).Valid(), "maximum 5 filters per request")
+	}).Valid(1000), "maximum 5 filters per request")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -253,7 +259,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			{EventType: "foo"},
 		},
 		Pagination: nil,
-	}).Valid(), "filter 1 invalid: if set, type must be either 'system' or 'contract'")
+	}).Valid(1000), "filter 1 invalid: if set, type must be either 'system' or 'contract'")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -268,7 +274,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			}},
 		},
 		Pagination: nil,
-	}).Valid(), "filter 1 invalid: maximum 5 contract IDs per filter")
+	}).Valid(1000), "filter 1 invalid: maximum 5 contract IDs per filter")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -276,7 +282,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			{ContractIDs: []string{"a"}},
 		},
 		Pagination: nil,
-	}).Valid(), "filter 1 invalid: contract ID 1 invalid")
+	}).Valid(1000), "filter 1 invalid: contract ID 1 invalid")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -288,7 +294,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			},
 		},
 		Pagination: nil,
-	}).Valid(), "filter 1 invalid: maximum 5 topics per filter")
+	}).Valid(1000), "filter 1 invalid: maximum 5 topics per filter")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -298,7 +304,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			}},
 		},
 		Pagination: nil,
-	}).Valid(), "filter 1 invalid: topic 1 invalid: topic must have at least one segment")
+	}).Valid(1000), "filter 1 invalid: topic 1 invalid: topic must have at least one segment")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -314,7 +320,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			}},
 		},
 		Pagination: nil,
-	}).Valid(), "filter 1 invalid: topic 1 invalid: topic cannot have more than 4 segments")
+	}).Valid(1000), "filter 1 invalid: topic 1 invalid: topic cannot have more than 4 segments")
 }
 
 func TestGetEvents(t *testing.T) {
@@ -325,17 +331,17 @@ func TestGetEvents(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("empty", func(t *testing.T) {
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 1,
-		})
+		}, 1000)
 		assert.EqualError(t, err, "could not scan events: event store is empty")
 	})
 
 	t.Run("startLedger is less than oldest ledger", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		txMeta = append(txMeta, transactionMetaWithEvents(
@@ -353,20 +359,17 @@ func TestGetEvents(t *testing.T) {
 				),
 			},
 		))
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...)))
 
 		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 1,
-		})
+		}, 1000)
 		assert.EqualError(t, err, "could not scan events: start is before oldest ledger")
 	})
 
 	t.Run("startLedger is greater than latest ledger", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		txMeta = append(txMeta, transactionMetaWithEvents(
@@ -384,20 +387,17 @@ func TestGetEvents(t *testing.T) {
 				),
 			},
 		))
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...)))
 
 		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 3,
-		})
+		}, 1000)
 		assert.EqualError(t, err, "could not scan events: start is after newest ledger")
 	})
 
 	t.Run("no filtering returns all", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 10; i++ {
@@ -417,14 +417,11 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		result, err := getEvents(store, GetEventsRequest{
 			StartLedger: 1,
-		})
+		}, 1000)
 		assert.NoError(t, err)
 
 		var expected []EventInfo
@@ -457,7 +454,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by contract id", func(t *testing.T) {
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		contractIds := []xdr.Hash{
@@ -481,17 +478,14 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		results, err := getEvents(store, GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
 				{ContractIDs: []string{contractIds[0].HexString()}},
 			},
-		})
+		}, 1000)
 		assert.NoError(t, err)
 
 		expectedIds := []string{
@@ -507,7 +501,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by topic", func(t *testing.T) {
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		contractID := xdr.Hash([32]byte{})
@@ -527,10 +521,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		number := xdr.Int64(4)
 		results, err := getEvents(store, GetEventsRequest{
@@ -543,7 +534,7 @@ func TestGetEvents(t *testing.T) {
 					},
 				}},
 			},
-		})
+		}, 1000)
 		assert.NoError(t, err)
 
 		id := events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String()
@@ -569,7 +560,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by both contract id and topic", func(t *testing.T) {
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		otherContractID := xdr.Hash([32]byte{1})
@@ -618,10 +609,7 @@ func TestGetEvents(t *testing.T) {
 				),
 			}),
 		}
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		results, err := getEvents(store, GetEventsRequest{
 			StartLedger: 1,
@@ -636,7 +624,7 @@ func TestGetEvents(t *testing.T) {
 					},
 				},
 			},
-		})
+		}, 1000)
 		assert.NoError(t, err)
 
 		id := events.Cursor{Ledger: 1, Tx: 4, Op: 0, Event: 0}.String()
@@ -661,7 +649,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by event type", func(t *testing.T) {
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		txMeta := []xdr.TransactionMeta{
@@ -682,17 +670,14 @@ func TestGetEvents(t *testing.T) {
 				),
 			}),
 		}
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		results, err := getEvents(store, GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
 				{EventType: EventTypeSystem},
 			},
-		})
+		}, 1000)
 		assert.NoError(t, err)
 
 		id := events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 1}.String()
@@ -712,7 +697,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("with limit", func(t *testing.T) {
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		var txMeta []xdr.TransactionMeta
@@ -730,16 +715,13 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		results, err := getEvents(store, GetEventsRequest{
 			StartLedger: 1,
 			Filters:     []EventFilter{},
 			Pagination:  &PaginationOptions{Limit: 10},
-		})
+		}, 1000)
 		assert.NoError(t, err)
 
 		var expected []EventInfo
@@ -769,7 +751,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("starting cursor in the middle of operations and events", func(t *testing.T) {
-		store, err := events.NewMemoryStore(100)
+		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		datas := []xdr.ScSymbol{
@@ -815,10 +797,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			),
 		}
-		assert.NoError(t, store.IngestEvents(
-			"unit-tests",
-			ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...),
-		))
+		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)))
 
 		id := events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}.String()
 		results, err := getEvents(store, GetEventsRequest{
@@ -827,7 +806,7 @@ func TestGetEvents(t *testing.T) {
 				Cursor: id,
 				Limit:  2,
 			},
-		})
+		}, 1000)
 		assert.NoError(t, err)
 
 		var expected []EventInfo

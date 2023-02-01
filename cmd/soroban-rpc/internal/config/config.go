@@ -24,4 +24,5 @@ type LocalConfig struct {
 	LedgerEntryStorageTimeout time.Duration
 	LedgerRetentionWindow     int
 	CheckpointFrequency       uint32
+	MaxEventsLimit            uint
 }

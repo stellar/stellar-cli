@@ -47,6 +47,7 @@ type HandlerParams struct {
 	LedgerEntryReader db.LedgerEntryReader
 	Logger            *log.Entry
 	NetworkPassphrase string
+	MaxEventsLimit    uint
 }
 
 // NewJSONRPCHandler constructs a Handler instance
@@ -54,7 +55,7 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 	bridge := jhttp.NewBridge(handler.Map{
 		"getHealth":            methods.NewHealthCheck(),
 		"getAccount":           methods.NewAccountHandler(params.AccountStore),
-		"getEvents":            methods.NewGetEventsHandler(params.EventStore),
+		"getEvents":            methods.NewGetEventsHandler(params.EventStore, params.MaxEventsLimit),
 		"getNetwork":           methods.NewGetNetworkHandler(params.NetworkPassphrase, params.FriendbotURL, params.CoreClient),
 		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),

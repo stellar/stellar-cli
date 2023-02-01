@@ -105,7 +105,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 
 	ledgerRetentionWindow := uint32(cfg.LedgerRetentionWindow)
-	eventStore, err := events.NewMemoryStore(ledgerRetentionWindow)
+	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, ledgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create event store: %v", err)
 	}
@@ -149,6 +149,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		TransactionProxy:  transactionProxy,
 		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
+		MaxEventsLimit:    cfg.MaxEventsLimit,
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)

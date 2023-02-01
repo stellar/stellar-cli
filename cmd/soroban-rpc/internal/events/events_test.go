@@ -84,7 +84,7 @@ func eventsAreEqual(t *testing.T, a, b []event) {
 }
 
 func TestAppend(t *testing.T) {
-	m, err := NewMemoryStore(3)
+	m, err := NewMemoryStore("unit-tests", 3)
 	require.NoError(t, err)
 
 	// test appending first bucket of events
@@ -162,9 +162,9 @@ func TestAppend(t *testing.T) {
 }
 
 func TestScanRangeValidation(t *testing.T) {
-	m, err := NewMemoryStore(4)
+	m, err := NewMemoryStore("unit-tests", 4)
 	require.NoError(t, err)
-	assertNoCalls := func(cursor Cursor, timestamp int64, contractEvent xdr.ContractEvent) bool {
+	assertNoCalls := func(contractEvent xdr.ContractEvent, cursor Cursor, timestamp int64) bool {
 		t.Fatalf("unexpected call")
 		return true
 	}
@@ -288,7 +288,7 @@ func TestScanRangeValidation(t *testing.T) {
 }
 
 func createStore(t *testing.T) *MemoryStore {
-	m, err := NewMemoryStore(4)
+	m, err := NewMemoryStore("unit-tests", 4)
 	require.NoError(t, err)
 
 	require.NoError(t, m.append(5, ledger5CloseTime, ledger5Events))
@@ -429,7 +429,7 @@ func TestScan(t *testing.T) {
 		for _, input := range genEquivalentInputs(testCase.input) {
 			var events []event
 			iterateAll := true
-			f := func(cursor Cursor, ledgerCloseTimestamp int64, contractEvent xdr.ContractEvent) bool {
+			f := func(contractEvent xdr.ContractEvent, cursor Cursor, ledgerCloseTimestamp int64) bool {
 				require.Equal(t, ledgerCloseTime(cursor.Ledger), ledgerCloseTimestamp)
 				events = append(events, event{
 					contents:   contractEvent,

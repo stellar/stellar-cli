@@ -16,10 +16,6 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 )
 
-// maxLedgerRange is the maximum allowed value of endLedger-startLedger
-// Just guessed 4320 as it is ~6hrs
-const maxLimit = 10000
-
 type EventInfo struct {
 	EventType      string         `json:"type"`
 	Ledger         int32          `json:"ledger,string"`
@@ -41,7 +37,7 @@ type GetEventsRequest struct {
 	Pagination  *PaginationOptions `json:"pagination,omitempty"`
 }
 
-func (g *GetEventsRequest) Valid() error {
+func (g *GetEventsRequest) Valid(maxLimit uint) error {
 	// Validate start
 	// Validate the paging limit (if it exists)
 	if g.StartLedger <= 0 {
@@ -253,11 +249,11 @@ type PaginationOptions struct {
 }
 
 type eventScanner interface {
-	Scan(eventRange events.Range, f func(events.Cursor, int64, xdr.ContractEvent) bool) error
+	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) error
 }
 
-func getEvents(scanner eventScanner, request GetEventsRequest) ([]EventInfo, error) {
-	if err := request.Valid(); err != nil {
+func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([]EventInfo, error) {
+	if err := request.Valid(maxLimit); err != nil {
 		return nil, err
 	}
 
@@ -275,7 +271,7 @@ func getEvents(scanner eventScanner, request GetEventsRequest) ([]EventInfo, err
 			start.Event++
 		}
 		if request.Pagination.Limit > 0 {
-			limit = int(request.Pagination.Limit)
+			limit = request.Pagination.Limit
 		}
 	}
 
@@ -292,11 +288,11 @@ func getEvents(scanner eventScanner, request GetEventsRequest) ([]EventInfo, err
 			End:        events.MaxCursor,
 			ClampEnd:   true,
 		},
-		func(cursor events.Cursor, ledgerCloseTimestamp int64, event xdr.ContractEvent) bool {
+		func(event xdr.ContractEvent, cursor events.Cursor, ledgerCloseTimestamp int64) bool {
 			if request.Matches(event) {
 				found = append(found, entry{cursor, ledgerCloseTimestamp, event})
 			}
-			return len(found) < limit
+			return uint(len(found)) < limit
 		},
 	)
 	if err != nil {
@@ -306,9 +302,9 @@ func getEvents(scanner eventScanner, request GetEventsRequest) ([]EventInfo, err
 	var results []EventInfo
 	for _, entry := range found {
 		info, err := eventInfoForEvent(
+			entry.event,
 			entry.cursor,
 			time.Unix(entry.ledgerCloseTimestamp, 0).UTC().Format(time.RFC3339),
-			entry.event,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not parse event")
@@ -318,7 +314,7 @@ func getEvents(scanner eventScanner, request GetEventsRequest) ([]EventInfo, err
 	return results, nil
 }
 
-func eventInfoForEvent(cursor events.Cursor, ledgerClosedAt string, event xdr.ContractEvent) (EventInfo, error) {
+func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
 	v0, ok := event.Body.GetV0()
 	if !ok {
 		return EventInfo{}, errors.New("unknown event version")
@@ -362,10 +358,15 @@ func eventInfoForEvent(cursor events.Cursor, ledgerClosedAt string, event xdr.Co
 	}, nil
 }
 
+//
+//// maxLedgerRange is the maximum allowed value of endLedger-startLedger
+//// Just guessed 4320 as it is ~6hrs
+//const maxLimit = 10000
+
 // NewGetEventsHandler returns a json rpc handler to fetch and filter events
-func NewGetEventsHandler(eventsStore *events.MemoryStore) jrpc2.Handler {
+func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit uint) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetEventsRequest) ([]EventInfo, error) {
-		response, err := getEvents(eventsStore, request)
+		response, err := getEvents(eventsStore, request, maxLimit)
 		if err != nil {
 			return nil, err
 		}
