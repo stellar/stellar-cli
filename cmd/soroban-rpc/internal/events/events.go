@@ -192,6 +192,7 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 		var tx ingest.LedgerTransaction
 		tx, err = txReader.Read()
 		if err == io.EOF {
+			err = nil
 			break
 		}
 		if err != nil {
