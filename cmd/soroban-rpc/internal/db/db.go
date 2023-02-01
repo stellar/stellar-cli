@@ -113,16 +113,16 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 	}
 	stmtCache := sq.NewStmtCache(tx)
 	db := rw.db
-	executeWALCheckpoint := rw.txCounter%executeWALCheckpointFrequency == 0
-	rw.txCounter = (rw.txCounter + 1) % executeWALCheckpointFrequency
-	return writeTx{
-		postCommit: func() error {
-			if !executeWALCheckpoint {
-				return nil
-			}
+	postCommit := func() error { return nil }
+	if rw.txCounter%executeWALCheckpointFrequency == 0 {
+		postCommit = func() error {
 			_, err = db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
-		},
+		}
+	}
+	rw.txCounter = (rw.txCounter + 1) % executeWALCheckpointFrequency
+	return writeTx{
+		postCommit:   postCommit,
 		tx:           tx,
 		stmtCache:    stmtCache,
 		ledgerWriter: ledgerWriter{stmtCache: stmtCache},
