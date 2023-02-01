@@ -215,7 +215,7 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 			}
 		}
 	}
-	return
+	return events, err
 }
 
 // append adds new events to the circular buffer.

@@ -198,7 +198,7 @@ func (s *Service) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.Ledge
 		return err
 	}
 
-	if err := s.eventStore.IngestEvents(s.networkPassPhrase, ledgerCloseMeta); err != nil {
+	if err := s.eventStore.IngestEvents(ledgerCloseMeta); err != nil {
 		return err
 	}
 	return nil
