@@ -263,15 +263,17 @@ func getEvents(scanner eventScanner, request GetEventsRequest) ([]EventInfo, err
 
 	start := events.Cursor{Ledger: uint32(request.StartLedger)}
 	limit := maxLimit
-	if request.Pagination != nil && request.Pagination.Cursor != "" {
-		var err error
-		start, err = events.ParseCursor(request.Pagination.Cursor)
-		if err != nil {
-			return nil, errors.Wrap(err, "invalid pagination cursor")
+	if request.Pagination != nil {
+		if request.Pagination.Cursor != "" {
+			var err error
+			start, err = events.ParseCursor(request.Pagination.Cursor)
+			if err != nil {
+				return nil, errors.Wrap(err, "invalid pagination cursor")
+			}
+			// increment event index because, when paginating,
+			// we start with the item right after the cursor
+			start.Event++
 		}
-		// increment event index because, when paginating,
-		// we start with the item right after the cursor
-		start.Event++
 		if request.Pagination.Limit > 0 {
 			limit = int(request.Pagination.Limit)
 		}
