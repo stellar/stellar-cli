@@ -182,7 +182,10 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 		return
 	}
 	defer func() {
-		err = txReader.Close()
+		closeErr := txReader.Close()
+		if err == nil {
+			err = closeErr
+		}
 	}()
 
 	for {

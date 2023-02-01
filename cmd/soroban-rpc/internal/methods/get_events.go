@@ -365,11 +365,6 @@ func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClos
 	}, nil
 }
 
-//
-//// maxLedgerRange is the maximum allowed value of endLedger-startLedger
-//// Just guessed 4320 as it is ~6hrs
-//const maxLimit = 10000
-
 // NewGetEventsHandler returns a json rpc handler to fetch and filter events
 func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit uint) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetEventsRequest) ([]EventInfo, error) {
