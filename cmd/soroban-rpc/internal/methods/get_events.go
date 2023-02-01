@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/creachadair/jrpc2"
+	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/go/support/errors"
@@ -254,7 +255,10 @@ type eventScanner interface {
 
 func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([]EventInfo, error) {
 	if err := request.Valid(maxLimit); err != nil {
-		return nil, err
+		return nil, &jrpc2.Error{
+			Code:    code.InvalidParams,
+			Message: err.Error(),
+		}
 	}
 
 	start := events.Cursor{Ledger: uint32(request.StartLedger)}
@@ -296,7 +300,10 @@ func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([
 		},
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not scan events")
+		return nil, &jrpc2.Error{
+			Code:    code.InvalidRequest,
+			Message: err.Error(),
+		}
 	}
 
 	var results []EventInfo

@@ -336,7 +336,7 @@ func TestGetEvents(t *testing.T) {
 		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 1,
 		}, 1000)
-		assert.EqualError(t, err, "could not scan events: event store is empty")
+		assert.EqualError(t, err, "[-32600] event store is empty")
 	})
 
 	t.Run("startLedger is less than oldest ledger", func(t *testing.T) {
@@ -364,7 +364,7 @@ func TestGetEvents(t *testing.T) {
 		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 1,
 		}, 1000)
-		assert.EqualError(t, err, "could not scan events: start is before oldest ledger")
+		assert.EqualError(t, err, "[-32600] start is before oldest ledger")
 	})
 
 	t.Run("startLedger is greater than latest ledger", func(t *testing.T) {
@@ -392,7 +392,7 @@ func TestGetEvents(t *testing.T) {
 		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 3,
 		}, 1000)
-		assert.EqualError(t, err, "could not scan events: start is after newest ledger")
+		assert.EqualError(t, err, "[-32600] start is after newest ledger")
 	})
 
 	t.Run("no filtering returns all", func(t *testing.T) {
