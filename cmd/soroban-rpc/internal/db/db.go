@@ -22,9 +22,8 @@ var migrations embed.FS
 var ErrEmptyDB = errors.New("DB is empty")
 
 const (
-	metaTableName                 = "metadata"
-	latestLedgerSequenceMetaKey   = "LatestLedgerSequence"
-	executeWALCheckpointFrequency = 1000
+	metaTableName               = "metadata"
+	latestLedgerSequenceMetaKey = "LatestLedgerSequence"
 )
 
 type ReadWriter interface {
@@ -83,7 +82,6 @@ func getLatestLedgerSequence(ctx context.Context, q sqlx.QueryerContext) (uint32
 }
 
 type readWriter struct {
-	txCounter             int
 	db                    *sqlx.DB
 	maxBatchSize          int
 	ledgerRetentionWindow uint32
@@ -95,7 +93,6 @@ type readWriter struct {
 // recorded in the database.
 func NewReadWriter(db *sqlx.DB, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
 	return &readWriter{
-		txCounter:             0,
 		db:                    db,
 		maxBatchSize:          maxBatchSize,
 		ledgerRetentionWindow: ledgerRetentionWindow,
@@ -113,16 +110,11 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 	}
 	stmtCache := sq.NewStmtCache(tx)
 	db := rw.db
-	postCommit := func() error { return nil }
-	if rw.txCounter%executeWALCheckpointFrequency == 0 {
-		postCommit = func() error {
+	return writeTx{
+		postCommit: func() error {
 			_, err = db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
-		}
-	}
-	rw.txCounter = (rw.txCounter + 1) % executeWALCheckpointFrequency
-	return writeTx{
-		postCommit:   postCommit,
+		},
 		tx:           tx,
 		stmtCache:    stmtCache,
 		ledgerWriter: ledgerWriter{stmtCache: stmtCache},
