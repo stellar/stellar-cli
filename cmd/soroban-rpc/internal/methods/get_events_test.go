@@ -339,7 +339,7 @@ func TestGetEvents(t *testing.T) {
 		assert.EqualError(t, err, "[-32600] event store is empty")
 	})
 
-	t.Run("startLedger is less than oldest ledger", func(t *testing.T) {
+	t.Run("startLedger validation", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
 		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
@@ -365,29 +365,6 @@ func TestGetEvents(t *testing.T) {
 			StartLedger: 1,
 		}, 1000)
 		assert.EqualError(t, err, "[-32600] start is before oldest ledger")
-	})
-
-	t.Run("startLedger is greater than latest ledger", func(t *testing.T) {
-		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
-		var txMeta []xdr.TransactionMeta
-		txMeta = append(txMeta, transactionMetaWithEvents(
-			[]xdr.ContractEvent{
-				contractEvent(
-					contractID,
-					xdr.ScVec{xdr.ScVal{
-						Type: xdr.ScValTypeScvSymbol,
-						Sym:  &counter,
-					}},
-					xdr.ScVal{
-						Type: xdr.ScValTypeScvSymbol,
-						Sym:  &counter,
-					},
-				),
-			},
-		))
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...)))
 
 		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 3,
@@ -911,7 +888,6 @@ func ledgerCloseMetaWithEvents(sequence uint32, closeTimestamp int64, txMeta ...
 			TxProcessing: txProcessing,
 		},
 	}
-
 }
 func transactionMetaWithEvents(events ...[]xdr.ContractEvent) xdr.TransactionMeta {
 	var operationEvents []xdr.OperationEvents
