@@ -1,9 +1,24 @@
 FROM golang:1.19.1 as build
+ARG RUST_TOOLCHAIN_VERSION=stable
 
-ADD . /src/soroban-rpc
-WORKDIR /src/soroban-rpc
-RUN go build -o /bin/soroban-rpc ./cmd/soroban-rpc
+WORKDIR /go/src/github.com/stellar/soroban-tools
 
+ADD . ./
+
+RUN git config --global --add safe.directory "/go/src/github.com/stellar/soroban-tools"
+
+ENV CARGO_HOME=/rust/.cargo
+ENV RUSTUP_HOME=/rust/.rust
+ENV PATH="/usr/local/go/bin:$CARGO_HOME/bin:${PATH}"
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update
+RUN apt-get install -y build-essential
+RUN apt-get clean
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUST_TOOLCHAIN_VERSION
+
+RUN make build-soroban-rpc
+RUN mv soroban-rpc /bin/soroban-rpc
 
 FROM ubuntu:20.04
 ARG STELLAR_CORE_VERSION
