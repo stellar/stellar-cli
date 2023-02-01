@@ -20,6 +20,10 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db *sqlx.DB, key xdr.LedgerKey
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
 	}
+	var doneErr error
+	defer func() {
+		doneErr = tx.Done()
+	}()
 
 	latestSeq, err := tx.GetLatestLedgerSequence()
 	if err != nil {
@@ -31,10 +35,7 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db *sqlx.DB, key xdr.LedgerKey
 		return false, xdr.LedgerEntry{}, 0, err
 	}
 
-	if err := tx.Done(); err != nil {
-		return false, xdr.LedgerEntry{}, 0, err
-	}
-	return present, entry, latestSeq, nil
+	return present, entry, latestSeq, doneErr
 }
 
 func getLedgerEntryAndLatestLedgerSequence(db *sqlx.DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
