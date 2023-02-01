@@ -31,7 +31,7 @@ import (
 import "C"
 
 type snapshotSourceHandle struct {
-	readTx db.LedgerEntryReaderTx
+	readTx db.LedgerEntryReadTx
 	logger *log.Entry
 }
 
@@ -110,7 +110,7 @@ type SimulateTransactionResponse struct {
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
-func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, db db.DB) jrpc2.Handler {
+func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, ledgerEntryReader db.LedgerEntryReader) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
@@ -155,7 +155,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 				Error: "Cannot marshal source account",
 			}
 		}
-		readTx, err := db.NewLedgerEntryReaderTx()
+		readTx, err := ledgerEntryReader.NewTx(ctx)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error: "Cannot create db transaction",

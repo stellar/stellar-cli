@@ -4,15 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	migrate "github.com/rubenv/sql-migrate"
+
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 )
@@ -23,35 +22,24 @@ var migrations embed.FS
 var ErrEmptyDB = errors.New("DB is empty")
 
 const (
-	ledgerEntriesTableName      = "ledger_entries"
-	metaTableName               = "metadata"
-	latestLedgerSequenceMetaKey = "LatestLedgerSequence"
+	metaTableName                 = "metadata"
+	latestLedgerSequenceMetaKey   = "LatestLedgerSequence"
+	executeWALCheckpointFrequency = 1000
 )
 
-type DB interface {
-	NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize int) (LedgerEntryUpdaterTx, error)
-	NewLedgerEntryReaderTx() (LedgerEntryReaderTx, error)
-	io.Closer
+type ReadWriter interface {
+	NewTx(ctx context.Context) (WriteTx, error)
+	GetLatestLedgerSequence(ctx context.Context) (uint32, error)
 }
 
-type LedgerEntryUpdaterTx interface {
-	UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error
-	DeleteLedgerEntry(key xdr.LedgerKey) error
-	Done() error
+type WriteTx interface {
+	LedgerEntryWriter() LedgerEntryWriter
+	LedgerWriter() LedgerWriter
+	Commit(ledgerSeq uint32) error
+	Rollback() error
 }
 
-type LedgerEntryReaderTx interface {
-	GetLatestLedgerSequence() (uint32, error)
-	GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error)
-	Done() error
-}
-
-type sqlDB struct {
-	db                  *sqlx.DB
-	postWriteCommitHook func() error
-}
-
-func OpenSQLiteDB(dbFilePath string) (DB, error) {
+func OpenSQLiteDB(dbFilePath string) (*sqlx.DB, error) {
 	// 1. Use Write-Ahead Logging (WAL).
 	// 2. Disable WAL auto-checkpointing (we will do the checkpointing ourselves with wal_checkpoint pragmas
 	//    after every write transaction).
@@ -61,182 +49,134 @@ func OpenSQLiteDB(dbFilePath string) (DB, error) {
 		return nil, errors.Wrap(err, "open failed")
 	}
 
-	postWriteCommitHook := func() error {
-		_, err := db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
-		return err
-	}
-
-	ret := &sqlDB{
-		db:                  db,
-		postWriteCommitHook: postWriteCommitHook,
-	}
-
-	if err = runMigrations(ret.db.DB, "sqlite3"); err != nil {
+	if err = runMigrations(db.DB, "sqlite3"); err != nil {
 		_ = db.Close()
 		return nil, errors.Wrap(err, "could not run migrations")
 	}
 
-	return ret, nil
+	return db, nil
 }
 
-func upsertLatestLedgerSequence(tx *sqlx.Tx, sequence uint32) error {
-	sqlStr, args, err := sq.Replace(metaTableName).Values(latestLedgerSequenceMetaKey, fmt.Sprintf("%d", sequence)).ToSql()
+func getLatestLedgerSequence(ctx context.Context, q sqlx.QueryerContext) (uint32, error) {
+	sqlStr, args, err := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = tx.Exec(sqlStr, args...)
-	return err
+	var results []string
+	if err = sqlx.SelectContext(ctx, q, &results, sqlStr, args...); err != nil {
+		return 0, err
+	}
+	switch len(results) {
+	case 0:
+		return 0, ErrEmptyDB
+	case 1:
+		// expected length on an initialized DB
+	default:
+		return 0, fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), latestLedgerSequenceMetaKey, metaTableName)
+	}
+	latestLedgerStr := results[0]
+	latestLedger, err := strconv.ParseUint(latestLedgerStr, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(latestLedger), nil
 }
 
-func (s *sqlDB) Close() error {
-	// TODO: What if there is a running transaction?
-	return s.db.Close()
+type readWriter struct {
+	txCounter             int
+	db                    *sqlx.DB
+	maxBatchSize          int
+	ledgerRetentionWindow uint32
 }
 
-type ledgerUpdaterTx struct {
-	tx                  *sqlx.Tx
-	stmtCache           *sq.StmtCache
-	postWriteCommitHook func() error
-	// Value to set "latestSequence" to once we are done
-	forLedgerSequence uint32
-	maxBatchSize      int
-	buffer            *xdr.EncodingBuffer
-	// nil entries imply deletion
-	keyToEntryBatch map[string]*string
+// NewReadWriter constructs a new ReadWriter instance and configures
+// the size of ledger entry batches when writing ledger entries
+// and the retention window for how many historical ledgers are
+// recorded in the database.
+func NewReadWriter(db *sqlx.DB, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
+	return &readWriter{
+		txCounter:             0,
+		db:                    db,
+		maxBatchSize:          maxBatchSize,
+		ledgerRetentionWindow: ledgerRetentionWindow,
+	}
 }
 
-func (s *sqlDB) NewLedgerEntryUpdaterTx(forLedgerSequence uint32, maxBatchSize int) (LedgerEntryUpdaterTx, error) {
-	tx, err := s.db.BeginTxx(context.Background(), nil)
+func (rw *readWriter) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
+	return getLatestLedgerSequence(ctx, rw.db)
+}
+
+func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
+	tx, err := rw.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	ret := &ledgerUpdaterTx{
-		tx:                  tx,
-		stmtCache:           sq.NewStmtCache(tx),
-		postWriteCommitHook: s.postWriteCommitHook,
-		forLedgerSequence:   forLedgerSequence,
-		maxBatchSize:        maxBatchSize,
-		buffer:              xdr.NewEncodingBuffer(),
-		keyToEntryBatch:     make(map[string]*string, maxBatchSize),
-	}
-	return ret, nil
-}
-
-func (l *ledgerUpdaterTx) flushLedgerEntryBatch() error {
-	upsertCount := 0
-	upsertSQL := sq.StatementBuilder.RunWith(l.stmtCache).Replace(ledgerEntriesTableName)
-	var deleteKeys = make([]string, 0, len(l.keyToEntryBatch))
-	for key, entry := range l.keyToEntryBatch {
-		if entry != nil {
-			upsertSQL = upsertSQL.Values(key, entry)
-			upsertCount += 1
-		} else {
-			deleteKeys = append(deleteKeys, key)
-		}
-	}
-
-	if upsertCount > 0 {
-		if _, err := upsertSQL.Exec(); err != nil {
+	stmtCache := sq.NewStmtCache(tx)
+	db := rw.db
+	postCommit := func() error { return nil }
+	if rw.txCounter%executeWALCheckpointFrequency == 0 {
+		postCommit = func() error {
+			_, err = db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
 		}
 	}
-
-	if len(deleteKeys) > 0 {
-		deleteSQL := sq.StatementBuilder.RunWith(l.stmtCache).Delete(ledgerEntriesTableName).Where(sq.Eq{"key": deleteKeys})
-		if _, err := deleteSQL.Exec(); err != nil {
-			return err
-		}
-	}
-	return nil
+	rw.txCounter = (rw.txCounter + 1) % executeWALCheckpointFrequency
+	return writeTx{
+		postCommit:   postCommit,
+		tx:           tx,
+		stmtCache:    stmtCache,
+		ledgerWriter: ledgerWriter{stmtCache: stmtCache},
+		ledgerEntryWriter: ledgerEntryWriter{
+			buffer:          xdr.NewEncodingBuffer(),
+			stmtCache:       stmtCache,
+			keyToEntryBatch: make(map[string]*string, rw.maxBatchSize),
+			maxBatchSize:    rw.maxBatchSize,
+		},
+		ledgerRetentionWindow: rw.ledgerRetentionWindow,
+	}, nil
 }
 
-func (l *ledgerUpdaterTx) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
-	if err := l.upsertLedgerEntry(key, entry); err != nil {
-		_ = l.tx.Rollback()
+type writeTx struct {
+	postCommit            func() error
+	tx                    *sqlx.Tx
+	stmtCache             *sq.StmtCache
+	ledgerEntryWriter     ledgerEntryWriter
+	ledgerWriter          ledgerWriter
+	ledgerRetentionWindow uint32
+}
+
+func (w writeTx) LedgerEntryWriter() LedgerEntryWriter {
+	return w.ledgerEntryWriter
+}
+
+func (w writeTx) LedgerWriter() LedgerWriter {
+	return w.ledgerWriter
+}
+
+func (w writeTx) Commit(ledgerSeq uint32) error {
+	if err := w.ledgerEntryWriter.flush(); err != nil {
 		return err
 	}
-	return nil
-}
 
-// UpsertLedgerEntry() counterpart with no rollbacks (so that we only rollback in one place)
-func (l *ledgerUpdaterTx) upsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
-	encodedKey, err := encodeLedgerKey(l.buffer, key)
+	if err := w.ledgerWriter.trimLedgers(ledgerSeq, w.ledgerRetentionWindow); err != nil {
+		return err
+	}
+
+	_, err := sq.Replace(metaTableName).RunWith(w.stmtCache).
+		Values(latestLedgerSequenceMetaKey, fmt.Sprintf("%d", ledgerSeq)).Exec()
 	if err != nil {
 		return err
 	}
-	// safe since we cast to string right away
-	encodedEntry, err := l.buffer.UnsafeMarshalBinary(&entry)
-	if err != nil {
+
+	if err = w.tx.Commit(); err != nil {
 		return err
 	}
-	encodedEntryStr := string(encodedEntry)
-	l.keyToEntryBatch[encodedKey] = &encodedEntryStr
-	if len(l.keyToEntryBatch) >= l.maxBatchSize {
-		if err := l.flushLedgerEntryBatch(); err != nil {
-			return err
-		}
-		// reset map
-		l.keyToEntryBatch = make(map[string]*string, l.maxBatchSize)
-	}
-	return nil
+
+	return w.postCommit()
 }
 
-func (l *ledgerUpdaterTx) DeleteLedgerEntry(key xdr.LedgerKey) error {
-	if err := l.deleteLedgerEntry(key); err != nil {
-		_ = l.tx.Rollback()
-		return err
-	}
-	return nil
-}
-
-// DeleteLedgerEntry() counterpart with no rollbacks (so that we only rollback in one place)
-func (l *ledgerUpdaterTx) deleteLedgerEntry(key xdr.LedgerKey) error {
-	encodedKey, err := encodeLedgerKey(l.buffer, key)
-	if err != nil {
-		return err
-	}
-	l.keyToEntryBatch[encodedKey] = nil
-	if len(l.keyToEntryBatch) > l.maxBatchSize {
-		if err := l.flushLedgerEntryBatch(); err != nil {
-			return err
-		}
-		// reset map
-		l.keyToEntryBatch = make(map[string]*string, l.maxBatchSize)
-	}
-	return nil
-}
-
-func (l *ledgerUpdaterTx) Done() error {
-	if err := l.done(); err != nil {
-		_ = l.tx.Rollback()
-		return err
-	}
-	if err := l.tx.Commit(); err != nil {
-		return err
-	}
-	if l.postWriteCommitHook != nil {
-		if err := l.postWriteCommitHook(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Done() counterpart with no rollbacks or commits (so that we only rollback in one place)
-func (l *ledgerUpdaterTx) done() error {
-	if err := l.flushLedgerEntryBatch(); err != nil {
-		return err
-	}
-	return upsertLatestLedgerSequence(l.tx, l.forLedgerSequence)
-}
-
-func encodeLedgerKey(buffer *xdr.EncodingBuffer, key xdr.LedgerKey) (string, error) {
-	// this is safe since we are converting to string right away, which causes a copy
-	binKey, err := buffer.LedgerKeyUnsafeMarshalBinaryCompress(key)
-	if err != nil {
-		return "", err
-	}
-	return string(binKey), nil
+func (w writeTx) Rollback() error {
+	return w.tx.Rollback()
 }
 
 func runMigrations(db *sql.DB, dialect string) error {
@@ -260,120 +200,4 @@ func runMigrations(db *sql.DB, dialect string) error {
 	}
 	_, err := migrate.ExecMax(db, dialect, m, migrate.Up, 0)
 	return err
-}
-
-func (s *sqlDB) NewLedgerEntryReaderTx() (LedgerEntryReaderTx, error) {
-	opts := sql.TxOptions{
-		ReadOnly: true,
-	}
-	tx, err := s.db.BeginTxx(context.Background(), &opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ledgerReaderTx{
-		buffer: xdr.NewEncodingBuffer(),
-		tx:     tx}, nil
-}
-
-type ledgerReaderTx struct {
-	tx     *sqlx.Tx
-	buffer *xdr.EncodingBuffer
-}
-
-func (l ledgerReaderTx) GetLatestLedgerSequence() (uint32, error) {
-	sqlStr, args, err := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
-	if err != nil {
-		return 0, err
-	}
-	var results []string
-	if err = l.tx.Select(&results, sqlStr, args...); err != nil {
-		return 0, err
-	}
-	switch len(results) {
-	case 0:
-		return 0, ErrEmptyDB
-	case 1:
-	// expected length on an initialized DB
-	default:
-		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), latestLedgerSequenceMetaKey, metaTableName))
-	}
-	latestLedgerStr := results[0]
-	latestLedger, err := strconv.ParseUint(latestLedgerStr, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(latestLedger), nil
-}
-
-func (l *ledgerReaderTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
-	encodedKey, err := encodeLedgerKey(l.buffer, key)
-	if err != nil {
-		return false, xdr.LedgerEntry{}, err
-	}
-
-	sqlStr, args, err := sq.Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).ToSql()
-	if err != nil {
-		return false, xdr.LedgerEntry{}, err
-	}
-	var results []string
-	if err = l.tx.Select(&results, sqlStr, args...); err != nil {
-		return false, xdr.LedgerEntry{}, err
-	}
-	switch len(results) {
-	case 0:
-		return false, xdr.LedgerEntry{}, nil
-	case 1:
-		// expected length
-	default:
-		panic(fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName))
-	}
-	ledgerEntryBin := results[0]
-	var result xdr.LedgerEntry
-	if err = xdr.SafeUnmarshal([]byte(ledgerEntryBin), &result); err != nil {
-		return false, xdr.LedgerEntry{}, err
-	}
-	return true, result, nil
-}
-
-func (l *ledgerReaderTx) Done() error {
-	// Since it's a read-only transaction, we don't
-	// care whether we commit it or roll it back as long as we close it
-	return l.tx.Rollback()
-}
-
-func GetLatestLedgerSequence(db DB) (uint32, error) {
-	tx, err := db.NewLedgerEntryReaderTx()
-	if err != nil {
-		return 0, err
-	}
-	var doneErr error
-	defer func() {
-		doneErr = tx.Done()
-	}()
-	ret, err := tx.GetLatestLedgerSequence()
-	if err != nil {
-		return 0, err
-	}
-	return ret, doneErr
-}
-
-func GetLedgerEntryAndLatestLedgerSequence(db DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
-	tx, err := db.NewLedgerEntryReaderTx()
-	if err != nil {
-		return false, xdr.LedgerEntry{}, 0, err
-	}
-	var doneErr error
-	defer func() {
-		doneErr = tx.Done()
-	}()
-	seq, err := tx.GetLatestLedgerSequence()
-	if err != nil {
-		return false, xdr.LedgerEntry{}, 0, err
-	}
-	present, entry, err := tx.GetLedgerEntry(key)
-	if err != nil {
-		return false, xdr.LedgerEntry{}, 0, err
-	}
-	return present, entry, seq, doneErr
 }

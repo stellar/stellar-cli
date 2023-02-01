@@ -43,7 +43,7 @@ type HandlerParams struct {
 	FriendbotURL      string
 	TransactionProxy  *methods.TransactionProxy
 	CoreClient        *stellarcore.Client
-	DB                db.DB
+	LedgerEntryReader db.LedgerEntryReader
 	Logger            *log.Entry
 	NetworkPassphrase string
 }
@@ -54,11 +54,11 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 		"getHealth":            methods.NewHealthCheck(),
 		"getAccount":           methods.NewAccountHandler(params.AccountStore),
 		"getEvents":            methods.NewGetEventsHandler(params.EventStore),
-		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.DB),
 		"getNetwork":           methods.NewGetNetworkHandler(params.NetworkPassphrase, params.FriendbotURL, params.CoreClient),
+		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
-		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.DB),
+		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.LedgerEntryReader),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
