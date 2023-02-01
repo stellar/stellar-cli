@@ -12,6 +12,7 @@ import (
 	"github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -39,7 +40,7 @@ func (h Handler) Close() {
 
 type HandlerParams struct {
 	AccountStore      methods.AccountStore
-	EventStore        methods.EventStore
+	EventStore        *events.MemoryStore
 	FriendbotURL      string
 	TransactionProxy  *methods.TransactionProxy
 	CoreClient        *stellarcore.Client

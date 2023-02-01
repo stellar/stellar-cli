@@ -16,6 +16,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
@@ -103,9 +104,16 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
+	ledgerRetentionWindow := uint32(cfg.LedgerRetentionWindow)
+	eventStore, err := events.NewMemoryStore(ledgerRetentionWindow)
+	if err != nil {
+		logger.Fatalf("could not create event store: %v", err)
+	}
+
 	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
-		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, uint32(cfg.LedgerRetentionWindow)),
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, ledgerRetentionWindow),
+		EventStore:        eventStore,
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,
@@ -134,7 +142,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 
 	handler, err := internal.NewJSONRPCHandler(internal.HandlerParams{
 		AccountStore:      methods.AccountStore{Client: hc},
-		EventStore:        methods.EventStore{Client: hc},
+		EventStore:        eventStore,
 		FriendbotURL:      cfg.FriendbotURL,
 		NetworkPassphrase: cfg.NetworkPassphrase,
 		Logger:            logger,
