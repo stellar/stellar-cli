@@ -326,7 +326,7 @@ func eventInfoForEvent(cursor events.Cursor, ledgerClosedAt string, event xdr.Co
 	switch event.Type {
 	case xdr.ContractEventTypeSystem:
 		eventType = EventTypeSystem
-	case xdr.MaskAccountFlags:
+	case xdr.ContractEventTypeContract:
 		eventType = EventTypeContract
 	default:
 		return EventInfo{}, errors.New("unknown event type")
