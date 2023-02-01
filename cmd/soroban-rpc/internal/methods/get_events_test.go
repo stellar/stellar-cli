@@ -3,16 +3,17 @@ package methods
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/protocols/horizon"
-	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+
+	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/network"
+	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 )
 
 func TestTopicFilterMatches(t *testing.T) {
@@ -316,21 +317,82 @@ func TestGetEventsRequestValid(t *testing.T) {
 	}).Valid(), "filter 1 invalid: topic 1 invalid: topic cannot have more than 4 segments")
 }
 
-func TestEventStoreGetEvents(t *testing.T) {
+func TestGetEvents(t *testing.T) {
 	now := time.Now().UTC()
 	counter := xdr.ScSymbol("COUNTER")
-	//counterScVal := xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}
-	//counterXdr, err := xdr.MarshalBase64(counterScVal)
-	//assert.NoError(t, err)
+	counterScVal := xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}
+	counterXdr, err := xdr.MarshalBase64(counterScVal)
+	assert.NoError(t, err)
 
 	t.Run("empty", func(t *testing.T) {
 		store, err := events.NewMemoryStore(100)
 		assert.NoError(t, err)
-		response, err := getEvents(store, GetEventsRequest{
+		_, err = getEvents(store, GetEventsRequest{
 			StartLedger: 1,
 		})
+		assert.EqualError(t, err, "could not scan events: event store is empty")
+	})
+
+	t.Run("startLedger is less than oldest ledger", func(t *testing.T) {
+		contractID := xdr.Hash([32]byte{})
+		store, err := events.NewMemoryStore(100)
 		assert.NoError(t, err)
-		assert.Equal(t, []EventInfo(nil), response)
+		var txMeta []xdr.TransactionMeta
+		txMeta = append(txMeta, transactionMetaWithEvents(
+			[]xdr.ContractEvent{
+				contractEvent(
+					contractID,
+					xdr.ScVec{xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					}},
+					xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					},
+				),
+			},
+		))
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...),
+		))
+
+		_, err = getEvents(store, GetEventsRequest{
+			StartLedger: 1,
+		})
+		assert.EqualError(t, err, "could not scan events: start is before oldest ledger")
+	})
+
+	t.Run("startLedger is greater than latest ledger", func(t *testing.T) {
+		contractID := xdr.Hash([32]byte{})
+		store, err := events.NewMemoryStore(100)
+		assert.NoError(t, err)
+		var txMeta []xdr.TransactionMeta
+		txMeta = append(txMeta, transactionMetaWithEvents(
+			[]xdr.ContractEvent{
+				contractEvent(
+					contractID,
+					xdr.ScVec{xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					}},
+					xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					},
+				),
+			},
+		))
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...),
+		))
+
+		_, err = getEvents(store, GetEventsRequest{
+			StartLedger: 3,
+		})
+		assert.EqualError(t, err, "could not scan events: start is after newest ledger")
 	})
 
 	t.Run("no filtering returns all", func(t *testing.T) {
@@ -356,7 +418,7 @@ func TestEventStoreGetEvents(t *testing.T) {
 			))
 		}
 		assert.NoError(t, store.IngestEvents(
-			"standalone",
+			"unit-tests",
 			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
 		))
 
@@ -365,11 +427,11 @@ func TestEventStoreGetEvents(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		expected := []EventInfo{}
+		var expected []EventInfo
 		for i := range txMeta {
 			id := events.Cursor{
 				Ledger: 1,
-				Tx:     uint32(i),
+				Tx:     uint32(i + 1),
 				Op:     0,
 				Event:  0,
 			}.String()
@@ -394,532 +456,460 @@ func TestEventStoreGetEvents(t *testing.T) {
 		assert.Equal(t, expected, result)
 	})
 
-	//t.Run("filtering by contract id", func(t *testing.T) {
-	//	client := &mockTransactionClient{}
-	//	results := []horizon.Transaction{}
-	//	contractIds := []xdr.Hash{
-	//		xdr.Hash([32]byte{}),
-	//		xdr.Hash([32]byte{1}),
-	//	}
-	//	for i := 0; i < 5; i++ {
-	//		meta := transactionMetaWithEvents(t,
-	//			[]xdr.ContractEvent{
-	//				contractEvent(
-	//					contractIds[i%len(contractIds)],
-	//					xdr.ScVec{xdr.ScVal{
-	//						Type: xdr.ScValTypeScvSymbol,
-	//						Sym:  &counter,
-	//					}},
-	//					xdr.ScVal{
-	//						Type: xdr.ScValTypeScvSymbol,
-	//						Sym:  &counter,
-	//					},
-	//				),
-	//			},
-	//		)
-	//		results = append(results, horizon.Transaction{
-	//			ID:              fmt.Sprintf("%d", i),
-	//			PT:              toid.New(1, int32(i), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr:   meta,
-	//		})
-	//	}
-	//	page := horizon.TransactionsPage{}
-	//	page.Embedded.Records = results
-	//	client.On("Transactions", horizonclient.TransactionRequest{
-	//		Order:         horizonclient.Order("asc"),
-	//		Cursor:        toid.New(1, 0, 0).String(),
-	//		Limit:         200,
-	//		IncludeFailed: false,
-	//	}).Return(page, nil).Once()
-	//
-	//	events, err := getEvents(GetEventsRequest{
-	//		StartLedger: 1,
-	//		EndLedger:   2,
-	//		Filters: []EventFilter{
-	//			{ContractIDs: []string{contractIds[0].HexString()}},
-	//		},
-	//	})
-	//	assert.NoError(t, err)
-	//
-	//	client.AssertExpectations(t)
-	//	expectedIds := []string{
-	//		EventID{ID: toid.New(1, int32(0), 0), EventOrder: 0}.String(),
-	//		EventID{ID: toid.New(1, int32(2), 0), EventOrder: 0}.String(),
-	//		EventID{ID: toid.New(1, int32(4), 0), EventOrder: 0}.String(),
-	//	}
-	//	eventIds := []string{}
-	//	for _, event := range events {
-	//		eventIds = append(eventIds, event.ID)
-	//	}
-	//	assert.Equal(t, expectedIds, eventIds)
-	//})
-	//
-	//t.Run("filtering by topic", func(t *testing.T) {
-	//	client := &mockTransactionClient{}
-	//	results := []horizon.Transaction{}
-	//	contractID := xdr.Hash([32]byte{})
-	//	for i := 0; i < 10; i++ {
-	//		number := xdr.Int64(i)
-	//		meta := transactionMetaWithEvents(t,
-	//			[]xdr.ContractEvent{
-	//				// Generate a unique topic like /counter/4 for each event so we can check
-	//				contractEvent(
-	//					contractID,
-	//					xdr.ScVec{
-	//						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//					},
-	//					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//				),
-	//			},
-	//		)
-	//		results = append(results, horizon.Transaction{
-	//			ID:              fmt.Sprintf("%d", i),
-	//			PT:              toid.New(1, int32(i), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr:   meta,
-	//		})
-	//	}
-	//	page := horizon.TransactionsPage{}
-	//	page.Embedded.Records = results
-	//	client.On("Transactions", horizonclient.TransactionRequest{
-	//		Order:         horizonclient.Order("asc"),
-	//		Cursor:        toid.New(1, 0, 0).String(),
-	//		Limit:         200,
-	//		IncludeFailed: false,
-	//	}).Return(page, nil).Once()
-	//
-	//	number := xdr.Int64(4)
-	//	events, err := getEvents(GetEventsRequest{
-	//		StartLedger: 1,
-	//		EndLedger:   2,
-	//		Filters: []EventFilter{
-	//			{Topics: []TopicFilter{
-	//				[]SegmentFilter{
-	//					{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
-	//					{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
-	//				},
-	//			}},
-	//		},
-	//	})
-	//	assert.NoError(t, err)
-	//
-	//	client.AssertExpectations(t)
-	//	tx := results[4]
-	//	id := EventID{ID: toid.New(tx.Ledger, int32(4), 0), EventOrder: 0}.String()
-	//	assert.NoError(t, err)
-	//	value, err := xdr.MarshalBase64(xdr.ScVal{
-	//		Type: xdr.ScValTypeScvU63,
-	//		U63:  &number,
-	//	})
-	//	assert.NoError(t, err)
-	//	expected := []EventInfo{
-	//		{
-	//			EventType:      EventTypeContract,
-	//			Ledger:         tx.Ledger,
-	//			LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-	//			ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
-	//			ID:             id,
-	//			PagingToken:    id,
-	//			Topic:          []string{counterXdr, value},
-	//			Value:          EventInfoValue{XDR: value},
-	//		},
-	//	}
-	//	assert.Equal(t, expected, events)
-	//})
-	//
-	//t.Run("filtering by both contract id and topic", func(t *testing.T) {
-	//	client := &mockTransactionClient{}
-	//	contractID := xdr.Hash([32]byte{})
-	//	otherContractID := xdr.Hash([32]byte{1})
-	//	number := xdr.Int64(1)
-	//	results := []horizon.Transaction{
-	//		// This matches neither the contract id nor the topic
-	//		{
-	//			ID:              fmt.Sprintf("%d", 0),
-	//			PT:              toid.New(1, int32(0), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr: transactionMetaWithEvents(t,
-	//				[]xdr.ContractEvent{
-	//					contractEvent(
-	//						otherContractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//					),
-	//				},
-	//			),
-	//		},
-	//		// This matches the contract id but not the topic
-	//		{
-	//			ID:              fmt.Sprintf("%d", 1),
-	//			PT:              toid.New(1, int32(1), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr: transactionMetaWithEvents(t,
-	//				[]xdr.ContractEvent{
-	//					contractEvent(
-	//						contractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//					),
-	//				},
-	//			),
-	//		},
-	//		// This matches the topic but not the contract id
-	//		{
-	//			ID:              fmt.Sprintf("%d", 2),
-	//			PT:              toid.New(1, int32(2), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr: transactionMetaWithEvents(t,
-	//				[]xdr.ContractEvent{
-	//					contractEvent(
-	//						otherContractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//					),
-	//				},
-	//			),
-	//		},
-	//		// This matches both the contract id and the topic
-	//		{
-	//			ID:              fmt.Sprintf("%d", 3),
-	//			PT:              toid.New(1, int32(3), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr: transactionMetaWithEvents(t,
-	//				[]xdr.ContractEvent{
-	//					contractEvent(
-	//						contractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//					),
-	//				},
-	//			),
-	//		},
-	//	}
-	//	page := horizon.TransactionsPage{}
-	//	page.Embedded.Records = results
-	//	client.On("Transactions", horizonclient.TransactionRequest{
-	//		Order:         horizonclient.Order("asc"),
-	//		Cursor:        toid.New(1, 0, 0).String(),
-	//		Limit:         200,
-	//		IncludeFailed: false,
-	//	}).Return(page, nil).Once()
-	//
-	//	events, err := getEvents(GetEventsRequest{
-	//		StartLedger: 1,
-	//		EndLedger:   2,
-	//		Filters: []EventFilter{
-	//			{
-	//				ContractIDs: []string{contractID.HexString()},
-	//				Topics: []TopicFilter{
-	//					[]SegmentFilter{
-	//						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
-	//						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
-	//					},
-	//				},
-	//			},
-	//		},
-	//	})
-	//	assert.NoError(t, err)
-	//
-	//	client.AssertExpectations(t)
-	//	tx := results[3]
-	//	id := EventID{ID: toid.New(tx.Ledger, int32(3), 0), EventOrder: 0}.String()
-	//	value, err := xdr.MarshalBase64(xdr.ScVal{
-	//		Type: xdr.ScValTypeScvU63,
-	//		U63:  &number,
-	//	})
-	//	assert.NoError(t, err)
-	//	expected := []EventInfo{
-	//		{
-	//			EventType:      EventTypeContract,
-	//			Ledger:         tx.Ledger,
-	//			LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-	//			ContractID:     contractID.HexString(),
-	//			ID:             id,
-	//			PagingToken:    id,
-	//			Topic:          []string{counterXdr, value},
-	//			Value:          EventInfoValue{XDR: value},
-	//		},
-	//	}
-	//	assert.Equal(t, expected, events)
-	//})
-	//
-	//t.Run("filtering by event type", func(t *testing.T) {
-	//	client := &mockTransactionClient{}
-	//	contractID := xdr.Hash([32]byte{})
-	//	results := []horizon.Transaction{
-	//		{
-	//			ID:              fmt.Sprintf("%d", 0),
-	//			PT:              toid.New(1, int32(0), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr: transactionMetaWithEvents(t,
-	//				[]xdr.ContractEvent{
-	//					contractEvent(
-	//						contractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//					),
-	//					systemEvent(
-	//						contractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-	//					),
-	//				},
-	//			),
-	//		},
-	//	}
-	//	page := horizon.TransactionsPage{}
-	//	page.Embedded.Records = results
-	//	client.On("Transactions", horizonclient.TransactionRequest{
-	//		Order:         horizonclient.Order("asc"),
-	//		Cursor:        toid.New(1, 0, 0).String(),
-	//		Limit:         200,
-	//		IncludeFailed: false,
-	//	}).Return(page, nil).Once()
-	//
-	//	events, err := getEvents(GetEventsRequest{
-	//		StartLedger: 1,
-	//		EndLedger:   2,
-	//		Filters: []EventFilter{
-	//			{EventType: EventTypeSystem},
-	//		},
-	//	})
-	//	assert.NoError(t, err)
-	//
-	//	client.AssertExpectations(t)
-	//	tx := results[0]
-	//	id := EventID{ID: toid.New(tx.Ledger, int32(0), 0), EventOrder: 1}.String()
-	//	expected := []EventInfo{
-	//		{
-	//			EventType:      EventTypeSystem,
-	//			Ledger:         tx.Ledger,
-	//			LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-	//			ContractID:     contractID.HexString(),
-	//			ID:             id,
-	//			PagingToken:    id,
-	//			Topic:          []string{counterXdr},
-	//			Value:          EventInfoValue{XDR: counterXdr},
-	//		},
-	//	}
-	//	assert.Equal(t, expected, events)
-	//})
-	//
-	//t.Run("pagination", func(t *testing.T) {
-	//	client := &mockTransactionClient{}
-	//	contractID := xdr.Hash([32]byte{})
-	//	results := []horizon.Transaction{}
-	//	for i := 0; i < 180; i++ {
-	//		number := xdr.Int64(i)
-	//		results = append(results, horizon.Transaction{
-	//			ID:              fmt.Sprintf("%d", i),
-	//			PT:              toid.New(1, int32(i), 0).String(),
-	//			Ledger:          1,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr: transactionMetaWithEvents(t,
-	//				[]xdr.ContractEvent{
-	//					contractEvent(
-	//						contractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//					),
-	//				},
-	//			),
-	//		})
-	//	}
-	//	for i := 180; i < 210; i++ {
-	//		number := xdr.Int64(i)
-	//		results = append(results, horizon.Transaction{
-	//			ID:              fmt.Sprintf("%d", i),
-	//			PT:              toid.New(2, int32(i-180), 0).String(),
-	//			Ledger:          2,
-	//			LedgerCloseTime: now,
-	//			ResultMetaXdr: transactionMetaWithEvents(t,
-	//				[]xdr.ContractEvent{
-	//					contractEvent(
-	//						contractID,
-	//						xdr.ScVec{
-	//							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//						},
-	//						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
-	//					),
-	//				},
-	//			),
-	//		})
-	//	}
-	//	pages := []horizon.TransactionsPage{{}, {}}
-	//	pages[0].Embedded.Records = results[:200]
-	//	pages[1].Embedded.Records = results[200:]
-	//	client.On("Transactions", horizonclient.TransactionRequest{
-	//		Order:         horizonclient.Order("asc"),
-	//		Cursor:        toid.New(1, 0, 0).String(),
-	//		Limit:         200,
-	//		IncludeFailed: false,
-	//	}).Return(pages[0], nil).Once()
-	//	client.On("Transactions", horizonclient.TransactionRequest{
-	//		Order:         horizonclient.Order("asc"),
-	//		Cursor:        toid.New(2, 19, 0).String(),
-	//		Limit:         200,
-	//		IncludeFailed: false,
-	//	}).Return(pages[1], nil).Once()
-	//
-	//	// Find one on the second page
-	//	number := xdr.Int64(205)
-	//	numberScVal := xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}
-	//	numberXdr, err := xdr.MarshalBase64(numberScVal)
-	//	assert.NoError(t, err)
-	//
-	//	events, err := getEvents(GetEventsRequest{
-	//		StartLedger: 1,
-	//		EndLedger:   2,
-	//		Filters: []EventFilter{
-	//			{Topics: []TopicFilter{
-	//				[]SegmentFilter{
-	//					{scval: &numberScVal},
-	//				},
-	//			}},
-	//		},
-	//	})
-	//	assert.NoError(t, err)
-	//
-	//	client.AssertExpectations(t)
-	//	tx := results[205]
-	//	id := EventID{ID: toid.New(tx.Ledger, int32(25), 0), EventOrder: 0}.String()
-	//	expected := []EventInfo{
-	//		{
-	//			EventType:      EventTypeContract,
-	//			Ledger:         tx.Ledger,
-	//			LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-	//			ContractID:     contractID.HexString(),
-	//			ID:             id,
-	//			PagingToken:    id,
-	//			Topic:          []string{numberXdr},
-	//			Value:          EventInfoValue{XDR: numberXdr},
-	//		},
-	//	}
-	//	assert.Equal(t, expected, events)
-	//})
-	//
-	//t.Run("starting cursor in the middle of operations and events", func(t *testing.T) {
-	//	client := &mockTransactionClient{}
-	//	contractID := xdr.Hash([32]byte{})
-	//	results := []horizon.Transaction{}
-	//	datas := []xdr.ScSymbol{
-	//		// ledger/transaction/operation/event
-	//		xdr.ScSymbol("5/2/0/0"),
-	//		xdr.ScSymbol("5/2/0/1"),
-	//		xdr.ScSymbol("5/2/1/0"),
-	//		xdr.ScSymbol("5/2/1/1"),
-	//	}
-	//	results = append(results, horizon.Transaction{
-	//		ID:              "l5/t2",
-	//		PT:              toid.New(5, int32(2), 0).String(),
-	//		Ledger:          5,
-	//		LedgerCloseTime: now,
-	//		ResultMetaXdr: transactionMetaWithEvents(t,
-	//			[]xdr.ContractEvent{
-	//				contractEvent(
-	//					contractID,
-	//					xdr.ScVec{
-	//						counterScVal,
-	//					},
-	//					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[0]},
-	//				),
-	//				contractEvent(
-	//					contractID,
-	//					xdr.ScVec{
-	//						counterScVal,
-	//					},
-	//					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[1]},
-	//				),
-	//			},
-	//			[]xdr.ContractEvent{
-	//				contractEvent(
-	//					contractID,
-	//					xdr.ScVec{
-	//						counterScVal,
-	//					},
-	//					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[2]},
-	//				),
-	//				contractEvent(
-	//					contractID,
-	//					xdr.ScVec{
-	//						counterScVal,
-	//					},
-	//					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[3]},
-	//				),
-	//			},
-	//		),
-	//	})
-	//	page := horizon.TransactionsPage{}
-	//	page.Embedded.Records = results
-	//	client.On("Transactions", horizonclient.TransactionRequest{
-	//		Order:         horizonclient.Order("asc"),
-	//		Cursor:        toid.New(5, 2, 0).String(),
-	//		Limit:         200,
-	//		IncludeFailed: false,
-	//	}).Return(page, nil).Once()
-	//
-	//	id := EventID{ID: toid.New(5, 2, 1), EventOrder: 1}.String()
-	//	events, err := getEvents(GetEventsRequest{
-	//		StartLedger: 1,
-	//		EndLedger:   6,
-	//		Pagination: &PaginationOptions{
-	//			Cursor: id,
-	//		},
-	//	})
-	//	assert.NoError(t, err)
-	//
-	//	expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[len(datas)-1]})
-	//	assert.NoError(t, err)
-	//	client.AssertExpectations(t)
-	//	tx := results[0]
-	//	expected := []EventInfo{
-	//		{
-	//			EventType:      EventTypeContract,
-	//			Ledger:         tx.Ledger,
-	//			LedgerClosedAt: tx.LedgerCloseTime.Format(time.RFC3339),
-	//			ContractID:     contractID.HexString(),
-	//			ID:             id,
-	//			PagingToken:    id,
-	//			Topic:          []string{counterXdr},
-	//			Value:          EventInfoValue{XDR: expectedXdr},
-	//		},
-	//	}
-	//	assert.Equal(t, expected, events)
-	//})
+	t.Run("filtering by contract id", func(t *testing.T) {
+		store, err := events.NewMemoryStore(100)
+		assert.NoError(t, err)
+		var txMeta []xdr.TransactionMeta
+		contractIds := []xdr.Hash{
+			xdr.Hash([32]byte{}),
+			xdr.Hash([32]byte{1}),
+		}
+		for i := 0; i < 5; i++ {
+			txMeta = append(txMeta, transactionMetaWithEvents(
+				[]xdr.ContractEvent{
+					contractEvent(
+						contractIds[i%len(contractIds)],
+						xdr.ScVec{xdr.ScVal{
+							Type: xdr.ScValTypeScvSymbol,
+							Sym:  &counter,
+						}},
+						xdr.ScVal{
+							Type: xdr.ScValTypeScvSymbol,
+							Sym:  &counter,
+						},
+					),
+				},
+			))
+		}
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
+		))
+
+		results, err := getEvents(store, GetEventsRequest{
+			StartLedger: 1,
+			Filters: []EventFilter{
+				{ContractIDs: []string{contractIds[0].HexString()}},
+			},
+		})
+		assert.NoError(t, err)
+
+		expectedIds := []string{
+			events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 0}.String(),
+			events.Cursor{Ledger: 1, Tx: 3, Op: 0, Event: 0}.String(),
+			events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String(),
+		}
+		eventIds := []string{}
+		for _, event := range results {
+			eventIds = append(eventIds, event.ID)
+		}
+		assert.Equal(t, expectedIds, eventIds)
+	})
+
+	t.Run("filtering by topic", func(t *testing.T) {
+		store, err := events.NewMemoryStore(100)
+		assert.NoError(t, err)
+		var txMeta []xdr.TransactionMeta
+		contractID := xdr.Hash([32]byte{})
+		for i := 0; i < 10; i++ {
+			number := xdr.Int64(i)
+			txMeta = append(txMeta, transactionMetaWithEvents(
+				[]xdr.ContractEvent{
+					// Generate a unique topic like /counter/4 for each event so we can check
+					contractEvent(
+						contractID,
+						xdr.ScVec{
+							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						},
+						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					),
+				},
+			))
+		}
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
+		))
+
+		number := xdr.Int64(4)
+		results, err := getEvents(store, GetEventsRequest{
+			StartLedger: 1,
+			Filters: []EventFilter{
+				{Topics: []TopicFilter{
+					[]SegmentFilter{
+						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
+						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
+					},
+				}},
+			},
+		})
+		assert.NoError(t, err)
+
+		id := events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String()
+		assert.NoError(t, err)
+		value, err := xdr.MarshalBase64(xdr.ScVal{
+			Type: xdr.ScValTypeScvU63,
+			U63:  &number,
+		})
+		assert.NoError(t, err)
+		expected := []EventInfo{
+			{
+				EventType:      EventTypeContract,
+				Ledger:         1,
+				LedgerClosedAt: now.Format(time.RFC3339),
+				ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
+				ID:             id,
+				PagingToken:    id,
+				Topic:          []string{counterXdr, value},
+				Value:          EventInfoValue{XDR: value},
+			},
+		}
+		assert.Equal(t, expected, results)
+	})
+
+	t.Run("filtering by both contract id and topic", func(t *testing.T) {
+		store, err := events.NewMemoryStore(100)
+		assert.NoError(t, err)
+		contractID := xdr.Hash([32]byte{})
+		otherContractID := xdr.Hash([32]byte{1})
+		number := xdr.Int64(1)
+		txMeta := []xdr.TransactionMeta{
+			// This matches neither the contract id nor the topic
+			transactionMetaWithEvents([]xdr.ContractEvent{
+				contractEvent(
+					otherContractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+				),
+			}),
+			// This matches the contract id but not the topic
+			transactionMetaWithEvents([]xdr.ContractEvent{
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+				),
+			}),
+			// This matches the topic but not the contract id
+			transactionMetaWithEvents([]xdr.ContractEvent{
+				contractEvent(
+					otherContractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+				),
+			}),
+			// This matches both the contract id and the topic
+			transactionMetaWithEvents([]xdr.ContractEvent{
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+				),
+			}),
+		}
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
+		))
+
+		results, err := getEvents(store, GetEventsRequest{
+			StartLedger: 1,
+			Filters: []EventFilter{
+				{
+					ContractIDs: []string{contractID.HexString()},
+					Topics: []TopicFilter{
+						[]SegmentFilter{
+							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
+							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
+						},
+					},
+				},
+			},
+		})
+		assert.NoError(t, err)
+
+		id := events.Cursor{Ledger: 1, Tx: 4, Op: 0, Event: 0}.String()
+		value, err := xdr.MarshalBase64(xdr.ScVal{
+			Type: xdr.ScValTypeScvU63,
+			U63:  &number,
+		})
+		assert.NoError(t, err)
+		expected := []EventInfo{
+			{
+				EventType:      EventTypeContract,
+				Ledger:         1,
+				LedgerClosedAt: now.Format(time.RFC3339),
+				ContractID:     contractID.HexString(),
+				ID:             id,
+				PagingToken:    id,
+				Topic:          []string{counterXdr, value},
+				Value:          EventInfoValue{XDR: value},
+			},
+		}
+		assert.Equal(t, expected, results)
+	})
+
+	t.Run("filtering by event type", func(t *testing.T) {
+		store, err := events.NewMemoryStore(100)
+		assert.NoError(t, err)
+		contractID := xdr.Hash([32]byte{})
+		txMeta := []xdr.TransactionMeta{
+			transactionMetaWithEvents([]xdr.ContractEvent{
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+				),
+				systemEvent(
+					contractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+				),
+			}),
+		}
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
+		))
+
+		results, err := getEvents(store, GetEventsRequest{
+			StartLedger: 1,
+			Filters: []EventFilter{
+				{EventType: EventTypeSystem},
+			},
+		})
+		assert.NoError(t, err)
+
+		id := events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 1}.String()
+		expected := []EventInfo{
+			{
+				EventType:      EventTypeSystem,
+				Ledger:         1,
+				LedgerClosedAt: now.Format(time.RFC3339),
+				ContractID:     contractID.HexString(),
+				ID:             id,
+				PagingToken:    id,
+				Topic:          []string{counterXdr},
+				Value:          EventInfoValue{XDR: counterXdr},
+			},
+		}
+		assert.Equal(t, expected, results)
+	})
+
+	t.Run("with limit", func(t *testing.T) {
+		store, err := events.NewMemoryStore(100)
+		assert.NoError(t, err)
+		contractID := xdr.Hash([32]byte{})
+		var txMeta []xdr.TransactionMeta
+		for i := 0; i < 180; i++ {
+			number := xdr.Int64(i)
+			txMeta = append(txMeta, transactionMetaWithEvents(
+				[]xdr.ContractEvent{
+					contractEvent(
+						contractID,
+						xdr.ScVec{
+							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						},
+						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					),
+				},
+			))
+		}
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...),
+		))
+
+		results, err := getEvents(store, GetEventsRequest{
+			StartLedger: 1,
+			Filters:     []EventFilter{},
+			Pagination:  &PaginationOptions{Limit: 10},
+		})
+		assert.NoError(t, err)
+
+		var expected []EventInfo
+		for i := 0; i < 10; i++ {
+			id := events.Cursor{
+				Ledger: 1,
+				Tx:     uint32(i + 1),
+				Op:     0,
+				Event:  0,
+			}.String()
+			value, err := xdr.MarshalBase64(txMeta[i].MustV3().Events[0].Events[0].Body.MustV0().Data)
+			assert.NoError(t, err)
+			expected = append(expected, EventInfo{
+				EventType:      EventTypeContract,
+				Ledger:         1,
+				LedgerClosedAt: now.Format(time.RFC3339),
+				ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
+				ID:             id,
+				PagingToken:    id,
+				Topic:          []string{value},
+				Value: EventInfoValue{
+					XDR: value,
+				},
+			})
+		}
+		assert.Equal(t, expected, results)
+	})
+
+	t.Run("starting cursor in the middle of operations and events", func(t *testing.T) {
+		store, err := events.NewMemoryStore(100)
+		assert.NoError(t, err)
+		contractID := xdr.Hash([32]byte{})
+		datas := []xdr.ScSymbol{
+			// ledger/transaction/operation/event
+			xdr.ScSymbol("5/1/0/0"),
+			xdr.ScSymbol("5/1/0/1"),
+			xdr.ScSymbol("5/1/1/0"),
+			xdr.ScSymbol("5/1/1/1"),
+		}
+		txMeta := []xdr.TransactionMeta{
+			transactionMetaWithEvents(
+				[]xdr.ContractEvent{
+					contractEvent(
+						contractID,
+						xdr.ScVec{
+							counterScVal,
+						},
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[0]},
+					),
+					contractEvent(
+						contractID,
+						xdr.ScVec{
+							counterScVal,
+						},
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[1]},
+					),
+				},
+				[]xdr.ContractEvent{
+					contractEvent(
+						contractID,
+						xdr.ScVec{
+							counterScVal,
+						},
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[2]},
+					),
+					contractEvent(
+						contractID,
+						xdr.ScVec{
+							counterScVal,
+						},
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[3]},
+					),
+				},
+			),
+		}
+		assert.NoError(t, store.IngestEvents(
+			"unit-tests",
+			ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...),
+		))
+
+		id := events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}.String()
+		results, err := getEvents(store, GetEventsRequest{
+			StartLedger: 1,
+			Pagination: &PaginationOptions{
+				Cursor: id,
+				Limit:  2,
+			},
+		})
+		assert.NoError(t, err)
+
+		var expected []EventInfo
+		expectedIDs := []string{
+			events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 1}.String(),
+			events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 0}.String(),
+		}
+		symbols := datas[1:3]
+		for i, id := range expectedIDs {
+			expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &symbols[i]})
+			assert.NoError(t, err)
+			expected = append(expected, EventInfo{
+				EventType:      EventTypeContract,
+				Ledger:         5,
+				LedgerClosedAt: now.Format(time.RFC3339),
+				ContractID:     contractID.HexString(),
+				ID:             id,
+				PagingToken:    id,
+				Topic:          []string{counterXdr},
+				Value:          EventInfoValue{XDR: expectedXdr},
+			})
+		}
+		assert.Equal(t, expected, results)
+	})
 }
 
 func ledgerCloseMetaWithEvents(sequence uint32, closeTimestamp int64, txMeta ...xdr.TransactionMeta) xdr.LedgerCloseMeta {
 	var txProcessing []xdr.TransactionResultMetaV2
+	var phases []xdr.TransactionPhase
+
 	for _, item := range txMeta {
+		var operations []xdr.Operation
+		for range item.MustV3().Events {
+			operations = append(operations,
+				xdr.Operation{
+					Body: xdr.OperationBody{
+						Type: xdr.OperationTypeInvokeHostFunction,
+						InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
+							Function: xdr.HostFunction{
+								Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+								InvokeArgs: &xdr.ScVec{},
+							},
+						},
+					},
+				})
+		}
+		envelope := xdr.TransactionEnvelope{
+			Type: xdr.EnvelopeTypeEnvelopeTypeTx,
+			V1: &xdr.TransactionV1Envelope{
+				Tx: xdr.Transaction{
+					SourceAccount: xdr.MustMuxedAddress(keypair.MustRandom().Address()),
+					Operations:    operations,
+				},
+			},
+		}
+		txHash, err := network.HashTransactionInEnvelope(envelope, "unit-tests")
+		if err != nil {
+			panic(err)
+		}
+
 		txProcessing = append(txProcessing, xdr.TransactionResultMetaV2{
 			TxApplyProcessing: item,
+			Result: xdr.TransactionResultPairV2{
+				TransactionHash: txHash,
+			},
+		})
+		components := []xdr.TxSetComponent{
+			{
+				Type: xdr.TxSetComponentTypeTxsetCompTxsMaybeDiscountedFee,
+				TxsMaybeDiscountedFee: &xdr.TxSetComponentTxsMaybeDiscountedFee{
+					Txs: []xdr.TransactionEnvelope{
+						envelope,
+					},
+				},
+			},
+		}
+		phases = append(phases, xdr.TransactionPhase{
+			V:            0,
+			V0Components: &components,
 		})
 	}
+
 	return xdr.LedgerCloseMeta{
 		V: 2,
 		V2: &xdr.LedgerCloseMetaV2{
@@ -932,13 +922,20 @@ func ledgerCloseMetaWithEvents(sequence uint32, closeTimestamp int64, txMeta ...
 					LedgerSeq: xdr.Uint32(sequence),
 				},
 			},
+			TxSet: xdr.GeneralizedTransactionSet{
+				V: 1,
+				V1TxSet: &xdr.TransactionSetV1{
+					PreviousLedgerHash: xdr.Hash{},
+					Phases:             phases,
+				},
+			},
 			TxProcessing: txProcessing,
 		},
 	}
 
 }
 func transactionMetaWithEvents(events ...[]xdr.ContractEvent) xdr.TransactionMeta {
-	operationEvents := []xdr.OperationEvents{}
+	var operationEvents []xdr.OperationEvents
 	for _, e := range events {
 		operationEvents = append(operationEvents, xdr.OperationEvents{
 			Events: e,
@@ -985,13 +982,4 @@ func systemEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.Con
 			},
 		},
 	}
-}
-
-type mockTransactionClient struct {
-	mock.Mock
-}
-
-func (m *mockTransactionClient) Transactions(request horizonclient.TransactionRequest) (horizon.TransactionsPage, error) {
-	args := m.Called(request)
-	return args.Get(0).(horizon.TransactionsPage), args.Error(1)
 }

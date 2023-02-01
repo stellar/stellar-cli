@@ -3,11 +3,11 @@ package events
 import (
 	"errors"
 	"fmt"
-	"github.com/stellar/go/ingest"
 	"io"
 	"sort"
 	"sync"
 
+	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
 )
 
@@ -125,8 +125,10 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 			return errors.New("start is before oldest ledger")
 		}
 	}
-
 	max := Cursor{Ledger: min.Ledger + uint32(len(m.buckets))}
+	if eventRange.Start.Cmp(max) >= 0 {
+		return errors.New("start is after newest ledger")
+	}
 	if eventRange.End.Cmp(max) > 0 {
 		if eventRange.ClampEnd {
 			eventRange.End = max

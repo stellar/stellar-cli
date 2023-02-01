@@ -225,7 +225,7 @@ func TestScanRangeValidation(t *testing.T) {
 				End:        Cursor{Ledger: 3},
 				ClampEnd:   true,
 			},
-			"start is not before end",
+			"start is after newest ledger",
 		},
 		{
 			Range{
@@ -234,7 +234,7 @@ func TestScanRangeValidation(t *testing.T) {
 				End:        Cursor{Ledger: 3},
 				ClampEnd:   false,
 			},
-			"start is not before end",
+			"start is after newest ledger",
 		},
 		{
 			Range{
@@ -243,7 +243,7 @@ func TestScanRangeValidation(t *testing.T) {
 				End:        Cursor{Ledger: 10},
 				ClampEnd:   true,
 			},
-			"start is not before end",
+			"start is after newest ledger",
 		},
 		{
 			Range{
@@ -252,7 +252,7 @@ func TestScanRangeValidation(t *testing.T) {
 				End:        Cursor{Ledger: 10},
 				ClampEnd:   false,
 			},
-			"end is after latest ledger",
+			"start is after newest ledger",
 		},
 		{
 			Range{
