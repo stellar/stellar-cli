@@ -25,7 +25,7 @@ type GetLedgerEntryResponse struct {
 }
 
 // NewGetLedgerEntryHandler returns a json rpc handler to retrieve the specified ledger entry from stellar core
-func NewGetLedgerEntryHandler(logger *log.Entry, database db.DB) jrpc2.Handler {
+func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetLedgerEntryRequest) (GetLedgerEntryResponse, error) {
 		var key xdr.LedgerKey
 		if err := xdr.SafeUnmarshalBase64(request.Key, &key); err != nil {
@@ -37,7 +37,26 @@ func NewGetLedgerEntryHandler(logger *log.Entry, database db.DB) jrpc2.Handler {
 			}
 		}
 
-		present, ledgerEntry, latestLedger, err := db.GetLedgerEntryAndLatestLedgerSequence(database, key)
+		tx, err := ledgerEntryReader.NewTx(ctx)
+		if err != nil {
+			return GetLedgerEntryResponse{}, &jrpc2.Error{
+				Code:    code.InternalError,
+				Message: "could not create read transaction",
+			}
+		}
+		defer func() {
+			_ = tx.Done()
+		}()
+
+		latestLedger, err := tx.GetLatestLedgerSequence()
+		if err != nil {
+			return GetLedgerEntryResponse{}, &jrpc2.Error{
+				Code:    code.InternalError,
+				Message: "could not get latest ledger",
+			}
+		}
+
+		present, ledgerEntry, err := tx.GetLedgerEntry(key)
 		if err != nil {
 			logger.WithError(err).WithField("request", request).
 				Info("could not obtain ledger entry from storage")
