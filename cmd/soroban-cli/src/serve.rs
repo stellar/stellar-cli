@@ -140,7 +140,7 @@ async fn handler(
         ("getAccount", Some(Requests::StringArg(b))) => get_account(b),
         ("getHealth", Some(Requests::NoArg()) | None) => Ok(get_health()),
         ("getLedgerEntry", Some(Requests::StringArg(key))) => get_ledger_entry(key, &ledger_file),
-        ("getNetwork", Some(Requests::NoArg())) => get_network(),
+        ("getNetwork", Some(Requests::NoArg())) => Ok(get_network()),
         ("getTransactionStatus", Some(Requests::StringArg(b))) => {
             get_transaction_status(&transaction_status_map, b).await
         }
@@ -216,11 +216,11 @@ fn get_ledger_entry(k: Box<[String]>, ledger_file: &PathBuf) -> Result<Value, Er
     }
 }
 
-fn get_network() -> Result<Value, Error> {
-    Ok(json!({
+fn get_network() -> Value {
+    json!({
         "passphrase": SANDBOX_NETWORK_PASSPHRASE,
         "protocolVersion": 20,
-    }))
+    })
 }
 
 fn parse_transaction(
