@@ -21,7 +21,7 @@ import (
 
 func main() {
 	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, friendbotURL, networkPassphrase, dbPath, captivecoreStoragePath string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, maxEventsLimit uint
 	var checkpointFrequency uint32
 	var useDB bool
 	var historyArchiveURLs []string
@@ -198,6 +198,14 @@ func main() {
 				" the default value is 17280 which corresponds to about 24 hours of ledgers",
 			ConfigKey: &ledgerRetentionWindow,
 		},
+		{
+			Name:        "max-events-limit",
+			ConfigKey:   &maxEventsLimit,
+			OptType:     types.Uint,
+			Required:    false,
+			FlagDefault: uint(10000),
+			Usage:       "Maximum amount of events allowed in a single getEvents response",
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -231,6 +239,7 @@ func main() {
 				SQLiteDBPath:              dbPath,
 				CheckpointFrequency:       checkpointFrequency,
 				LedgerRetentionWindow:     ledgerRetentionWindow,
+				MaxEventsLimit:            maxEventsLimit,
 			}
 			exitCode := daemon.Run(config, endpoint)
 			os.Exit(exitCode)

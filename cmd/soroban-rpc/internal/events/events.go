@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"sort"
 	"sync"
 
@@ -12,63 +11,10 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-// Cursor represents the position of a Soroban event.
-// Soroban events are sorted in ascending order by
-// ledger sequence, transaction index, operation index,
-// and event index.
-type Cursor struct {
-	// Ledger is the sequence of the ledger which emitted the event.
-	Ledger uint32
-	// Tx is the index of the transaction within the ledger which emitted the event.
-	Tx uint32
-	// Op is the index of the operation within the transaction which emitted the event.
-	Op uint32
-	// Event is the index of the event within in the operation which emitted the event.
-	Event uint32
-}
-
-func cmp(a, b uint32) int {
-	if a < b {
-		return -1
-	}
-	if a > b {
-		return 1
-	}
-	return 0
-}
-
-// Cmp compares two cursors.
-// 0 is returned if the c is equal to other.
-// 1 is returned if c is greater than other.
-// -1 is returned if c is less than other.
-func (c Cursor) Cmp(other Cursor) int {
-	if c.Ledger == other.Ledger {
-		if c.Tx == other.Tx {
-			if c.Op == other.Op {
-				return cmp(c.Event, other.Event)
-			}
-			return cmp(c.Op, other.Op)
-		}
-		return cmp(c.Tx, other.Tx)
-	}
-	return cmp(c.Ledger, other.Ledger)
-}
-
-var (
-	// MinCursor is the smallest possible cursor
-	MinCursor = Cursor{}
-	// MaxCursor is the largest possible cursor
-	MaxCursor = Cursor{
-		Ledger: math.MaxUint32,
-		Tx:     math.MaxUint32,
-		Op:     math.MaxUint32,
-		Event:  math.MaxUint32,
-	}
-)
-
 type bucket struct {
-	ledgerSeq uint32
-	events    []event
+	ledgerSeq            uint32
+	ledgerCloseTimestamp int64
+	events               []event
 }
 
 type event struct {
@@ -89,6 +35,12 @@ func (e event) cursor(ledgerSeq uint32) Cursor {
 
 // MemoryStore is an in-memory store of soroban events.
 type MemoryStore struct {
+	// networkPassphrase is an immutable string containing the
+	// Stellar network passphrase.
+	// Accessing networkPassphrase does not need to be protected
+	// by the lock
+	networkPassphrase string
+	// lock protects the mutable fields below
 	lock sync.RWMutex
 	// buckets is a circular buffer where each cell represents
 	// all events occurring within a specific ledger.
@@ -104,12 +56,13 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any events from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
+func NewMemoryStore(networkPassphrase string, retentionWindow uint32) (*MemoryStore, error) {
 	if retentionWindow == 0 {
 		return nil, errors.New("retention window must be positive")
 	}
 	return &MemoryStore{
-		buckets: make([]bucket, 0, retentionWindow),
+		networkPassphrase: networkPassphrase,
+		buckets:           make([]bucket, 0, retentionWindow),
 	}, nil
 }
 
@@ -133,7 +86,7 @@ type Range struct {
 // remaining events in the range). Note that a read lock is held for the
 // entire duration of the Scan function so f should be written in a way
 // to minimize latency.
-func (m *MemoryStore) Scan(eventRange Range, f func(Cursor, xdr.ContractEvent) bool) error {
+func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, int64) bool) error {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -146,12 +99,13 @@ func (m *MemoryStore) Scan(eventRange Range, f func(Cursor, xdr.ContractEvent) b
 	i := ((curLedger - minLedger) + m.start) % uint32(len(m.buckets))
 	events := seek(m.buckets[i].events, eventRange.Start)
 	for ; curLedger == m.buckets[i].ledgerSeq; curLedger++ {
+		timestamp := m.buckets[i].ledgerCloseTimestamp
 		for _, event := range events {
 			cur := event.cursor(curLedger)
 			if eventRange.End.Cmp(cur) <= 0 {
 				return nil
 			}
-			if !f(cur, event.contents) {
+			if !f(event.contents, cur, timestamp) {
 				return nil
 			}
 		}
@@ -177,8 +131,10 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 			return errors.New("start is before oldest ledger")
 		}
 	}
-
 	max := Cursor{Ledger: min.Ledger + uint32(len(m.buckets))}
+	if eventRange.Start.Cmp(max) >= 0 {
+		return errors.New("start is after newest ledger")
+	}
 	if eventRange.End.Cmp(max) > 0 {
 		if eventRange.ClampEnd {
 			eventRange.End = max
@@ -207,31 +163,51 @@ func seek(events []event, cursor Cursor) []event {
 // IngestEvents adds new events from the given ledger into the store.
 // As a side effect, events which fall outside the retention window are
 // removed from the store.
-func (m *MemoryStore) IngestEvents(txReader *ingest.LedgerTransactionReader) error {
-	events, err := readEvents(txReader)
+func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
+	// no need to acquire the lock because the networkPassphrase field
+	// is immutable
+	events, err := readEvents(m.networkPassphrase, ledgerCloseMeta)
 	if err != nil {
 		return err
 	}
-	ledgerSequence := txReader.GetSequence()
-	return m.append(ledgerSequence, events)
+	ledgerSequence := ledgerCloseMeta.LedgerSequence()
+	ledgerCloseTime := int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime)
+	return m.append(ledgerSequence, ledgerCloseTime, events)
 }
 
-func readEvents(txReader *ingest.LedgerTransactionReader) ([]event, error) {
-	var events []event
+func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (events []event, err error) {
+	var txReader *ingest.LedgerTransactionReader
+	txReader, err = ingest.NewLedgerTransactionReaderFromLedgerCloseMeta(networkPassphrase, ledgerCloseMeta)
+	if err != nil {
+		return
+	}
+	defer func() {
+		closeErr := txReader.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
 	for {
-		tx, err := txReader.Read()
+		var tx ingest.LedgerTransaction
+		tx, err = txReader.Read()
 		if err == io.EOF {
+			err = nil
 			break
 		}
 		if err != nil {
-			return nil, err
+			return
 		}
 
+		if !tx.Result.Successful() {
+			continue
+		}
 		for i := range tx.Envelope.Operations() {
 			opIndex := uint32(i)
-			opEvents, err := tx.GetOperationEvents(opIndex)
+			var opEvents []xdr.ContractEvent
+			opEvents, err = tx.GetOperationEvents(opIndex)
 			if err != nil {
-				return nil, err
+				return
 			}
 			for eventIndex, opEvent := range opEvents {
 				events = append(events, event{
@@ -243,11 +219,11 @@ func readEvents(txReader *ingest.LedgerTransactionReader) ([]event, error) {
 			}
 		}
 	}
-	return events, nil
+	return events, err
 }
 
 // append adds new events to the circular buffer.
-func (m *MemoryStore) append(sequence uint32, events []event) error {
+func (m *MemoryStore) append(sequence uint32, ledgerCloseTimestamp int64, events []event) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -259,17 +235,16 @@ func (m *MemoryStore) append(sequence uint32, events []event) error {
 		}
 	}
 
+	nextBucket := bucket{
+		ledgerCloseTimestamp: ledgerCloseTimestamp,
+		ledgerSeq:            sequence,
+		events:               events,
+	}
 	if length < uint32(cap(m.buckets)) {
-		m.buckets = append(m.buckets, bucket{
-			ledgerSeq: sequence,
-			events:    events,
-		})
+		m.buckets = append(m.buckets, nextBucket)
 	} else {
 		index := (m.start + length) % uint32(len(m.buckets))
-		m.buckets[index] = bucket{
-			ledgerSeq: sequence,
-			events:    events,
-		}
+		m.buckets[index] = nextBucket
 		m.start++
 	}
 
