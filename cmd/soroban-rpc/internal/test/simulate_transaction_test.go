@@ -210,14 +210,14 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(
 		t,
 		methods.SimulateTransactionResponse{
-			Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
 			Cost: methods.SimulateTransactionCost{
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			Results: []methods.InvokeHostFunctionResult{
-				{XDR: "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC"},
-			},
+			Results: []methods.InvokeHostFunctionResult{{
+				XDR:       "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC",
+				Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
+			}},
 			LatestLedger: result.LatestLedger,
 		},
 		result,
@@ -345,9 +345,22 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, response.Error)
 
+	// check the result
+	assert.Len(t, response.Results, 1)
+	var obtainedResult xdr.ScVal
+	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
+	assert.NoError(t, err)
+	assert.Equal(t, xdr.ScValTypeScvObject, obtainedResult.Type)
+	obj := *obtainedResult.Obj
+	assert.Equal(t, xdr.ScObjectTypeScoVec, obj.Type)
+	assert.Len(t, *obj.Vec, 2)
+	world := (*obj.Vec)[1]
+	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
+	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
+
 	// check the footprint
 	var obtainedFootprint xdr.LedgerFootprint
-	err = xdr.SafeUnmarshalBase64(response.Footprint, &obtainedFootprint)
+	err = xdr.SafeUnmarshalBase64(response.Results[0].Footprint, &obtainedFootprint)
 	assert.NoError(t, err)
 	assert.Len(t, obtainedFootprint.ReadWrite, 0)
 	assert.Len(t, obtainedFootprint.ReadOnly, 2)
@@ -363,19 +376,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	contractHash := sha256.Sum256(installContractCodeArgs)
 	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
 	assert.NoError(t, err)
-
-	// check the result
-	assert.Len(t, response.Results, 1)
-	var obtainedResult xdr.ScVal
-	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
-	assert.NoError(t, err)
-	assert.Equal(t, xdr.ScValTypeScvObject, obtainedResult.Type)
-	obj := *obtainedResult.Obj
-	assert.Equal(t, xdr.ScObjectTypeScoVec, obj.Type)
-	assert.Len(t, *obj.Vec, 2)
-	world := (*obj.Vec)[1]
-	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
-	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 
 }
 

@@ -98,13 +98,13 @@ type SimulateTransactionCost struct {
 }
 
 type InvokeHostFunctionResult struct {
-	XDR string `json:"xdr"`
+	XDR       string `json:"xdr"`
+	Footprint string `json:"footprint"`
 }
 
 type SimulateTransactionResponse struct {
 	Error        string                     `json:"error,omitempty"`
 	Results      []InvokeHostFunctionResult `json:"results,omitempty"`
-	Footprint    string                     `json:"footprint"`
 	Cost         SimulateTransactionCost    `json:"cost"`
 	LatestLedger int64                      `json:"latestLedger,string"`
 }
@@ -200,8 +200,10 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 		}
 
 		return SimulateTransactionResponse{
-			Results:   []InvokeHostFunctionResult{{XDR: C.GoString(res.result)}},
-			Footprint: C.GoString(res.preflight),
+			Results: []InvokeHostFunctionResult{{
+				XDR:       C.GoString(res.result),
+				Footprint: C.GoString(res.preflight),
+			}},
 			Cost: SimulateTransactionCost{
 				CPUInstructions: uint64(res.cpu_instructions),
 				MemoryBytes:     uint64(res.memory_bytes),
