@@ -253,8 +253,14 @@ type eventScanner interface {
 	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) error
 }
 
-func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([]EventInfo, error) {
-	if err := request.Valid(maxLimit); err != nil {
+type eventsRPCHandler struct {
+	scanner      eventScanner
+	maxLimit     uint
+	defaultLimit uint
+}
+
+func (h eventsRPCHandler) getEvents(request GetEventsRequest) ([]EventInfo, error) {
+	if err := request.Valid(h.maxLimit); err != nil {
 		return nil, &jrpc2.Error{
 			Code:    code.InvalidParams,
 			Message: err.Error(),
@@ -262,7 +268,7 @@ func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([
 	}
 
 	start := events.Cursor{Ledger: uint32(request.StartLedger)}
-	limit := maxLimit
+	limit := h.defaultLimit
 	if request.Pagination != nil {
 		if request.Pagination.Cursor != "" {
 			var err error
@@ -285,7 +291,7 @@ func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([
 		event                xdr.ContractEvent
 	}
 	var found []entry
-	err := scanner.Scan(
+	err := h.scanner.Scan(
 		events.Range{
 			Start:      start,
 			ClampStart: false,
@@ -366,9 +372,14 @@ func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClos
 }
 
 // NewGetEventsHandler returns a json rpc handler to fetch and filter events
-func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit uint) jrpc2.Handler {
+func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit, defaultLimit uint) jrpc2.Handler {
+	eventsHandler := eventsRPCHandler{
+		scanner:      eventsStore,
+		maxLimit:     maxLimit,
+		defaultLimit: defaultLimit,
+	}
 	return handler.New(func(ctx context.Context, request GetEventsRequest) ([]EventInfo, error) {
-		response, err := getEvents(eventsStore, request, maxLimit)
+		response, err := eventsHandler.getEvents(request)
 		if err != nil {
 			return nil, err
 		}

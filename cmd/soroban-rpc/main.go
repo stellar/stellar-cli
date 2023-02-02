@@ -21,7 +21,7 @@ import (
 
 func main() {
 	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, friendbotURL, networkPassphrase, dbPath, captivecoreStoragePath string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, maxEventsLimit uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, maxEventsLimit, defaultEventsLimit uint
 	var checkpointFrequency uint32
 	var useDB bool
 	var historyArchiveURLs []string
@@ -206,6 +206,14 @@ func main() {
 			FlagDefault: uint(10000),
 			Usage:       "Maximum amount of events allowed in a single getEvents response",
 		},
+		{
+			Name:        "default-events-limit",
+			ConfigKey:   &defaultEventsLimit,
+			OptType:     types.Uint,
+			Required:    false,
+			FlagDefault: uint(100),
+			Usage:       "Default cap on the amount of events included in a single getEvents response",
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -219,6 +227,14 @@ func main() {
 			}
 			if ledgerRetentionWindow <= 0 {
 				fmt.Printf("ledger-retention-window must be positive\n")
+				os.Exit(-1)
+			}
+			if defaultEventsLimit > maxEventsLimit {
+				fmt.Printf(
+					"default-events-limit (%v) cannot exceed max-events-limit (%v)\n",
+					defaultEventsLimit,
+					maxEventsLimit,
+				)
 				os.Exit(-1)
 			}
 			config := localConfig.LocalConfig{
@@ -240,6 +256,7 @@ func main() {
 				CheckpointFrequency:       checkpointFrequency,
 				LedgerRetentionWindow:     ledgerRetentionWindow,
 				MaxEventsLimit:            maxEventsLimit,
+				DefaultEventsLimit:        defaultEventsLimit,
 			}
 			exitCode := daemon.Run(config, endpoint)
 			os.Exit(exitCode)

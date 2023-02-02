@@ -333,9 +333,14 @@ func TestGetEvents(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
-		_, err = getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		_, err = handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
-		}, 1000)
+		})
 		assert.EqualError(t, err, "[-32600] event store is empty")
 	})
 
@@ -361,14 +366,19 @@ func TestGetEvents(t *testing.T) {
 		))
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...)))
 
-		_, err = getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		_, err = handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
-		}, 1000)
+		})
 		assert.EqualError(t, err, "[-32600] start is before oldest ledger")
 
-		_, err = getEvents(store, GetEventsRequest{
+		_, err = handler.getEvents(GetEventsRequest{
 			StartLedger: 3,
-		}, 1000)
+		})
 		assert.EqualError(t, err, "[-32600] start is after newest ledger")
 	})
 
@@ -396,9 +406,14 @@ func TestGetEvents(t *testing.T) {
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
-		result, err := getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
-		}, 1000)
+		})
 		assert.NoError(t, err)
 
 		var expected []EventInfo
@@ -427,7 +442,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			})
 		}
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, results)
 	})
 
 	t.Run("filtering by contract id", func(t *testing.T) {
@@ -457,12 +472,17 @@ func TestGetEvents(t *testing.T) {
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
-		results, err := getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
 				{ContractIDs: []string{contractIds[0].HexString()}},
 			},
-		}, 1000)
+		})
 		assert.NoError(t, err)
 
 		expectedIds := []string{
@@ -501,7 +521,12 @@ func TestGetEvents(t *testing.T) {
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		number := xdr.Int64(4)
-		results, err := getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
 				{Topics: []TopicFilter{
@@ -511,7 +536,7 @@ func TestGetEvents(t *testing.T) {
 					},
 				}},
 			},
-		}, 1000)
+		})
 		assert.NoError(t, err)
 
 		id := events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String()
@@ -588,7 +613,12 @@ func TestGetEvents(t *testing.T) {
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
-		results, err := getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
 				{
@@ -601,7 +631,7 @@ func TestGetEvents(t *testing.T) {
 					},
 				},
 			},
-		}, 1000)
+		})
 		assert.NoError(t, err)
 
 		id := events.Cursor{Ledger: 1, Tx: 4, Op: 0, Event: 0}.String()
@@ -649,12 +679,17 @@ func TestGetEvents(t *testing.T) {
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
-		results, err := getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
 				{EventType: EventTypeSystem},
 			},
-		}, 1000)
+		})
 		assert.NoError(t, err)
 
 		id := events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 1}.String()
@@ -694,11 +729,16 @@ func TestGetEvents(t *testing.T) {
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
-		results, err := getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Filters:     []EventFilter{},
 			Pagination:  &PaginationOptions{Limit: 10},
-		}, 1000)
+		})
 		assert.NoError(t, err)
 
 		var expected []EventInfo
@@ -777,13 +817,18 @@ func TestGetEvents(t *testing.T) {
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)))
 
 		id := events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}.String()
-		results, err := getEvents(store, GetEventsRequest{
+		handler := eventsRPCHandler{
+			scanner:      store,
+			maxLimit:     10000,
+			defaultLimit: 100,
+		}
+		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Pagination: &PaginationOptions{
 				Cursor: id,
 				Limit:  2,
 			},
-		}, 1000)
+		})
 		assert.NoError(t, err)
 
 		var expected []EventInfo

@@ -25,4 +25,5 @@ type LocalConfig struct {
 	LedgerRetentionWindow     int
 	CheckpointFrequency       uint32
 	MaxEventsLimit            uint
+	DefaultEventsLimit        uint
 }
