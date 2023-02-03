@@ -2,6 +2,9 @@ all: check build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
+# Want to treat empty assignment, `REPOSITORY_VERSION=` the same as absence or unset.
+# By default make `?=` operator will treat empty assignment as a set value and will not use the default value.
+# Both cases should fallback to default of getting the version from git tag.
 ifeq ($(strip $(REPOSITORY_VERSION)),)
 	override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
 endif  
