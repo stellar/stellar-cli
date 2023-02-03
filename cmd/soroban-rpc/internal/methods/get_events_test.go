@@ -767,7 +767,7 @@ func TestGetEvents(t *testing.T) {
 		assert.Equal(t, expected, results)
 	})
 
-	t.Run("starting cursor in the middle of operations and events", func(t *testing.T) {
+	t.Run("with cursor", func(t *testing.T) {
 		store, err := events.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
@@ -852,6 +852,16 @@ func TestGetEvents(t *testing.T) {
 			})
 		}
 		assert.Equal(t, expected, results)
+
+		results, err = handler.getEvents(GetEventsRequest{
+			StartLedger: 1,
+			Pagination: &PaginationOptions{
+				Cursor: events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 1}.String(),
+				Limit:  2,
+			},
+		})
+		assert.NoError(t, err)
+		assert.Empty(t, results)
 	})
 }
 
