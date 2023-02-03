@@ -24,7 +24,6 @@ Cargo.lock: Cargo.toml
 
 install_rust: Cargo.lock
 	cargo install --path ./cmd/soroban-cli
-	go install -ldflags="${GOLDFLAGS}" ./...
 
 install: install_rust build-libpreflight
 	go install -ldflags="${GOLDFLAGS}" ./...
