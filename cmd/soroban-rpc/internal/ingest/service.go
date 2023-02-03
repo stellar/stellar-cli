@@ -13,6 +13,7 @@ import (
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 type Config struct {
 	Logger            *log.Entry
 	DB                db.ReadWriter
+	EventStore        *events.MemoryStore
 	NetworkPassPhrase string
 	Archive           historyarchive.ArchiveInterface
 	LedgerBackend     backends.LedgerBackend
@@ -33,6 +35,7 @@ func NewService(cfg Config) (*Service, error) {
 	o := Service{
 		logger:            cfg.Logger,
 		db:                cfg.DB,
+		eventStore:        cfg.EventStore,
 		ledgerBackend:     cfg.LedgerBackend,
 		networkPassPhrase: cfg.NetworkPassPhrase,
 		timeout:           cfg.Timeout,
@@ -51,6 +54,7 @@ func NewService(cfg Config) (*Service, error) {
 type Service struct {
 	logger            *log.Entry
 	db                db.ReadWriter
+	eventStore        *events.MemoryStore
 	ledgerBackend     backends.LedgerBackend
 	timeout           time.Duration
 	networkPassPhrase string
@@ -190,8 +194,11 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 }
 
 func (s *Service) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.LedgerCloseMeta) error {
-	ledgerWriter := tx.LedgerWriter()
-	if err := ledgerWriter.InsertLedger(ledgerCloseMeta); err != nil {
+	if err := tx.LedgerWriter().InsertLedger(ledgerCloseMeta); err != nil {
+		return err
+	}
+
+	if err := s.eventStore.IngestEvents(ledgerCloseMeta); err != nil {
 		return err
 	}
 	return nil

@@ -115,6 +115,7 @@ func (i *Test) launchDaemon() {
 		LedgerRetentionWindow:     17280,
 		// Needed when Core is run with ARTIFICIALLY_ACCELERATE_TIME_FOR_TESTING=true
 		CheckpointFrequency: 8,
+		MaxEventsLimit:      10000,
 	}
 	i.daemon = daemon.MustNew(config)
 	i.server = httptest.NewServer(i.daemon)
