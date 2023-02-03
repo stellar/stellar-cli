@@ -221,6 +221,21 @@ func topicFilterToString(t TopicFilter) string {
 }
 
 func TestGetEventsRequestValid(t *testing.T) {
+	// omit startLedger but include cursor
+	var request GetEventsRequest
+	assert.NoError(t, json.Unmarshal(
+		[]byte("{ \"filters\": [], \"pagination\": { \"cursor\": \"0000000021474840576-0000000000\"} }"),
+		&request,
+	))
+	assert.Equal(t, int32(0), request.StartLedger)
+	assert.NoError(t, request.Valid(1000))
+
+	assert.EqualError(t, (&GetEventsRequest{
+		StartLedger: 1,
+		Filters:     []EventFilter{},
+		Pagination:  &PaginationOptions{Cursor: &events.Cursor{}},
+	}).Valid(1000), "startLedger and cursor cannot both be set")
+
 	assert.NoError(t, (&GetEventsRequest{
 		StartLedger: 1,
 		Filters:     []EventFilter{},
@@ -816,14 +831,13 @@ func TestGetEvents(t *testing.T) {
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)))
 
-		id := events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}.String()
+		id := &events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}
 		handler := eventsRPCHandler{
 			scanner:      store,
 			maxLimit:     10000,
 			defaultLimit: 100,
 		}
 		results, err := handler.getEvents(GetEventsRequest{
-			StartLedger: 1,
 			Pagination: &PaginationOptions{
 				Cursor: id,
 				Limit:  2,
@@ -854,9 +868,8 @@ func TestGetEvents(t *testing.T) {
 		assert.Equal(t, expected, results)
 
 		results, err = handler.getEvents(GetEventsRequest{
-			StartLedger: 1,
 			Pagination: &PaginationOptions{
-				Cursor: events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 1}.String(),
+				Cursor: &events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 1},
 				Limit:  2,
 			},
 		})

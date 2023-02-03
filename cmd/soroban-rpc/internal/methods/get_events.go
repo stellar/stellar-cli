@@ -33,7 +33,7 @@ type EventInfoValue struct {
 }
 
 type GetEventsRequest struct {
-	StartLedger int32              `json:"startLedger,string"`
+	StartLedger int32              `json:"startLedger,string,omitempty"`
 	Filters     []EventFilter      `json:"filters"`
 	Pagination  *PaginationOptions `json:"pagination,omitempty"`
 }
@@ -41,7 +41,11 @@ type GetEventsRequest struct {
 func (g *GetEventsRequest) Valid(maxLimit uint) error {
 	// Validate start
 	// Validate the paging limit (if it exists)
-	if g.StartLedger <= 0 {
+	if g.Pagination != nil && g.Pagination.Cursor != nil {
+		if g.StartLedger != 0 {
+			return errors.New("startLedger and cursor cannot both be set")
+		}
+	} else if g.StartLedger <= 0 {
 		return errors.New("startLedger must be positive")
 	}
 	if g.Pagination != nil && g.Pagination.Limit > maxLimit {
@@ -245,8 +249,8 @@ func (s *SegmentFilter) UnmarshalJSON(p []byte) error {
 }
 
 type PaginationOptions struct {
-	Cursor string `json:"cursor,omitempty"`
-	Limit  uint   `json:"limit,omitempty"`
+	Cursor *events.Cursor `json:"cursor,omitempty"`
+	Limit  uint           `json:"limit,omitempty"`
 }
 
 type eventScanner interface {
@@ -270,12 +274,8 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) ([]EventInfo, erro
 	start := events.Cursor{Ledger: uint32(request.StartLedger)}
 	limit := h.defaultLimit
 	if request.Pagination != nil {
-		if request.Pagination.Cursor != "" {
-			var err error
-			start, err = events.ParseCursor(request.Pagination.Cursor)
-			if err != nil {
-				return nil, errors.Wrap(err, "invalid pagination cursor")
-			}
+		if request.Pagination.Cursor != nil {
+			start = *request.Pagination.Cursor
 			// increment event index because, when paginating,
 			// we start with the item right after the cursor
 			start.Event++

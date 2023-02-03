@@ -1,6 +1,7 @@
 package events
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -31,6 +32,28 @@ func (c Cursor) String() string {
 		toid.New(int32(c.Ledger), int32(c.Tx), int32(c.Op)).ToInt64(),
 		c.Event,
 	)
+}
+
+// MarshalJSON marshals the cursor into JSON
+func (c Cursor) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.String())
+}
+
+// UnmarshalJSON unmarshalls a cursor from the given JSON
+func (c *Cursor) UnmarshalJSON(b []byte) error {
+	var s *string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	if s == nil {
+		return nil
+	}
+	if parsed, err := ParseCursor(*s); err != nil {
+		return err
+	} else {
+		*c = parsed
+	}
+	return nil
 }
 
 // ParseCursor parses the given string and returns the corresponding cursor
