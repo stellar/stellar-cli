@@ -3,7 +3,7 @@ all: check build test
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
 ifeq ($(strip $(REPOSITORY_VERSION)),)
-    override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
+	override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
 endif  
 REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
 REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
