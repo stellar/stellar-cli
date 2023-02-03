@@ -10,7 +10,7 @@ default-members = ["cmd/soroban-cli"]
 [workspace.dependencies.soroban-env-host]
 version = "0.0.12"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "993c527abce72748405d71467498bffd63e061c1"
+rev = "66a079a4e400836f1b896c9b02d6e37fea028312"
 
 [workspace.dependencies.soroban-spec]
 version = "0.4.1"

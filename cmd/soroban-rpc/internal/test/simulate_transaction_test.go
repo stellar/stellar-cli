@@ -215,7 +215,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			Results: []methods.InvokeHostFunctionResult{
+			Results: []methods.SimulateTransactionResult{
 				{XDR: "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC"},
 			},
 			LatestLedger: result.LatestLedger,
