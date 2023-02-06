@@ -186,7 +186,7 @@ fn preflight_host_function_or_maybe_panic(
 
     // Run the preflight.
     let result = host.invoke_function(hf)?;
-    let auth_records = host.get_recorded_auth_payloads()?;
+    let auth_payloads = host.get_recorded_auth_payloads()?;
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, _) = host.try_finish().unwrap();
@@ -198,8 +198,7 @@ fn preflight_host_function_or_maybe_panic(
         error: null_mut(),
         result: result_cstr.into_raw(),
         footprint: fp_cstr.into_raw(),
-        // TODO
-        auth: null_mut(),
+        auth: recorded_auth_payloads_to_c(auth_payloads)?,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
     })
