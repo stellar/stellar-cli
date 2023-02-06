@@ -1832,7 +1832,7 @@ dependencies = [
  "soroban-sdk",
  "soroban-spec",
  "soroban-token-spec",
- "stellar-strkey 0.0.7 (git+https://github.com/stellar/rs-stellar-strkey?rev=6e9bb10)",
+ "stellar-strkey 0.0.7 (git+https://github.com/stellar/rs-stellar-strkey?rev=e6ba45c60c16de28c7522586b80ed0150157df73)",
  "termcolor",
  "termcolor_output",
  "thiserror",
@@ -2087,7 +2087,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stellar-strkey"
 version = "0.0.7"
-source = "git+https://github.com/stellar/rs-stellar-strkey?rev=6e9bb10#6e9bb102249585e851bf36be2ab069a1955c3b09"
+source = "git+https://github.com/stellar/rs-stellar-strkey?rev=e6ba45c60c16de28c7522586b80ed0150157df73#e6ba45c60c16de28c7522586b80ed0150157df73"
 dependencies = [
  "base32",
  "thiserror",
@@ -2222,13 +2222,6 @@ dependencies = [
 
 [[package]]
 name = "test_hello_world"
-version = "0.4.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
-name = "test_invoker_account_exists"
 version = "0.4.0"
 dependencies = [
  "soroban-sdk",
