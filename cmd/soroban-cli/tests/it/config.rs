@@ -136,8 +136,6 @@ fn mulitple_networks() {
     fs::create_dir(&sub_dir).unwrap();
     add_network(&sub_dir, "local3\n");
 
-    //TODO Investigate why there is an extra newline characeter
-
     Sandbox::new_cmd("config")
         .current_dir(&dir)
         .arg("network")
