@@ -218,9 +218,9 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 		return SimulateTransactionResponse{
 			Results: []SimulateTransactionResult{
 				{
-					XDR:       C.GoString(res.result),
-					Footprint: C.GoString(res.preflight),
 					Auth:      auth,
+					Footprint: C.GoString(res.preflight),
+					XDR:       C.GoString(res.result),
 				},
 			},
 			Cost: SimulateTransactionCost{
