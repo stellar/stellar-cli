@@ -1,5 +1,6 @@
 FROM golang:1.19.1 as build
 ARG RUST_TOOLCHAIN_VERSION=stable
+ARG REPOSITORY_VERSION
 
 WORKDIR /go/src/github.com/stellar/soroban-tools
 
@@ -17,7 +18,7 @@ RUN apt-get clean
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUST_TOOLCHAIN_VERSION
 
-RUN make build-soroban-rpc
+RUN make REPOSITORY_VERSION=${REPOSITORY_VERSION} build-soroban-rpc
 RUN mv soroban-rpc /bin/soroban-rpc
 
 FROM ubuntu:20.04
