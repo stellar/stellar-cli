@@ -219,10 +219,12 @@ fn recoded_auth_payloads_to_c(
     out_vec.push(null_mut());
 
     // Make sure length and capacity are the same
+    // (this allows using the length as the capacity when deallocating the vector)
     out_vec.shrink_to_fit();
     assert!(out_vec.len() == out_vec.capacity());
 
     // Get the pointer to our vector, we will deallocate it in free_preflight_result()
+    // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
     let ptr = out_vec.as_mut_ptr();
     mem::forget(out_vec);
 
