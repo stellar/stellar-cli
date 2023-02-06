@@ -36,8 +36,10 @@ install: install_rust build-libpreflight
 build_rust: Cargo.lock
 	cargo build
 
-build: build_rust build-libpreflight
+build_go: build-libpreflight
 	go build -ldflags="${GOLDFLAGS}" ./...
+
+build: build_rust build_go
 
 build-libpreflight: Cargo.lock
 	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind
