@@ -232,15 +232,12 @@ fn recorded_auth_payloads_to_c(
 
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
     let address_with_nonce = match (payload.address.clone(), payload.nonce) {
-        (Some(a), Some(n)) => Some(AddressWithNonce {
-            address: a,
-            nonce: n,
-        }),
+        (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
         // TODO: can the address and the nonce really be present independently?
         _ => None,
     };
     ContractAuth {
-        address_with_nonce: address_with_nonce,
+        address_with_nonce,
         root_invocation: payload.invocation.clone(),
         // TODO: ???
         signature_args: Default::default(),
