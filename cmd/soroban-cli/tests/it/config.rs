@@ -11,9 +11,9 @@ fn set_and_remove_network() {
         .arg("add")
         .arg("--rpc-url")
         .arg("https://127.0.0.1")
+        .arg("local")
         .arg("--network-passphrase")
         .arg("Local Sandbox Stellar Network ; September 2022")
-        .arg("local")
         .assert()
         .success();
     let file = std::fs::read_dir(dir.join(".soroban/networks"))
