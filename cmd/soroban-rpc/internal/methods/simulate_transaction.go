@@ -203,6 +203,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 		// Get the auth data
 		var auth []string
 		if res.auth != nil {
+
 			// CGo doesn't have an easy way to do pointer arithmetic so,
 			// we are better off transforming the memory buffer into a large slice
 			// and finding the NULL termination after that

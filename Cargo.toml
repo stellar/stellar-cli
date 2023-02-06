@@ -10,27 +10,27 @@ default-members = ["cmd/soroban-cli"]
 [workspace.dependencies.soroban-env-host]
 version = "0.0.12"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "c8583e3e12e1f8ac087efa4453ad4f7c4ebf41fe"
+rev = "d65b04f1793c48471995bf67850fffee53b90bd2"
 
 [workspace.dependencies.soroban-spec]
 version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "e7910c7057088b3418d84af04f2c04313d0c756f"
+rev = "8a11d747d969b137ef0dccbc37f23f2966f5fcd1"
 
 [workspace.dependencies.soroban-token-spec]
 version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "e7910c7057088b3418d84af04f2c04313d0c756f"
+rev = "8a11d747d969b137ef0dccbc37f23f2966f5fcd1"
 
 [workspace.dependencies.soroban-sdk]
 version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "e7910c7057088b3418d84af04f2c04313d0c756f"
+rev = "8a11d747d969b137ef0dccbc37f23f2966f5fcd1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "0.4.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "e7910c7057088b3418d84af04f2c04313d0c756f"
+rev = "8a11d747d969b137ef0dccbc37f23f2966f5fcd1"
 
 [workspace.dependencies.stellar-strkey]
 version = "0.0.7"

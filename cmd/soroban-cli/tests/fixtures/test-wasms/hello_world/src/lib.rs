@@ -18,7 +18,7 @@ impl Contract {
     }
 
     pub fn auth(env: Env, addr: Address, world: Symbol) -> Vec<Symbol> {
-        addr.require_auth(vec![&env, world.into()]);
+        addr.require_auth();
         vec![&env, symbol!("Hello"), world]
     }
 }

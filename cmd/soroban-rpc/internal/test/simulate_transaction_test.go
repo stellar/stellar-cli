@@ -410,8 +410,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.RootInvocation.ContractId)
 	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.FunctionName)
-	assert.Len(t, obtainedAuth.RootInvocation.Args, 1)
-	world = obtainedAuth.RootInvocation.Args[0]
+	assert.Len(t, obtainedAuth.RootInvocation.Args, 2)
+	world = obtainedAuth.RootInvocation.Args[1]
 	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
