@@ -205,13 +205,13 @@ fn preflight_host_function_or_maybe_panic(
     })
 }
 
-fn recoded_auth_payloads_to_c(
+fn recorded_auth_payloads_to_c(
     payloads: Vec<RecordedAuthPayload>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     // Get a vector of base64-encoded ContractAuths
     let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
     for p in payloads.iter() {
-        let c_str = CString::new(recoded_auth_payload_to_xdr(p).to_xdr_base64()?)?.into_raw();
+        let c_str = CString::new(recorded_auth_payload_to_xdr(p).to_xdr_base64()?)?.into_raw();
         out_vec.push(c_str);
     }
 
@@ -231,7 +231,7 @@ fn recoded_auth_payloads_to_c(
     Ok(ptr)
 }
 
-fn recoded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
+fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
     let address_with_nonce = match (payload.address.clone(), payload.nonce) {
         (Some(a), Some(n)) => Some(AddressWithNonce {
             address: a,
