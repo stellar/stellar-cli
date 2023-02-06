@@ -15,6 +15,7 @@ use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
 use std::rc::Rc;
+use std::slice;
 use xdr::LedgerFootprint;
 
 // TODO: we may want to pass callbacks instead of using global functions
@@ -74,22 +75,18 @@ pub struct CLedgerInfo {
     pub protocol_version: u32,
     pub sequence_number: u32,
     pub timestamp: u64,
-    pub network_passphrase: *const libc::c_char,
+    pub network_id: *mut u8,
     pub base_reserve: u32,
 }
 
 impl From<CLedgerInfo> for LedgerInfo {
     fn from(c: CLedgerInfo) -> Self {
-        let network_passphrase_cstr = unsafe { CStr::from_ptr(c.network_passphrase) };
+        let network_id = unsafe { slice::from_raw_parts(c.network_id, 32) };
         Self {
             protocol_version: c.protocol_version,
             sequence_number: c.sequence_number,
             timestamp: c.timestamp,
-            network_passphrase: network_passphrase_cstr
-                .to_str()
-                .unwrap()
-                .as_bytes()
-                .to_vec(),
+            network_id: network_id.try_into().unwrap(),
             base_reserve: c.base_reserve,
         }
     }
