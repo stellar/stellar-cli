@@ -1892,7 +1892,8 @@ dependencies = [
 [[package]]
 name = "sep5"
 version = "0.0.2"
-source = "git+https://github.com/ahalabs/rs-sep5?rev=cd13fee#cd13feedbcb2ad5acc3b6a827659e97a81e467c2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9afe34ccbd1fb6fa0b2fc7cccb037bd3d3f1e484c3befe1b713d7611884f336a"
 dependencies = [
  "slip10",
  "stellar-strkey 0.0.7",
