@@ -216,6 +216,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			},
 			Results: []methods.SimulateTransactionResult{
 				{
+					Auth:      []string{"TODO"},
 					Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
 					XDR:       "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC",
 				},
@@ -322,15 +323,38 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
 	contractFnParameterSym := xdr.ScSymbol("world")
-	contractFnParameter := xdr.ScVal{
-		Type: xdr.ScValTypeScvSymbol,
-		Sym:  &contractFnParameterSym,
+	sourceAccountIDBytes, err := sourceAccount.FromAddress().MarshalBinary()
+	assert.NoError(t, err)
+	var sourceAccountID xdr.Uint256
+	copy(sourceAccountID[:], sourceAccountIDBytes)
+	addressObject := &xdr.ScObject{
+		Type: xdr.ScObjectTypeScoAddress,
+		Address: &xdr.ScAddress{
+			Type: xdr.ScAddressTypeScAddressTypeAccount,
+			AccountId: &xdr.AccountId{
+				Type:    xdr.PublicKeyTypePublicKeyTypeEd25519,
+				Ed25519: &sourceAccountID,
+			},
+		},
 	}
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(address, xdr.LedgerFootprint{}, contractID, "hello", contractFnParameter),
+			createInvokeHostOperation(
+				address,
+				xdr.LedgerFootprint{},
+				contractID,
+				"auth",
+				xdr.ScVal{
+					Type: xdr.ScValTypeScvObject,
+					Obj:  &addressObject,
+				},
+				xdr.ScVal{
+					Type: xdr.ScValTypeScvSymbol,
+					Sym:  &contractFnParameterSym,
+				},
+			),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -379,6 +403,12 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
 	assert.NoError(t, err)
 
+	// check the auth
+	assert.Len(t, response.Results[0].Auth, 1)
+	var obtainedAuth xdr.ContractAuth
+	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
+	assert.NoError(t, err)
+	// TODO: check the auth
 }
 
 func TestSimulateTransactionError(t *testing.T) {

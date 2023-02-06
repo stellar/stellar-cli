@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contractimpl, symbol, vec, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, symbol, vec, Address, Env, Symbol, Vec};
 
 pub struct Contract;
 
@@ -15,6 +15,11 @@ impl Contract {
 
     pub fn not(env: Env, boolean: bool) -> Vec<bool> {
         vec![&env, !boolean]
+    }
+
+    pub fn auth(env: Env, addr: Address, world: Symbol) -> Vec<Symbol> {
+        addr.require_auth(vec![&env, world.into()]);
+        vec![&env, symbol!("Hello"), world]
     }
 }
 
