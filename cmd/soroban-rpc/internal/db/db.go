@@ -168,7 +168,14 @@ func (w writeTx) Commit(ledgerSeq uint32) error {
 }
 
 func (w writeTx) Rollback() error {
-	return w.tx.Rollback()
+	// sql.ErrTxDone is returned when rolling back a transaction which has
+	// already been committed or rolled back. We can ignore those errors
+	// because we allow rolling back after commits in defer statements.
+	if err := w.tx.Rollback(); err == nil || err == sql.ErrTxDone {
+		return nil
+	} else {
+		return err
+	}
 }
 
 func runMigrations(db *sql.DB, dialect string) error {
