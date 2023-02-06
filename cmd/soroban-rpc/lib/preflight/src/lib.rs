@@ -239,7 +239,8 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
     ContractAuth {
         address_with_nonce,
         root_invocation: payload.invocation.clone(),
-        // TODO: ???
+        // signature_args is left empty. This is where the client will put their signatures when
+        // submitting the transaction.
         signature_args: Default::default(),
     }
 }
