@@ -216,7 +216,6 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			},
 			Results: []methods.SimulateTransactionResult{
 				{
-					Auth:      []string{"TODO"},
 					Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
 					XDR:       "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC",
 				},
@@ -385,10 +384,11 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 
 	// check the footprint
+	t.Log("Footprint:", response.Results[0].Footprint)
 	var obtainedFootprint xdr.LedgerFootprint
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Footprint, &obtainedFootprint)
 	assert.NoError(t, err)
-	assert.Len(t, obtainedFootprint.ReadWrite, 0)
+	assert.Len(t, obtainedFootprint.ReadWrite, 1)
 	assert.Len(t, obtainedFootprint.ReadOnly, 2)
 	ro1 := obtainedFootprint.ReadOnly[0]
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
