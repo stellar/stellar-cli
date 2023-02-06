@@ -98,8 +98,9 @@ type SimulateTransactionCost struct {
 }
 
 type InvokeHostFunctionResult struct {
-	XDR       string `json:"xdr"`
-	Footprint string `json:"footprint"`
+	XDR       string   `json:"xdr"`
+	Footprint string   `json:"footprint"`
+	Auth      []string `json:"auth"`
 }
 
 type SimulateTransactionResponse struct {
@@ -171,10 +172,11 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			}
 		}
 		li := C.CLedgerInfo{
-			network_passphrase: C.CString(networkPassphrase),
-			sequence_number:    C.uint(latestLedger),
-			protocol_version:   20,
-			timestamp:          C.uint64_t(time.Now().Unix()),
+			// TODO: Read network_id, 32 bytes
+			// network_id: C.CString(networkPassphrase),
+			sequence_number:  C.uint(latestLedger),
+			protocol_version: 20,
+			timestamp:        C.uint64_t(time.Now().Unix()),
 			// Current base reserve is 0.5XLM (in stroops)
 			base_reserve: 5_000_000,
 		}
@@ -199,10 +201,18 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			}
 		}
 
+		// TODO: Read the auth payload slice
+		// auth := make([]string, res.auth_len)
+		// for i := 0; i < int(res.auth_len); i++ {
+		// 	auth[i] = C.GoString(res.auth_ptr[i])
+		// }
+
 		return SimulateTransactionResponse{
 			Results: []InvokeHostFunctionResult{{
 				XDR:       C.GoString(res.result),
-				Footprint: C.GoString(res.preflight),
+				Footprint: C.GoString(res.footprint),
+				// TODO: Save the auth
+				// Auth:      auth,
 			}},
 			Cost: SimulateTransactionCost{
 				CPUInstructions: uint64(res.cpu_instructions),

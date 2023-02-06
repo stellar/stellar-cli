@@ -8,8 +8,11 @@ use soroban_env_host::xdr::{
     self, AccountId, HostFunction, LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode,
     ScStatus, WriteXdr,
 };
-use soroban_env_host::{Host, HostError, LedgerInfo};
-use std::convert::TryInto;
+use soroban_env_host::{
+    auth::RecordedAuthPayload, 
+    Host, HostError, LedgerInfo
+};
+use std::convert::{TryFrom, TryInto};
 use std::error;
 use std::ffi::{CStr, CString};
 use std::panic;
@@ -114,8 +117,18 @@ pub struct CPreflightResult {
     pub error: *mut libc::c_char, // Error string in case of error, otherwise null
     pub result: *mut libc::c_char, // SCVal XDR in base64
     pub footprint: *mut libc::c_char, // LedgerFootprint XDR in base64
+    pub auth_ptr: *const CRecordedAuthPayload, // Auth payloads
+    pub auth_len: usize,
+    pub auth_cap: usize,
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
+}
+
+#[repr(C)]
+pub struct CRecordedAuthPayload {
+    pub address: Option<*mut libc::c_char>, // Option<Address> XDR in base64
+    pub nonce: Option<u64>,
+    pub invocation: *mut libc::c_char, // xdr::AuthorizedInvocation XDR in base64
 }
 
 fn preflight_error(str: String) -> *mut CPreflightResult {
@@ -126,6 +139,9 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
         error: c_str.into_raw(),
         result: null_mut(),
         footprint: null_mut(),
+        auth_ptr: null_mut(),
+        auth_len: 0,
+        auth_cap: 0,
         cpu_instructions: 0,
         memory_bytes: 0,
     }))
@@ -179,9 +195,17 @@ fn preflight_host_function_or_maybe_panic(
 
     host.set_source_account(source_account);
     host.set_ledger_info(ledger_info.into());
+    host.switch_to_recording_auth();
 
     // Run the preflight.
     let result = host.invoke_function(hf)?;
+
+    let auth: Vec<CRecordedAuthPayload> = host
+        .get_recorded_auth_payloads()?
+        .iter()
+        .map(|a| a.try_into())
+        .collect::<Result<Vec<CRecordedAuthPayload>, Box<dyn error::Error>>>()?;
+    let (auth_ptr, auth_len, auth_cap) = (auth.as_ptr(), auth.len(), auth.capacity());
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, _) = host.try_finish().unwrap();
@@ -189,13 +213,33 @@ fn preflight_host_function_or_maybe_panic(
     let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
     let fp_cstr = CString::new(fp.to_xdr_base64()?)?;
     let result_cstr = CString::new(result.to_xdr_base64()?)?;
+
     Ok(CPreflightResult {
         error: null_mut(),
         result: result_cstr.into_raw(),
         footprint: fp_cstr.into_raw(),
+        auth_ptr,
+        auth_len,
+        auth_cap,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
     })
+}
+
+impl TryFrom<&RecordedAuthPayload> for CRecordedAuthPayload {
+    type Error = Box<dyn error::Error>;
+
+    fn try_from(p: &RecordedAuthPayload) -> Result<Self, Self::Error> {
+        let address = match &p.address {
+            None => None,
+            Some(a) => Some(CString::new(a.to_xdr_base64()?)?.into_raw())
+        };
+        Ok(Self {
+            address,
+            nonce: p.nonce,
+            invocation: CString::new(p.invocation.to_xdr_base64()?)?.into_raw(),
+        })
+    }
 }
 
 #[no_mangle]
