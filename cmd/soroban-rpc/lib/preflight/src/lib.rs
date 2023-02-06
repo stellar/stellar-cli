@@ -62,10 +62,7 @@ impl SnapshotSource for CSnapshotSource {
             .map_err(|_| ScStatus::UnknownError(Xdr))?;
         let key_cstr = CString::new(key_xdr).map_err(|_| ScStatus::UnknownError(Xdr))?;
         let res = unsafe { SnapshotSourceHas(self.handle, key_cstr.as_ptr()) };
-        Ok(match res {
-            0 => false,
-            _ => true,
-        })
+        Ok(!matches!(res, 0))
     }
 }
 
@@ -149,8 +146,7 @@ pub extern "C" fn preflight_host_function(
     match res {
         Err(panic) => match panic.downcast::<String>() {
             Ok(panic_msg) => preflight_error(format!(
-                "panic during preflight_host_function() call: {}",
-                panic_msg
+                "panic during preflight_host_function() call: {panic_msg}"
             )),
             Err(_) => preflight_error(
                 "panic during preflight_host_function() call: unknown cause".to_string(),
@@ -160,7 +156,7 @@ pub extern "C" fn preflight_host_function(
         // caller needs to invoke free_preflight_result(result) when done
         Ok(r) => match r {
             Ok(r2) => Box::into_raw(Box::new(r2)),
-            Err(e) => preflight_error(format!("{}", e)),
+            Err(e) => preflight_error(format!("{e}")),
         },
     }
 }
@@ -201,6 +197,11 @@ fn preflight_host_function_or_maybe_panic(
     })
 }
 
+/// .
+///
+/// # Safety
+///
+/// .
 #[no_mangle]
 pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
     if result.is_null() {
