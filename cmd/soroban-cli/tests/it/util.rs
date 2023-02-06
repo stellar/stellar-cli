@@ -18,7 +18,7 @@ impl Wasm<'_> {
         .join(self.0);
         path.set_extension("wasm");
         assert!(path.is_file(), "File not found: {}. run 'make build-test-wasms' to generate .wasm files before running this test", path.display());
-        path
+        std::env::current_dir().unwrap().join(path)
     }
 
     pub fn bytes(&self) -> Vec<u8> {
@@ -30,20 +30,28 @@ impl Wasm<'_> {
     }
 }
 
-/// Create a command with the correct env variables
-pub trait SorobanCommand {
-    /// Default is with none
-    fn new_cmd(name: &str) -> Command {
-        let mut this = Command::cargo_bin("soroban").expect("failed to find local soroban binary");
-        this.arg(name);
-        this
-    }
+/// Default
+pub struct Sandbox {
+    pub temp_dir: TempDir,
 }
 
-/// Default
-pub struct Sandbox {}
+impl Sandbox {
+    pub fn new() -> Sandbox {
+        Self {
+            temp_dir: TempDir::new().expect("failed to create temp dir"),
+        }
+    }
+    pub fn new_cmd(&self, name: &str) -> Command {
+        let mut this = Command::cargo_bin("soroban").expect("failed to find local soroban binary");
+        this.arg(name);
+        this.current_dir(&self.temp_dir);
+        this
+    }
 
-impl SorobanCommand for Sandbox {}
+    pub fn dir(&self) -> &TempDir {
+        &self.temp_dir
+    }
+}
 
 pub fn temp_ledger_file() -> OsString {
     TempDir::new()
@@ -96,4 +104,71 @@ pub const CUSTOM_TYPES: &Wasm = &Wasm("test_custom_types");
 #[allow(unused)]
 pub fn temp_dir() -> TempDir {
     TempDir::new().unwrap()
+}
+
+#[derive(Clone)]
+pub enum SecretKind {
+    Seed,
+    Key,
+}
+
+#[allow(clippy::needless_pass_by_value)]
+pub fn add_identity(dir: &TempDir, name: &str, kind: SecretKind, data: &str) {
+    let identity_dir = dir.join(".soroban").join("identities");
+    fs::create_dir_all(&identity_dir).unwrap();
+    let kind_str = match kind {
+        SecretKind::Seed => "seed",
+        SecretKind::Key => "secret_key",
+    };
+    fs::write(
+        identity_dir.join(format!("{name}.toml")),
+        format!("{kind_str} = {data}\n"),
+    )
+    .unwrap();
+}
+
+pub fn add_test_id(dir: &TempDir) -> String {
+    let name = "test_id";
+    add_identity(
+        dir,
+        name,
+        SecretKind::Key,
+        "SBGWSG6BTNCKCOB3DIFBGCVMUPQFYPA2G4O34RMTB343OYPXU5DJDVMN",
+    );
+    name.to_owned()
+}
+
+pub fn add_test_seed(dir: &TempDir) -> String {
+    let name = "test_seed";
+    add_identity(
+        dir,
+        name,
+        SecretKind::Seed,
+        "one two three four five six seven eight nine ten eleven twelve",
+    );
+    name.to_owned()
+}
+
+pub fn invoke(sandbox: &Sandbox, func: &str) -> Command {
+    let mut s = sandbox.new_cmd("contract");
+    s.arg("invoke")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(CUSTOM_TYPES.path())
+        .arg("--fn")
+        .arg(func)
+        .arg("--");
+    s
+}
+
+pub fn invoke_with_roundtrip<D>(func: &str, data: D)
+where
+    D: Display,
+{
+    invoke(&Sandbox::new(), func)
+        .arg(&format!("--{func}"))
+        .json_arg(&data)
+        .assert()
+        .success()
+        .stdout(format!("{data}\n"));
 }

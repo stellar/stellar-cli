@@ -1,11 +1,10 @@
-use crate::util::{temp_ledger_file, Sandbox, SorobanCommand, HELLO_WORLD, INVOKER_ACCOUNT_EXISTS};
+use crate::util::{add_test_seed, Sandbox, HELLO_WORLD, INVOKER_ACCOUNT_EXISTS};
 
 #[test]
 fn source_account_exists() {
-    Sandbox::new_cmd("contract")
+    Sandbox::new()
+        .new_cmd("contract")
         .arg("invoke")
-        .arg("--ledger-file")
-        .arg(temp_ledger_file())
         .arg("--id=1")
         .arg("--wasm")
         .arg(INVOKER_ACCOUNT_EXISTS.path())
@@ -17,22 +16,20 @@ fn source_account_exists() {
 
 #[test]
 fn install_wasm_then_deploy_contract() {
-    let ledger = temp_ledger_file();
     let hash = HELLO_WORLD.hash();
-    Sandbox::new_cmd("contract")
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
         .arg("install")
-        .arg("--ledger-file")
-        .arg(&ledger)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .assert()
         .success()
         .stdout(format!("{hash}\n"));
 
-    Sandbox::new_cmd("contract")
+    sandbox
+        .new_cmd("contract")
         .arg("deploy")
-        .arg("--ledger-file")
-        .arg(&ledger)
         .arg("--wasm-hash")
         .arg(&format!("{hash}"))
         .arg("--id=1")
@@ -43,10 +40,9 @@ fn install_wasm_then_deploy_contract() {
 
 #[test]
 fn deploy_contract_with_wasm_file() {
-    Sandbox::new_cmd("contract")
+    Sandbox::new()
+        .new_cmd("contract")
         .arg("deploy")
-        .arg("--ledger-file")
-        .arg(temp_ledger_file())
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--id=1")
@@ -57,25 +53,22 @@ fn deploy_contract_with_wasm_file() {
 
 #[test]
 fn invoke_hello_world_with_deploy_first() {
-    // This test assumes a fresh standalone network rpc server on port 8000
-    let ledger = temp_ledger_file();
-    let res = Sandbox::new_cmd("contract")
+    let sandbox = Sandbox::new();
+    let res = sandbox
+        .new_cmd("contract")
         .arg("deploy")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
-        .arg("--ledger-file")
-        .arg(&ledger)
         .assert()
         .success();
     let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
     let id = stdout.trim_end();
 
-    Sandbox::new_cmd("contract")
+    sandbox
+        .new_cmd("contract")
         .arg("invoke")
         .arg("--identity")
         .arg("test_id")
-        .arg("--ledger-file")
-        .arg(&ledger)
         .arg("--id")
         .arg(id)
         .arg("--fn=hello")
@@ -88,15 +81,33 @@ fn invoke_hello_world_with_deploy_first() {
 
 #[test]
 fn invoke_hello_world() {
-    // This test assumes a fresh standalone network rpc server on port 8000
-    let ledger = temp_ledger_file();
-    Sandbox::new_cmd("contract")
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
         .arg("invoke")
         .arg("--id=1")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
-        .arg("--ledger-file")
-        .arg(&ledger)
+        .arg("--fn=hello")
+        .arg("--")
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
+}
+
+#[test]
+fn invoke_hello_world_with_seed() {
+    let sandbox = Sandbox::new();
+    let identity = add_test_seed(sandbox.dir());
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--identity")
+        .arg(identity)
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
         .arg("--fn=hello")
         .arg("--")
         .arg("--world=world")
