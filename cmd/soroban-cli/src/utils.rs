@@ -18,6 +18,7 @@ use soroban_env_host::{
 };
 use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
+use stellar_strkey::ed25519::PrivateKey;
 
 use crate::network::SANDBOX_NETWORK_PASSPHRASE;
 
@@ -219,27 +220,6 @@ pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum ParseSecretKeyError {
-    #[error("cannot parse secret key")]
-    CannotParseSecretKey,
-}
-
-/// # Errors
-///
-/// Might return an error
-pub fn parse_secret_key(strkey: &str) -> Result<ed25519_dalek::Keypair, ParseSecretKeyError> {
-    let seed = stellar_strkey::ed25519::PrivateKey::from_string(strkey)
-        .map_err(|_| ParseSecretKeyError::CannotParseSecretKey)?;
-    let secret_key = ed25519_dalek::SecretKey::from_bytes(&seed.0)
-        .map_err(|_| ParseSecretKeyError::CannotParseSecretKey)?;
-    let public_key = (&secret_key).into();
-    Ok(ed25519_dalek::Keypair {
-        secret: secret_key,
-        public: public_key,
-    })
-}
-
 /// # Panics
 ///
 /// May panic
@@ -303,27 +283,18 @@ pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path
     Ok(soroban_dir(&pwd))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) fn into_key_pair(
+    key: &PrivateKey,
+) -> Result<ed25519_dalek::Keypair, ed25519_dalek::SignatureError> {
+    let secret = ed25519_dalek::SecretKey::from_bytes(&key.0)?;
+    let public = (&secret).into();
+    Ok(ed25519_dalek::Keypair { secret, public })
+}
 
-    #[test]
-    fn test_parse_secret_key() {
-        let seed = "SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP";
-        let keypair = parse_secret_key(seed).unwrap();
-
-        let expected_public_key: [u8; 32] = [
-            0x31, 0x40, 0xf1, 0x40, 0x99, 0xa7, 0x4c, 0x90, 0xd4, 0x62, 0x48, 0xec, 0x8d, 0xef,
-            0xb3, 0x38, 0xc8, 0x2c, 0xe2, 0x42, 0x85, 0xc9, 0xf7, 0xb8, 0x95, 0xce, 0xdd, 0x6f,
-            0x96, 0x47, 0x82, 0x96,
-        ];
-        assert_eq!(expected_public_key, keypair.public.to_bytes());
-
-        let expected_secret_key: [u8; 32] = [
-            0x4a, 0x62, 0x97, 0x5f, 0xc7, 0xb9, 0x9a, 0x18, 0xa0, 0x41, 0xba, 0x6, 0x24, 0xd0,
-            0x70, 0xf3, 0x95, 0x57, 0x58, 0x82, 0x81, 0x5a, 0x51, 0xbc, 0x3b, 0x49, 0xae, 0x5f,
-            0x37, 0x1e, 0x9c, 0x4a,
-        ];
-        assert_eq!(expected_secret_key, keypair.secret.to_bytes());
-    }
+/// Used in tests
+#[allow(unused)]
+pub(crate) fn parse_secret_key(
+    s: &str,
+) -> Result<ed25519_dalek::Keypair, ed25519_dalek::SignatureError> {
+    into_key_pair(&PrivateKey::from_string(s).unwrap())
 }

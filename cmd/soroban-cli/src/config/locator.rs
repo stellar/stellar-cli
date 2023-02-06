@@ -115,26 +115,6 @@ impl Args {
         let path = self.network_dir()?;
         read_dir(&path)
     }
-
-    // pub fn config_path(&self) -> Result<PathBuf, Error> {
-    //     Ok(self.config_dir()?.join("config.toml"))
-    // }
-
-    // pub fn get_config_file(&self) -> Result<Config, Error> {
-    //     let path = self.config_path()?;
-    //     if path.exists() {
-    //         let data = fs::read(&path).map_err(|_| Error::CannotReadConfigFile)?;
-    //         toml::from_slice::<Config>(&data).map_err(|_| Error::Deserialization)
-    //     } else {
-    //         Ok(Config::default())
-    //     }
-    // }
-
-    // pub fn write_config_file(&self, config: &Config) -> Result<(), Error> {
-    //     let path = self.config_path()?;
-    //     let data = toml::to_string(config).map_err(|_| Error::ConfigSerialization)?;
-    //     fs::write(path, data).map_err(|_| Error::CannotWriteConfigFile)
-    // }
 }
 
 pub fn read_identity(name: &str) -> Result<Secret, Error> {
@@ -142,9 +122,6 @@ pub fn read_identity(name: &str) -> Result<Secret, Error> {
     let local_identity = Args { global: false }.identity_path(name);
     // 2. use if found, else, check global config files for `name`
     let path = local_identity.or_else(|_| Args { global: true }.identity_path(name))?;
-
-    println!("Found identity \"{name}\" at {}", path.display());
-
     let data = fs::read(&path).map_err(|_| Error::SecretFileRead { path })?;
     toml::from_slice::<Secret>(&data).map_err(|_| Error::Deserialization)
 }
@@ -153,10 +130,7 @@ pub fn read_network(name: &str) -> Result<Network, Error> {
     // 1. check workspace config files for `name`
     let local_network = Args { global: false }.network_path(name);
     // 2. use if found, else, check global config files for `name`
-    let path = local_network.or_else(|_| Args { global: true }.identity_path(name))?;
-
-    println!("Found network \"{name}\" at {}", path.display());
-
+    let path = local_network.or_else(|_| Args { global: true }.network_path(name))?;
     let data = fs::read(&path).map_err(|_| Error::NetworkFileRead { path })?;
     toml::from_slice::<Network>(&data).map_err(|_| Error::NetworkDeserialization)
 }

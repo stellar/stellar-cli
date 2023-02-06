@@ -2,8 +2,6 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use soroban_ledger_snapshot::LedgerSnapshot;
 
-use crate::utils;
-
 use self::network::Network;
 
 pub mod identity;
@@ -69,11 +67,14 @@ pub struct Args {
     #[clap(long, alias = "as")]
     /// Use specified identity to sign transaction
     pub identity: Option<String>,
+
+    #[clap(long)]
+    /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
+    pub hd_path: Option<usize>,
 }
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
-        // TODO remove unwrap and provide error
         let key = if let Some(identity) = &self.identity {
             locator::read_identity(identity)?
         } else if let Some(secret_key) = &self.secret_key {
@@ -83,13 +84,7 @@ impl Args {
         } else {
             return Err(Error::CannotParseSecretKey);
         };
-        let str_key = match &key {
-            secret::Secret::SecretKey { secret_key } => secret_key,
-            secret::Secret::SeedPhrase { seed_phrase: _ } => {
-                todo!("Still need to implement seedphrase")
-            }
-        };
-        utils::parse_secret_key(str_key).map_err(|_| Error::CannotParseSecretKey)
+        Ok(key.key_pair(self.hd_path)?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
