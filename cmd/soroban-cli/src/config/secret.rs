@@ -80,6 +80,17 @@ impl Secret {
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::Keypair, Error> {
         Ok(utils::into_key_pair(&self.private_key(index)?)?)
     }
+
+    pub fn from_seed(seed: Option<&String>) -> Result<Self, Error> {
+        let seed_phrase = if let Some(seed) = seed.map(String::as_bytes) {
+            sep5::SeedPhrase::from_entropy(seed)
+        } else {
+            sep5::SeedPhrase::random(sep5::MnemonicType::Words12)
+        }?
+        .seed_phrase
+        .into_phrase();
+        Ok(Secret::SeedPhrase { seed_phrase })
+    }
 }
 
 fn read_password() -> Result<String, Error> {

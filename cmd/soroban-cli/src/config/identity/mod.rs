@@ -9,7 +9,7 @@ pub mod rm;
 pub enum Cmd {
     /// Add a new identity (keypair, ledger, macOS keychain)
     Add(add::Cmd),
-    /// (Coming Soon) Generate a new identity with a seed phrase
+    /// Generate a new identity with a seed phrase, currently 12 words
     Generate(generate::Cmd),
     /// List identities
     Ls(ls::Cmd),

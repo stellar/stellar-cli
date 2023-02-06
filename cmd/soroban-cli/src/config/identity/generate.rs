@@ -1,16 +1,22 @@
-use crate::config::locator;
+use crate::config::{
+    locator,
+    secret::{self, Secret},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Unknown Error")]
-    Unknown,
+    #[error(transparent)]
+    Config(#[from] locator::Error),
+    #[error(transparent)]
+    Secret(#[from] secret::Error),
 }
 
 #[derive(Debug, clap::Args)]
 pub struct Cmd {
     /// Name of identity
     pub name: String,
-    /// Optional seed to use when generating seed phrase
+    /// Optional seed to use when generating seed phrase.
+    /// Random otherwise.
     #[clap(long, short = 's')]
     pub seed: Option<String>,
 
@@ -20,14 +26,8 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!(
-            "Coming soon! This will generate a new identity named {} and a corresponding seed phrase from seed {:?}",
-            self.name,
-            self.seed.as_deref().unwrap_or("random")
-        );
-        if false {
-            return Err(Error::Unknown);
-        }
+        let secret = Secret::from_seed(self.seed.as_ref())?;
+        self.config_locator.write_identity(&self.name, &secret)?;
         Ok(())
     }
 }

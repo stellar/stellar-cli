@@ -167,6 +167,31 @@ fn read_identity() {
 }
 
 #[test]
+fn generate_identity() {
+    let sandbox = Sandbox::new();
+    let seed_phrase =
+        "coral light army gather adapt blossom school alcohol coral light army giggle";
+    sandbox
+        .new_cmd("config")
+        .arg("identity")
+        .arg("generate")
+        .arg("--seed")
+        .arg("0000000000000000")
+        .arg("mike")
+        .assert()
+        .success();
+    sandbox
+        .new_cmd("config")
+        .arg("identity")
+        .arg("ls")
+        .assert()
+        .stdout("mike\n");
+    let file_contents =
+        fs::read_to_string(sandbox.dir().join(".soroban/identities/mike.toml")).unwrap();
+    assert_eq!(file_contents, format!("seed_phrase = \"{seed_phrase}\"\n"));
+}
+
+#[test]
 fn seed_phrase() {
     let sandbox = Sandbox::new();
     let dir = &sandbox.temp_dir;
