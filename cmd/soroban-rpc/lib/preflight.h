@@ -14,7 +14,7 @@ typedef struct CLedgerInfo {
 typedef struct CPreflightResult {
     char *error; // Error string in case of error, otherwise null
     char *result; // SCVal XDR in base64
-    char *preflight; // LedgerFootprint XDR in base64
+    char *footprint; // LedgerFootprint XDR in base64
     uint64_t cpu_instructions;
     uint64_t memory_bytes;
 } CPreflightResult;
