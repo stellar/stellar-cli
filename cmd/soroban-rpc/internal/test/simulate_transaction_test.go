@@ -322,18 +322,13 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
 	contractFnParameterSym := xdr.ScSymbol("world")
-	sourceAccountIDBytes, err := sourceAccount.FromAddress().MarshalBinary()
-	assert.NoError(t, err)
-	var sourceAccountID xdr.Uint256
-	copy(sourceAccountID[:], sourceAccountIDBytes)
+	authAddrArg := "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H"
+	authAccountIDArg := xdr.MustAddress(authAddrArg)
 	addressObject := &xdr.ScObject{
 		Type: xdr.ScObjectTypeScoAddress,
 		Address: &xdr.ScAddress{
-			Type: xdr.ScAddressTypeScAddressTypeAccount,
-			AccountId: &xdr.AccountId{
-				Type:    xdr.PublicKeyTypePublicKeyTypeEd25519,
-				Ed25519: &sourceAccountID,
-			},
+			Type:      xdr.ScAddressTypeScAddressTypeAccount,
+			AccountId: &authAccountIDArg,
 		},
 	}
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
@@ -384,7 +379,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 
 	// check the footprint
-	t.Log("Footprint:", response.Results[0].Footprint)
 	var obtainedFootprint xdr.LedgerFootprint
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Footprint, &obtainedFootprint)
 	assert.NoError(t, err)
@@ -408,7 +402,20 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	var obtainedAuth xdr.ContractAuth
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
 	assert.NoError(t, err)
-	// TODO: check the auth
+	assert.Nil(t, obtainedAuth.SignatureArgs)
+
+	assert.Equal(t, xdr.Uint64(0), obtainedAuth.AddressWithNonce.Nonce)
+	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.AddressWithNonce.Address.Type)
+	assert.Equal(t, authAddrArg, obtainedAuth.AddressWithNonce.Address.AccountId.Address())
+
+	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.RootInvocation.ContractId)
+	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.FunctionName)
+	assert.Len(t, obtainedAuth.RootInvocation.Args, 1)
+	world = obtainedAuth.RootInvocation.Args[0]
+	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
+	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
+	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
+
 }
 
 func TestSimulateTransactionError(t *testing.T) {
