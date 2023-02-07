@@ -1,6 +1,7 @@
 use clap::{AppSettings, CommandFactory, FromArgMatches, Parser};
 
 mod completion;
+mod config;
 mod contract;
 mod events;
 mod jsonrpc;
@@ -15,7 +16,6 @@ mod version;
 
 const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
 const HEADING_RPC: &str = "OPTIONS (RPC)";
-
 #[derive(Parser, Debug)]
 #[clap(
     name = "soroban",
@@ -35,6 +35,9 @@ enum Cmd {
     /// Tools for smart contract developers
     #[clap(subcommand)]
     Contract(contract::SubCmd),
+    /// Read and update config
+    #[clap(subcommand)]
+    Config(config::Cmd),
     /// Run a local webserver for web app development and testing
     Serve(serve::Cmd),
     /// Watch the network for contract events
@@ -60,6 +63,8 @@ enum CmdError {
     Serve(#[from] serve::Error),
     #[error(transparent)]
     Lab(#[from] lab::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
 }
 
 async fn run(cmd: Cmd) -> Result<(), CmdError> {
@@ -70,6 +75,7 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
         Cmd::Lab(lab) => lab.run().await?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(),
+        Cmd::Config(config) => config.run()?,
     };
     Ok(())
 }
