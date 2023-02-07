@@ -8,8 +8,6 @@ use soroban_env_host::xdr::{
     ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
 };
 
-use stellar_strkey;
-
 use crate::utils;
 
 #[derive(thiserror::Error, Debug)]
@@ -638,20 +636,7 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         ),
 
-        (ScSpecTypeDef::Address, Value::String(s)) => stellar_strkey::Strkey::from_string(s)
-            .map_err(|_| Error::InvalidValue(Some(t.clone())))
-            .map(|parsed| match parsed {
-                stellar_strkey::Strkey::PublicKeyEd25519(p) => {
-                    Some(ScVal::Object(Some(ScObject::Address(ScAddress::Account(
-                        AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(p.0))),
-                    )))))
-                }
-                stellar_strkey::Strkey::Contract(c) => Some(ScVal::Object(Some(
-                    ScObject::Address(ScAddress::Contract(Hash(c.0))),
-                ))),
-                _ => None,
-            })?
-            .ok_or(Error::InvalidValue(Some(t.clone())))?,
+        (ScSpecTypeDef::Address, Value::String(s)) => sc_address_from_json(s, t)?,
 
         // Bytes parsing
         (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
@@ -786,6 +771,23 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
         }
         ScAddress::Contract(Hash(h)) => Value::String(stellar_strkey::Contract(*h).to_string()),
     }
+}
+
+fn sc_address_from_json(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
+    stellar_strkey::Strkey::from_string(s)
+        .map_err(|_| Error::InvalidValue(Some(t.clone())))
+        .map(|parsed| match parsed {
+            stellar_strkey::Strkey::PublicKeyEd25519(p) => {
+                Some(ScVal::Object(Some(ScObject::Address(ScAddress::Account(
+                    AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(p.0))),
+                )))))
+            }
+            stellar_strkey::Strkey::Contract(c) => Some(ScVal::Object(Some(ScObject::Address(
+                ScAddress::Contract(Hash(c.0)),
+            )))),
+            _ => None,
+        })?
+        .ok_or(Error::InvalidValue(Some(t.clone())))
 }
 
 fn to_lower_hex(bytes: &[u8]) -> String {

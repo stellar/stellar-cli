@@ -248,7 +248,7 @@ impl Cmd {
         )?;
         let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
         let footprint = LedgerFootprint::from_xdr_base64(simulation_response.footprint)?;
-        let auth: VecM<ContractAuth, _> = VecM::from_xdr_base64(simulation_response.auth)?;
+        // let auth = VecM::from_xdr_base64(simulation_response.auth)?;
 
         if self.footprint {
             eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap(),);
@@ -258,7 +258,7 @@ impl Cmd {
         let tx = build_invoke_contract_tx(
             host_function_params,
             Some(footprint),
-            Some(auth),
+            None,// Some(auth),
             sequence + 1,
             fee,
             &network.network_passphrase,

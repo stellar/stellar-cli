@@ -1,4 +1,4 @@
-use crate::util::{add_test_seed, Sandbox, HELLO_WORLD, INVOKER_ACCOUNT_EXISTS};
+use crate::util::{add_test_seed, Sandbox, HELLO_WORLD};
 
 #[test]
 fn install_wasm_then_deploy_contract() {
