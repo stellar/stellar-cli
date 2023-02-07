@@ -210,13 +210,15 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(
 		t,
 		methods.SimulateTransactionResponse{
-			Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
 			Cost: methods.SimulateTransactionCost{
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			Results: []methods.InvokeHostFunctionResult{
-				{XDR: "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC"},
+			Results: []methods.SimulateTransactionResult{
+				{
+					Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
+					XDR:       "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC",
+				},
 			},
 			LatestLedger: result.LatestLedger,
 		},
@@ -320,15 +322,50 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
 	contractFnParameterSym := xdr.ScSymbol("world")
-	contractFnParameter := xdr.ScVal{
-		Type: xdr.ScValTypeScvSymbol,
-		Sym:  &contractFnParameterSym,
+	authAddrArg := "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H"
+	authAccountIDArg := xdr.MustAddress(authAddrArg)
+	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			&txnbuild.CreateAccount{
+				Destination:   authAddrArg,
+				Amount:        "100000",
+				SourceAccount: address,
+			},
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+	addressObject := &xdr.ScObject{
+		Type: xdr.ScObjectTypeScoAddress,
+		Address: &xdr.ScAddress{
+			Type:      xdr.ScAddressTypeScAddressTypeAccount,
+			AccountId: &authAccountIDArg,
+		},
 	}
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInvokeHostOperation(address, xdr.LedgerFootprint{}, contractID, "hello", contractFnParameter),
+			createInvokeHostOperation(
+				address,
+				xdr.LedgerFootprint{},
+				contractID,
+				"auth",
+				xdr.ScVal{
+					Type: xdr.ScValTypeScvObject,
+					Obj:  &addressObject,
+				},
+				xdr.ScVal{
+					Type: xdr.ScValTypeScvSymbol,
+					Sym:  &contractFnParameterSym,
+				},
+			),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -345,25 +382,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, response.Error)
 
-	// check the footprint
-	var obtainedFootprint xdr.LedgerFootprint
-	err = xdr.SafeUnmarshalBase64(response.Footprint, &obtainedFootprint)
-	assert.NoError(t, err)
-	assert.Len(t, obtainedFootprint.ReadWrite, 0)
-	assert.Len(t, obtainedFootprint.ReadOnly, 2)
-	ro1 := obtainedFootprint.ReadOnly[0]
-	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
-	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.ContractId)
-	assert.Equal(t, xdr.ScValTypeScvStatic, ro1.ContractData.Key.Type)
-	assert.Equal(t, xdr.ScStaticScsLedgerKeyContractCode, *ro1.ContractData.Key.Ic)
-	ro2 := obtainedFootprint.ReadOnly[1]
-	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
-	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: helloWorldContract}.MarshalBinary()
-	assert.NoError(t, err)
-	contractHash := sha256.Sum256(installContractCodeArgs)
-	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
-	assert.NoError(t, err)
-
 	// check the result
 	assert.Len(t, response.Results, 1)
 	var obtainedResult xdr.ScVal
@@ -377,6 +395,46 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 
+	// check the footprint
+	var obtainedFootprint xdr.LedgerFootprint
+	err = xdr.SafeUnmarshalBase64(response.Results[0].Footprint, &obtainedFootprint)
+	assert.NoError(t, err)
+	assert.Len(t, obtainedFootprint.ReadWrite, 1)
+	assert.Len(t, obtainedFootprint.ReadOnly, 3)
+	ro0 := obtainedFootprint.ReadOnly[0]
+	assert.Equal(t, xdr.LedgerEntryTypeAccount, ro0.Type)
+	assert.Equal(t, authAddrArg, ro0.Account.AccountId.Address())
+	ro1 := obtainedFootprint.ReadOnly[1]
+	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
+	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.ContractId)
+	assert.Equal(t, xdr.ScValTypeScvStatic, ro1.ContractData.Key.Type)
+	assert.Equal(t, xdr.ScStaticScsLedgerKeyContractCode, *ro1.ContractData.Key.Ic)
+	ro2 := obtainedFootprint.ReadOnly[2]
+	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: helloWorldContract}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := sha256.Sum256(installContractCodeArgs)
+	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
+	assert.NoError(t, err)
+
+	// check the auth
+	assert.Len(t, response.Results[0].Auth, 1)
+	var obtainedAuth xdr.ContractAuth
+	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
+	assert.NoError(t, err)
+	assert.Nil(t, obtainedAuth.SignatureArgs)
+
+	assert.Equal(t, xdr.Uint64(0), obtainedAuth.AddressWithNonce.Nonce)
+	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.AddressWithNonce.Address.Type)
+	assert.Equal(t, authAddrArg, obtainedAuth.AddressWithNonce.Address.AccountId.Address())
+
+	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.RootInvocation.ContractId)
+	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.FunctionName)
+	assert.Len(t, obtainedAuth.RootInvocation.Args, 2)
+	world = obtainedAuth.RootInvocation.Args[1]
+	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
+	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
+	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 }
 
 func TestSimulateTransactionError(t *testing.T) {

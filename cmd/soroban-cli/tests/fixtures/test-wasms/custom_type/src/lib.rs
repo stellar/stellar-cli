@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contractimpl, contracttype, symbol, vec, AccountId, Bytes, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, contracttype, symbol, vec, Address, Bytes, Env, Symbol, Vec};
 
 pub struct Contract;
 
@@ -63,8 +63,8 @@ impl Contract {
         complex
     }
 
-    pub fn account(_env: Env, account: AccountId) -> AccountId {
-        account
+    pub fn account(_env: Env, address: Address) -> Address {
+        address
     }
 
     pub fn bytes(_env: Env, bytes: Bytes) -> Bytes {
