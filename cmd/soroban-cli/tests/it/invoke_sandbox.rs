@@ -1,20 +1,6 @@
 use crate::util::{add_test_seed, Sandbox, HELLO_WORLD, INVOKER_ACCOUNT_EXISTS};
 
 #[test]
-fn source_account_exists() {
-    Sandbox::new()
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(INVOKER_ACCOUNT_EXISTS.path())
-        .arg("--fn=invkexists")
-        .assert()
-        .success()
-        .stdout("true\n");
-}
-
-#[test]
 fn install_wasm_then_deploy_contract() {
     let hash = HELLO_WORLD.hash();
     let sandbox = Sandbox::new();

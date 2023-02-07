@@ -2,13 +2,13 @@ use serde_json::Value;
 use std::str::FromStr;
 
 use soroban_env_host::xdr::{
-    AccountId, BytesM, Error as XdrError, PublicKey, ScMap, ScMapEntry, ScObject, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple,
-    ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec,
-    StringM, Uint256, VecM,
+    AccountId, BytesM, Error as XdrError, Hash, PublicKey, ScAddress, ScMap, ScMapEntry, ScObject,
+    ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple,
+    ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0,
+    ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
 };
 
-use stellar_strkey::ed25519;
+use stellar_strkey;
 
 use crate::utils;
 
@@ -103,7 +103,7 @@ impl Spec {
                 | ScSpecTypeDef::BytesN(_)
                 | ScSpecTypeDef::U128
                 | ScSpecTypeDef::I128
-                | ScSpecTypeDef::AccountId => Ok(Value::String(s.to_owned())),
+                | ScSpecTypeDef::Address => Ok(Value::String(s.to_owned())),
                 ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
                     if matches!(
                         self.find(&name.to_string_lossy())?,
@@ -132,7 +132,7 @@ impl Spec {
                 | ScSpecTypeDef::U32
                 | ScSpecTypeDef::U64
                 | ScSpecTypeDef::Symbol
-                | ScSpecTypeDef::AccountId
+                | ScSpecTypeDef::Address
                 | ScSpecTypeDef::Bytes
                 | ScSpecTypeDef::BytesN(_),
                 _,
@@ -243,21 +243,50 @@ impl Spec {
             Value::Object(o) if o.len() == 1 => (o.keys().next().unwrap(), o.values().next()),
             _ => todo!(),
         };
-        let (case, type_) = union
+
+        let case = union
             .cases
-            .to_vec()
             .iter()
-            .find(|c| enum_case == &c.name.to_string_lossy())
-            .map(|c| (c.name.to_string_lossy(), c.type_.clone()))
+            .find(|c| {
+                let name = match c {
+                    ScSpecUdtUnionCaseV0::VoidV0(v) => &v.name,
+                    ScSpecUdtUnionCaseV0::TupleV0(v) => &v.name,
+                };
+                enum_case == &name.to_string_lossy()
+            })
             .ok_or_else(|| Error::EnumCase(enum_case.to_string(), union.name.to_string_lossy()))?;
-        let s_vec = if let Some(value) = kind {
-            let val = self.from_json(value, type_.as_ref().unwrap())?;
-            let key = ScVal::Symbol(StringM::from_str(enum_case).map_err(Error::Xdr)?);
-            vec![key, val]
-            // let map = ScMap::sorted_from(vec![ScMapEntry { key, val }]).map_err(Error::Xdr)?;
-        } else {
-            let val = ScVal::Symbol(case.try_into().map_err(Error::Xdr)?);
-            vec![val]
+
+        let s_vec = match case {
+            ScSpecUdtUnionCaseV0::VoidV0(v) => vec![ScVal::Symbol(
+                v.name.to_string_lossy().try_into().map_err(Error::Xdr)?,
+            )],
+            ScSpecUdtUnionCaseV0::TupleV0(v) => match kind {
+                Some(Value::Array(values)) => {
+                    if values.len() != v.type_.len() {
+                        return Err(Error::EnumCase(
+                            enum_case.to_string(),
+                            union.name.to_string_lossy(),
+                        ));
+                    }
+
+                    let converted: ScVec = values
+                        .iter()
+                        .zip(v.type_.iter())
+                        .map(|(val, spec)| self.from_json(val, spec))
+                        .collect::<Result<Vec<ScVal>, Error>>()?
+                        .try_into()
+                        .map_err(Error::Xdr)?;
+
+                    vec![
+                        ScVal::Symbol(StringM::from_str(enum_case).map_err(Error::Xdr)?),
+                        ScVal::Object(Some(ScObject::Vec(converted))),
+                    ]
+                }
+                None => vec![ScVal::Symbol(
+                    v.name.to_string_lossy().try_into().map_err(Error::Xdr)?,
+                )],
+                _ => todo!(),
+            },
         };
         Ok(ScVal::Object(Some(ScObject::Vec(
             s_vec.try_into().map_err(Error::Xdr)?,
@@ -410,30 +439,42 @@ impl Spec {
             (ScSpecEntry::UdtUnionV0(union), ScObject::Vec(vec_)) => {
                 let v = vec_.to_vec();
                 let val = &v[0];
-                let second_val = v.get(1);
+                let remaining = &v[1..];
 
                 let case = if let ScVal::Symbol(symbol) = val {
                     union
                         .cases
                         .iter()
-                        .find(|case| case.name.as_vec() == symbol.as_vec())
+                        .find(|case| {
+                            let name = match case {
+                                ScSpecUdtUnionCaseV0::VoidV0(v) => &v.name,
+                                ScSpecUdtUnionCaseV0::TupleV0(v) => &v.name,
+                            };
+                            name.as_vec() == symbol.as_vec()
+                        })
                         .ok_or(Error::Unknown)?
                 } else {
                     return Err(Error::Unknown);
                 };
 
-                let case_name = case.name.to_string_lossy();
-                if let Some(type_) = &case.type_ {
-                    let second_val = second_val.ok_or_else(|| {
-                        Error::EnumMissingSecondValue(case_name.clone(), type_.name().to_string())
-                    })?;
-                    let map: serde_json::Map<String, _> =
-                        [(case_name, self.xdr_to_json(second_val, type_)?)]
-                            .into_iter()
-                            .collect();
-                    Value::Object(map)
-                } else {
-                    Value::String(case_name)
+                match case {
+                    ScSpecUdtUnionCaseV0::VoidV0(v) => Value::String(v.name.to_string_lossy()),
+                    ScSpecUdtUnionCaseV0::TupleV0(v) => {
+                        if v.type_.len() != remaining.len() {
+                            return Err(Error::Unknown);
+                        }
+                        let rest = remaining
+                            .iter()
+                            .zip(v.type_.iter())
+                            .map(|(x, y)| self.xdr_to_json(x, y))
+                            .collect::<Result<Vec<Value>, Error>>()?;
+
+                        let map: serde_json::Map<String, _> =
+                            [(v.name.to_string_lossy(), Value::Array(rest))]
+                                .into_iter()
+                                .collect();
+                        Value::Object(map)
+                    }
                 }
             }
             (ScSpecEntry::UdtEnumV0(_enum_), _) => todo!(),
@@ -505,10 +546,7 @@ impl Spec {
 
             (ScObject::ContractCode(_), _) => todo!(),
 
-            (
-                ScObject::AccountId(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(bytes)))),
-                ScSpecTypeDef::AccountId,
-            ) => Value::String(ed25519::PublicKey(*bytes).to_string()),
+            (ScObject::Address(v), ScSpecTypeDef::Address) => sc_address_to_json(v),
 
             _ => return Err(Error::Unknown),
         })
@@ -600,12 +638,20 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         ),
 
-        // AccountID parsing
-        (ScSpecTypeDef::AccountId, Value::String(s)) => ScVal::Object(Some(ScObject::AccountId({
-            stellar_strkey::ed25519::PublicKey::from_string(s)
-                .map(|key| AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(key.0))))
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
-        }))),
+        (ScSpecTypeDef::Address, Value::String(s)) => stellar_strkey::Strkey::from_string(s)
+            .map_err(|_| Error::InvalidValue(Some(t.clone())))
+            .map(|parsed| match parsed {
+                stellar_strkey::Strkey::PublicKeyEd25519(p) => {
+                    Some(ScVal::Object(Some(ScObject::Address(ScAddress::Account(
+                        AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(p.0))),
+                    )))))
+                }
+                stellar_strkey::Strkey::Contract(c) => Some(ScVal::Object(Some(
+                    ScObject::Address(ScAddress::Contract(Hash(c.0))),
+                ))),
+                _ => None,
+            })?
+            .ok_or(Error::InvalidValue(Some(t.clone())))?,
 
         // Bytes parsing
         (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
@@ -709,11 +755,8 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
                 .map(|item| Value::Number(serde_json::Number::from(*item)))
                 .collect(),
         ),
-        ScVal::Object(Some(ScObject::AccountId(v))) => match v {
-            AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(k))) => {
-                Value::String(stellar_strkey::ed25519::PublicKey(*k).to_string())
-            }
-        },
+        ScVal::Object(Some(ScObject::Address(v))) => sc_address_to_json(v),
+        ScVal::Object(Some(ScObject::NonceKey(v))) => sc_address_to_json(v),
         ScVal::Object(Some(ScObject::U128(n))) => {
             // Always output u128s as strings
             let v: u128 = ScObject::U128(n.clone())
@@ -734,6 +777,15 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         }
     };
     Ok(val)
+}
+
+fn sc_address_to_json(v: &ScAddress) -> Value {
+    match v {
+        ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(k)))) => {
+            Value::String(stellar_strkey::ed25519::PublicKey(*k).to_string())
+        }
+        ScAddress::Contract(Hash(h)) => Value::String(stellar_strkey::Contract(*h).to_string()),
+    }
 }
 
 fn to_lower_hex(bytes: &[u8]) -> String {

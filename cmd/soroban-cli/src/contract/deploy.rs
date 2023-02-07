@@ -13,7 +13,7 @@ use soroban_env_host::xdr::{
     HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractCode,
     LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount,
     Operation, OperationBody, Preconditions, PublicKey, ScContractCode, ScStatic, ScVal,
-    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, WriteXdr,
+    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::HostError;
 
@@ -206,6 +206,7 @@ fn build_create_contract_tx(
                 })]
                 .try_into()?,
             },
+            auth: VecM::default(),
         }),
     };
     let tx = Transaction {

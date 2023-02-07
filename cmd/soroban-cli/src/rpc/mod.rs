@@ -89,6 +89,7 @@ pub struct Cost {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SimulateTransactionResponse {
     pub footprint: String,
+    pub auth: String,
     pub cost: Cost,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,

@@ -7,11 +7,11 @@ use clap::Parser;
 use hex::FromHexError;
 use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
-    self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
-    LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
-    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScSpecTypeDef,
-    ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
-    TransactionExt, VecM,
+    self, ContractAuth, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp,
+    LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode,
+    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    ScContractCode, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, Transaction,
+    TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -240,6 +240,7 @@ impl Cmd {
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
             None,
+            None,
             sequence + 1,
             fee,
             &network.network_passphrase,
@@ -247,6 +248,7 @@ impl Cmd {
         )?;
         let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
         let footprint = LedgerFootprint::from_xdr_base64(simulation_response.footprint)?;
+        let auth: VecM<ContractAuth, _> = VecM::from_xdr_base64(simulation_response.auth)?;
 
         if self.footprint {
             eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap(),);
@@ -256,6 +258,7 @@ impl Cmd {
         let tx = build_invoke_contract_tx(
             host_function_params,
             Some(footprint),
+            Some(auth),
             sequence + 1,
             fee,
             &network.network_passphrase,
@@ -421,6 +424,7 @@ impl Cmd {
 fn build_invoke_contract_tx(
     parameters: ScVec,
     footprint: Option<LedgerFootprint>,
+    auth: Option<Vec<ContractAuth>>,
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
@@ -431,11 +435,13 @@ fn build_invoke_contract_tx(
         read_only: VecM::default(),
         read_write: VecM::default(),
     });
+    let final_auth = auth.unwrap_or(Vec::default());
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             function: HostFunction::InvokeContract(parameters),
             footprint: final_footprint,
+            auth: final_auth,
         }),
     };
     let tx = Transaction {
@@ -531,7 +537,6 @@ fn build_custom_cmd<'a>(
             xdr::ScSpecTypeDef::Bitset => todo!(),
             xdr::ScSpecTypeDef::Status => todo!(),
             xdr::ScSpecTypeDef::Bytes => arg.value_name("bytes"),
-            xdr::ScSpecTypeDef::Invoker => todo!(),
             xdr::ScSpecTypeDef::AccountId => arg
                 .value_name("AccountId")
                 .next_line_help(true)
