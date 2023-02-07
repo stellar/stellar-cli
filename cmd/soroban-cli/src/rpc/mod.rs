@@ -86,14 +86,21 @@ pub struct Cost {
     #[serde(rename = "memBytes")]
     pub mem_bytes: String,
 }
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct SimulateTransactionResult {
+    pub footprint: String,
+    pub auth: Vec<String>,
+    pub xdr: String,
+}
+
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SimulateTransactionResponse {
-    pub footprint: String,
-    pub auth: String,
+    pub results: Vec<SimulateTransactionResult>,
     pub cost: Cost,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
-    // TODO: add results and latestLedger
+    // TODO: add latestLedger
 }
 
 pub type GetEventsResponse = Vec<Event>;

@@ -50,6 +50,7 @@ pub struct Cmd {
     #[clap(long = "footprint")]
     footprint: bool,
 
+    // TODO: have a flag for outputting the auth?
     /// Account ID to invoke as
     #[clap(
         long = "account",
@@ -132,9 +133,10 @@ pub enum Error {
     // ArgsFile(std::path::PathBuf),
     #[error(transparent)]
     StrVal(#[from] strval::Error),
-
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error("unexpected ({length}) simulate transaction result length")]
+    UnexpectedSimulateTransactionResultSize { length: usize },
 }
 
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
@@ -247,8 +249,20 @@ impl Cmd {
             &key,
         )?;
         let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
-        let footprint = LedgerFootprint::from_xdr_base64(simulation_response.footprint)?;
-        // let auth = VecM::from_xdr_base64(simulation_response.auth)?;
+        if simulation_response.results.len() != 1 {
+            return Err(Error::UnexpectedSimulateTransactionResultSize {
+                length: simulation_response.results.len(),
+            });
+        }
+        let result = &simulation_response.results[0];
+        let footprint = LedgerFootprint::from_xdr_base64(&result.footprint)?;
+        let auth = result
+            .auth
+            .iter()
+            .map(|a| ContractAuth::from_xdr_base64(a))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // TODO: if self.auth
 
         if self.footprint {
             eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap(),);
@@ -258,7 +272,7 @@ impl Cmd {
         let tx = build_invoke_contract_tx(
             host_function_params,
             Some(footprint),
-            None, // Some(auth),
+            Some(auth),
             sequence + 1,
             fee,
             &network.network_passphrase,
@@ -340,6 +354,8 @@ impl Cmd {
                 ScHostStorageErrorCode::UnknownError,
             ))
         })?;
+
+        // TODO: if self.auth
 
         if self.footprint {
             eprintln!(
