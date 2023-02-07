@@ -114,7 +114,7 @@ pub(crate) fn build_install_contract_code_tx(
                 read_write: vec![ContractCode(LedgerKeyContractCode { hash: hash.clone() })]
                     .try_into()?,
             },
-            auth: Default::default(),
+            auth: VecM::default(),
         }),
     };
 

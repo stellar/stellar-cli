@@ -259,7 +259,7 @@ impl Cmd {
         let auth = result
             .auth
             .iter()
-            .map(|a| ContractAuth::from_xdr_base64(a))
+            .map(ContractAuth::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
 
         // TODO: if self.auth
