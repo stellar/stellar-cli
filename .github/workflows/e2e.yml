@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TOOLS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      SYSTEM_TEST_GIT_REF: master
+      SYSTEM_TEST_GIT_REF: v1.0.3
       SYSTEM_TEST_CORE_GIT_REF: master
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
