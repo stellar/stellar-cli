@@ -16,7 +16,7 @@ jobs:
       TOOLS_REF: ${{ github.ref }}
       SYSTEM_TEST_GIT_REF: refs/pull/23/head
       # core git ref is latest commit for stable soroban functionality
-      SYSTEM_TEST_CORE_GIT_REF: f25ced07f595dc7d9b1c1edf40a2b04593e4c778
+      SYSTEM_TEST_CORE_GIT_REF: 3a201d2b5ecee34d6dcc0466633783f27b7fa97c
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
       SYSTEM_TEST_QUICKSTART_GIT_REF: master
