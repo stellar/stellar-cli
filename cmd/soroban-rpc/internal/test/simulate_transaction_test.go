@@ -324,6 +324,23 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	contractFnParameterSym := xdr.ScSymbol("world")
 	authAddrArg := "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H"
 	authAccountIDArg := xdr.MustAddress(authAddrArg)
+	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			&txnbuild.CreateAccount{
+				Destination:   authAddrArg,
+				Amount:        "100000",
+				SourceAccount: address,
+			},
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 	addressObject := &xdr.ScObject{
 		Type: xdr.ScObjectTypeScoAddress,
 		Address: &xdr.ScAddress{
@@ -383,13 +400,16 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Footprint, &obtainedFootprint)
 	assert.NoError(t, err)
 	assert.Len(t, obtainedFootprint.ReadWrite, 1)
-	assert.Len(t, obtainedFootprint.ReadOnly, 2)
-	ro1 := obtainedFootprint.ReadOnly[0]
+	assert.Len(t, obtainedFootprint.ReadOnly, 3)
+	ro0 := obtainedFootprint.ReadOnly[0]
+	assert.Equal(t, xdr.LedgerEntryTypeAccount, ro0.Type)
+	assert.Equal(t, authAddrArg, ro0.Account.AccountId.Address())
+	ro1 := obtainedFootprint.ReadOnly[1]
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
 	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.ContractId)
 	assert.Equal(t, xdr.ScValTypeScvStatic, ro1.ContractData.Key.Type)
 	assert.Equal(t, xdr.ScStaticScsLedgerKeyContractCode, *ro1.ContractData.Key.Ic)
-	ro2 := obtainedFootprint.ReadOnly[1]
+	ro2 := obtainedFootprint.ReadOnly[2]
 	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
 	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: helloWorldContract}.MarshalBinary()
 	assert.NoError(t, err)
@@ -415,7 +435,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
-
 }
 
 func TestSimulateTransactionError(t *testing.T) {
