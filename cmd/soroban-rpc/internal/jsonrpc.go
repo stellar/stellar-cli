@@ -12,6 +12,7 @@ import (
 	"github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -39,13 +40,14 @@ func (h Handler) Close() {
 
 type HandlerParams struct {
 	AccountStore      methods.AccountStore
-	EventStore        methods.EventStore
+	EventStore        *events.MemoryStore
 	FriendbotURL      string
 	TransactionProxy  *methods.TransactionProxy
 	CoreClient        *stellarcore.Client
-	DB                db.DB
+	LedgerEntryReader db.LedgerEntryReader
 	Logger            *log.Entry
 	NetworkPassphrase string
+	MaxEventsLimit    uint
 }
 
 // NewJSONRPCHandler constructs a Handler instance
@@ -53,12 +55,12 @@ func NewJSONRPCHandler(params HandlerParams) (Handler, error) {
 	bridge := jhttp.NewBridge(handler.Map{
 		"getHealth":            methods.NewHealthCheck(),
 		"getAccount":           methods.NewAccountHandler(params.AccountStore),
-		"getEvents":            methods.NewGetEventsHandler(params.EventStore),
-		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.DB),
+		"getEvents":            methods.NewGetEventsHandler(params.EventStore, params.MaxEventsLimit),
 		"getNetwork":           methods.NewGetNetworkHandler(params.NetworkPassphrase, params.FriendbotURL, params.CoreClient),
+		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
 		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
-		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.DB),
+		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, params.NetworkPassphrase, params.LedgerEntryReader),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},

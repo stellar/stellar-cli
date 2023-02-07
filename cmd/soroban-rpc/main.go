@@ -21,11 +21,11 @@ import (
 
 func main() {
 	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, friendbotURL, networkPassphrase, dbPath, captivecoreStoragePath string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, maxEventsLimit uint
 	var checkpointFrequency uint32
 	var useDB bool
 	var historyArchiveURLs []string
-	var txConcurrency, txQueueSize int
+	var txConcurrency, txQueueSize, ledgerRetentionWindow int
 	var logLevel logrus.Level
 
 	configOpts := config.ConfigOptions{
@@ -189,6 +189,23 @@ func main() {
 			FlagDefault: uint32(64),
 			Required:    false,
 		},
+		{
+			Name:        "ledger-retention-window",
+			OptType:     types.Int,
+			FlagDefault: 17280,
+			Required:    false,
+			Usage: "configures the window of ledgers which are stored in the db." +
+				" the default value is 17280 which corresponds to about 24 hours of ledgers",
+			ConfigKey: &ledgerRetentionWindow,
+		},
+		{
+			Name:        "max-events-limit",
+			ConfigKey:   &maxEventsLimit,
+			OptType:     types.Uint,
+			Required:    false,
+			FlagDefault: uint(10000),
+			Usage:       "Maximum amount of events allowed in a single getEvents response",
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -198,6 +215,10 @@ func main() {
 			err := configOpts.SetValues()
 			if err != nil {
 				fmt.Printf("failed to set values : %v\n", err)
+				os.Exit(-1)
+			}
+			if ledgerRetentionWindow <= 0 {
+				fmt.Printf("ledger-retention-window must be positive\n")
 				os.Exit(-1)
 			}
 			config := localConfig.LocalConfig{
@@ -217,6 +238,8 @@ func main() {
 				LedgerEntryStorageTimeout: time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute,
 				SQLiteDBPath:              dbPath,
 				CheckpointFrequency:       checkpointFrequency,
+				LedgerRetentionWindow:     ledgerRetentionWindow,
+				MaxEventsLimit:            maxEventsLimit,
 			}
 			exitCode := daemon.Run(config, endpoint)
 			os.Exit(exitCode)

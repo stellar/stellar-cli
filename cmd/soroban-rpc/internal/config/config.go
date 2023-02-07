@@ -22,5 +22,7 @@ type LocalConfig struct {
 	TxQueueSize               int
 	SQLiteDBPath              string
 	LedgerEntryStorageTimeout time.Duration
+	LedgerRetentionWindow     int
 	CheckpointFrequency       uint32
+	MaxEventsLimit            uint
 }
