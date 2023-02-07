@@ -34,8 +34,6 @@ rev = "f2f4bf0e8197ee43fd6242c4a31943f466815bed"
 
 [workspace.dependencies.stellar-strkey]
 version = "0.0.7"
-git = "https://github.com/stellar/rs-stellar-strkey"
-rev = "e6ba45c60c16de28c7522586b80ed0150157df73"
 
 [workspace.dependencies.sep5]
 version = "0.0.2"
