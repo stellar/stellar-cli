@@ -67,6 +67,8 @@ func TestLedgers(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NoError(t, tx.LedgerWriter().InsertLedger(createLedger(ledgerSequence)))
 		assert.NoError(t, tx.Commit(ledgerSequence))
+		// rolling back after a commit is a no-op
+		assert.NoError(t, tx.Rollback())
 	}
 
 	assertLedgerRange(t, reader, 1, 10)
