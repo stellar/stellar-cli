@@ -62,7 +62,7 @@ impl SnapshotSource for CSnapshotSource {
             .map_err(|_| ScStatus::UnknownError(Xdr))?;
         let key_cstr = CString::new(key_xdr).map_err(|_| ScStatus::UnknownError(Xdr))?;
         let res = unsafe { SnapshotSourceHas(self.handle, key_cstr.as_ptr()) };
-        Ok(!matches!(res, 0))
+        Ok(res != 0)
     }
 }
 
