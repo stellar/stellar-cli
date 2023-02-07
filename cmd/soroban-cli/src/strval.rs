@@ -18,8 +18,6 @@ pub enum Error {
     InvalidValue(Option<ScSpecTypeDef>),
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
-    #[error("Enum {0} missing value for type {1}")]
-    EnumMissingSecondValue(String, String),
     #[error("Unknown const case {0}")]
     EnumConst(u32),
     #[error("Enum const value must be a u32 or smaller")]
