@@ -258,7 +258,7 @@ impl Cmd {
         let tx = build_invoke_contract_tx(
             host_function_params,
             Some(footprint),
-            None,// Some(auth),
+            None, // Some(auth),
             sequence + 1,
             fee,
             &network.network_passphrase,
@@ -441,7 +441,7 @@ fn build_invoke_contract_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             function: HostFunction::InvokeContract(parameters),
             footprint: final_footprint,
-            auth: final_auth,
+            auth: final_auth.try_into()?,
         }),
     };
     let tx = Transaction {
@@ -480,7 +480,9 @@ async fn get_remote_contract_spec_entries(
 
             match LedgerEntryData::from_xdr_base64(contract_data.xdr)? {
                 LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
-                    soroban_spec::read::from_wasm(&code).map_err(Error::CannotParseContractSpec)?
+                    let code_vec: Vec<u8> = code.into();
+                    soroban_spec::read::from_wasm(&code_vec)
+                        .map_err(Error::CannotParseContractSpec)?
                 }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }
@@ -537,8 +539,9 @@ fn build_custom_cmd<'a>(
             xdr::ScSpecTypeDef::Bitset => todo!(),
             xdr::ScSpecTypeDef::Status => todo!(),
             xdr::ScSpecTypeDef::Bytes => arg.value_name("bytes"),
-            xdr::ScSpecTypeDef::AccountId => arg
-                .value_name("AccountId")
+            // TODO: this is probably incorrect
+            xdr::ScSpecTypeDef::Address => arg
+                .value_name("Address")
                 .next_line_help(true)
                 .help("ed25519 Public Key"),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
