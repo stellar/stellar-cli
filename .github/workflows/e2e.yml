@@ -29,7 +29,7 @@ jobs:
           repository: stellar/system-test
           ref: ${{ env.SYSTEM_TEST_GIT_REF }}
       - uses: stellar/actions/rust-cache@main 
-      - name: Run system test scenarios
+      - name: Build system test with component versions
         run: |
           make CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
               CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
@@ -38,7 +38,8 @@ jobs:
               SOROBAN_CLI_GIT_REF=$TOOLS_REF \
               QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
               build
-
+      - name: Run system test scenarios
+        run: |
           docker run --rm -t --name e2e_test stellar/system-test:dev \
           --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT  \
-          --TestFilter "${{ matrix.scenario-filter }}" 
+          --TestFilter "${{ matrix.scenario-filter }}"     
