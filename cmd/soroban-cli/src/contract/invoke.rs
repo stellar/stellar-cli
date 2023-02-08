@@ -7,11 +7,11 @@ use clap::Parser;
 use hex::FromHexError;
 use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
-    self, ContractAuth, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp,
-    LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode,
-    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-    ScContractCode, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, Transaction,
-    TransactionEnvelope, TransactionExt, VecM,
+    self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
+    InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
+    LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber,
+    Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -49,8 +49,10 @@ pub struct Cmd {
     /// Output the footprint to stderr
     #[clap(long = "footprint")]
     footprint: bool,
+    /// Output the contract auth for the transaction to stderr
+    #[clap(long = "auth")]
+    auth: bool,
 
-    // TODO: have a flag for outputting the auth?
     /// Account ID to invoke as
     #[clap(
         long = "account",
@@ -262,10 +264,12 @@ impl Cmd {
             .map(ContractAuth::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
 
-        // TODO: if self.auth
-
         if self.footprint {
-            eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap(),);
+            eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap());
+        }
+
+        if self.auth {
+            eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap())
         }
 
         // Send the final transaction with the actual footprint
@@ -331,6 +335,7 @@ impl Cmd {
         let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
             .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
+        h.switch_to_recording_auth();
         h.set_source_account(source_account);
 
         let mut ledger_info = state.ledger_info();
@@ -349,18 +354,39 @@ impl Cmd {
 
         state.update(&h);
 
+        let contract_auth: Vec<ContractAuth> = h
+            .get_recorded_auth_payloads()?
+            .into_iter()
+            .map(|payload| {
+                let address_with_nonce = match (payload.address, payload.nonce) {
+                    (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
+                    _ => None,
+                };
+                ContractAuth {
+                    address_with_nonce: address_with_nonce,
+                    root_invocation: payload.invocation,
+                    signature_args: ScVec::default(),
+                }
+            })
+            .collect();
+
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
         })?;
 
-        // TODO: if self.auth
-
         if self.footprint {
             eprintln!(
                 "Footprint: {}",
                 serde_json::to_string(&create_ledger_footprint(&storage.footprint)).unwrap(),
+            );
+        }
+
+        if self.auth {
+            eprintln!(
+                "Contract auth: {}",
+                serde_json::to_string(&contract_auth).unwrap(),
             );
         }
 
