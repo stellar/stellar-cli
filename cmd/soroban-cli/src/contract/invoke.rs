@@ -269,7 +269,7 @@ impl Cmd {
         }
 
         if self.auth {
-            eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap())
+            eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap());
         }
 
         // Send the final transaction with the actual footprint
@@ -363,7 +363,7 @@ impl Cmd {
                     _ => None,
                 };
                 ContractAuth {
-                    address_with_nonce: address_with_nonce,
+                    address_with_nonce,
                     root_invocation: payload.invocation,
                     signature_args: ScVec::default(),
                 }
