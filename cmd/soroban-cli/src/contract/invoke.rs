@@ -47,7 +47,7 @@ pub struct Cmd {
     #[clap(long = "cost")]
     cost: bool,
     /// Run with an unlimited budget
-    #[clap(long = "unlimited-budget")]
+    #[clap(long = "unlimited-budget", conflicts_with = "rpc-url")]
     unlimited_budget: bool,
     /// Output the footprint to stderr
     #[clap(long = "footprint")]
