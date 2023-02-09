@@ -69,7 +69,7 @@ pub struct Cmd {
     )]
     events_file: std::path::PathBuf,
 
-    // Arguments for contract as `--arg-name value`, `--arg-xdr-name base64-encoded-xdr`
+    // Arguments for contract as `--arg-name value`
     #[clap(last = true, name = "CONTRACT_FN_ARGS")]
     pub slop: Vec<OsString>,
 
