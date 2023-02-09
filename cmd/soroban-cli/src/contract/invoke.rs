@@ -164,22 +164,25 @@ impl Cmd {
         let cmd = build_custom_cmd(&self.function, inputs_map, &spec)?;
         let matches_ = cmd.get_matches_from(&self.slop);
 
-        let parsed_args = inputs_map
+        // create parsed_args in same order as the inputs to func
+        let parsed_args = &func
+            .inputs
             .iter()
-            .map(|(name, t)| {
-                let s = match t {
+            .map(|i| {
+                let name = i.name.to_string().unwrap();
+                let s = match i.type_ {
                     ScSpecTypeDef::Bool => matches_.is_present(name).to_string(),
                     _ => matches_
-                        .get_raw(name)
+                        .get_raw(&name)
                         .unwrap()
                         .next()
                         .unwrap()
                         .to_string_lossy()
                         .to_string(),
                 };
-                (s, t)
+                (s, i.type_.clone())
             })
-            .map(|(s, t)| spec.from_string(&s, t))
+            .map(|(s, t)| spec.from_string(&s, &t))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| Error::CannotParseArg {
                 arg: "Arg".to_string(),
@@ -581,11 +584,7 @@ fn build_custom_cmd<'a>(
             xdr::ScSpecTypeDef::Bitset => todo!(),
             xdr::ScSpecTypeDef::Status => todo!(),
             xdr::ScSpecTypeDef::Bytes => arg.value_name("bytes"),
-            // TODO: this is probably incorrect
-            xdr::ScSpecTypeDef::Address => arg
-                .value_name("Address")
-                .next_line_help(true)
-                .help("ed25519 Public Key"),
+            xdr::ScSpecTypeDef::Address => arg.value_name("address"),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
             xdr::ScSpecTypeDef::Result(_) => todo!(),
             xdr::ScSpecTypeDef::Vec(_) => todo!(),
