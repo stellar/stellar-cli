@@ -37,6 +37,10 @@ version = "0.0.7"
 git = "https://github.com/stellar/rs-stellar-strkey"
 rev = "e6ba45c60c16de28c7522586b80ed0150157df73"
 
+[workspace.dependencies.sep5]
+version = "0.0.2"
+
+
 # [patch."https://github.com/stellar/rs-soroban-env"]
 # soroban-env-host = { path = "../rs-soroban-env/soroban-env-host/" }
 # [patch."https://github.com/stellar/rs-soroban-sdk"]
