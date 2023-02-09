@@ -259,7 +259,7 @@ impl Spec {
                 ScSpecUdtUnionCaseV0::VoidV0(_) => todo!(),
                 ScSpecUdtUnionCaseV0::TupleV0(v) => &v.type_[0],
             };
-            let val = self.from_json(value, &type_)?;
+            let val = self.from_json(value, type_)?;
             let key = ScVal::Symbol(StringM::from_str(enum_case).map_err(Error::Xdr)?);
             vec![key, val]
         } else {
@@ -420,9 +420,8 @@ impl Spec {
                 let val = &v[0];
                 let second_val = v.get(1);
 
-                let case_name = match val {
-                    ScVal::Symbol(sym) => sym,
-                    _ => return Err(Error::Unknown),
+                let ScVal::Symbol(case_name) = val else {
+                     return Err(Error::Unknown)
                 };
                 let case = union
                     .cases
@@ -447,7 +446,7 @@ impl Spec {
                             )
                         })?;
                         let map: serde_json::Map<String, _> =
-                            [(case_name, self.xdr_to_json(&second_val, type_)?)]
+                            [(case_name, self.xdr_to_json(second_val, type_)?)]
                                 .into_iter()
                                 .collect();
                         Value::Object(map)
