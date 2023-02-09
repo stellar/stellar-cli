@@ -83,6 +83,26 @@ fn invoke_hello_world() {
 }
 
 #[test]
+fn invoke_auth() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--account")
+        .arg("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--fn=auth")
+        .arg("--")
+        .arg("--addr=GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
+}
+
+#[test]
 fn invoke_hello_world_with_seed() {
     let sandbox = Sandbox::new();
     let identity = add_test_seed(sandbox.dir());

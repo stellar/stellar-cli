@@ -65,10 +65,18 @@ fn number_arg() {
 }
 
 #[test]
-fn account() {
+fn account_address() {
     invoke_with_roundtrip(
-        "account",
+        "address",
         json!("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS"),
+    );
+}
+
+#[test]
+fn contract_address() {
+    invoke_with_roundtrip(
+        "address",
+        json!("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"),
     );
 }
 
