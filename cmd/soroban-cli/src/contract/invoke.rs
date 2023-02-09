@@ -46,6 +46,9 @@ pub struct Cmd {
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
+    /// Run with an unlimited budget
+    #[clap(long = "unlimited-budget")]
+    unlimited_budget: bool,
     /// Output the footprint to stderr
     #[clap(long = "footprint")]
     footprint: bool,
@@ -338,6 +341,9 @@ impl Cmd {
         let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
             .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
+        if self.unlimited_budget {
+            h.with_budget(|b| b.reset_unlimited());
+        }
         h.switch_to_recording_auth();
         h.set_source_account(source_account);
 
