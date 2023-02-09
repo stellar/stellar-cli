@@ -1,39 +1,10 @@
-use std::fmt::Display;
-
-use assert_cmd::Command;
 use serde_json::json;
 
-use crate::util::{temp_ledger_file, CommandExt, Sandbox, SorobanCommand, CUSTOM_TYPES};
-
-fn invoke(func: &str) -> Command {
-    let mut s = Sandbox::new_cmd("contract");
-    s.arg("invoke")
-        .arg("--ledger-file")
-        .arg(temp_ledger_file())
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(CUSTOM_TYPES.path())
-        .arg("--fn")
-        .arg(func)
-        .arg("--");
-    s
-}
-
-fn invoke_with_roundtrip<D>(func: &str, data: D)
-where
-    D: Display,
-{
-    invoke(func)
-        .arg(&format!("--{func}"))
-        .json_arg(&data)
-        .assert()
-        .success()
-        .stdout(format!("{data}\n"));
-}
+use crate::util::{invoke, invoke_with_roundtrip, Sandbox};
 
 #[test]
 fn symbol() {
-    invoke("hello")
+    invoke(&Sandbox::new(), "hello")
         .arg("--hello")
         .arg("world")
         .assert()
@@ -51,7 +22,10 @@ fn symbol_with_quotes() {
 
 #[test]
 fn generate_help() {
-    invoke("test").arg("--help").assert().success();
+    invoke(&Sandbox::new(), "test")
+        .arg("--help")
+        .assert()
+        .success();
 }
 
 #[test]
@@ -110,7 +84,7 @@ fn const_enum() {
 
 #[test]
 fn boolean() {
-    invoke("boolean")
+    invoke(&Sandbox::new(), "boolean")
         .arg("--boolean")
         .assert()
         .success()
@@ -121,23 +95,30 @@ fn boolean() {
 }
 #[test]
 fn boolean_no_flag() {
-    invoke("boolean").assert().success().stdout(
-        r#"false
+    invoke(&Sandbox::new(), "boolean")
+        .assert()
+        .success()
+        .stdout(
+            r#"false
 "#,
-    );
+        );
 }
 
 #[test]
 fn boolean_not() {
-    invoke("not").arg("--boolean").assert().success().stdout(
-        r#"false
+    invoke(&Sandbox::new(), "not")
+        .arg("--boolean")
+        .assert()
+        .success()
+        .stdout(
+            r#"false
 "#,
-    );
+        );
 }
 
 #[test]
 fn boolean_not_no_flag() {
-    invoke("not").assert().success().stdout(
+    invoke(&Sandbox::new(), "not").assert().success().stdout(
         r#"true
 "#,
     );

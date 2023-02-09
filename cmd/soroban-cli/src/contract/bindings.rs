@@ -6,11 +6,12 @@ use soroban_spec::gen::{
     rust::{self, ToFormattedString},
 };
 
+use soroban_cli::wasm;
+
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    /// WASM file to generate code for
-    #[clap(long, parse(from_os_str))]
-    wasm: std::path::PathBuf,
+    #[clap(flatten)]
+    wasm: wasm::Args,
     /// Type of output to generate
     #[clap(long, arg_enum)]
     r#output: Output,
@@ -43,7 +44,7 @@ impl Cmd {
     }
 
     pub fn generate_rust(&self) -> Result<(), Error> {
-        let wasm_path_str = self.wasm.to_string_lossy();
+        let wasm_path_str = self.wasm.wasm.to_string_lossy();
         let code =
             rust::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateRustFromFile)?;
         match code.to_formatted_string() {
@@ -59,7 +60,7 @@ impl Cmd {
     }
 
     pub fn generate_json(&self) -> Result<(), Error> {
-        let wasm_path_str = self.wasm.to_string_lossy();
+        let wasm_path_str = self.wasm.wasm.to_string_lossy();
         let json =
             json::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateJsonFromFile)?;
         println!("{json}");
