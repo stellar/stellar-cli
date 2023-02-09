@@ -18,6 +18,8 @@ pub enum Error {
     InvalidValue(Option<ScSpecTypeDef>),
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
+    #[error("Enum {0} missing value for type {1}")]
+    EnumMissingSecondValue(String, String),
     #[error("Unknown const case {0}")]
     EnumConst(u32),
     #[error("Enum const value must be a u32 or smaller")]
@@ -252,38 +254,19 @@ impl Spec {
             })
             .ok_or_else(|| Error::EnumCase(enum_case.to_string(), union.name.to_string_lossy()))?;
 
-        let s_vec = match case {
-            ScSpecUdtUnionCaseV0::VoidV0(v) => vec![ScVal::Symbol(
-                v.name.to_string_lossy().try_into().map_err(Error::Xdr)?,
-            )],
-            ScSpecUdtUnionCaseV0::TupleV0(v) => match kind {
-                Some(Value::Array(values)) => {
-                    if values.len() != v.type_.len() {
-                        return Err(Error::EnumCase(
-                            enum_case.to_string(),
-                            union.name.to_string_lossy(),
-                        ));
-                    }
-
-                    let converted: ScVec = values
-                        .iter()
-                        .zip(v.type_.iter())
-                        .map(|(val, spec)| self.from_json(val, spec))
-                        .collect::<Result<Vec<ScVal>, Error>>()?
-                        .try_into()
-                        .map_err(Error::Xdr)?;
-
-                    vec![
-                        ScVal::Symbol(StringM::from_str(enum_case).map_err(Error::Xdr)?),
-                        ScVal::Object(Some(ScObject::Vec(converted))),
-                    ]
-                }
-                None => vec![ScVal::Symbol(
-                    v.name.to_string_lossy().try_into().map_err(Error::Xdr)?,
-                )],
-                _ => todo!(),
-            },
+        let s_vec = if let Some(value) = kind {
+            let type_ = match case {
+                ScSpecUdtUnionCaseV0::VoidV0(_) => todo!(),
+                ScSpecUdtUnionCaseV0::TupleV0(v) => &v.type_[0],
+            };
+            let val = self.from_json(value, &type_)?;
+            let key = ScVal::Symbol(StringM::from_str(enum_case).map_err(Error::Xdr)?);
+            vec![key, val]
+        } else {
+            let val = ScVal::Symbol(enum_case.try_into().map_err(Error::Xdr)?);
+            vec![val]
         };
+
         Ok(ScVal::Object(Some(ScObject::Vec(
             s_vec.try_into().map_err(Error::Xdr)?,
         ))))
@@ -435,42 +418,41 @@ impl Spec {
             (ScSpecEntry::UdtUnionV0(union), ScObject::Vec(vec_)) => {
                 let v = vec_.to_vec();
                 let val = &v[0];
-                let remaining = &v[1..];
+                let second_val = v.get(1);
 
-                let case = if let ScVal::Symbol(symbol) = val {
-                    union
-                        .cases
-                        .iter()
-                        .find(|case| {
-                            let name = match case {
-                                ScSpecUdtUnionCaseV0::VoidV0(v) => &v.name,
-                                ScSpecUdtUnionCaseV0::TupleV0(v) => &v.name,
-                            };
-                            name.as_vec() == symbol.as_vec()
-                        })
-                        .ok_or(Error::Unknown)?
-                } else {
-                    return Err(Error::Unknown);
+                let case_name = match val {
+                    ScVal::Symbol(sym) => sym,
+                    _ => return Err(Error::Unknown),
                 };
+                let case = union
+                    .cases
+                    .iter()
+                    .find(|case| {
+                        let name = match case {
+                            ScSpecUdtUnionCaseV0::VoidV0(v) => &v.name,
+                            ScSpecUdtUnionCaseV0::TupleV0(v) => &v.name,
+                        };
+                        name.as_vec() == case_name.as_vec()
+                    })
+                    .ok_or(Error::Unknown)?;
 
+                let case_name = case_name.to_string_lossy();
                 match case {
-                    ScSpecUdtUnionCaseV0::VoidV0(v) => Value::String(v.name.to_string_lossy()),
                     ScSpecUdtUnionCaseV0::TupleV0(v) => {
-                        if v.type_.len() != remaining.len() {
-                            return Err(Error::Unknown);
-                        }
-                        let rest = remaining
-                            .iter()
-                            .zip(v.type_.iter())
-                            .map(|(x, y)| self.xdr_to_json(x, y))
-                            .collect::<Result<Vec<Value>, Error>>()?;
-
+                        let type_ = &v.type_[0];
+                        let second_val = second_val.ok_or_else(|| {
+                            Error::EnumMissingSecondValue(
+                                case_name.clone(),
+                                type_.name().to_string(),
+                            )
+                        })?;
                         let map: serde_json::Map<String, _> =
-                            [(v.name.to_string_lossy(), Value::Array(rest))]
+                            [(case_name, self.xdr_to_json(&second_val, type_)?)]
                                 .into_iter()
                                 .collect();
                         Value::Object(map)
                     }
+                    ScSpecUdtUnionCaseV0::VoidV0(_) => Value::String(case_name),
                 }
             }
             (ScSpecEntry::UdtEnumV0(_enum_), _) => todo!(),
