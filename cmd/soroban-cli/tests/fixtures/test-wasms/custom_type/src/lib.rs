@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contractimpl, contracttype, symbol, vec, Address, Bytes, Env, Symbol, Vec};
+use soroban_sdk::{
+    contractimpl, contracttype, symbol, vec, Address, Bytes, Env, Map, Set, Symbol, Vec,
+};
 
 pub struct Contract;
 
@@ -81,6 +83,38 @@ impl Contract {
 
     pub fn not(_env: Env, boolean: bool) -> bool {
         !boolean
+    }
+
+    pub fn i128(_env: Env, i128: i128) -> i128 {
+        i128
+    }
+
+    pub fn u128(_env: Env, u128: u128) -> u128 {
+        u128
+    }
+
+    pub fn multi_args(_env: Env, a: u32, b: bool) -> u32 {
+        if b {
+            a
+        } else {
+            0
+        }
+    }
+
+    pub fn map(_env: Env, map: Map<u32, bool>) -> Map<u32, bool> {
+        map
+    }
+
+    pub fn set(_env: Env, set: Set<u32>) -> Set<u32> {
+        set
+    }
+
+    pub fn vec(_env: Env, v: Vec<u32>) -> Vec<u32> {
+        v
+    }
+
+    pub fn tuple(_env: Env, tuple: (Symbol, u32)) -> (Symbol, u32) {
+        tuple
     }
 }
 

@@ -29,6 +29,40 @@ fn generate_help() {
 }
 
 #[test]
+fn multi_arg() {
+    invoke(&Sandbox::new(), "multi_args")
+        .arg("--b")
+        .assert()
+        .success()
+        .stderr("error: Missing argument a\n");
+}
+
+#[test]
+fn multi_arg_success() {
+    invoke(&Sandbox::new(), "multi_args")
+        .arg("--a")
+        .arg("42")
+        .arg("--b")
+        .assert()
+        .success()
+        .stdout("42\n");
+}
+
+#[test]
+fn map() {
+    invoke_with_roundtrip("map", json!({"0": true, "1": false}));
+}
+
+#[test]
+fn map_help() {
+    invoke(&Sandbox::new(), "map")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("map<u32, bool>"));
+}
+
+#[test]
 fn strukt() {
     invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"}));
 }
@@ -89,6 +123,63 @@ fn bytes() {
 fn const_enum() {
     invoke_with_roundtrip("card", "11");
 }
+
+#[test]
+fn parse_u128() {
+    let num = "340000000000000000000000000000000000000";
+    invoke(&Sandbox::new(), "u128")
+        .arg("--u128")
+        .arg(num)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{num}"
+"#,
+        ));
+}
+
+#[test]
+fn parse_i128() {
+    let num = "170000000000000000000000000000000000000";
+    invoke(&Sandbox::new(), "i128")
+        .arg("--i128")
+        .arg(num)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{num}"
+"#,
+        ));
+}
+
+// TODO: support more ways to enter i128s
+// #[test]
+// fn parse_negative_i128() {
+//     let num = "-170000000000000000000000000000000000000";
+//     invoke(&Sandbox::new(), "i128")
+//         .arg("--i128")
+//         .arg(num)
+//         .assert()
+//         .success()
+//         .stdout(format!(
+//             r#""{num}"
+// "#,
+//         ));
+// }
+//
+// #[test]
+// fn parse_quoted_i128() {
+//     let num = "\"-170000000000000000000000000000000000000\"";
+//     invoke(&Sandbox::new(), "i128")
+//         .arg("--i128")
+//         .arg(num)
+//         .assert()
+//         .success()
+//         .stdout(format!(
+//             r#""{num}"
+// "#,
+//         ));
+// }
 
 #[test]
 fn boolean() {

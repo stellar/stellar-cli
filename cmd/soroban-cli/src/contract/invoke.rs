@@ -144,6 +144,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
+    #[error("Missing argument {0}")]
+    MissingArgument(String),
 }
 
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
@@ -173,29 +175,25 @@ impl Cmd {
         let matches_ = cmd.get_matches_from(&self.slop);
 
         // create parsed_args in same order as the inputs to func
-        let parsed_args = &func
+        let parsed_args = func
             .inputs
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
                 let s = match i.type_ {
-                    ScSpecTypeDef::Bool => matches_.is_present(name).to_string(),
+                    ScSpecTypeDef::Bool => matches_.is_present(name.clone()).to_string(),
                     _ => matches_
                         .get_raw(&name)
-                        .unwrap()
+                        .ok_or_else(|| Error::MissingArgument(name.clone()))?
                         .next()
                         .unwrap()
                         .to_string_lossy()
                         .to_string(),
                 };
-                (s, i.type_.clone())
+                spec.from_string(&s, &i.type_)
+                    .map_err(|error| Error::CannotParseArg { arg: name, error })
             })
-            .map(|(s, t)| spec.from_string(&s, &t))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| Error::CannotParseArg {
-                arg: "Arg".to_string(),
-                error,
-            })?;
+            .collect::<Result<Vec<_>, Error>>()?;
 
         // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
@@ -618,13 +616,33 @@ fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<Option<&'static 
             ScSpecEntry::UdtEnumV0(_) => Some("u32"),
             ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
         },
+        ScSpecTypeDef::Map(map) => {
+            let key_type = arg_value_name(spec, &map.key_type)?.unwrap();
+            let value_type = arg_value_name(spec, &map.value_type)?.unwrap();
+            Some(Box::leak(
+                format!("map<{key_type}, {value_type}>").into_boxed_str(),
+            ))
+        }
+        ScSpecTypeDef::Set(set) => {
+            let value_type = arg_value_name(spec, &set.element_type)?.unwrap();
+            Some(Box::leak(format!("set<{value_type}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Vec(vec_) => {
+            let element_type = arg_value_name(spec, &vec_.element_type)?.unwrap();
+            Some(Box::leak(format!("vec<{element_type}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Tuple(tuple) => {
+            let type_str = tuple
+                .value_types
+                .iter()
+                .map(|type_| Ok(arg_value_name(spec, type_)?.unwrap()))
+                .collect::<Result<Vec<&str>, Error>>()?
+                .join(", ");
+            Some(Box::leak(format!("tuple<{type_str}>").into_boxed_str()))
+        }
+
         // No specific value name for these yet.
-        ScSpecTypeDef::Val
-        | ScSpecTypeDef::Result(_)
-        | ScSpecTypeDef::Vec(_)
-        | ScSpecTypeDef::Map(_)
-        | ScSpecTypeDef::Set(_)
-        | ScSpecTypeDef::Tuple(_) => None,
+        ScSpecTypeDef::Val | ScSpecTypeDef::Result(_) => None,
     })
 }
 

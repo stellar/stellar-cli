@@ -95,23 +95,29 @@ impl Spec {
         }
         // Parse as string and for special types assume Value::String
         serde_json::from_str(s)
-            .or_else(|e| match t {
-                ScSpecTypeDef::Symbol
-                | ScSpecTypeDef::Bytes
-                | ScSpecTypeDef::BytesN(_)
-                | ScSpecTypeDef::U128
-                | ScSpecTypeDef::I128
-                | ScSpecTypeDef::Address => Ok(Value::String(s.to_owned())),
-                ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
-                    if matches!(
-                        self.find(&name.to_string_lossy())?,
-                        ScSpecEntry::UdtUnionV0(_) | ScSpecEntry::UdtStructV0(_)
-                    ) =>
-                {
-                    Ok(Value::String(s.to_owned()))
-                }
-                _ => Err(Error::Serde(e)),
-            })
+            .map_or_else(
+                |e| match t {
+                    ScSpecTypeDef::Symbol
+                    | ScSpecTypeDef::Bytes
+                    | ScSpecTypeDef::BytesN(_)
+                    | ScSpecTypeDef::U128
+                    | ScSpecTypeDef::I128
+                    | ScSpecTypeDef::Address => Ok(Value::String(s.to_owned())),
+                    ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
+                        if matches!(
+                            self.find(&name.to_string_lossy())?,
+                            ScSpecEntry::UdtUnionV0(_) | ScSpecEntry::UdtStructV0(_)
+                        ) =>
+                    {
+                        Ok(Value::String(s.to_owned()))
+                    }
+                    _ => Err(Error::Serde(e)),
+                },
+                |val| match t {
+                    ScSpecTypeDef::U128 | ScSpecTypeDef::I128 => Ok(Value::String(s.to_owned())),
+                    _ => Ok(val),
+                },
+            )
             .and_then(|raw| self.from_json(&raw, t))
     }
 
@@ -558,21 +564,6 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
         (ScSpecTypeDef::Bool, Value::Bool(false)) => ScVal::Static(ScStatic::False),
 
         // Number parsing
-        // TODO: Decide if numbers are appropriate for (i/u)128
-        (ScSpecTypeDef::U128, Value::Number(n)) => {
-            let val: u128 = n
-                .as_u64()
-                .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?
-                .into();
-            ScVal::Object(Some(val.into()))
-        }
-        (ScSpecTypeDef::I128, Value::Number(n)) => {
-            let val: i128 = n
-                .as_i64()
-                .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?
-                .into();
-            ScVal::Object(Some(val.into()))
-        }
         (ScSpecTypeDef::U128, Value::String(s)) => {
             let val: u128 = u128::from_str(s)
                 .map(Into::into)
