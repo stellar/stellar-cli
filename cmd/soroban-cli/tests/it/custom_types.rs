@@ -63,6 +63,49 @@ fn map_help() {
 }
 
 #[test]
+fn set() {
+    // invoke(&Sandbox::new(), "set").assert().stdout("[42]\n");
+    invoke_with_roundtrip("set", json!([0, 1]));
+}
+
+#[test]
+fn set_help() {
+    invoke(&Sandbox::new(), "set")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Set<u32>"));
+}
+
+#[test]
+fn vec_() {
+    invoke_with_roundtrip("vec", json!([0, 1]));
+}
+
+#[test]
+fn vec_help() {
+    invoke(&Sandbox::new(), "vec")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Array<u32>"));
+}
+
+#[test]
+fn tuple() {
+    invoke_with_roundtrip("tuple", json!(["hello", 0]));
+}
+
+#[test]
+fn tuple_help() {
+    invoke(&Sandbox::new(), "tuple")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Tuple<Symbol, u32>"));
+}
+
+#[test]
 fn strukt() {
     invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"}));
 }

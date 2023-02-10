@@ -118,8 +118,8 @@ impl Contract {
         set
     }
 
-    pub fn vec(_env: Env, v: Vec<u32>) -> Vec<u32> {
-        v
+    pub fn vec(_env: Env, vec: Vec<u32>) -> Vec<u32> {
+        vec
     }
 
     pub fn tuple(_env: Env, tuple: (Symbol, u32)) -> (Symbol, u32) {

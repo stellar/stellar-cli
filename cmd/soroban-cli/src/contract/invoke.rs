@@ -589,9 +589,7 @@ fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Opt
         ScSpecTypeDef::Address => Some("Address"),
         ScSpecTypeDef::Option(val) => {
             let ScSpecTypeOption { value_type } = val.as_ref();
-            // TODO: Maybe we don't need to wrap this. Can we just make it an optional param?
-            let inner = arg_value_name(name, spec, value_type.as_ref()).unwrap_or(name);
-            Some(Box::leak(format!("Option<{inner}>").into_boxed_str()))
+            arg_value_name(name, spec, value_type.as_ref())
         }
         ScSpecTypeDef::Vec(val) => {
             let ScSpecTypeVec { element_type } = val.as_ref();
@@ -619,7 +617,7 @@ fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Opt
                 .map(|t| arg_value_name(name, spec, t).unwrap_or(name))
                 .collect::<Vec<_>>()
                 .join(", ");
-            Some(Box::leak(format!("({names})").into_boxed_str()))
+            Some(Box::leak(format!("Tuple<{names}>").into_boxed_str()))
         }
         ScSpecTypeDef::Map(val) => {
             let ScSpecTypeMap {

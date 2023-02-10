@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 use soroban_env_host::xdr::{
     AccountId, BytesM, Error as XdrError, Hash, PublicKey, ScAddress, ScMap, ScMapEntry, ScObject,
-    ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeTuple,
-    ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0,
-    ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
+    ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeSet,
+    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
 };
 
 use crate::utils;
@@ -173,7 +173,7 @@ impl Spec {
             // ScSpecTypeDef::Bitset => {},
             // ScSpecTypeDef::Status => {},
             // ScSpecTypeDef::Result(Box<ScSpecTypeResult>) => {},
-            // ScSpecTypeDef::Set(Box<ScSpecTypeSet>) => {},
+            (ScSpecTypeDef::Set(set), Value::Array(values)) => self.parse_set(set, values)?,
             // ScSpecTypeDef::Udt(ScSpecTypeUdt) => {},
             (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
         };
@@ -319,6 +319,21 @@ impl Spec {
             ScMap::sorted_from(parsed?).map_err(Error::Xdr)?,
         ))))
     }
+
+    fn parse_set(&self, set: &ScSpecTypeSet, values: &[Value]) -> Result<ScVal, Error> {
+        let ScSpecTypeSet { element_type } = set;
+        let parsed: Result<Vec<_>, Error> = values
+            .iter()
+            .map(|v| {
+                let key = self.from_json(v, element_type)?;
+                let val = ScVal::Static(ScStatic::Void);
+                Ok(ScMapEntry { key, val })
+            })
+            .collect();
+        Ok(ScVal::Object(Some(ScObject::Map(
+            ScMap::sorted_from(parsed?).map_err(Error::Xdr)?,
+        ))))
+    }
 }
 
 impl Spec {
@@ -389,6 +404,17 @@ impl Spec {
             })
             .collect::<Result<serde_json::Map<String, Value>, Error>>()?;
         Ok(Value::Object(v))
+    }
+
+    /// # Errors
+    ///
+    /// Might return an error
+    pub fn sc_set_to_json(&self, sc_map: &ScMap, type_: &ScSpecTypeSet) -> Result<Value, Error> {
+        let v = sc_map
+            .iter()
+            .map(|ScMapEntry { key, .. }| self.xdr_to_json(key, &type_.element_type))
+            .collect::<Result<Vec<Value>, Error>>()?;
+        Ok(Value::Array(v))
     }
 
     /// # Errors
@@ -481,9 +507,15 @@ impl Spec {
             (ScObject::Vec(ScVec(vec_m)), ScSpecTypeDef::Vec(type_)) => {
                 self.vec_m_to_json(vec_m, &type_.element_type)?
             }
+            (ScObject::Vec(ScVec(vec_m)), ScSpecTypeDef::Tuple(tuple_type)) => Value::Array(
+                vec_m
+                    .iter()
+                    .zip(tuple_type.value_types.iter())
+                    .map(|(v, t)| self.xdr_to_json(v, t))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
             // (ScObject::Vec(_), ScSpecTypeDef::Map(_)) => todo!(),
             // (ScObject::Vec(_), ScSpecTypeDef::Set(_)) => todo!(),
-            // (ScObject::Vec(_), ScSpecTypeDef::Tuple(_)) => todo!(),
             // (ScObject::Vec(_), ScSpecTypeDef::BytesN(_)) => todo!(),
             (
                 sc_obj @ (ScObject::Vec(_) | ScObject::Map(_)),
@@ -494,8 +526,9 @@ impl Spec {
                 self.sc_map_to_json(map, map_type)?
             }
 
-            // Is set a map with no values?
-            (ScObject::Map(_), ScSpecTypeDef::Set(_)) => todo!(),
+            (ScObject::Map(map), ScSpecTypeDef::Set(set_type)) => {
+                self.sc_set_to_json(map, set_type)?
+            }
 
             (ScObject::U64(u64_), ScSpecTypeDef::U64) => {
                 Value::Number(serde_json::Number::from(*u64_))
