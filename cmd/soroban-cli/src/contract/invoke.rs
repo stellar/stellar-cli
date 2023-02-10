@@ -15,8 +15,9 @@ use soroban_env_host::xdr::{
     self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
     InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
     LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScStatic, ScVec,
-    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
+    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption,
+    ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScStatic,
+    ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -569,19 +570,17 @@ fn build_custom_cmd<'a>(
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
-            .takes_value(true)
             .value_parser(ScValParser::new(spec, static_type));
 
-        let value_name = arg_value_name(spec, type_)?;
-        if let Some(value_name) = value_name {
+        if let Some(value_name) = arg_value_name(name, spec, type_) {
             arg = arg.value_name(value_name);
         }
 
         // Set up special-case arg rules
         arg = match type_ {
             xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
-            xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
-            _ => arg,
+            xdr::ScSpecTypeDef::Option(_val) => arg.takes_value(true).required(false),
+            _ => arg.takes_value(true),
         };
 
         cmd = cmd.arg(arg);
@@ -590,8 +589,8 @@ fn build_custom_cmd<'a>(
     Ok(cmd)
 }
 
-fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<Option<&'static str>, Error> {
-    Ok(match type_ {
+fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Option<&'static str> {
+    match type_ {
         ScSpecTypeDef::U64 => Some("u64"),
         ScSpecTypeDef::I64 => Some("i64"),
         ScSpecTypeDef::U128 => Some("u128"),
@@ -606,26 +605,65 @@ fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<Option<&'static 
         ScSpecTypeDef::Address => Some("address"),
         ScSpecTypeDef::Option(val) => {
             let ScSpecTypeOption { value_type } = val.as_ref();
-            match arg_value_name(spec, value_type.as_ref())? {
-                None => None,
-                Some(s) => Some(Box::leak(format!("[{s}]").into_boxed_str())),
+            // TODO: Maybe we don't need to wrap this. Can we just make it an optional param?
+            let inner = arg_value_name(name, spec, value_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Option<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Vec(val) => {
+            let ScSpecTypeVec { element_type } = val.as_ref();
+            let inner = arg_value_name(name, spec, element_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Array<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Set(val) => {
+            let ScSpecTypeSet { element_type } = val.as_ref();
+            let inner = arg_value_name(name, spec, element_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Set<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Result(val) => {
+            let ScSpecTypeResult {
+                ok_type,
+                error_type,
+            } = val.as_ref();
+            let ok = arg_value_name(name, spec, ok_type.as_ref()).unwrap_or(name);
+            let error = arg_value_name(name, spec, error_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Result<{ok}, {error}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Tuple(val) => {
+            let ScSpecTypeTuple { value_types } = val.as_ref();
+            let names = value_types
+                .iter()
+                .map(|t| arg_value_name(name, spec, t).unwrap_or(name))
+                .collect::<Vec<_>>()
+                .join(", ");
+            Some(Box::leak(format!("({names})").into_boxed_str()))
+        }
+        ScSpecTypeDef::Map(val) => {
+            let ScSpecTypeMap {
+                key_type,
+                value_type,
+            } = val.as_ref();
+            match (
+                arg_value_name(name, spec, key_type.as_ref()),
+                arg_value_name(name, spec, value_type.as_ref()),
+            ) {
+                (Some(key), Some(val)) => {
+                    Some(Box::leak(format!("{{{key}: {val}}}").into_boxed_str()))
+                }
+                _ => None,
             }
         }
         ScSpecTypeDef::BytesN(t) => Some(Box::leak(format!("{}_hex_bytes", t.n).into_boxed_str())),
-        ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy())? {
-            ScSpecEntry::UdtStructV0(_) => Some("struct"),
-            ScSpecEntry::UdtUnionV0(_) => Some("enum"),
-            ScSpecEntry::UdtEnumV0(_) => Some("u32"),
-            ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
+        ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy()).ok()
+        {
+            Some(ScSpecEntry::UdtStructV0(_)) => Some("struct"),
+            Some(ScSpecEntry::UdtUnionV0(_)) => Some("enum"),
+            Some(ScSpecEntry::UdtEnumV0(_)) => Some("u32"),
+            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) => None,
+            None => None,
         },
         // No specific value name for these yet.
-        ScSpecTypeDef::Val
-        | ScSpecTypeDef::Result(_)
-        | ScSpecTypeDef::Vec(_)
-        | ScSpecTypeDef::Map(_)
-        | ScSpecTypeDef::Set(_)
-        | ScSpecTypeDef::Tuple(_) => None,
-    })
+        ScSpecTypeDef::Val => None,
+    }
 }
 
 #[derive(Clone)]
