@@ -142,9 +142,6 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 
-    #[error("response is missing")]
-    NoResponse,
-
     #[error(transparent)]
     Generic(#[from] Box<dyn std::error::Error>),
 
@@ -254,8 +251,8 @@ impl Cmd {
                 &self.topic_filters,
                 Some(self.count),
             )
-            .await?
-            .ok_or(Error::NoResponse)
+            .await
+            .map_err(|e| Error::Rpc(e))
     }
 
     fn run_in_sandbox(

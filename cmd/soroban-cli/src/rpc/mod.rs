@@ -271,7 +271,7 @@ impl Client {
         contract_ids: &[String],
         topics: &[String],
         limit: Option<usize>,
-    ) -> Result<Option<GetEventsResponse>, Error> {
+    ) -> Result<GetEventsResponse, Error> {
         let mut filters = serde_json::Map::new();
 
         event_type
