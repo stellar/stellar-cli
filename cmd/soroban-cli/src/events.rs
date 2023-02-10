@@ -19,11 +19,7 @@ pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required
     /// if not in sandbox mode).
     /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
-    #[clap(
-        long,
-        conflicts_with = "cursor",
-        required_unless_present = "cursor"
-    )]
+    #[clap(long, conflicts_with = "cursor", required_unless_present = "cursor")]
     start_ledger: Option<u32>,
 
     /// The cursor corresponding to the start of the event range.
