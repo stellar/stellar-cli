@@ -1,14 +1,10 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::{
-    builder::{Command, TypedValueParser},
-    Arg, Parser,
-};
+use clap::Parser;
 use hex::FromHexError;
 use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
@@ -167,10 +163,7 @@ impl Cmd {
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
             .collect::<HashMap<String, ScSpecTypeDef>>();
 
-        // clap wants everything to be static so we need to leak stuff.
-        let static_spec: &'static Spec = Box::leak(Box::new(spec.clone()));
-
-        let cmd = build_custom_cmd(&self.function, inputs_map, static_spec);
+        let cmd = build_custom_cmd(&self.function, inputs_map, &spec);
         let matches_ = cmd.get_matches_from(&self.slop);
 
         // create parsed_args in same order as the inputs to func
@@ -181,6 +174,20 @@ impl Cmd {
                 let name = i.name.to_string().unwrap();
                 let s = match i.type_ {
                     ScSpecTypeDef::Bool => matches_.is_present(name).to_string(),
+                    ScSpecTypeDef::Option(_) => {
+                        // For options, the flag might be missing. So we need to handle that.
+                        if matches_.is_present(&name) {
+                            matches_
+                                .get_raw(&name)
+                                .unwrap()
+                                .next()
+                                .unwrap()
+                                .to_string_lossy()
+                                .to_string()
+                        } else {
+                            "null".to_string()
+                        }
+                    },
                     _ => matches_
                         .get_raw(&name)
                         .unwrap()
@@ -554,7 +561,7 @@ async fn get_remote_contract_spec_entries(
 fn build_custom_cmd<'a>(
     name: &'a str,
     inputs_map: &'a HashMap<String, ScSpecTypeDef>,
-    spec: &'static Spec,
+    spec: &Spec,
 ) -> clap::App<'a> {
     // Todo make new error
     INSTANCE
@@ -566,11 +573,11 @@ fn build_custom_cmd<'a>(
 
     for (i, type_) in inputs_map.values().enumerate() {
         let name = names[i].as_str();
-        let static_type = Box::leak(Box::new(type_.clone()));
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
-            .value_parser(ScValParser::new(spec, static_type));
+            .takes_value(true)
+            .value_parser(clap::builder::NonEmptyStringValueParser::new());
 
         if let Some(value_name) = arg_value_name(name, spec, type_) {
             arg = arg.value_name(value_name);
@@ -579,8 +586,8 @@ fn build_custom_cmd<'a>(
         // Set up special-case arg rules
         arg = match type_ {
             xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
-            xdr::ScSpecTypeDef::Option(_val) => arg.takes_value(true).required(false),
-            _ => arg.takes_value(true),
+            xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
+            _ => arg,
         };
 
         cmd = cmd.arg(arg);
@@ -662,47 +669,5 @@ fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Opt
         },
         // No specific value name for these yet.
         ScSpecTypeDef::Val => None,
-    }
-}
-
-#[derive(Clone)]
-#[non_exhaustive]
-struct ScValParser {
-    spec: &'static Spec,
-    type_: &'static ScSpecTypeDef,
-}
-
-impl ScValParser {
-    pub fn new(spec: &'static Spec, type_: &'static ScSpecTypeDef) -> Self {
-        Self { spec, type_ }
-    }
-}
-
-impl TypedValueParser for ScValParser {
-    type Value = ScVal;
-
-    fn parse_ref(
-        &self,
-        cmd: &Command<'_>,
-        arg: Option<&Arg<'_>>,
-        raw_value: &OsStr,
-    ) -> Result<Self::Value, clap::Error> {
-        TypedValueParser::parse(self, cmd, arg, raw_value.to_owned())
-    }
-
-    fn parse(
-        &self,
-        _cmd: &Command<'_>,
-        _arg: Option<&Arg<'_>>,
-        raw_value: OsString,
-    ) -> Result<Self::Value, clap::Error> {
-        let value = raw_value
-            .into_string()
-            .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidUtf8, "invalid value"))?;
-        let parsed = self
-            .spec
-            .from_string(&value, self.type_)
-            .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidValue, "invalid value"))?;
-        Ok(parsed)
     }
 }

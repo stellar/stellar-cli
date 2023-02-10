@@ -517,7 +517,7 @@ impl Spec {
             }
 
             (ScObject::Bytes(v), ScSpecTypeDef::Bytes) => Value::String(to_lower_hex(v.as_slice())),
-            (ScObject::Bytes(_), ScSpecTypeDef::BytesN(_)) => todo!(),
+            (ScObject::Bytes(v), ScSpecTypeDef::BytesN(_)) => Value::String(to_lower_hex(v.as_slice())),
 
             (ScObject::Bytes(_), ScSpecTypeDef::Udt(_)) => todo!(),
 
