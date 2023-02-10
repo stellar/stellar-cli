@@ -170,7 +170,7 @@ impl Cmd {
         // clap wants everything to be static so we need to leak stuff.
         let static_spec: &'static Spec = Box::leak(Box::new(spec.clone()));
 
-        let cmd = build_custom_cmd(&self.function, inputs_map, static_spec)?;
+        let cmd = build_custom_cmd(&self.function, inputs_map, static_spec);
         let matches_ = cmd.get_matches_from(&self.slop);
 
         // create parsed_args in same order as the inputs to func
@@ -555,7 +555,7 @@ fn build_custom_cmd<'a>(
     name: &'a str,
     inputs_map: &'a HashMap<String, ScSpecTypeDef>,
     spec: &'static Spec,
-) -> Result<clap::App<'a>, Error> {
+) -> clap::App<'a> {
     // Todo make new error
     INSTANCE
         .set(inputs_map.keys().map(Clone::clone).collect::<Vec<String>>())
@@ -586,7 +586,7 @@ fn build_custom_cmd<'a>(
         cmd = cmd.arg(arg);
     }
     cmd.build();
-    Ok(cmd)
+    cmd
 }
 
 fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Option<&'static str> {
@@ -658,8 +658,7 @@ fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Opt
             Some(ScSpecEntry::UdtStructV0(_)) => Some("struct"),
             Some(ScSpecEntry::UdtUnionV0(_)) => Some("enum"),
             Some(ScSpecEntry::UdtEnumV0(_)) => Some("u32"),
-            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) => None,
-            None => None,
+            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
         },
         // No specific value name for these yet.
         ScSpecTypeDef::Val => None,
