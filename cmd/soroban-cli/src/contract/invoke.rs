@@ -420,7 +420,11 @@ impl Cmd {
         Ok(())
     }
 
-    pub fn deploy_contract_in_sandbox(&self, state: &mut LedgerSnapshot, contract_id: &[u8; 32], contract: Vec<u8>) -> Result<(), Error> {
+    pub fn deploy_contract_in_sandbox(
+        &self,
+        state: &mut soroban_ledger_snapshot::LedgerSnapshot,
+        contract_id: &[u8; 32],
+    ) -> Result<(), Error> {
         if let Some(contract) = self.read_wasm()? {
             let wasm_hash =
                 utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
@@ -428,7 +432,7 @@ impl Cmd {
                     .0;
             utils::add_contract_to_ledger_entries(
                 &mut state.ledger_entries,
-                contract_id,
+                *contract_id,
                 wasm_hash,
             );
         }
