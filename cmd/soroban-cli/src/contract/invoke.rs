@@ -7,11 +7,11 @@ use clap::Parser;
 use hex::FromHexError;
 use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
-    self, ContractCodeEntry, ContractDataEntry, InvokeHostFunctionOp, LedgerEntryData,
-    LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData,
-    Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractCode, ScSpecTypeDef,
-    ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
-    TransactionExt, VecM,
+    self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
+    InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
+    LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber,
+    Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -49,6 +49,9 @@ pub struct Cmd {
     /// Output the footprint to stderr
     #[clap(long = "footprint")]
     footprint: bool,
+    /// Output the contract auth for the transaction to stderr
+    #[clap(long = "auth")]
+    auth: bool,
 
     /// Account ID to invoke as
     #[clap(
@@ -132,9 +135,10 @@ pub enum Error {
     // ArgsFile(std::path::PathBuf),
     #[error(transparent)]
     StrVal(#[from] strval::Error),
-
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error("unexpected ({length}) simulate transaction result length")]
+    UnexpectedSimulateTransactionResultSize { length: usize },
 }
 
 static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
@@ -160,22 +164,25 @@ impl Cmd {
         let cmd = build_custom_cmd(&self.function, inputs_map, &spec)?;
         let matches_ = cmd.get_matches_from(&self.slop);
 
-        let parsed_args = inputs_map
+        // create parsed_args in same order as the inputs to func
+        let parsed_args = &func
+            .inputs
             .iter()
-            .map(|(name, t)| {
-                let s = match t {
+            .map(|i| {
+                let name = i.name.to_string().unwrap();
+                let s = match i.type_ {
                     ScSpecTypeDef::Bool => matches_.is_present(name).to_string(),
                     _ => matches_
-                        .get_raw(name)
+                        .get_raw(&name)
                         .unwrap()
                         .next()
                         .unwrap()
                         .to_string_lossy()
                         .to_string(),
                 };
-                (s, t)
+                (s, i.type_.clone())
             })
-            .map(|(s, t)| spec.from_string(&s, t))
+            .map(|(s, t)| spec.from_string(&s, &t))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| Error::CannotParseArg {
                 arg: "Arg".to_string(),
@@ -240,22 +247,39 @@ impl Cmd {
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
             None,
+            None,
             sequence + 1,
             fee,
             &network.network_passphrase,
             &key,
         )?;
         let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
-        let footprint = LedgerFootprint::from_xdr_base64(simulation_response.footprint)?;
+        if simulation_response.results.len() != 1 {
+            return Err(Error::UnexpectedSimulateTransactionResultSize {
+                length: simulation_response.results.len(),
+            });
+        }
+        let result = &simulation_response.results[0];
+        let footprint = LedgerFootprint::from_xdr_base64(&result.footprint)?;
+        let auth = result
+            .auth
+            .iter()
+            .map(ContractAuth::from_xdr_base64)
+            .collect::<Result<Vec<_>, _>>()?;
 
         if self.footprint {
-            eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap(),);
+            eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap());
+        }
+
+        if self.auth {
+            eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap());
         }
 
         // Send the final transaction with the actual footprint
         let tx = build_invoke_contract_tx(
             host_function_params,
             Some(footprint),
+            Some(auth),
             sequence + 1,
             fee,
             &network.network_passphrase,
@@ -314,6 +338,7 @@ impl Cmd {
         let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
             .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
+        h.switch_to_recording_auth();
         h.set_source_account(source_account);
 
         let mut ledger_info = state.ledger_info();
@@ -332,6 +357,22 @@ impl Cmd {
 
         state.update(&h);
 
+        let contract_auth: Vec<ContractAuth> = h
+            .get_recorded_auth_payloads()?
+            .into_iter()
+            .map(|payload| {
+                let address_with_nonce = match (payload.address, payload.nonce) {
+                    (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
+                    _ => None,
+                };
+                ContractAuth {
+                    address_with_nonce,
+                    root_invocation: payload.invocation,
+                    signature_args: ScVec::default(),
+                }
+            })
+            .collect();
+
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
@@ -342,6 +383,13 @@ impl Cmd {
             eprintln!(
                 "Footprint: {}",
                 serde_json::to_string(&create_ledger_footprint(&storage.footprint)).unwrap(),
+            );
+        }
+
+        if self.auth {
+            eprintln!(
+                "Contract auth: {}",
+                serde_json::to_string(&contract_auth).unwrap(),
             );
         }
 
@@ -421,6 +469,7 @@ impl Cmd {
 fn build_invoke_contract_tx(
     parameters: ScVec,
     footprint: Option<LedgerFootprint>,
+    auth: Option<Vec<ContractAuth>>,
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
@@ -431,11 +480,13 @@ fn build_invoke_contract_tx(
         read_only: VecM::default(),
         read_write: VecM::default(),
     });
+    let final_auth = auth.unwrap_or(Vec::default());
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             function: HostFunction::InvokeContract(parameters),
             footprint: final_footprint,
+            auth: final_auth.try_into()?,
         }),
     };
     let tx = Transaction {
@@ -474,7 +525,9 @@ async fn get_remote_contract_spec_entries(
 
             match LedgerEntryData::from_xdr_base64(contract_data.xdr)? {
                 LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
-                    soroban_spec::read::from_wasm(&code).map_err(Error::CannotParseContractSpec)?
+                    let code_vec: Vec<u8> = code.into();
+                    soroban_spec::read::from_wasm(&code_vec)
+                        .map_err(Error::CannotParseContractSpec)?
                 }
                 scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
             }
@@ -531,11 +584,7 @@ fn build_custom_cmd<'a>(
             xdr::ScSpecTypeDef::Bitset => todo!(),
             xdr::ScSpecTypeDef::Status => todo!(),
             xdr::ScSpecTypeDef::Bytes => arg.value_name("bytes"),
-            xdr::ScSpecTypeDef::Invoker => todo!(),
-            xdr::ScSpecTypeDef::AccountId => arg
-                .value_name("AccountId")
-                .next_line_help(true)
-                .help("ed25519 Public Key"),
+            xdr::ScSpecTypeDef::Address => arg.value_name("address"),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
             xdr::ScSpecTypeDef::Result(_) => todo!(),
             xdr::ScSpecTypeDef::Vec(_) => todo!(),

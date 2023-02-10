@@ -1,18 +1,4 @@
-use crate::util::{add_test_seed, Sandbox, HELLO_WORLD, INVOKER_ACCOUNT_EXISTS};
-
-#[test]
-fn source_account_exists() {
-    Sandbox::new()
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(INVOKER_ACCOUNT_EXISTS.path())
-        .arg("--fn=invkexists")
-        .assert()
-        .success()
-        .stdout("true\n");
-}
+use crate::util::{add_test_seed, Sandbox, HELLO_WORLD};
 
 #[test]
 fn install_wasm_then_deploy_contract() {
@@ -90,6 +76,26 @@ fn invoke_hello_world() {
         .arg(HELLO_WORLD.path())
         .arg("--fn=hello")
         .arg("--")
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
+}
+
+#[test]
+fn invoke_auth() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--account")
+        .arg("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--fn=auth")
+        .arg("--")
+        .arg("--addr=GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
         .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")

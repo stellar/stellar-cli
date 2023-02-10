@@ -743,7 +743,7 @@ mod tests {
             protocol_version: 1,
             sequence_number: 2, // this is the only value that matters
             timestamp: 3,
-            network_passphrase: "four".into(),
+            network_id: [0x1; 32],
             base_reserve: 5,
             ledger_entries: vec![],
         };

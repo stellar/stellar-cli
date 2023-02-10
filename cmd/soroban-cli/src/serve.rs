@@ -5,13 +5,14 @@ use clap::Parser;
 use hex::FromHexError;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{AccountId, MuxedAccount, Operation, PublicKey};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        self, Error as XdrError, FeeBumpTransactionInnerTx, HostFunction, LedgerKey, OperationBody,
-        ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus, ScVal, TransactionEnvelope, WriteXdr,
+        self, AccountId, AddressWithNonce, ContractAuth, Error as XdrError,
+        FeeBumpTransactionInnerTx, HostFunction, LedgerKey, MuxedAccount, Operation, OperationBody,
+        PublicKey, ReadXdr, ScHostStorageErrorCode, ScObject, ScStatus, ScVal, ScVec,
+        TransactionEnvelope, WriteXdr,
     },
     Host, HostError,
 };
@@ -327,11 +328,13 @@ fn execute_transaction(
     let storage = Storage::with_recording_footprint(snap);
     let h = Host::with_storage_and_budget(storage, Budget::default());
 
+    h.switch_to_recording_auth();
     h.set_source_account(source_account);
 
     let mut ledger_info = state.ledger_info();
     ledger_info.sequence_number += 1;
     ledger_info.timestamp += 5;
+    let latest_sequence = ledger_info.sequence_number;
     h.set_ledger_info(ledger_info);
 
     // TODO: Check the parameters match the contract spec, or return a helpful error message
@@ -340,6 +343,23 @@ fn execute_transaction(
     let res = h.invoke_function(HostFunction::InvokeContract(args.try_into()?))?;
 
     state.update(&h);
+
+    let contract_auth: Vec<String> = h
+        .get_recorded_auth_payloads()?
+        .into_iter()
+        .map(|payload| {
+            let address_with_nonce = match (payload.address, payload.nonce) {
+                (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
+                _ => None,
+            };
+            ContractAuth {
+                address_with_nonce,
+                root_invocation: payload.invocation,
+                signature_args: ScVec::default(),
+            }
+            .to_xdr_base64()
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     let (storage, budget, _) = h.try_finish().map_err(|_h| {
         HostError::from(ScStatus::HostStorageError(
@@ -371,12 +391,12 @@ fn execute_transaction(
 
     Ok(json!({
         "cost": cost,
-        "footprint": footprint.to_xdr_base64()?,
-        "results": vec![
-            json!({ "xdr": res.to_xdr_base64()? })
-        ],
-        // TODO: Find "real" ledger seq number here
-        "latestLedger": 1,
+        "results": [{
+            "auth": contract_auth,
+            "footprint": footprint.to_xdr_base64()?,
+            "xdr": res.to_xdr_base64()?,
+        }],
+        "latestLedger": latest_sequence,
     }))
 }
 

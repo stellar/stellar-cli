@@ -97,16 +97,17 @@ type SimulateTransactionCost struct {
 	MemoryBytes     uint64 `json:"memBytes,string"`
 }
 
-type InvokeHostFunctionResult struct {
-	XDR string `json:"xdr"`
+type SimulateTransactionResult struct {
+	Auth      []string `json:"auth"`
+	Footprint string   `json:"footprint"`
+	XDR       string   `json:"xdr"`
 }
 
 type SimulateTransactionResponse struct {
-	Error        string                     `json:"error,omitempty"`
-	Results      []InvokeHostFunctionResult `json:"results,omitempty"`
-	Footprint    string                     `json:"footprint"`
-	Cost         SimulateTransactionCost    `json:"cost"`
-	LatestLedger int64                      `json:"latestLedger,string"`
+	Error        string                      `json:"error,omitempty"`
+	Results      []SimulateTransactionResult `json:"results,omitempty"`
+	Cost         SimulateTransactionCost     `json:"cost"`
+	LatestLedger int64                       `json:"latestLedger,string"`
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
@@ -199,9 +200,30 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			}
 		}
 
+		// Get the auth data
+		var auth []string
+		if res.auth != nil {
+
+			// CGo doesn't have an easy way to do pointer arithmetic so,
+			// we are better off transforming the memory buffer into a large slice
+			// and finding the NULL termination after that
+			for _, a := range unsafe.Slice(res.auth, 1<<20) {
+				if a == nil {
+					// we found the ending nil
+					break
+				}
+				auth = append(auth, C.GoString(a))
+			}
+		}
+
 		return SimulateTransactionResponse{
-			Results:   []InvokeHostFunctionResult{{XDR: C.GoString(res.result)}},
-			Footprint: C.GoString(res.preflight),
+			Results: []SimulateTransactionResult{
+				{
+					Auth:      auth,
+					Footprint: C.GoString(res.preflight),
+					XDR:       C.GoString(res.result),
+				},
+			},
 			Cost: SimulateTransactionCost{
 				CPUInstructions: uint64(res.cpu_instructions),
 				MemoryBytes:     uint64(res.memory_bytes),
