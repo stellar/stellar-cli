@@ -110,7 +110,16 @@ pub struct SimulateTransactionResponse {
     pub latest_ledger: u32,
 }
 
-pub type GetEventsResponse = Vec<Event>;
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetEventsResponse {
+    #[serde(deserialize_with = "deserialize_default_from_null")]
+    pub events: Vec<Event>,
+    #[serde(
+        rename = "latestLedger",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger: u32,
+}
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Event {
@@ -280,7 +289,6 @@ impl Client {
         if let Some(limit) = limit {
             pagination.insert("limit".to_string(), limit.into());
         }
-        // TODO: cursor
 
         let mut object = collections::BTreeMap::<&str, jsonrpsee_core::JsonValue>::new();
         match start {
