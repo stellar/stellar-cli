@@ -21,7 +21,7 @@ import (
 
 func main() {
 	var endpoint string
-	var ledgerEntryStorageTimeoutMinutes uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
 	var serviceConfig localConfig.LocalConfig
 
 	configOpts := config.ConfigOptions{
@@ -51,8 +51,8 @@ func main() {
 		},
 		{
 			Name:        "stellar-captive-core-http-port",
-			ConfigKey:   &serviceConfig.CaptiveCoreHTTPPort,
-			OptType:     types.Uint16,
+			ConfigKey:   &captiveCoreHTTPPort,
+			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(11626),
 			Usage:       "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
@@ -234,6 +234,7 @@ func main() {
 				os.Exit(-1)
 			}
 
+			serviceConfig.CaptiveCoreHTTPPort = uint16(captiveCoreHTTPPort)
 			serviceConfig.LedgerEntryStorageTimeout = time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute
 			exitCode := daemon.Run(serviceConfig, endpoint)
 			os.Exit(exitCode)
