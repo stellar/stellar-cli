@@ -308,17 +308,7 @@ impl Cmd {
         let mut state = self.config.get_state()?;
 
         // If a file is specified, deploy the contract to storage
-        if let Some(contract) = self.read_wasm()? {
-            let wasm_hash =
-                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
-                    .map_err(Error::CannotAddContractToLedgerEntries)?
-                    .0;
-            utils::add_contract_to_ledger_entries(
-                &mut state.ledger_entries,
-                contract_id,
-                wasm_hash,
-            );
-        }
+        self.deploy_contract_in_sandbox(&mut state, &contract_id)?;
 
         // Create source account, adding it to the ledger if not already present.
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(self.account_id.0)));
@@ -426,6 +416,21 @@ impl Cmd {
             }
         })?;
 
+        Ok(())
+    }
+
+    pub fn deploy_contract_in_sandbox(&self, state: &mut LedgerSnapshot, contract_id: &[u8; 32], contract: Vec<u8>) -> Result<(), Error> {
+        if let Some(contract) = self.read_wasm()? {
+            let wasm_hash =
+                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
+                    .map_err(Error::CannotAddContractToLedgerEntries)?
+                    .0;
+            utils::add_contract_to_ledger_entries(
+                &mut state.ledger_entries,
+                contract_id,
+                wasm_hash,
+            );
+        }
         Ok(())
     }
 
