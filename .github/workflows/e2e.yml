@@ -6,7 +6,6 @@ on:
   pull_request:
 
 jobs:
-
   integration:
     name: System tests
     strategy:
@@ -14,28 +13,33 @@ jobs:
         scenario-filter: ["^TestDappDevelop$/^.*$"]
     runs-on: ubuntu-latest
     env:
-      # TODO: restore stellar/system-test once the tests are fixed
-      SYSTEM_TEST_DOCKER_REPO_TAG: "2opremio/system-test"
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "main"
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
-      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: "stable"
-      SYSTEM_TEST_CORE_DEBIAN_VERSION: "19.6.1-1158.c0ad35aa1.focal~soroban"
-      SYSTEM_TEST_HORIZON_DEBIAN_VERSION: "2.22.0~soroban-322"
+      TOOLS_REF: ${{ github.ref }}
+      SYSTEM_TEST_GIT_REF: v1.0.4
+      # core git ref is latest commit for stable soroban functionality
+      SYSTEM_TEST_CORE_GIT_REF: 3a201d2b5ecee34d6dcc0466633783f27b7fa97c
+      SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
+      SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
+      SYSTEM_TEST_QUICKSTART_GIT_REF: master
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: main
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v3
-      - uses: stellar/actions/rust-cache@main
+        with:
+          repository: stellar/system-test
+          ref: ${{ env.SYSTEM_TEST_GIT_REF }}
+      - uses: stellar/actions/rust-cache@main 
+      - name: Build system test with component versions
+        run: |
+          make CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
+              CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
+              SOROBAN_RPC_GIT_REF=$TOOLS_REF \
+              RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
+              SOROBAN_CLI_GIT_REF=$TOOLS_REF \
+              QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
+              build
       - name: Run system test scenarios
         run: |
-          docker run --platform linux/amd64 -t --rm \
-          -v "$(pwd):/soroban-tools" "$SYSTEM_TEST_DOCKER_REPO_TAG" \
-          --SorobanCLISourceVolume "/soroban-tools" \
-          --SorobanRPCSourceVolume "/soroban-tools" \
-          --SorobanExamplesGitHash "$SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH" \
-          --SorobanExamplesRepoURL "$SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO" \
-          --RustToolchainVersion "$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION" \
-          --CoreDebianVersion "$SYSTEM_TEST_CORE_DEBIAN_VERSION" \
-          --HorizonDebianVersion "$SYSTEM_TEST_HORIZON_DEBIAN_VERSION" \
-          --TestFilter "${{ matrix.scenario-filter }}" \
-          --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT 
-     
+          docker run --rm -t --name e2e_test stellar/system-test:dev \
+          --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT  \
+          --TestFilter "${{ matrix.scenario-filter }}"     
