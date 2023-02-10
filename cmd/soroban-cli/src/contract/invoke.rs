@@ -6,7 +6,6 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
 use hex::FromHexError;
-use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
     InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
@@ -144,8 +143,6 @@ pub enum Error {
     #[error("Missing argument {0}")]
     MissingArgument(String),
 }
-
-static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
 
 impl Cmd {
     fn build_host_function_parameters(
@@ -547,16 +544,9 @@ fn build_custom_cmd<'a>(
     inputs_map: &'a HashMap<String, ScSpecTypeDef>,
     spec: &Spec,
 ) -> clap::App<'a> {
-    // Todo make new error
-    INSTANCE
-        .set(inputs_map.keys().map(Clone::clone).collect::<Vec<String>>())
-        .unwrap();
-
-    let names: &'static [String] = INSTANCE.get().unwrap();
     let mut cmd = clap::Command::new(name).no_binary_name(true);
-
-    for (i, type_) in inputs_map.values().enumerate() {
-        let name = names[i].as_str();
+    for (name, type_) in inputs_map.iter() {
+        let name: &'static str = Box::leak(name.clone().into_boxed_str());
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
