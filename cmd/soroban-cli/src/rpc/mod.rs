@@ -1,5 +1,6 @@
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
+use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
 use std::{
     collections,
@@ -86,13 +87,27 @@ pub struct Cost {
     #[serde(rename = "memBytes")]
     pub mem_bytes: String,
 }
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct SimulateTransactionResult {
+    pub footprint: String,
+    #[serde(deserialize_with = "deserialize_default_from_null")]
+    pub auth: Vec<String>,
+    pub xdr: String,
+}
+
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SimulateTransactionResponse {
-    pub footprint: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub results: Vec<SimulateTransactionResult>,
     pub cost: Cost,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
-    // TODO: add results and latestLedger
+    #[serde(
+        rename = "latestLedger",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger: u32,
 }
 
 pub type GetEventsResponse = Vec<Event>;
