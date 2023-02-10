@@ -20,7 +20,6 @@ pub struct Cmd {
     /// if not in sandbox mode).
     /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
     #[clap(
-        short,
         long,
         conflicts_with = "cursor",
         required_unless_present = "cursor"
@@ -29,7 +28,6 @@ pub struct Cmd {
 
     /// The cursor corresponding to the start of the event range.
     #[clap(
-        short,
         long,
         conflicts_with = "start-ledger",
         required_unless_present = "start-ledger"
