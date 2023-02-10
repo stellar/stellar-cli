@@ -187,7 +187,7 @@ impl Cmd {
                         } else {
                             "null".to_string()
                         }
-                    },
+                    }
                     _ => matches_
                         .get_raw(&name)
                         .unwrap()
