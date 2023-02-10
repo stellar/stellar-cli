@@ -139,9 +139,6 @@ pub enum Error {
     #[error("you must specify either an RPC server or sandbox filepath(s)")]
     TargetRequired,
 
-    #[error("ledger range (-s and -e) is required when specifying an RPC server")]
-    LedgerRangeRequired,
-
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 
@@ -227,8 +224,11 @@ impl Cmd {
         Ok(())
     }
 
-    async fn run_against_rpc_server(&self, rpc_url: &str, start : rpc::EventStart) -> Result<Vec<rpc::Event>, Error> {
-
+    async fn run_against_rpc_server(
+        &self,
+        rpc_url: &str,
+        start: rpc::EventStart,
+    ) -> Result<Vec<rpc::Event>, Error> {
         for raw_contract_id in &self.contract_ids {
             // We parse the contract IDs to ensure they're the correct format,
             // but since we'll be passing them as-is to the RPC server anyway,
@@ -252,7 +252,11 @@ impl Cmd {
             .unwrap_or_default())
     }
 
-    fn run_in_sandbox(&self, path: &path::PathBuf, start : rpc::EventStart) -> Result<Vec<rpc::Event>, Error> {
+    fn run_in_sandbox(
+        &self,
+        path: &path::PathBuf,
+        start: rpc::EventStart,
+    ) -> Result<Vec<rpc::Event>, Error> {
         if !path.exists() {
             return Err(Error::InvalidFile {
                 path: path.to_str().unwrap().to_string(),
@@ -278,20 +282,17 @@ impl Cmd {
                 error: err.to_string(),
             })?
             .iter()
-            .filter(|evt| {
+            .filter(|evt| match parse_cursor(&evt.id) {
+                Ok(event_cursor) => event_cursor > start_cursor,
+                Err(e) => {
+                    eprintln!("error parsing key 'ledger': {e:?}");
+                    eprintln!(
+                        "your sandbox events file ('{}') may be corrupt",
+                        path.to_str().unwrap(),
+                    );
+                    eprintln!("ignoring this event: {evt:#?}");
 
-                match parse_cursor(&evt.id) {
-                    Ok(event_cursor) => event_cursor > start_cursor,
-                    Err(e) => {
-                        eprintln!("error parsing key 'ledger': {e:?}");
-                        eprintln!(
-                            "your sandbox events file ('{}') may be corrupt",
-                            path.to_str().unwrap(),
-                        );
-                        eprintln!("ignoring this event: {evt:#?}");
-
-                        false
-                    }
+                    false
                 }
             })
             .filter(|evt| {
@@ -328,10 +329,10 @@ impl Cmd {
     }
 }
 
-fn parse_cursor(c : &str) -> Result<(u64, i32), Error> {
-    let (toid_part, event_index) = c.split("-").collect_tuple().ok_or(Error::InvalidCursor)?; 
-    let toid_part : u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
-    let start_index : i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
+fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
+    let (toid_part, event_index) = c.split('-').collect_tuple().ok_or(Error::InvalidCursor)?;
+    let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
+    let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
     Ok((toid_part, start_index))
 }
 
