@@ -457,7 +457,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			})
 		}
-		assert.Equal(t, expected, results)
+		assert.Equal(t, GetEventsResponse{expected, 2}, results)
 	})
 
 	t.Run("filtering by contract id", func(t *testing.T) {
@@ -499,6 +499,7 @@ func TestGetEvents(t *testing.T) {
 			},
 		})
 		assert.NoError(t, err)
+		assert.Equal(t, int64(2), results.LatestLedger)
 
 		expectedIds := []string{
 			events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 0}.String(),
@@ -506,7 +507,7 @@ func TestGetEvents(t *testing.T) {
 			events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String(),
 		}
 		eventIds := []string{}
-		for _, event := range results {
+		for _, event := range results.Events {
 			eventIds = append(eventIds, event.ID)
 		}
 		assert.Equal(t, expectedIds, eventIds)
@@ -573,7 +574,7 @@ func TestGetEvents(t *testing.T) {
 				Value:          EventInfoValue{XDR: value},
 			},
 		}
-		assert.Equal(t, expected, results)
+		assert.Equal(t, GetEventsResponse{expected, 2}, results)
 	})
 
 	t.Run("filtering by both contract id and topic", func(t *testing.T) {
@@ -667,7 +668,7 @@ func TestGetEvents(t *testing.T) {
 				Value:          EventInfoValue{XDR: value},
 			},
 		}
-		assert.Equal(t, expected, results)
+		assert.Equal(t, GetEventsResponse{expected, 2}, results)
 	})
 
 	t.Run("filtering by event type", func(t *testing.T) {
@@ -720,7 +721,7 @@ func TestGetEvents(t *testing.T) {
 				Value:          EventInfoValue{XDR: counterXdr},
 			},
 		}
-		assert.Equal(t, expected, results)
+		assert.Equal(t, GetEventsResponse{expected, 2}, results)
 	})
 
 	t.Run("with limit", func(t *testing.T) {
@@ -779,7 +780,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			})
 		}
-		assert.Equal(t, expected, results)
+		assert.Equal(t, GetEventsResponse{expected, 2}, results)
 	})
 
 	t.Run("with cursor", func(t *testing.T) {
@@ -865,7 +866,7 @@ func TestGetEvents(t *testing.T) {
 				Value:          EventInfoValue{XDR: expectedXdr},
 			})
 		}
-		assert.Equal(t, expected, results)
+		assert.Equal(t, GetEventsResponse{expected, 6}, results)
 
 		results, err = handler.getEvents(GetEventsRequest{
 			Pagination: &PaginationOptions{
@@ -874,7 +875,7 @@ func TestGetEvents(t *testing.T) {
 			},
 		})
 		assert.NoError(t, err)
-		assert.Empty(t, results)
+		assert.Equal(t, GetEventsResponse{[]EventInfo{}, 6}, results)
 	})
 }
 

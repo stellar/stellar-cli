@@ -253,8 +253,13 @@ type PaginationOptions struct {
 	Limit  uint           `json:"limit,omitempty"`
 }
 
+type GetEventsResponse struct {
+	Events       []EventInfo `json:"events"`
+	LatestLedger int64       `json:"latestLedger,string"`
+}
+
 type eventScanner interface {
-	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) error
+	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) (uint32, error)
 }
 
 type eventsRPCHandler struct {
@@ -263,9 +268,9 @@ type eventsRPCHandler struct {
 	defaultLimit uint
 }
 
-func (h eventsRPCHandler) getEvents(request GetEventsRequest) ([]EventInfo, error) {
+func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse, error) {
 	if err := request.Valid(h.maxLimit); err != nil {
-		return nil, &jrpc2.Error{
+		return GetEventsResponse{}, &jrpc2.Error{
 			Code:    code.InvalidParams,
 			Message: err.Error(),
 		}
@@ -291,7 +296,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) ([]EventInfo, erro
 		event                xdr.ContractEvent
 	}
 	var found []entry
-	err := h.scanner.Scan(
+	latestLedger, err := h.scanner.Scan(
 		events.Range{
 			Start:      start,
 			ClampStart: false,
@@ -306,13 +311,13 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) ([]EventInfo, erro
 		},
 	)
 	if err != nil {
-		return nil, &jrpc2.Error{
+		return GetEventsResponse{}, &jrpc2.Error{
 			Code:    code.InvalidRequest,
 			Message: err.Error(),
 		}
 	}
 
-	var results []EventInfo
+	results := []EventInfo{}
 	for _, entry := range found {
 		info, err := eventInfoForEvent(
 			entry.event,
@@ -320,11 +325,14 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) ([]EventInfo, erro
 			time.Unix(entry.ledgerCloseTimestamp, 0).UTC().Format(time.RFC3339),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not parse event")
+			return GetEventsResponse{}, errors.Wrap(err, "could not parse event")
 		}
 		results = append(results, info)
 	}
-	return results, nil
+	return GetEventsResponse{
+		LatestLedger: int64(latestLedger),
+		Events:       results,
+	}, nil
 }
 
 func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
@@ -378,11 +386,7 @@ func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit, defaultLimit
 		maxLimit:     maxLimit,
 		defaultLimit: defaultLimit,
 	}
-	return handler.New(func(ctx context.Context, request GetEventsRequest) ([]EventInfo, error) {
-		response, err := eventsHandler.getEvents(request)
-		if err != nil {
-			return nil, err
-		}
-		return response, nil
+	return handler.New(func(ctx context.Context, request GetEventsRequest) (GetEventsResponse, error) {
+		return eventsHandler.getEvents(request)
 	})
 }
