@@ -1,5 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use clap::Parser;
+use itertools::Itertools;
 use std::{fs, io, path};
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
@@ -17,14 +18,13 @@ use crate::{HEADING_RPC, HEADING_SANDBOX};
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required
     /// if not in sandbox mode).
-    #[clap(short, long, default_value = "0")]
-    start_ledger: u32,
-
-    /// The last (and inclusive) ledger sequence number in the range to pull
-    /// events (required if not in sandbox mode).
     /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
-    #[clap(short, long, default_value = "0")]
-    end_ledger: u32,
+    #[clap(short, long, conflicts_with = "cursor")]
+    start_ledger: Option<u32>,
+
+    /// The cursor corresponding to the start of the event range.
+    #[clap(short, long, conflicts_with = "start_ledger")]
+    cursor: Option<String>,
 
     /// Output formatting options for event stream
     #[clap(long, arg_enum, default_value = "pretty")]
@@ -99,8 +99,11 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("invalid ledger range: --start-ledger bigger than --end-ledger ({low} > {high})")]
-    InvalidLedgerRange { low: u32, high: u32 },
+    #[error("must provide either a start-ledger or cursor argument")]
+    MissingStart,
+
+    #[error("cursor is not valid")]
+    InvalidCursor,
 
     #[error("filepath does not exist: {path}")]
     InvalidFile { path: String },
@@ -167,12 +170,11 @@ pub enum OutputFormat {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        if self.start_ledger > self.end_ledger {
-            return Err(Error::InvalidLedgerRange {
-                low: self.start_ledger,
-                high: self.end_ledger,
-            });
-        }
+        let start = match (self.start_ledger, self.cursor.clone()) {
+            (Some(start), _) => rpc::EventStart::Ledger(start),
+            (_, Some(c)) => rpc::EventStart::Cursor(c),
+            _ => return Err(Error::MissingStart),
+        };
 
         // Validate that topics are made up of segments.
         for topic in &self.topic_filters {
@@ -196,8 +198,8 @@ impl Cmd {
         }
 
         let events = match (self.rpc_url.as_ref(), self.events_file.as_ref()) {
-            (Some(rpc_url), _) => self.run_against_rpc_server(rpc_url).await,
-            (_, Some(path)) => self.run_in_sandbox(path),
+            (Some(rpc_url), _) => self.run_against_rpc_server(rpc_url, start).await,
+            (_, Some(path)) => self.run_in_sandbox(path, start),
             _ => Err(Error::TargetRequired),
         }?;
 
@@ -225,10 +227,7 @@ impl Cmd {
         Ok(())
     }
 
-    async fn run_against_rpc_server(&self, rpc_url: &str) -> Result<Vec<rpc::Event>, Error> {
-        if self.start_ledger == 0 && self.end_ledger == 0 {
-            return Err(Error::LedgerRangeRequired);
-        }
+    async fn run_against_rpc_server(&self, rpc_url: &str, start : rpc::EventStart) -> Result<Vec<rpc::Event>, Error> {
 
         for raw_contract_id in &self.contract_ids {
             // We parse the contract IDs to ensure they're the correct format,
@@ -243,8 +242,7 @@ impl Cmd {
         let client = rpc::Client::new(rpc_url);
         Ok(client
             .get_events(
-                self.start_ledger,
-                self.end_ledger,
+                start,
                 Some(self.event_type),
                 &self.contract_ids,
                 &self.topic_filters,
@@ -254,7 +252,7 @@ impl Cmd {
             .unwrap_or_default())
     }
 
-    fn run_in_sandbox(&self, path: &path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
+    fn run_in_sandbox(&self, path: &path::PathBuf, start : rpc::EventStart) -> Result<Vec<rpc::Event>, Error> {
         if !path.exists() {
             return Err(Error::InvalidFile {
                 path: path.to_str().unwrap().to_string(),
@@ -267,6 +265,11 @@ impl Cmd {
             self.count
         };
 
+        let start_cursor = match start {
+            rpc::EventStart::Ledger(l) => (toid::Toid::new(l, 0, 0).into(), -1),
+            rpc::EventStart::Cursor(c) => parse_cursor(&c)?,
+        };
+
         // Read the JSON events from disk and find the ones that match the
         // contract ID filter(s) that were passed in.
         Ok(read(path)
@@ -275,20 +278,10 @@ impl Cmd {
                 error: err.to_string(),
             })?
             .iter()
-            // FIXME: We assume here that events are read off-disk in
-            // chronological order, but we should probably be sorting by ledger
-            // number (and ID, for events within the same ledger), instead,
-            // though it's likely that this logic belongs more in
-            // `snapshot::read_events()`.
-            .rev()
             .filter(|evt| {
-                // The ledger range is optional in sandbox mode.
-                if self.start_ledger == 0 && self.end_ledger == 0 {
-                    return true;
-                }
 
-                match evt.ledger.parse::<u32>() {
-                    Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
+                match parse_cursor(&evt.id) {
+                    Ok(event_cursor) => event_cursor > start_cursor,
                     Err(e) => {
                         eprintln!("error parsing key 'ledger': {e:?}");
                         eprintln!(
@@ -333,6 +326,13 @@ impl Cmd {
             .cloned()
             .collect::<Vec<rpc::Event>>())
     }
+}
+
+fn parse_cursor(c : &str) -> Result<(u64, i32), Error> {
+    let (toid_part, event_index) = c.split("-").collect_tuple().ok_or(Error::InvalidCursor)?; 
+    let toid_part : u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
+    let start_index : i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
+    Ok((toid_part, start_index))
 }
 
 // Determines whether or not a particular filter matches a topic based on the

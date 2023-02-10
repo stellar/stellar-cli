@@ -143,6 +143,12 @@ pub enum EventType {
     System,
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum EventStart {
+    Ledger(u32),
+    Cursor(String),
+}
+
 pub struct Client {
     base_url: String,
 }
@@ -251,8 +257,7 @@ impl Client {
 
     pub async fn get_events(
         &self,
-        start_ledger: u32,
-        end_ledger: u32,
+        start: EventStart,
         event_type: Option<EventType>,
         contract_ids: &[String],
         topics: &[String],
@@ -278,8 +283,10 @@ impl Client {
         // TODO: cursor
 
         let mut object = collections::BTreeMap::<&str, jsonrpsee_core::JsonValue>::new();
-        object.insert("startLedger", start_ledger.to_string().into());
-        object.insert("endLedger", end_ledger.to_string().into());
+        match start {
+            EventStart::Ledger(l) => object.insert("startLedger", l.to_string().into()),
+            EventStart::Cursor(c) => pagination.insert("cursor".to_string(), c.into()),
+        };
         object.insert("filters", vec![filters].into());
         object.insert("pagination", pagination.into());
 
