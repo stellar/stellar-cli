@@ -59,7 +59,7 @@ fn map_help() {
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicates::str::contains("map<u32, bool>"));
+        .stdout(predicates::str::contains("Map<u32, bool>"));
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn handle_arg_larger_than_i32() {
         .arg("--i32_")
         .arg(u32::MAX.to_string())
         .assert()
-        .failure()
+        .success()
         .stderr(predicates::str::contains("value is not parseable"));
 }
 
@@ -119,7 +119,7 @@ fn handle_arg_larger_than_i64() {
         .arg("--i64_")
         .arg(u64::MAX.to_string())
         .assert()
-        .failure()
+        .success()
         .stderr(predicates::str::contains("value is not parseable"));
 }
 

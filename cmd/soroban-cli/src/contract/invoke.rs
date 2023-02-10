@@ -1,22 +1,19 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::{
-    builder::{Command, TypedValueParser},
-    Arg, Parser,
-};
+use clap::Parser;
 use hex::FromHexError;
 use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
     InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
     LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScStatic, ScVec,
-    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
+    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption,
+    ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScStatic,
+    ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -168,10 +165,7 @@ impl Cmd {
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
             .collect::<HashMap<String, ScSpecTypeDef>>();
 
-        // clap wants everything to be static so we need to leak stuff.
-        let static_spec: &'static Spec = Box::leak(Box::new(spec.clone()));
-
-        let cmd = build_custom_cmd(&self.function, inputs_map, static_spec)?;
+        let cmd = build_custom_cmd(&self.function, inputs_map, &spec);
         let matches_ = cmd.get_matches_from(&self.slop);
 
         // create parsed_args in same order as the inputs to func
@@ -551,8 +545,8 @@ async fn get_remote_contract_spec_entries(
 fn build_custom_cmd<'a>(
     name: &'a str,
     inputs_map: &'a HashMap<String, ScSpecTypeDef>,
-    spec: &'static Spec,
-) -> Result<clap::App<'a>, Error> {
+    spec: &Spec,
+) -> clap::App<'a> {
     // Todo make new error
     INSTANCE
         .set(inputs_map.keys().map(Clone::clone).collect::<Vec<String>>())
@@ -563,15 +557,13 @@ fn build_custom_cmd<'a>(
 
     for (i, type_) in inputs_map.values().enumerate() {
         let name = names[i].as_str();
-        let static_type = Box::leak(Box::new(type_.clone()));
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
             .takes_value(true)
-            .value_parser(ScValParser::new(spec, static_type));
+            .value_parser(clap::builder::NonEmptyStringValueParser::new());
 
-        let value_name = arg_value_name(spec, type_)?;
-        if let Some(value_name) = value_name {
+        if let Some(value_name) = arg_value_name(name, spec, type_) {
             arg = arg.value_name(value_name);
         }
 
@@ -588,11 +580,11 @@ fn build_custom_cmd<'a>(
         cmd = cmd.arg(arg);
     }
     cmd.build();
-    Ok(cmd)
+    cmd
 }
 
-fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<Option<&'static str>, Error> {
-    Ok(match type_ {
+fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Option<&'static str> {
+    match type_ {
         ScSpecTypeDef::U64 => Some("u64"),
         ScSpecTypeDef::I64 => Some("i64"),
         ScSpecTypeDef::U128 => Some("u128"),
@@ -600,93 +592,69 @@ fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<Option<&'static 
         ScSpecTypeDef::U32 => Some("u32"),
         ScSpecTypeDef::I32 => Some("i32"),
         ScSpecTypeDef::Bool => Some("bool"),
-        ScSpecTypeDef::Symbol => Some("symbol"),
-        ScSpecTypeDef::Bitset => Some("bitset"),
-        ScSpecTypeDef::Status => Some("status"),
+        ScSpecTypeDef::Symbol => Some("Symbol"),
+        ScSpecTypeDef::Bitset => Some("Bitset"),
+        ScSpecTypeDef::Status => Some("Status"),
         ScSpecTypeDef::Bytes => Some("hex_bytes"),
-        ScSpecTypeDef::Address => Some("address"),
+        ScSpecTypeDef::Address => Some("Address"),
         ScSpecTypeDef::Option(val) => {
             let ScSpecTypeOption { value_type } = val.as_ref();
-            match arg_value_name(spec, value_type.as_ref())? {
-                None => None,
-                Some(s) => Some(Box::leak(format!("[{s}]").into_boxed_str())),
+            // TODO: Maybe we don't need to wrap this. Can we just make it an optional param?
+            let inner = arg_value_name(name, spec, value_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Option<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Vec(val) => {
+            let ScSpecTypeVec { element_type } = val.as_ref();
+            let inner = arg_value_name(name, spec, element_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Array<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Set(val) => {
+            let ScSpecTypeSet { element_type } = val.as_ref();
+            let inner = arg_value_name(name, spec, element_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Set<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Result(val) => {
+            let ScSpecTypeResult {
+                ok_type,
+                error_type,
+            } = val.as_ref();
+            let ok = arg_value_name(name, spec, ok_type.as_ref()).unwrap_or(name);
+            let error = arg_value_name(name, spec, error_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Result<{ok}, {error}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Tuple(val) => {
+            let ScSpecTypeTuple { value_types } = val.as_ref();
+            let names = value_types
+                .iter()
+                .map(|t| arg_value_name(name, spec, t).unwrap_or(name))
+                .collect::<Vec<_>>()
+                .join(", ");
+            Some(Box::leak(format!("({names})").into_boxed_str()))
+        }
+        ScSpecTypeDef::Map(val) => {
+            let ScSpecTypeMap {
+                key_type,
+                value_type,
+            } = val.as_ref();
+            match (
+                arg_value_name(name, spec, key_type.as_ref()),
+                arg_value_name(name, spec, value_type.as_ref()),
+            ) {
+                (Some(key), Some(val)) => {
+                    Some(Box::leak(format!("Map<{key}, {val}>").into_boxed_str()))
+                }
+                _ => None,
             }
         }
         ScSpecTypeDef::BytesN(t) => Some(Box::leak(format!("{}_hex_bytes", t.n).into_boxed_str())),
-        ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy())? {
-            ScSpecEntry::UdtStructV0(_) => Some("struct"),
-            ScSpecEntry::UdtUnionV0(_) => Some("enum"),
-            ScSpecEntry::UdtEnumV0(_) => Some("u32"),
-            ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
+        ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy()).ok()
+        {
+            Some(ScSpecEntry::UdtStructV0(_)) => Some("Struct"),
+            Some(ScSpecEntry::UdtUnionV0(_)) => Some("Enum"),
+            Some(ScSpecEntry::UdtEnumV0(_)) => Some("u32"),
+            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
         },
-        ScSpecTypeDef::Map(map) => {
-            let key_type = arg_value_name(spec, &map.key_type)?.unwrap();
-            let value_type = arg_value_name(spec, &map.value_type)?.unwrap();
-            Some(Box::leak(
-                format!("map<{key_type}, {value_type}>").into_boxed_str(),
-            ))
-        }
-        ScSpecTypeDef::Set(set) => {
-            let value_type = arg_value_name(spec, &set.element_type)?.unwrap();
-            Some(Box::leak(format!("set<{value_type}>").into_boxed_str()))
-        }
-        ScSpecTypeDef::Vec(vec_) => {
-            let element_type = arg_value_name(spec, &vec_.element_type)?.unwrap();
-            Some(Box::leak(format!("vec<{element_type}>").into_boxed_str()))
-        }
-        ScSpecTypeDef::Tuple(tuple) => {
-            let type_str = tuple
-                .value_types
-                .iter()
-                .map(|type_| Ok(arg_value_name(spec, type_)?.unwrap()))
-                .collect::<Result<Vec<&str>, Error>>()?
-                .join(", ");
-            Some(Box::leak(format!("tuple<{type_str}>").into_boxed_str()))
-        }
-
         // No specific value name for these yet.
-        ScSpecTypeDef::Val | ScSpecTypeDef::Result(_) => None,
-    })
-}
-
-#[derive(Clone)]
-#[non_exhaustive]
-struct ScValParser {
-    spec: &'static Spec,
-    type_: &'static ScSpecTypeDef,
-}
-
-impl ScValParser {
-    pub fn new(spec: &'static Spec, type_: &'static ScSpecTypeDef) -> Self {
-        Self { spec, type_ }
-    }
-}
-
-impl TypedValueParser for ScValParser {
-    type Value = ScVal;
-
-    fn parse_ref(
-        &self,
-        cmd: &Command<'_>,
-        arg: Option<&Arg<'_>>,
-        raw_value: &OsStr,
-    ) -> Result<Self::Value, clap::Error> {
-        TypedValueParser::parse(self, cmd, arg, raw_value.to_owned())
-    }
-
-    fn parse(
-        &self,
-        _cmd: &Command<'_>,
-        _arg: Option<&Arg<'_>>,
-        raw_value: OsString,
-    ) -> Result<Self::Value, clap::Error> {
-        let value = raw_value
-            .into_string()
-            .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidUtf8, "invalid value"))?;
-        let parsed = self
-            .spec
-            .from_string(&value, self.type_)
-            .map_err(|e| clap::Error::raw(clap::ErrorKind::InvalidValue, e.to_string()))?;
-        Ok(parsed)
+        ScSpecTypeDef::Val => None,
     }
 }
