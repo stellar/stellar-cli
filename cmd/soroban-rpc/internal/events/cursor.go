@@ -41,14 +41,12 @@ func (c Cursor) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshalls a cursor from the given JSON
 func (c *Cursor) UnmarshalJSON(b []byte) error {
-	var s *string
+	var s string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
 	}
-	if s == nil {
-		return nil
-	}
-	if parsed, err := ParseCursor(*s); err != nil {
+
+	if parsed, err := ParseCursor(s); err != nil {
 		return err
 	} else {
 		*c = parsed

@@ -49,7 +49,7 @@ type HandlerParams struct {
 }
 
 // NewJSONRPCHandler constructs a Handler instance
-func NewJSONRPCHandler(cfg config.LocalConfig, params HandlerParams) (Handler, error) {
+func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, error) {
 	bridge := jhttp.NewBridge(handler.Map{
 		"getHealth":            methods.NewHealthCheck(),
 		"getAccount":           methods.NewAccountHandler(params.AccountStore),

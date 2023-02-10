@@ -140,7 +140,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		transactionProxyTTL,
 	)
 
-	handler, err := internal.NewJSONRPCHandler(cfg, internal.HandlerParams{
+	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		AccountStore:      methods.AccountStore{Client: hc},
 		EventStore:        eventStore,
 		Logger:            logger,
