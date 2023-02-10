@@ -252,7 +252,7 @@ impl Cmd {
                 Some(self.count),
             )
             .await
-            .map_err(|e| Error::Rpc(e))
+            .map_err(Error::Rpc)
     }
 
     fn run_in_sandbox(
