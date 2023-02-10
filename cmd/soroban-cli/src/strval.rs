@@ -38,7 +38,7 @@ impl From<()> for Error {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Spec(pub Option<Vec<ScSpecEntry>>);
 
 impl Spec {

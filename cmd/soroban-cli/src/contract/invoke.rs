@@ -166,7 +166,10 @@ impl Cmd {
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
             .collect::<HashMap<String, ScSpecTypeDef>>();
 
-        let cmd = build_custom_cmd(&self.function, inputs_map, &spec)?;
+        // clap wants everything to be static so we need to leak stuff.
+        let static_spec: &'static Spec = Box::leak(Box::new(spec.clone()));
+
+        let cmd = build_custom_cmd(&self.function, inputs_map, static_spec)?;
         let matches_ = cmd.get_matches_from(&self.slop);
 
         // create parsed_args in same order as the inputs to func
@@ -550,7 +553,7 @@ async fn get_remote_contract_spec_entries(
 fn build_custom_cmd<'a>(
     name: &'a str,
     inputs_map: &'a HashMap<String, ScSpecTypeDef>,
-    spec: &Spec,
+    spec: &'static Spec,
 ) -> Result<clap::App<'a>, Error> {
     // Todo make new error
     INSTANCE
@@ -562,12 +565,13 @@ fn build_custom_cmd<'a>(
 
     for (i, type_) in inputs_map.values().enumerate() {
         let name = names[i].as_str();
+        let static_type = Box::leak(Box::new(type_.clone()));
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
             .takes_value(true)
             .value_name(arg_value_name(spec, type_)?)
-            .value_parser(ScValParser::new(spec.clone(), &type_.clone()));
+            .value_parser(ScValParser::new(spec, static_type));
 
         // Set up special-case arg rules
         arg = match type_ {
@@ -609,8 +613,7 @@ fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<&'static str, Er
         ScSpecTypeDef::Map(map) => todo!("{map:#?}"),
         ScSpecTypeDef::Set(_) => todo!(),
         ScSpecTypeDef::Tuple(_) => todo!(),
-        // TODO: Figure out howw to put the byte length into the help message
-        ScSpecTypeDef::BytesN(_) => "hex_bytes",
+        ScSpecTypeDef::BytesN(t) => Box::leak(format!("{}_hex_bytes", t.n).into_boxed_str()),
         ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy())? {
             ScSpecEntry::FunctionV0(_) => todo!(),
             ScSpecEntry::UdtStructV0(_) => "struct",
@@ -657,7 +660,7 @@ impl TypedValueParser for ScValParser {
             .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidUtf8, "invalid value"))?;
         let parsed = self
             .spec
-            .from_string(&value, &self.type_)
+            .from_string(&value, self.type_)
             .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidValue, "invalid value"))?;
         Ok(parsed)
     }
