@@ -52,7 +52,7 @@ func main() {
 		{
 			Name:        "stellar-captive-core-http-port",
 			ConfigKey:   &serviceConfig.CaptiveCoreHTTPPort,
-			OptType:     types.Uint,
+			OptType:     types.Uint16,
 			Required:    false,
 			FlagDefault: uint(11626),
 			Usage:       "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
