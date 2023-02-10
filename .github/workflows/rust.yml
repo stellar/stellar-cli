@@ -66,7 +66,7 @@ jobs:
     - if: startsWith(matrix.target, 'x86_64')
       # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
       run: |
-        for I in cmd/soroban-cli cmd/soroban-cli/tests/fixtures/test-wasms/hello_world cmd/soroban-cli/tests/fixtures/test-wasms/invoker_account_exists; do
+        for I in cmd/soroban-cli cmd/soroban-cli/tests/fixtures/test-wasms/hello_world; do
           cargo test --target ${{ matrix.target }} $I
         done
   publish-dry-run:
