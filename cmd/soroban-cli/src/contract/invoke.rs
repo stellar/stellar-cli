@@ -579,6 +579,9 @@ fn build_custom_cmd<'a>(
         arg = match type_ {
             xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
+            xdr::ScSpecTypeDef::I128 | xdr::ScSpecTypeDef::I64 | xdr::ScSpecTypeDef::I32 => {
+                arg.allow_hyphen_values(true)
+            }
             _ => arg,
         };
 
@@ -683,7 +686,7 @@ impl TypedValueParser for ScValParser {
         let parsed = self
             .spec
             .from_string(&value, self.type_)
-            .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidValue, "invalid value"))?;
+            .map_err(|e| clap::Error::raw(clap::ErrorKind::InvalidValue, e.to_string()))?;
         Ok(parsed)
     }
 }

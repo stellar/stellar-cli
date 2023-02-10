@@ -49,6 +49,15 @@ impl Contract {
     pub fn u32_(_env: Env, u32_: u32) -> u32 {
         u32_
     }
+
+    pub fn i32_(_env: Env, i32_: i32) -> i32 {
+        i32_
+    }
+
+    pub fn i64_(_env: Env, i64_: i64) -> i64 {
+        i64_
+    }
+
     pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
         vec![&env, symbol!("Hello"), strukt.c]
     }

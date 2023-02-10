@@ -99,6 +99,46 @@ fn number_arg() {
 }
 
 #[test]
+fn i32() {
+    invoke_with_roundtrip("i32_", 42);
+}
+
+#[test]
+fn handle_arg_larger_than_i32() {
+    invoke(&Sandbox::new(), "i32_")
+        .arg("--i32_")
+        .arg(u32::MAX.to_string())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("value is not parseable"));
+}
+
+#[test]
+fn handle_arg_larger_than_i64() {
+    invoke(&Sandbox::new(), "i64_")
+        .arg("--i64_")
+        .arg(u64::MAX.to_string())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("value is not parseable"));
+}
+
+#[test]
+fn i64() {
+    invoke_with_roundtrip("i64_", i64::MAX);
+}
+
+#[test]
+fn negative_i32() {
+    invoke_with_roundtrip("i32_", -42);
+}
+
+#[test]
+fn negative_i64() {
+    invoke_with_roundtrip("i64_", i64::MIN);
+}
+
+#[test]
 fn account_address() {
     invoke_with_roundtrip(
         "address",
@@ -152,34 +192,19 @@ fn parse_i128() {
         ));
 }
 
-// TODO: support more ways to enter i128s
-// #[test]
-// fn parse_negative_i128() {
-//     let num = "-170000000000000000000000000000000000000";
-//     invoke(&Sandbox::new(), "i128")
-//         .arg("--i128")
-//         .arg(num)
-//         .assert()
-//         .success()
-//         .stdout(format!(
-//             r#""{num}"
-// "#,
-//         ));
-// }
-//
-// #[test]
-// fn parse_quoted_i128() {
-//     let num = "\"-170000000000000000000000000000000000000\"";
-//     invoke(&Sandbox::new(), "i128")
-//         .arg("--i128")
-//         .arg(num)
-//         .assert()
-//         .success()
-//         .stdout(format!(
-//             r#""{num}"
-// "#,
-//         ));
-// }
+#[test]
+fn parse_negative_i128() {
+    let num = "-170000000000000000000000000000000000000";
+    invoke(&Sandbox::new(), "i128")
+        .arg("--i128")
+        .arg(num)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{num}"
+"#,
+        ));
+}
 
 #[test]
 fn boolean() {
