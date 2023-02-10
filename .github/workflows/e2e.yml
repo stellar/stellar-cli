@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TOOLS_REF: ${{ github.ref }}
-      SYSTEM_TEST_GIT_REF: refs/pull/23/head
+      SYSTEM_TEST_GIT_REF: v1.0.4
       # core git ref is latest commit for stable soroban functionality
       SYSTEM_TEST_CORE_GIT_REF: 3a201d2b5ecee34d6dcc0466633783f27b7fa97c
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
