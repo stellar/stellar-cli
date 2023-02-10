@@ -1,17 +1,22 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
+use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::Parser;
+use clap::{
+    builder::{Command, TypedValueParser},
+    Arg, Parser,
+};
 use hex::FromHexError;
 use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
     InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
     LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber,
-    Transaction, TransactionEnvelope, TransactionExt, VecM,
+    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScStatic, ScVec,
+    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -561,51 +566,99 @@ fn build_custom_cmd<'a>(
         arg = arg
             .long(name)
             .takes_value(true)
-            .value_parser(clap::builder::NonEmptyStringValueParser::new());
+            .value_name(arg_value_name(spec, type_)?)
+            .value_parser(ScValParser::new(spec.clone(), &type_.clone()));
 
+        // Set up special-case arg rules
         arg = match type_ {
-            xdr::ScSpecTypeDef::Val => todo!(),
-            xdr::ScSpecTypeDef::U64 => arg
-                .value_name("u64")
-                .value_parser(clap::builder::RangedU64ValueParser::<u64>::new()),
-            xdr::ScSpecTypeDef::I64 => arg
-                .value_name("i64")
-                .value_parser(clap::builder::RangedI64ValueParser::<i64>::new()),
-            xdr::ScSpecTypeDef::U128 => todo!(),
-            xdr::ScSpecTypeDef::I128 => todo!(),
-            xdr::ScSpecTypeDef::U32 => arg
-                .value_name("u32")
-                .value_parser(clap::builder::RangedU64ValueParser::<u32>::new()),
-            xdr::ScSpecTypeDef::I32 => arg
-                .value_name("i32")
-                .value_parser(clap::builder::RangedU64ValueParser::<i32>::new()),
             xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
-            xdr::ScSpecTypeDef::Symbol => arg.value_name("symbol"),
-            xdr::ScSpecTypeDef::Bitset => todo!(),
-            xdr::ScSpecTypeDef::Status => todo!(),
-            xdr::ScSpecTypeDef::Bytes => arg.value_name("bytes"),
-            xdr::ScSpecTypeDef::Address => arg.value_name("address"),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
-            xdr::ScSpecTypeDef::Result(_) => todo!(),
-            xdr::ScSpecTypeDef::Vec(_) => todo!(),
-            xdr::ScSpecTypeDef::Map(map) => todo!("{map:#?}"),
-            xdr::ScSpecTypeDef::Set(_) => todo!(),
-            xdr::ScSpecTypeDef::Tuple(_) => todo!(),
-            xdr::ScSpecTypeDef::BytesN(_) => todo!(),
-            xdr::ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => {
-                match spec.find(&name.to_string_lossy())? {
-                    ScSpecEntry::FunctionV0(_) => todo!(),
-                    ScSpecEntry::UdtStructV0(_) => arg.value_name("struct"),
-                    ScSpecEntry::UdtUnionV0(_) => arg.value_name("enum"),
-                    ScSpecEntry::UdtEnumV0(_) => arg
-                        .value_name("u32")
-                        .value_parser(clap::builder::RangedU64ValueParser::<u32>::new()),
-                    ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
-                }
-            }
+            _ => arg,
         };
+
         cmd = cmd.arg(arg);
     }
     cmd.build();
     Ok(cmd)
+}
+
+fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<&'static str, Error> {
+    Ok(match type_ {
+        ScSpecTypeDef::Val => todo!(),
+        ScSpecTypeDef::U64 => "u64",
+        ScSpecTypeDef::I64 => "i64",
+        ScSpecTypeDef::U128 => "u128",
+        ScSpecTypeDef::I128 => "i128",
+        ScSpecTypeDef::U32 => "u32",
+        ScSpecTypeDef::I32 => "i32",
+        ScSpecTypeDef::Bool => "bool",
+        ScSpecTypeDef::Symbol => "symbol",
+        ScSpecTypeDef::Bitset => "bitset",
+        ScSpecTypeDef::Status => "status",
+        ScSpecTypeDef::Bytes => "hex_bytes",
+        ScSpecTypeDef::Address => "address",
+        ScSpecTypeDef::Option(val) => {
+            let ScSpecTypeOption { value_type } = &*val.as_ref();
+            let s: &'static str = Box::leak(
+                format!("[{}]", arg_value_name(spec, value_type.as_ref())?).into_boxed_str(),
+            );
+            s
+        }
+        ScSpecTypeDef::Result(_) => todo!(),
+        ScSpecTypeDef::Vec(_) => todo!(),
+        ScSpecTypeDef::Map(map) => todo!("{map:#?}"),
+        ScSpecTypeDef::Set(_) => todo!(),
+        ScSpecTypeDef::Tuple(_) => todo!(),
+        // TODO: Figure out howw to put the byte length into the help message
+        ScSpecTypeDef::BytesN(_) => "hex_bytes",
+        ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy())? {
+            ScSpecEntry::FunctionV0(_) => todo!(),
+            ScSpecEntry::UdtStructV0(_) => "struct",
+            ScSpecEntry::UdtUnionV0(_) => "enum",
+            ScSpecEntry::UdtEnumV0(_) => "u32",
+            ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
+        },
+    })
+}
+
+#[derive(Clone)]
+#[non_exhaustive]
+struct ScValParser {
+    spec: &'static Spec,
+    type_: &'static ScSpecTypeDef,
+}
+
+impl ScValParser {
+    pub fn new(spec: &'static Spec, type_: &'static ScSpecTypeDef) -> Self {
+        Self { spec, type_ }
+    }
+}
+
+impl TypedValueParser for ScValParser {
+    type Value = ScVal;
+
+    fn parse_ref(
+        &self,
+        cmd: &Command<'_>,
+        arg: Option<&Arg<'_>>,
+        raw_value: &OsStr,
+    ) -> Result<Self::Value, clap::Error> {
+        TypedValueParser::parse(self, cmd, arg, raw_value.to_owned())
+    }
+
+    fn parse(
+        &self,
+        _cmd: &Command<'_>,
+        _arg: Option<&Arg<'_>>,
+        raw_value: OsString,
+    ) -> Result<Self::Value, clap::Error> {
+        let value = raw_value
+            .into_string()
+            .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidUtf8, "invalid value"))?;
+        let parsed = self
+            .spec
+            .from_string(&value, &self.type_)
+            .map_err(|_| clap::Error::raw(clap::ErrorKind::InvalidValue, "invalid value"))?;
+        Ok(parsed)
+    }
 }
