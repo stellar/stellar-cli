@@ -570,8 +570,12 @@ fn build_custom_cmd<'a>(
         arg = arg
             .long(name)
             .takes_value(true)
-            .value_name(arg_value_name(spec, type_)?)
             .value_parser(ScValParser::new(spec, static_type));
+
+        let value_name = arg_value_name(spec, type_)?;
+        if let Some(value_name) = value_name {
+            arg = arg.value_name(value_name);
+        }
 
         // Set up special-case arg rules
         arg = match type_ {
@@ -586,41 +590,41 @@ fn build_custom_cmd<'a>(
     Ok(cmd)
 }
 
-fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<&'static str, Error> {
+fn arg_value_name(spec: &Spec, type_: &ScSpecTypeDef) -> Result<Option<&'static str>, Error> {
     Ok(match type_ {
-        ScSpecTypeDef::Val => todo!(),
-        ScSpecTypeDef::U64 => "u64",
-        ScSpecTypeDef::I64 => "i64",
-        ScSpecTypeDef::U128 => "u128",
-        ScSpecTypeDef::I128 => "i128",
-        ScSpecTypeDef::U32 => "u32",
-        ScSpecTypeDef::I32 => "i32",
-        ScSpecTypeDef::Bool => "bool",
-        ScSpecTypeDef::Symbol => "symbol",
-        ScSpecTypeDef::Bitset => "bitset",
-        ScSpecTypeDef::Status => "status",
-        ScSpecTypeDef::Bytes => "hex_bytes",
-        ScSpecTypeDef::Address => "address",
+        ScSpecTypeDef::U64 => Some("u64"),
+        ScSpecTypeDef::I64 => Some("i64"),
+        ScSpecTypeDef::U128 => Some("u128"),
+        ScSpecTypeDef::I128 => Some("i128"),
+        ScSpecTypeDef::U32 => Some("u32"),
+        ScSpecTypeDef::I32 => Some("i32"),
+        ScSpecTypeDef::Bool => Some("bool"),
+        ScSpecTypeDef::Symbol => Some("symbol"),
+        ScSpecTypeDef::Bitset => Some("bitset"),
+        ScSpecTypeDef::Status => Some("status"),
+        ScSpecTypeDef::Bytes => Some("hex_bytes"),
+        ScSpecTypeDef::Address => Some("address"),
         ScSpecTypeDef::Option(val) => {
-            let ScSpecTypeOption { value_type } = &*val.as_ref();
-            let s: &'static str = Box::leak(
-                format!("[{}]", arg_value_name(spec, value_type.as_ref())?).into_boxed_str(),
-            );
-            s
+            let ScSpecTypeOption { value_type } = val.as_ref();
+            match arg_value_name(spec, value_type.as_ref())? {
+                None => None,
+                Some(s) => Some(Box::leak(format!("[{s}]").into_boxed_str())),
+            }
         }
-        ScSpecTypeDef::Result(_) => todo!(),
-        ScSpecTypeDef::Vec(_) => todo!(),
-        ScSpecTypeDef::Map(map) => todo!("{map:#?}"),
-        ScSpecTypeDef::Set(_) => todo!(),
-        ScSpecTypeDef::Tuple(_) => todo!(),
-        ScSpecTypeDef::BytesN(t) => Box::leak(format!("{}_hex_bytes", t.n).into_boxed_str()),
+        ScSpecTypeDef::BytesN(t) => Some(Box::leak(format!("{}_hex_bytes", t.n).into_boxed_str())),
         ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy())? {
-            ScSpecEntry::FunctionV0(_) => todo!(),
-            ScSpecEntry::UdtStructV0(_) => "struct",
-            ScSpecEntry::UdtUnionV0(_) => "enum",
-            ScSpecEntry::UdtEnumV0(_) => "u32",
-            ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
+            ScSpecEntry::UdtStructV0(_) => Some("struct"),
+            ScSpecEntry::UdtUnionV0(_) => Some("enum"),
+            ScSpecEntry::UdtEnumV0(_) => Some("u32"),
+            ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
         },
+        // No specific value name for these yet.
+        ScSpecTypeDef::Val
+        | ScSpecTypeDef::Result(_)
+        | ScSpecTypeDef::Vec(_)
+        | ScSpecTypeDef::Map(_)
+        | ScSpecTypeDef::Set(_)
+        | ScSpecTypeDef::Tuple(_) => None,
     })
 }
 
