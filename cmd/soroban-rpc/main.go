@@ -20,13 +20,9 @@ import (
 )
 
 func main() {
-	var endpoint, horizonURL, stellarCoreURL, binaryPath, configPath, friendbotURL, networkPassphrase, dbPath, captivecoreStoragePath string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, maxEventsLimit, defaultEventsLimit uint
-	var checkpointFrequency uint32
-	var useDB bool
-	var historyArchiveURLs []string
-	var txConcurrency, txQueueSize, ledgerRetentionWindow int
-	var logLevel logrus.Level
+	var endpoint string
+	var ledgerEntryStorageTimeoutMinutes uint
+	var serviceConfig localConfig.LocalConfig
 
 	configOpts := config.ConfigOptions{
 		{
@@ -39,7 +35,7 @@ func main() {
 		},
 		&config.ConfigOption{
 			Name:        "horizon-url",
-			ConfigKey:   &horizonURL,
+			ConfigKey:   &serviceConfig.HorizonURL,
 			OptType:     types.String,
 			Required:    true,
 			FlagDefault: "",
@@ -47,7 +43,7 @@ func main() {
 		},
 		{
 			Name:        "stellar-core-url",
-			ConfigKey:   &stellarCoreURL,
+			ConfigKey:   &serviceConfig.StellarCoreURL,
 			OptType:     types.String,
 			Required:    true,
 			FlagDefault: "http://localhost:11626",
@@ -55,7 +51,7 @@ func main() {
 		},
 		{
 			Name:        "stellar-captive-core-http-port",
-			ConfigKey:   &captiveCoreHTTPPort,
+			ConfigKey:   &serviceConfig.CaptiveCoreHTTPPort,
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(11626),
@@ -63,7 +59,7 @@ func main() {
 		},
 		{
 			Name:        "log-level",
-			ConfigKey:   &logLevel,
+			ConfigKey:   &serviceConfig.LogLevel,
 			OptType:     types.String,
 			FlagDefault: "info",
 			CustomSetValue: func(co *config.ConfigOption) error {
@@ -82,7 +78,7 @@ func main() {
 			FlagDefault: "",
 			Required:    true,
 			Usage:       "path to stellar core binary",
-			ConfigKey:   &binaryPath,
+			ConfigKey:   &serviceConfig.StellarCoreBinaryPath,
 		},
 		{
 			Name:        "captive-core-config-path",
@@ -90,7 +86,7 @@ func main() {
 			FlagDefault: "",
 			Required:    true,
 			Usage:       "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
-			ConfigKey:   &configPath,
+			ConfigKey:   &serviceConfig.CaptiveCoreConfigPath,
 		},
 		{
 			Name:    "captive-core-storage-path",
@@ -109,7 +105,7 @@ func main() {
 			},
 			Required:  false,
 			Usage:     "Storage location for Captive Core bucket data",
-			ConfigKey: &captivecoreStoragePath,
+			ConfigKey: &serviceConfig.CaptiveCoreStoragePath,
 		},
 		{
 			Name:        "captive-core-use-db",
@@ -117,11 +113,11 @@ func main() {
 			FlagDefault: false,
 			Required:    false,
 			Usage:       "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
-			ConfigKey:   &useDB,
+			ConfigKey:   &serviceConfig.CaptiveCoreUseDB,
 		},
 		&config.ConfigOption{
 			Name:        "history-archive-urls",
-			ConfigKey:   &historyArchiveURLs,
+			ConfigKey:   &serviceConfig.HistoryArchiveURLs,
 			OptType:     types.String,
 			Required:    true,
 			FlagDefault: "",
@@ -138,14 +134,14 @@ func main() {
 			Name:      "friendbot-url",
 			Usage:     "The friendbot URL to be returned by getNetwork endpoint",
 			OptType:   types.String,
-			ConfigKey: &friendbotURL,
+			ConfigKey: &serviceConfig.FriendbotURL,
 			Required:  false,
 		},
 		{
 			Name:        "network-passphrase",
 			Usage:       "Network passphrase of the Stellar network transactions should be signed for",
 			OptType:     types.String,
-			ConfigKey:   &networkPassphrase,
+			ConfigKey:   &serviceConfig.NetworkPassphrase,
 			FlagDefault: network.FutureNetworkPassphrase,
 			Required:    true,
 		},
@@ -153,7 +149,7 @@ func main() {
 			Name:        "tx-concurrency",
 			Usage:       "Maximum number of concurrent transaction submissions",
 			OptType:     types.Int,
-			ConfigKey:   &txConcurrency,
+			ConfigKey:   &serviceConfig.TxConcurrency,
 			FlagDefault: 10,
 			Required:    false,
 		},
@@ -161,7 +157,7 @@ func main() {
 			Name:        "tx-queue",
 			Usage:       "Maximum length of pending transactions queue",
 			OptType:     types.Int,
-			ConfigKey:   &txQueueSize,
+			ConfigKey:   &serviceConfig.TxQueueSize,
 			FlagDefault: 10,
 			Required:    false,
 		},
@@ -169,7 +165,7 @@ func main() {
 			Name:        "db-path",
 			Usage:       "SQLite DB path",
 			OptType:     types.String,
-			ConfigKey:   &dbPath,
+			ConfigKey:   &serviceConfig.SQLiteDBPath,
 			FlagDefault: "soroban_rpc.sqlite",
 			Required:    false,
 		},
@@ -185,7 +181,7 @@ func main() {
 			Name:        "checkpoint-frequency",
 			Usage:       "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
 			OptType:     types.Uint32,
-			ConfigKey:   &checkpointFrequency,
+			ConfigKey:   &serviceConfig.CheckpointFrequency,
 			FlagDefault: uint32(64),
 			Required:    false,
 		},
@@ -196,11 +192,11 @@ func main() {
 			Required:    false,
 			Usage: "configures the window of ledgers which are stored in the db." +
 				" the default value is 17280 which corresponds to about 24 hours of ledgers",
-			ConfigKey: &ledgerRetentionWindow,
+			ConfigKey: &serviceConfig.LedgerRetentionWindow,
 		},
 		{
 			Name:        "max-events-limit",
-			ConfigKey:   &maxEventsLimit,
+			ConfigKey:   &serviceConfig.MaxEventsLimit,
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(10000),
@@ -208,7 +204,7 @@ func main() {
 		},
 		{
 			Name:        "default-events-limit",
-			ConfigKey:   &defaultEventsLimit,
+			ConfigKey:   &serviceConfig.DefaultEventsLimit,
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(100),
@@ -225,40 +221,21 @@ func main() {
 				fmt.Printf("failed to set values : %v\n", err)
 				os.Exit(-1)
 			}
-			if ledgerRetentionWindow <= 0 {
+			if serviceConfig.LedgerRetentionWindow <= 0 {
 				fmt.Printf("ledger-retention-window must be positive\n")
 				os.Exit(-1)
 			}
-			if defaultEventsLimit > maxEventsLimit {
+			if serviceConfig.DefaultEventsLimit > serviceConfig.MaxEventsLimit {
 				fmt.Printf(
 					"default-events-limit (%v) cannot exceed max-events-limit (%v)\n",
-					defaultEventsLimit,
-					maxEventsLimit,
+					serviceConfig.DefaultEventsLimit,
+					serviceConfig.MaxEventsLimit,
 				)
 				os.Exit(-1)
 			}
-			config := localConfig.LocalConfig{
-				HorizonURL:                horizonURL,
-				StellarCoreURL:            stellarCoreURL,
-				StellarCoreBinaryPath:     binaryPath,
-				CaptiveCoreConfigPath:     configPath,
-				CaptiveCoreUseDB:          useDB,
-				CaptiveCoreHTTPPort:       uint16(captiveCoreHTTPPort),
-				CaptiveCoreStoragePath:    captivecoreStoragePath,
-				FriendbotURL:              friendbotURL,
-				NetworkPassphrase:         networkPassphrase,
-				HistoryArchiveURLs:        historyArchiveURLs,
-				LogLevel:                  logLevel,
-				TxConcurrency:             txConcurrency,
-				TxQueueSize:               txQueueSize,
-				LedgerEntryStorageTimeout: time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute,
-				SQLiteDBPath:              dbPath,
-				CheckpointFrequency:       checkpointFrequency,
-				LedgerRetentionWindow:     ledgerRetentionWindow,
-				MaxEventsLimit:            maxEventsLimit,
-				DefaultEventsLimit:        defaultEventsLimit,
-			}
-			exitCode := daemon.Run(config, endpoint)
+
+			serviceConfig.LedgerEntryStorageTimeout = time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute
+			exitCode := daemon.Run(serviceConfig, endpoint)
 			os.Exit(exitCode)
 		},
 	}
