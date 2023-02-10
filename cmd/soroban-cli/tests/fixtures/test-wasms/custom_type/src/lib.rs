@@ -63,7 +63,7 @@ impl Contract {
         complex
     }
 
-    pub fn account(_env: Env, address: Address) -> Address {
+    pub fn address(_env: Env, address: Address) -> Address {
         address
     }
 

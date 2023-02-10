@@ -180,6 +180,7 @@ fn build_wrap_token_tx(
                 read_only: VecM::default(),
                 read_write: read_write.try_into()?,
             },
+            auth: VecM::default(),
         }),
     };
     let tx = Transaction {

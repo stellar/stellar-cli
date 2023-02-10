@@ -20,7 +20,7 @@ use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::ed25519::PrivateKey;
 
-use crate::network::SANDBOX_NETWORK_PASSPHRASE;
+use crate::network::sandbox_network_id;
 
 /// # Errors
 ///
@@ -43,7 +43,7 @@ pub fn ledger_snapshot_read_or_default(
         Ok(snapshot) => Ok(snapshot),
         Err(soroban_ledger_snapshot::Error::Io(e)) if e.kind() == ErrorKind::NotFound => {
             Ok(LedgerSnapshot {
-                network_passphrase: SANDBOX_NETWORK_PASSPHRASE.as_bytes().to_vec(),
+                network_id: sandbox_network_id(),
                 ..Default::default()
             })
         }
@@ -184,8 +184,10 @@ pub fn get_contract_spec_from_storage(
     }) = storage.get(&key, &Budget::default())
     {
         match c {
-            ScContractCode::Token => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
-                .map_err(FromWasmError::Parse),
+            ScContractCode::Token => {
+                let res = soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr());
+                res.map_err(FromWasmError::Parse)
+            }
             ScContractCode::WasmRef(hash) => {
                 if let Ok(LedgerEntry {
                     data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
