@@ -33,6 +33,7 @@ use crate::HEADING_SANDBOX;
 use crate::{events, rpc, strval, utils};
 
 #[derive(Parser, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Contract ID to invoke
     #[clap(long = "id")]
