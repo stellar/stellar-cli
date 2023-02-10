@@ -86,16 +86,17 @@ type Range struct {
 // remaining events in the range). Note that a read lock is held for the
 // entire duration of the Scan function so f should be written in a way
 // to minimize latency.
-func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, int64) bool) error {
+func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, int64) bool) (uint32, error) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
 	if err := m.validateRange(&eventRange); err != nil {
-		return err
+		return 0, err
 	}
 
 	curLedger := eventRange.Start.Ledger
 	minLedger := m.buckets[m.start].ledgerSeq
+	latestLedger := minLedger + uint32(len(m.buckets))
 	i := ((curLedger - minLedger) + m.start) % uint32(len(m.buckets))
 	events := seek(m.buckets[i].events, eventRange.Start)
 	for ; curLedger == m.buckets[i].ledgerSeq; curLedger++ {
@@ -103,16 +104,16 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, i
 		for _, event := range events {
 			cur := event.cursor(curLedger)
 			if eventRange.End.Cmp(cur) <= 0 {
-				return nil
+				return latestLedger, nil
 			}
 			if !f(event.contents, cur, timestamp) {
-				return nil
+				return latestLedger, nil
 			}
 		}
 		i = (i + 1) % uint32(len(m.buckets))
 		events = m.buckets[i].events
 	}
-	return nil
+	return latestLedger, nil
 }
 
 // validateRange checks if the range falls within the bounds
