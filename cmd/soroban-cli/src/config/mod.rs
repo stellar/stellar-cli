@@ -38,8 +38,10 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
 
-    #[error("cannot parse secret key")]
-    CannotParseSecretKey,
+    #[error(
+        "Cannot sign transaction; no identity or key provided, e.g. --identity bob or --key S.."
+    )]
+    NoIdentityOrKey,
 }
 
 impl Cmd {
@@ -82,7 +84,7 @@ impl Args {
                 secret_key: secret_key.clone(),
             }
         } else {
-            return Err(Error::CannotParseSecretKey);
+            return Err(Error::NoIdentityOrKey);
         };
         Ok(key.key_pair(self.hd_path)?)
     }

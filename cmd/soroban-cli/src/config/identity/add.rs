@@ -17,10 +17,6 @@ pub struct Cmd {
     #[clap(flatten)]
     pub secrets: secret::Args,
 
-    /// Set as default identity
-    #[clap(long)]
-    pub default: bool,
-
     #[clap(flatten)]
     pub config_locator: locator::Args,
 }
