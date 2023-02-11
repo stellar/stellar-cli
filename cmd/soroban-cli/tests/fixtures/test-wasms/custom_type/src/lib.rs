@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contractimpl, contracttype, symbol, vec, Address, Bytes, Env, Symbol, Vec};
+use soroban_sdk::{
+    contractimpl, contracttype, symbol, vec, Address, Bytes, Env, Map, Set, Symbol, Vec,
+};
 
 pub struct Contract;
 
@@ -47,6 +49,15 @@ impl Contract {
     pub fn u32_(_env: Env, u32_: u32) -> u32 {
         u32_
     }
+
+    pub fn i32_(_env: Env, i32_: i32) -> i32 {
+        i32_
+    }
+
+    pub fn i64_(_env: Env, i64_: i64) -> i64 {
+        i64_
+    }
+
     pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
         vec![&env, symbol!("Hello"), strukt.c]
     }
@@ -81,6 +92,38 @@ impl Contract {
 
     pub fn not(_env: Env, boolean: bool) -> bool {
         !boolean
+    }
+
+    pub fn i128(_env: Env, i128: i128) -> i128 {
+        i128
+    }
+
+    pub fn u128(_env: Env, u128: u128) -> u128 {
+        u128
+    }
+
+    pub fn multi_args(_env: Env, a: u32, b: bool) -> u32 {
+        if b {
+            a
+        } else {
+            0
+        }
+    }
+
+    pub fn map(_env: Env, map: Map<u32, bool>) -> Map<u32, bool> {
+        map
+    }
+
+    pub fn set(_env: Env, set: Set<u32>) -> Set<u32> {
+        set
+    }
+
+    pub fn vec(_env: Env, vec: Vec<u32>) -> Vec<u32> {
+        vec
+    }
+
+    pub fn tuple(_env: Env, tuple: (Symbol, u32)) -> (Symbol, u32) {
+        tuple
     }
 }
 
