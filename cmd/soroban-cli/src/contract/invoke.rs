@@ -1,17 +1,18 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
 use hex::FromHexError;
-use once_cell::sync::OnceCell;
 use soroban_env_host::xdr::{
     self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
     InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
     LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeUdt, ScStatic, ScVec, SequenceNumber,
-    Transaction, TransactionEnvelope, TransactionExt, VecM,
+    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption,
+    ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScStatic,
+    ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -76,7 +77,7 @@ pub struct Cmd {
     )]
     events_file: std::path::PathBuf,
 
-    // Arguments for contract as `--arg-name value`, `--arg-xdr-name base64-encoded-xdr`
+    // Arguments for contract as `--arg-name value`
     #[clap(last = true, name = "CONTRACT_FN_ARGS")]
     pub slop: Vec<OsString>,
 
@@ -143,9 +144,9 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
+    #[error("Missing argument {0}")]
+    MissingArgument(String),
 }
-
-static INSTANCE: OnceCell<Vec<String>> = OnceCell::new();
 
 impl Cmd {
     fn build_host_function_parameters(
@@ -165,33 +166,29 @@ impl Cmd {
             .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
             .collect::<HashMap<String, ScSpecTypeDef>>();
 
-        let cmd = build_custom_cmd(&self.function, inputs_map, &spec)?;
+        let cmd = build_custom_cmd(&self.function, inputs_map, &spec);
         let matches_ = cmd.get_matches_from(&self.slop);
 
         // create parsed_args in same order as the inputs to func
-        let parsed_args = &func
+        let parsed_args = func
             .inputs
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
                 let s = match i.type_ {
-                    ScSpecTypeDef::Bool => matches_.is_present(name).to_string(),
+                    ScSpecTypeDef::Bool => matches_.is_present(name.clone()).to_string(),
                     _ => matches_
                         .get_raw(&name)
-                        .unwrap()
+                        .ok_or_else(|| Error::MissingArgument(name.clone()))?
                         .next()
                         .unwrap()
                         .to_string_lossy()
                         .to_string(),
                 };
-                (s, i.type_.clone())
+                spec.from_string(&s, &i.type_)
+                    .map_err(|error| Error::CannotParseArg { arg: name, error })
             })
-            .map(|(s, t)| spec.from_string(&s, &t))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| Error::CannotParseArg {
-                arg: "Arg".to_string(),
-                error,
-            })?;
+            .collect::<Result<Vec<_>, Error>>()?;
 
         // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
@@ -562,66 +559,106 @@ fn build_custom_cmd<'a>(
     name: &'a str,
     inputs_map: &'a HashMap<String, ScSpecTypeDef>,
     spec: &Spec,
-) -> Result<clap::App<'a>, Error> {
-    // Todo make new error
-    INSTANCE
-        .set(inputs_map.keys().map(Clone::clone).collect::<Vec<String>>())
-        .unwrap();
-
-    let names: &'static [String] = INSTANCE.get().unwrap();
+) -> clap::App<'a> {
     let mut cmd = clap::Command::new(name).no_binary_name(true);
-
-    for (i, type_) in inputs_map.values().enumerate() {
-        let name = names[i].as_str();
+    for (name, type_) in inputs_map.iter() {
+        let name: &'static str = Box::leak(name.clone().into_boxed_str());
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
             .takes_value(true)
             .value_parser(clap::builder::NonEmptyStringValueParser::new());
 
+        if let Some(value_name) = arg_value_name(name, spec, type_) {
+            arg = arg.value_name(value_name);
+        }
+
+        // Set up special-case arg rules
         arg = match type_ {
-            xdr::ScSpecTypeDef::Val => todo!(),
-            xdr::ScSpecTypeDef::U64 => arg
-                .value_name("u64")
-                .value_parser(clap::builder::RangedU64ValueParser::<u64>::new()),
-            xdr::ScSpecTypeDef::I64 => arg
-                .value_name("i64")
-                .value_parser(clap::builder::RangedI64ValueParser::<i64>::new()),
-            xdr::ScSpecTypeDef::U128 => todo!(),
-            xdr::ScSpecTypeDef::I128 => todo!(),
-            xdr::ScSpecTypeDef::U32 => arg
-                .value_name("u32")
-                .value_parser(clap::builder::RangedU64ValueParser::<u32>::new()),
-            xdr::ScSpecTypeDef::I32 => arg
-                .value_name("i32")
-                .value_parser(clap::builder::RangedU64ValueParser::<i32>::new()),
             xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
-            xdr::ScSpecTypeDef::Symbol => arg.value_name("symbol"),
-            xdr::ScSpecTypeDef::Bitset => todo!(),
-            xdr::ScSpecTypeDef::Status => todo!(),
-            xdr::ScSpecTypeDef::Bytes => arg.value_name("bytes"),
-            xdr::ScSpecTypeDef::Address => arg.value_name("address"),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
-            xdr::ScSpecTypeDef::Result(_) => todo!(),
-            xdr::ScSpecTypeDef::Vec(_) => todo!(),
-            xdr::ScSpecTypeDef::Map(map) => todo!("{map:#?}"),
-            xdr::ScSpecTypeDef::Set(_) => todo!(),
-            xdr::ScSpecTypeDef::Tuple(_) => todo!(),
-            xdr::ScSpecTypeDef::BytesN(_) => todo!(),
-            xdr::ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => {
-                match spec.find(&name.to_string_lossy())? {
-                    ScSpecEntry::FunctionV0(_) => todo!(),
-                    ScSpecEntry::UdtStructV0(_) => arg.value_name("struct"),
-                    ScSpecEntry::UdtUnionV0(_) => arg.value_name("enum"),
-                    ScSpecEntry::UdtEnumV0(_) => arg
-                        .value_name("u32")
-                        .value_parser(clap::builder::RangedU64ValueParser::<u32>::new()),
-                    ScSpecEntry::UdtErrorEnumV0(_) => todo!(),
-                }
+            xdr::ScSpecTypeDef::I128 | xdr::ScSpecTypeDef::I64 | xdr::ScSpecTypeDef::I32 => {
+                arg.allow_hyphen_values(true)
             }
+            _ => arg,
         };
+
         cmd = cmd.arg(arg);
     }
     cmd.build();
-    Ok(cmd)
+    cmd
+}
+
+fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Option<&'static str> {
+    match type_ {
+        ScSpecTypeDef::U64 => Some("u64"),
+        ScSpecTypeDef::I64 => Some("i64"),
+        ScSpecTypeDef::U128 => Some("u128"),
+        ScSpecTypeDef::I128 => Some("i128"),
+        ScSpecTypeDef::U32 => Some("u32"),
+        ScSpecTypeDef::I32 => Some("i32"),
+        ScSpecTypeDef::Bool => Some("bool"),
+        ScSpecTypeDef::Symbol => Some("Symbol"),
+        ScSpecTypeDef::Bitset => Some("Bitset"),
+        ScSpecTypeDef::Status => Some("Status"),
+        ScSpecTypeDef::Bytes => Some("hex_bytes"),
+        ScSpecTypeDef::Address => Some("Address"),
+        ScSpecTypeDef::Option(val) => {
+            let ScSpecTypeOption { value_type } = val.as_ref();
+            arg_value_name(name, spec, value_type.as_ref())
+        }
+        ScSpecTypeDef::Vec(val) => {
+            let ScSpecTypeVec { element_type } = val.as_ref();
+            let inner = arg_value_name(name, spec, element_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Array<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Set(val) => {
+            let ScSpecTypeSet { element_type } = val.as_ref();
+            let inner = arg_value_name(name, spec, element_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Set<{inner}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Result(val) => {
+            let ScSpecTypeResult {
+                ok_type,
+                error_type,
+            } = val.as_ref();
+            let ok = arg_value_name(name, spec, ok_type.as_ref()).unwrap_or(name);
+            let error = arg_value_name(name, spec, error_type.as_ref()).unwrap_or(name);
+            Some(Box::leak(format!("Result<{ok}, {error}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Tuple(val) => {
+            let ScSpecTypeTuple { value_types } = val.as_ref();
+            let names = value_types
+                .iter()
+                .map(|t| arg_value_name(name, spec, t).unwrap_or(name))
+                .collect::<Vec<_>>()
+                .join(", ");
+            Some(Box::leak(format!("Tuple<{names}>").into_boxed_str()))
+        }
+        ScSpecTypeDef::Map(val) => {
+            let ScSpecTypeMap {
+                key_type,
+                value_type,
+            } = val.as_ref();
+            match (
+                arg_value_name(name, spec, key_type.as_ref()),
+                arg_value_name(name, spec, value_type.as_ref()),
+            ) {
+                (Some(key), Some(val)) => {
+                    Some(Box::leak(format!("Map<{key}, {val}>").into_boxed_str()))
+                }
+                _ => None,
+            }
+        }
+        ScSpecTypeDef::BytesN(t) => Some(Box::leak(format!("{}_hex_bytes", t.n).into_boxed_str())),
+        ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => match spec.find(&name.to_string_lossy()).ok()
+        {
+            Some(ScSpecEntry::UdtStructV0(_)) => Some("Struct"),
+            Some(ScSpecEntry::UdtUnionV0(_)) => Some("Enum"),
+            Some(ScSpecEntry::UdtEnumV0(_)) => Some("u32"),
+            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
+        },
+        // No specific value name for these yet.
+        ScSpecTypeDef::Val => None,
+    }
 }
