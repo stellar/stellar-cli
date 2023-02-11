@@ -1,5 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use clap::Parser;
+use itertools::Itertools;
 use std::{fs, io, path};
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
@@ -17,14 +18,17 @@ use crate::{HEADING_RPC, HEADING_SANDBOX};
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required
     /// if not in sandbox mode).
-    #[clap(short, long, default_value = "0")]
-    start_ledger: u32,
-
-    /// The last (and inclusive) ledger sequence number in the range to pull
-    /// events (required if not in sandbox mode).
     /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
-    #[clap(short, long, default_value = "0")]
-    end_ledger: u32,
+    #[clap(long, conflicts_with = "cursor", required_unless_present = "cursor")]
+    start_ledger: Option<u32>,
+
+    /// The cursor corresponding to the start of the event range.
+    #[clap(
+        long,
+        conflicts_with = "start-ledger",
+        required_unless_present = "start-ledger"
+    )]
+    cursor: Option<String>,
 
     /// Output formatting options for event stream
     #[clap(long, arg_enum, default_value = "pretty")]
@@ -41,6 +45,7 @@ pub struct Cmd {
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
         conflicts_with = "events-file",
+        required_unless_present="events-file",
     )]
     rpc_url: Option<String>,
 
@@ -52,6 +57,7 @@ pub struct Cmd {
         env = "SOROBAN_EVENTS_FILE",
         help_heading = HEADING_SANDBOX,
         conflicts_with = "rpc-url",
+        required_unless_present="rpc-url",
     )]
     events_file: Option<std::path::PathBuf>,
 
@@ -99,8 +105,8 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("invalid ledger range: --start-ledger bigger than --end-ledger ({low} > {high})")]
-    InvalidLedgerRange { low: u32, high: u32 },
+    #[error("cursor is not valid")]
+    InvalidCursor,
 
     #[error("filepath does not exist: {path}")]
     InvalidFile { path: String },
@@ -133,12 +139,6 @@ pub enum Error {
     #[error("invalid timestamp in event: {ts}")]
     InvalidTimestamp { ts: String },
 
-    #[error("you must specify either an RPC server or sandbox filepath(s)")]
-    TargetRequired,
-
-    #[error("ledger range (-s and -e) is required when specifying an RPC server")]
-    LedgerRangeRequired,
-
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 
@@ -167,12 +167,12 @@ pub enum OutputFormat {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        if self.start_ledger > self.end_ledger {
-            return Err(Error::InvalidLedgerRange {
-                low: self.start_ledger,
-                high: self.end_ledger,
-            });
-        }
+        let start = match (self.start_ledger, self.cursor.clone()) {
+            (Some(start), _) => rpc::EventStart::Ledger(start),
+            (_, Some(c)) => rpc::EventStart::Cursor(c),
+            // should never happen because of required_unless_present flags
+            _ => panic!("missing start_ledger and cursor"),
+        };
 
         // Validate that topics are made up of segments.
         for topic in &self.topic_filters {
@@ -195,13 +195,14 @@ impl Cmd {
             }
         }
 
-        let events = match (self.rpc_url.as_ref(), self.events_file.as_ref()) {
-            (Some(rpc_url), _) => self.run_against_rpc_server(rpc_url).await,
-            (_, Some(path)) => self.run_in_sandbox(path),
-            _ => Err(Error::TargetRequired),
+        let response = match (self.rpc_url.as_ref(), self.events_file.as_ref()) {
+            (Some(rpc_url), _) => self.run_against_rpc_server(rpc_url, start).await,
+            (_, Some(path)) => self.run_in_sandbox(path, start),
+            // should never happen because of required_unless_present flags
+            _ => panic!("missing target"),
         }?;
 
-        for event in &events {
+        for event in &response.events {
             match self.output {
                 // Should we pretty-print the JSON like we're doing here or just
                 // dump an event in raw JSON on each line? The latter is easier
@@ -221,15 +222,16 @@ impl Cmd {
                 OutputFormat::Pretty => pretty_print_event(event)?,
             }
         }
+        println!("Latest Ledger: {}", response.latest_ledger);
 
         Ok(())
     }
 
-    async fn run_against_rpc_server(&self, rpc_url: &str) -> Result<Vec<rpc::Event>, Error> {
-        if self.start_ledger == 0 && self.end_ledger == 0 {
-            return Err(Error::LedgerRangeRequired);
-        }
-
+    async fn run_against_rpc_server(
+        &self,
+        rpc_url: &str,
+        start: rpc::EventStart,
+    ) -> Result<rpc::GetEventsResponse, Error> {
         for raw_contract_id in &self.contract_ids {
             // We parse the contract IDs to ensure they're the correct format,
             // but since we'll be passing them as-is to the RPC server anyway,
@@ -241,20 +243,23 @@ impl Cmd {
         }
 
         let client = rpc::Client::new(rpc_url);
-        Ok(client
+        client
             .get_events(
-                self.start_ledger,
-                self.end_ledger,
+                start,
                 Some(self.event_type),
                 &self.contract_ids,
                 &self.topic_filters,
                 Some(self.count),
             )
-            .await?
-            .unwrap_or_default())
+            .await
+            .map_err(Error::Rpc)
     }
 
-    fn run_in_sandbox(&self, path: &path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
+    fn run_in_sandbox(
+        &self,
+        path: &path::PathBuf,
+        start: rpc::EventStart,
+    ) -> Result<rpc::GetEventsResponse, Error> {
         if !path.exists() {
             return Err(Error::InvalidFile {
                 path: path.to_str().unwrap().to_string(),
@@ -267,49 +272,44 @@ impl Cmd {
             self.count
         };
 
+        let start_cursor = match start {
+            rpc::EventStart::Ledger(l) => (toid::Toid::new(l, 0, 0).into(), -1),
+            rpc::EventStart::Cursor(c) => parse_cursor(&c)?,
+        };
+
+        let file = read(path).map_err(|err| Error::CannotReadFile {
+            path: path.to_str().unwrap().to_string(),
+            error: err.to_string(),
+        })?;
+
         // Read the JSON events from disk and find the ones that match the
         // contract ID filter(s) that were passed in.
-        Ok(read(path)
-            .map_err(|err| Error::CannotReadFile {
-                path: path.to_str().unwrap().to_string(),
-                error: err.to_string(),
-            })?
-            .iter()
-            // FIXME: We assume here that events are read off-disk in
-            // chronological order, but we should probably be sorting by ledger
-            // number (and ID, for events within the same ledger), instead,
-            // though it's likely that this logic belongs more in
-            // `snapshot::read_events()`.
-            .rev()
-            .filter(|evt| {
-                // The ledger range is optional in sandbox mode.
-                if self.start_ledger == 0 && self.end_ledger == 0 {
-                    return true;
-                }
-
-                match evt.ledger.parse::<u32>() {
-                    Ok(seq) => seq >= self.start_ledger && seq <= self.end_ledger,
+        Ok(rpc::GetEventsResponse {
+            events: file
+                .events
+                .iter()
+                .filter(|evt| match parse_cursor(&evt.id) {
+                    Ok(event_cursor) => event_cursor > start_cursor,
                     Err(e) => {
                         eprintln!("error parsing key 'ledger': {e:?}");
                         eprintln!(
-                            "your sandbox events file ('{}') may be corrupt",
+                            "your sandbox events file ('{}') may be corrupt, consider deleting it",
                             path.to_str().unwrap(),
                         );
                         eprintln!("ignoring this event: {evt:#?}");
 
                         false
                     }
-                }
-            })
-            .filter(|evt| {
-                // Contract ID filter(s) are optional, so we should render all
-                // events if they're omitted.
-                self.contract_ids.is_empty()
-                    || self.contract_ids.iter().any(|id| *id == evt.contract_id)
-            })
-            .filter(|evt| {
-                // Like before, no topic filters means pass everything through.
-                self.topic_filters.is_empty() ||
+                })
+                .filter(|evt| {
+                    // Contract ID filter(s) are optional, so we should render all
+                    // events if they're omitted.
+                    self.contract_ids.is_empty()
+                        || self.contract_ids.iter().any(|id| *id == evt.contract_id)
+                })
+                .filter(|evt| {
+                    // Like before, no topic filters means pass everything through.
+                    self.topic_filters.is_empty() ||
                 // Reminder: All of the topic filters are part of a single
                 // filter object, and each one contains segments, so we need to
                 // apply all of them to the given event.
@@ -328,11 +328,20 @@ impl Cmd {
                             .collect::<Vec<String>>()
                         )
                     })
-            })
-            .take(count)
-            .cloned()
-            .collect::<Vec<rpc::Event>>())
+                })
+                .take(count)
+                .cloned()
+                .collect::<Vec<rpc::Event>>(),
+            latest_ledger: file.latest_ledger,
+        })
     }
+}
+
+fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
+    let (toid_part, event_index) = c.split('-').collect_tuple().ok_or(Error::InvalidCursor)?;
+    let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
+    let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
+    Ok((toid_part, start_index))
 }
 
 // Determines whether or not a particular filter matches a topic based on the
@@ -450,7 +459,7 @@ pub fn pretty_print_event(event: &rpc::Event) -> Result<(), Box<dyn std::error::
 
 /// Returns a list of events from the on-disk event store, which stores events
 /// exactly as they'd be returned by an RPC server.
-pub fn read(path: &std::path::PathBuf) -> Result<Vec<rpc::Event>, Error> {
+pub fn read(path: &std::path::PathBuf) -> Result<rpc::GetEventsResponse, Error> {
     let reader = std::fs::OpenOptions::new().read(true).open(path)?;
     Ok(serde_json::from_reader(reader)?)
 }
@@ -470,9 +479,10 @@ pub fn commit(
         }
     }
 
-    let mut events: rpc::GetEventsResponse = if path::Path::exists(output_file) {
+    let mut events: Vec<rpc::Event> = if path::Path::exists(output_file) {
         let mut file = fs::OpenOptions::new().read(true).open(output_file)?;
-        serde_json::from_reader(&mut file)?
+        let payload: rpc::GetEventsResponse = serde_json::from_reader(&mut file)?;
+        payload.events
     } else {
         vec![]
     };
@@ -562,7 +572,13 @@ pub fn commit(
         .truncate(true)
         .open(output_file)?;
 
-    serde_json::to_writer_pretty(&mut file, &events)?;
+    serde_json::to_writer_pretty(
+        &mut file,
+        &rpc::GetEventsResponse {
+            events,
+            latest_ledger: ledger_info.sequence_number,
+        },
+    )?;
 
     Ok(())
 }
@@ -750,11 +766,12 @@ mod tests {
 
         commit(&events, &snapshot, &temp.to_path_buf()).unwrap();
 
-        let events = read(&temp.to_path_buf()).unwrap();
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0].ledger, "2");
-        assert_eq!(events[1].ledger, "2");
-        assert_eq!(events[0].contract_id, "0".repeat(64));
-        assert_eq!(events[1].contract_id, "01".repeat(32));
+        let file = read(&temp.to_path_buf()).unwrap();
+        assert_eq!(file.events.len(), 2);
+        assert_eq!(file.events[0].ledger, "2");
+        assert_eq!(file.events[1].ledger, "2");
+        assert_eq!(file.events[0].contract_id, "0".repeat(64));
+        assert_eq!(file.events[1].contract_id, "01".repeat(32));
+        assert_eq!(file.latest_ledger, 2);
     }
 }
