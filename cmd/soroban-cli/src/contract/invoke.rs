@@ -34,6 +34,7 @@ use crate::HEADING_SANDBOX;
 use crate::{events, rpc, strval, utils};
 
 #[derive(Parser, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Contract ID to invoke
     #[clap(long = "id")]
@@ -47,6 +48,9 @@ pub struct Cmd {
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
+    /// Run with an unlimited budget
+    #[clap(long = "unlimited-budget", conflicts_with = "rpc-url")]
+    unlimited_budget: bool,
     /// Output the footprint to stderr
     #[clap(long = "footprint")]
     footprint: bool,
@@ -302,17 +306,7 @@ impl Cmd {
         let mut state = self.config.get_state()?;
 
         // If a file is specified, deploy the contract to storage
-        if let Some(contract) = self.read_wasm()? {
-            let wasm_hash =
-                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
-                    .map_err(Error::CannotAddContractToLedgerEntries)?
-                    .0;
-            utils::add_contract_to_ledger_entries(
-                &mut state.ledger_entries,
-                contract_id,
-                wasm_hash,
-            );
-        }
+        self.deploy_contract_in_sandbox(&mut state, &contract_id)?;
 
         // Create source account, adding it to the ledger if not already present.
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(self.account_id.0)));
@@ -335,6 +329,9 @@ impl Cmd {
         let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
             .map_err(Error::CannotParseContractSpec)?;
         let h = Host::with_storage_and_budget(storage, Budget::default());
+        if self.unlimited_budget {
+            h.with_budget(|b| b.reset_unlimited());
+        }
         h.switch_to_recording_auth();
         h.set_source_account(source_account);
 
@@ -417,6 +414,25 @@ impl Cmd {
             }
         })?;
 
+        Ok(())
+    }
+
+    pub fn deploy_contract_in_sandbox(
+        &self,
+        state: &mut soroban_ledger_snapshot::LedgerSnapshot,
+        contract_id: &[u8; 32],
+    ) -> Result<(), Error> {
+        if let Some(contract) = self.read_wasm()? {
+            let wasm_hash =
+                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
+                    .map_err(Error::CannotAddContractToLedgerEntries)?
+                    .0;
+            utils::add_contract_to_ledger_entries(
+                &mut state.ledger_entries,
+                *contract_id,
+                wasm_hash,
+            );
+        }
         Ok(())
     }
 
