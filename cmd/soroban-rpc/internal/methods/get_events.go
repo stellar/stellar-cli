@@ -33,7 +33,7 @@ type EventInfoValue struct {
 }
 
 type GetEventsRequest struct {
-	StartLedger int32              `json:"startLedger,string"`
+	StartLedger int32              `json:"startLedger,string,omitempty"`
 	Filters     []EventFilter      `json:"filters"`
 	Pagination  *PaginationOptions `json:"pagination,omitempty"`
 }
@@ -41,7 +41,11 @@ type GetEventsRequest struct {
 func (g *GetEventsRequest) Valid(maxLimit uint) error {
 	// Validate start
 	// Validate the paging limit (if it exists)
-	if g.StartLedger <= 0 {
+	if g.Pagination != nil && g.Pagination.Cursor != nil {
+		if g.StartLedger != 0 {
+			return errors.New("startLedger and cursor cannot both be set")
+		}
+	} else if g.StartLedger <= 0 {
 		return errors.New("startLedger must be positive")
 	}
 	if g.Pagination != nil && g.Pagination.Limit > maxLimit {
@@ -245,31 +249,38 @@ func (s *SegmentFilter) UnmarshalJSON(p []byte) error {
 }
 
 type PaginationOptions struct {
-	Cursor string `json:"cursor,omitempty"`
-	Limit  uint   `json:"limit,omitempty"`
+	Cursor *events.Cursor `json:"cursor,omitempty"`
+	Limit  uint           `json:"limit,omitempty"`
+}
+
+type GetEventsResponse struct {
+	Events       []EventInfo `json:"events"`
+	LatestLedger int64       `json:"latestLedger,string"`
 }
 
 type eventScanner interface {
-	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) error
+	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) (uint32, error)
 }
 
-func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([]EventInfo, error) {
-	if err := request.Valid(maxLimit); err != nil {
-		return nil, &jrpc2.Error{
+type eventsRPCHandler struct {
+	scanner      eventScanner
+	maxLimit     uint
+	defaultLimit uint
+}
+
+func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse, error) {
+	if err := request.Valid(h.maxLimit); err != nil {
+		return GetEventsResponse{}, &jrpc2.Error{
 			Code:    code.InvalidParams,
 			Message: err.Error(),
 		}
 	}
 
 	start := events.Cursor{Ledger: uint32(request.StartLedger)}
-	limit := maxLimit
+	limit := h.defaultLimit
 	if request.Pagination != nil {
-		if request.Pagination.Cursor != "" {
-			var err error
-			start, err = events.ParseCursor(request.Pagination.Cursor)
-			if err != nil {
-				return nil, errors.Wrap(err, "invalid pagination cursor")
-			}
+		if request.Pagination.Cursor != nil {
+			start = *request.Pagination.Cursor
 			// increment event index because, when paginating,
 			// we start with the item right after the cursor
 			start.Event++
@@ -285,7 +296,7 @@ func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([
 		event                xdr.ContractEvent
 	}
 	var found []entry
-	err := scanner.Scan(
+	latestLedger, err := h.scanner.Scan(
 		events.Range{
 			Start:      start,
 			ClampStart: false,
@@ -300,13 +311,13 @@ func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([
 		},
 	)
 	if err != nil {
-		return nil, &jrpc2.Error{
+		return GetEventsResponse{}, &jrpc2.Error{
 			Code:    code.InvalidRequest,
 			Message: err.Error(),
 		}
 	}
 
-	var results []EventInfo
+	results := []EventInfo{}
 	for _, entry := range found {
 		info, err := eventInfoForEvent(
 			entry.event,
@@ -314,11 +325,14 @@ func getEvents(scanner eventScanner, request GetEventsRequest, maxLimit uint) ([
 			time.Unix(entry.ledgerCloseTimestamp, 0).UTC().Format(time.RFC3339),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not parse event")
+			return GetEventsResponse{}, errors.Wrap(err, "could not parse event")
 		}
 		results = append(results, info)
 	}
-	return results, nil
+	return GetEventsResponse{
+		LatestLedger: int64(latestLedger),
+		Events:       results,
+	}, nil
 }
 
 func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
@@ -366,12 +380,13 @@ func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClos
 }
 
 // NewGetEventsHandler returns a json rpc handler to fetch and filter events
-func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit uint) jrpc2.Handler {
-	return handler.New(func(ctx context.Context, request GetEventsRequest) ([]EventInfo, error) {
-		response, err := getEvents(eventsStore, request, maxLimit)
-		if err != nil {
-			return nil, err
-		}
-		return response, nil
+func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit, defaultLimit uint) jrpc2.Handler {
+	eventsHandler := eventsRPCHandler{
+		scanner:      eventsStore,
+		maxLimit:     maxLimit,
+		defaultLimit: defaultLimit,
+	}
+	return handler.New(func(ctx context.Context, request GetEventsRequest) (GetEventsResponse, error) {
+		return eventsHandler.getEvents(request)
 	})
 }
