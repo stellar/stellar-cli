@@ -116,6 +116,7 @@ func (i *Test) launchDaemon() {
 		// Needed when Core is run with ARTIFICIALLY_ACCELERATE_TIME_FOR_TESTING=true
 		CheckpointFrequency: 8,
 		MaxEventsLimit:      10000,
+		DefaultEventsLimit:  100,
 	}
 	i.daemon = daemon.MustNew(config)
 	i.server = httptest.NewServer(i.daemon)

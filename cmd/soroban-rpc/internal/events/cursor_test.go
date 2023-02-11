@@ -1,6 +1,7 @@
 package events
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -31,6 +32,29 @@ func TestParseCursor(t *testing.T) {
 		parsed, err := ParseCursor(cursor.String())
 		assert.NoError(t, err)
 		assert.Equal(t, cursor, parsed)
+	}
+}
+
+func TestCursorJSON(t *testing.T) {
+	type options struct {
+		Cursor *Cursor `json:"cursor,omitempty"`
+		Limit  uint    `json:"limit,omitempty"`
+	}
+	for _, testCase := range []options{
+		{nil, 100},
+		{nil, 0},
+		{&Cursor{
+			Ledger: 1,
+			Tx:     2,
+			Op:     3,
+			Event:  4,
+		}, 100},
+	} {
+		result, err := json.Marshal(testCase)
+		assert.NoError(t, err)
+		var parsed options
+		assert.NoError(t, json.Unmarshal(result, &parsed))
+		assert.Equal(t, testCase, parsed)
 	}
 }
 
