@@ -17,9 +17,13 @@ pub enum Error {
     CurrentDirNotFound,
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
-    #[error("Failed to read secret's file: {path}")]
+    #[error(
+        "Failed to read secret's file: {path}.\nProbably need to use `soroban config identity add`"
+    )]
     SecretFileRead { path: PathBuf },
-    #[error("Failed to read network file: {path}")]
+    #[error(
+        "Failed to read network file: {path};\nProbably need to use `soroban config network add`"
+    )]
     NetworkFileRead { path: PathBuf },
     #[error("Seceret file failed to deserialize")]
     Deserialization,

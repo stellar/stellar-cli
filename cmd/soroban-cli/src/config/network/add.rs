@@ -20,10 +20,6 @@ pub struct Cmd {
     #[clap(flatten)]
     pub network: super::Network,
 
-    /// Set as default network
-    #[clap(long)]
-    pub default: bool,
-
     #[clap(flatten)]
     pub config_locator: locator::Args,
 }
