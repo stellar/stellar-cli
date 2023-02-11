@@ -110,7 +110,16 @@ pub struct SimulateTransactionResponse {
     pub latest_ledger: u32,
 }
 
-pub type GetEventsResponse = Vec<Event>;
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetEventsResponse {
+    #[serde(deserialize_with = "deserialize_default_from_null")]
+    pub events: Vec<Event>,
+    #[serde(
+        rename = "latestLedger",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger: u32,
+}
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Event {
@@ -141,6 +150,12 @@ pub enum EventType {
     All,
     Contract,
     System,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum EventStart {
+    Ledger(u32),
+    Cursor(String),
 }
 
 pub struct Client {
@@ -251,13 +266,12 @@ impl Client {
 
     pub async fn get_events(
         &self,
-        start_ledger: u32,
-        end_ledger: u32,
+        start: EventStart,
         event_type: Option<EventType>,
         contract_ids: &[String],
         topics: &[String],
         limit: Option<usize>,
-    ) -> Result<Option<GetEventsResponse>, Error> {
+    ) -> Result<GetEventsResponse, Error> {
         let mut filters = serde_json::Map::new();
 
         event_type
@@ -275,11 +289,12 @@ impl Client {
         if let Some(limit) = limit {
             pagination.insert("limit".to_string(), limit.into());
         }
-        // TODO: cursor
 
         let mut object = collections::BTreeMap::<&str, jsonrpsee_core::JsonValue>::new();
-        object.insert("startLedger", start_ledger.to_string().into());
-        object.insert("endLedger", end_ledger.to_string().into());
+        match start {
+            EventStart::Ledger(l) => object.insert("startLedger", l.to_string().into()),
+            EventStart::Cursor(c) => pagination.insert("cursor".to_string(), c.into()),
+        };
         object.insert("filters", vec![filters].into());
         object.insert("pagination", pagination.into());
 

@@ -140,16 +140,13 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		transactionProxyTTL,
 	)
 
-	handler, err := internal.NewJSONRPCHandler(internal.HandlerParams{
+	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		AccountStore:      methods.AccountStore{Client: hc},
 		EventStore:        eventStore,
-		FriendbotURL:      cfg.FriendbotURL,
-		NetworkPassphrase: cfg.NetworkPassphrase,
 		Logger:            logger,
 		TransactionProxy:  transactionProxy,
 		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
-		MaxEventsLimit:    cfg.MaxEventsLimit,
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)

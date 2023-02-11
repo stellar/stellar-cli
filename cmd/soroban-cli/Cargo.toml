@@ -50,6 +50,7 @@ rpassword = "7.2.0"
 dirs = "4.0.0"
 config = "0.13.1"
 toml = "0.5.9"
+itertools = "0.10.5"
 sep5 =  { workspace = true}
 
 

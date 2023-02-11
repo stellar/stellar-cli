@@ -168,7 +168,7 @@ func TestScanRangeValidation(t *testing.T) {
 		t.Fatalf("unexpected call")
 		return true
 	}
-	err = m.Scan(Range{
+	_, err = m.Scan(Range{
 		Start:      MinCursor,
 		ClampStart: true,
 		End:        MaxCursor,
@@ -282,7 +282,7 @@ func TestScanRangeValidation(t *testing.T) {
 			"start is not before end",
 		},
 	} {
-		err := m.Scan(testCase.input, assertNoCalls)
+		_, err := m.Scan(testCase.input, assertNoCalls)
 		require.EqualError(t, err, testCase.err, testCase.input)
 	}
 }
@@ -439,12 +439,16 @@ func TestScan(t *testing.T) {
 				})
 				return iterateAll
 			}
-			require.NoError(t, m.Scan(input, f))
+			latest, err := m.Scan(input, f)
+			require.NoError(t, err)
+			require.Equal(t, uint32(9), latest)
 			eventsAreEqual(t, testCase.expected, events)
 			if len(events) > 0 {
 				events = nil
 				iterateAll = false
-				require.NoError(t, m.Scan(input, f))
+				latest, err := m.Scan(input, f)
+				require.NoError(t, err)
+				require.Equal(t, uint32(9), latest)
 				eventsAreEqual(t, []event{testCase.expected[0]}, events)
 			}
 		}
