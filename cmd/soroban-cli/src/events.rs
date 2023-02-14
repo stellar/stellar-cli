@@ -774,4 +774,14 @@ mod tests {
         assert_eq!(file.events[1].contract_id, "01".repeat(32));
         assert_eq!(file.latest_ledger, 2);
     }
+
+    #[test]
+    fn test_does_event_fixture_load() {
+        // This test ensures that the included JSON fixture file matches the
+        // correct event format (for the purposes of human readability).
+        let filename = path::PathBuf::from("./tests/fixtures/test-jsons/get-events.json");
+        let result = read(&filename.to_path_buf());
+        println!("{:?}", result);
+        assert!(!result.is_err());
+    }
 }
