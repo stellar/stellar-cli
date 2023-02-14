@@ -780,6 +780,7 @@ mod tests {
         // This test ensures that the included JSON fixture file matches the
         // correct event format (for the purposes of human readability).
         let filename = path::PathBuf::from("./tests/fixtures/test-jsons/get-events.json");
+
         let result = read(&filename.to_path_buf());
         println!("{:?}", result);
         assert!(!result.is_err());

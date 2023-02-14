@@ -1,4 +1,6 @@
-[
+{
+  "latestLedger": 12345,
+  "events": [
     {
       "type": "system",
       "ledger": "43601283",
@@ -60,3 +62,4 @@
       }
     }
   ]
+}
