@@ -1,6 +1,7 @@
 use clap::Parser;
 
 pub mod add;
+pub mod address;
 pub mod generate;
 pub mod ls;
 pub mod rm;
@@ -9,6 +10,8 @@ pub mod rm;
 pub enum Cmd {
     /// Add a new identity (keypair, ledger, macOS keychain)
     Add(add::Cmd),
+    /// Given an identity return its address (public key)
+    Address(address::Cmd),
     /// Generate a new identity with a seed phrase, currently 12 words
     Generate(generate::Cmd),
     /// List identities
@@ -21,6 +24,9 @@ pub enum Cmd {
 pub enum Error {
     #[error(transparent)]
     Add(#[from] add::Error),
+
+    #[error(transparent)]
+    Address(#[from] address::Error),
 
     #[error(transparent)]
     Generate(#[from] generate::Error),
@@ -36,7 +42,8 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
-            Cmd::Rm(new) => new.run()?,
+            Cmd::Address(cmd) => cmd.run()?,
+            Cmd::Rm(cmd) => cmd.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Generate(cmd) => cmd.run()?,
         };

@@ -51,6 +51,25 @@ impl Sandbox {
     pub fn dir(&self) -> &TempDir {
         &self.temp_dir
     }
+
+    pub fn gen_test_identity(&self) {
+        self.new_cmd("config")
+            .arg("identity")
+            .arg("generate")
+            .arg("--seed")
+            .arg("0000000000000000")
+            .arg("test")
+            .assert()
+            .success();
+    }
+
+    pub fn test_address(&self, hd_path: usize) -> String {
+        self.new_cmd("config")
+            .args("identity address test --hd-path".split(' '))
+            .arg(format!("{hd_path}"))
+            .assert()
+            .stdout_as_str()
+    }
 }
 
 pub fn temp_ledger_file() -> OsString {
@@ -171,3 +190,6 @@ where
         .success()
         .stdout(format!("{data}\n"));
 }
+
+pub const DEFAULT_SEED_PHRASE: &str =
+    "coral light army gather adapt blossom school alcohol coral light army giggle";

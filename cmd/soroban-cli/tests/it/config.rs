@@ -1,7 +1,8 @@
 use assert_cmd::Command;
 
 use crate::util::{
-    add_identity, add_test_id, temp_dir, temp_ledger_file, Sandbox, SecretKind, HELLO_WORLD,
+    add_identity, add_test_id, temp_dir, temp_ledger_file, Sandbox, SecretKind,
+    DEFAULT_SEED_PHRASE, HELLO_WORLD,
 };
 use std::{fs, path::Path};
 
@@ -169,32 +170,26 @@ fn read_identity() {
 #[test]
 fn generate_identity() {
     let sandbox = Sandbox::new();
-    let seed_phrase =
-        "coral light army gather adapt blossom school alcohol coral light army giggle";
-    sandbox
-        .new_cmd("config")
-        .arg("identity")
-        .arg("generate")
-        .arg("--seed")
-        .arg("0000000000000000")
-        .arg("mike")
-        .assert()
-        .success();
+    sandbox.gen_test_identity();
+
     sandbox
         .new_cmd("config")
         .arg("identity")
         .arg("ls")
         .assert()
-        .stdout("mike\n");
+        .stdout("test\n");
     let file_contents =
-        fs::read_to_string(sandbox.dir().join(".soroban/identities/mike.toml")).unwrap();
-    assert_eq!(file_contents, format!("seed_phrase = \"{seed_phrase}\"\n"));
+        fs::read_to_string(sandbox.dir().join(".soroban/identities/test.toml")).unwrap();
+    assert_eq!(
+        file_contents,
+        format!("seed_phrase = \"{DEFAULT_SEED_PHRASE}\"\n")
+    );
 }
 
 #[test]
 fn seed_phrase() {
     let sandbox = Sandbox::new();
-    let dir = &sandbox.temp_dir;
+    let dir = sandbox.dir();
     add_identity(
         dir,
         "test_seed",
@@ -229,4 +224,21 @@ fn use_different_ledger_file() {
         .stdout("[\"Hello\",\"world\"]\n")
         .success();
     assert!(fs::read(sandbox.dir().join(".soroban/ledger.json")).is_err());
+}
+
+#[test]
+fn read_address() {
+    let sandbox = Sandbox::new();
+    sandbox.gen_test_identity();
+    for hd_path in 0..2 {
+        test_hd_path(&sandbox, hd_path);
+    }
+}
+
+fn test_hd_path(sandbox: &Sandbox, hd_path: usize) {
+    let seed_phrase = sep5::SeedPhrase::from_seed_phrase(DEFAULT_SEED_PHRASE).unwrap();
+    let key_pair = seed_phrase.from_path_index(hd_path, None).unwrap();
+    let pub_key = key_pair.public().to_string();
+    let test_address = sandbox.test_address(hd_path);
+    assert_eq!(pub_key, test_address);
 }
