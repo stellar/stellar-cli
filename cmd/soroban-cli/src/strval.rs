@@ -4,8 +4,8 @@ use std::str::FromStr;
 use soroban_env_host::xdr::{
     AccountId, BytesM, Error as XdrError, Hash, PublicKey, ScAddress, ScMap, ScMapEntry, ScObject,
     ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeSet,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0,
-    ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
+    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
+    ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
 };
 
 use crate::utils;
@@ -42,6 +42,46 @@ impl From<()> for Error {
 pub struct Spec(pub Option<Vec<ScSpecEntry>>);
 
 impl Spec {
+    /// # Errors
+    /// Could fail to find User Defined Type
+    pub fn doc(&self, type_: &ScSpecTypeDef) -> Result<Option<&'static str>, Error> {
+        let str = match type_ {
+            ScSpecTypeDef::Val
+            | ScSpecTypeDef::U64
+            | ScSpecTypeDef::I64
+            | ScSpecTypeDef::U128
+            | ScSpecTypeDef::I128
+            | ScSpecTypeDef::U32
+            | ScSpecTypeDef::I32
+            | ScSpecTypeDef::Result(_)
+            | ScSpecTypeDef::Vec(_)
+            | ScSpecTypeDef::Map(_)
+            | ScSpecTypeDef::Set(_)
+            | ScSpecTypeDef::Tuple(_)
+            | ScSpecTypeDef::BytesN(_)
+            | ScSpecTypeDef::Symbol
+            | ScSpecTypeDef::Bitset
+            | ScSpecTypeDef::Status
+            | ScSpecTypeDef::Bytes
+            | ScSpecTypeDef::Bool => return Ok(None),
+            ScSpecTypeDef::Address => "Address".to_string(),
+            ScSpecTypeDef::Option(type_) => return self.doc(&type_.value_type),
+            ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => {
+                let spec_type = self.find(&name.to_string_lossy())?;
+                match spec_type {
+                    ScSpecEntry::FunctionV0(ScSpecFunctionV0 { doc, .. })
+                    | ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
+                    | ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 { doc, .. })
+                    | ScSpecEntry::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
+                    | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. }) => doc,
+                }
+                .to_string_lossy()
+            }
+        }
+        .into_boxed_str();
+        Ok(Some(Box::leak(str)))
+    }
+
     /// # Errors
     ///
     /// Might return errors

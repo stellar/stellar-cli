@@ -561,13 +561,17 @@ fn build_custom_cmd<'a>(
     spec: &Spec,
 ) -> clap::App<'a> {
     let mut cmd = clap::Command::new(name).no_binary_name(true);
+    let func = spec.find_function(name).unwrap();
+    let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
+    cmd = cmd.about(Some(doc));
     for (name, type_) in inputs_map.iter() {
         let name: &'static str = Box::leak(name.clone().into_boxed_str());
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
             .takes_value(true)
-            .value_parser(clap::builder::NonEmptyStringValueParser::new());
+            .value_parser(clap::builder::NonEmptyStringValueParser::new())
+            .long_help(spec.doc(type_).unwrap());
 
         if let Some(value_name) = arg_value_name(name, spec, type_) {
             arg = arg.value_name(value_name);

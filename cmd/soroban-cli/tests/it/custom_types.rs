@@ -111,6 +111,15 @@ fn strukt() {
 }
 
 #[test]
+fn strukt_help() {
+    invoke(&Sandbox::new(), "strukt")
+        .arg("--help")
+        .assert()
+        .stdout(predicates::str::contains("Example contract method"))
+        .stdout(predicates::str::contains("Test Struct Docs"));
+}
+
+#[test]
 fn enum_2_str() {
     invoke_with_roundtrip("simple", json!("First"));
 }
