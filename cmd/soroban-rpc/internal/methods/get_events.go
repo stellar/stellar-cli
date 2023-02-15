@@ -14,7 +14,7 @@ import (
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/memorystore"
 )
 
 type EventInfo struct {
@@ -249,8 +249,8 @@ func (s *SegmentFilter) UnmarshalJSON(p []byte) error {
 }
 
 type PaginationOptions struct {
-	Cursor *events.Cursor `json:"cursor,omitempty"`
-	Limit  uint           `json:"limit,omitempty"`
+	Cursor *memorystore.EventCursor `json:"cursor,omitempty"`
+	Limit  uint                     `json:"limit,omitempty"`
 }
 
 type GetEventsResponse struct {
@@ -259,7 +259,7 @@ type GetEventsResponse struct {
 }
 
 type eventScanner interface {
-	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) (uint32, error)
+	ScanEvents(eventRange memorystore.EventRange, f func(xdr.ContractEvent, memorystore.EventCursor, int64) bool) (uint32, error)
 }
 
 type eventsRPCHandler struct {
@@ -276,7 +276,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 		}
 	}
 
-	start := events.Cursor{Ledger: uint32(request.StartLedger)}
+	start := memorystore.EventCursor{Ledger: uint32(request.StartLedger)}
 	limit := h.defaultLimit
 	if request.Pagination != nil {
 		if request.Pagination.Cursor != nil {
@@ -291,19 +291,19 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 	}
 
 	type entry struct {
-		cursor               events.Cursor
+		cursor               memorystore.EventCursor
 		ledgerCloseTimestamp int64
 		event                xdr.ContractEvent
 	}
 	var found []entry
-	latestLedger, err := h.scanner.Scan(
-		events.Range{
+	latestLedger, err := h.scanner.ScanEvents(
+		memorystore.EventRange{
 			Start:      start,
 			ClampStart: false,
-			End:        events.MaxCursor,
+			End:        memorystore.MaxEventCursor,
 			ClampEnd:   true,
 		},
-		func(event xdr.ContractEvent, cursor events.Cursor, ledgerCloseTimestamp int64) bool {
+		func(event xdr.ContractEvent, cursor memorystore.EventCursor, ledgerCloseTimestamp int64) bool {
 			if request.Matches(event) {
 				found = append(found, entry{cursor, ledgerCloseTimestamp, event})
 			}
@@ -335,7 +335,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 	}, nil
 }
 
-func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
+func eventInfoForEvent(event xdr.ContractEvent, cursor memorystore.EventCursor, ledgerClosedAt string) (EventInfo, error) {
 	v0, ok := event.Body.GetV0()
 	if !ok {
 		return EventInfo{}, errors.New("unknown event version")
@@ -380,7 +380,7 @@ func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClos
 }
 
 // NewGetEventsHandler returns a json rpc handler to fetch and filter events
-func NewGetEventsHandler(eventsStore *events.MemoryStore, maxLimit, defaultLimit uint) jrpc2.Handler {
+func NewGetEventsHandler(eventsStore *memorystore.MemoryStore, maxLimit, defaultLimit uint) jrpc2.Handler {
 	eventsHandler := eventsRPCHandler{
 		scanner:      eventsStore,
 		maxLimit:     maxLimit,

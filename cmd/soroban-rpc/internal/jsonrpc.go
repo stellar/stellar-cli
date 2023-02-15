@@ -13,7 +13,7 @@ import (
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/memorystore"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -41,7 +41,7 @@ func (h Handler) Close() {
 
 type HandlerParams struct {
 	AccountStore      methods.AccountStore
-	EventStore        *events.MemoryStore
+	EventStore        *memorystore.MemoryStore
 	TransactionProxy  *methods.TransactionProxy
 	CoreClient        *stellarcore.Client
 	LedgerEntryReader db.LedgerEntryReader

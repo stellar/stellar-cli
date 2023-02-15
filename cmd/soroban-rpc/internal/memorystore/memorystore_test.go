@@ -1,4 +1,4 @@
-package events
+package memorystore
 
 import (
 	"testing"
@@ -88,7 +88,7 @@ func TestAppend(t *testing.T) {
 	require.NoError(t, err)
 
 	// test appending first bucket of events
-	require.NoError(t, m.append(5, ledger5CloseTime, ledger5Events))
+	require.NoError(t, m.append(5, ledger5CloseTime, ledger5Events, nil))
 	require.Equal(t, uint32(5), m.buckets[m.start].ledgerSeq)
 	require.Equal(t, ledger5CloseTime, m.buckets[m.start].ledgerCloseTimestamp)
 	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
@@ -96,15 +96,15 @@ func TestAppend(t *testing.T) {
 
 	// the next bucket of events must follow the previous bucket (ledger 5)
 	require.EqualError(
-		t, m.append(10, 100, ledger5Events),
+		t, m.append(10, 100, ledger5Events, nil),
 		"events not contiguous: expected ledger sequence 6 but received 10",
 	)
 	require.EqualError(
-		t, m.append(4, 100, ledger5Events),
+		t, m.append(4, 100, ledger5Events, nil),
 		"events not contiguous: expected ledger sequence 6 but received 4",
 	)
 	require.EqualError(
-		t, m.append(5, 100, nil),
+		t, m.append(5, 100, nil, nil),
 		"events not contiguous: expected ledger sequence 6 but received 5",
 	)
 	// check that none of the calls above modified our buckets
@@ -112,7 +112,7 @@ func TestAppend(t *testing.T) {
 	require.Equal(t, 1, len(m.buckets))
 
 	// append ledger 6 events, now we have two buckets filled
-	require.NoError(t, m.append(6, ledger6CloseTime, ledger6Events))
+	require.NoError(t, m.append(6, ledger6CloseTime, ledger6Events, nil))
 	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger6Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
 	require.Equal(t, uint32(6), m.buckets[(m.start+1)%uint32(len(m.buckets))].ledgerSeq)
@@ -121,20 +121,20 @@ func TestAppend(t *testing.T) {
 
 	// the next bucket of events must follow the previous bucket (ledger 6)
 	require.EqualError(
-		t, m.append(10, 100, ledger5Events),
+		t, m.append(10, 100, ledger5Events, nil),
 		"events not contiguous: expected ledger sequence 7 but received 10",
 	)
 	require.EqualError(
-		t, m.append(5, 100, ledger5Events),
+		t, m.append(5, 100, ledger5Events, nil),
 		"events not contiguous: expected ledger sequence 7 but received 5",
 	)
 	require.EqualError(
-		t, m.append(6, 100, nil),
+		t, m.append(6, 100, nil, nil),
 		"events not contiguous: expected ledger sequence 7 but received 6",
 	)
 
 	// append ledger 7 events, now we have all three buckets filled
-	require.NoError(t, m.append(7, ledger7CloseTime, ledger7Events))
+	require.NoError(t, m.append(7, ledger7CloseTime, ledger7Events, nil))
 	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger6Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
 	eventsAreEqual(t, ledger7Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
@@ -143,7 +143,7 @@ func TestAppend(t *testing.T) {
 	require.Equal(t, 3, len(m.buckets))
 
 	// append ledger 8 events, but all buckets are full, so we need to evict ledger 5
-	require.NoError(t, m.append(8, ledger8CloseTime, ledger8Events))
+	require.NoError(t, m.append(8, ledger8CloseTime, ledger8Events, nil))
 	eventsAreEqual(t, ledger6Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger7Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
 	eventsAreEqual(t, ledger8Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
@@ -152,7 +152,7 @@ func TestAppend(t *testing.T) {
 	require.Equal(t, 3, len(m.buckets))
 
 	// append ledger 9 events, but all buckets are full, so we need to evict ledger 6
-	require.NoError(t, m.append(9, ledger9CloseTime, ledger9Events))
+	require.NoError(t, m.append(9, ledger9CloseTime, ledger9Events, nil))
 	eventsAreEqual(t, ledger7Events, m.buckets[m.start].events)
 	eventsAreEqual(t, ledger8Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
 	eventsAreEqual(t, ledger9Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
@@ -164,14 +164,14 @@ func TestAppend(t *testing.T) {
 func TestScanRangeValidation(t *testing.T) {
 	m, err := NewMemoryStore("unit-tests", 4)
 	require.NoError(t, err)
-	assertNoCalls := func(contractEvent xdr.ContractEvent, cursor Cursor, timestamp int64) bool {
+	assertNoCalls := func(contractEvent xdr.ContractEvent, cursor EventCursor, timestamp int64) bool {
 		t.Fatalf("unexpected call")
 		return true
 	}
-	_, err = m.Scan(Range{
-		Start:      MinCursor,
+	_, err = m.ScanEvents(EventRange{
+		Start:      MinEventCursor,
 		ClampStart: true,
-		End:        MaxCursor,
+		End:        MaxEventCursor,
 		ClampEnd:   true,
 	}, assertNoCalls)
 	require.EqualError(t, err, "event store is empty")
@@ -179,110 +179,110 @@ func TestScanRangeValidation(t *testing.T) {
 	m = createStore(t)
 
 	for _, testCase := range []struct {
-		input Range
+		input EventRange
 		err   string
 	}{
 		{
-			Range{
-				Start:      MinCursor,
+			EventRange{
+				Start:      MinEventCursor,
 				ClampStart: false,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   true,
 			},
 			"start is before oldest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 4},
+			EventRange{
+				Start:      EventCursor{Ledger: 4},
 				ClampStart: false,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   true,
 			},
 			"start is before oldest ledger",
 		},
 		{
-			Range{
-				Start:      MinCursor,
+			EventRange{
+				Start:      MinEventCursor,
 				ClampStart: true,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   false,
 			},
 			"end is after latest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 5},
+			EventRange{
+				Start:      EventCursor{Ledger: 5},
 				ClampStart: true,
-				End:        Cursor{Ledger: 10},
+				End:        EventCursor{Ledger: 10},
 				ClampEnd:   false,
 			},
 			"end is after latest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 10},
+			EventRange{
+				Start:      EventCursor{Ledger: 10},
 				ClampStart: true,
-				End:        Cursor{Ledger: 3},
+				End:        EventCursor{Ledger: 3},
 				ClampEnd:   true,
 			},
 			"start is after newest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 10},
+			EventRange{
+				Start:      EventCursor{Ledger: 10},
 				ClampStart: false,
-				End:        Cursor{Ledger: 3},
+				End:        EventCursor{Ledger: 3},
 				ClampEnd:   false,
 			},
 			"start is after newest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 9},
+			EventRange{
+				Start:      EventCursor{Ledger: 9},
 				ClampStart: false,
-				End:        Cursor{Ledger: 10},
+				End:        EventCursor{Ledger: 10},
 				ClampEnd:   true,
 			},
 			"start is after newest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 9},
+			EventRange{
+				Start:      EventCursor{Ledger: 9},
 				ClampStart: false,
-				End:        Cursor{Ledger: 10},
+				End:        EventCursor{Ledger: 10},
 				ClampEnd:   false,
 			},
 			"start is after newest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 2},
+			EventRange{
+				Start:      EventCursor{Ledger: 2},
 				ClampStart: true,
-				End:        Cursor{Ledger: 3},
+				End:        EventCursor{Ledger: 3},
 				ClampEnd:   false,
 			},
 			"start is not before end",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 2},
+			EventRange{
+				Start:      EventCursor{Ledger: 2},
 				ClampStart: false,
-				End:        Cursor{Ledger: 3},
+				End:        EventCursor{Ledger: 3},
 				ClampEnd:   false,
 			},
 			"start is before oldest ledger",
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 6},
+			EventRange{
+				Start:      EventCursor{Ledger: 6},
 				ClampStart: false,
-				End:        Cursor{Ledger: 6},
+				End:        EventCursor{Ledger: 6},
 				ClampEnd:   false,
 			},
 			"start is not before end",
 		},
 	} {
-		_, err := m.Scan(testCase.input, assertNoCalls)
+		_, err := m.ScanEvents(testCase.input, assertNoCalls)
 		require.EqualError(t, err, testCase.err, testCase.input)
 	}
 }
@@ -291,10 +291,10 @@ func createStore(t *testing.T) *MemoryStore {
 	m, err := NewMemoryStore("unit-tests", 4)
 	require.NoError(t, err)
 
-	require.NoError(t, m.append(5, ledger5CloseTime, ledger5Events))
-	require.NoError(t, m.append(6, ledger6CloseTime, nil))
-	require.NoError(t, m.append(7, ledger7CloseTime, ledger7Events))
-	require.NoError(t, m.append(8, ledger8CloseTime, ledger8Events))
+	require.NoError(t, m.append(5, ledger5CloseTime, ledger5Events, nil))
+	require.NoError(t, m.append(6, ledger6CloseTime, nil, nil))
+	require.NoError(t, m.append(7, ledger7CloseTime, ledger7Events, nil))
+	require.NoError(t, m.append(8, ledger8CloseTime, ledger8Events, nil))
 
 	return m
 }
@@ -310,8 +310,8 @@ func concat(slices ...[]event) []event {
 func TestScan(t *testing.T) {
 	m := createStore(t)
 
-	genEquivalentInputs := func(input Range) []Range {
-		results := []Range{input}
+	genEquivalentInputs := func(input EventRange) []EventRange {
+		results := []EventRange{input}
 		if !input.ClampStart {
 			rangeCopy := input
 			rangeCopy.ClampStart = true
@@ -332,95 +332,95 @@ func TestScan(t *testing.T) {
 	}
 
 	for _, testCase := range []struct {
-		input    Range
+		input    EventRange
 		expected []event
 	}{
 		{
-			Range{
-				Start:      MinCursor,
+			EventRange{
+				Start:      MinEventCursor,
 				ClampStart: true,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   true,
 			},
 			concat(ledger5Events, ledger6Events, ledger7Events, ledger8Events),
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 5},
+			EventRange{
+				Start:      EventCursor{Ledger: 5},
 				ClampStart: false,
-				End:        Cursor{Ledger: 9},
+				End:        EventCursor{Ledger: 9},
 				ClampEnd:   false,
 			},
 			concat(ledger5Events, ledger6Events, ledger7Events, ledger8Events),
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 5, Tx: 1, Op: 2},
+			EventRange{
+				Start:      EventCursor{Ledger: 5, Tx: 1, Op: 2},
 				ClampStart: false,
-				End:        Cursor{Ledger: 9},
+				End:        EventCursor{Ledger: 9},
 				ClampEnd:   false,
 			},
 			concat(ledger5Events[2:], ledger6Events, ledger7Events, ledger8Events),
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 5, Tx: 3},
+			EventRange{
+				Start:      EventCursor{Ledger: 5, Tx: 3},
 				ClampStart: false,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   true,
 			},
 			concat(ledger6Events, ledger7Events, ledger8Events),
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 6},
+			EventRange{
+				Start:      EventCursor{Ledger: 6},
 				ClampStart: false,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   true,
 			},
 			concat(ledger7Events, ledger8Events),
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 6, Tx: 1},
+			EventRange{
+				Start:      EventCursor{Ledger: 6, Tx: 1},
 				ClampStart: false,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   true,
 			},
 			concat(ledger7Events, ledger8Events),
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 8, Tx: 2, Op: 1, Event: 0},
+			EventRange{
+				Start:      EventCursor{Ledger: 8, Tx: 2, Op: 1, Event: 0},
 				ClampStart: false,
-				End:        MaxCursor,
+				End:        MaxEventCursor,
 				ClampEnd:   true,
 			},
 			ledger8Events[len(ledger8Events)-1:],
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 8, Tx: 2, Op: 1, Event: 0},
+			EventRange{
+				Start:      EventCursor{Ledger: 8, Tx: 2, Op: 1, Event: 0},
 				ClampStart: false,
-				End:        Cursor{Ledger: 9},
+				End:        EventCursor{Ledger: 9},
 				ClampEnd:   false,
 			},
 			ledger8Events[len(ledger8Events)-1:],
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 5},
+			EventRange{
+				Start:      EventCursor{Ledger: 5},
 				ClampStart: false,
-				End:        Cursor{Ledger: 7},
+				End:        EventCursor{Ledger: 7},
 				ClampEnd:   false,
 			},
 			concat(ledger5Events, ledger6Events),
 		},
 		{
-			Range{
-				Start:      Cursor{Ledger: 5, Tx: 1, Op: 2},
+			EventRange{
+				Start:      EventCursor{Ledger: 5, Tx: 1, Op: 2},
 				ClampStart: false,
-				End:        Cursor{Ledger: 8, Tx: 1, Op: 4},
+				End:        EventCursor{Ledger: 8, Tx: 1, Op: 4},
 				ClampEnd:   false,
 			},
 			concat(ledger5Events[2:], ledger6Events, ledger7Events, ledger8Events[:1]),
@@ -429,7 +429,7 @@ func TestScan(t *testing.T) {
 		for _, input := range genEquivalentInputs(testCase.input) {
 			var events []event
 			iterateAll := true
-			f := func(contractEvent xdr.ContractEvent, cursor Cursor, ledgerCloseTimestamp int64) bool {
+			f := func(contractEvent xdr.ContractEvent, cursor EventCursor, ledgerCloseTimestamp int64) bool {
 				require.Equal(t, ledgerCloseTime(cursor.Ledger), ledgerCloseTimestamp)
 				events = append(events, event{
 					contents:   contractEvent,
@@ -439,14 +439,14 @@ func TestScan(t *testing.T) {
 				})
 				return iterateAll
 			}
-			latest, err := m.Scan(input, f)
+			latest, err := m.ScanEvents(input, f)
 			require.NoError(t, err)
 			require.Equal(t, uint32(9), latest)
 			eventsAreEqual(t, testCase.expected, events)
 			if len(events) > 0 {
 				events = nil
 				iterateAll = false
-				latest, err := m.Scan(input, f)
+				latest, err := m.ScanEvents(input, f)
 				require.NoError(t, err)
 				require.Equal(t, uint32(9), latest)
 				eventsAreEqual(t, []event{testCase.expected[0]}, events)

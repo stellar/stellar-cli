@@ -13,7 +13,7 @@ import (
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/xdr"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/memorystore"
 )
 
 func TestTopicFilterMatches(t *testing.T) {
@@ -233,7 +233,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
 		Filters:     []EventFilter{},
-		Pagination:  &PaginationOptions{Cursor: &events.Cursor{}},
+		Pagination:  &PaginationOptions{Cursor: &memorystore.EventCursor{}},
 	}).Valid(1000), "startLedger and cursor cannot both be set")
 
 	assert.NoError(t, (&GetEventsRequest{
@@ -346,7 +346,7 @@ func TestGetEvents(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("empty", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -361,7 +361,7 @@ func TestGetEvents(t *testing.T) {
 
 	t.Run("startLedger validation", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		txMeta = append(txMeta, transactionMetaWithEvents(
@@ -379,7 +379,7 @@ func TestGetEvents(t *testing.T) {
 				),
 			},
 		))
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...)))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -399,7 +399,7 @@ func TestGetEvents(t *testing.T) {
 
 	t.Run("no filtering returns all", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 10; i++ {
@@ -419,7 +419,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -433,7 +433,7 @@ func TestGetEvents(t *testing.T) {
 
 		var expected []EventInfo
 		for i := range txMeta {
-			id := events.Cursor{
+			id := memorystore.EventCursor{
 				Ledger: 1,
 				Tx:     uint32(i + 1),
 				Op:     0,
@@ -461,7 +461,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by contract id", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		contractIds := []xdr.Hash{
@@ -485,7 +485,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -502,9 +502,9 @@ func TestGetEvents(t *testing.T) {
 		assert.Equal(t, int64(2), results.LatestLedger)
 
 		expectedIds := []string{
-			events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 0}.String(),
-			events.Cursor{Ledger: 1, Tx: 3, Op: 0, Event: 0}.String(),
-			events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String(),
+			memorystore.EventCursor{Ledger: 1, Tx: 1, Op: 0, Event: 0}.String(),
+			memorystore.EventCursor{Ledger: 1, Tx: 3, Op: 0, Event: 0}.String(),
+			memorystore.EventCursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String(),
 		}
 		eventIds := []string{}
 		for _, event := range results.Events {
@@ -514,7 +514,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by topic", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		var txMeta []xdr.TransactionMeta
 		contractID := xdr.Hash([32]byte{})
@@ -534,7 +534,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		number := xdr.Int64(4)
 		handler := eventsRPCHandler{
@@ -555,7 +555,7 @@ func TestGetEvents(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		id := events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String()
+		id := memorystore.EventCursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String()
 		assert.NoError(t, err)
 		value, err := xdr.MarshalBase64(xdr.ScVal{
 			Type: xdr.ScValTypeScvU63,
@@ -578,7 +578,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by both contract id and topic", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		otherContractID := xdr.Hash([32]byte{1})
@@ -627,7 +627,7 @@ func TestGetEvents(t *testing.T) {
 				),
 			}),
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -650,7 +650,7 @@ func TestGetEvents(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		id := events.Cursor{Ledger: 1, Tx: 4, Op: 0, Event: 0}.String()
+		id := memorystore.EventCursor{Ledger: 1, Tx: 4, Op: 0, Event: 0}.String()
 		value, err := xdr.MarshalBase64(xdr.ScVal{
 			Type: xdr.ScValTypeScvU63,
 			U63:  &number,
@@ -672,7 +672,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by event type", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		txMeta := []xdr.TransactionMeta{
@@ -693,7 +693,7 @@ func TestGetEvents(t *testing.T) {
 				),
 			}),
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -708,7 +708,7 @@ func TestGetEvents(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		id := events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 1}.String()
+		id := memorystore.EventCursor{Ledger: 1, Tx: 1, Op: 0, Event: 1}.String()
 		expected := []EventInfo{
 			{
 				EventType:      EventTypeSystem,
@@ -725,7 +725,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("with limit", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		var txMeta []xdr.TransactionMeta
@@ -743,7 +743,7 @@ func TestGetEvents(t *testing.T) {
 				},
 			))
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -759,7 +759,7 @@ func TestGetEvents(t *testing.T) {
 
 		var expected []EventInfo
 		for i := 0; i < 10; i++ {
-			id := events.Cursor{
+			id := memorystore.EventCursor{
 				Ledger: 1,
 				Tx:     uint32(i + 1),
 				Op:     0,
@@ -784,7 +784,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("with cursor", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
+		store, err := memorystore.NewMemoryStore("unit-tests", 100)
 		assert.NoError(t, err)
 		contractID := xdr.Hash([32]byte{})
 		datas := []xdr.ScSymbol{
@@ -830,9 +830,9 @@ func TestGetEvents(t *testing.T) {
 				},
 			),
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)))
+		assert.NoError(t, store.Ingest(ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)))
 
-		id := &events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}
+		id := &memorystore.EventCursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}
 		handler := eventsRPCHandler{
 			scanner:      store,
 			maxLimit:     10000,
@@ -848,8 +848,8 @@ func TestGetEvents(t *testing.T) {
 
 		var expected []EventInfo
 		expectedIDs := []string{
-			events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 1}.String(),
-			events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 0}.String(),
+			memorystore.EventCursor{Ledger: 5, Tx: 1, Op: 0, Event: 1}.String(),
+			memorystore.EventCursor{Ledger: 5, Tx: 1, Op: 1, Event: 0}.String(),
 		}
 		symbols := datas[1:3]
 		for i, id := range expectedIDs {
@@ -870,7 +870,7 @@ func TestGetEvents(t *testing.T) {
 
 		results, err = handler.getEvents(GetEventsRequest{
 			Pagination: &PaginationOptions{
-				Cursor: &events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 1},
+				Cursor: &memorystore.EventCursor{Ledger: 5, Tx: 1, Op: 1, Event: 1},
 				Limit:  2,
 			},
 		})

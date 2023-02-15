@@ -1,13 +1,10 @@
-package events
+package memorystore
 
 import (
 	"errors"
 	"fmt"
-	"io"
-	"sort"
 	"sync"
 
-	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
 )
 
@@ -15,22 +12,9 @@ type bucket struct {
 	ledgerSeq            uint32
 	ledgerCloseTimestamp int64
 	events               []event
-}
-
-type event struct {
-	contents   xdr.ContractEvent
-	txIndex    uint32
-	opIndex    uint32
-	eventIndex uint32
-}
-
-func (e event) cursor(ledgerSeq uint32) Cursor {
-	return Cursor{
-		Ledger: ledgerSeq,
-		Tx:     e.txIndex,
-		Op:     e.opIndex,
-		Event:  e.eventIndex,
-	}
+	// transactions in the memory store belonging to the ledger in the current bucket
+	// this is used for garbage-collecting the global memory store transactions when the bucket is evicted
+	transactionHashes []xdr.Hash
 }
 
 // MemoryStore is an in-memory store of soroban events.
@@ -46,7 +30,8 @@ type MemoryStore struct {
 	// all events occurring within a specific ledger.
 	buckets []bucket
 	// start is the index of the head in the circular buffer.
-	start uint32
+	start        uint32
+	transactions map[xdr.Hash]Transaction
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -66,31 +51,31 @@ func NewMemoryStore(networkPassphrase string, retentionWindow uint32) (*MemorySt
 	}, nil
 }
 
-// Range defines a [Start, End) interval of Soroban events.
-type Range struct {
+// EventRange defines a [Start, End) interval of Soroban events.
+type EventRange struct {
 	// Start defines the (inclusive) start of the range.
-	Start Cursor
+	Start EventCursor
 	// ClampStart indicates whether Start should be clamped up
 	// to the earliest ledger available if Start is too low.
 	ClampStart bool
 	// End defines the (exclusive) end of the range.
-	End Cursor
+	End EventCursor
 	// ClampEnd indicates whether End should be clamped down
 	// to the latest ledger available if End is too high.
 	ClampEnd bool
 }
 
-// Scan applies f on all the events occurring in the given range.
-// The events are processed in sorted ascending Cursor order.
+// ScanEvents applies f on all the events occurring in the given range.
+// The events are processed in sorted ascending EventCursor order.
 // If f returns false, the scan terminates early (f will not be applied on
 // remaining events in the range). Note that a read lock is held for the
 // entire duration of the Scan function so f should be written in a way
 // to minimize latency.
-func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, int64) bool) (uint32, error) {
+func (m *MemoryStore) ScanEvents(eventRange EventRange, f func(xdr.ContractEvent, EventCursor, int64) bool) (uint32, error) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	if err := m.validateRange(&eventRange); err != nil {
+	if err := m.validateEventRange(&eventRange); err != nil {
 		return 0, err
 	}
 
@@ -98,7 +83,7 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, i
 	minLedger := m.buckets[m.start].ledgerSeq
 	latestLedger := minLedger + uint32(len(m.buckets))
 	i := ((curLedger - minLedger) + m.start) % uint32(len(m.buckets))
-	events := seek(m.buckets[i].events, eventRange.Start)
+	events := seekEvents(m.buckets[i].events, eventRange.Start)
 	for ; curLedger == m.buckets[i].ledgerSeq; curLedger++ {
 		timestamp := m.buckets[i].ledgerCloseTimestamp
 		for _, event := range events {
@@ -116,15 +101,15 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, i
 	return latestLedger, nil
 }
 
-// validateRange checks if the range falls within the bounds
+// validateEventRange checks if the range falls within the bounds
 // of the events in the memory store.
-// validateRange should be called with the read lock.
-func (m *MemoryStore) validateRange(eventRange *Range) error {
+// validateEventRange should be called with the read lock.
+func (m *MemoryStore) validateEventRange(eventRange *EventRange) error {
 	if len(m.buckets) == 0 {
 		return errors.New("event store is empty")
 	}
 
-	min := Cursor{Ledger: m.buckets[m.start].ledgerSeq}
+	min := EventCursor{Ledger: m.buckets[m.start].ledgerSeq}
 	if eventRange.Start.Cmp(min) < 0 {
 		if eventRange.ClampStart {
 			eventRange.Start = min
@@ -132,7 +117,7 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 			return errors.New("start is before oldest ledger")
 		}
 	}
-	max := Cursor{Ledger: min.Ledger + uint32(len(m.buckets))}
+	max := EventCursor{Ledger: min.Ledger + uint32(len(m.buckets))}
 	if eventRange.Start.Cmp(max) >= 0 {
 		return errors.New("start is after newest ledger")
 	}
@@ -151,80 +136,25 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 	return nil
 }
 
-// seek returns the subset of all events which occur
-// at a point greater than or equal to the given cursor.
-// events must be sorted in ascending order.
-func seek(events []event, cursor Cursor) []event {
-	j := sort.Search(len(events), func(i int) bool {
-		return cursor.Cmp(events[i].cursor(cursor.Ledger)) <= 0
-	})
-	return events[j:]
-}
-
-// IngestEvents adds new events from the given ledger into the store.
-// As a side effect, events which fall outside the retention window are
+// Ingest adds new data from the given ledger into the store.
+// As a side effect, data which falls outside the retention window are
 // removed from the store.
-func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
+func (m *MemoryStore) Ingest(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	// no need to acquire the lock because the networkPassphrase field
 	// is immutable
 	events, err := readEvents(m.networkPassphrase, ledgerCloseMeta)
 	if err != nil {
 		return err
 	}
+	transactions := readTransactions(ledgerCloseMeta)
+	ledgerCloseMeta.TransactionEnvelopes()
 	ledgerSequence := ledgerCloseMeta.LedgerSequence()
 	ledgerCloseTime := int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime)
-	return m.append(ledgerSequence, ledgerCloseTime, events)
-}
-
-func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (events []event, err error) {
-	var txReader *ingest.LedgerTransactionReader
-	txReader, err = ingest.NewLedgerTransactionReaderFromLedgerCloseMeta(networkPassphrase, ledgerCloseMeta)
-	if err != nil {
-		return
-	}
-	defer func() {
-		closeErr := txReader.Close()
-		if err == nil {
-			err = closeErr
-		}
-	}()
-
-	for {
-		var tx ingest.LedgerTransaction
-		tx, err = txReader.Read()
-		if err == io.EOF {
-			err = nil
-			break
-		}
-		if err != nil {
-			return
-		}
-
-		if !tx.Result.Successful() {
-			continue
-		}
-		for i := range tx.Envelope.Operations() {
-			opIndex := uint32(i)
-			var opEvents []xdr.ContractEvent
-			opEvents, err = tx.GetOperationEvents(opIndex)
-			if err != nil {
-				return
-			}
-			for eventIndex, opEvent := range opEvents {
-				events = append(events, event{
-					contents:   opEvent,
-					txIndex:    tx.Index,
-					opIndex:    opIndex,
-					eventIndex: uint32(eventIndex),
-				})
-			}
-		}
-	}
-	return events, err
+	return m.append(ledgerSequence, ledgerCloseTime, events, transactions)
 }
 
 // append adds new events to the circular buffer.
-func (m *MemoryStore) append(sequence uint32, ledgerCloseTimestamp int64, events []event) error {
+func (m *MemoryStore) append(sequence uint32, ledgerCloseTimestamp int64, events []event, transactions []Transaction) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -235,16 +165,25 @@ func (m *MemoryStore) append(sequence uint32, ledgerCloseTimestamp int64, events
 			return fmt.Errorf("events not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, sequence)
 		}
 	}
+	transactionHashes := make([]xdr.Hash, len(transactions))
+	for i := range transactions {
+		transactionHashes[i] = transactions[i].id
+	}
 
 	nextBucket := bucket{
 		ledgerCloseTimestamp: ledgerCloseTimestamp,
 		ledgerSeq:            sequence,
 		events:               events,
+		transactionHashes:    transactionHashes,
 	}
 	if length < uint32(cap(m.buckets)) {
 		m.buckets = append(m.buckets, nextBucket)
 	} else {
 		index := (m.start + length) % uint32(len(m.buckets))
+		// garbage-collect the transactions from the bucket we are evicting
+		for _, hash := range m.buckets[index].transactionHashes {
+			delete(m.transactions, hash)
+		}
 		m.buckets[index] = nextBucket
 		m.start++
 	}

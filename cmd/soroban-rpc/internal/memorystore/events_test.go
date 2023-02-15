@@ -1,4 +1,4 @@
-package events
+package memorystore
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseCursor(t *testing.T) {
-	for _, cursor := range []Cursor{
+	for _, cursor := range []EventCursor{
 		{
 			Ledger: math.MaxInt32,
 			Tx:     1048575,
@@ -37,13 +37,13 @@ func TestParseCursor(t *testing.T) {
 
 func TestCursorJSON(t *testing.T) {
 	type options struct {
-		Cursor *Cursor `json:"cursor,omitempty"`
-		Limit  uint    `json:"limit,omitempty"`
+		Cursor *EventCursor `json:"cursor,omitempty"`
+		Limit  uint         `json:"limit,omitempty"`
 	}
 	for _, testCase := range []options{
 		{nil, 100},
 		{nil, 0},
-		{&Cursor{
+		{&EventCursor{
 			Ledger: 1,
 			Tx:     2,
 			Op:     3,
@@ -60,36 +60,36 @@ func TestCursorJSON(t *testing.T) {
 
 func TestCursorCmp(t *testing.T) {
 	for _, testCase := range []struct {
-		a        Cursor
-		b        Cursor
+		a        EventCursor
+		b        EventCursor
 		expected int
 	}{
-		{MinCursor, MaxCursor, -1},
-		{MinCursor, MinCursor, 0},
-		{MaxCursor, MaxCursor, 0},
+		{MinEventCursor, MaxEventCursor, -1},
+		{MinEventCursor, MinEventCursor, 0},
+		{MaxEventCursor, MaxEventCursor, 0},
 		{
-			Cursor{Ledger: 1, Tx: 2, Op: 3, Event: 4},
-			Cursor{Ledger: 1, Tx: 2, Op: 3, Event: 4},
+			EventCursor{Ledger: 1, Tx: 2, Op: 3, Event: 4},
+			EventCursor{Ledger: 1, Tx: 2, Op: 3, Event: 4},
 			0,
 		},
 		{
-			Cursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
-			Cursor{Ledger: 7, Tx: 2, Op: 3, Event: 4},
+			EventCursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
+			EventCursor{Ledger: 7, Tx: 2, Op: 3, Event: 4},
 			-1,
 		},
 		{
-			Cursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
-			Cursor{Ledger: 5, Tx: 7, Op: 3, Event: 4},
+			EventCursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
+			EventCursor{Ledger: 5, Tx: 7, Op: 3, Event: 4},
 			-1,
 		},
 		{
-			Cursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
-			Cursor{Ledger: 5, Tx: 2, Op: 7, Event: 4},
+			EventCursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
+			EventCursor{Ledger: 5, Tx: 2, Op: 7, Event: 4},
 			-1,
 		},
 		{
-			Cursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
-			Cursor{Ledger: 5, Tx: 2, Op: 3, Event: 7},
+			EventCursor{Ledger: 5, Tx: 2, Op: 3, Event: 4},
+			EventCursor{Ledger: 5, Tx: 2, Op: 3, Event: 7},
 			-1,
 		},
 	} {

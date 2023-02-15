@@ -16,8 +16,8 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/memorystore"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
@@ -105,7 +105,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 
 	ledgerRetentionWindow := uint32(cfg.LedgerRetentionWindow)
-	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, ledgerRetentionWindow)
+	eventStore, err := memorystore.NewMemoryStore(cfg.NetworkPassphrase, ledgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create event store: %v", err)
 	}
