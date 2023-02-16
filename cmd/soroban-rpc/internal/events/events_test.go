@@ -83,84 +83,6 @@ func eventsAreEqual(t *testing.T, a, b []event) {
 	}
 }
 
-func TestAppend(t *testing.T) {
-	m, err := NewMemoryStore("unit-tests", 3)
-	require.NoError(t, err)
-
-	// test appending first bucket of events
-	require.NoError(t, m.append(5, ledger5CloseTime, ledger5Events))
-	require.Equal(t, uint32(5), m.buckets[m.start].ledgerSeq)
-	require.Equal(t, ledger5CloseTime, m.buckets[m.start].ledgerCloseTimestamp)
-	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
-	require.Equal(t, 1, len(m.buckets))
-
-	// the next bucket of events must follow the previous bucket (ledger 5)
-	require.EqualError(
-		t, m.append(10, 100, ledger5Events),
-		"events not contiguous: expected ledger sequence 6 but received 10",
-	)
-	require.EqualError(
-		t, m.append(4, 100, ledger5Events),
-		"events not contiguous: expected ledger sequence 6 but received 4",
-	)
-	require.EqualError(
-		t, m.append(5, 100, nil),
-		"events not contiguous: expected ledger sequence 6 but received 5",
-	)
-	// check that none of the calls above modified our buckets
-	require.Equal(t, ledger5Events, m.buckets[m.start].events)
-	require.Equal(t, 1, len(m.buckets))
-
-	// append ledger 6 events, now we have two buckets filled
-	require.NoError(t, m.append(6, ledger6CloseTime, ledger6Events))
-	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
-	eventsAreEqual(t, ledger6Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
-	require.Equal(t, uint32(6), m.buckets[(m.start+1)%uint32(len(m.buckets))].ledgerSeq)
-	require.Equal(t, ledger6CloseTime, m.buckets[(m.start+1)%uint32(len(m.buckets))].ledgerCloseTimestamp)
-	require.Equal(t, 2, len(m.buckets))
-
-	// the next bucket of events must follow the previous bucket (ledger 6)
-	require.EqualError(
-		t, m.append(10, 100, ledger5Events),
-		"events not contiguous: expected ledger sequence 7 but received 10",
-	)
-	require.EqualError(
-		t, m.append(5, 100, ledger5Events),
-		"events not contiguous: expected ledger sequence 7 but received 5",
-	)
-	require.EqualError(
-		t, m.append(6, 100, nil),
-		"events not contiguous: expected ledger sequence 7 but received 6",
-	)
-
-	// append ledger 7 events, now we have all three buckets filled
-	require.NoError(t, m.append(7, ledger7CloseTime, ledger7Events))
-	eventsAreEqual(t, ledger5Events, m.buckets[m.start].events)
-	eventsAreEqual(t, ledger6Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
-	eventsAreEqual(t, ledger7Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
-	require.Equal(t, uint32(7), m.buckets[(m.start+2)%uint32(len(m.buckets))].ledgerSeq)
-	require.Equal(t, ledger7CloseTime, m.buckets[(m.start+2)%uint32(len(m.buckets))].ledgerCloseTimestamp)
-	require.Equal(t, 3, len(m.buckets))
-
-	// append ledger 8 events, but all buckets are full, so we need to evict ledger 5
-	require.NoError(t, m.append(8, ledger8CloseTime, ledger8Events))
-	eventsAreEqual(t, ledger6Events, m.buckets[m.start].events)
-	eventsAreEqual(t, ledger7Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
-	eventsAreEqual(t, ledger8Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
-	require.Equal(t, uint32(8), m.buckets[(m.start+2)%uint32(len(m.buckets))].ledgerSeq)
-	require.Equal(t, ledger8CloseTime, m.buckets[(m.start+2)%uint32(len(m.buckets))].ledgerCloseTimestamp)
-	require.Equal(t, 3, len(m.buckets))
-
-	// append ledger 9 events, but all buckets are full, so we need to evict ledger 6
-	require.NoError(t, m.append(9, ledger9CloseTime, ledger9Events))
-	eventsAreEqual(t, ledger7Events, m.buckets[m.start].events)
-	eventsAreEqual(t, ledger8Events, m.buckets[(m.start+1)%uint32(len(m.buckets))].events)
-	eventsAreEqual(t, ledger9Events, m.buckets[(m.start+2)%uint32(len(m.buckets))].events)
-	require.Equal(t, uint32(9), m.buckets[(m.start+2)%uint32(len(m.buckets))].ledgerSeq)
-	require.Equal(t, ledger9CloseTime, m.buckets[(m.start+2)%uint32(len(m.buckets))].ledgerCloseTimestamp)
-	require.Equal(t, 3, len(m.buckets))
-}
-
 func TestScanRangeValidation(t *testing.T) {
 	m, err := NewMemoryStore("unit-tests", 4)
 	require.NoError(t, err)
@@ -291,10 +213,14 @@ func createStore(t *testing.T) *MemoryStore {
 	m, err := NewMemoryStore("unit-tests", 4)
 	require.NoError(t, err)
 
-	require.NoError(t, m.append(5, ledger5CloseTime, ledger5Events))
-	require.NoError(t, m.append(6, ledger6CloseTime, nil))
-	require.NoError(t, m.append(7, ledger7CloseTime, ledger7Events))
-	require.NoError(t, m.append(8, ledger8CloseTime, ledger8Events))
+	_, err = m.eventsByLedger.Append(5, ledger5CloseTime, ledger5Events)
+	require.NoError(t, err)
+	_, err = m.eventsByLedger.Append(6, ledger6CloseTime, nil)
+	require.NoError(t, err)
+	_, err = m.eventsByLedger.Append(7, ledger7CloseTime, ledger7Events)
+	require.NoError(t, err)
+	_, err = m.eventsByLedger.Append(8, ledger8CloseTime, ledger8Events)
+	require.NoError(t, err)
 
 	return m
 }

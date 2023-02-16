@@ -19,6 +19,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
 const (
@@ -110,10 +111,16 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not create event store: %v", err)
 	}
 
+	transactionStore, err := transactions.NewMemoryStore(ledgerRetentionWindow)
+	if err != nil {
+		logger.Fatalf("could not create event store: %v", err)
+	}
+
 	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
 		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, ledgerRetentionWindow),
 		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,
