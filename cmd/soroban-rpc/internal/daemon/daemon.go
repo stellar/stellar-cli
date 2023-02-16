@@ -105,20 +105,21 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	ledgerRetentionWindow := uint32(cfg.LedgerRetentionWindow)
-	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, ledgerRetentionWindow)
+	eventsledgerRetentionWindow := uint32(cfg.EventLedgerRetentionWindow)
+	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, eventsledgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create event store: %v", err)
 	}
 
-	transactionStore, err := transactions.NewMemoryStore(ledgerRetentionWindow)
+	transactionsledgerRetentionWindow := uint32(cfg.TransactionLedgerRetentionWindow)
+	transactionStore, err := transactions.NewMemoryStore(transactionsledgerRetentionWindow)
 	if err != nil {
-		logger.Fatalf("could not create event store: %v", err)
+		logger.Fatalf("could not create transaction store: %v", err)
 	}
 
 	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
-		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, ledgerRetentionWindow),
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, eventsledgerRetentionWindow),
 		EventStore:        eventStore,
 		TransactionStore:  transactionStore,
 		NetworkPassPhrase: cfg.NetworkPassphrase,

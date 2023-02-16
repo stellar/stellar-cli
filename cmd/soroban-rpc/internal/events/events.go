@@ -92,30 +92,28 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, i
 		return 0, err
 	}
 
-	firstBucket := m.eventsByLedger.Get(0)
-	curLedger := eventRange.Start.Ledger
-	minLedger := firstBucket.LedgerSeq
-	latestLedger := minLedger + m.eventsByLedger.Len()
-	i := curLedger - minLedger
-	events := seek(m.eventsByLedger.Get(i).BucketContent, eventRange.Start)
-	for ; curLedger == m.eventsByLedger.Get(i).LedgerSeq; curLedger++ {
-		timestamp := m.eventsByLedger.Get(i).LedgerCloseTimestamp
+	firstLedgerInRange := eventRange.Start.Ledger
+	firstLedgerInWindow := m.eventsByLedger.Get(0).LedgerSeq
+	lastLedgerInWindow := firstLedgerInWindow + (m.eventsByLedger.Len() - 1)
+	for i := firstLedgerInRange - firstLedgerInWindow; i < m.eventsByLedger.Len(); i++ {
+		bucket := m.eventsByLedger.Get(i)
+		events := bucket.BucketContent
+		if bucket.LedgerSeq == firstLedgerInRange {
+			// we need to seek for the beginning of the events in the first bucket in the range
+			events = seek(events, eventRange.Start)
+		}
+		timestamp := bucket.LedgerCloseTimestamp
 		for _, event := range events {
-			cur := event.cursor(curLedger)
+			cur := event.cursor(bucket.LedgerSeq)
 			if eventRange.End.Cmp(cur) <= 0 {
-				return latestLedger, nil
+				return lastLedgerInWindow, nil
 			}
 			if !f(event.contents, cur, timestamp) {
-				return latestLedger, nil
+				return lastLedgerInWindow, nil
 			}
 		}
-		i++
-		if i == m.eventsByLedger.Len() {
-			return latestLedger, nil
-		}
-		events = m.eventsByLedger.Get(i).BucketContent
 	}
-	return latestLedger, nil
+	return lastLedgerInWindow, nil
 }
 
 // validateRange checks if the range falls within the bounds
@@ -173,10 +171,13 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	if err != nil {
 		return err
 	}
-	ledgerSequence := ledgerCloseMeta.LedgerSequence()
-	ledgerCloseTime := int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime)
+	bucket := ledgerbucketwindow.LedgerBucket[[]event]{
+		LedgerSeq:            ledgerCloseMeta.LedgerSequence(),
+		LedgerCloseTimestamp: int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime),
+		BucketContent:        events,
+	}
 	m.lock.Lock()
-	_, err = m.eventsByLedger.Append(ledgerSequence, ledgerCloseTime, events)
+	_, err = m.eventsByLedger.Append(bucket)
 	m.lock.Unlock()
 	return err
 }

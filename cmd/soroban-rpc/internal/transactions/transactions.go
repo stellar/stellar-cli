@@ -8,17 +8,16 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
-type Transaction struct {
-	id       xdr.Hash
-	envelope xdr.TransactionEnvelope
-	result   xdr.TransactionResult
-	meta     xdr.TransactionMeta
+type transaction struct {
+	bucket           *ledgerbucketwindow.LedgerBucket[[]xdr.Hash]
+	result           xdr.TransactionResult
+	applicationOrder int32
 }
 
 // MemoryStore is an in-memory store of Stellar transactions.
 type MemoryStore struct {
 	lock                 sync.RWMutex
-	transactions         map[xdr.Hash]Transaction
+	transactions         map[xdr.Hash]transaction
 	transactionsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
 }
 
@@ -35,7 +34,7 @@ func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
 		return nil, err
 	}
 	return &MemoryStore{
-		transactions:         make(map[xdr.Hash]Transaction),
+		transactions:         make(map[xdr.Hash]transaction),
 		transactionsByLedger: window,
 	}, nil
 }
@@ -44,17 +43,29 @@ func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
 // As a side effect, transactions which fall outside the retention window are
 // removed from the store.
 func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) error {
-	transactions := readTransactions(ledgerCloseMeta)
-	ledgerSequence := ledgerCloseMeta.LedgerSequence()
-	ledgerCloseTime := int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime)
+	txCount := ledgerCloseMeta.CountTransactions()
+	transactions := make([]transaction, txCount)
+	transactionHashes := make([]xdr.Hash, txCount)
+	var bucket ledgerbucketwindow.LedgerBucket[[]xdr.Hash]
+	for i := 0; i < txCount; i++ {
+		resultPair := ledgerCloseMeta.TransactionResultPair(i)
+		transactionHashes[i] = resultPair.TransactionHash
+		transactions[i].result = resultPair.Result
+		transactions[i].applicationOrder = int32(i)
+		transactions[i].bucket = &bucket
+	}
+	bucket = ledgerbucketwindow.LedgerBucket[[]xdr.Hash]{
+		LedgerSeq:            ledgerCloseMeta.LedgerSequence(),
+		LedgerCloseTimestamp: int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime),
+		BucketContent:        transactionHashes,
+	}
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	transactionHashes := make([]xdr.Hash, len(transactions))
-	for i, tx := range transactions {
-		m.transactions[tx.id] = tx
-		transactionHashes[i] = transactions[i].id
+	for i := range transactions {
+		m.transactions[transactionHashes[i]] = transactions[i]
 	}
-	evicted, err := m.transactionsByLedger.Append(ledgerSequence, ledgerCloseTime, transactionHashes)
+	evicted, err := m.transactionsByLedger.Append(bucket)
 	if evicted != nil {
 		// garbage-collect evicted entries
 		for _, evictedTxHash := range evicted.BucketContent {
@@ -64,23 +75,52 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 	return err
 }
 
-func readTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) []Transaction {
-	envs := ledgerCloseMeta.TransactionEnvelopes()
-	result := make([]Transaction, len(envs))
-	for i := range envs {
-		resultPair := ledgerCloseMeta.TransactionResultPair(i)
-		result[i].id = resultPair.TransactionHash
-		result[i].envelope = envs[i]
-		result[i].result = resultPair.Result
-		result[i].meta = ledgerCloseMeta.TxApplyProcessing(i)
-	}
-	return result
+type LedgerInfo struct {
+	Sequence  uint32
+	CloseTime int64
 }
 
-// GetTransaction obtains a transaction from the store and whether it's present.
-func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool) {
+type Transaction struct {
+	Result           xdr.TransactionResult
+	ApplicationOrder int32
+	Ledger           LedgerInfo
+}
+
+type StoreRange struct {
+	FirstLedger LedgerInfo
+	LastLedger  LedgerInfo
+}
+
+// GetTransaction obtains a transaction from the store and whether it's present and the current store range
+func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRange) {
 	m.lock.RLock()
-	tx, ok := m.transactions[hash]
-	m.lock.RUnlock()
-	return tx, ok
+	defer m.lock.RUnlock()
+	var storeRange StoreRange
+	if m.transactionsByLedger.Len() > 0 {
+		firstBucket := m.transactionsByLedger.Get(0)
+		lastBucket := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
+		storeRange = StoreRange{
+			FirstLedger: LedgerInfo{
+				Sequence:  firstBucket.LedgerSeq,
+				CloseTime: firstBucket.LedgerCloseTimestamp,
+			},
+			LastLedger: LedgerInfo{
+				Sequence:  lastBucket.LedgerSeq,
+				CloseTime: lastBucket.LedgerCloseTimestamp,
+			},
+		}
+	}
+	internalTx, ok := m.transactions[hash]
+	if !ok {
+		return Transaction{}, false, storeRange
+	}
+	tx := Transaction{
+		Result:           xdr.TransactionResult{},
+		ApplicationOrder: internalTx.applicationOrder,
+		Ledger: LedgerInfo{
+			Sequence:  internalTx.bucket.LedgerSeq,
+			CloseTime: internalTx.bucket.LedgerCloseTimestamp,
+		},
+	}
+	return tx, true, storeRange
 }

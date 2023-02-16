@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
 var (
@@ -29,10 +31,6 @@ var (
 		newEvent(2, 0, 1, 800),
 		newEvent(2, 0, 2, 900),
 		newEvent(2, 1, 0, 1000),
-	}
-	ledger9CloseTime = ledgerCloseTime(9)
-	ledger9Events    = []event{
-		newEvent(1, 0, 0, 1100),
 	}
 )
 
@@ -212,14 +210,29 @@ func TestScanRangeValidation(t *testing.T) {
 func createStore(t *testing.T) *MemoryStore {
 	m, err := NewMemoryStore("unit-tests", 4)
 	require.NoError(t, err)
-
-	_, err = m.eventsByLedger.Append(5, ledger5CloseTime, ledger5Events)
+	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+		LedgerSeq:            5,
+		LedgerCloseTimestamp: ledger5CloseTime,
+		BucketContent:        ledger5Events,
+	})
 	require.NoError(t, err)
-	_, err = m.eventsByLedger.Append(6, ledger6CloseTime, nil)
+	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+		LedgerSeq:            6,
+		LedgerCloseTimestamp: ledger6CloseTime,
+		BucketContent:        nil,
+	})
 	require.NoError(t, err)
-	_, err = m.eventsByLedger.Append(7, ledger7CloseTime, ledger7Events)
+	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+		LedgerSeq:            7,
+		LedgerCloseTimestamp: ledger7CloseTime,
+		BucketContent:        ledger7Events,
+	})
 	require.NoError(t, err)
-	_, err = m.eventsByLedger.Append(8, ledger8CloseTime, ledger8Events)
+	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+		LedgerSeq:            8,
+		LedgerCloseTimestamp: ledger8CloseTime,
+		BucketContent:        ledger8Events,
+	})
 	require.NoError(t, err)
 
 	return m
@@ -367,14 +380,14 @@ func TestScan(t *testing.T) {
 			}
 			latest, err := m.Scan(input, f)
 			require.NoError(t, err)
-			require.Equal(t, uint32(9), latest)
+			require.Equal(t, uint32(8), latest)
 			eventsAreEqual(t, testCase.expected, events)
 			if len(events) > 0 {
 				events = nil
 				iterateAll = false
 				latest, err := m.Scan(input, f)
 				require.NoError(t, err)
-				require.Equal(t, uint32(9), latest)
+				require.Equal(t, uint32(8), latest)
 				eventsAreEqual(t, []event{testCase.expected[0]}, events)
 			}
 		}

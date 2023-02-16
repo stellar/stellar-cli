@@ -186,13 +186,22 @@ func main() {
 			Required:    false,
 		},
 		{
-			Name:        "ledger-retention-window",
+			Name:        "event-retention-window",
 			OptType:     types.Int,
 			FlagDefault: 17280,
 			Required:    false,
-			Usage: "configures the window of ledgers which are stored in the db." +
-				" the default value is 17280 which corresponds to about 24 hours of ledgers",
-			ConfigKey: &serviceConfig.LedgerRetentionWindow,
+			Usage: "configures the event retention window expressed in number of ledgers," +
+				" the default value is 17280 which corresponds to about 24 hours of history",
+			ConfigKey: &serviceConfig.EventLedgerRetentionWindow,
+		},
+		{
+			Name:        "transaction-retention-window",
+			OptType:     types.Int,
+			FlagDefault: 1440,
+			Required:    false,
+			Usage: "configures the transaction retention window expressed in number of ledgers," +
+				" the default value is 1440 which corresponds to about 2 hours of history",
+			ConfigKey: &serviceConfig.TransactionLedgerRetentionWindow,
 		},
 		{
 			Name:        "max-events-limit",
@@ -221,7 +230,7 @@ func main() {
 				fmt.Printf("failed to set values : %v\n", err)
 				os.Exit(-1)
 			}
-			if serviceConfig.LedgerRetentionWindow <= 0 {
+			if serviceConfig.EventLedgerRetentionWindow <= 0 {
 				fmt.Printf("ledger-retention-window must be positive\n")
 				os.Exit(-1)
 			}
