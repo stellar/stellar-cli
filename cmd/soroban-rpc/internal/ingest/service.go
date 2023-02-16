@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	changePrintOutFreq = 10000
+	ledgerEntryBaselineProgressLogPeriod = 10000
 )
 
 type Config struct {
@@ -70,6 +70,8 @@ func (s *Service) Close() error {
 
 func (s *Service) run(ctx context.Context, archive historyarchive.ArchiveInterface) error {
 	defer s.wg.Done()
+	// Create a ledger-entry baseline from a checkpoint if it wasn't done before
+	// (after that we will be adding deltas from txmeta ledger entry changes)
 	nextLedgerSeq, checkPointFillErr, err := s.maybeFillEntriesFromCheckpoint(ctx, archive)
 	if err != nil {
 		return err
@@ -96,7 +98,7 @@ func (s *Service) run(ctx context.Context, archive historyarchive.ArchiveInterfa
 
 func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface) (uint32, chan error, error) {
 	checkPointFillErr := make(chan error, 1)
-	// First, make sure the DB has a complete ledger entry baseline
+	// Skip creating a ledger-entry baseline if the DB was initialized
 	curLedgerSeq, err := s.db.GetLatestLedgerSequence(ctx)
 	if err == db.ErrEmptyDB {
 		var checkpointLedger uint32
@@ -108,7 +110,7 @@ func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive hi
 
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		// Do it in parallel with the upcoming captive core preparation to save time
-		s.logger.Infof("Found an empty database, filling it in from the most recent checkpoint (this can take up to 30 minutes, depending on the network)")
+		s.logger.Infof("Found an empty database, creating ledger-entry baseline from the most recent checkpoint (%d). This can take up to 30 minutes, depending on the network", checkpointLedger)
 		go func() {
 			checkPointFillErr <- s.fillEntriesFromCheckpoint(ctx, archive, checkpointLedger)
 		}()
@@ -122,7 +124,6 @@ func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive hi
 }
 
 func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive historyarchive.ArchiveInterface, checkpointLedger uint32) error {
-	s.logger.Infof("Starting processing of checkpoint %d", checkpointLedger)
 	checkpointCtx, cancelCheckpointCtx := context.WithTimeout(ctx, s.timeout)
 	defer cancelCheckpointCtx()
 
@@ -141,7 +142,7 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 		}
 	}()
 
-	if err := s.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
+	if err := s.ingestLedgerEntryChanges(ctx, reader, tx, ledgerEntryBaselineProgressLogPeriod); err != nil {
 		return err
 	}
 	if err := reader.Close(); err != nil {
@@ -157,7 +158,7 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 }
 
 func (s *Service) ingest(ctx context.Context, sequence uint32) error {
-	s.logger.Infof("Applying txmeta ledger entries changes for ledger %d", sequence)
+	s.logger.Infof("Applying txmeta for ledger %d", sequence)
 	ledgerCloseMeta, err := s.ledgerBackend.GetLedger(ctx, sequence)
 	if err != nil {
 		return err
@@ -176,7 +177,7 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 		}
 	}()
 
-	if err := s.ingestLedgerEntryChanges(ctx, reader, tx); err != nil {
+	if err := s.ingestLedgerEntryChanges(ctx, reader, tx, 0); err != nil {
 		return err
 	}
 	if err := reader.Close(); err != nil {
