@@ -1,4 +1,4 @@
-FROM golang:1.19.1 as build
+FROM golang:1.20.1 as build
 ARG RUST_TOOLCHAIN_VERSION=stable
 ARG REPOSITORY_VERSION
 
