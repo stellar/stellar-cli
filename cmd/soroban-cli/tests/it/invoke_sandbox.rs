@@ -3,10 +3,12 @@ use crate::util::{
     DEFAULT_SEED_PHRASE, HELLO_WORLD,
 };
 
+use crate::util::{add_test_seed, HELLO_WORLD};
+
 #[test]
 fn install_wasm_then_deploy_contract() {
-    let hash = HELLO_WORLD.hash();
-    let sandbox = Sandbox::new();
+    let hash = HELLO_WORLD.hash().unwrap();
+    let sandbox = Nebula::default();
     sandbox
         .new_cmd("contract")
         .arg("install")
@@ -29,7 +31,7 @@ fn install_wasm_then_deploy_contract() {
 
 #[test]
 fn deploy_contract_with_wasm_file() {
-    Sandbox::new()
+    Nebula::default()
         .new_cmd("contract")
         .arg("deploy")
         .arg("--wasm")
@@ -42,7 +44,7 @@ fn deploy_contract_with_wasm_file() {
 
 #[test]
 fn invoke_hello_world_with_deploy_first() {
-    let sandbox = Sandbox::new();
+    let sandbox = Nebula::default();
     let res = sandbox
         .new_cmd("contract")
         .arg("deploy")
@@ -67,7 +69,7 @@ fn invoke_hello_world_with_deploy_first() {
 
 #[test]
 fn invoke_hello_world() {
-    let sandbox = Sandbox::new();
+    let sandbox = Nebula::default();
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -141,7 +143,7 @@ fn invoke_auth_with_different_test_account_fail() {
 
 #[test]
 fn invoke_hello_world_with_seed() {
-    let sandbox = Sandbox::new();
+    let sandbox = Nebula::default();
     let identity = add_test_seed(sandbox.dir());
     invoke_with_source(&sandbox, &identity);
 }

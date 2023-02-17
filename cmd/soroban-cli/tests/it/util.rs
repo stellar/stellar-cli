@@ -1,135 +1,11 @@
-use std::{ffi::OsString, fmt::Display, fs, path::PathBuf};
+use std::{fmt::Display, fs};
 
-use assert_cmd::{assert::Assert, Command};
-use assert_fs::{prelude::PathChild, TempDir};
-use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{Error as XdrError, Hash, InstallContractCodeArgs, WriteXdr};
+use assert_cmd::Command;
+use assert_fs::TempDir;
+use soroban_test::{CommandExt, Nebula, Wasm};
 
-pub struct Wasm<'a>(pub &'a str);
-
-impl Wasm<'_> {
-    pub fn path(&self) -> PathBuf {
-        let mut path = PathBuf::from(
-            std::env::var("CARGO_MANIFEST_DIR")
-                .map_or_else(|_| "", |_| "../..")
-                .to_string(),
-        )
-        .join("target/wasm32-unknown-unknown/test-wasms")
-        .join(self.0);
-        path.set_extension("wasm");
-        assert!(path.is_file(), "File not found: {}. run 'make build-test-wasms' to generate .wasm files before running this test", path.display());
-        std::env::current_dir().unwrap().join(path)
-    }
-
-    pub fn bytes(&self) -> Vec<u8> {
-        fs::read(self.path()).unwrap()
-    }
-
-    pub fn hash(&self) -> Hash {
-        contract_hash(&self.bytes()).unwrap()
-    }
-}
-
-/// Default
-pub struct Sandbox {
-    pub temp_dir: TempDir,
-}
-
-impl Sandbox {
-    pub fn new() -> Sandbox {
-        Self {
-            temp_dir: TempDir::new().expect("failed to create temp dir"),
-        }
-    }
-    pub fn new_cmd(&self, name: &str) -> Command {
-        let mut this = Command::cargo_bin("soroban").expect("failed to find local soroban binary");
-        this.arg(name);
-        this.current_dir(&self.temp_dir);
-        this
-    }
-
-    pub fn dir(&self) -> &TempDir {
-        &self.temp_dir
-    }
-
-    pub fn gen_test_identity(&self) {
-        self.new_cmd("config")
-            .arg("identity")
-            .arg("generate")
-            .arg("--default-seed")
-            .arg("test")
-            .assert()
-            .success();
-    }
-
-    pub fn test_address(&self, hd_path: usize) -> String {
-        self.new_cmd("config")
-            .args("identity address test --hd-path".split(' '))
-            .arg(format!("{hd_path}"))
-            .assert()
-            .stdout_as_str()
-    }
-}
-
-pub fn temp_ledger_file() -> OsString {
-    TempDir::new()
-        .unwrap()
-        .child("ledger.json")
-        .as_os_str()
-        .into()
-}
-
-pub trait AssertExt {
-    fn stdout_as_str(&self) -> String;
-    fn stderr_as_str(&self) -> String;
-}
-
-impl AssertExt for Assert {
-    fn stdout_as_str(&self) -> String {
-        String::from_utf8(self.get_output().stdout.clone())
-            .expect("failed to make str")
-            .trim()
-            .to_owned()
-    }
-
-    fn stderr_as_str(&self) -> String {
-        String::from_utf8(self.get_output().stderr.clone())
-            .expect("failed to make str")
-            .trim()
-            .to_owned()
-    }
-}
-pub trait CommandExt {
-    fn json_arg<A>(&mut self, j: A) -> &mut Self
-    where
-        A: Display;
-}
-
-impl CommandExt for Command {
-    fn json_arg<A>(&mut self, j: A) -> &mut Self
-    where
-        A: Display,
-    {
-        self.arg(OsString::from(j.to_string()))
-    }
-}
-
-// TODO add a `lib.rs` so that this can be imported
-pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
-    let args_xdr = InstallContractCodeArgs {
-        code: contract.try_into()?,
-    }
-    .to_xdr()?;
-    Ok(Hash(Sha256::digest(args_xdr).into()))
-}
-
-pub const HELLO_WORLD: &Wasm = &Wasm("test_hello_world");
-pub const CUSTOM_TYPES: &Wasm = &Wasm("test_custom_types");
-
-#[allow(unused)]
-pub fn temp_dir() -> TempDir {
-    TempDir::new().unwrap()
-}
+pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
+pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 
 #[derive(Clone)]
 pub enum SecretKind {
@@ -171,7 +47,7 @@ pub fn add_test_seed(dir: &TempDir) -> String {
     name.to_owned()
 }
 
-pub fn invoke(sandbox: &Sandbox, func: &str) -> Command {
+pub fn invoke(sandbox: &Nebula, func: &str) -> Command {
     let mut s = sandbox.new_cmd("contract");
     s.arg("invoke")
         .arg("--id=1")
@@ -182,7 +58,7 @@ pub fn invoke(sandbox: &Sandbox, func: &str) -> Command {
     s
 }
 
-pub fn invoke_help(sandbox: &Sandbox) -> Command {
+pub fn invoke_help(sandbox: &Nebula) -> Command {
     let mut s = sandbox.new_cmd("contract");
     s.arg("invoke")
         .arg("--id=1")
@@ -197,7 +73,7 @@ pub fn invoke_with_roundtrip<D>(func: &str, data: D)
 where
     D: Display,
 {
-    invoke(&Sandbox::new(), func)
+    invoke(&Nebula::default(), func)
         .arg(&format!("--{func}"))
         .json_arg(&data)
         .assert()
