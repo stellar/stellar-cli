@@ -10,11 +10,10 @@ use soroban_env_host::{
     xdr::{self, ReadXdr, WriteXdr},
 };
 
+use crate::commands::{HEADING_RPC, HEADING_SANDBOX};
 use crate::{rpc, toid, utils};
-use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
-#[clap()]
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required
     /// if not in sandbox mode).

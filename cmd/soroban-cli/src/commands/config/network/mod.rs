@@ -1,7 +1,7 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-use crate::HEADING_RPC;
+use crate::commands::HEADING_RPC;
 
 use super::locator;
 

@@ -13,7 +13,12 @@ autobins = false
 
 [[bin]]
 name = "soroban"
-path = "src/main.rs"
+path = "src/bin/main.rs"
+
+[lib]
+name = "soroban_cli"
+path = "src/lib.rs"
+doctest = false
 
 [dependencies]
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }

@@ -1,4 +1,4 @@
-use crate::config::{
+use super::super::{
     locator,
     secret::{self, Secret},
 };

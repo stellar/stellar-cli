@@ -6,7 +6,6 @@ use clap::Parser;
 use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
-use soroban_cli::wasm;
 use soroban_env_host::xdr::HashIdPreimageSourceAccountContractId;
 use soroban_env_host::xdr::{
     AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
@@ -17,10 +16,11 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::HostError;
 
-use crate::config;
-use crate::contract::install;
-use crate::rpc::{self, Client};
-use crate::{utils, HEADING_RPC, HEADING_SANDBOX};
+use crate::{
+    commands::{config, contract::install, HEADING_RPC, HEADING_SANDBOX},
+    rpc::{self, Client},
+    utils, wasm,
+};
 
 #[derive(Parser, Debug)]
 #[clap(group(
