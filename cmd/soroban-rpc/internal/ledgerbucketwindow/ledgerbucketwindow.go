@@ -33,7 +33,7 @@ func NewLedgerBucketWindow[T any](retentionWindow uint32) (*LedgerBucketWindow[T
 
 // Append adds a new bucket to the window. If the window is full a bucket will be evicted and returned.
 func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) (*LedgerBucket[T], error) {
-	length := uint32(len(w.buckets))
+	length := w.Len()
 	if length > 0 {
 		expectedLedgerSequence := w.buckets[w.start].LedgerSeq + length
 		if expectedLedgerSequence != bucket.LedgerSeq {
@@ -43,13 +43,15 @@ func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) (*LedgerBucket[T]
 
 	var evicted *LedgerBucket[T]
 	if length < uint32(cap(w.buckets)) {
+		// The buffer isn't full, just place the bucket at the end
 		w.buckets = append(w.buckets, bucket)
 	} else {
-		index := (w.start + length) % uint32(len(w.buckets))
-		saved := w.buckets[index]
+		// overwrite the first bucket and shift the circular buffer so that it
+		// becomes the last bucket
+		saved := w.buckets[w.start]
 		evicted = &saved
-		w.buckets[index] = bucket
-		w.start++
+		w.buckets[w.start] = bucket
+		w.start = (w.start + 1) % length
 	}
 
 	return evicted, nil
@@ -62,10 +64,10 @@ func (w *LedgerBucketWindow[T]) Len() uint32 {
 
 // Get obtains a bucket from the window
 func (w *LedgerBucketWindow[T]) Get(i uint32) *LedgerBucket[T] {
-	l := uint32(len(w.buckets))
-	if i >= l {
-		panic(fmt.Sprintf("index out of range [%d] with length %d", i, l))
+	length := w.Len()
+	if i >= length {
+		panic(fmt.Sprintf("index out of range [%d] with length %d", i, length))
 	}
-	index := (w.start + i) % l
+	index := (w.start + i) % length
 	return &w.buckets[index]
 }

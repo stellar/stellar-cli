@@ -125,9 +125,9 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
 	}
 	for _, txmeta := range txmetas {
-		// NOTE: We could optimize this to avoid unnecesary ingestion calls
+		// NOTE: We could optimize this to avoid unnecessary ingestion calls
 		//       (len(txmetas) can be larger than the store retention windows)
-		//       But it's probably not worth the pain.
+		//       but it's probably not worth the pain.
 		if err := eventStore.IngestEvents(txmeta); err != nil {
 			logger.Fatalf("could initialize event memory store: %v", err)
 		}

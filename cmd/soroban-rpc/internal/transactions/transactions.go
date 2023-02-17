@@ -62,17 +62,20 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	for i := range transactions {
-		m.transactions[transactionHashes[i]] = transactions[i]
-	}
 	evicted, err := m.transactionsByLedger.Append(bucket)
+	if err != nil {
+		return err
+	}
 	if evicted != nil {
 		// garbage-collect evicted entries
 		for _, evictedTxHash := range evicted.BucketContent {
 			delete(m.transactions, evictedTxHash)
 		}
 	}
-	return err
+	for i := range transactions {
+		m.transactions[transactionHashes[i]] = transactions[i]
+	}
+	return nil
 }
 
 type LedgerInfo struct {
@@ -115,7 +118,7 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 		return Transaction{}, false, storeRange
 	}
 	tx := Transaction{
-		Result:           xdr.TransactionResult{},
+		Result:           internalTx.result,
 		ApplicationOrder: internalTx.applicationOrder,
 		Ledger: LedgerInfo{
 			Sequence:  internalTx.bucket.LedgerSeq,
