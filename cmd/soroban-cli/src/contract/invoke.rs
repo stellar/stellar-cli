@@ -63,6 +63,7 @@ pub struct Cmd {
         long = "account",
         default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
         conflicts_with = "rpc-url",
+        conflicts_with = "identity",
         help_heading = HEADING_SANDBOX,
     )]
     account_id: stellar_strkey::ed25519::PublicKey,
