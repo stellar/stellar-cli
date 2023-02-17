@@ -51,7 +51,7 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 		resultPair := ledgerCloseMeta.TransactionResultPair(i)
 		transactionHashes[i] = resultPair.TransactionHash
 		transactions[i].result = resultPair.Result
-		transactions[i].applicationOrder = int32(i)
+		transactions[i].applicationOrder = int32(i) + 1 // Transactions start at '1'
 		transactions[i].bucket = &bucket
 	}
 	bucket = ledgerbucketwindow.LedgerBucket[[]xdr.Hash]{

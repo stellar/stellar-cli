@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -105,21 +106,39 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	eventsledgerRetentionWindow := uint32(cfg.EventLedgerRetentionWindow)
-	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, eventsledgerRetentionWindow)
+	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create event store: %v", err)
 	}
-
-	transactionsledgerRetentionWindow := uint32(cfg.TransactionLedgerRetentionWindow)
-	transactionStore, err := transactions.NewMemoryStore(transactionsledgerRetentionWindow)
+	transactionStore, err := transactions.NewMemoryStore(cfg.TransactionLedgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create transaction store: %v", err)
+	}
+	maxRetentionWindow := cfg.EventLedgerRetentionWindow
+	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
+		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
+	}
+	// initialize the stores using what was on the DB
+	// TODO: add a timeout?
+	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
+	if err != nil {
+		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
+	}
+	for _, txmeta := range txmetas {
+		// NOTE: We could optimize this to avoid unnecesary ingestion calls
+		//       (len(txmetas) can be larger than the store retention windows)
+		//       But it's probably not worth the pain.
+		if err := eventStore.IngestEvents(txmeta); err != nil {
+			logger.Fatalf("could initialize event memory store: %v", err)
+		}
+		if err := transactionStore.IngestTransactions(txmeta); err != nil {
+			logger.Fatalf("could initialize transaction memory store: %v", err)
+		}
 	}
 
 	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
-		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, eventsledgerRetentionWindow),
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
 		EventStore:        eventStore,
 		TransactionStore:  transactionStore,
 		NetworkPassPhrase: cfg.NetworkPassphrase,
