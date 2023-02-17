@@ -1,9 +1,11 @@
-use crate::util::{add_test_seed, Sandbox, HELLO_WORLD};
+use soroban_test::Nebula;
+
+use crate::util::{add_test_seed, HELLO_WORLD};
 
 #[test]
 fn install_wasm_then_deploy_contract() {
-    let hash = HELLO_WORLD.hash();
-    let sandbox = Sandbox::new();
+    let hash = HELLO_WORLD.hash().unwrap();
+    let sandbox = Nebula::default();
     sandbox
         .new_cmd("contract")
         .arg("install")
@@ -26,7 +28,7 @@ fn install_wasm_then_deploy_contract() {
 
 #[test]
 fn deploy_contract_with_wasm_file() {
-    Sandbox::new()
+    Nebula::default()
         .new_cmd("contract")
         .arg("deploy")
         .arg("--wasm")
@@ -39,7 +41,7 @@ fn deploy_contract_with_wasm_file() {
 
 #[test]
 fn invoke_hello_world_with_deploy_first() {
-    let sandbox = Sandbox::new();
+    let sandbox = Nebula::default();
     let res = sandbox
         .new_cmd("contract")
         .arg("deploy")
@@ -67,7 +69,7 @@ fn invoke_hello_world_with_deploy_first() {
 
 #[test]
 fn invoke_hello_world() {
-    let sandbox = Sandbox::new();
+    let sandbox = Nebula::default();
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -126,27 +128,28 @@ fn invoke_respects_conflicting_args() {
 
 #[test]
 fn invoke_auth() {
-    let sandbox = Sandbox::new();
-    sandbox
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--account")
-        .arg("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .arg("--fn=auth")
-        .arg("--")
-        .arg("--addr=GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
-        .arg("--world=world")
-        .assert()
-        .stdout("[\"Hello\",\"world\"]\n")
-        .success();
+    Nebula::with_default(|sandbox| {
+        sandbox
+            .new_cmd("contract")
+            .arg("invoke")
+            .arg("--account")
+            .arg("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
+            .arg("--id=1")
+            .arg("--wasm")
+            .arg(HELLO_WORLD.path())
+            .arg("--fn=auth")
+            .arg("--")
+            .arg("--addr=GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
+            .arg("--world=world")
+            .assert()
+            .stdout("[\"Hello\",\"world\"]\n")
+            .success();
+    });
 }
 
 #[test]
 fn invoke_hello_world_with_seed() {
-    let sandbox = Sandbox::new();
+    let sandbox = Nebula::default();
     let identity = add_test_seed(sandbox.dir());
     sandbox
         .new_cmd("contract")

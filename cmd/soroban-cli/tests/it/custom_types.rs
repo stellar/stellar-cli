@@ -1,10 +1,12 @@
 use serde_json::json;
 
-use crate::util::{invoke, invoke_with_roundtrip, Sandbox};
+use soroban_test::Nebula;
+
+use crate::util::{invoke, invoke_with_roundtrip};
 
 #[test]
 fn symbol() {
-    invoke(&Sandbox::new(), "hello")
+    invoke(&Nebula::default(), "hello")
         .arg("--hello")
         .arg("world")
         .assert()
@@ -22,7 +24,7 @@ fn symbol_with_quotes() {
 
 #[test]
 fn generate_help() {
-    invoke(&Sandbox::new(), "test")
+    invoke(&Nebula::default(), "test")
         .arg("--help")
         .assert()
         .success();
@@ -30,7 +32,7 @@ fn generate_help() {
 
 #[test]
 fn multi_arg() {
-    invoke(&Sandbox::new(), "multi_args")
+    invoke(&Nebula::default(), "multi_args")
         .arg("--b")
         .assert()
         .success()
@@ -39,7 +41,7 @@ fn multi_arg() {
 
 #[test]
 fn multi_arg_success() {
-    invoke(&Sandbox::new(), "multi_args")
+    invoke(&Nebula::default(), "multi_args")
         .arg("--a")
         .arg("42")
         .arg("--b")
@@ -55,7 +57,7 @@ fn map() {
 
 #[test]
 fn map_help() {
-    invoke(&Sandbox::new(), "map")
+    invoke(&Nebula::default(), "map")
         .arg("--help")
         .assert()
         .success()
@@ -64,13 +66,13 @@ fn map_help() {
 
 #[test]
 fn set() {
-    // invoke(&Sandbox::new(), "set").assert().stdout("[42]\n");
+    // invoke(&Nebula::default(), "set").assert().stdout("[42]\n");
     invoke_with_roundtrip("set", json!([0, 1]));
 }
 
 #[test]
 fn set_help() {
-    invoke(&Sandbox::new(), "set")
+    invoke(&Nebula::default(), "set")
         .arg("--help")
         .assert()
         .success()
@@ -84,7 +86,7 @@ fn vec_() {
 
 #[test]
 fn vec_help() {
-    invoke(&Sandbox::new(), "vec")
+    invoke(&Nebula::default(), "vec")
         .arg("--help")
         .assert()
         .success()
@@ -98,7 +100,7 @@ fn tuple() {
 
 #[test]
 fn tuple_help() {
-    invoke(&Sandbox::new(), "tuple")
+    invoke(&Nebula::default(), "tuple")
         .arg("--help")
         .assert()
         .success()
@@ -148,7 +150,7 @@ fn i32() {
 
 #[test]
 fn handle_arg_larger_than_i32() {
-    invoke(&Sandbox::new(), "i32_")
+    invoke(&Nebula::default(), "i32_")
         .arg("--i32_")
         .arg(u32::MAX.to_string())
         .assert()
@@ -158,7 +160,7 @@ fn handle_arg_larger_than_i32() {
 
 #[test]
 fn handle_arg_larger_than_i64() {
-    invoke(&Sandbox::new(), "i64_")
+    invoke(&Nebula::default(), "i64_")
         .arg("--i64_")
         .arg(u64::MAX.to_string())
         .assert()
@@ -210,7 +212,7 @@ fn const_enum() {
 #[test]
 fn parse_u128() {
     let num = "340000000000000000000000000000000000000";
-    invoke(&Sandbox::new(), "u128")
+    invoke(&Nebula::default(), "u128")
         .arg("--u128")
         .arg(num)
         .assert()
@@ -224,7 +226,7 @@ fn parse_u128() {
 #[test]
 fn parse_i128() {
     let num = "170000000000000000000000000000000000000";
-    invoke(&Sandbox::new(), "i128")
+    invoke(&Nebula::default(), "i128")
         .arg("--i128")
         .arg(num)
         .assert()
@@ -238,7 +240,7 @@ fn parse_i128() {
 #[test]
 fn parse_negative_i128() {
     let num = "-170000000000000000000000000000000000000";
-    invoke(&Sandbox::new(), "i128")
+    invoke(&Nebula::default(), "i128")
         .arg("--i128")
         .arg(num)
         .assert()
@@ -251,7 +253,7 @@ fn parse_negative_i128() {
 
 #[test]
 fn boolean() {
-    invoke(&Sandbox::new(), "boolean")
+    invoke(&Nebula::default(), "boolean")
         .arg("--boolean")
         .assert()
         .success()
@@ -262,7 +264,7 @@ fn boolean() {
 }
 #[test]
 fn boolean_no_flag() {
-    invoke(&Sandbox::new(), "boolean")
+    invoke(&Nebula::default(), "boolean")
         .assert()
         .success()
         .stdout(
@@ -273,7 +275,7 @@ fn boolean_no_flag() {
 
 #[test]
 fn boolean_not() {
-    invoke(&Sandbox::new(), "not")
+    invoke(&Nebula::default(), "not")
         .arg("--boolean")
         .assert()
         .success()
@@ -285,7 +287,7 @@ fn boolean_not() {
 
 #[test]
 fn boolean_not_no_flag() {
-    invoke(&Sandbox::new(), "not").assert().success().stdout(
+    invoke(&Nebula::default(), "not").assert().success().stdout(
         r#"true
 "#,
     );
