@@ -62,10 +62,7 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	evicted, err := m.transactionsByLedger.Append(bucket)
-	if err != nil {
-		return err
-	}
+	evicted := m.transactionsByLedger.Append(bucket)
 	if evicted != nil {
 		// garbage-collect evicted entries
 		for _, evictedTxHash := range evicted.BucketContent {

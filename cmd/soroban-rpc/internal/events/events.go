@@ -177,7 +177,7 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 		BucketContent:        events,
 	}
 	m.lock.Lock()
-	_, err = m.eventsByLedger.Append(bucket)
+	m.eventsByLedger.Append(bucket)
 	m.lock.Unlock()
 	return err
 }

@@ -32,12 +32,12 @@ func NewLedgerBucketWindow[T any](retentionWindow uint32) (*LedgerBucketWindow[T
 }
 
 // Append adds a new bucket to the window. If the window is full a bucket will be evicted and returned.
-func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) (*LedgerBucket[T], error) {
+func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) *LedgerBucket[T] {
 	length := w.Len()
 	if length > 0 {
 		expectedLedgerSequence := w.buckets[w.start].LedgerSeq + length
 		if expectedLedgerSequence != bucket.LedgerSeq {
-			return nil, fmt.Errorf("ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq)
+			panic(fmt.Errorf("ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq))
 		}
 	}
 
@@ -54,7 +54,7 @@ func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) (*LedgerBucket[T]
 		w.start = (w.start + 1) % length
 	}
 
-	return evicted, nil
+	return evicted
 }
 
 // Len returns the length (number of buckets in the window)
@@ -66,7 +66,7 @@ func (w *LedgerBucketWindow[T]) Len() uint32 {
 func (w *LedgerBucketWindow[T]) Get(i uint32) *LedgerBucket[T] {
 	length := w.Len()
 	if i >= length {
-		panic(fmt.Sprintf("index out of range [%d] with length %d", i, length))
+		panic(fmt.Errorf("index out of range [%d] with length %d", i, length))
 	}
 	index := (w.start + i) % length
 	return &w.buckets[index]

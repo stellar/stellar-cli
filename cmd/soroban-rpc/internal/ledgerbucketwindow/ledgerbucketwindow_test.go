@@ -20,84 +20,88 @@ func TestAppend(t *testing.T) {
 	require.Equal(t, uint32(0), m.Len())
 
 	// test appending first bucket of events
-	evicted, err := m.Append(bucket(5))
-	require.NoError(t, err)
+	evicted := m.Append(bucket(5))
 	require.Nil(t, evicted)
 	require.Equal(t, uint32(1), m.Len())
 	require.Equal(t, bucket(5), *m.Get(0))
 
 	// the next bucket must follow the previous bucket (ledger 5)
-	_, err = m.Append(LedgerBucket[uint32]{
-		LedgerSeq:            10,
-		LedgerCloseTimestamp: 100,
-		BucketContent:        10,
-	})
-	require.EqualError(
-		t, err,
-		"ledgers not contiguous: expected ledger sequence 6 but received 10",
+
+	require.PanicsWithError(
+		t, "ledgers not contiguous: expected ledger sequence 6 but received 10",
+		func() {
+			m.Append(LedgerBucket[uint32]{
+				LedgerSeq:            10,
+				LedgerCloseTimestamp: 100,
+				BucketContent:        10,
+			})
+		},
 	)
-	_, err = m.Append(LedgerBucket[uint32]{
-		LedgerSeq:            4,
-		LedgerCloseTimestamp: 100,
-		BucketContent:        4,
-	})
-	require.EqualError(
-		t, err,
-		"ledgers not contiguous: expected ledger sequence 6 but received 4",
+	require.PanicsWithError(
+		t, "ledgers not contiguous: expected ledger sequence 6 but received 4",
+		func() {
+			m.Append(LedgerBucket[uint32]{
+				LedgerSeq:            4,
+				LedgerCloseTimestamp: 100,
+				BucketContent:        4,
+			})
+		},
 	)
-	_, err = m.Append(LedgerBucket[uint32]{
-		LedgerSeq:            5,
-		LedgerCloseTimestamp: 100,
-		BucketContent:        5,
-	})
-	require.EqualError(
-		t, err,
-		"ledgers not contiguous: expected ledger sequence 6 but received 5",
+	require.PanicsWithError(
+		t, "ledgers not contiguous: expected ledger sequence 6 but received 5",
+		func() {
+			m.Append(LedgerBucket[uint32]{
+				LedgerSeq:            5,
+				LedgerCloseTimestamp: 100,
+				BucketContent:        5,
+			})
+		},
 	)
 	// check that none of the calls above modified our buckets
 	require.Equal(t, uint32(1), m.Len())
 	require.Equal(t, bucket(5), *m.Get(0))
 
 	// append ledger 6 bucket, now we have two buckets filled
-	evicted, err = m.Append(bucket(6))
-	require.NoError(t, err)
+	evicted = m.Append(bucket(6))
 	require.Nil(t, evicted)
 	require.Equal(t, uint32(2), m.Len())
 	require.Equal(t, bucket(5), *m.Get(0))
 	require.Equal(t, bucket(6), *m.Get(1))
 
 	// the next bucket of events must follow the previous bucket (ledger 6)
-	_, err = m.Append(LedgerBucket[uint32]{
-		LedgerSeq:            10,
-		LedgerCloseTimestamp: 100,
-		BucketContent:        10,
-	})
-	require.EqualError(
-		t, err,
-		"ledgers not contiguous: expected ledger sequence 7 but received 10",
+	require.PanicsWithError(
+		t, "ledgers not contiguous: expected ledger sequence 7 but received 10",
+		func() {
+			m.Append(LedgerBucket[uint32]{
+				LedgerSeq:            10,
+				LedgerCloseTimestamp: 100,
+				BucketContent:        10,
+			})
+		},
 	)
-	_, err = m.Append(LedgerBucket[uint32]{
-		LedgerSeq:            5,
-		LedgerCloseTimestamp: 100,
-		BucketContent:        5,
-	})
-	require.EqualError(
-		t, err,
-		"ledgers not contiguous: expected ledger sequence 7 but received 5",
+	require.PanicsWithError(
+		t, "ledgers not contiguous: expected ledger sequence 7 but received 4",
+		func() {
+			m.Append(LedgerBucket[uint32]{
+				LedgerSeq:            4,
+				LedgerCloseTimestamp: 100,
+				BucketContent:        4,
+			})
+		},
 	)
-	_, err = m.Append(LedgerBucket[uint32]{
-		LedgerSeq:            6,
-		LedgerCloseTimestamp: 100,
-		BucketContent:        6,
-	})
-	require.EqualError(
-		t, err,
-		"ledgers not contiguous: expected ledger sequence 7 but received 6",
+	require.PanicsWithError(
+		t, "ledgers not contiguous: expected ledger sequence 7 but received 5",
+		func() {
+			m.Append(LedgerBucket[uint32]{
+				LedgerSeq:            5,
+				LedgerCloseTimestamp: 100,
+				BucketContent:        5,
+			})
+		},
 	)
 
 	// append ledger 7, now we have all three buckets filled
-	evicted, err = m.Append(bucket(7))
-	require.NoError(t, err)
+	evicted = m.Append(bucket(7))
 	require.Nil(t, evicted)
 	require.NoError(t, err)
 	require.Nil(t, evicted)
@@ -107,8 +111,7 @@ func TestAppend(t *testing.T) {
 	require.Equal(t, bucket(7), *m.Get(2))
 
 	// append ledger 8, but all buckets are full, so we need to evict ledger 5
-	evicted, err = m.Append(bucket(8))
-	require.NoError(t, err)
+	evicted = m.Append(bucket(8))
 	require.Equal(t, bucket(5), *evicted)
 	require.Equal(t, uint32(3), m.Len())
 	require.Equal(t, bucket(6), *m.Get(0))
@@ -116,8 +119,7 @@ func TestAppend(t *testing.T) {
 	require.Equal(t, bucket(8), *m.Get(2))
 
 	// append ledger 9 events, but all buckets are full, so we need to evict ledger 6
-	evicted, err = m.Append(bucket(9))
-	require.NoError(t, err)
+	evicted = m.Append(bucket(9))
 	require.Equal(t, bucket(6), *evicted)
 	require.Equal(t, uint32(3), m.Len())
 	require.Equal(t, bucket(7), *m.Get(0))
@@ -126,8 +128,7 @@ func TestAppend(t *testing.T) {
 
 	// append ledger 10, but all buckets are full, so we need to evict ledger 7.
 	// The start index must have wrapped around
-	evicted, err = m.Append(bucket(10))
-	require.NoError(t, err)
+	evicted = m.Append(bucket(10))
 	require.Equal(t, bucket(7), *evicted)
 	require.Equal(t, uint32(3), m.Len())
 	require.Equal(t, bucket(8), *m.Get(0))

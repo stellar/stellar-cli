@@ -209,26 +209,24 @@ func TestScanRangeValidation(t *testing.T) {
 
 func createStore(t *testing.T) *MemoryStore {
 	m, err := NewMemoryStore("unit-tests", 4)
-	require.NoError(t, err)
-	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            5,
 		LedgerCloseTimestamp: ledger5CloseTime,
 		BucketContent:        ledger5Events,
 	})
-	require.NoError(t, err)
-	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            6,
 		LedgerCloseTimestamp: ledger6CloseTime,
 		BucketContent:        nil,
 	})
 	require.NoError(t, err)
-	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            7,
 		LedgerCloseTimestamp: ledger7CloseTime,
 		BucketContent:        ledger7Events,
 	})
 	require.NoError(t, err)
-	_, err = m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
+	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            8,
 		LedgerCloseTimestamp: ledger8CloseTime,
 		BucketContent:        ledger8Events,
