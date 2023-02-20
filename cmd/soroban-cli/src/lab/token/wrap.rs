@@ -108,7 +108,7 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
-        let sequence = account_details.sequence.parse::<i64>()?;
+        let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
         let contract_id = get_contract_id(&asset, network_passphrase)?;
         let tx = build_wrap_token_tx(

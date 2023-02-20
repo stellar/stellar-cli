@@ -40,7 +40,6 @@ func (h Handler) Close() {
 }
 
 type HandlerParams struct {
-	AccountStore      methods.AccountStore
 	EventStore        *events.MemoryStore
 	TransactionProxy  *methods.TransactionProxy
 	CoreClient        *stellarcore.Client
@@ -52,7 +51,6 @@ type HandlerParams struct {
 func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, error) {
 	bridge := jhttp.NewBridge(handler.Map{
 		"getHealth":            methods.NewHealthCheck(),
-		"getAccount":           methods.NewAccountHandler(params.AccountStore),
 		"getEvents":            methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
 		"getNetwork":           methods.NewGetNetworkHandler(cfg.NetworkPassphrase, cfg.FriendbotURL, params.CoreClient),
 		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),

@@ -1,7 +1,10 @@
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
+use soroban_env_host::xdr::{
+    AccountEntry, AccountId, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyAccount,
+    PublicKey, ReadXdr, TransactionEnvelope, Uint256, WriteXdr,
+};
 use std::{
     collections,
     time::{Duration, Instant},
@@ -12,6 +15,8 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("invalid address: {0}")]
+    InvalidAddress(#[from] stellar_strkey::DecodeError),
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
@@ -181,11 +186,20 @@ impl Client {
             .build(url)?)
     }
 
-    pub async fn get_account(&self, account_id: &str) -> Result<GetAccountResponse, Error> {
-        Ok(self
-            .client()?
-            .request("getAccount", rpc_params![account_id])
-            .await?)
+    pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
+        let key = LedgerKey::Account(LedgerKeyAccount {
+            account_id: AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+                stellar_strkey::ed25519::PublicKey::from_string(address)?.0,
+            ))),
+        });
+        let response = self.get_ledger_entry(key).await?;
+        if let LedgerEntryData::Account(entry) =
+            LedgerEntryData::read_xdr_base64(&mut response.xdr.as_bytes())?
+        {
+            Ok(entry)
+        } else {
+            panic!("Invalid soroban-rpc response")
+        }
     }
 
     pub async fn send_transaction(

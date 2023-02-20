@@ -11,11 +11,53 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
+
+type AccountInfo struct {
+	ID       string
+	Sequence string
+}
+
+func getAccount(client *jrpc2.Client, address string) (xdr.AccountEntry, error) {
+	decoded, err := strkey.Decode(strkey.VersionByteAccountID, address)
+	if err != nil {
+		return xdr.AccountEntry{}, err
+	}
+	var key xdr.Uint256
+	copy(key[:], decoded)
+	keyXdr, err := xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeAccount,
+		Account: &xdr.LedgerKeyAccount{
+			AccountId: xdr.AccountId(xdr.PublicKey{
+				Type:    xdr.PublicKeyTypePublicKeyTypeEd25519,
+				Ed25519: &key,
+			}),
+		},
+	}.MarshalBinaryBase64()
+
+	// assert that the transaction was not included in any ledger
+	request := methods.GetLedgerEntryRequest{
+		Key: keyXdr,
+	}
+	var response methods.GetLedgerEntryResponse
+	err = client.CallResult(context.Background(), "getLedgerEntry", request, &response)
+	if err != nil {
+		return xdr.AccountEntry{}, err
+	}
+
+	var account xdr.AccountEntry
+	err = xdr.SafeUnmarshalBase64(response.XDR, &account)
+	if err != nil {
+		return xdr.AccountEntry{}, err
+	}
+
+	return account, nil
+}
 
 func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 	test := NewTest(t)
@@ -42,13 +84,10 @@ func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 	response := sendSuccessfulTransaction(t, client, kp, tx)
 	assert.Empty(t, response.Results)
 
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
+	// Check the operation was applied
+	accountResp, err := getAccount(client, address)
 	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 1}, accountInfoResponse)
+	assert.Equal(t, "soroban.com", accountResp.HomeDomain)
 }
 
 func TestSendTransactionSucceedsWithResults(t *testing.T) {
@@ -119,14 +158,6 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 		t,
 		(*resultMetaV3.TxResult.Result.Results)[0].Tr.MustInvokeHostFunctionResult().Success.Equals(expectedScVal),
 	)
-
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 1}, accountInfoResponse)
 }
 
 func TestSendTransactionBadSequence(t *testing.T) {
@@ -178,13 +209,9 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	}, response.Error.Data["result_codes"])
 
 	// assert that the transaction was not included in any ledger
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
+	accountResp, err := getAccount(client, address)
 	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 0}, accountInfoResponse)
+	assert.Equal(t, 0, accountResp.SeqNum)
 }
 
 func TestSendTransactionFailedInLedger(t *testing.T) {
@@ -236,13 +263,9 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	assert.Equal(t, "transaction included in ledger but failed", response.Error.Message)
 
 	// assert that the transaction was not included in any ledger
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
+	accountResp, err := getAccount(client, address)
 	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 1}, accountInfoResponse)
+	assert.Equal(t, 1, accountResp.SeqNum)
 }
 
 func TestSendTransactionFailedInvalidXDR(t *testing.T) {
