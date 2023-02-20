@@ -64,10 +64,10 @@ func TestGetTransaction(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = GetTransaction(store, GetTransactionRequest{"ab"})
 	assert.EqualError(t, err, "[-32602] unexpected hash length (2)")
-	_, err = GetTransaction(store, GetTransactionRequest{"foo                             "})
+	_, err = GetTransaction(store, GetTransactionRequest{"foo                                                              "})
 	assert.EqualError(t, err, "[-32602] incorrect hash: encoding/hex: invalid byte: U+006F 'o'")
 
-	hash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	hash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	tx, err := GetTransaction(store, GetTransactionRequest{hash})
 	assert.NoError(t, err)
 	assert.Equal(t, GetTransactionResponse{
@@ -98,7 +98,7 @@ func TestGetTransaction(t *testing.T) {
 	}, tx)
 
 	// ingest another (failed) transaction
-	hash2 := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	hash2 := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	hex.Decode(xdrHash[:], []byte(hash2))
 	meta2 := txMeta(2, 350, xdrHash, false)
 	err = store.IngestTransactions(meta2)

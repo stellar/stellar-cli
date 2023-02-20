@@ -60,7 +60,7 @@ type transactionGetter interface {
 
 func GetTransaction(getter transactionGetter, request GetTransactionRequest) (GetTransactionResponse, error) {
 	// parse hash
-	if len(request.Hash) != len(xdr.Hash{}) {
+	if hex.DecodedLen(len(request.Hash)) != len(xdr.Hash{}) {
 		return GetTransactionResponse{}, &jrpc2.Error{
 			Code:    code.InvalidParams,
 			Message: fmt.Sprintf("unexpected hash length (%d)", len(request.Hash)),
