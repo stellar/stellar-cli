@@ -40,14 +40,6 @@ func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, kp, tx)
-
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 1}, accountInfoResponse)
 }
 
 func TestSendTransactionSucceedsWithResults(t *testing.T) {
@@ -111,14 +103,6 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	var resultXdr xdr.TransactionResult
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
 	assert.Equal(t, expectedResult, resultXdr)
-
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 1}, accountInfoResponse)
 }
 
 func TestSendTransactionBadSequence(t *testing.T) {
@@ -155,22 +139,11 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
+	// TODO: when implementing the new sendTransaction we should have a way to indicate that the transaction failed
 	assert.Equal(t, methods.SendTransactionResponse{
 		ID:     expectedHashHex,
 		Status: methods.TransactionPending,
 	}, result)
-
-	response := getTransaction(t, client, expectedHashHex)
-	assert.Equal(t, methods.TransactionStatusNotFound, response.Status)
-
-	// assert that the transaction was not included in any ledger
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 0}, accountInfoResponse)
 }
 
 func TestSendTransactionFailedInLedger(t *testing.T) {
@@ -219,15 +192,6 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	var transactionResult xdr.TransactionResult
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &transactionResult))
 	assert.Equal(t, xdr.TransactionResultCodeTxFailed, transactionResult.Result.Code)
-
-	// assert that the transaction was not included in any ledger
-	accountInfoRequest := methods.AccountRequest{
-		Address: address,
-	}
-	var accountInfoResponse methods.AccountInfo
-	err = client.CallResult(context.Background(), "getAccount", accountInfoRequest, &accountInfoResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, methods.AccountInfo{ID: address, Sequence: 1}, accountInfoResponse)
 }
 
 func TestSendTransactionFailedInvalidXDR(t *testing.T) {

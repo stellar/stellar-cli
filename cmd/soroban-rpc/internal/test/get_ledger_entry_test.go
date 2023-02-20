@@ -93,7 +93,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
 
 	txStatusResponse := getTransaction(t, client, sendTxResponse.ID)
-	assert.Equal(t, methods.TransactionSuccess, txStatusResponse.Status)
+	assert.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
 
 	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: testContract}.MarshalBinary()
 	assert.NoError(t, err)
