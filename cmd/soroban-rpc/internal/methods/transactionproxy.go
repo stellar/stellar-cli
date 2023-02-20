@@ -372,7 +372,7 @@ func (p *TransactionProxy) deleteExpiredEntries(now time.Time) {
 	}
 }
 
-// NewGetTransactionStatusHandler returns a get transaction json rpc handler
+// NewGetTransactionStatusHandler returns a get transaction status json rpc handler
 func NewGetTransactionStatusHandler(proxy *TransactionProxy) jrpc2.Handler {
 	return handler.New(proxy.GetTransactionStatus)
 }
