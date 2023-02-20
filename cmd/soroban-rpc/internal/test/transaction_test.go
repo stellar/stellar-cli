@@ -50,13 +50,13 @@ func getAccount(client *jrpc2.Client, address string) (xdr.AccountEntry, error) 
 		return xdr.AccountEntry{}, err
 	}
 
-	var account xdr.AccountEntry
-	err = xdr.SafeUnmarshalBase64(response.XDR, &account)
+	var data xdr.LedgerEntryData
+	err = xdr.SafeUnmarshalBase64(response.XDR, &data)
 	if err != nil {
 		return xdr.AccountEntry{}, err
 	}
 
-	return account, nil
+	return data.MustAccount(), nil
 }
 
 func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
