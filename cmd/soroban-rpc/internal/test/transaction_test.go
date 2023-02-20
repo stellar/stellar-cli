@@ -87,7 +87,7 @@ func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 	// Check the operation was applied
 	accountResp, err := getAccount(client, address)
 	assert.NoError(t, err)
-	assert.Equal(t, "soroban.com", accountResp.HomeDomain)
+	assert.Equal(t, xdr.String32("soroban.com"), accountResp.HomeDomain)
 }
 
 func TestSendTransactionSucceedsWithResults(t *testing.T) {
@@ -211,7 +211,7 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	// assert that the transaction was not included in any ledger
 	accountResp, err := getAccount(client, address)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, accountResp.SeqNum)
+	assert.Equal(t, xdr.SequenceNumber(0), accountResp.SeqNum)
 }
 
 func TestSendTransactionFailedInLedger(t *testing.T) {
@@ -265,7 +265,7 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	// assert that the transaction was not included in any ledger
 	accountResp, err := getAccount(client, address)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, accountResp.SeqNum)
+	assert.Equal(t, xdr.SequenceNumber(1), accountResp.SeqNum)
 }
 
 func TestSendTransactionFailedInvalidXDR(t *testing.T) {
