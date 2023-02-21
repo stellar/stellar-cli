@@ -159,26 +159,16 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 	hc.SetHorizonTimeout(horizonclient.HorizonTimeout)
 
-	transactionProxy := methods.NewTransactionProxy(
-		hc,
-		cfg.TxConcurrency,
-		cfg.TxQueueSize,
-		cfg.NetworkPassphrase,
-		transactionProxyTTL,
-	)
-
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:        eventStore,
 		TransactionStore:  transactionStore,
 		Logger:            logger,
-		TransactionProxy:  transactionProxy,
 		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)
 	}
-	handler.Start()
 	return &Daemon{
 		logger:        logger,
 		core:          core,

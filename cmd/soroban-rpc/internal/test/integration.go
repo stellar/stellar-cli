@@ -40,6 +40,8 @@ const (
 	goModFile                   = "go.mod"
 	goMonorepoGithubPath        = "github.com/stellar/go"
 	friendbotURL                = "http://localhost:8000/friendbot"
+	// Needed when Core is run with ARTIFICIALLY_ACCELERATE_TIME_FOR_TESTING=true
+	checkpointFrequency = 8
 )
 
 type Test struct {
@@ -96,11 +98,36 @@ func NewTest(t *testing.T) *Test {
 	return i
 }
 
+func (i *Test) waitForCheckpoint() {
+	i.t.Log("Waiting for core to be up...")
+	for t := 30 * time.Second; t >= 0; t -= time.Second {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		info, err := i.coreClient.Info(ctx)
+		cancel()
+		if err != nil {
+			i.t.Logf("could not obtain info response: %v", err)
+			time.Sleep(time.Second)
+			continue
+		}
+		if info.Info.Ledger.Num <= checkpointFrequency {
+			i.t.Logf("checkpoint not reached yet: %v", info)
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+	i.t.Fatal("Core could not reach checkpoint ledger after 30s")
+}
+
 func (i *Test) launchDaemon() {
+	coreBinaryPath := os.Getenv("SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN")
+	if coreBinaryPath == "" {
+		i.t.Fatal("missing SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN")
+	}
 	config := config.LocalConfig{
 		HorizonURL:                       "http://localhost:8000",
 		StellarCoreURL:                   "http://localhost:" + strconv.Itoa(stellarCorePort),
-		StellarCoreBinaryPath:            os.Getenv("SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN"),
+		StellarCoreBinaryPath:            coreBinaryPath,
 		CaptiveCoreConfigPath:            path.Join(i.composePath, "captive-core-integration-tests.cfg"),
 		CaptiveCoreHTTPPort:              0,
 		CaptiveCoreStoragePath:           i.t.TempDir(),
@@ -114,10 +141,9 @@ func (i *Test) launchDaemon() {
 		LedgerEntryStorageTimeout:        10 * time.Minute,
 		EventLedgerRetentionWindow:       17280,
 		TransactionLedgerRetentionWindow: 1440,
-		// Needed when Core is run with ARTIFICIALLY_ACCELERATE_TIME_FOR_TESTING=true
-		CheckpointFrequency: 8,
-		MaxEventsLimit:      10000,
-		DefaultEventsLimit:  100,
+		CheckpointFrequency:              checkpointFrequency,
+		MaxEventsLimit:                   10000,
+		DefaultEventsLimit:               100,
 	}
 	i.daemon = daemon.MustNew(config)
 	i.server = httptest.NewServer(i.daemon)

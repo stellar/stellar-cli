@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"crypto/sha256"
+	proto "github.com/stellar/go/protocols/stellarcore"
 	"testing"
 
 	"github.com/creachadair/jrpc2"
@@ -90,9 +91,9 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	var sendTxResponse methods.SendTransactionResponse
 	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
 	assert.NoError(t, err)
-	assert.Equal(t, methods.TransactionPending, sendTxResponse.Status)
+	assert.Equal(t, proto.TXStatusPending, sendTxResponse.Status)
 
-	txStatusResponse := getTransaction(t, client, sendTxResponse.ID)
+	txStatusResponse := getTransaction(t, client, sendTxResponse.TransactionHash)
 	assert.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
 
 	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: testContract}.MarshalBinary()
