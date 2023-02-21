@@ -11,6 +11,7 @@ import (
 type transaction struct {
 	bucket           *ledgerbucketwindow.LedgerBucket[[]xdr.Hash]
 	result           xdr.TransactionResult
+	feeBump          bool
 	applicationOrder int32
 }
 
@@ -45,19 +46,27 @@ func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
 func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	txCount := ledgerCloseMeta.CountTransactions()
 	transactions := make([]transaction, txCount)
-	transactionHashes := make([]xdr.Hash, txCount)
+	hashes := make([]xdr.Hash, 0, txCount)
+	hashMap := map[xdr.Hash]transaction{}
 	var bucket ledgerbucketwindow.LedgerBucket[[]xdr.Hash]
 	for i := 0; i < txCount; i++ {
 		resultPair := ledgerCloseMeta.TransactionResultPair(i)
-		transactionHashes[i] = resultPair.TransactionHash
 		transactions[i].result = resultPair.Result
 		transactions[i].applicationOrder = int32(i) + 1 // Transactions start at '1'
 		transactions[i].bucket = &bucket
+		if resultPair.Result.Result.InnerResultPair != nil {
+			transactions[i].feeBump = true
+			innerHash := resultPair.InnerHash()
+			hashMap[innerHash] = transactions[i]
+			hashes = append(hashes, innerHash)
+		}
+		hashMap[resultPair.TransactionHash] = transactions[i]
+		hashes = append(hashes, resultPair.TransactionHash)
 	}
 	bucket = ledgerbucketwindow.LedgerBucket[[]xdr.Hash]{
 		LedgerSeq:            ledgerCloseMeta.LedgerSequence(),
 		LedgerCloseTimestamp: int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime),
-		BucketContent:        transactionHashes,
+		BucketContent:        hashes,
 	}
 
 	m.lock.Lock()
@@ -69,8 +78,8 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 			delete(m.transactions, evictedTxHash)
 		}
 	}
-	for i := range transactions {
-		m.transactions[transactionHashes[i]] = transactions[i]
+	for hash, tx := range hashMap {
+		m.transactions[hash] = tx
 	}
 	return nil
 }
@@ -82,6 +91,7 @@ type LedgerInfo struct {
 
 type Transaction struct {
 	Result           xdr.TransactionResult
+	FeeBump          bool
 	ApplicationOrder int32
 	Ledger           LedgerInfo
 }
@@ -117,6 +127,7 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 	tx := Transaction{
 		Result:           internalTx.result,
 		ApplicationOrder: internalTx.applicationOrder,
+		FeeBump:          internalTx.feeBump,
 		Ledger: LedgerInfo{
 			Sequence:  internalTx.bucket.LedgerSeq,
 			CloseTime: internalTx.bucket.LedgerCloseTimestamp,

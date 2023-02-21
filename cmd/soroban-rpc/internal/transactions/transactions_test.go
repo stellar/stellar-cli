@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func expectedTransaction(ledger uint32) Transaction {
+func expectedTransaction(ledger uint32, feeBump bool) Transaction {
 	return Transaction{
-		Result:           transactionResult(ledger),
+		Result:           transactionResult(ledger, feeBump),
 		ApplicationOrder: 1,
+		FeeBump:          feeBump,
 		Ledger:           expectedLedgerInfo(ledger),
 	}
 }
@@ -34,35 +35,47 @@ func txHash(ledgerSequence uint32) xdr.Hash {
 	return xdr.Hash{byte(ledgerSequence), byte(ledgerSequence)}
 }
 
+func innerTxHash(ledgerSequence uint32) xdr.Hash {
+	return txHash(ledgerSequence * 1000)
+}
+
 func ledgerCloseTime(ledgerSequence uint32) int64 {
 	return int64(ledgerSequence)*25 + 100
 }
 
-func transactionResult(ledgerSequence uint32) xdr.TransactionResult {
-	return xdr.TransactionResult{
-		Result: xdr.TransactionResultResult{
-			InnerResultPair: &xdr.InnerTransactionResultPair{
-				TransactionHash: txHash(ledgerSequence),
-				Result: xdr.InnerTransactionResult{
-					Result: xdr.InnerTransactionResultResult{
-						Code:    xdr.TransactionResultCodeTxBadSeq,
-						Results: nil,
+func transactionResult(ledgerSequence uint32, feeBump bool) xdr.TransactionResult {
+	if feeBump {
+		return xdr.TransactionResult{
+			FeeCharged: 100,
+			Result: xdr.TransactionResultResult{
+				Code: xdr.TransactionResultCodeTxFeeBumpInnerFailed,
+				InnerResultPair: &xdr.InnerTransactionResultPair{
+					TransactionHash: innerTxHash(ledgerSequence),
+					Result: xdr.InnerTransactionResult{
+						Result: xdr.InnerTransactionResultResult{
+							Code: xdr.TransactionResultCodeTxBadSeq,
+						},
 					},
 				},
 			},
-			Results: &[]xdr.OperationResult{},
+		}
+	}
+	return xdr.TransactionResult{
+		FeeCharged: 100,
+		Result: xdr.TransactionResultResult{
+			Code: xdr.TransactionResultCodeTxBadSeq,
 		},
 	}
 }
 
-func txMeta(ledgerSequence uint32) xdr.LedgerCloseMeta {
+func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
 	txProcessing := []xdr.TransactionResultMetaV2{
 		{
 			TxApplyProcessing: xdr.TransactionMeta{
 				V:          3,
 				Operations: &[]xdr.OperationMeta{},
 				V3: &xdr.TransactionMetaV3{
-					TxResult: transactionResult(ledgerSequence),
+					TxResult: transactionResult(ledgerSequence, feeBump),
 				},
 			},
 			Result: xdr.TransactionResultPairV2{
@@ -86,11 +99,17 @@ func txMeta(ledgerSequence uint32) xdr.LedgerCloseMeta {
 	}
 }
 
-func requirePresent(t *testing.T, store *MemoryStore, ledgerSequence, firstSequence, lastSequence uint32) {
+func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequence, firstSequence, lastSequence uint32) {
 	tx, ok, storeRange := store.GetTransaction(txHash(ledgerSequence))
 	require.True(t, ok)
-	require.Equal(t, expectedTransaction(ledgerSequence), tx)
+	require.Equal(t, expectedTransaction(ledgerSequence, feeBump), tx)
 	require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
+	if feeBump {
+		tx, ok, storeRange = store.GetTransaction(innerTxHash(ledgerSequence))
+		require.True(t, ok)
+		require.Equal(t, expectedTransaction(ledgerSequence, feeBump), tx)
+		require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
+	}
 }
 
 func TestIngestTransactions(t *testing.T) {
@@ -103,41 +122,50 @@ func TestIngestTransactions(t *testing.T) {
 	require.Equal(t, StoreRange{}, storeRange)
 
 	// Insert ledger 1
-	require.NoError(t, store.IngestTransactions(txMeta(1)))
-	requirePresent(t, store, 1, 1, 1)
+	require.NoError(t, store.IngestTransactions(txMeta(1, false)))
+	requirePresent(t, store, false, 1, 1, 1)
+	require.Len(t, store.transactions, 1)
 
 	// Insert ledger 2
-	require.NoError(t, store.IngestTransactions(txMeta(2)))
-	requirePresent(t, store, 1, 1, 2)
-	requirePresent(t, store, 2, 1, 2)
+	require.NoError(t, store.IngestTransactions(txMeta(2, true)))
+	requirePresent(t, store, false, 1, 1, 2)
+	requirePresent(t, store, true, 2, 1, 2)
+	require.Len(t, store.transactions, 3)
 
 	// Insert ledger 3
-	require.NoError(t, store.IngestTransactions(txMeta(3)))
-	requirePresent(t, store, 1, 1, 3)
-	requirePresent(t, store, 2, 1, 3)
-	requirePresent(t, store, 3, 1, 3)
+	require.NoError(t, store.IngestTransactions(txMeta(3, false)))
+	requirePresent(t, store, false, 1, 1, 3)
+	requirePresent(t, store, true, 2, 1, 3)
+	requirePresent(t, store, false, 3, 1, 3)
+	require.Len(t, store.transactions, 4)
 
 	// Now we have filled the memory store
 
 	// Insert ledger 4, which will cause the window to move and evict ledger 1
-	require.NoError(t, store.IngestTransactions(txMeta(4)))
-	requirePresent(t, store, 2, 2, 4)
-	requirePresent(t, store, 3, 2, 4)
-	requirePresent(t, store, 4, 2, 4)
+	require.NoError(t, store.IngestTransactions(txMeta(4, false)))
+	requirePresent(t, store, true, 2, 2, 4)
+	requirePresent(t, store, false, 3, 2, 4)
+	requirePresent(t, store, false, 4, 2, 4)
 
 	_, ok, storeRange = store.GetTransaction(txHash(1))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(2, 4), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
-	require.Len(t, store.transactions, 3)
+	require.Len(t, store.transactions, 4)
 
 	// Insert ledger 5, which will cause the window to move and evict ledger 2
-	require.NoError(t, store.IngestTransactions(txMeta(5)))
-	requirePresent(t, store, 3, 3, 5)
-	requirePresent(t, store, 4, 3, 5)
-	requirePresent(t, store, 5, 3, 5)
+	require.NoError(t, store.IngestTransactions(txMeta(5, false)))
+	requirePresent(t, store, false, 3, 3, 5)
+	requirePresent(t, store, false, 4, 3, 5)
+	requirePresent(t, store, false, 5, 3, 5)
 
 	_, ok, storeRange = store.GetTransaction(txHash(2))
+	require.False(t, ok)
+	require.Equal(t, expectedStoreRange(3, 5), storeRange)
+	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
+	require.Len(t, store.transactions, 3)
+
+	_, ok, storeRange = store.GetTransaction(innerTxHash(2))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(3, 5), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
