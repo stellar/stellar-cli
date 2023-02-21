@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
 pub mod commands;
 pub mod network;
 pub mod rpc;

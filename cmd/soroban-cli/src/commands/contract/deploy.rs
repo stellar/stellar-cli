@@ -81,6 +81,8 @@ pub enum Error {
         wasm_hash: String,
         error: FromHexError,
     },
+    #[error("Must provide either --wasm or --wash-hash")]
+    WasmNotProvided,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
@@ -103,7 +105,10 @@ impl Cmd {
             .run_and_get_hash()
             .await?
         } else {
-            self.wasm_hash.as_ref().unwrap().to_string()
+            self.wasm_hash
+                .as_ref()
+                .ok_or(Error::WasmNotProvided)?
+                .to_string()
         };
 
         let hash =
