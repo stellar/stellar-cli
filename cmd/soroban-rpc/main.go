@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/types"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -18,6 +19,18 @@ import (
 	localConfig "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
 )
+
+func mustPositiveUint32(co *config.ConfigOption) error {
+	v := viper.GetInt(co.Name)
+	if v <= 0 {
+		return fmt.Errorf("%s must be positive", co.Name)
+	}
+	if v > math.MaxUint32 {
+		return fmt.Errorf("%s is too large (must be <= %d)", co.Name, math.MaxUint32)
+	}
+	*(co.ConfigKey.(*uint32)) = uint32(v)
+	return nil
+}
 
 func main() {
 	var endpoint string
@@ -186,13 +199,24 @@ func main() {
 			Required:    false,
 		},
 		{
-			Name:        "ledger-retention-window",
-			OptType:     types.Int,
-			FlagDefault: 17280,
+			Name:        "event-retention-window",
+			OptType:     types.Uint32,
+			FlagDefault: uint32(17280),
 			Required:    false,
-			Usage: "configures the window of ledgers which are stored in the db." +
-				" the default value is 17280 which corresponds to about 24 hours of ledgers",
-			ConfigKey: &serviceConfig.LedgerRetentionWindow,
+			Usage: "configures the event retention window expressed in number of ledgers," +
+				" the default value is 17280 which corresponds to about 24 hours of history",
+			ConfigKey:      &serviceConfig.EventLedgerRetentionWindow,
+			CustomSetValue: mustPositiveUint32,
+		},
+		{
+			Name:        "transaction-retention-window",
+			OptType:     types.Uint32,
+			FlagDefault: uint32(1440),
+			Required:    false,
+			Usage: "configures the transaction retention window expressed in number of ledgers," +
+				" the default value is 1440 which corresponds to about 2 hours of history",
+			ConfigKey:      &serviceConfig.TransactionLedgerRetentionWindow,
+			CustomSetValue: mustPositiveUint32,
 		},
 		{
 			Name:        "max-events-limit",
@@ -219,10 +243,6 @@ func main() {
 			err := configOpts.SetValues()
 			if err != nil {
 				fmt.Printf("failed to set values : %v\n", err)
-				os.Exit(-1)
-			}
-			if serviceConfig.LedgerRetentionWindow <= 0 {
-				fmt.Printf("ledger-retention-window must be positive\n")
 				os.Exit(-1)
 			}
 			if serviceConfig.DefaultEventsLimit > serviceConfig.MaxEventsLimit {

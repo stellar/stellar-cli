@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
 const (
@@ -104,16 +106,41 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	ledgerRetentionWindow := uint32(cfg.LedgerRetentionWindow)
-	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, ledgerRetentionWindow)
+	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create event store: %v", err)
+	}
+	transactionStore, err := transactions.NewMemoryStore(cfg.TransactionLedgerRetentionWindow)
+	if err != nil {
+		logger.Fatalf("could not create transaction store: %v", err)
+	}
+	maxRetentionWindow := cfg.EventLedgerRetentionWindow
+	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
+		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
+	}
+	// initialize the stores using what was on the DB
+	// TODO: add a timeout?
+	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
+	if err != nil {
+		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
+	}
+	for _, txmeta := range txmetas {
+		// NOTE: We could optimize this to avoid unnecessary ingestion calls
+		//       (len(txmetas) can be larger than the store retention windows)
+		//       but it's probably not worth the pain.
+		if err := eventStore.IngestEvents(txmeta); err != nil {
+			logger.Fatalf("could initialize event memory store: %v", err)
+		}
+		if err := transactionStore.IngestTransactions(txmeta); err != nil {
+			logger.Fatalf("could initialize transaction memory store: %v", err)
+		}
 	}
 
 	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
-		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, ledgerRetentionWindow),
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
 		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,
