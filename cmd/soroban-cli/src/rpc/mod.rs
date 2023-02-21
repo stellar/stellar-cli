@@ -1,7 +1,9 @@
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
+use soroban_env_host::xdr::{
+    Error as XdrError, LedgerKey, ReadXdr, TransactionEnvelope, TransactionResult, WriteXdr,
+};
 use std::{
     collections,
     time::{Duration, Instant},
@@ -26,6 +28,8 @@ pub enum Error {
     TransactionSubmissionTimeout,
     #[error("transaction simulation failed: {0}")]
     TransactionSimulationFailed(String),
+    #[error("Missing result in successful response")]
+    MissingResult,
 }
 
 // TODO: this should also be used by serve
@@ -44,32 +48,13 @@ pub struct SendTransactionResponse {
     // TODO: add error
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct TransactionStatusResult {
-    pub xdr: String,
-}
-
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetTransactionStatusResponse {
-    pub id: String,
+pub struct GetTransactionResponse {
     pub status: String,
-    #[serde(
-        rename = "envelopeXdr",
-        skip_serializing_if = "Option::is_none",
-        default
-    )]
-    pub envelope_xdr: Option<String>,
     #[serde(rename = "resultXdr", skip_serializing_if = "Option::is_none", default)]
     pub result_xdr: Option<String>,
-    #[serde(
-        rename = "resultMetaXdr",
-        skip_serializing_if = "Option::is_none",
-        default
-    )]
-    pub result_meta_xdr: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub results: Vec<TransactionStatusResult>,
+    // TODO: add ledger info and application order
 }
 
 // TODO: this should also be used by serve
@@ -191,7 +176,7 @@ impl Client {
     pub async fn send_transaction(
         &self,
         tx: &TransactionEnvelope,
-    ) -> Result<Vec<TransactionStatusResult>, Error> {
+    ) -> Result<TransactionResult, Error> {
         let client = self.client()?;
         let SendTransactionResponse { id, status } = client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
@@ -206,18 +191,19 @@ impl Client {
         // Poll the transaction status
         let start = Instant::now();
         loop {
-            let response = self.get_transaction_status(&id).await?;
+            let response = self.get_transaction(&id).await?;
             match response.status.as_str() {
-                "success" => {
+                "SUCCESS" => {
                     // TODO: the caller should probably be printing this
                     eprintln!("{}", response.status);
-                    return Ok(response.results);
+                    let result = response.result_xdr.ok_or(Error::MissingResult)?;
+                    return Ok(TransactionResult::from_xdr_base64(result)?);
                 }
-                "error" => {
+                "FAILED" => {
                     // TODO: provide a more elaborate error
                     return Err(Error::TransactionSubmissionFailed);
                 }
-                "pending" => (),
+                "NOT_FOUND" => (),
                 _ => {
                     return Err(Error::UnexpectedTransactionStatus(response.status));
                 }
@@ -246,13 +232,10 @@ impl Client {
         }
     }
 
-    pub async fn get_transaction_status(
-        &self,
-        tx_id: &str,
-    ) -> Result<GetTransactionStatusResponse, Error> {
+    pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponse, Error> {
         Ok(self
             .client()?
-            .request("getTransactionStatus", rpc_params![tx_id])
+            .request("getTransaction", rpc_params![tx_id])
             .await?)
     }
 
