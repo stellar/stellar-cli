@@ -26,7 +26,7 @@ type SendTransactionResponse struct {
 	// Status represents the status of the transaction submission returned by stellar-core.
 	// Status can be one of: proto.TXStatusPending, proto.TXStatusDuplicate,
 	// proto.TXStatusTryAgainLater, or proto.TXStatusError.
-	Status string `json:"status,omitempty"`
+	Status string `json:"status"`
 	// TransactionHash is a hash of the transaction which can be used to look up whether
 	// the transaction was included in the ledger.
 	TransactionHash string `json:"transactionHash"`
