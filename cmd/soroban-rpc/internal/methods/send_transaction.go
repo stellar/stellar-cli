@@ -35,7 +35,7 @@ type SendTransactionResponse struct {
 	LatestLedger int64 `json:"latestLedger,string"`
 	// LatestLedgerCloseTime is the unix timestamp of the close time of the latest ledger known to
 	// Soroban-RPC at the time it handled the transaction submission request.
-	LatestLedgerCloseTime int64 `json:"latestLedger,string"`
+	LatestLedgerCloseTime int64 `json:"latestLedgerCloseTime,string"`
 }
 
 // SendTransactionRequest is the Soroban-RPC request to submit a transaction.
