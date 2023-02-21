@@ -183,8 +183,8 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
 	assert.NoError(t, err)
 
-	assert.Zero(t, result.LatestLedger)
-	assert.Zero(t, result.LatestLedgerCloseTime)
+	assert.NotZero(t, result.LatestLedger)
+	assert.NotZero(t, result.LatestLedgerCloseTime)
 	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedHashHex, result.TransactionHash)
@@ -230,10 +230,10 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
-	assert.Equal(t, methods.SendTransactionResponse{
-		TransactionHash: expectedHashHex,
-		Status:          proto.TXStatusPending,
-	}, result)
+	assert.Equal(t, expectedHashHex, result.TransactionHash)
+	assert.Equal(t, proto.TXStatusPending, result.Status)
+	assert.NotZero(t, result.LatestLedger)
+	assert.NotZero(t, result.LatestLedgerCloseTime)
 
 	response := getTransaction(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionStatusFailed, response.Status)
@@ -273,10 +273,10 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
-	assert.Equal(t, methods.SendTransactionResponse{
-		TransactionHash: expectedHashHex,
-		Status:          proto.TXStatusPending,
-	}, result)
+	assert.Equal(t, expectedHashHex, result.TransactionHash)
+	assert.Equal(t, proto.TXStatusPending, result.Status)
+	assert.NotZero(t, result.LatestLedger)
+	assert.NotZero(t, result.LatestLedgerCloseTime)
 
 	response := getTransaction(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionStatusSuccess, response.Status)
