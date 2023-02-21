@@ -17,45 +17,17 @@ crate-type = ["rlib", "cdylib"]
 
 
 [dependencies]
-soroban-cli = { path = "../../soroban-cli" }
-
 soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
 soroban-spec = { workspace = true }
 soroban-token-spec = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
-base64 = "0.13.0"
 thiserror = "1.0.31"
-serde = "1.0.82"
-serde_derive = "1.0.82"
-serde_json = "1.0.82"
-serde-aux = "4.1.2"
-hex = "0.4.3"
-num-bigint = "0.4"
-tokio = { version = "1", features = ["full"] }
-termcolor = "1.1.3"
-termcolor_output = "1.0.1"
-warp = "0.3"
-clap_complete = "3.2.3"
-rand = "0.8.5"
-wasmparser = "0.90.0"
-sha2 = "0.10.6"
-csv = "1.1.6"
-ed25519-dalek = "1.0.1"
-jsonrpsee-http-client = "0.15.1"
-jsonrpsee-core = "0.15.1"
-regex = "1.6.0"
-wasm-opt = "0.111.0"
-chrono = "0.4.23"
-rpassword = "7.2.0"
-dirs = "4.0.0"
-config = "0.13.1"
-toml = "0.5.9"
-itertools = "0.10.5"
 sep5 =  { workspace = true}
+sha2 = "0.10.6"
+cargo = "0.68.0"
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 predicates = "2.1.5"
 fs_extra = "1.3.0"
-cargo = "0.68.0"
