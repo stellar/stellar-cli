@@ -10,9 +10,10 @@ use soroban_env_host::xdr::{
     self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
     InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
     LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption,
-    ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScStatic,
-    ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
+    Preconditions, ScContractCode, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap,
+    ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt,
+    ScSpecTypeVec, ScStatic, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+    TransactionExt, VecM,
 };
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -42,9 +43,6 @@ pub struct Cmd {
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[clap(long, parse(from_os_str))]
     wasm: Option<std::path::PathBuf>,
-    /// Function name to execute
-    #[clap(long = "fn")]
-    function: String,
     /// Output the cost execution to stderr
     #[clap(long = "cost")]
     cost: bool,
@@ -153,23 +151,28 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-    ) -> Result<(Spec, ScVec), Error> {
+    ) -> Result<(String, Spec, ScVec), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
-        let func = spec
-            .find_function(&self.function)
-            .map_err(|_| Error::FunctionNotFoundInContractSpec(self.function.clone()))?;
+        let mut cmd = clap::Command::new(&self.contract_id).no_binary_name(true);
 
-        // Parse the function arguments
-        let inputs_map = &func
-            .inputs
-            .iter()
-            .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
-            .collect::<HashMap<String, ScSpecTypeDef>>();
+        for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
+            let name: &'static str = Box::leak(name.to_string_lossy().into_boxed_str());
+            // let doc: &'static str = Box::leak(doc.to_string_lossy().into_boxed_str());
+            cmd = cmd.subcommand(build_custom_cmd(name, &spec)?);
+        }
+        cmd.build();
+        let mut matches_ = cmd.get_matches_from(&self.slop);
+        // matches_.try_get_one(id)
+        // eprintln!("{matches_:#?}");
+        let (function, matches_) = &matches_.remove_subcommand().unwrap();
 
-        let cmd = build_custom_cmd(&self.function, inputs_map, &spec);
-        let matches_ = cmd.get_matches_from(&self.slop);
+        let func = spec.find_function(function)?;
 
-        // create parsed_args in same order as the inputs to func
+        // if let Some(function) = &self.function {
+        //     let cmd = build_custom_cmd(&function, inputs_map, &spec);
+        //     let matches_ = cmd.get_matches_from(&self.slop);
+
+        //     // create parsed_args in same order as the inputs to func
         let parsed_args = func
             .inputs
             .iter()
@@ -194,15 +197,16 @@ impl Cmd {
         let mut complete_args = vec![
             ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
             ScVal::Symbol(
-                (&self.function)
+                function
                     .try_into()
-                    .map_err(|_| Error::FunctionNameTooLong(self.function.clone()))?,
+                    .map_err(|_| Error::FunctionNameTooLong(function.clone()))?,
             ),
         ];
         complete_args.extend_from_slice(parsed_args.as_slice());
         let complete_args_len = complete_args.len();
 
         Ok((
+            function.clone(),
             spec,
             complete_args
                 .try_into()
@@ -211,6 +215,11 @@ impl Cmd {
                     maximum: ScVec::default().max_len(),
                 })?,
         ))
+        // } else {
+
+        //     cmd.get_matches_from(["--help"]);
+        //     panic!()
+        // }
     }
 
     pub async fn run(&self) -> Result<(), Error> {
@@ -243,7 +252,7 @@ impl Cmd {
         };
 
         // Get the ledger footprint
-        let (spec, host_function_params) =
+        let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
         let tx_without_footprint = build_invoke_contract_tx(
             host_function_params.clone(),
@@ -292,7 +301,7 @@ impl Cmd {
             return Err(Error::MissingTransactionResult);
         }
         let res = ScVal::from_xdr_base64(&results[0].xdr)?;
-        let res_str = self.output_to_string(&spec, &res)?;
+        let res_str = output_to_string(&spec, &res, &function)?;
         println!("{res_str}");
         // TODO: print cost
 
@@ -340,12 +349,12 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info);
 
-        let (spec, host_function_params) =
+        let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
 
-        let res_str = self.output_to_string(&spec, &res)?;
+        let res_str = output_to_string(&spec, &res, &function)?;
 
         println!("{res_str}");
 
@@ -454,20 +463,6 @@ impl Cmd {
             })
             .transpose()
     }
-
-    pub fn output_to_string(&self, spec: &Spec, res: &ScVal) -> Result<String, Error> {
-        let mut res_str = String::new();
-        if let Some(output) = spec.find_function(&self.function)?.outputs.get(0) {
-            res_str = spec
-                .xdr_to_json(res, output)
-                .map_err(|e| Error::CannotPrintResult {
-                    result: res.clone(),
-                    error: e,
-                })?
-                .to_string();
-        }
-        Ok(res_str)
-    }
 }
 
 impl Cmd {
@@ -477,6 +472,20 @@ impl Cmd {
             error: e,
         })
     }
+}
+
+pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<String, Error> {
+    let mut res_str = String::new();
+    if let Some(output) = spec.find_function(function)?.outputs.get(0) {
+        res_str = spec
+            .xdr_to_json(res, output)
+            .map_err(|e| Error::CannotPrintResult {
+                result: res.clone(),
+                error: e,
+            })?
+            .to_string();
+    }
+    Ok(res_str)
 }
 
 fn build_invoke_contract_tx(
@@ -555,11 +564,17 @@ async fn get_remote_contract_spec_entries(
     })
 }
 
-fn build_custom_cmd<'a>(
-    name: &'a str,
-    inputs_map: &'a HashMap<String, ScSpecTypeDef>,
-    spec: &Spec,
-) -> clap::App<'a> {
+fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Error> {
+    let func = spec
+        .find_function(name)
+        .map_err(|_| Error::FunctionNotFoundInContractSpec(name.to_string()))?;
+
+    // Parse the function arguments
+    let inputs_map = &func
+        .inputs
+        .iter()
+        .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
+        .collect::<HashMap<String, ScSpecTypeDef>>();
     let mut cmd = clap::Command::new(name).no_binary_name(true);
     let func = spec.find_function(name).unwrap();
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
@@ -589,8 +604,7 @@ fn build_custom_cmd<'a>(
 
         cmd = cmd.arg(arg);
     }
-    cmd.build();
-    cmd
+    Ok(cmd)
 }
 
 fn arg_value_name(name: &'static str, spec: &Spec, type_: &ScSpecTypeDef) -> Option<&'static str> {

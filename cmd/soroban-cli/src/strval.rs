@@ -26,6 +26,8 @@ pub enum Error {
     EnumConstTooLarge(u64),
     #[error("Missing Entry {0}")]
     MissingEntry(String),
+    #[error("Missing Spec")]
+    MissingSpec,
     #[error(transparent)]
     Xdr(XdrError),
     #[error(transparent)]
@@ -111,6 +113,21 @@ impl Spec {
             ScSpecEntry::FunctionV0(f) => Ok(f),
             _ => Err(Error::MissingEntry(name.to_owned())),
         }
+    }
+
+    /// # Errors
+    ///
+    pub fn find_functions(&self) -> Result<Vec<&ScSpecFunctionV0>, Error> {
+        Ok(self
+            .0
+            .as_ref()
+            .ok_or(Error::MissingSpec)?
+            .iter()
+            .filter_map(|e| match e {
+                ScSpecEntry::FunctionV0(x) => Some(x),
+                _ => None,
+            })
+            .collect())
     }
 
     /// # Errors
