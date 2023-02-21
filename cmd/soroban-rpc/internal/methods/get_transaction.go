@@ -43,6 +43,8 @@ type GetTransactionResponse struct {
 	// ApplicationOrder is the index of the transaction among all the transactions
 	// for that ledger.
 	ApplicationOrder int32 `json:"applicationOrder,omitempty"`
+	// FeeBump indicates whether the transaction is a feebump transaction
+	FeeBump bool `json:"feeBump,omitempty"`
 	// ResultXdr is the TransactionResult XDR value.
 	ResultXdr string `json:"resultXdr,omitempty"`
 	// Ledger is the sequence of the ledger which included the transaction.
@@ -89,6 +91,7 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	}
 
 	response.ApplicationOrder = tx.ApplicationOrder
+	response.FeeBump = tx.FeeBump
 	response.Ledger = int64(tx.Ledger.Sequence)
 	response.LedgerCloseTime = tx.Ledger.CloseTime
 	if response.ResultXdr, err = xdr.MarshalBase64(tx.Result); err != nil {
