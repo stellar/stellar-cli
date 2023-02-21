@@ -23,17 +23,9 @@ func txMeta(ledgerSequence uint32, closeTime int64, hash xdr.Hash, sucessful boo
 				V3: &xdr.TransactionMetaV3{
 					TxResult: xdr.TransactionResult{
 						Result: xdr.TransactionResultResult{
-							Code: code,
-							InnerResultPair: &xdr.InnerTransactionResultPair{
-								TransactionHash: hash,
-								Result: xdr.InnerTransactionResult{
-									Result: xdr.InnerTransactionResultResult{
-										Code:    code,
-										Results: nil,
-									},
-								},
-							},
-							Results: &[]xdr.OperationResult{},
+							Code:            code,
+							InnerResultPair: nil,
+							Results:         &[]xdr.OperationResult{},
 						},
 					},
 				},
