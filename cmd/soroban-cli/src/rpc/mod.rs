@@ -40,9 +40,25 @@ pub enum Error {
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SendTransactionResponse {
-    pub id: String,
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: String,
     pub status: String,
-    // TODO: add error
+    #[serde(
+        rename = "errorResultXdr",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub error_result_xdr: Option<String>,
+    #[serde(
+        rename = "latestLedger",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger: u32,
+    #[serde(
+        rename = "latestLedgerCloseTime",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger_close_time: u32,
 }
 
 // TODO: this should also be used by serve
@@ -184,12 +200,18 @@ impl Client {
         tx: &TransactionEnvelope,
     ) -> Result<TransactionResult, Error> {
         let client = self.client()?;
-        let SendTransactionResponse { id, status } = client
+        let SendTransactionResponse {
+            transaction_hash,
+            error_result_xdr,
+            status,
+            ..
+        } = client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await
             .map_err(|_| Error::TransactionSubmissionFailed)?;
 
-        if status == "error" {
+        if status == "ERROR" {
+            eprintln!("error: {}", error_result_xdr.unwrap());
             return Err(Error::TransactionSubmissionFailed);
         }
         // even if status == "success" we need to query the transaction status in order to get the result
@@ -197,7 +219,7 @@ impl Client {
         // Poll the transaction status
         let start = Instant::now();
         loop {
-            let response = self.get_transaction(&id).await?;
+            let response = self.get_transaction(&transaction_hash).await?;
             match response.status.as_str() {
                 "SUCCESS" => {
                     // TODO: the caller should probably be printing this
