@@ -33,7 +33,7 @@ pub struct Cmd {
     pub hd_path: Option<usize>,
 
     /// Generate the default seed phrase. Useful for testing.
-    /// Equilivant to --seed 0000000000000000
+    /// Equivalent to --seed 0000000000000000
     #[clap(long, short = 'd')]
     pub default_seed: bool,
 }
