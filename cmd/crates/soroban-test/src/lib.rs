@@ -16,26 +16,27 @@ pub enum Error {
     FsError(#[from] fs_extra::error::Error),
 }
 
-/// Default
-pub struct Nebula {
+/// A TestEnv is a contained process for a specific test, with its own ENV and
+/// its own TempDir where it will save test-specific configuration.
+pub struct TestEnv {
     pub temp_dir: TempDir,
 }
 
-impl Default for Nebula {
+impl Default for TestEnv {
     fn default() -> Self {
         Self::new().unwrap()
     }
 }
 
-impl Nebula {
-    pub fn with_default<F: FnOnce(&Nebula)>(f: F) {
-        let nebula = Nebula::default();
-        f(&nebula)
+impl TestEnv {
+    pub fn with_default<F: FnOnce(&TestEnv)>(f: F) {
+        let test_env = TestEnv::default();
+        f(&test_env)
     }
-    pub fn new() -> Result<Nebula, Error> {
+    pub fn new() -> Result<TestEnv, Error> {
         TempDir::new()
             .map_err(Error::TempDir)
-            .map(|temp_dir| Nebula { temp_dir })
+            .map(|temp_dir| TestEnv { temp_dir })
     }
     pub fn new_cmd(&self, name: &str) -> Command {
         let mut this = Command::cargo_bin("soroban").unwrap_or_else(|_| Command::new("soroban"));
@@ -67,13 +68,13 @@ impl Nebula {
             .stdout_as_str()
     }
 
-    pub fn fork(&self) -> Result<Nebula, Error> {
-        let this = Nebula::new()?;
+    pub fn fork(&self) -> Result<TestEnv, Error> {
+        let this = TestEnv::new()?;
         self.save(&this.temp_dir)?;
         Ok(this)
     }
 
-    /// Save the current state of the nebula to the given directory.
+    /// Save the current state of the TestEnv to the given directory.
     pub fn save(&self, dst: &Path) -> Result<(), Error> {
         fs_extra::dir::copy(&self.temp_dir, dst, &CopyOptions::new())?;
         Ok(())
