@@ -101,6 +101,20 @@ type StoreRange struct {
 	LastLedger  LedgerInfo
 }
 
+// GetLatestLedger returns the latest ledger available in the store.
+func (m *MemoryStore) GetLatestLedger() LedgerInfo {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	if m.transactionsByLedger.Len() > 0 {
+		lastBucket := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
+		return LedgerInfo{
+			Sequence:  lastBucket.LedgerSeq,
+			CloseTime: lastBucket.LedgerCloseTimestamp,
+		}
+	}
+	return LedgerInfo{}
+}
+
 // GetTransaction obtains a transaction from the store and whether it's present and the current store range
 func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRange) {
 	m.lock.RLock()

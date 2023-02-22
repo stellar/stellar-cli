@@ -1,7 +1,10 @@
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use soroban_env_host::xdr::{Error as XdrError, LedgerKey, TransactionEnvelope, WriteXdr};
+use soroban_env_host::xdr::{
+    AccountEntry, AccountId, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyAccount,
+    PublicKey, ReadXdr, TransactionEnvelope, TransactionResult, Uint256, WriteXdr,
+};
 use std::{
     collections,
     time::{Duration, Instant},
@@ -12,6 +15,10 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("invalid address: {0}")]
+    InvalidAddress(#[from] stellar_strkey::DecodeError),
+    #[error("invalid response from server")]
+    InvalidResponse,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
@@ -26,50 +33,41 @@ pub enum Error {
     TransactionSubmissionTimeout,
     #[error("transaction simulation failed: {0}")]
     TransactionSimulationFailed(String),
-}
-
-// TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetAccountResponse {
-    pub id: String,
-    pub sequence: String,
-    // TODO: add balances
+    #[error("Missing result in successful response")]
+    MissingResult,
 }
 
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SendTransactionResponse {
-    pub id: String,
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: String,
     pub status: String,
-    // TODO: add error
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct TransactionStatusResult {
-    pub xdr: String,
+    #[serde(
+        rename = "errorResultXdr",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub error_result_xdr: Option<String>,
+    #[serde(
+        rename = "latestLedger",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger: u32,
+    #[serde(
+        rename = "latestLedgerCloseTime",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger_close_time: u32,
 }
 
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetTransactionStatusResponse {
-    pub id: String,
+pub struct GetTransactionResponse {
     pub status: String,
-    #[serde(
-        rename = "envelopeXdr",
-        skip_serializing_if = "Option::is_none",
-        default
-    )]
-    pub envelope_xdr: Option<String>,
     #[serde(rename = "resultXdr", skip_serializing_if = "Option::is_none", default)]
     pub result_xdr: Option<String>,
-    #[serde(
-        rename = "resultMetaXdr",
-        skip_serializing_if = "Option::is_none",
-        default
-    )]
-    pub result_meta_xdr: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub results: Vec<TransactionStatusResult>,
+    // TODO: add ledger info and application order
 }
 
 // TODO: this should also be used by serve
@@ -181,24 +179,39 @@ impl Client {
             .build(url)?)
     }
 
-    pub async fn get_account(&self, account_id: &str) -> Result<GetAccountResponse, Error> {
-        Ok(self
-            .client()?
-            .request("getAccount", rpc_params![account_id])
-            .await?)
+    pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
+        let key = LedgerKey::Account(LedgerKeyAccount {
+            account_id: AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+                stellar_strkey::ed25519::PublicKey::from_string(address)?.0,
+            ))),
+        });
+        let response = self.get_ledger_entry(key).await?;
+        if let LedgerEntryData::Account(entry) =
+            LedgerEntryData::read_xdr_base64(&mut response.xdr.as_bytes())?
+        {
+            Ok(entry)
+        } else {
+            Err(Error::InvalidResponse)
+        }
     }
 
     pub async fn send_transaction(
         &self,
         tx: &TransactionEnvelope,
-    ) -> Result<Vec<TransactionStatusResult>, Error> {
+    ) -> Result<TransactionResult, Error> {
         let client = self.client()?;
-        let SendTransactionResponse { id, status } = client
+        let SendTransactionResponse {
+            transaction_hash,
+            error_result_xdr,
+            status,
+            ..
+        } = client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await
             .map_err(|_| Error::TransactionSubmissionFailed)?;
 
-        if status == "error" {
+        if status == "ERROR" {
+            eprintln!("error: {}", error_result_xdr.unwrap());
             return Err(Error::TransactionSubmissionFailed);
         }
         // even if status == "success" we need to query the transaction status in order to get the result
@@ -206,18 +219,19 @@ impl Client {
         // Poll the transaction status
         let start = Instant::now();
         loop {
-            let response = self.get_transaction_status(&id).await?;
+            let response = self.get_transaction(&transaction_hash).await?;
             match response.status.as_str() {
-                "success" => {
+                "SUCCESS" => {
                     // TODO: the caller should probably be printing this
                     eprintln!("{}", response.status);
-                    return Ok(response.results);
+                    let result = response.result_xdr.ok_or(Error::MissingResult)?;
+                    return Ok(TransactionResult::from_xdr_base64(result)?);
                 }
-                "error" => {
+                "FAILED" => {
                     // TODO: provide a more elaborate error
                     return Err(Error::TransactionSubmissionFailed);
                 }
-                "pending" => (),
+                "NOT_FOUND" => (),
                 _ => {
                     return Err(Error::UnexpectedTransactionStatus(response.status));
                 }
@@ -246,13 +260,10 @@ impl Client {
         }
     }
 
-    pub async fn get_transaction_status(
-        &self,
-        tx_id: &str,
-    ) -> Result<GetTransactionStatusResponse, Error> {
+    pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponse, Error> {
         Ok(self
             .client()?
-            .request("getTransactionStatus", rpc_params![tx_id])
+            .request("getTransaction", rpc_params![tx_id])
             .await?)
     }
 
