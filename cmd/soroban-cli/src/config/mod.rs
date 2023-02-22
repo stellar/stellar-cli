@@ -57,7 +57,7 @@ impl Cmd {
 #[derive(Debug, clap::Args, Clone)]
 pub struct Args {
     /// Secret Key used to sign transaction sent to the rpc server
-    #[clap(long)]
+    #[clap(long, conflicts_with = "identity")]
     pub secret_key: Option<String>,
 
     #[clap(flatten)]
@@ -66,7 +66,7 @@ pub struct Args {
     #[clap(flatten)]
     pub ledger_file: ledger_file::Args,
 
-    #[clap(long, alias = "as")]
+    #[clap(long, alias = "as", conflicts_with = "secret-key")]
     /// Use specified identity to sign transaction
     pub identity: Option<String>,
 
