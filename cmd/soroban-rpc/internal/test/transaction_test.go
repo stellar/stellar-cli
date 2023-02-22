@@ -194,6 +194,12 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	assert.Equal(t, xdr.TransactionResultCodeTxBadSeq, errorResult.Result.Code)
 }
 
+func TestJonx(t *testing.T) {
+	test := NewTest(t)
+	t.Log(test.server.URL)
+	time.Sleep(time.Hour)
+}
+
 func TestSendTransactionFailedInLedger(t *testing.T) {
 	test := NewTest(t)
 

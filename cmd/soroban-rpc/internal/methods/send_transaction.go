@@ -78,7 +78,8 @@ func NewSendTransactionHandler(logger *log.Entry, store LatestLedgerStore, passp
 			logger.WithError(err).
 				WithField("tx", request.Transaction).Error("could not submit transaction")
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code: code.InternalError,
+				Code:    code.InternalError,
+				Message: "could not submit transaction to stellar-core",
 			}
 		}
 
@@ -87,7 +88,8 @@ func NewSendTransactionHandler(logger *log.Entry, store LatestLedgerStore, passp
 			logger.WithField("exception", resp.Exception).
 				WithField("tx", request.Transaction).Error("received exception from stellar core")
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code: code.InternalError,
+				Code:    code.InternalError,
+				Message: "received exception from stellar-core",
 			}
 		}
 
@@ -111,7 +113,8 @@ func NewSendTransactionHandler(logger *log.Entry, store LatestLedgerStore, passp
 			logger.WithField("status", resp.Status).
 				WithField("tx", request.Transaction).Error("Unrecognized stellar-core status response")
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code: code.InternalError,
+				Code:    code.InternalError,
+				Message: "invalid status from stellar-core",
 			}
 		}
 	})
