@@ -132,7 +132,6 @@ func (i *Test) launchDaemon() {
 		CaptiveCoreConfigPath:            path.Join(i.composePath, "captive-core-integration-tests.cfg"),
 		CaptiveCoreStoragePath:           i.t.TempDir(),
 		CaptiveCoreHTTPPort:              stellarCorePort,
-		CaptiveCoreUseDB:                 true,
 		FriendbotURL:                     friendbotURL,
 		NetworkPassphrase:                StandaloneNetworkPassphrase,
 		HistoryArchiveURLs:               []string{"http://localhost:1570"},
