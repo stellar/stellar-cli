@@ -156,7 +156,7 @@ impl Cmd {
         let fee: u32 = 100;
 
         let account_details = client.get_account(&public_strkey).await?;
-        let sequence = account_details.sequence.parse::<i64>()?;
+        let sequence: i64 = account_details.seq_num.into();
         let (tx, contract_id) = build_create_contract_tx(
             wasm_hash,
             sequence + 1,

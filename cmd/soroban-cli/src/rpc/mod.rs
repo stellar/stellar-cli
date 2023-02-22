@@ -2,7 +2,8 @@ use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::{
-    Error as XdrError, LedgerKey, ReadXdr, TransactionEnvelope, TransactionResult, WriteXdr,
+    AccountEntry, AccountId, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyAccount,
+    PublicKey, ReadXdr, TransactionEnvelope, TransactionResult, Uint256, WriteXdr,
 };
 use std::{
     collections,
@@ -14,6 +15,10 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("invalid address: {0}")]
+    InvalidAddress(#[from] stellar_strkey::DecodeError),
+    #[error("invalid response from server")]
+    InvalidResponse,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
@@ -30,14 +35,6 @@ pub enum Error {
     TransactionSimulationFailed(String),
     #[error("Missing result in successful response")]
     MissingResult,
-}
-
-// TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetAccountResponse {
-    pub id: String,
-    pub sequence: String,
-    // TODO: add balances
 }
 
 // TODO: this should also be used by serve
@@ -166,11 +163,20 @@ impl Client {
             .build(url)?)
     }
 
-    pub async fn get_account(&self, account_id: &str) -> Result<GetAccountResponse, Error> {
-        Ok(self
-            .client()?
-            .request("getAccount", rpc_params![account_id])
-            .await?)
+    pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
+        let key = LedgerKey::Account(LedgerKeyAccount {
+            account_id: AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+                stellar_strkey::ed25519::PublicKey::from_string(address)?.0,
+            ))),
+        });
+        let response = self.get_ledger_entry(key).await?;
+        if let LedgerEntryData::Account(entry) =
+            LedgerEntryData::read_xdr_base64(&mut response.xdr.as_bytes())?
+        {
+            Ok(entry)
+        } else {
+            Err(Error::InvalidResponse)
+        }
     }
 
     pub async fn send_transaction(

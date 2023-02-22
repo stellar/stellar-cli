@@ -168,7 +168,6 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	)
 
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
-		AccountStore:      methods.AccountStore{Client: hc},
 		EventStore:        eventStore,
 		TransactionStore:  transactionStore,
 		Logger:            logger,
