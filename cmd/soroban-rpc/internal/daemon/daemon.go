@@ -169,6 +169,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
 		Logger:            logger,
 		TransactionProxy:  transactionProxy,
 		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
