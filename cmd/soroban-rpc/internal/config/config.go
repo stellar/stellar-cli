@@ -9,6 +9,7 @@ import (
 type LocalConfig struct {
 	HorizonURL             string
 	StellarCoreURL         string
+	CoreRequestTimeout     time.Duration
 	StellarCoreBinaryPath  string
 	CaptiveCoreConfigPath  string
 	CaptiveCoreStoragePath string
@@ -18,8 +19,6 @@ type LocalConfig struct {
 	NetworkPassphrase      string
 	HistoryArchiveURLs     []string
 	LogLevel               logrus.Level
-	TxConcurrency          int
-	TxQueueSize            int
 	SQLiteDBPath           string
 	// TODO: this unused but we should timeout the DB fillup
 	LedgerEntryStorageTimeout        time.Duration

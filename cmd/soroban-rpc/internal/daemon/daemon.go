@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -19,12 +18,10 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
 const (
-	transactionProxyTTL          = 5 * time.Minute
 	maxLedgerEntryWriteBatchSize = 150
 )
 
@@ -160,10 +157,13 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	hc.SetHorizonTimeout(horizonclient.HorizonTimeout)
 
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
-		EventStore:        eventStore,
-		TransactionStore:  transactionStore,
-		Logger:            logger,
-		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
+		EventStore:       eventStore,
+		TransactionStore: transactionStore,
+		Logger:           logger,
+		CoreClient: &stellarcore.Client{
+			URL:  cfg.StellarCoreURL,
+			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
+		},
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 	})
 	if err != nil {
