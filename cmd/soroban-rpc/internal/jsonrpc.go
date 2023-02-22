@@ -15,6 +15,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
 // Handler is the HTTP handler which serves the Soroban JSON RPC responses
@@ -42,6 +43,7 @@ func (h Handler) Close() {
 type HandlerParams struct {
 	AccountStore      methods.AccountStore
 	EventStore        *events.MemoryStore
+	TransactionStore  *transactions.MemoryStore
 	TransactionProxy  *methods.TransactionProxy
 	CoreClient        *stellarcore.Client
 	LedgerEntryReader db.LedgerEntryReader
@@ -56,7 +58,8 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, 
 		"getEvents":            methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
 		"getNetwork":           methods.NewGetNetworkHandler(cfg.NetworkPassphrase, cfg.FriendbotURL, params.CoreClient),
 		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
-		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
+		"getTransaction":       methods.NewGetTransactionHandler(params.TransactionStore),
+		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy), // deprecated
 		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
 		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, cfg.NetworkPassphrase, params.LedgerEntryReader),
 	}, nil)
