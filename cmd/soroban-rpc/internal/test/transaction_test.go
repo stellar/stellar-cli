@@ -39,6 +39,9 @@ func getAccount(client *jrpc2.Client, address string) (xdr.AccountEntry, error) 
 			}),
 		},
 	}.MarshalBinaryBase64()
+	if err != nil {
+		return xdr.AccountEntry{}, err
+	}
 
 	// assert that the transaction was not included in any ledger
 	request := methods.GetLedgerEntryRequest{
