@@ -46,14 +46,6 @@ func main() {
 			FlagDefault: "localhost:8000",
 			Required:    false,
 		},
-		&config.ConfigOption{
-			Name:        "horizon-url",
-			ConfigKey:   &serviceConfig.HorizonURL,
-			OptType:     types.String,
-			Required:    true,
-			FlagDefault: "",
-			Usage:       "URL used to query Horizon",
-		},
 		{
 			Name:        "stellar-core-url",
 			ConfigKey:   &serviceConfig.StellarCoreURL,

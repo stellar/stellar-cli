@@ -7,7 +7,6 @@ import (
 )
 
 type LocalConfig struct {
-	HorizonURL             string
 	StellarCoreURL         string
 	CoreRequestTimeout     time.Duration
 	StellarCoreBinaryPath  string

@@ -6,7 +6,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
@@ -146,15 +145,6 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	if err != nil {
 		logger.Fatalf("could not initialize ledger entry writer: %v", err)
 	}
-
-	hc := &horizonclient.Client{
-		HorizonURL: cfg.HorizonURL,
-		HTTP: &http.Client{
-			Timeout: horizonclient.HorizonTimeout,
-		},
-		AppName: "Soroban RPC",
-	}
-	hc.SetHorizonTimeout(horizonclient.HorizonTimeout)
 
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:       eventStore,
