@@ -162,17 +162,10 @@ impl Cmd {
         }
         cmd.build();
         let mut matches_ = cmd.get_matches_from(&self.slop);
-        // matches_.try_get_one(id)
-        // eprintln!("{matches_:#?}");
         let (function, matches_) = &matches_.remove_subcommand().unwrap();
 
         let func = spec.find_function(function)?;
-
-        // if let Some(function) = &self.function {
-        //     let cmd = build_custom_cmd(&function, inputs_map, &spec);
-        //     let matches_ = cmd.get_matches_from(&self.slop);
-
-        //     // create parsed_args in same order as the inputs to func
+        // create parsed_args in same order as the inputs to func
         let parsed_args = func
             .inputs
             .iter()
@@ -215,11 +208,6 @@ impl Cmd {
                     maximum: ScVec::default().max_len(),
                 })?,
         ))
-        // } else {
-
-        //     cmd.get_matches_from(["--help"]);
-        //     panic!()
-        // }
     }
 
     pub async fn run(&self) -> Result<(), Error> {
