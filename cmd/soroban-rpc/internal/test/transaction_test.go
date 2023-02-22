@@ -3,66 +3,21 @@ package test
 import (
 	"context"
 	"encoding/hex"
-	"github.com/creachadair/jrpc2/code"
-	proto "github.com/stellar/go/protocols/stellarcore"
 	"testing"
 	"time"
 
 	"github.com/creachadair/jrpc2"
+	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stellar/go/keypair"
-	"github.com/stellar/go/strkey"
+	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
-
-type AccountInfo struct {
-	ID       string
-	Sequence string
-}
-
-func getAccount(client *jrpc2.Client, address string) (xdr.AccountEntry, error) {
-	decoded, err := strkey.Decode(strkey.VersionByteAccountID, address)
-	if err != nil {
-		return xdr.AccountEntry{}, err
-	}
-	var key xdr.Uint256
-	copy(key[:], decoded)
-	keyXdr, err := xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeAccount,
-		Account: &xdr.LedgerKeyAccount{
-			AccountId: xdr.AccountId(xdr.PublicKey{
-				Type:    xdr.PublicKeyTypePublicKeyTypeEd25519,
-				Ed25519: &key,
-			}),
-		},
-	}.MarshalBinaryBase64()
-	if err != nil {
-		return xdr.AccountEntry{}, err
-	}
-
-	// assert that the transaction was not included in any ledger
-	request := methods.GetLedgerEntryRequest{
-		Key: keyXdr,
-	}
-	var response methods.GetLedgerEntryResponse
-	err = client.CallResult(context.Background(), "getLedgerEntry", request, &response)
-	if err != nil {
-		return xdr.AccountEntry{}, err
-	}
-
-	var data xdr.LedgerEntryData
-	err = xdr.SafeUnmarshalBase64(response.XDR, &data)
-	if err != nil {
-		return xdr.AccountEntry{}, err
-	}
-
-	return data.MustAccount(), nil
-}
 
 func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 	test := NewTest(t)

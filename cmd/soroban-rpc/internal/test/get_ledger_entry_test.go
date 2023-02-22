@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"crypto/sha256"
-	proto "github.com/stellar/go/protocols/stellarcore"
 	"testing"
 
 	"github.com/creachadair/jrpc2"
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/go/keypair"
+	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 
