@@ -138,7 +138,6 @@ async fn handler(
         ));
     }
     let result = match (request.method.as_str(), request.params) {
-        ("getAccount", Some(Requests::StringArg(b))) => get_account(b),
         ("getHealth", Some(Requests::NoArg()) | None) => Ok(get_health()),
         ("getLedgerEntry", Some(Requests::StringArg(key))) => get_ledger_entry(key, &ledger_file),
         ("getNetwork", Some(Requests::NoArg())) => Ok(get_network()),
@@ -452,23 +451,6 @@ fn hash_bytes(b: Vec<u8>) -> [u8; 32] {
     hasher.update(b);
     output.copy_from_slice(&hasher.finalize());
     output
-}
-
-fn get_account(b: Box<[String]>) -> Result<Value, Error> {
-    if let Some(address) = b.into_vec().first() {
-        if let Ok(_key) = stellar_strkey::ed25519::PublicKey::from_string(address) {
-            Ok(json!({
-                "id": address,
-                "sequence": "1", // TODO: Increment and persist this in sendTransaction.
-                // TODO: Include balances
-                // "balances": vec![],
-            }))
-        } else {
-            Err(Error::Xdr(XdrError::Invalid))
-        }
-    } else {
-        Err(Error::Xdr(XdrError::Invalid))
-    }
 }
 
 fn get_health() -> Value {

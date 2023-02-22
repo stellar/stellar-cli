@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/creachadair/jrpc2"
+	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stellar/go/keypair"
+	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 
@@ -136,14 +138,15 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
 	assert.NoError(t, err)
 
+	assert.NotZero(t, result.LatestLedger)
+	assert.NotZero(t, result.LatestLedgerCloseTime)
 	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
-
-	// TODO: when implementing the new sendTransaction we should have a way to indicate that the transaction failed
-	assert.Equal(t, methods.SendTransactionResponse{
-		ID:     expectedHashHex,
-		Status: methods.TransactionPending,
-	}, result)
+	assert.Equal(t, expectedHashHex, result.TransactionHash)
+	assert.Equal(t, proto.TXStatusError, result.Status)
+	var errorResult xdr.TransactionResult
+	assert.NoError(t, xdr.SafeUnmarshalBase64(result.ErrorResultXDR, &errorResult))
+	assert.Equal(t, xdr.TransactionResultCodeTxBadSeq, errorResult.Result.Code)
 }
 
 func TestSendTransactionFailedInLedger(t *testing.T) {
@@ -182,16 +185,20 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
-	assert.Equal(t, methods.SendTransactionResponse{
-		ID:     expectedHashHex,
-		Status: methods.TransactionPending,
-	}, result)
+	assert.Equal(t, expectedHashHex, result.TransactionHash)
+	assert.Equal(t, proto.TXStatusPending, result.Status)
+	assert.NotZero(t, result.LatestLedger)
+	assert.NotZero(t, result.LatestLedgerCloseTime)
 
 	response := getTransaction(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionStatusFailed, response.Status)
 	var transactionResult xdr.TransactionResult
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &transactionResult))
 	assert.Equal(t, xdr.TransactionResultCodeTxFailed, transactionResult.Result.Code)
+	assert.Greater(t, response.Ledger, result.LatestLedger)
+	assert.Greater(t, response.LedgerCloseTime, result.LatestLedgerCloseTime)
+	assert.GreaterOrEqual(t, response.LatestLedger, response.Ledger)
+	assert.GreaterOrEqual(t, response.LatestLedgerCloseTime, response.LedgerCloseTime)
 }
 
 func TestSendTransactionFailedInvalidXDR(t *testing.T) {
@@ -202,13 +209,9 @@ func TestSendTransactionFailedInvalidXDR(t *testing.T) {
 
 	request := methods.SendTransactionRequest{Transaction: "abcdef"}
 	var response methods.SendTransactionResponse
-	err := client.CallResult(context.Background(), "sendTransaction", request, &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "", response.ID)
-	assert.Equal(t, methods.TransactionError, response.Status)
-	assert.Equal(t, "invalid_xdr", response.Error.Code)
-	assert.Equal(t, "cannot unmarshal transaction: decoding EnvelopeType: decoding EnvelopeType: xdr:DecodeInt: unexpected EOF while decoding 4 bytes - read: '[105 183 29]'", response.Error.Message)
+	jsonRPCErr := client.CallResult(context.Background(), "sendTransaction", request, &response).(*jrpc2.Error)
+	assert.Equal(t, "invalid_xdr", jsonRPCErr.Message)
+	assert.Equal(t, code.InvalidParams, jsonRPCErr.Code)
 }
 
 func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, transaction *txnbuild.Transaction) methods.GetTransactionResponse {
@@ -225,14 +228,18 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
 	assert.NoError(t, err)
 
-	assert.Equal(t, methods.SendTransactionResponse{
-		ID:     expectedHashHex,
-		Status: methods.TransactionPending,
-	}, result)
+	assert.Equal(t, expectedHashHex, result.TransactionHash)
+	assert.Equal(t, proto.TXStatusPending, result.Status)
+	assert.NotZero(t, result.LatestLedger)
+	assert.NotZero(t, result.LatestLedgerCloseTime)
 
 	response := getTransaction(t, client, expectedHashHex)
 	assert.Equal(t, methods.TransactionStatusSuccess, response.Status)
 	assert.NotNil(t, response.ResultXdr)
+	assert.Greater(t, response.Ledger, result.LatestLedger)
+	assert.Greater(t, response.LedgerCloseTime, result.LatestLedgerCloseTime)
+	assert.GreaterOrEqual(t, response.LatestLedger, response.Ledger)
+	assert.GreaterOrEqual(t, response.LatestLedgerCloseTime, response.LedgerCloseTime)
 	return response
 }
 

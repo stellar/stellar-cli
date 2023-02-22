@@ -34,7 +34,7 @@ func mustPositiveUint32(co *config.ConfigOption) error {
 
 func main() {
 	var endpoint string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, coreTimeoutSeconds uint
 	var serviceConfig localConfig.LocalConfig
 
 	configOpts := config.ConfigOptions{
@@ -46,21 +46,21 @@ func main() {
 			FlagDefault: "localhost:8000",
 			Required:    false,
 		},
-		&config.ConfigOption{
-			Name:        "horizon-url",
-			ConfigKey:   &serviceConfig.HorizonURL,
-			OptType:     types.String,
-			Required:    true,
-			FlagDefault: "",
-			Usage:       "URL used to query Horizon",
-		},
 		{
 			Name:        "stellar-core-url",
 			ConfigKey:   &serviceConfig.StellarCoreURL,
 			OptType:     types.String,
-			Required:    true,
-			FlagDefault: "http://localhost:11626",
+			Required:    false,
+			FlagDefault: "",
 			Usage:       "URL used to query Stellar Core (local captive core by default)",
+		},
+		{
+			Name:        "stellar-core-timeout-seconds",
+			Usage:       "Timeout used when submitting requests to stellar-core",
+			OptType:     types.Uint,
+			ConfigKey:   &coreTimeoutSeconds,
+			FlagDefault: uint(2),
+			Required:    false,
 		},
 		{
 			Name:        "stellar-captive-core-http-port",
@@ -159,22 +159,6 @@ func main() {
 			Required:    true,
 		},
 		{
-			Name:        "tx-concurrency",
-			Usage:       "Maximum number of concurrent transaction submissions",
-			OptType:     types.Int,
-			ConfigKey:   &serviceConfig.TxConcurrency,
-			FlagDefault: 10,
-			Required:    false,
-		},
-		{
-			Name:        "tx-queue",
-			Usage:       "Maximum length of pending transactions queue",
-			OptType:     types.Int,
-			ConfigKey:   &serviceConfig.TxQueueSize,
-			FlagDefault: 10,
-			Required:    false,
-		},
-		{
 			Name:        "db-path",
 			Usage:       "SQLite DB path",
 			OptType:     types.String,
@@ -255,7 +239,11 @@ func main() {
 			}
 
 			serviceConfig.CaptiveCoreHTTPPort = uint16(captiveCoreHTTPPort)
+			if serviceConfig.StellarCoreURL == "" {
+				serviceConfig.StellarCoreURL = fmt.Sprintf("http://localhost:%d", captiveCoreHTTPPort)
+			}
 			serviceConfig.LedgerEntryStorageTimeout = time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute
+			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
 			exitCode := daemon.Run(serviceConfig, endpoint)
 			os.Exit(exitCode)
 		},
