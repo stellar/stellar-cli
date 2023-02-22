@@ -1,11 +1,11 @@
-use soroban_test::Nebula;
+use soroban_test::TestEnv;
 
 use crate::util::{add_test_seed, HELLO_WORLD};
 
 #[test]
 fn install_wasm_then_deploy_contract() {
     let hash = HELLO_WORLD.hash().unwrap();
-    let sandbox = Nebula::default();
+    let sandbox = TestEnv::default();
     sandbox
         .new_cmd("contract")
         .arg("install")
@@ -28,7 +28,7 @@ fn install_wasm_then_deploy_contract() {
 
 #[test]
 fn deploy_contract_with_wasm_file() {
-    Nebula::default()
+    TestEnv::default()
         .new_cmd("contract")
         .arg("deploy")
         .arg("--wasm")
@@ -41,7 +41,7 @@ fn deploy_contract_with_wasm_file() {
 
 #[test]
 fn invoke_hello_world_with_deploy_first() {
-    let sandbox = Nebula::default();
+    let sandbox = TestEnv::default();
     let res = sandbox
         .new_cmd("contract")
         .arg("deploy")
@@ -69,7 +69,7 @@ fn invoke_hello_world_with_deploy_first() {
 
 #[test]
 fn invoke_hello_world() {
-    let sandbox = Nebula::default();
+    let sandbox = TestEnv::default();
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -86,7 +86,7 @@ fn invoke_hello_world() {
 
 #[test]
 fn invoke_respects_conflicting_args() {
-    let sandbox = Sandbox::new();
+    let sandbox = TestEnv::default();
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -128,7 +128,7 @@ fn invoke_respects_conflicting_args() {
 
 #[test]
 fn invoke_auth() {
-    Nebula::with_default(|sandbox| {
+    TestEnv::with_default(|sandbox| {
         sandbox
             .new_cmd("contract")
             .arg("invoke")
@@ -149,7 +149,7 @@ fn invoke_auth() {
 
 #[test]
 fn invoke_hello_world_with_seed() {
-    let sandbox = Nebula::default();
+    let sandbox = TestEnv::default();
     let identity = add_test_seed(sandbox.dir());
     sandbox
         .new_cmd("contract")

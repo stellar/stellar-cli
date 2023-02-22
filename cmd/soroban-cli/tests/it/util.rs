@@ -2,7 +2,7 @@ use std::{fmt::Display, fs};
 
 use assert_cmd::Command;
 use assert_fs::TempDir;
-use soroban_test::{CommandExt, Nebula, Wasm};
+use soroban_test::{CommandExt, TestEnv, Wasm};
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
@@ -50,7 +50,7 @@ pub fn add_test_seed(dir: &TempDir) -> String {
     name.to_owned()
 }
 
-pub fn invoke(sandbox: &Nebula, func: &str) -> Command {
+pub fn invoke(sandbox: &TestEnv, func: &str) -> Command {
     let mut s = sandbox.new_cmd("contract");
     s.arg("invoke")
         .arg("--id=1")
@@ -66,7 +66,7 @@ pub fn invoke_with_roundtrip<D>(func: &str, data: D)
 where
     D: Display,
 {
-    invoke(&Nebula::default(), func)
+    invoke(&TestEnv::default(), func)
         .arg(&format!("--{func}"))
         .json_arg(&data)
         .assert()
