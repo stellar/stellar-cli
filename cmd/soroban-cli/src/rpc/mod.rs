@@ -17,6 +17,8 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 pub enum Error {
     #[error("invalid address: {0}")]
     InvalidAddress(#[from] stellar_strkey::DecodeError),
+    #[error("invalid response from server")]
+    InvalidResponse,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("jsonrpc error: {0}")]
@@ -31,14 +33,6 @@ pub enum Error {
     TransactionSubmissionTimeout,
     #[error("transaction simulation failed: {0}")]
     TransactionSimulationFailed(String),
-}
-
-// TODO: this should also be used by serve
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetAccountResponse {
-    pub id: String,
-    pub sequence: String,
-    // TODO: add balances
 }
 
 // TODO: this should also be used by serve
@@ -198,7 +192,7 @@ impl Client {
         {
             Ok(entry)
         } else {
-            panic!("Invalid soroban-rpc response")
+            Err(Error::InvalidResponse)
         }
     }
 
