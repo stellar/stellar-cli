@@ -6,21 +6,20 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
 use hex::FromHexError;
-use soroban_env_host::xdr::{
-    self, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
-    InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
-    LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, ScContractCode, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption,
-    ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScStatic,
-    ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, VecM,
-};
 use soroban_env_host::{
     budget::{Budget, CostType},
     events::HostEvent,
     storage::Storage,
     xdr::{
-        AccountId, Error as XdrError, HostFunction, PublicKey, ReadXdr, ScHostStorageErrorCode,
-        ScObject, ScSpecEntry, ScStatus, ScVal, Uint256,
+        self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
+        Error as XdrError, HostFunction, InvokeHostFunctionOp, InvokeHostFunctionResult,
+        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode,
+        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, OperationResult,
+        OperationResultTr, Preconditions, PublicKey, ReadXdr, ScContractCode,
+        ScHostStorageErrorCode, ScObject, ScSpecEntry, ScSpecTypeDef, ScSpecTypeMap,
+        ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt,
+        ScSpecTypeVec, ScStatic, ScStatus, ScVal, ScVec, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionExt, TransactionResultResult, Uint256, VecM,
     },
     Host, HostError,
 };
@@ -134,8 +133,8 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
-    #[error("missing transaction result")]
-    MissingTransactionResult,
+    #[error("missing operation result")]
+    MissingOperationResult,
     // #[error("args file error {0}")]
     // ArgsFile(std::path::PathBuf),
     #[error(transparent)]
@@ -232,7 +231,7 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
-        let sequence = account_details.sequence.parse::<i64>()?;
+        let sequence: i64 = account_details.seq_num.into();
 
         // Get the contract
         let spec_entries = if let Some(spec) = self.spec_entries()? {
@@ -287,11 +286,21 @@ impl Cmd {
             &key,
         )?;
 
-        let results = client.send_transaction(&tx).await?;
-        if results.is_empty() {
-            return Err(Error::MissingTransactionResult);
-        }
-        let res = ScVal::from_xdr_base64(&results[0].xdr)?;
+        let result = client.send_transaction(&tx).await?;
+        let res = match result.result {
+            TransactionResultResult::TxSuccess(ops) => {
+                if ops.is_empty() {
+                    return Err(Error::MissingOperationResult);
+                }
+                match &ops[0] {
+                    OperationResult::OpInner(OperationResultTr::InvokeHostFunction(
+                        InvokeHostFunctionResult::Success(r),
+                    )) => r.clone(),
+                    _ => return Err(Error::MissingOperationResult),
+                }
+            }
+            _ => return Err(Error::MissingOperationResult),
+        };
         let res_str = self.output_to_string(&spec, &res)?;
         println!("{res_str}");
         // TODO: print cost
