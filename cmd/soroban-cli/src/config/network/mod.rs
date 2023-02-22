@@ -50,7 +50,6 @@ pub struct Args {
     /// RPC server endpoint
     #[clap(
         long,
-        requires = "secret-key",
         requires = "network-passphrase",
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
