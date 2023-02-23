@@ -199,14 +199,14 @@ fn get_ledger_entry(k: Box<[String]>, ledger_file: &PathBuf) -> Result<Value, Er
     if let Some(key_xdr) = k.into_vec().first() {
         // Initialize storage and host
         let state = utils::ledger_snapshot_read_or_default(ledger_file).map_err(Error::Snapshot)?;
-        let key = LedgerKey::from_xdr_base64(key_xdr)?;
+        let key = Rc::new(LedgerKey::from_xdr_base64(key_xdr)?);
 
         let snap = Rc::new(state);
         let mut storage = Storage::with_recording_footprint(snap);
-        let ledger_entry = storage.get(&key, &soroban_env_host::budget::Budget::default())?;
+        let ledger_entry = storage.get(key, &soroban_env_host::budget::Budget::default())?;
 
         Ok(json!({
-            "xdr": ledger_entry.data.to_xdr_base64()?,
+            "xdr": &ledger_entry.data.to_xdr_base64()?,
             "lastModifiedLedgerSeq": ledger_entry.last_modified_ledger_seq,
             // TODO: Find "real" ledger seq number here
             "latestLedger": 1,

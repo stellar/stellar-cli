@@ -1,4 +1,4 @@
-use std::{io::ErrorKind, path::Path};
+use std::{io::ErrorKind, path::Path, rc::Rc};
 
 use ed25519_dalek::Signer;
 use hex::FromHexError;
@@ -170,18 +170,23 @@ pub fn get_contract_spec_from_storage(
     storage: &mut Storage,
     contract_id: [u8; 32],
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
-    let key = LedgerKey::ContractData(LedgerKeyContractData {
+    let key = Rc::new(LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: contract_id.into(),
         key: ScVal::Static(ScStatic::LedgerKeyContractCode),
-    });
-    if let Ok(LedgerEntry {
+    }));
+
+    let entry = storage
+        .get(key, &Budget::default())
+        .map_err(|_| FromWasmError::NotFound)?;
+
+    if let LedgerEntry {
         data:
             LedgerEntryData::ContractData(ContractDataEntry {
                 val: ScVal::Object(Some(ScObject::ContractCode(c))),
                 ..
             }),
         ..
-    }) = storage.get(&key, &Budget::default())
+    } = entry.as_ref()
     {
         match c {
             ScContractCode::Token => {
@@ -189,14 +194,21 @@ pub fn get_contract_spec_from_storage(
                 res.map_err(FromWasmError::Parse)
             }
             ScContractCode::WasmRef(hash) => {
-                if let Ok(LedgerEntry {
+                let entry2 = storage
+                    .get(
+                        Rc::new(LedgerKey::ContractCode(LedgerKeyContractCode {
+                            hash: hash.clone(),
+                        })),
+                        &Budget::default(),
+                    )
+                    .map_err(|_| FromWasmError::NotFound)?;
+
+                if let LedgerEntry {
                     data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
                     ..
-                }) = storage.get(
-                    &LedgerKey::ContractCode(LedgerKeyContractCode { hash }),
-                    &Budget::default(),
-                ) {
-                    soroban_spec::read::from_wasm(&code)
+                } = entry2.as_ref()
+                {
+                    soroban_spec::read::from_wasm(code)
                 } else {
                     Err(FromWasmError::NotFound)
                 }
