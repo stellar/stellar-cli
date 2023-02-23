@@ -56,8 +56,7 @@ impl Sandbox {
         self.new_cmd("config")
             .arg("identity")
             .arg("generate")
-            .arg("--seed")
-            .arg("0000000000000000")
+            .arg("--default-seed")
             .arg("test")
             .assert()
             .success();

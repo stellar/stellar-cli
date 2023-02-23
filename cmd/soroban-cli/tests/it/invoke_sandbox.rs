@@ -83,6 +83,48 @@ fn invoke_hello_world() {
 }
 
 #[test]
+fn invoke_respects_conflicting_args() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--identity")
+        .arg("test")
+        .arg("--account")
+        .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--fn=hello")
+        .arg("--")
+        .arg("--world=world")
+        .assert()
+        .stderr(predicates::str::contains(
+            "The argument \'--identity <IDENTITY>\' cannot be used with \'--account <ACCOUNT_ID>\'",
+        ))
+        .failure();
+
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--rpc-url")
+        .arg("localhost:8000")
+        .arg("--account")
+        .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--fn=hello")
+        .arg("--")
+        .arg("--world=world")
+        .assert()
+        .stderr(predicates::str::contains(
+            "The argument \'--rpc-url <RPC_URL>\' cannot be used with \'--account <ACCOUNT_ID>\'",
+        ))
+        .failure();
+}
+
+#[test]
 fn invoke_auth() {
     let sandbox = Sandbox::new();
     sandbox

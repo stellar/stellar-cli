@@ -81,8 +81,8 @@ impl Secret {
         Ok(utils::into_key_pair(&self.private_key(index)?)?)
     }
 
-    pub fn from_seed(seed: Option<&String>) -> Result<Self, Error> {
-        let seed_phrase = if let Some(seed) = seed.map(String::as_bytes) {
+    pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {
+        let seed_phrase = if let Some(seed) = seed.map(str::as_bytes) {
             sep5::SeedPhrase::from_entropy(seed)
         } else {
             sep5::SeedPhrase::random(sep5::MnemonicType::Words12)
