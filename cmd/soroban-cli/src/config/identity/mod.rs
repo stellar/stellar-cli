@@ -5,6 +5,7 @@ pub mod address;
 pub mod generate;
 pub mod ls;
 pub mod rm;
+pub mod show;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -18,6 +19,8 @@ pub enum Cmd {
     Ls(ls::Cmd),
     /// Remove an identity
     Rm(rm::Cmd),
+    /// Given an identity return its private key
+    Show(show::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -30,12 +33,13 @@ pub enum Error {
 
     #[error(transparent)]
     Generate(#[from] generate::Error),
+    #[error(transparent)]
+    Ls(#[from] ls::Error),
 
     #[error(transparent)]
     Rm(#[from] rm::Error),
-
     #[error(transparent)]
-    Ls(#[from] ls::Error),
+    Show(#[from] show::Error),
 }
 
 impl Cmd {
@@ -46,6 +50,7 @@ impl Cmd {
             Cmd::Rm(cmd) => cmd.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Generate(cmd) => cmd.run()?,
+            Cmd::Show(cmd) => cmd.run()?,
         };
         Ok(())
     }

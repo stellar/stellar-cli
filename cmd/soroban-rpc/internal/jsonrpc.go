@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/creachadair/jrpc2/handler"
@@ -15,19 +14,14 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
 // Handler is the HTTP handler which serves the Soroban JSON RPC responses
 type Handler struct {
-	bridge           jhttp.Bridge
-	logger           *log.Entry
-	transactionProxy *methods.TransactionProxy
+	bridge jhttp.Bridge
+	logger *log.Entry
 	http.Handler
-}
-
-// Start spawns the background workers necessary for the JSON RPC handlers.
-func (h Handler) Start() {
-	h.transactionProxy.Start(context.Background())
 }
 
 // Close closes all the resources held by the Handler instances.
@@ -36,13 +30,11 @@ func (h Handler) Close() {
 	if err := h.bridge.Close(); err != nil {
 		h.logger.WithError(err).Warn("could not close bridge")
 	}
-	h.transactionProxy.Close()
 }
 
 type HandlerParams struct {
-	AccountStore      methods.AccountStore
 	EventStore        *events.MemoryStore
-	TransactionProxy  *methods.TransactionProxy
+	TransactionStore  *transactions.MemoryStore
 	CoreClient        *stellarcore.Client
 	LedgerEntryReader db.LedgerEntryReader
 	Logger            *log.Entry
@@ -51,14 +43,13 @@ type HandlerParams struct {
 // NewJSONRPCHandler constructs a Handler instance
 func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, error) {
 	bridge := jhttp.NewBridge(handler.Map{
-		"getHealth":            methods.NewHealthCheck(),
-		"getAccount":           methods.NewAccountHandler(params.AccountStore),
-		"getEvents":            methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
-		"getNetwork":           methods.NewGetNetworkHandler(cfg.NetworkPassphrase, cfg.FriendbotURL, params.CoreClient),
-		"getLedgerEntry":       methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
-		"getTransactionStatus": methods.NewGetTransactionStatusHandler(params.TransactionProxy),
-		"sendTransaction":      methods.NewSendTransactionHandler(params.TransactionProxy),
-		"simulateTransaction":  methods.NewSimulateTransactionHandler(params.Logger, cfg.NetworkPassphrase, params.LedgerEntryReader),
+		"getHealth":           methods.NewHealthCheck(params.LedgerEntryReader),
+		"getEvents":           methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
+		"getNetwork":          methods.NewGetNetworkHandler(cfg.NetworkPassphrase, cfg.FriendbotURL, params.CoreClient),
+		"getLedgerEntry":      methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
+		"getTransaction":      methods.NewGetTransactionHandler(params.TransactionStore),
+		"sendTransaction":     methods.NewSendTransactionHandler(params.Logger, params.TransactionStore, cfg.NetworkPassphrase, params.CoreClient),
+		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, cfg.NetworkPassphrase, params.LedgerEntryReader),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
@@ -67,9 +58,8 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, 
 	})
 
 	return Handler{
-		bridge:           bridge,
-		logger:           params.Logger,
-		transactionProxy: params.TransactionProxy,
-		Handler:          corsMiddleware.Handler(bridge),
+		bridge:  bridge,
+		logger:  params.Logger,
+		Handler: corsMiddleware.Handler(bridge),
 	}, nil
 }

@@ -79,7 +79,7 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
         let fee: u32 = 100;
-        let sequence = account_details.sequence.parse::<i64>()?;
+        let sequence: i64 = account_details.seq_num.into();
 
         let (tx, hash) = build_install_contract_code_tx(
             contract,
