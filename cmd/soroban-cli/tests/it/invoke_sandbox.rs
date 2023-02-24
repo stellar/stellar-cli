@@ -141,13 +141,13 @@ fn invoke_auth_with_different_test_account_fail() {
 fn invoke_hello_world_with_seed() {
     let sandbox = Sandbox::new();
     let identity = add_test_seed(sandbox.dir());
-    invoke_with_source(&sandbox, &format!("id:{identity}"))
+    invoke_with_source(&sandbox, &format!("id:{identity}"));
 }
 
 #[test]
 fn invoke_with_seed() {
     let sandbox = Sandbox::new();
-    invoke_with_source(&sandbox, &format!("seed:{DEFAULT_SEED_PHRASE}"))
+    invoke_with_source(&sandbox, &format!("seed:{DEFAULT_SEED_PHRASE}"));
 }
 
 #[test]
@@ -171,7 +171,7 @@ fn invoke_with_test_id() {
 fn invoke_with_id() {
     let sandbox = Sandbox::new();
     let identity = add_test_seed(sandbox.dir());
-    invoke_with_source(&sandbox, &format!("id:{identity}"))
+    invoke_with_source(&sandbox, &format!("id:{identity}"));
 }
 
 fn invoke_with_source(sandbox: &Sandbox, source: &str) {
