@@ -60,7 +60,7 @@ pub struct Args {
     #[clap(flatten)]
     pub ledger_file: ledger_file::Args,
 
-    #[clap(long, alias = "source")]
+    #[clap(long, alias = "source", env = "SOROBAN_ACCOUNT")]
     /// Account that signs the final transaction.
     /// sk:S...        Provides a seceret key
     /// id:alice    Provides an identity
