@@ -77,12 +77,12 @@ pub struct Args {
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
-        let key = if let Some(identity) = &self.identity {
-            locator::read_identity(identity)?
-        } else if let Some(secret_key) = &self.secret_key {
+        let key = if let Some(secret_key) = &self.secret_key {
             secret::Secret::SecretKey {
                 secret_key: secret_key.clone(),
             }
+        } else if let Some(identity) = &self.identity {
+            locator::read_identity(identity)?
         } else {
             return Err(Error::NoIdentityOrKey);
         };
