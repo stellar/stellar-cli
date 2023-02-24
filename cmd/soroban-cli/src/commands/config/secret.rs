@@ -94,6 +94,10 @@ impl Secret {
         .into_phrase();
         Ok(Secret::SeedPhrase { seed_phrase })
     }
+
+    pub fn test_seed_phrase() -> Result<Self, Error> {
+        Self::from_seed(Some("0000000000000000"))
+    }
 }
 
 fn read_password() -> Result<String, Error> {

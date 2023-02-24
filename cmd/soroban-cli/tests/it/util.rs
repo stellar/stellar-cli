@@ -134,14 +134,11 @@ pub fn add_identity(dir: &TempDir, name: &str, kind: SecretKind, data: &str) {
     let identity_dir = dir.join(".soroban").join("identities");
     fs::create_dir_all(&identity_dir).unwrap();
     let kind_str = match kind {
-        SecretKind::Seed => "seed",
+        SecretKind::Seed => "seed_phrase",
         SecretKind::Key => "secret_key",
     };
-    fs::write(
-        identity_dir.join(format!("{name}.toml")),
-        format!("{kind_str} = {data}\n"),
-    )
-    .unwrap();
+    let contents = format!("{kind_str} = \"{data}\"\n");
+    fs::write(identity_dir.join(format!("{name}.toml")), contents).unwrap();
 }
 
 pub fn add_test_id(dir: &TempDir) -> String {
@@ -161,7 +158,7 @@ pub fn add_test_seed(dir: &TempDir) -> String {
         dir,
         name,
         SecretKind::Seed,
-        "one two three four five six seven eight nine ten eleven twelve",
+        "coral light army gather adapt blossom school alcohol coral light army giggle",
     );
     name.to_owned()
 }
@@ -202,3 +199,7 @@ where
 
 pub const DEFAULT_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
+
+pub const DEFAULT_PUB_KEY: &str = "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4";
+
+pub const DEFAULT_PUB_KEY_1: &str = "GCKZUJVUNEFGD4HLFBUNVYM2QY2P5WQQZMGRA3DDL4HYVT5MW5KG3ODV";

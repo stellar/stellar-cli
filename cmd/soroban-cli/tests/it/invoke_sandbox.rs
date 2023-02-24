@@ -1,4 +1,6 @@
-use crate::util::{add_test_seed, Sandbox, HELLO_WORLD};
+use crate::util::{
+    add_test_seed, Sandbox, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SEED_PHRASE, HELLO_WORLD,
+};
 
 #[test]
 fn install_wasm_then_deploy_contract() {
@@ -49,12 +51,9 @@ fn invoke_hello_world_with_deploy_first() {
         .success();
     let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
     let id = stdout.trim_end();
-
     sandbox
         .new_cmd("contract")
         .arg("invoke")
-        .arg("--identity")
-        .arg("test_id")
         .arg("--id")
         .arg(id)
         .arg("--")
@@ -83,61 +82,17 @@ fn invoke_hello_world() {
 }
 
 #[test]
-fn invoke_respects_conflicting_args() {
-    let sandbox = Sandbox::new();
-    sandbox
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--id=1")
-        .arg("--identity")
-        .arg("test")
-        .arg("--account")
-        .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .arg("--")
-        .arg("hello")
-        .arg("--world=world")
-        .assert()
-        .stderr(predicates::str::contains(
-            "The argument \'--identity <IDENTITY>\' cannot be used with \'--account <ACCOUNT_ID>\'",
-        ))
-        .failure();
-
-    sandbox
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--id=1")
-        .arg("--rpc-url")
-        .arg("localhost:8000")
-        .arg("--account")
-        .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .arg("--")
-        .arg("hello")
-        .arg("--world=world")
-        .assert()
-        .stderr(predicates::str::contains(
-            "The argument \'--rpc-url <RPC_URL>\' cannot be used with \'--account <ACCOUNT_ID>\'",
-        ))
-        .failure();
-}
-
-#[test]
 fn invoke_auth() {
     let sandbox = Sandbox::new();
     sandbox
         .new_cmd("contract")
         .arg("invoke")
-        .arg("--account")
-        .arg("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
         .arg("--id=1")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
-        .arg("auth")
-        .arg("--addr=GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
+        .arg("hello")
+        .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
         .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
@@ -145,14 +100,86 @@ fn invoke_auth() {
 }
 
 #[test]
-fn invoke_hello_world_with_seed() {
+fn invoke_auth_with_different_test_account() {
     let sandbox = Sandbox::new();
-    let identity = add_test_seed(sandbox.dir());
     sandbox
         .new_cmd("contract")
         .arg("invoke")
-        .arg("--identity")
-        .arg(identity)
+        .arg("--hd-path=1")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--")
+        .arg("hello")
+        .arg(&format!("--addr={DEFAULT_PUB_KEY_1}"))
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
+}
+
+#[test]
+fn invoke_auth_with_different_test_account_fail() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--hd-path=1")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--")
+        .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
+        .arg("--world=world")
+        .assert()
+        .success()
+        .stdout("")
+        .stderr(predicates::str::contains("HostError"));
+}
+
+#[test]
+fn invoke_hello_world_with_seed() {
+    let sandbox = Sandbox::new();
+    let identity = add_test_seed(sandbox.dir());
+    invoke_with_source(&sandbox, &format!("id:{identity}"))
+}
+
+#[test]
+fn invoke_with_seed() {
+    let sandbox = Sandbox::new();
+    invoke_with_source(&sandbox, &format!("seed:{DEFAULT_SEED_PHRASE}"))
+}
+
+#[test]
+fn invoke_with_test_id() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--fn=hello")
+        .arg("--")
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
+}
+
+#[test]
+fn invoke_with_id() {
+    let sandbox = Sandbox::new();
+    let identity = add_test_seed(sandbox.dir());
+    invoke_with_source(&sandbox, &format!("id:{identity}"))
+}
+
+fn invoke_with_source(sandbox: &Sandbox, source: &str) {
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--source-account")
+        .arg(source)
         .arg("--id=1")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())

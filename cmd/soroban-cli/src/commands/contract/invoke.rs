@@ -53,16 +53,6 @@ pub struct Cmd {
     /// Output the contract auth for the transaction to stderr
     #[clap(long = "auth")]
     auth: bool,
-
-    /// Account ID to invoke as
-    #[clap(
-        long = "account",
-        default_value = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-        conflicts_with = "rpc-url",
-        conflicts_with = "identity",
-        help_heading = HEADING_SANDBOX,
-    )]
-    account_id: stellar_strkey::ed25519::PublicKey,
     /// File to persist event output
     #[clap(
         long,
@@ -317,8 +307,12 @@ impl Cmd {
         // If a file is specified, deploy the contract to storage
         self.deploy_contract_in_sandbox(&mut state, &contract_id)?;
 
+        let key = self.config.key_pair()?;
+
         // Create source account, adding it to the ledger if not already present.
-        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(self.account_id.0)));
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+            key.public.to_bytes(),
+        )));
         let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
             account_id: source_account.clone(),
         });
