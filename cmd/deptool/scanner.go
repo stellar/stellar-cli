@@ -90,6 +90,10 @@ func addTomlDependencies(dependencies *projectDependencies, tomlDeps map[string]
 	sort.Strings(names)
 	for _, pkgName := range names {
 		crateGit := tomlDeps[pkgName]
+		if crateGit.Git == "" {
+			continue
+		}
+
 		current := &projectDependency{
 			class:        depClassCargo,
 			githubPath:   crateGit.Git,
@@ -101,9 +105,6 @@ func addTomlDependencies(dependencies *projectDependencies, tomlDeps map[string]
 		if existing, has := dependencies.dependencyNames[pkgName]; has && (existing.githubCommit != current.githubCommit || existing.githubPath != current.githubPath) {
 			fmt.Printf("Conflicting entries in Cargo.toml file :\n%v\nvs.\n%v\n", existing, current)
 			exitErr()
-		}
-		if current.githubPath == "" {
-			continue
 		}
 		dependencies.dependencyNames[pkgName] = current
 		dependencies.dependencies = append(dependencies.dependencies, current)
