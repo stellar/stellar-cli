@@ -57,7 +57,7 @@ impl Cmd {
 #[derive(Debug, clap::Args, Clone)]
 pub struct Args {
     /// Secret Key used to sign transaction sent to the rpc server
-    #[clap(long, conflicts_with = "identity")]
+    #[clap(long, conflicts_with = "identity", env = "SOROBAN_SECRET_KEY")]
     pub secret_key: Option<String>,
 
     #[clap(flatten)]
