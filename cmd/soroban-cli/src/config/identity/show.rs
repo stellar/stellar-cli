@@ -29,10 +29,6 @@ impl Cmd {
     }
 
     pub fn private_key(&self) -> Result<stellar_strkey::ed25519::PrivateKey, Error> {
-        let res = locator::read_identity(&self.name)?;
-        let key = res.key_pair(self.hd_path)?;
-        Ok(stellar_strkey::ed25519::PrivateKey::from_payload(
-            key.public.as_bytes(),
-        )?)
+        Ok(locator::read_identity(&self.name)?.private_key(self.hd_path)?)
     }
 }
