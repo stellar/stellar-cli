@@ -95,8 +95,8 @@ fn invoke_respects_conflicting_args() {
         .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
-        .arg("--fn=hello")
         .arg("--")
+        .arg("hello")
         .arg("--world=world")
         .assert()
         .stderr(predicates::str::contains(
@@ -114,8 +114,8 @@ fn invoke_respects_conflicting_args() {
         .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
-        .arg("--fn=hello")
         .arg("--")
+        .arg("hello")
         .arg("--world=world")
         .assert()
         .stderr(predicates::str::contains(
