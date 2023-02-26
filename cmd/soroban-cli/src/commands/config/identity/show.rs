@@ -1,4 +1,4 @@
-use crate::config::{locator, secret};
+use super::super::{locator, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
