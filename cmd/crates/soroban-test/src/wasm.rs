@@ -16,7 +16,7 @@ pub enum Wasm<'a> {
 
 fn find_target_dir() -> Option<PathBuf> {
     let path = std::env::current_dir().unwrap();
-    for parent in path.ancestors().skip(1) {
+    for parent in path.ancestors() {
         let path = parent.join("target");
         if path.is_dir() {
             return Some(path);
@@ -26,6 +26,9 @@ fn find_target_dir() -> Option<PathBuf> {
 }
 
 impl Wasm<'_> {
+    /// # Panics
+    ///
+    /// # if not found
     pub fn path(&self) -> PathBuf {
         let path = find_target_dir().unwrap().join("wasm32-unknown-unknown");
         let mut path = match self {
@@ -37,10 +40,15 @@ impl Wasm<'_> {
         std::env::current_dir().unwrap().join(path)
     }
 
+    /// # Panics
+    ///
+    /// # if not found
     pub fn bytes(&self) -> Vec<u8> {
         fs::read(self.path()).unwrap()
     }
 
+    /// # Errors
+    ///
     pub fn hash(&self) -> Result<xdr::Hash, Error> {
         let args_xdr = InstallContractCodeArgs {
             code: self.bytes().try_into()?,

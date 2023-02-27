@@ -16,6 +16,14 @@ pub struct Args {
     pub ledger_file: PathBuf,
 }
 
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            ledger_file: ".soroban/ledger.json".into(),
+        }
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("reading file {filepath}: {error}")]

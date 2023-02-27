@@ -3,10 +3,10 @@ resolver = "2"
 members = [
     "cmd/soroban-cli",
     "cmd/crates/*",
-    "cmd/soroban-cli/tests/fixtures/test-wasms/*",
+    "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/soroban-rpc/lib/preflight",
 ]
-default-members = ["cmd/soroban-cli"]
+default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 
 [workspace.dependencies.soroban-env-host]
 version = "0.0.14"
@@ -40,6 +40,9 @@ version = "0.0.7"
 
 [workspace.dependencies.sep5]
 version = "0.0.2"
+
+[workspace.dependencies.soroban-cli]
+path = "cmd/soroban-cli"
 
 [workspace.dependencies.ethnum]
 version = "1.3.2"

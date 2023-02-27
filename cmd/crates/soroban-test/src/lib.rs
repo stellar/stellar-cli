@@ -1,3 +1,8 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::missing_panics_doc
+)]
 use std::{ffi::OsString, fmt::Display, path::Path};
 
 use assert_cmd::{assert::Assert, Command};
@@ -16,8 +21,8 @@ pub enum Error {
     FsError(#[from] fs_extra::error::Error),
 }
 
-/// A TestEnv is a contained process for a specific test, with its own ENV and
-/// its own TempDir where it will save test-specific configuration.
+/// A `TestEnv` is a contained process for a specific test, with its own ENV and
+/// its own `TempDir` where it will save test-specific configuration.
 pub struct TestEnv {
     pub temp_dir: TempDir,
 }
@@ -31,7 +36,7 @@ impl Default for TestEnv {
 impl TestEnv {
     pub fn with_default<F: FnOnce(&TestEnv)>(f: F) {
         let test_env = TestEnv::default();
-        f(&test_env)
+        f(&test_env);
     }
     pub fn new() -> Result<TestEnv, Error> {
         TempDir::new()
@@ -74,7 +79,7 @@ impl TestEnv {
         Ok(this)
     }
 
-    /// Save the current state of the TestEnv to the given directory.
+    /// Save the current state of the `TestEnv` to the given directory.
     pub fn save(&self, dst: &Path) -> Result<(), Error> {
         fs_extra::dir::copy(&self.temp_dir, dst, &CopyOptions::new())?;
         Ok(())

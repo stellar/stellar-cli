@@ -73,4 +73,3 @@ crate-git-revision = "0.0.4"
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 predicates = "2.1.5"
-soroban-test = { path = "../crates/soroban-test"}

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::num::ParseIntError;
+use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
@@ -70,6 +71,35 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub config: config::Args,
+}
+
+impl Default for Cmd {
+    fn default() -> Self {
+        Self {
+            contract_id: String::new(),
+            wasm: None,
+            function: String::new(),
+            cost: false,
+            unlimited_budget: false,
+            footprint: false,
+            auth: false,
+            account_id: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
+                .parse()
+                .unwrap(),
+            events_file: ".soroban/events.json".into(),
+            slop: vec![],
+            config: config::Args::default(),
+        }
+    }
+}
+
+impl FromStr for Cmd {
+    type Err = clap::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use clap::{CommandFactory, FromArgMatches};
+        Self::from_arg_matches_mut(&mut Self::command().get_matches_from(s.split_whitespace()))
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -198,6 +228,12 @@ impl Cmd {
     }
 
     pub async fn run(&self) -> Result<(), Error> {
+        let res = self.invoke().await?;
+        println!("{res}");
+        Ok(())
+    }
+
+    pub async fn invoke(&self) -> Result<String, Error> {
         if self.config.is_no_network() {
             self.run_in_sandbox()
         } else {
@@ -205,7 +241,7 @@ impl Cmd {
         }
     }
 
-    async fn run_against_rpc_server(&self) -> Result<(), Error> {
+    pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url);
@@ -293,7 +329,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(&self) -> Result<(), Error> {
+    pub fn run_in_sandbox(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -343,8 +379,6 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
         let res_str = output_to_string(&spec, &res, &function)?;
-
-        println!("{res_str}");
 
         state.update(&h);
 
@@ -413,7 +447,7 @@ impl Cmd {
             }
         })?;
 
-        Ok(())
+        Ok(res_str)
     }
 
     pub fn deploy_contract_in_sandbox(

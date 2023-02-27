@@ -48,7 +48,7 @@ impl Cmd {
     }
 }
 
-#[derive(Debug, clap::Args, Clone)]
+#[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
     /// RPC server endpoint

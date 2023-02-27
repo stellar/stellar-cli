@@ -44,12 +44,12 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = self.run_and_get_hash().await?;
+        let res_str = hex::encode(self.run_and_get_hash().await?);
         println!("{res_str}");
         Ok(())
     }
 
-    pub async fn run_and_get_hash(&self) -> Result<String, Error> {
+    pub async fn run_and_get_hash(&self) -> Result<Hash, Error> {
         let contract = self.wasm.read()?;
         if self.config.is_no_network() {
             self.run_in_sandbox(contract)
@@ -58,17 +58,17 @@ impl Cmd {
         }
     }
 
-    fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<String, Error> {
+    fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<Hash, Error> {
         let mut state = self.config.get_state()?;
         let wasm_hash =
             utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)?;
 
         self.config.set_state(&mut state)?;
 
-        Ok(hex::encode(wasm_hash))
+        Ok(wasm_hash)
     }
 
-    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<String, Error> {
+    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<Hash, Error> {
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url);
         let key = self.config.key_pair()?;
@@ -89,7 +89,7 @@ impl Cmd {
         )?;
         client.send_transaction(&tx).await?;
 
-        Ok(hex::encode(hash.0))
+        Ok(hash)
     }
 }
 

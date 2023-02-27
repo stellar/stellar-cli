@@ -98,12 +98,13 @@ impl Cmd {
 
     pub async fn run_and_get_contract_id(&self) -> Result<String, Error> {
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            install::Cmd {
+            let hash = install::Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
                 config: self.config.clone(),
             }
             .run_and_get_hash()
-            .await?
+            .await?;
+            hex::encode(hash)
         } else {
             self.wasm_hash
                 .as_ref()
