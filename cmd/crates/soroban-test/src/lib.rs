@@ -3,7 +3,7 @@
     clippy::must_use_candidate,
     clippy::missing_panics_doc
 )]
-use std::{ffi::OsString, fmt::Display, path::Path};
+use std::{env, ffi::OsString, fmt::Display, path::Path};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
@@ -36,7 +36,9 @@ impl Default for TestEnv {
 impl TestEnv {
     pub fn with_default<F: FnOnce(&TestEnv)>(f: F) {
         let test_env = TestEnv::default();
+        env::set_var("SOROBAN_CONFIG_HOME", test_env.dir().path());
         f(&test_env);
+        env::remove_var("SOROBAN_CONFIG_HOME");
     }
     pub fn new() -> Result<TestEnv, Error> {
         TempDir::new()

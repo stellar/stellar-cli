@@ -16,6 +16,8 @@ pub enum Error {
     HomeDirNotFound,
     #[error("Failed read current directory")]
     CurrentDirNotFound,
+    #[error("Failed read current directory and no SOROBAN_CONFIG_HOME is set")]
+    NoConfigEnvVar,
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
     #[error(
@@ -67,7 +69,13 @@ impl Args {
             }
             .join("soroban")
         } else {
-            let pwd = std::env::current_dir().map_err(|_| Error::CurrentDirNotFound)?;
+            let pwd = std::env::current_dir()
+                .map_err(|_| Error::CurrentDirNotFound)
+                .or_else(|_| {
+                    std::env::var("SOROBAN_CONFIG_HOME")
+                        .map_err(|_| Error::NoConfigEnvVar)
+                        .map(Into::into)
+                })?;
             find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".soroban"))
         };
         ensure_directory(config_dir)

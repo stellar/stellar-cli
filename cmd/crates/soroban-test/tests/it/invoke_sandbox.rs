@@ -1,11 +1,9 @@
-use soroban_cli::commands::contract::invoke;
 use soroban_test::TestEnv;
+
 use crate::util::{
-    add_test_seed, Sandbox, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY,
+    add_test_seed, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY,
     DEFAULT_SEED_PHRASE, HELLO_WORLD,
 };
-
-use crate::util::{add_test_seed, HELLO_WORLD};
 
 #[test]
 fn install_wasm_then_deploy_contract() {
@@ -87,48 +85,8 @@ fn invoke_hello_world() {
 }
 
 #[test]
-<<<<<<< refs/remotes/stellar/main:cmd/soroban-cli/tests/it/invoke_sandbox.rs
 fn invoke_auth() {
-    let sandbox = Sandbox::new();
-=======
-fn invoke_hello_world_with_lib() {
     let sandbox = TestEnv::default();
-    let res = invoke::Cmd {
-        contract_id: "1".to_string(),
-        wasm: Some(HELLO_WORLD.path()),
-        function: "hello".to_string(),
-        slop: vec!["--world=world".into()],
-        ..Default::default()
-    };
-    std::env::set_current_dir(sandbox.dir()).unwrap();
-    assert_eq!(res.run_in_sandbox().unwrap(), r#"["Hello","world"]"#);
-}
-
-#[test]
-fn invoke_hello_world_with_lib_two() {
-    let sandbox = TestEnv::default();
-
-    let cmd: invoke::Cmd = format!(
-        "invoke --id=1 --wasm {} --fn=hello -- --world=world",
-        HELLO_WORLD.path().display()
-    )
-    .parse()
-    .unwrap();
-    std::env::set_current_dir(sandbox.dir()).unwrap();
-    assert_eq!(cmd.run_in_sandbox().unwrap(), r#"["Hello","world"]"#);
-}
-// #[test]
-// fn invoke_hello_world_with_lib_three() {
-//     let sandbox = TestEnv::default();
-//     let builder  = invoke::CmdBuilder::new().contract_id("1").wasm(HELLO_WORLD.path()).function("hello").slop(["--hello=world"]).build();
-//     std::env::set_current_dir(sandbox.dir()).unwrap();
-//     assert_eq!(res.run_in_sandbox().unwrap(), r#"["Hello","world"]"#);
-// }
-
-#[test]
-fn invoke_respects_conflicting_args() {
-    let sandbox = TestEnv::default();
->>>>>>> feat: use FromStr to add parse method:cmd/crates/soroban-test/tests/it/invoke_sandbox.rs
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -146,7 +104,7 @@ fn invoke_respects_conflicting_args() {
 
 #[test]
 fn invoke_auth_with_different_test_account() {
-    let sandbox = Sandbox::new();
+    let sandbox = TestEnv::default();
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -165,7 +123,7 @@ fn invoke_auth_with_different_test_account() {
 
 #[test]
 fn invoke_auth_with_different_test_account_fail() {
-    let sandbox = Sandbox::new();
+    let sandbox = TestEnv::default();
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -187,33 +145,29 @@ fn invoke_auth_with_different_test_account_fail() {
 fn invoke_hello_world_with_seed() {
     let sandbox = TestEnv::default();
     let identity = add_test_seed(sandbox.dir());
-<<<<<<< refs/remotes/stellar/main:cmd/soroban-cli/tests/it/invoke_sandbox.rs
     invoke_with_source(&sandbox, &identity);
 }
 
 #[test]
 fn invoke_with_seed() {
-    let sandbox = Sandbox::new();
+    let sandbox = TestEnv::default();
     invoke_with_source(&sandbox, DEFAULT_SEED_PHRASE);
 }
 
 #[test]
 fn invoke_with_id() {
-    let sandbox = Sandbox::new();
+    let sandbox = TestEnv::default();
     let identity = add_test_seed(sandbox.dir());
     invoke_with_source(&sandbox, &identity);
 }
 
 #[test]
 fn invoke_with_sk() {
-    let sandbox = Sandbox::new();
+    let sandbox = TestEnv::default();
     invoke_with_source(&sandbox, DEFAULT_SECRET_KEY);
 }
 
-fn invoke_with_source(sandbox: &Sandbox, source: &str) {
-=======
-    let path = HELLO_WORLD.path();
->>>>>>> feat: use FromStr to add parse method:cmd/crates/soroban-test/tests/it/invoke_sandbox.rs
+fn invoke_with_source(sandbox: &TestEnv, source: &str) {
     sandbox
         .new_cmd("contract")
         .arg("invoke")
@@ -221,12 +175,7 @@ fn invoke_with_source(sandbox: &Sandbox, source: &str) {
         .arg(source)
         .arg("--id=1")
         .arg("--wasm")
-<<<<<<< main:cmd/soroban-cli/tests/it/invoke_sandbox.rs
         .arg(HELLO_WORLD.path())
-=======
-        .arg(path)
-        .arg("--fn=hello")
->>>>>>> feat: use FromStr to add parse method:cmd/crates/soroban-test/tests/it/invoke_sandbox.rs
         .arg("--")
         .arg("hello")
         .arg("--world=world")

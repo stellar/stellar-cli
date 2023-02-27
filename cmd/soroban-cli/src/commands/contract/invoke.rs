@@ -78,14 +78,10 @@ impl Default for Cmd {
         Self {
             contract_id: String::new(),
             wasm: None,
-            function: String::new(),
             cost: false,
             unlimited_budget: false,
             footprint: false,
             auth: false,
-            account_id: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
-                .parse()
-                .unwrap(),
             events_file: ".soroban/events.json".into(),
             slop: vec![],
             config: config::Args::default(),
@@ -323,10 +319,9 @@ impl Cmd {
             _ => return Err(Error::MissingOperationResult),
         };
         let res_str = output_to_string(&spec, &res, &function)?;
-        println!("{res_str}");
         // TODO: print cost
 
-        Ok(())
+        Ok(res_str)
     }
 
     pub fn run_in_sandbox(&self) -> Result<String, Error> {
