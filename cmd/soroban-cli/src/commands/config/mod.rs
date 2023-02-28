@@ -89,8 +89,6 @@ impl Args {
                 },
                 _ => return Err(Error::MalformedSourceAccount(source_account.clone())),
             }
-        } else if let Some(identity) = &self.identity {
-            locator::read_identity(identity)?
         } else {
             secret::Secret::test_seed_phrase()?
         };

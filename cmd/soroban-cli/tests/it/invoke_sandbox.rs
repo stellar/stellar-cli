@@ -91,7 +91,7 @@ fn invoke_auth() {
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
-        .arg("hello")
+        .arg("auth")
         .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
         .arg("--world=world")
         .assert()
@@ -110,7 +110,7 @@ fn invoke_auth_with_different_test_account() {
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
-        .arg("hello")
+        .arg("auth")
         .arg(&format!("--addr={DEFAULT_PUB_KEY_1}"))
         .arg("--world=world")
         .assert()
@@ -129,6 +129,7 @@ fn invoke_auth_with_different_test_account_fail() {
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
+        .arg("auth")
         .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
         .arg("--world=world")
         .assert()
@@ -148,23 +149,6 @@ fn invoke_hello_world_with_seed() {
 fn invoke_with_seed() {
     let sandbox = Sandbox::new();
     invoke_with_source(&sandbox, &format!("seed:{DEFAULT_SEED_PHRASE}"));
-}
-
-#[test]
-fn invoke_with_test_id() {
-    let sandbox = Sandbox::new();
-    sandbox
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .arg("--fn=hello")
-        .arg("--")
-        .arg("--world=world")
-        .assert()
-        .stdout("[\"Hello\",\"world\"]\n")
-        .success();
 }
 
 #[test]
