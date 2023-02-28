@@ -18,7 +18,7 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         println!("File: {}", self.wasm.wasm.to_string_lossy());
-        print!("{}", self.wasm.parse()?);
+        print!("{:#?}", self.wasm.parse()?.spec);
         Ok(())
     }
 }
