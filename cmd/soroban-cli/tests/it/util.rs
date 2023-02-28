@@ -56,8 +56,7 @@ impl Sandbox {
         self.new_cmd("config")
             .arg("identity")
             .arg("generate")
-            .arg("--seed")
-            .arg("0000000000000000")
+            .arg("--default-seed")
             .arg("test")
             .assert()
             .success();
@@ -173,9 +172,19 @@ pub fn invoke(sandbox: &Sandbox, func: &str) -> Command {
         .arg("--id=1")
         .arg("--wasm")
         .arg(CUSTOM_TYPES.path())
-        .arg("--fn")
-        .arg(func)
-        .arg("--");
+        .arg("--")
+        .arg(func);
+    s
+}
+
+pub fn invoke_help(sandbox: &Sandbox) -> Command {
+    let mut s = sandbox.new_cmd("contract");
+    s.arg("invoke")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(CUSTOM_TYPES.path())
+        .arg("--")
+        .arg("--help");
     s
 }
 

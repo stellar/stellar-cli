@@ -57,8 +57,8 @@ fn invoke_hello_world_with_deploy_first() {
         .arg("test_id")
         .arg("--id")
         .arg(id)
-        .arg("--fn=hello")
         .arg("--")
+        .arg("hello")
         .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
@@ -74,12 +74,54 @@ fn invoke_hello_world() {
         .arg("--id=1")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
-        .arg("--fn=hello")
         .arg("--")
+        .arg("hello")
         .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
         .success();
+}
+
+#[test]
+fn invoke_respects_conflicting_args() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--identity")
+        .arg("test")
+        .arg("--account")
+        .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--")
+        .arg("hello")
+        .arg("--world=world")
+        .assert()
+        .stderr(predicates::str::contains(
+            "The argument \'--identity <IDENTITY>\' cannot be used with \'--account <ACCOUNT_ID>\'",
+        ))
+        .failure();
+
+    sandbox
+        .new_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--rpc-url")
+        .arg("localhost:8000")
+        .arg("--account")
+        .arg("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--")
+        .arg("hello")
+        .arg("--world=world")
+        .assert()
+        .stderr(predicates::str::contains(
+            "The argument \'--rpc-url <RPC_URL>\' cannot be used with \'--account <ACCOUNT_ID>\'",
+        ))
+        .failure();
 }
 
 #[test]
@@ -93,8 +135,8 @@ fn invoke_auth() {
         .arg("--id=1")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
-        .arg("--fn=auth")
         .arg("--")
+        .arg("auth")
         .arg("--addr=GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS")
         .arg("--world=world")
         .assert()
@@ -114,8 +156,8 @@ fn invoke_hello_world_with_seed() {
         .arg("--id=1")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
-        .arg("--fn=hello")
         .arg("--")
+        .arg("hello")
         .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")

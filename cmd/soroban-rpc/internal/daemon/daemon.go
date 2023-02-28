@@ -1,12 +1,11 @@
 package daemon
 
 import (
+	"context"
 	"net/http"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
@@ -18,11 +17,10 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
 const (
-	transactionProxyTTL          = 5 * time.Minute
 	maxLedgerEntryWriteBatchSize = 150
 )
 
@@ -104,16 +102,41 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not open database: %v", err)
 	}
 
-	ledgerRetentionWindow := uint32(cfg.LedgerRetentionWindow)
-	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, ledgerRetentionWindow)
+	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create event store: %v", err)
+	}
+	transactionStore, err := transactions.NewMemoryStore(cfg.TransactionLedgerRetentionWindow)
+	if err != nil {
+		logger.Fatalf("could not create transaction store: %v", err)
+	}
+	maxRetentionWindow := cfg.EventLedgerRetentionWindow
+	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
+		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
+	}
+	// initialize the stores using what was on the DB
+	// TODO: add a timeout?
+	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
+	if err != nil {
+		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
+	}
+	for _, txmeta := range txmetas {
+		// NOTE: We could optimize this to avoid unnecessary ingestion calls
+		//       (len(txmetas) can be larger than the store retention windows)
+		//       but it's probably not worth the pain.
+		if err := eventStore.IngestEvents(txmeta); err != nil {
+			logger.Fatalf("could initialize event memory store: %v", err)
+		}
+		if err := transactionStore.IngestTransactions(txmeta); err != nil {
+			logger.Fatalf("could initialize transaction memory store: %v", err)
+		}
 	}
 
 	ingestService, err := ingest.NewService(ingest.Config{
 		Logger:            logger,
-		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, ledgerRetentionWindow),
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
 		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,
@@ -123,35 +146,19 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not initialize ledger entry writer: %v", err)
 	}
 
-	hc := &horizonclient.Client{
-		HorizonURL: cfg.HorizonURL,
-		HTTP: &http.Client{
-			Timeout: horizonclient.HorizonTimeout,
-		},
-		AppName: "Soroban RPC",
-	}
-	hc.SetHorizonTimeout(horizonclient.HorizonTimeout)
-
-	transactionProxy := methods.NewTransactionProxy(
-		hc,
-		cfg.TxConcurrency,
-		cfg.TxQueueSize,
-		cfg.NetworkPassphrase,
-		transactionProxyTTL,
-	)
-
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
-		AccountStore:      methods.AccountStore{Client: hc},
-		EventStore:        eventStore,
-		Logger:            logger,
-		TransactionProxy:  transactionProxy,
-		CoreClient:        &stellarcore.Client{URL: cfg.StellarCoreURL},
+		EventStore:       eventStore,
+		TransactionStore: transactionStore,
+		Logger:           logger,
+		CoreClient: &stellarcore.Client{
+			URL:  cfg.StellarCoreURL,
+			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
+		},
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)
 	}
-	handler.Start()
 	return &Daemon{
 		logger:        logger,
 		core:          core,

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/types"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -19,9 +20,21 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
 )
 
+func mustPositiveUint32(co *config.ConfigOption) error {
+	v := viper.GetInt(co.Name)
+	if v <= 0 {
+		return fmt.Errorf("%s must be positive", co.Name)
+	}
+	if v > math.MaxUint32 {
+		return fmt.Errorf("%s is too large (must be <= %d)", co.Name, math.MaxUint32)
+	}
+	*(co.ConfigKey.(*uint32)) = uint32(v)
+	return nil
+}
+
 func main() {
 	var endpoint string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, coreTimeoutSeconds, maxHealthyLedgerLatencySeconds uint
 	var serviceConfig localConfig.LocalConfig
 
 	configOpts := config.ConfigOptions{
@@ -33,21 +46,21 @@ func main() {
 			FlagDefault: "localhost:8000",
 			Required:    false,
 		},
-		&config.ConfigOption{
-			Name:        "horizon-url",
-			ConfigKey:   &serviceConfig.HorizonURL,
-			OptType:     types.String,
-			Required:    true,
-			FlagDefault: "",
-			Usage:       "URL used to query Horizon",
-		},
 		{
 			Name:        "stellar-core-url",
 			ConfigKey:   &serviceConfig.StellarCoreURL,
 			OptType:     types.String,
-			Required:    true,
-			FlagDefault: "http://localhost:11626",
+			Required:    false,
+			FlagDefault: "",
 			Usage:       "URL used to query Stellar Core (local captive core by default)",
+		},
+		{
+			Name:        "stellar-core-timeout-seconds",
+			Usage:       "Timeout used when submitting requests to stellar-core",
+			OptType:     types.Uint,
+			ConfigKey:   &coreTimeoutSeconds,
+			FlagDefault: uint(2),
+			Required:    false,
 		},
 		{
 			Name:        "stellar-captive-core-http-port",
@@ -146,22 +159,6 @@ func main() {
 			Required:    true,
 		},
 		{
-			Name:        "tx-concurrency",
-			Usage:       "Maximum number of concurrent transaction submissions",
-			OptType:     types.Int,
-			ConfigKey:   &serviceConfig.TxConcurrency,
-			FlagDefault: 10,
-			Required:    false,
-		},
-		{
-			Name:        "tx-queue",
-			Usage:       "Maximum length of pending transactions queue",
-			OptType:     types.Int,
-			ConfigKey:   &serviceConfig.TxQueueSize,
-			FlagDefault: 10,
-			Required:    false,
-		},
-		{
 			Name:        "db-path",
 			Usage:       "SQLite DB path",
 			OptType:     types.String,
@@ -186,13 +183,24 @@ func main() {
 			Required:    false,
 		},
 		{
-			Name:        "ledger-retention-window",
-			OptType:     types.Int,
-			FlagDefault: 17280,
+			Name:        "event-retention-window",
+			OptType:     types.Uint32,
+			FlagDefault: uint32(17280),
 			Required:    false,
-			Usage: "configures the window of ledgers which are stored in the db." +
-				" the default value is 17280 which corresponds to about 24 hours of ledgers",
-			ConfigKey: &serviceConfig.LedgerRetentionWindow,
+			Usage: "configures the event retention window expressed in number of ledgers," +
+				" the default value is 17280 which corresponds to about 24 hours of history",
+			ConfigKey:      &serviceConfig.EventLedgerRetentionWindow,
+			CustomSetValue: mustPositiveUint32,
+		},
+		{
+			Name:        "transaction-retention-window",
+			OptType:     types.Uint32,
+			FlagDefault: uint32(1440),
+			Required:    false,
+			Usage: "configures the transaction retention window expressed in number of ledgers," +
+				" the default value is 1440 which corresponds to about 2 hours of history",
+			ConfigKey:      &serviceConfig.TransactionLedgerRetentionWindow,
+			CustomSetValue: mustPositiveUint32,
 		},
 		{
 			Name:        "max-events-limit",
@@ -210,6 +218,15 @@ func main() {
 			FlagDefault: uint(100),
 			Usage:       "Default cap on the amount of events included in a single getEvents response",
 		},
+		{
+			Name: "max-healthy-ledger-latency-seconds",
+			Usage: "maximum ledger latency (i.e. time elapsed since the last known ledger closing time) considered to be healthy" +
+				" (used for the /health endpoint)",
+			OptType:     types.Uint,
+			ConfigKey:   &maxHealthyLedgerLatencySeconds,
+			FlagDefault: uint(30),
+			Required:    false,
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -219,10 +236,6 @@ func main() {
 			err := configOpts.SetValues()
 			if err != nil {
 				fmt.Printf("failed to set values : %v\n", err)
-				os.Exit(-1)
-			}
-			if serviceConfig.LedgerRetentionWindow <= 0 {
-				fmt.Printf("ledger-retention-window must be positive\n")
 				os.Exit(-1)
 			}
 			if serviceConfig.DefaultEventsLimit > serviceConfig.MaxEventsLimit {
@@ -235,7 +248,12 @@ func main() {
 			}
 
 			serviceConfig.CaptiveCoreHTTPPort = uint16(captiveCoreHTTPPort)
+			if serviceConfig.StellarCoreURL == "" {
+				serviceConfig.StellarCoreURL = fmt.Sprintf("http://localhost:%d", captiveCoreHTTPPort)
+			}
 			serviceConfig.LedgerEntryStorageTimeout = time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute
+			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
+			serviceConfig.MaxHealthyLedgerLatency = time.Duration(maxHealthyLedgerLatencySeconds) * time.Second
 			exitCode := daemon.Run(serviceConfig, endpoint)
 			os.Exit(exitCode)
 		},

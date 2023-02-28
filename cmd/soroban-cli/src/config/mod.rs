@@ -57,7 +57,7 @@ impl Cmd {
 #[derive(Debug, clap::Args, Clone)]
 pub struct Args {
     /// Secret Key used to sign transaction sent to the rpc server
-    #[clap(long)]
+    #[clap(long, conflicts_with = "identity", env = "SOROBAN_SECRET_KEY")]
     pub secret_key: Option<String>,
 
     #[clap(flatten)]
@@ -66,7 +66,7 @@ pub struct Args {
     #[clap(flatten)]
     pub ledger_file: ledger_file::Args,
 
-    #[clap(long, alias = "as")]
+    #[clap(long, alias = "as", conflicts_with = "secret-key")]
     /// Use specified identity to sign transaction
     pub identity: Option<String>,
 
@@ -77,12 +77,12 @@ pub struct Args {
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
-        let key = if let Some(identity) = &self.identity {
-            locator::read_identity(identity)?
-        } else if let Some(secret_key) = &self.secret_key {
+        let key = if let Some(secret_key) = &self.secret_key {
             secret::Secret::SecretKey {
                 secret_key: secret_key.clone(),
             }
+        } else if let Some(identity) = &self.identity {
+            locator::read_identity(identity)?
         } else {
             return Err(Error::NoIdentityOrKey);
         };

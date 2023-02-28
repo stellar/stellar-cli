@@ -2,13 +2,14 @@ package events
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"sort"
 	"sync"
 
 	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
 type bucket struct {
@@ -41,12 +42,8 @@ type MemoryStore struct {
 	// by the lock
 	networkPassphrase string
 	// lock protects the mutable fields below
-	lock sync.RWMutex
-	// buckets is a circular buffer where each cell represents
-	// all events occurring within a specific ledger.
-	buckets []bucket
-	// start is the index of the head in the circular buffer.
-	start uint32
+	lock           sync.RWMutex
+	eventsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]event]
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -57,12 +54,13 @@ type MemoryStore struct {
 // is full, any events from new ledgers will evict
 // older entries outside the retention window.
 func NewMemoryStore(networkPassphrase string, retentionWindow uint32) (*MemoryStore, error) {
-	if retentionWindow == 0 {
-		return nil, errors.New("retention window must be positive")
+	window, err := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
+	if err != nil {
+		return nil, err
 	}
 	return &MemoryStore{
 		networkPassphrase: networkPassphrase,
-		buckets:           make([]bucket, 0, retentionWindow),
+		eventsByLedger:    window,
 	}, nil
 }
 
@@ -94,37 +92,39 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, i
 		return 0, err
 	}
 
-	curLedger := eventRange.Start.Ledger
-	minLedger := m.buckets[m.start].ledgerSeq
-	latestLedger := minLedger + uint32(len(m.buckets))
-	i := ((curLedger - minLedger) + m.start) % uint32(len(m.buckets))
-	events := seek(m.buckets[i].events, eventRange.Start)
-	for ; curLedger == m.buckets[i].ledgerSeq; curLedger++ {
-		timestamp := m.buckets[i].ledgerCloseTimestamp
+	firstLedgerInRange := eventRange.Start.Ledger
+	firstLedgerInWindow := m.eventsByLedger.Get(0).LedgerSeq
+	lastLedgerInWindow := firstLedgerInWindow + (m.eventsByLedger.Len() - 1)
+	for i := firstLedgerInRange - firstLedgerInWindow; i < m.eventsByLedger.Len(); i++ {
+		bucket := m.eventsByLedger.Get(i)
+		events := bucket.BucketContent
+		if bucket.LedgerSeq == firstLedgerInRange {
+			// we need to seek for the beginning of the events in the first bucket in the range
+			events = seek(events, eventRange.Start)
+		}
+		timestamp := bucket.LedgerCloseTimestamp
 		for _, event := range events {
-			cur := event.cursor(curLedger)
+			cur := event.cursor(bucket.LedgerSeq)
 			if eventRange.End.Cmp(cur) <= 0 {
-				return latestLedger, nil
+				return lastLedgerInWindow, nil
 			}
 			if !f(event.contents, cur, timestamp) {
-				return latestLedger, nil
+				return lastLedgerInWindow, nil
 			}
 		}
-		i = (i + 1) % uint32(len(m.buckets))
-		events = m.buckets[i].events
 	}
-	return latestLedger, nil
+	return lastLedgerInWindow, nil
 }
 
 // validateRange checks if the range falls within the bounds
 // of the events in the memory store.
 // validateRange should be called with the read lock.
 func (m *MemoryStore) validateRange(eventRange *Range) error {
-	if len(m.buckets) == 0 {
+	if m.eventsByLedger.Len() == 0 {
 		return errors.New("event store is empty")
 	}
-
-	min := Cursor{Ledger: m.buckets[m.start].ledgerSeq}
+	firstBucket := m.eventsByLedger.Get(0)
+	min := Cursor{Ledger: firstBucket.LedgerSeq}
 	if eventRange.Start.Cmp(min) < 0 {
 		if eventRange.ClampStart {
 			eventRange.Start = min
@@ -132,7 +132,7 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 			return errors.New("start is before oldest ledger")
 		}
 	}
-	max := Cursor{Ledger: min.Ledger + uint32(len(m.buckets))}
+	max := Cursor{Ledger: min.Ledger + m.eventsByLedger.Len()}
 	if eventRange.Start.Cmp(max) >= 0 {
 		return errors.New("start is after newest ledger")
 	}
@@ -171,9 +171,15 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	if err != nil {
 		return err
 	}
-	ledgerSequence := ledgerCloseMeta.LedgerSequence()
-	ledgerCloseTime := int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime)
-	return m.append(ledgerSequence, ledgerCloseTime, events)
+	bucket := ledgerbucketwindow.LedgerBucket[[]event]{
+		LedgerSeq:            ledgerCloseMeta.LedgerSequence(),
+		LedgerCloseTimestamp: int64(ledgerCloseMeta.LedgerHeaderHistoryEntry().Header.ScpValue.CloseTime),
+		BucketContent:        events,
+	}
+	m.lock.Lock()
+	m.eventsByLedger.Append(bucket)
+	m.lock.Unlock()
+	return err
 }
 
 func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (events []event, err error) {
@@ -221,33 +227,4 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 		}
 	}
 	return events, err
-}
-
-// append adds new events to the circular buffer.
-func (m *MemoryStore) append(sequence uint32, ledgerCloseTimestamp int64, events []event) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	length := uint32(len(m.buckets))
-	if length > 0 {
-		expectedLedgerSequence := m.buckets[m.start].ledgerSeq + length
-		if expectedLedgerSequence != sequence {
-			return fmt.Errorf("events not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, sequence)
-		}
-	}
-
-	nextBucket := bucket{
-		ledgerCloseTimestamp: ledgerCloseTimestamp,
-		ledgerSeq:            sequence,
-		events:               events,
-	}
-	if length < uint32(cap(m.buckets)) {
-		m.buckets = append(m.buckets, nextBucket)
-	} else {
-		index := (m.start + length) % uint32(len(m.buckets))
-		m.buckets[index] = nextBucket
-		m.start++
-	}
-
-	return nil
 }

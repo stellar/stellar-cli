@@ -23,6 +23,7 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone)]
 pub struct Args {
     /// Add using secret_key
+    /// Can provide with SOROBAN_SECRET_KEY
     #[clap(long, conflicts_with = "seed-phrase")]
     pub secret_key: bool,
     /// Add using 12 word seed phrase to generate secret_key
@@ -32,7 +33,9 @@ pub struct Args {
 
 impl Args {
     pub fn read_secret(&self) -> Result<Secret, Error> {
-        if self.secret_key {
+        if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
+            Ok(Secret::SecretKey { secret_key })
+        } else if self.secret_key {
             println!("Type a secret key: ");
             let secret_key = read_password()?;
             let secret_key = PrivateKey::from_string(&secret_key)
@@ -81,8 +84,8 @@ impl Secret {
         Ok(utils::into_key_pair(&self.private_key(index)?)?)
     }
 
-    pub fn from_seed(seed: Option<&String>) -> Result<Self, Error> {
-        let seed_phrase = if let Some(seed) = seed.map(String::as_bytes) {
+    pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {
+        let seed_phrase = if let Some(seed) = seed.map(str::as_bytes) {
             sep5::SeedPhrase::from_entropy(seed)
         } else {
             sep5::SeedPhrase::random(sep5::MnemonicType::Words12)
