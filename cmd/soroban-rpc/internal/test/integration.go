@@ -112,6 +112,7 @@ func (i *Test) launchDaemon() {
 		CheckpointFrequency:              checkpointFrequency,
 		MaxEventsLimit:                   10000,
 		DefaultEventsLimit:               100,
+		MaxHealthyLedgerLatency:          time.Second * 10,
 	}
 	i.daemon = daemon.MustNew(config)
 	i.server = httptest.NewServer(i.daemon)
