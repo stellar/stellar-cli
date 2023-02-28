@@ -2,7 +2,7 @@ use std::{fmt::Display, fs};
 
 use assert_cmd::Command;
 use assert_fs::TempDir;
-use soroban_test::{CommandExt, TestEnv, Wasm};
+use soroban_test::{TestEnv, Wasm};
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
@@ -62,12 +62,14 @@ pub fn invoke_with_roundtrip<D>(func: &str, data: D)
 where
     D: Display,
 {
-    invoke(&TestEnv::default(), func)
-        .arg(&format!("--{func}"))
-        .json_arg(&data)
-        .assert()
-        .success()
-        .stdout(format!("{data}\n"));
+    TestEnv::with_default(|e| {
+        let res = e
+            .invoke(format!(
+                "invoke --id=1 --wasm={CUSTOM_TYPES} --fn={func} -- --{func} {data}",
+            ))
+            .unwrap();
+        assert_eq!(res, data.to_string());
+    });
 }
 
 pub const DEFAULT_SEED_PHRASE: &str =

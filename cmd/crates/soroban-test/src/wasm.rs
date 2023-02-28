@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fmt::Display, fs, path::PathBuf};
 
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{self, InstallContractCodeArgs, WriteXdr};
@@ -55,5 +55,11 @@ impl Wasm<'_> {
         }
         .to_xdr()?;
         Ok(xdr::Hash(Sha256::digest(args_xdr).into()))
+    }
+}
+
+impl Display for Wasm<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path().display())
     }
 }

@@ -85,6 +85,39 @@ fn invoke_hello_world() {
 }
 
 #[test]
+fn invoke_hello_world_with_lib() {
+    TestEnv::with_default(|e| {
+        let cmd = invoke::Cmd {
+            contract_id: "1".to_string(),
+            wasm: Some(HELLO_WORLD.path()),
+            slop: vec!["hello".into(),"--world=world".into()],
+            ..Default::default()
+        };
+        let res = e.invoke_cmd(cmd).unwrap();
+        assert_eq!(res, r#"["Hello","world"]"#);
+    })
+}
+
+#[test]
+fn invoke_hello_world_with_lib_two() {
+    TestEnv::with_default(|e| {
+        let res = e
+            .invoke(format!(
+                "invoke --id=1 --wasm {HELLO_WORLD} --fn=hello -- --world=world"
+            ))
+            .unwrap();
+        assert_eq!(res, r#"["Hello","world"]"#);
+    })
+}
+// #[test]
+// fn invoke_hello_world_with_lib_three() {
+//     let sandbox = TestEnv::default();
+//     let builder  = invoke::CmdBuilder::new().contract_id("1").wasm(HELLO_WORLD.path()).function("hello").slop(["--hello=world"]).build();
+//     std::env::set_current_dir(sandbox.dir()).unwrap();
+//     assert_eq!(res.run_in_sandbox().unwrap(), r#"["Hello","world"]"#);
+// }
+
+#[test]
 fn invoke_auth() {
     let sandbox = TestEnv::default();
     sandbox
@@ -175,7 +208,7 @@ fn invoke_with_source(sandbox: &TestEnv, source: &str) {
         .arg(source)
         .arg("--id=1")
         .arg("--wasm")
-        .arg(HELLO_WORLD.path())
+        .arg(path)
         .arg("--")
         .arg("hello")
         .arg("--world=world")

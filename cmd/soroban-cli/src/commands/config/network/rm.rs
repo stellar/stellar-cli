@@ -9,8 +9,7 @@ pub enum Error {
     DeletingIdFile { path: String },
 }
 
-#[derive(Debug, clap::Args)]
-#[group(skip)]
+#[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// default name
     pub default_name: String,

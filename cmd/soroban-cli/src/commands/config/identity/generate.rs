@@ -12,8 +12,7 @@ pub enum Error {
     Secret(#[from] secret::Error),
 }
 
-#[derive(Debug, clap::Args)]
-#[group(skip)]
+#[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Name of identity
     pub name: String,

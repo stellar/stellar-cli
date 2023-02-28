@@ -8,9 +8,11 @@ use std::{env, ffi::OsString, fmt::Display, path::Path};
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
-pub use wasm::Wasm;
+
+pub use soroban_cli::commands::contract::invoke;
 
 mod wasm;
+pub use wasm::Wasm;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -19,6 +21,9 @@ pub enum Error {
 
     #[error(transparent)]
     FsError(#[from] fs_extra::error::Error),
+
+    #[error(transparent)]
+    Invoke(#[from] invoke::Error),
 }
 
 /// A `TestEnv` is a contained process for a specific test, with its own ENV and
@@ -50,6 +55,16 @@ impl TestEnv {
         this.arg(name);
         this.current_dir(&self.temp_dir);
         this
+    }
+
+    pub fn invoke<I: AsRef<str>>(&self, command_str: I) -> Result<String, Error> {
+        self.invoke_cmd(command_str.as_ref().parse().map_err(invoke::Error::Clap)?)
+    }
+
+    pub fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, Error> {
+        cmd.config.locator.pwd = Some(self.dir().to_path_buf());
+        cmd.config.ledger_file.ledger_file = self.dir().to_path_buf().join(".soroban/ledger.json");
+        Ok(cmd.run_in_sandbox()?)
     }
 
     pub fn dir(&self) -> &TempDir {

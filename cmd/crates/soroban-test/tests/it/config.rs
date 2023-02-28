@@ -5,21 +5,18 @@ use soroban_test::{temp_ledger_file, TestEnv};
 use std::{fs, path::Path};
 
 use crate::util::{add_identity, add_test_id, SecretKind, DEFAULT_SEED_PHRASE, HELLO_WORLD};
+use soroban_cli::{commands::config::network, CommandParser};
+
+const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
 
 #[test]
 fn set_and_remove_network() {
     let sandbox = TestEnv::default();
-    sandbox
-        .new_cmd("config")
-        .arg("network")
-        .arg("add")
-        .arg("--rpc-url")
-        .arg("https://127.0.0.1")
-        .arg("local")
-        .arg("--network-passphrase")
-        .arg("Local Sandbox Stellar Network ; September 2022")
-        .assert()
-        .success();
+    let input = format!(
+        "add --rpc-url https://127.0.0.1 --network-passphrase \"{NETWORK_PASSPHRASE}\" local"
+    );
+    network::add::Cmd::parse(&input).unwrap().run().unwrap();
+
     let dir = &sandbox.temp_dir;
     let file = std::fs::read_dir(dir.join(".soroban/networks"))
         .unwrap()
@@ -28,12 +25,9 @@ fn set_and_remove_network() {
         .unwrap();
     assert_eq!(file.file_name().to_str().unwrap(), "local.toml");
 
-    sandbox
-        .new_cmd("config")
-        .arg("network")
-        .arg("ls")
-        .assert()
-        .stdout("local\n");
+    let res = network::ls::Cmd::parse("ls").unwrap().ls().unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(&res[0], "local");
 
     sandbox
         .new_cmd("config")

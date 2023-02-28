@@ -159,6 +159,9 @@ pub enum Error {
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error("Missing argument {0}")]
     MissingArgument(String),
+
+    #[error(transparent)]
+    Clap(#[from] clap::Error),
 }
 
 impl Cmd {
@@ -318,10 +321,7 @@ impl Cmd {
             }
             _ => return Err(Error::MissingOperationResult),
         };
-        let res_str = output_to_string(&spec, &res, &function)?;
-        // TODO: print cost
-
-        Ok(res_str)
+        output_to_string(&spec, &res, &function)
     }
 
     pub fn run_in_sandbox(&self) -> Result<String, Error> {

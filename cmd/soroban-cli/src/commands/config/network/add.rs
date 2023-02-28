@@ -13,8 +13,7 @@ pub enum Error {
     NetworkCreationFailed,
 }
 
-#[derive(Debug, clap::Args)]
-#[group(skip)]
+#[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Name of network
     pub name: String,

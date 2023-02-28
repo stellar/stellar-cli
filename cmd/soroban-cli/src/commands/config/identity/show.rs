@@ -13,8 +13,7 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
 }
 
-#[derive(Debug, clap::Args)]
-#[group(skip)]
+#[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Name of identity to lookup
     pub name: String,
@@ -22,6 +21,9 @@ pub struct Cmd {
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
     pub hd_path: Option<usize>,
+
+    #[clap(skip)]
+    pub locator: locator::Args,
 }
 
 impl Cmd {
@@ -31,6 +33,6 @@ impl Cmd {
     }
 
     pub fn private_key(&self) -> Result<stellar_strkey::ed25519::PrivateKey, Error> {
-        Ok(locator::read_identity(&self.name)?.private_key(self.hd_path)?)
+        Ok(self.locator.read_identity(&self.name)?.private_key(self.hd_path)?)
     }
 }

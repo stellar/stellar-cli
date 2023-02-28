@@ -69,6 +69,9 @@ pub struct Args {
     #[arg(long)]
     /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
     pub hd_path: Option<usize>,
+
+    #[clap(skip)]
+    pub locator: locator::Args,
 }
 
 impl Args {
@@ -91,7 +94,19 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        Ok(self.network.get_network()?)
+        if let Some(name) = self.network.network.as_deref() {
+            Ok(self.locator.read_network(name)?)
+        } else if let (Some(rpc_url), Some(network_passphrase)) = (
+            self.network.rpc_url.clone(),
+            self.network.network_passphrase.clone(),
+        ) {
+            Ok(Network {
+                rpc_url,
+                network_passphrase,
+            })
+        } else {
+            Err(network::Error::Network.into())
+        }
     }
 
     pub fn is_no_network(&self) -> bool {
