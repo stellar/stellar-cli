@@ -26,4 +26,5 @@ type LocalConfig struct {
 	CheckpointFrequency              uint32
 	MaxEventsLimit                   uint
 	DefaultEventsLimit               uint
+	MaxHealthyLedgerLatency          time.Duration
 }
