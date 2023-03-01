@@ -5,7 +5,9 @@ use soroban_sdk::{
 
 pub struct Contract;
 
-/// Test Struct Docs
+/// A Struct
+/// Second line?
+/// "example"
 #[contracttype]
 pub struct Test {
     pub a: u32,
@@ -39,6 +41,7 @@ pub enum ComplexEnum {
     Struct(Test),
     Tuple(TupleStruct),
     Enum(SimpleEnum),
+    Void,
 }
 
 #[contractimpl]
@@ -63,7 +66,7 @@ impl Contract {
         vec![&env, symbol!("Hello"), strukt.c]
     }
 
-    /// Example contract method passing in a struct
+    /// Example contract method that takes a struct
     pub fn strukt(_env: Env, strukt: Test) -> Test {
         strukt
     }
