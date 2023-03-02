@@ -40,8 +40,7 @@ pub enum Error {
 // TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SendTransactionResponse {
-    #[serde(rename = "transactionHash")]
-    pub transaction_hash: String,
+    pub hash: String,
     pub status: String,
     #[serde(
         rename = "errorResultXdr",
@@ -65,8 +64,20 @@ pub struct SendTransactionResponse {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetTransactionResponse {
     pub status: String,
+    #[serde(
+        rename = "envelopeXdr",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub envelope_xdr: Option<String>,
     #[serde(rename = "resultXdr", skip_serializing_if = "Option::is_none", default)]
     pub result_xdr: Option<String>,
+    #[serde(
+        rename = "resultMetaXdr",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub result_meta_xdr: Option<String>,
     // TODO: add ledger info and application order
 }
 
@@ -201,7 +212,7 @@ impl Client {
     ) -> Result<TransactionResult, Error> {
         let client = self.client()?;
         let SendTransactionResponse {
-            transaction_hash,
+            hash,
             error_result_xdr,
             status,
             ..
@@ -219,7 +230,7 @@ impl Client {
         // Poll the transaction status
         let start = Instant::now();
         loop {
-            let response = self.get_transaction(&transaction_hash).await?;
+            let response = self.get_transaction(&hash).await?;
             match response.status.as_str() {
                 "SUCCESS" => {
                     // TODO: the caller should probably be printing this
