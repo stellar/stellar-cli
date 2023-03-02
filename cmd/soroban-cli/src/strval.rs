@@ -86,6 +86,8 @@ impl Spec {
         if let Some(mut ex) = self.example(type_) {
             if ex.contains(' ') {
                 ex = format!("'{ex}'");
+            } else if ex.contains('"') {
+                ex = ex.replace('"', "");
             }
             if matches!(type_, ScType::Bool) {
                 ex = String::new();
@@ -976,7 +978,7 @@ impl Spec {
                 })
             })
             .collect::<Option<Vec<_>>>()
-            .map(|v| v.join(&format!("\n               {}| ", " ".repeat(depth * 2))))
+            .map(|v| v.join(" | "))
     }
 }
 
@@ -1003,9 +1005,9 @@ impl Spec {
             ScType::Symbol => Some("\"hello\"".to_string()),
             ScType::Bitset => Some("Bitset".to_string()),
             ScType::Status => Some("Status".to_string()),
-            ScType::Bytes => Some("beefface123".to_string()),
+            ScType::Bytes => Some("\"beefface123\"".to_string()),
             ScType::Address => {
-                Some("GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4".to_string())
+                Some("\"GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4\"".to_string())
             }
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
@@ -1044,21 +1046,25 @@ impl Spec {
                     key_type,
                     value_type,
                 } = map.as_ref();
-                let (key, val) = (
+                let (mut key, val) = (
                     self.example(key_type.as_ref())?,
                     self.example(value_type.as_ref())?,
                 );
-                Some(format!("{{\"{key}\": {val} }}"))
+                if !matches!(key_type.as_ref(), ScType::Symbol) {
+                    key = format!("\"{key}\"");
+                }
+                Some(format!("{{ {key}: {val} }}"))
             }
             ScType::BytesN(n) => {
                 let n = n.n as usize;
-                Some(if n % 2 == 0 {
+                let res = if n % 2 == 0 {
                     "ef".repeat(n)
                 } else {
                     let mut s = "ef".repeat(n - 1);
                     s.push('e');
                     s
-                })
+                };
+                Some(format!("\"{res}\""))
             }
             ScType::Udt(ScSpecTypeUdt { name }) => match self.find(&name.to_string_lossy()).ok() {
                 Some(ScSpecEntry::UdtStructV0(strukt)) => {

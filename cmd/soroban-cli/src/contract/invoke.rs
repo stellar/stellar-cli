@@ -152,7 +152,10 @@ impl Cmd {
         spec_entries: &[ScSpecEntry],
     ) -> Result<(String, Spec, ScVec), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
-        let mut cmd = clap::Command::new(&self.contract_id).no_binary_name(true);
+        let mut cmd = clap::Command::new(&self.contract_id)
+            .no_binary_name(true)
+            .term_width(300)
+            .max_term_width(300);
 
         for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
             let name: &'static str = Box::leak(name.to_string_lossy().into_boxed_str());
@@ -572,7 +575,10 @@ fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Err
         .iter()
         .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
         .collect::<HashMap<String, ScSpecTypeDef>>();
-    let mut cmd = clap::Command::new(name).no_binary_name(true);
+    let mut cmd = clap::Command::new(name)
+        .no_binary_name(true)
+        .term_width(300)
+        .max_term_width(300);
     let func = spec.find_function(name).unwrap();
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
     cmd = cmd.about(Some(doc));

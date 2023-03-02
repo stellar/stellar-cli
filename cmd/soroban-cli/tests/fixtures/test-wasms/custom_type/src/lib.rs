@@ -138,6 +138,31 @@ impl Contract {
     pub fn option(_env: Env, option: Option<u32>) -> Option<u32> {
         option
     }
+
+    #[allow(clippy::too_many_arguments, unused_variables)]
+    pub fn some_types(
+        _env: Env,
+        i32: i32,
+        bool: bool,
+        symbol: Symbol,
+        strukt: Test,
+        option: Option<u32>,
+        address: Address,
+        vec: Vec<u32>,
+        set: Set<Address>,
+        tuple: (Symbol, Address, Bytes),
+    ) {
+    }
+    #[allow(clippy::too_many_arguments, unused_variables)]
+    pub fn othertypes(
+        _env: Env,
+        map: Map<Symbol, u128>,
+        bytes: Bytes,
+        bytes_n: BytesN<9>,
+        const_enum: RoyalCard,
+        simple_enum: SimpleEnum,
+    ) {
+    }
 }
 
 #[cfg(test)]
