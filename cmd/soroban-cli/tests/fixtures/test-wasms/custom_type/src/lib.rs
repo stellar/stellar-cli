@@ -1,13 +1,11 @@
 #![no_std]
 use soroban_sdk::{
-    contractimpl, contracttype, symbol, vec, Address, Bytes, Env, Map, Set, Symbol, Vec,
+    contractimpl, contracttype, symbol, vec, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec,
 };
 
 pub struct Contract;
 
-/// A Struct
-/// Second line?
-/// "example"
+/// This is from the rust doc above the struct Test
 #[contracttype]
 pub struct Test {
     pub a: u32,
@@ -87,6 +85,10 @@ impl Contract {
         bytes
     }
 
+    pub fn bytes_n(_env: Env, bytes_n: BytesN<9>) -> BytesN<9> {
+        bytes_n
+    }
+
     pub fn card(_env: Env, card: RoyalCard) -> RoyalCard {
         card
     }
@@ -95,6 +97,7 @@ impl Contract {
         boolean
     }
 
+    /// Negates a boolean value
     pub fn not(_env: Env, boolean: bool) -> bool {
         !boolean
     }
@@ -129,6 +132,11 @@ impl Contract {
 
     pub fn tuple(_env: Env, tuple: (Symbol, u32)) -> (Symbol, u32) {
         tuple
+    }
+
+    /// Example of an optional argument
+    pub fn option(_env: Env, option: Option<u32>) -> Option<u32> {
+        option
     }
 }
 

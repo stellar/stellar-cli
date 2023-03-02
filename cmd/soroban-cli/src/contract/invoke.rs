@@ -27,7 +27,7 @@ use soroban_spec::read::FromWasmError;
 
 use crate::config;
 use crate::rpc::Client;
-use crate::strval::{arg_value_name, Spec};
+use crate::strval::Spec;
 use crate::utils::{create_ledger_footprint, default_account_ledger_entry};
 use crate::HEADING_SANDBOX;
 use crate::{events, rpc, strval, utils};
@@ -585,7 +585,7 @@ fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Err
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());
 
-        if let Some(value_name) = arg_value_name(spec, type_) {
+        if let Some(value_name) = spec.arg_value_name(type_, 0) {
             arg = arg.value_name(Box::leak(value_name.into_boxed_str()));
         }
 
