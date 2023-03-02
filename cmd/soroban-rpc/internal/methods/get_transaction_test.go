@@ -2,12 +2,12 @@ package methods
 
 import (
 	"encoding/hex"
-	"github.com/stellar/go/network"
 	"testing"
 
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/stellar/go/network"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
@@ -25,9 +25,9 @@ func ledgerCloseTime(ledgerSequence uint32) int64 {
 	return int64(ledgerSequence)*25 + 100
 }
 
-func transactionResult(sucessful bool) xdr.TransactionResult {
+func transactionResult(successful bool) xdr.TransactionResult {
 	code := xdr.TransactionResultCodeTxBadSeq
-	if sucessful {
+	if successful {
 		code = xdr.TransactionResultCodeTxSuccess
 	}
 	opResults := []xdr.OperationResult{}
@@ -40,7 +40,7 @@ func transactionResult(sucessful bool) xdr.TransactionResult {
 	}
 }
 
-func txMeta(acctSeq uint32, sucessful bool) xdr.LedgerCloseMeta {
+func txMeta(acctSeq uint32, successful bool) xdr.LedgerCloseMeta {
 	envelope := txEnvelope(acctSeq)
 
 	txProcessing := []xdr.TransactionResultMetaV2{
@@ -49,7 +49,7 @@ func txMeta(acctSeq uint32, sucessful bool) xdr.LedgerCloseMeta {
 				V:          3,
 				Operations: &[]xdr.OperationMeta{},
 				V3: &xdr.TransactionMetaV3{
-					TxResult: transactionResult(sucessful),
+					TxResult: transactionResult(successful),
 				},
 			},
 			Result: xdr.TransactionResultPairV2{

@@ -1,11 +1,12 @@
 package transactions
 
 import (
-	"github.com/stellar/go/network"
 	"testing"
 
-	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/require"
+
+	"github.com/stellar/go/network"
+	"github.com/stellar/go/xdr"
 )
 
 func expectedTransaction(ledger uint32, feeBump bool) Transaction {
