@@ -30,7 +30,7 @@ jobs:
      
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
-      SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart#master
+      SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart.git#master
       
       # triggers system test to log out details from quickstart's logs and test steps
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
