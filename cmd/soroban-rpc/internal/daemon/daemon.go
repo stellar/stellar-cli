@@ -106,7 +106,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	if err != nil {
 		logger.Fatalf("could not create event store: %v", err)
 	}
-	transactionStore, err := transactions.NewMemoryStore(cfg.TransactionLedgerRetentionWindow)
+	transactionStore, err := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
 	if err != nil {
 		logger.Fatalf("could not create transaction store: %v", err)
 	}
