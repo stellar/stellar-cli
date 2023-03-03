@@ -22,10 +22,10 @@ jobs:
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci, 
-      # SYSTEM_TEST_CORE_GIT_REF: 871accefc0c4a703c1321b4f0e48cf6e03b41960
-      # SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
-      # or can use option to pull a pre-compiled image instead, namely to save time during ci run
-      SYSTEM_TEST_CORE_IMAGE: sreuland/system-test-core:871accefc0c4a
+      SYSTEM_TEST_CORE_GIT_REF: 871accefc0c4a703c1321b4f0e48cf6e03b41960
+      SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
+      # or can use option to pull a pre-compiled image instead
+      # SYSTEM_TEST_CORE_IMAGE: sreuland/system-test-core:871accefc0c4a
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
      
       # system test will build quickstart image internally to use for running the service stack
@@ -35,16 +35,9 @@ jobs:
       # triggers system test to log out details from quickstart's logs and test steps
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
-      # the soroban test cases will compile contracts from the examples repo
+      # the soroban test cases will compile various contracts from the examples repo
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: main
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
-      
-      # friendbot/horizon are not be used directly by soroban tests,
-      # however are required for system-test to build, providing pre-compiled images
-      # shortens the ci run time. 
-      # These image refs are of latest tagged commit on go/soroban-xdr-next
-      SYSTEM_TEST_FRIENDBOT_IMAGE: sreuland/system-test-friendbot:ab3ce11f409
-      SYSTEM_TEST_HORIZON_IMAGE: sreuland/system-test-horizon:ab3ce11f409
     steps:
       - uses: actions/checkout@v3
         with:
@@ -66,8 +59,6 @@ jobs:
               SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
               RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
               QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
-              HORIZON_IMAGE=$SYSTEM_TEST_HORIZON_IMAGE \
-              FRIENDBOT_IMAGE=$SYSTEM_TEST_FRIENDBOT_IMAGE \
               build
       - name: Run system test scenarios
         run: |
