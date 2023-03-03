@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         scenario-filter: ["^TestDappDevelop$/^.*$"]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores
     env:
       # the gh tag of system-test repo version to run 
       SYSTEM_TEST_GIT_REF: v1.0.7
@@ -22,10 +22,13 @@ jobs:
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci, 
-      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#871accefc0c4a703c1321b4f0e48cf6e03b41960
-      SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
+      #SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#871accefc0c4a703c1321b4f0e48cf6e03b41960
+      #SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
       # or can use option to pull a pre-compiled image instead
-      # SYSTEM_TEST_CORE_IMAGE: sreuland/system-test-core:871accefc0c4a
+      SYSTEM_TEST_CORE_IMAGE: sreuland/system-test-core:871accefc0c4a
+      
+      # sets the version of rust toolchain that will be pre-installed in the 
+      # test runtime environment, tests invoke rustc/cargo
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
      
       # system test will build quickstart image internally to use for running the service stack
