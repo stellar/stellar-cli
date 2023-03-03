@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: soroban-rpc-pubnet-core-storage
+  name: soroban-rpc-futurenet-core-storage
 spec:
   accessModes:
   - ReadWriteOnce
@@ -82,7 +82,7 @@ spec:
       volumes:
       - name: captive-core-data
         persistentVolumeClaim:
-          claimName: soroban-rpc-pubnet-core-storage
+          claimName: soroban-rpc-futurenet-core-storage
 ---
 apiVersion: v1
 kind: Service
@@ -109,7 +109,7 @@ metadata:
     ingress.kubernetes.io/ssl-redirect: "true"
     kubernetes.io/ingress.class: public
     nginx.ingress.kubernetes.io/rewrite-target: /soroban/rpc
-  name: rpc-futurenet
+  name: soroban-rpc-futurenet
 spec:
   rules:
   - host: rpc-futurenet.prototypes.kube001.services.stellar-ops.com
@@ -117,12 +117,12 @@ spec:
       paths:
       - backend:
           service:
-            name: rpc-futurenet
+            name: soroban-rpc-futurenet
             port:
               number: 8000
         path: /
-        pathType: Exact
+        pathType: Prefix
   tls:
   - hosts:
     - rpc-futurenet.prototypes.kube001.services.stellar-ops.com
-    secretName: rpc-futurenet-cert
+    secretName: soroban-rpc-futurenet-cert
