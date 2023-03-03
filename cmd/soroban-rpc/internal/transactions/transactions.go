@@ -1,6 +1,7 @@
 package transactions
 
 import (
+	"github.com/stellar/go/ingest"
 	"sync"
 
 	"github.com/stellar/go/xdr"
@@ -11,12 +12,19 @@ import (
 type transaction struct {
 	bucket           *ledgerbucketwindow.LedgerBucket[[]xdr.Hash]
 	result           xdr.TransactionResult
+	meta             xdr.TransactionMeta
+	envelope         xdr.TransactionEnvelope
 	feeBump          bool
 	applicationOrder int32
 }
 
 // MemoryStore is an in-memory store of Stellar transactions.
 type MemoryStore struct {
+	// networkPassphrase is an immutable string containing the
+	// Stellar network passphrase.
+	// Accessing networkPassphrase does not need to be protected
+	// by the lock
+	networkPassphrase    string
 	lock                 sync.RWMutex
 	transactions         map[xdr.Hash]transaction
 	transactionsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
@@ -29,12 +37,13 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any transactions from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
+func NewMemoryStore(networkPassphrase string, retentionWindow uint32) (*MemoryStore, error) {
 	window, err := ledgerbucketwindow.NewLedgerBucketWindow[[]xdr.Hash](retentionWindow)
 	if err != nil {
 		return nil, err
 	}
 	return &MemoryStore{
+		networkPassphrase:    networkPassphrase,
 		transactions:         make(map[xdr.Hash]transaction),
 		transactionsByLedger: window,
 	}, nil
@@ -44,24 +53,37 @@ func NewMemoryStore(retentionWindow uint32) (*MemoryStore, error) {
 // As a side effect, transactions which fall outside the retention window are
 // removed from the store.
 func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) error {
+	reader, err := ingest.NewLedgerTransactionReaderFromLedgerCloseMeta(m.networkPassphrase, ledgerCloseMeta)
+	if err != nil {
+		return err
+	}
+
 	txCount := ledgerCloseMeta.CountTransactions()
 	transactions := make([]transaction, txCount)
 	hashes := make([]xdr.Hash, 0, txCount)
 	hashMap := map[xdr.Hash]transaction{}
 	var bucket ledgerbucketwindow.LedgerBucket[[]xdr.Hash]
+
 	for i := 0; i < txCount; i++ {
-		resultPair := ledgerCloseMeta.TransactionResultPair(i)
-		transactions[i].result = resultPair.Result
-		transactions[i].applicationOrder = int32(i) + 1 // Transactions start at '1'
-		transactions[i].bucket = &bucket
-		if resultPair.Result.Result.InnerResultPair != nil {
-			transactions[i].feeBump = true
-			innerHash := resultPair.InnerHash()
+		tx, err := reader.Read()
+		if err != nil {
+			return err
+		}
+		transactions[i] = transaction{
+			bucket:           &bucket,
+			result:           tx.Result.Result,
+			meta:             tx.UnsafeMeta,
+			envelope:         tx.Envelope,
+			feeBump:          tx.Envelope.IsFeeBump(),
+			applicationOrder: int32(tx.Index),
+		}
+		if transactions[i].feeBump {
+			innerHash := tx.Result.InnerHash()
 			hashMap[innerHash] = transactions[i]
 			hashes = append(hashes, innerHash)
 		}
-		hashMap[resultPair.TransactionHash] = transactions[i]
-		hashes = append(hashes, resultPair.TransactionHash)
+		hashMap[tx.Result.TransactionHash] = transactions[i]
+		hashes = append(hashes, tx.Result.TransactionHash)
 	}
 	bucket = ledgerbucketwindow.LedgerBucket[[]xdr.Hash]{
 		LedgerSeq:            ledgerCloseMeta.LedgerSequence(),
@@ -91,6 +113,8 @@ type LedgerInfo struct {
 
 type Transaction struct {
 	Result           xdr.TransactionResult
+	Meta             xdr.TransactionMeta
+	Envelope         xdr.TransactionEnvelope
 	FeeBump          bool
 	ApplicationOrder int32
 	Ledger           LedgerInfo
@@ -140,8 +164,10 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 	}
 	tx := Transaction{
 		Result:           internalTx.result,
-		ApplicationOrder: internalTx.applicationOrder,
+		Meta:             internalTx.meta,
+		Envelope:         internalTx.envelope,
 		FeeBump:          internalTx.feeBump,
+		ApplicationOrder: internalTx.applicationOrder,
 		Ledger: LedgerInfo{
 			Sequence:  internalTx.bucket.LedgerSeq,
 			CloseTime: internalTx.bucket.LedgerCloseTimestamp,

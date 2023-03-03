@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::util::{invoke, invoke_with_roundtrip, Sandbox};
+use crate::util::{invoke, invoke_help, invoke_with_roundtrip, Sandbox};
 
 #[test]
 fn symbol() {
@@ -22,10 +22,12 @@ fn symbol_with_quotes() {
 
 #[test]
 fn generate_help() {
-    invoke(&Sandbox::new(), "test")
-        .arg("--help")
+    invoke_help(&Sandbox::new())
         .assert()
-        .success();
+        .success()
+        .stdout(predicates::str::contains(
+            "Example contract method passing in a struct",
+        ));
 }
 
 #[test]
@@ -108,6 +110,15 @@ fn tuple_help() {
 #[test]
 fn strukt() {
     invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"}));
+}
+
+#[test]
+fn strukt_help() {
+    invoke(&Sandbox::new(), "strukt")
+        .arg("--help")
+        .assert()
+        .stdout(predicates::str::contains("Example contract method"))
+        .stdout(predicates::str::contains("Test Struct Docs"));
 }
 
 #[test]

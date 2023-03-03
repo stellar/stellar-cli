@@ -90,6 +90,10 @@ func addTomlDependencies(dependencies *projectDependencies, tomlDeps map[string]
 	sort.Strings(names)
 	for _, pkgName := range names {
 		crateGit := tomlDeps[pkgName]
+		if crateGit.Git == "" {
+			continue
+		}
+
 		current := &projectDependency{
 			class:        depClassCargo,
 			githubPath:   crateGit.Git,

@@ -11,7 +11,6 @@ pub struct Args {
         long,
         parse(from_os_str),
         default_value(".soroban/ledger.json"),
-        conflicts_with = "rpc-url",
         env = "SOROBAN_LEDGER_FILE",
         help_heading = HEADING_SANDBOX,
     )]

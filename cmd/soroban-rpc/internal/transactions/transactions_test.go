@@ -3,15 +3,25 @@ package transactions
 import (
 	"testing"
 
-	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/require"
+
+	"github.com/stellar/go/network"
+	"github.com/stellar/go/xdr"
 )
 
 func expectedTransaction(ledger uint32, feeBump bool) Transaction {
 	return Transaction{
-		Result:           transactionResult(ledger, feeBump),
-		ApplicationOrder: 1,
+		Result: transactionResult(ledger, feeBump),
+		Meta: xdr.TransactionMeta{
+			V:          3,
+			Operations: &[]xdr.OperationMeta{},
+			V3: &xdr.TransactionMetaV3{
+				TxResult: transactionResult(ledger, feeBump),
+			},
+		},
+		Envelope:         txEnvelope(ledger, feeBump),
 		FeeBump:          feeBump,
+		ApplicationOrder: 1,
 		Ledger:           expectedLedgerInfo(ledger),
 	}
 }
@@ -31,12 +41,14 @@ func expectedStoreRange(startLedger uint32, endLedger uint32) StoreRange {
 	}
 }
 
-func txHash(ledgerSequence uint32) xdr.Hash {
-	return xdr.Hash{byte(ledgerSequence), byte(ledgerSequence)}
-}
+func txHash(ledgerSequence uint32, feebump bool) xdr.Hash {
+	envelope := txEnvelope(ledgerSequence, feebump)
+	hash, err := network.HashTransactionInEnvelope(envelope, "passphrase")
+	if err != nil {
+		panic(err)
+	}
 
-func innerTxHash(ledgerSequence uint32) xdr.Hash {
-	return txHash(ledgerSequence * 1000)
+	return hash
 }
 
 func ledgerCloseTime(ledgerSequence uint32) int64 {
@@ -50,7 +62,7 @@ func transactionResult(ledgerSequence uint32, feeBump bool) xdr.TransactionResul
 			Result: xdr.TransactionResultResult{
 				Code: xdr.TransactionResultCodeTxFeeBumpInnerFailed,
 				InnerResultPair: &xdr.InnerTransactionResultPair{
-					TransactionHash: innerTxHash(ledgerSequence),
+					TransactionHash: txHash(ledgerSequence, false),
 					Result: xdr.InnerTransactionResult{
 						Result: xdr.InnerTransactionResultResult{
 							Code: xdr.TransactionResultCodeTxBadSeq,
@@ -69,6 +81,8 @@ func transactionResult(ledgerSequence uint32, feeBump bool) xdr.TransactionResul
 }
 
 func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
+	envelope := txEnvelope(ledgerSequence, feeBump)
+
 	txProcessing := []xdr.TransactionResultMetaV2{
 		{
 			TxApplyProcessing: xdr.TransactionMeta{
@@ -79,7 +93,19 @@ func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
 				},
 			},
 			Result: xdr.TransactionResultPairV2{
-				TransactionHash: txHash(ledgerSequence),
+				TransactionHash: txHash(ledgerSequence, feeBump),
+			},
+		},
+	}
+
+	components := []xdr.TxSetComponent{
+		{
+			Type: xdr.TxSetComponentTypeTxsetCompTxsMaybeDiscountedFee,
+			TxsMaybeDiscountedFee: &xdr.TxSetComponentTxsMaybeDiscountedFee{
+				BaseFee: nil,
+				Txs: []xdr.TransactionEnvelope{
+					envelope,
+				},
 			},
 		},
 	}
@@ -95,17 +121,64 @@ func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
 				},
 			},
 			TxProcessing: txProcessing,
+			TxSet: xdr.GeneralizedTransactionSet{
+				V: 1,
+				V1TxSet: &xdr.TransactionSetV1{
+					PreviousLedgerHash: xdr.Hash{1},
+					Phases: []xdr.TransactionPhase{
+						{
+							V:            0,
+							V0Components: &components,
+						},
+					},
+				},
+			},
 		},
 	}
 }
 
+func txEnvelope(ledgerSequence uint32, feeBump bool) xdr.TransactionEnvelope {
+	var envelope xdr.TransactionEnvelope
+	var err error
+	if feeBump {
+		envelope, err = xdr.NewTransactionEnvelope(xdr.EnvelopeTypeEnvelopeTypeTxFeeBump, xdr.FeeBumpTransactionEnvelope{
+			Tx: xdr.FeeBumpTransaction{
+				Fee:       10,
+				FeeSource: xdr.MustMuxedAddress("MA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVAAAAAAAAAAAAAJLK"),
+				InnerTx: xdr.FeeBumpTransactionInnerTx{
+					Type: xdr.EnvelopeTypeEnvelopeTypeTx,
+					V1: &xdr.TransactionV1Envelope{
+						Tx: xdr.Transaction{
+							Fee:           1,
+							SeqNum:        xdr.SequenceNumber(ledgerSequence + 90),
+							SourceAccount: xdr.MustMuxedAddress("MA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVAAAAAAAAAAAAAJLK"),
+						},
+					},
+				},
+			},
+		})
+	} else {
+		envelope, err = xdr.NewTransactionEnvelope(xdr.EnvelopeTypeEnvelopeTypeTx, xdr.TransactionV1Envelope{
+			Tx: xdr.Transaction{
+				Fee:           1,
+				SeqNum:        xdr.SequenceNumber(ledgerSequence + 90),
+				SourceAccount: xdr.MustMuxedAddress("MA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVAAAAAAAAAAAAAJLK"),
+			},
+		})
+	}
+	if err != nil {
+		panic(err)
+	}
+	return envelope
+}
+
 func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequence, firstSequence, lastSequence uint32) {
-	tx, ok, storeRange := store.GetTransaction(txHash(ledgerSequence))
+	tx, ok, storeRange := store.GetTransaction(txHash(ledgerSequence, false))
 	require.True(t, ok)
 	require.Equal(t, expectedTransaction(ledgerSequence, feeBump), tx)
 	require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
 	if feeBump {
-		tx, ok, storeRange = store.GetTransaction(innerTxHash(ledgerSequence))
+		tx, ok, storeRange = store.GetTransaction(txHash(ledgerSequence, true))
 		require.True(t, ok)
 		require.Equal(t, expectedTransaction(ledgerSequence, feeBump), tx)
 		require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
@@ -114,10 +187,10 @@ func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequen
 
 func TestIngestTransactions(t *testing.T) {
 	// Use a small retention window to test eviction
-	store, err := NewMemoryStore(3)
+	store, err := NewMemoryStore("passphrase", 3)
 	require.NoError(t, err)
 
-	_, ok, storeRange := store.GetTransaction(txHash(1))
+	_, ok, storeRange := store.GetTransaction(txHash(1, false))
 	require.False(t, ok)
 	require.Equal(t, StoreRange{}, storeRange)
 
@@ -147,7 +220,7 @@ func TestIngestTransactions(t *testing.T) {
 	requirePresent(t, store, false, 3, 2, 4)
 	requirePresent(t, store, false, 4, 2, 4)
 
-	_, ok, storeRange = store.GetTransaction(txHash(1))
+	_, ok, storeRange = store.GetTransaction(txHash(1, false))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(2, 4), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
@@ -159,13 +232,13 @@ func TestIngestTransactions(t *testing.T) {
 	requirePresent(t, store, false, 4, 3, 5)
 	requirePresent(t, store, false, 5, 3, 5)
 
-	_, ok, storeRange = store.GetTransaction(txHash(2))
+	_, ok, storeRange = store.GetTransaction(txHash(2, false))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(3, 5), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
 	require.Len(t, store.transactions, 3)
 
-	_, ok, storeRange = store.GetTransaction(innerTxHash(2))
+	_, ok, storeRange = store.GetTransaction(txHash(2, true))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(3, 5), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
