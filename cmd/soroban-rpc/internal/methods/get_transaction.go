@@ -45,13 +45,19 @@ type GetTransactionResponse struct {
 	ApplicationOrder int32 `json:"applicationOrder,omitempty"`
 	// FeeBump indicates whether the transaction is a feebump transaction
 	FeeBump bool `json:"feeBump,omitempty"`
+	// EnvelopeXdr is the TransactionEnvelope XDR value.
+	EnvelopeXdr string `json:"envelopeXdr,omitempty"`
 	// ResultXdr is the TransactionResult XDR value.
 	ResultXdr string `json:"resultXdr,omitempty"`
+	// ResultXdr is the TransactionMeta XDR value.
+	ResultMetaXdr string `json:"resultMetaXdr,omitempty"`
+
 	// Ledger is the sequence of the ledger which included the transaction.
 	Ledger int64 `json:"ledger,string,omitempty"`
 	// LedgerCloseTime is the unix timestamp of when the transaction was included in the ledger.
 	LedgerCloseTime int64 `json:"createdAt,string,omitempty"`
 }
+
 type GetTransactionRequest struct {
 	Hash string `json:"hash"`
 }
@@ -100,6 +106,18 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 			Message: err.Error(),
 		}
 	}
+	if response.EnvelopeXdr, err = xdr.MarshalBase64(tx.Envelope); err != nil {
+		return GetTransactionResponse{}, &jrpc2.Error{
+			Code:    code.InternalError,
+			Message: err.Error(),
+		}
+	}
+	if response.ResultMetaXdr, err = xdr.MarshalBase64(tx.Meta); err != nil {
+		return GetTransactionResponse{}, &jrpc2.Error{
+			Code:    code.InternalError,
+			Message: err.Error(),
+		}
+	}
 	if tx.Result.Successful() {
 		response.Status = TransactionStatusSuccess
 	} else {
@@ -108,7 +126,7 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	return response, nil
 }
 
-// NewGetTransactionStatusHandler returns a get transaction json rpc handler
+// NewGetTransactionHandler returns a get transaction json rpc handler
 func NewGetTransactionHandler(getter transactionGetter) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetTransactionRequest) (GetTransactionResponse, error) {
 		return GetTransaction(getter, request)
