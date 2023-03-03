@@ -34,7 +34,7 @@ func mustPositiveUint32(co *config.ConfigOption) error {
 
 func main() {
 	var endpoint string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, coreTimeoutSeconds uint
+	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, coreTimeoutSeconds, maxHealthyLedgerLatencySeconds uint
 	var serviceConfig localConfig.LocalConfig
 
 	configOpts := config.ConfigOptions{
@@ -218,6 +218,15 @@ func main() {
 			FlagDefault: uint(100),
 			Usage:       "Default cap on the amount of events included in a single getEvents response",
 		},
+		{
+			Name: "max-healthy-ledger-latency-seconds",
+			Usage: "maximum ledger latency (i.e. time elapsed since the last known ledger closing time) considered to be healthy" +
+				" (used for the /health endpoint)",
+			OptType:     types.Uint,
+			ConfigKey:   &maxHealthyLedgerLatencySeconds,
+			FlagDefault: uint(30),
+			Required:    false,
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -244,6 +253,7 @@ func main() {
 			}
 			serviceConfig.LedgerEntryStorageTimeout = time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute
 			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
+			serviceConfig.MaxHealthyLedgerLatency = time.Duration(maxHealthyLedgerLatencySeconds) * time.Second
 			exitCode := daemon.Run(serviceConfig, endpoint)
 			os.Exit(exitCode)
 		},

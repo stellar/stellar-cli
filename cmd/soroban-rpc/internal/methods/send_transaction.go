@@ -27,9 +27,9 @@ type SendTransactionResponse struct {
 	// Status can be one of: proto.TXStatusPending, proto.TXStatusDuplicate,
 	// proto.TXStatusTryAgainLater, or proto.TXStatusError.
 	Status string `json:"status"`
-	// TransactionHash is a hash of the transaction which can be used to look up whether
+	// Hash is a hash of the transaction which can be used to look up whether
 	// the transaction was included in the ledger.
-	TransactionHash string `json:"transactionHash"`
+	Hash string `json:"hash"`
 	// LatestLedger is the latest ledger known to Soroban-RPC at the time it handled
 	// the transaction submission request.
 	LatestLedger int64 `json:"latestLedger,string"`
@@ -98,14 +98,14 @@ func NewSendTransactionHandler(logger *log.Entry, store LatestLedgerStore, passp
 			return SendTransactionResponse{
 				ErrorResultXDR:        resp.Error,
 				Status:                resp.Status,
-				TransactionHash:       txHash,
+				Hash:                  txHash,
 				LatestLedger:          int64(ledgerInfo.Sequence),
 				LatestLedgerCloseTime: ledgerInfo.CloseTime,
 			}, nil
 		case proto.TXStatusPending, proto.TXStatusDuplicate, proto.TXStatusTryAgainLater:
 			return SendTransactionResponse{
 				Status:                resp.Status,
-				TransactionHash:       txHash,
+				Hash:                  txHash,
 				LatestLedger:          int64(ledgerInfo.Sequence),
 				LatestLedgerCloseTime: ledgerInfo.CloseTime,
 			}, nil

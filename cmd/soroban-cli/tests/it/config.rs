@@ -217,8 +217,8 @@ fn use_different_ledger_file() {
         .arg(HELLO_WORLD.path())
         .arg("--ledger-file")
         .arg(temp_ledger_file())
-        .arg("--fn=hello")
         .arg("--")
+        .arg("hello")
         .arg("--world=world")
         .assert()
         .stdout("[\"Hello\",\"world\"]\n")
@@ -233,6 +233,33 @@ fn read_address() {
     for hd_path in 0..2 {
         test_hd_path(&sandbox, hd_path);
     }
+}
+
+#[test]
+fn use_env() {
+    let sandbox = Sandbox::new();
+
+    sandbox
+        .new_cmd("config")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .arg("identity")
+        .arg("add")
+        .arg("bob")
+        .assert()
+        .stdout("")
+        .success();
+
+    sandbox
+        .new_cmd("config")
+        .arg("identity")
+        .arg("show")
+        .arg("bob")
+        .assert()
+        .success()
+        .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
 }
 
 fn test_hd_path(sandbox: &Sandbox, hd_path: usize) {

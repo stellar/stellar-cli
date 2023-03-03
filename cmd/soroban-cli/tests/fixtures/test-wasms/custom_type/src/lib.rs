@@ -5,6 +5,7 @@ use soroban_sdk::{
 
 pub struct Contract;
 
+/// Test Struct Docs
 #[contracttype]
 pub struct Test {
     pub a: u32,
@@ -62,6 +63,7 @@ impl Contract {
         vec![&env, symbol!("Hello"), strukt.c]
     }
 
+    /// Example contract method passing in a struct
     pub fn strukt(_env: Env, strukt: Test) -> Test {
         strukt
     }
