@@ -1,0 +1,128 @@
+# running captive core with on-disk mode limits RAM to around 2G usage, but 
+# requires some dedicated disk storage space that has at least 3k IOPS for read/write.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: soroban-rpc-pubnet-core-storage
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: default
+  volumeMode: Filesystem  
+---   
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    fluxcd.io/ignore: "true"
+  labels:
+    app: soroban-rpc-futurenet
+  name: soroban-rpc-futurenet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: soroban-rpc-futurenet
+  template:
+    metadata:
+      annotations:
+        fluxcd.io/ignore: "true"
+      creationTimestamp: null
+      labels:
+        app: soroban-rpc-futurenet
+    spec:
+      initContainers:
+      - name: clean-volume
+        image: busybox:1.28
+        command: ["rm", "-rf", "/opt/stellar/soroban-rpc/captive-core"]
+        volumeMounts:
+        - mountPath: /opt/stellar/soroban-rpc
+          name: captive-core-data
+      containers:    
+      - name: rpc-server
+        image: stellar/quickstart:soroban-dev@sha256:81c23da078c90d0ba220f8fc93414d0ea44608adc616988930529c58df278739
+        args: ["--futurenet", "--enable-soroban-rpc", "--logs"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: web
+          protocol: TCP
+        readinessProbe:
+          exec:
+              command:
+                - /bin/sh
+                - -c
+                - | 
+                  curl --location --request POST 'http://localhost:8000/soroban/rpc' \
+                    --header 'Content-Type: application/json' \
+                    --data-raw '{
+                      "jsonrpc": "2.0",
+                      "id": 10235,
+                      "method": "getHealth"
+                    }' | jq --exit-status 'has("jsonrpc")' 
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          successThreshold: 1
+          failureThreshold: 5
+          timeoutSeconds: 5
+
+        resources:
+          limits:
+            cpu: 2
+            memory: 4Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - mountPath: /opt/stellar/soroban-rpc
+          name: captive-core-data    
+      volumes:
+      - name: captive-core-data
+        persistentVolumeClaim:
+          claimName: soroban-rpc-pubnet-core-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: soroban-rpc-futurenet
+  name: soroban-rpc-futurenet
+spec:
+  ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: soroban-rpc-futurenet
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: default
+    ingress.kubernetes.io/ssl-redirect: "true"
+    kubernetes.io/ingress.class: public
+    nginx.ingress.kubernetes.io/rewrite-target: /soroban/rpc
+  name: rpc-futurenet
+spec:
+  rules:
+  - host: rpc-futurenet.prototypes.kube001.services.stellar-ops.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: rpc-futurenet
+            port:
+              number: 8000
+        path: /
+        pathType: Exact
+  tls:
+  - hosts:
+    - rpc-futurenet.prototypes.kube001.services.stellar-ops.com
+    secretName: rpc-futurenet-cert
