@@ -113,7 +113,7 @@ metadata:
 spec:
   rules:
   - host: rpc-futurenet.prototypes.kube001.services.stellar-ops.com
-    http:
+    http: &rpc-backend
       paths:
       - backend:
           service:
@@ -122,6 +122,8 @@ spec:
               number: 8000
         path: /
         pathType: Prefix
+  - host: rpc-futurenet.stellar.org
+    http: *rpc-backend
   tls:
   - hosts:
     - rpc-futurenet.prototypes.kube001.services.stellar-ops.com
