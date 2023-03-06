@@ -10,7 +10,7 @@ pub struct Cmd;
 impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) {
-        println!("{}", long());
+        println!("soroban {}", long());
     }
 }
 
