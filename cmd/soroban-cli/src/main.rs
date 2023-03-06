@@ -19,10 +19,10 @@ const HEADING_RPC: &str = "OPTIONS (RPC)";
 #[derive(Parser, Debug)]
 #[clap(
     name = "soroban",
-    version,
+    version = Box::leak(Box::new(version::short())).as_str(),
+    long_version = Box::leak(Box::new(version::long())).as_str(),
     about = "https://soroban.stellar.org",
     disable_help_subcommand = true,
-    disable_version_flag = true
 )]
 #[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Root {

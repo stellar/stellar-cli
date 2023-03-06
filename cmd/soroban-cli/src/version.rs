@@ -10,19 +10,27 @@ pub struct Cmd;
 impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) {
-        println!("soroban {} ({GIT_REVISION})", env!("CARGO_PKG_VERSION"));
+        println!("{}", long());
+    }
+}
 
-        let env = soroban_env_host::VERSION;
-        println!("soroban-env {} ({})", env.pkg, env.rev);
-        println!("soroban-env interface version {}", meta::INTERFACE_VERSION);
+pub fn short() -> String {
+    format!("{} ({GIT_REVISION})", env!("CARGO_PKG_VERSION"))
+}
 
-        let xdr = soroban_env_host::VERSION.xdr;
-        println!(
+pub fn long() -> String {
+    let env = soroban_env_host::VERSION;
+    let xdr = soroban_env_host::VERSION.xdr;
+    vec![
+        short(),
+        format!("soroban-env {} ({})", env.pkg, env.rev),
+        format!("soroban-env interface version {}", meta::INTERFACE_VERSION),
+        format!(
             "stellar-xdr {} ({})
 xdr next ({})",
             xdr.pkg, xdr.rev, xdr.xdr_next,
-        );
-    }
+        ),
+    ].join("\n")
 }
 
 // Check that the XDR cannel in use is 'next' to ensure that the version output
