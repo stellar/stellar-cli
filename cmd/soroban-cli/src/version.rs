@@ -30,7 +30,8 @@ pub fn long() -> String {
 xdr next ({})",
             xdr.pkg, xdr.rev, xdr.xdr_next,
         ),
-    ].join("\n")
+    ]
+    .join("\n")
 }
 
 // Check that the XDR cannel in use is 'next' to ensure that the version output
