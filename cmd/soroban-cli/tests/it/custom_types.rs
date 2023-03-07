@@ -26,7 +26,7 @@ fn generate_help() {
         .assert()
         .success()
         .stdout(predicates::str::contains(
-            "Example contract method that takes a struct",
+            "Example contract method which takes a struct",
         ));
 }
 
