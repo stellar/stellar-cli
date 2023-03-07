@@ -1,11 +1,11 @@
 #![no_std]
 use soroban_sdk::{
-    contractimpl, contracttype, symbol, vec, Address, Bytes, Env, Map, Set, Symbol, Vec,
+    contractimpl, contracttype, symbol, vec, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec,
 };
 
 pub struct Contract;
 
-/// Test Struct Docs
+/// This is from the rust doc above the struct Test
 #[contracttype]
 pub struct Test {
     pub a: u32,
@@ -39,6 +39,7 @@ pub enum ComplexEnum {
     Struct(Test),
     Tuple(TupleStruct),
     Enum(SimpleEnum),
+    Void,
 }
 
 #[contractimpl]
@@ -63,7 +64,7 @@ impl Contract {
         vec![&env, symbol!("Hello"), strukt.c]
     }
 
-    /// Example contract method passing in a struct
+    /// Example contract method that takes a struct
     pub fn strukt(_env: Env, strukt: Test) -> Test {
         strukt
     }
@@ -84,6 +85,10 @@ impl Contract {
         bytes
     }
 
+    pub fn bytes_n(_env: Env, bytes_n: BytesN<9>) -> BytesN<9> {
+        bytes_n
+    }
+
     pub fn card(_env: Env, card: RoyalCard) -> RoyalCard {
         card
     }
@@ -92,6 +97,7 @@ impl Contract {
         boolean
     }
 
+    /// Negates a boolean value
     pub fn not(_env: Env, boolean: bool) -> bool {
         !boolean
     }
@@ -126,6 +132,36 @@ impl Contract {
 
     pub fn tuple(_env: Env, tuple: (Symbol, u32)) -> (Symbol, u32) {
         tuple
+    }
+
+    /// Example of an optional argument
+    pub fn option(_env: Env, option: Option<u32>) -> Option<u32> {
+        option
+    }
+
+    #[allow(clippy::too_many_arguments, unused_variables)]
+    pub fn some_types(
+        _env: Env,
+        i32: i32,
+        bool: bool,
+        symbol: Symbol,
+        strukt: Test,
+        option: Option<u32>,
+        address: Address,
+        vec: Vec<u32>,
+        set: Set<Address>,
+        tuple: (Symbol, Address, Bytes),
+    ) {
+    }
+    #[allow(clippy::too_many_arguments, unused_variables)]
+    pub fn othertypes(
+        _env: Env,
+        map: Map<Symbol, u128>,
+        bytes: Bytes,
+        bytes_n: BytesN<9>,
+        const_enum: RoyalCard,
+        simple_enum: SimpleEnum,
+    ) {
     }
 }
 
