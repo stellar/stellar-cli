@@ -11,16 +11,34 @@ jobs:
     strategy:
       matrix:
         scenario-filter: ["^TestDappDevelop$/^.*$"]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores
     env:
-      TOOLS_REF: ${{ github.ref }}
-      SYSTEM_TEST_GIT_REF: v1.0.6
-      # core git ref is latest commit for stable soroban functionality
-      SYSTEM_TEST_CORE_GIT_REF: 871accefc0c4a703c1321b4f0e48cf6e03b41960
+      # the gh tag of system-test repo version to run 
+      SYSTEM_TEST_GIT_REF: v1.0.7
+
+      # the soroban tools source code to compile and run from system test
+      # refers to checked out source of current git hub ref context 
+      SYSTEM_TEST_SOROBAN_TOOLS_REF: ${{ github.workspace }}/soroban-tools
+
+      # core git ref should be latest commit for stable soroban functionality
+      # the core bin can either be compiled in-line here as part of ci, 
+      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#871accefc0c4a703c1321b4f0e48cf6e03b41960
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
+      # or can use option to pull a pre-compiled image instead
+      # SYSTEM_TEST_CORE_IMAGE: 
+      
+      # sets the version of rust toolchain that will be pre-installed in the 
+      # test runtime environment, tests invoke rustc/cargo
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
-      SYSTEM_TEST_QUICKSTART_GIT_REF: master
+     
+      # system test will build quickstart image internally to use for running the service stack
+      # configured in standalone network mode(core, rpc)
+      SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart.git#master
+      
+      # triggers system test to log out details from quickstart's logs and test steps
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
+
+      # the soroban test cases will compile various contracts from the examples repo
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: main
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
@@ -28,14 +46,21 @@ jobs:
         with:
           repository: stellar/system-test
           ref: ${{ env.SYSTEM_TEST_GIT_REF }}
-      - uses: stellar/actions/rust-cache@main 
+          path: system-test
+      - uses: actions/checkout@v3
+        with:
+          path: soroban-tools
+      - uses: stellar/actions/rust-cache@main
       - name: Build system test with component versions
         run: |
-          make CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
+          cd $GITHUB_WORKSPACE/system-test; \
+          make \
+              CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
               CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
-              SOROBAN_RPC_GIT_REF=$TOOLS_REF \
+              CORE_IMAGE=$SYSTEM_TEST_CORE_IMAGE \
+              SOROBAN_RPC_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
+              SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
               RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
-              SOROBAN_CLI_GIT_REF=$TOOLS_REF \
               QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
               build
       - name: Run system test scenarios
