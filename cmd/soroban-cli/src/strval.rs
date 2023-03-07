@@ -1,11 +1,14 @@
+use itertools::Itertools;
 use serde_json::Value;
 use std::str::FromStr;
 
 use soroban_env_host::xdr::{
-    AccountId, BytesM, Error as XdrError, Hash, PublicKey, ScAddress, ScMap, ScMapEntry, ScObject,
-    ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeSet,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
-    ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0, ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
+    self, AccountId, BytesM, Error as XdrError, Hash, PublicKey, ScAddress, ScMap, ScMapEntry,
+    ScObject, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap,
+    ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt,
+    ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
+    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0,
+    ScStatic, ScVal, ScVec, StringM, Uint256, VecM,
 };
 
 use crate::utils;
@@ -15,7 +18,7 @@ pub enum Error {
     #[error("an unknown error occurred")]
     Unknown,
     #[error("value is not parseable to {0:#?}")]
-    InvalidValue(Option<ScSpecTypeDef>),
+    InvalidValue(Option<ScType>),
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
     #[error("Enum {0} missing value for type {1}")]
@@ -32,6 +35,15 @@ pub enum Error {
     Xdr(XdrError),
     #[error(transparent)]
     Serde(serde_json::Error),
+
+    #[error("Missing key {0} in map")]
+    MissingKey(String),
+    #[error("Failed to convert {0} to number")]
+    FailedNumConversion(serde_json::Number),
+    #[error("First argument in an enum must be a sybmol")]
+    EnumFirstValueNotSymbol,
+    #[error("Failed to find enum case {0}")]
+    FailedToFindEnumCase(String),
 }
 
 impl From<()> for Error {
@@ -46,29 +58,29 @@ pub struct Spec(pub Option<Vec<ScSpecEntry>>);
 impl Spec {
     /// # Errors
     /// Could fail to find User Defined Type
-    pub fn doc(&self, type_: &ScSpecTypeDef) -> Result<Option<&'static str>, Error> {
-        let str = match type_ {
-            ScSpecTypeDef::Val
-            | ScSpecTypeDef::U64
-            | ScSpecTypeDef::I64
-            | ScSpecTypeDef::U128
-            | ScSpecTypeDef::I128
-            | ScSpecTypeDef::U32
-            | ScSpecTypeDef::I32
-            | ScSpecTypeDef::Result(_)
-            | ScSpecTypeDef::Vec(_)
-            | ScSpecTypeDef::Map(_)
-            | ScSpecTypeDef::Set(_)
-            | ScSpecTypeDef::Tuple(_)
-            | ScSpecTypeDef::BytesN(_)
-            | ScSpecTypeDef::Symbol
-            | ScSpecTypeDef::Bitset
-            | ScSpecTypeDef::Status
-            | ScSpecTypeDef::Bytes
-            | ScSpecTypeDef::Bool => return Ok(None),
-            ScSpecTypeDef::Address => "Address".to_string(),
-            ScSpecTypeDef::Option(type_) => return self.doc(&type_.value_type),
-            ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) => {
+    pub fn doc(&self, name: &str, type_: &ScType) -> Result<Option<&'static str>, Error> {
+        let mut str = match type_ {
+            ScType::Val
+            | ScType::U64
+            | ScType::I64
+            | ScType::U128
+            | ScType::I128
+            | ScType::U32
+            | ScType::I32
+            | ScType::Result(_)
+            | ScType::Vec(_)
+            | ScType::Map(_)
+            | ScType::Set(_)
+            | ScType::Tuple(_)
+            | ScType::BytesN(_)
+            | ScType::Symbol
+            | ScType::Bitset
+            | ScType::Status
+            | ScType::Bytes
+            | ScType::Address
+            | ScType::Bool => String::new(),
+            ScType::Option(type_) => return self.doc(name, &type_.value_type),
+            ScType::Udt(ScSpecTypeUdt { name }) => {
                 let spec_type = self.find(&name.to_string_lossy())?;
                 match spec_type {
                     ScSpecEntry::FunctionV0(ScSpecFunctionV0 { doc, .. })
@@ -79,9 +91,25 @@ impl Spec {
                 }
                 .to_string_lossy()
             }
+        };
+        if let Some(mut ex) = self.example(type_) {
+            if ex.contains(' ') {
+                ex = format!("'{ex}'");
+            } else if ex.contains('"') {
+                ex = ex.replace('"', "");
+            }
+            if matches!(type_, ScType::Bool) {
+                ex = String::new();
+            }
+            let sep = if str.is_empty() { "" } else { "\n" };
+            str = format!("{str}{sep}Example:\n  --{name} {ex}");
+            if ex.contains('"') {}
         }
-        .into_boxed_str();
-        Ok(Some(Box::leak(str)))
+        if str.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(Box::leak(str.into_boxed_str())))
+        }
     }
 
     /// # Errors
@@ -114,10 +142,10 @@ impl Spec {
             _ => Err(Error::MissingEntry(name.to_owned())),
         }
     }
-
+    //
     /// # Errors
     ///
-    pub fn find_functions(&self) -> Result<Vec<&ScSpecFunctionV0>, Error> {
+    pub fn find_functions(&self) -> Result<impl Iterator<Item = &ScSpecFunctionV0>, Error> {
         Ok(self
             .0
             .as_ref()
@@ -126,14 +154,13 @@ impl Spec {
             .filter_map(|e| match e {
                 ScSpecEntry::FunctionV0(x) => Some(x),
                 _ => None,
-            })
-            .collect())
+            }))
     }
 
     /// # Errors
     ///
     /// Might return errors
-    pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
+    pub fn from_string_primitive(s: &str, t: &ScType) -> Result<ScVal, Error> {
         Self::default().from_string(s, t)
     }
 
@@ -141,8 +168,8 @@ impl Spec {
     ///
     /// Might return errors
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_string(&self, s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
-        if let ScSpecTypeDef::Option(b) = t {
+    pub fn from_string(&self, s: &str, t: &ScType) -> Result<ScVal, Error> {
+        if let ScType::Option(b) = t {
             if s == "null" {
                 return Ok(ScVal::Static(ScStatic::Void));
             }
@@ -154,13 +181,13 @@ impl Spec {
         serde_json::from_str(s)
             .map_or_else(
                 |e| match t {
-                    ScSpecTypeDef::Symbol
-                    | ScSpecTypeDef::Bytes
-                    | ScSpecTypeDef::BytesN(_)
-                    | ScSpecTypeDef::U128
-                    | ScSpecTypeDef::I128
-                    | ScSpecTypeDef::Address => Ok(Value::String(s.to_owned())),
-                    ScSpecTypeDef::Udt(ScSpecTypeUdt { name })
+                    ScType::Symbol
+                    | ScType::Bytes
+                    | ScType::BytesN(_)
+                    | ScType::U128
+                    | ScType::I128
+                    | ScType::Address => Ok(Value::String(s.to_owned())),
+                    ScType::Udt(ScSpecTypeUdt { name })
                         if matches!(
                             self.find(&name.to_string_lossy())?,
                             ScSpecEntry::UdtUnionV0(_) | ScSpecEntry::UdtStructV0(_)
@@ -171,7 +198,7 @@ impl Spec {
                     _ => Err(Error::Serde(e)),
                 },
                 |val| match t {
-                    ScSpecTypeDef::U128 | ScSpecTypeDef::I128 => Ok(Value::String(s.to_owned())),
+                    ScType::U128 | ScType::I128 => Ok(Value::String(s.to_owned())),
                     _ => Ok(val),
                 },
             )
@@ -182,25 +209,25 @@ impl Spec {
     ///
     /// Might return errors
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_json(&self, v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
+    pub fn from_json(&self, v: &Value, t: &ScType) -> Result<ScVal, Error> {
         let val: ScVal = match (t, v) {
             (
-                ScSpecTypeDef::Bool
-                | ScSpecTypeDef::U128
-                | ScSpecTypeDef::I128
-                | ScSpecTypeDef::I32
-                | ScSpecTypeDef::I64
-                | ScSpecTypeDef::U32
-                | ScSpecTypeDef::U64
-                | ScSpecTypeDef::Symbol
-                | ScSpecTypeDef::Address
-                | ScSpecTypeDef::Bytes
-                | ScSpecTypeDef::BytesN(_),
+                ScType::Bool
+                | ScType::U128
+                | ScType::I128
+                | ScType::I32
+                | ScType::I64
+                | ScType::U32
+                | ScType::U64
+                | ScType::Symbol
+                | ScType::Address
+                | ScType::Bytes
+                | ScType::BytesN(_),
                 _,
             ) => from_json_primitives(v, t)?,
 
             // Vec parsing
-            (ScSpecTypeDef::Vec(elem), Value::Array(raw)) => {
+            (ScType::Vec(elem), Value::Array(raw)) => {
                 let converted: ScVec = raw
                     .iter()
                     .map(|item| self.from_json(item, &elem.element_type))
@@ -211,27 +238,27 @@ impl Spec {
             }
 
             // Map parsing
-            (ScSpecTypeDef::Map(map), Value::Object(raw)) => self.parse_map(map, raw)?,
+            (ScType::Map(map), Value::Object(raw)) => self.parse_map(map, raw)?,
 
             // Option parsing
-            (ScSpecTypeDef::Option(_), Value::Null) => ScVal::Static(ScStatic::Void),
-            (ScSpecTypeDef::Option(elem), v) => ScVal::Object(Some(
+            (ScType::Option(_), Value::Null) => ScVal::Static(ScStatic::Void),
+            (ScType::Option(elem), v) => ScVal::Object(Some(
                 self.from_json(v, &elem.value_type)?
                     .try_into()
                     .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
             )),
 
             // Tuple parsing
-            (ScSpecTypeDef::Tuple(elem), Value::Array(raw)) => self.parse_tuple(t, elem, raw)?,
+            (ScType::Tuple(elem), Value::Array(raw)) => self.parse_tuple(t, elem, raw)?,
 
-            (ScSpecTypeDef::Udt(ScSpecTypeUdt { name }), _) => self.parse_udt(name, v)?,
+            (ScType::Udt(ScSpecTypeUdt { name }), _) => self.parse_udt(name, v)?,
 
             // TODO: Implement the rest of these
-            // ScSpecTypeDef::Bitset => {},
-            // ScSpecTypeDef::Status => {},
-            // ScSpecTypeDef::Result(Box<ScSpecTypeResult>) => {},
-            (ScSpecTypeDef::Set(set), Value::Array(values)) => self.parse_set(set, values)?,
-            // ScSpecTypeDef::Udt(ScSpecTypeUdt) => {},
+            // ScType::Bitset => {},
+            // ScType::Status => {},
+            // ScType::Result(Box<ScSpecTypeResult>) => {},
+            (ScType::Set(set), Value::Array(values)) => self.parse_set(set, values)?,
+            // ScType::Udt(ScSpecTypeUdt) => {},
             (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
         };
         Ok(val)
@@ -285,7 +312,9 @@ impl Spec {
             .iter()
             .map(|f| {
                 let name = &f.name.to_string_lossy();
-                let v = map.get(name).ok_or(Error::Unknown)?;
+                let v = map
+                    .get(name)
+                    .ok_or_else(|| Error::MissingKey(name.clone()))?;
                 let val = self.from_json(v, &f.type_)?;
                 let key = StringM::from_str(name).unwrap();
                 Ok(ScMapEntry {
@@ -337,7 +366,7 @@ impl Spec {
 
     fn parse_tuple(
         &self,
-        t: &ScSpecTypeDef,
+        t: &ScType,
         tuple: &ScSpecTypeTuple,
         items: &[Value],
     ) -> Result<ScVal, Error> {
@@ -401,7 +430,7 @@ impl Spec {
     /// # Panics
     ///
     /// May panic
-    pub fn xdr_to_json(&self, res: &ScVal, output: &ScSpecTypeDef) -> Result<Value, Error> {
+    pub fn xdr_to_json(&self, res: &ScVal, output: &ScType) -> Result<Value, Error> {
         Ok(match (res, output) {
             (ScVal::Static(v), _) => match v {
                 ScStatic::True => Value::Bool(true),
@@ -414,19 +443,19 @@ impl Spec {
             (ScVal::I32(v), _) => Value::Number(serde_json::Number::from(*v)),
             (ScVal::Symbol(v), _) => Value::String(
                 std::str::from_utf8(v.as_slice())
-                    .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::Symbol)))?
+                    .map_err(|_| Error::InvalidValue(Some(ScType::Symbol)))?
                     .to_string(),
             ),
 
-            (ScVal::Object(None), ScSpecTypeDef::Option(_)) => Value::Null,
-            (ScVal::Object(Some(inner)), ScSpecTypeDef::Option(type_)) => {
+            (ScVal::Object(None), ScType::Option(_)) => Value::Null,
+            (ScVal::Object(Some(inner)), ScType::Option(type_)) => {
                 self.sc_object_to_json(inner, &type_.value_type)?
             }
             (ScVal::Object(Some(inner)), type_) => self.sc_object_to_json(inner, type_)?,
 
-            (ScVal::Bitset(_), ScSpecTypeDef::Bitset) => todo!(),
+            (ScVal::Bitset(_), ScType::Bitset) => todo!(),
 
-            (ScVal::Status(_), ScSpecTypeDef::Status) => todo!(),
+            (ScVal::Status(_), ScType::Status) => todo!(),
             (v, typed) => todo!("{v:#?} doesn't have a matching {typed:#?}"),
         })
     }
@@ -437,7 +466,7 @@ impl Spec {
     pub fn vec_m_to_json(
         &self,
         vec_m: &VecM<ScVal, 256_000>,
-        type_: &ScSpecTypeDef,
+        type_: &ScType,
     ) -> Result<Value, Error> {
         Ok(Value::Array(
             vec_m
@@ -510,7 +539,7 @@ impl Spec {
                 let second_val = v.get(1);
 
                 let ScVal::Symbol(case_name) = val else {
-                     return Err(Error::Unknown)
+                     return Err(Error::EnumFirstValueNotSymbol)
                 };
                 let case = union
                     .cases
@@ -522,7 +551,7 @@ impl Spec {
                         };
                         name.as_vec() == case_name.as_vec()
                     })
-                    .ok_or(Error::Unknown)?;
+                    .ok_or_else(|| Error::FailedToFindEnumCase(case_name.to_string_lossy()))?;
 
                 let case_name = case_name.to_string_lossy();
                 match case {
@@ -555,73 +584,60 @@ impl Spec {
     /// # Panics
     ///
     /// Some types are not yet supported and will cause a panic if supplied
-    pub fn sc_object_to_json(
-        &self,
-        obj: &ScObject,
-        spec_type: &ScSpecTypeDef,
-    ) -> Result<Value, Error> {
+    pub fn sc_object_to_json(&self, obj: &ScObject, spec_type: &ScType) -> Result<Value, Error> {
         Ok(match (obj, spec_type) {
-            (ScObject::Vec(ScVec(vec_m)), ScSpecTypeDef::Vec(type_)) => {
+            (ScObject::Vec(ScVec(vec_m)), ScType::Vec(type_)) => {
                 self.vec_m_to_json(vec_m, &type_.element_type)?
             }
-            (ScObject::Vec(ScVec(vec_m)), ScSpecTypeDef::Tuple(tuple_type)) => Value::Array(
+            (ScObject::Vec(ScVec(vec_m)), ScType::Tuple(tuple_type)) => Value::Array(
                 vec_m
                     .iter()
                     .zip(tuple_type.value_types.iter())
                     .map(|(v, t)| self.xdr_to_json(v, t))
                     .collect::<Result<Vec<_>, _>>()?,
             ),
-            // (ScObject::Vec(_), ScSpecTypeDef::Map(_)) => todo!(),
-            // (ScObject::Vec(_), ScSpecTypeDef::Set(_)) => todo!(),
-            // (ScObject::Vec(_), ScSpecTypeDef::BytesN(_)) => todo!(),
+            // (ScObject::Vec(_), ScType::Map(_)) => todo!(),
+            // (ScObject::Vec(_), ScType::Set(_)) => todo!(),
+            // (ScObject::Vec(_), ScType::BytesN(_)) => todo!(),
             (
                 sc_obj @ (ScObject::Vec(_) | ScObject::Map(_)),
-                ScSpecTypeDef::Udt(ScSpecTypeUdt { name }),
+                ScType::Udt(ScSpecTypeUdt { name }),
             ) => self.udt_to_json(name, sc_obj)?,
 
-            (ScObject::Map(map), ScSpecTypeDef::Map(map_type)) => {
-                self.sc_map_to_json(map, map_type)?
-            }
+            (ScObject::Map(map), ScType::Map(map_type)) => self.sc_map_to_json(map, map_type)?,
 
-            (ScObject::Map(map), ScSpecTypeDef::Set(set_type)) => {
-                self.sc_set_to_json(map, set_type)?
-            }
+            (ScObject::Map(map), ScType::Set(set_type)) => self.sc_set_to_json(map, set_type)?,
 
-            (ScObject::U64(u64_), ScSpecTypeDef::U64) => {
-                Value::Number(serde_json::Number::from(*u64_))
-            }
+            (ScObject::U64(u64_), ScType::U64) => Value::Number(serde_json::Number::from(*u64_)),
 
-            (ScObject::I64(i64_), ScSpecTypeDef::I64) => {
-                Value::Number(serde_json::Number::from(*i64_))
-            }
-            (int @ ScObject::U128(_), ScSpecTypeDef::U128) => {
+            (ScObject::I64(i64_), ScType::I64) => Value::Number(serde_json::Number::from(*i64_)),
+            (int @ ScObject::U128(_), ScType::U128) => {
                 // Always output u128s as strings
                 let v: u128 = int
                     .clone()
                     .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::U128)))?;
+                    .map_err(|_| Error::InvalidValue(Some(ScType::U128)))?;
                 Value::String(v.to_string())
             }
 
-            (int @ ScObject::I128(_), ScSpecTypeDef::I128) => {
+            (int @ ScObject::I128(_), ScType::I128) => {
                 // Always output u128s as strings
                 let v: i128 = int
                     .clone()
                     .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::I128)))?;
+                    .map_err(|_| Error::InvalidValue(Some(ScType::I128)))?;
                 Value::String(v.to_string())
             }
 
-            (ScObject::Bytes(v), ScSpecTypeDef::Bytes) => Value::String(to_lower_hex(v.as_slice())),
-            (ScObject::Bytes(v), ScSpecTypeDef::BytesN(_)) => {
+            (ScObject::Bytes(v), ScType::Bytes | ScType::BytesN(_)) => {
                 Value::String(to_lower_hex(v.as_slice()))
             }
 
-            (ScObject::Bytes(_), ScSpecTypeDef::Udt(_)) => todo!(),
+            (ScObject::Bytes(_), ScType::Udt(_)) => todo!(),
 
             (ScObject::ContractCode(_), _) => todo!(),
 
-            (ScObject::Address(v), ScSpecTypeDef::Address) => sc_address_to_json(v),
+            (ScObject::Address(v), ScType::Address) => sc_address_to_json(v),
 
             _ => return Err(Error::Unknown),
         })
@@ -631,12 +647,14 @@ impl Spec {
 /// # Errors
 ///
 /// Might return an error
-pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
+pub fn from_string_primitive(s: &str, t: &ScType) -> Result<ScVal, Error> {
     Spec::from_string_primitive(s, t)
 }
 
 fn parse_const_enum(num: &serde_json::Number, enum_: &ScSpecUdtEnumV0) -> Result<ScVal, Error> {
-    let num = num.as_u64().ok_or(Error::Unknown)?;
+    let num = num
+        .as_u64()
+        .ok_or_else(|| Error::FailedNumConversion(num.clone()))?;
     let num = u32::try_from(num).map_err(|_| Error::EnumConstTooLarge(num))?;
     enum_
         .cases
@@ -649,59 +667,59 @@ fn parse_const_enum(num: &serde_json::Number, enum_: &ScSpecUdtEnumV0) -> Result
 /// # Errors
 ///
 /// Might return an error
-pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
+pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
     let val: ScVal = match (t, v) {
         // Boolean parsing
-        (ScSpecTypeDef::Bool, Value::Bool(true)) => ScVal::Static(ScStatic::True),
-        (ScSpecTypeDef::Bool, Value::Bool(false)) => ScVal::Static(ScStatic::False),
+        (ScType::Bool, Value::Bool(true)) => ScVal::Static(ScStatic::True),
+        (ScType::Bool, Value::Bool(false)) => ScVal::Static(ScStatic::False),
 
         // Number parsing
-        (ScSpecTypeDef::U128, Value::String(s)) => {
+        (ScType::U128, Value::String(s)) => {
             let val: u128 = u128::from_str(s)
                 .map(Into::into)
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             ScVal::Object(Some(val.into()))
         }
 
-        (ScSpecTypeDef::I128, Value::String(s)) => {
+        (ScType::I128, Value::String(s)) => {
             let val: i128 = i128::from_str(s)
                 .map(Into::into)
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             ScVal::Object(Some(val.into()))
         }
 
-        (ScSpecTypeDef::I32, Value::Number(n)) => ScVal::I32(
+        (ScType::I32, Value::Number(n)) => ScVal::I32(
             n.as_i64()
                 .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         ),
-        (ScSpecTypeDef::I64, Value::Number(n)) => ScVal::Object(Some(ScObject::I64(
+        (ScType::I64, Value::Number(n)) => ScVal::Object(Some(ScObject::I64(
             n.as_i64()
                 .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?,
         ))),
-        (ScSpecTypeDef::U32, Value::Number(n)) => ScVal::U32(
+        (ScType::U32, Value::Number(n)) => ScVal::U32(
             n.as_u64()
                 .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         ),
-        (ScSpecTypeDef::U64, Value::Number(n)) => ScVal::Object(Some(ScObject::U64(
+        (ScType::U64, Value::Number(n)) => ScVal::Object(Some(ScObject::U64(
             n.as_u64()
                 .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?,
         ))),
 
         // Symbol parsing
-        (ScSpecTypeDef::Symbol, Value::String(s)) => ScVal::Symbol(
+        (ScType::Symbol, Value::String(s)) => ScVal::Symbol(
             s.as_bytes()
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         ),
 
-        (ScSpecTypeDef::Address, Value::String(s)) => sc_address_from_json(s, t)?,
+        (ScType::Address, Value::String(s)) => sc_address_from_json(s, t)?,
 
         // Bytes parsing
-        (ScSpecTypeDef::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
+        (ScType::BytesN(bytes), Value::String(s)) => ScVal::Object(Some(ScObject::Bytes({
             if let Ok(key) = stellar_strkey::ed25519::PublicKey::from_string(s) {
                 key.0
                     .try_into()
@@ -713,13 +731,13 @@ pub fn from_json_primitives(v: &Value, t: &ScSpecTypeDef) -> Result<ScVal, Error
                     .map_err(|_| Error::InvalidValue(Some(t.clone())))?
             }
         }))),
-        (ScSpecTypeDef::Bytes, Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
+        (ScType::Bytes, Value::String(s)) => ScVal::Object(Some(ScObject::Bytes(
             hex::decode(s)
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         ))),
-        (ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_), Value::Array(raw)) => {
+        (ScType::Bytes | ScType::BytesN(_), Value::Array(raw)) => {
             let b: Result<Vec<u8>, Error> = raw
                 .iter()
                 .map(|item| {
@@ -748,7 +766,7 @@ pub fn to_string(v: &ScVal) -> Result<String, Error> {
         // If symbols are a top-level thing we omit the wrapping quotes
         // TODO: Decide if this is a good idea or not.
         ScVal::Symbol(v) => std::str::from_utf8(v.as_slice())
-            .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::Symbol)))?
+            .map_err(|_| Error::InvalidValue(Some(ScType::Symbol)))?
             .to_string(),
         _ => serde_json::to_string(&to_json(v)?).map_err(Error::Serde)?,
     })
@@ -771,7 +789,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         ScVal::I32(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::Symbol(v) => Value::String(
             std::str::from_utf8(v.as_slice())
-                .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::Symbol)))?
+                .map_err(|_| Error::InvalidValue(Some(ScType::Symbol)))?
                 .to_string(),
         ),
         ScVal::Object(None) => Value::Null,
@@ -808,14 +826,14 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             // Always output u128s as strings
             let v: u128 = ScObject::U128(n.clone())
                 .try_into()
-                .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::U128)))?;
+                .map_err(|_| Error::InvalidValue(Some(ScType::U128)))?;
             Value::String(v.to_string())
         }
         ScVal::Object(Some(ScObject::I128(n))) => {
             // Always output i128s as strings
             let v: i128 = ScObject::I128(n.clone())
                 .try_into()
-                .map_err(|_| Error::InvalidValue(Some(ScSpecTypeDef::I128)))?;
+                .map_err(|_| Error::InvalidValue(Some(ScType::I128)))?;
             Value::String(v.to_string())
         }
         // TODO: Implement these
@@ -835,7 +853,7 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
     }
 }
 
-fn sc_address_from_json(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error> {
+fn sc_address_from_json(s: &str, t: &ScType) -> Result<ScVal, Error> {
     stellar_strkey::Strkey::from_string(s)
         .map_err(|_| Error::InvalidValue(Some(t.clone())))
         .map(|parsed| match parsed {
@@ -858,4 +876,252 @@ fn to_lower_hex(bytes: &[u8]) -> String {
         res.push_str(&format!("{b:02x}"));
     }
     res
+}
+
+impl Spec {
+    #[must_use]
+    pub fn arg_value_name(&self, type_: &ScType, depth: usize) -> Option<String> {
+        match type_ {
+            ScType::U64 => Some("u64".to_string()),
+            ScType::I64 => Some("i64".to_string()),
+            ScType::U128 => Some("u128".to_string()),
+            ScType::I128 => Some("i128".to_string()),
+            ScType::U32 => Some("u32".to_string()),
+            ScType::I32 => Some("i32".to_string()),
+            ScType::Bool => Some("bool".to_string()),
+            ScType::Symbol => Some("Symbol".to_string()),
+            ScType::Bitset => Some("Bitset".to_string()),
+            ScType::Status => Some("Status".to_string()),
+            ScType::Bytes => Some("hex_bytes".to_string()),
+            ScType::Address => Some("Address".to_string()),
+            ScType::Option(val) => {
+                let ScSpecTypeOption { value_type } = val.as_ref();
+                let inner = self.arg_value_name(value_type.as_ref(), depth + 1)?;
+                Some(format!("Option<{inner}>"))
+            }
+            ScType::Vec(val) => {
+                let ScSpecTypeVec { element_type } = val.as_ref();
+                let inner = self.arg_value_name(element_type.as_ref(), depth + 1)?;
+                Some(format!("Array<{inner}>"))
+            }
+            ScType::Set(val) => {
+                let ScSpecTypeSet { element_type } = val.as_ref();
+                let inner = self.arg_value_name(element_type.as_ref(), depth + 1)?;
+                Some(format!("Set<{inner}>"))
+            }
+            ScType::Result(val) => {
+                let ScSpecTypeResult {
+                    ok_type,
+                    error_type,
+                } = val.as_ref();
+                let ok = self.arg_value_name(ok_type.as_ref(), depth + 1)?;
+                let error = self.arg_value_name(error_type.as_ref(), depth + 1)?;
+                Some(format!("Result<{ok}, {error}>"))
+            }
+            ScType::Tuple(val) => {
+                let ScSpecTypeTuple { value_types } = val.as_ref();
+                let names = value_types
+                    .iter()
+                    .map(|t| self.arg_value_name(t, depth + 1))
+                    .collect::<Option<Vec<_>>>()?
+                    .join(", ");
+                Some(format!("Tuple<{names}>"))
+            }
+            ScType::Map(val) => {
+                let ScSpecTypeMap {
+                    key_type,
+                    value_type,
+                } = val.as_ref();
+                let (key, val) = (
+                    self.arg_value_name(key_type.as_ref(), depth + 1)?,
+                    self.arg_value_name(value_type.as_ref(), depth + 1)?,
+                );
+                Some(format!("Map<{key}, {val}>"))
+            }
+            ScType::BytesN(t) => Some(format!("{}_hex_bytes", t.n)),
+            ScType::Udt(ScSpecTypeUdt { name }) => {
+                match self.find(&name.to_string_lossy()).ok()? {
+                    ScSpecEntry::UdtStructV0(strukt) => self.arg_value_udt(strukt, depth),
+                    ScSpecEntry::UdtUnionV0(union) => self.arg_value_union(union, depth),
+                    ScSpecEntry::UdtEnumV0(enum_) => Some(arg_value_enum(enum_)),
+                    ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
+                }
+            }
+            // No specific value name for these yet.
+            ScType::Val => None,
+        }
+    }
+
+    fn arg_value_udt(&self, strukt: &ScSpecUdtStructV0, depth: usize) -> Option<String> {
+        let inner = strukt
+            .fields
+            .iter()
+            .map(|f| (f.name.to_string_lossy(), &f.type_))
+            .map(|(name, type_)| {
+                let type_ = self.arg_value_name(type_, depth + 1)?;
+                Some(format!("{name}: {type_}"))
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join(", ");
+        Some(format!("{{ {inner} }}"))
+    }
+
+    fn arg_value_union(&self, union: &ScSpecUdtUnionV0, depth: usize) -> Option<String> {
+        union
+            .cases
+            .iter()
+            .map(|f| {
+                Some(match f {
+                    xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                        name, ..
+                    }) => name.to_string_lossy(),
+                    xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                        name,
+                        type_,
+                        ..
+                    }) => format!(
+                        "{}({})",
+                        name.to_string_lossy(),
+                        type_
+                            .iter()
+                            .map(|type_| self.arg_value_name(type_, depth + 1))
+                            .collect::<Option<Vec<String>>>()?
+                            .join(",")
+                    ),
+                })
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|v| v.join(" | "))
+    }
+}
+
+fn arg_value_enum(enum_: &ScSpecUdtEnumV0) -> String {
+    enum_
+        .cases
+        .iter()
+        .map(|case| case.value.to_string())
+        .join(" | ")
+}
+
+// Example implementation
+impl Spec {
+    #[must_use]
+    pub fn example(&self, type_: &ScType) -> Option<String> {
+        match type_ {
+            ScType::U64 => Some("42".to_string()),
+            ScType::I64 => Some("-42".to_string()),
+            ScType::U128 => Some("\"1000\"".to_string()),
+            ScType::I128 => Some("\"-100\"".to_string()),
+            ScType::U32 => Some("1".to_string()),
+            ScType::I32 => Some("-1".to_string()),
+            ScType::Bool => Some("true".to_string()),
+            ScType::Symbol => Some("\"hello\"".to_string()),
+            ScType::Bitset => Some("Bitset".to_string()),
+            ScType::Status => Some("Status".to_string()),
+            ScType::Bytes => Some("\"beefface123\"".to_string()),
+            ScType::Address => {
+                Some("\"GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4\"".to_string())
+            }
+            ScType::Option(val) => {
+                let ScSpecTypeOption { value_type } = val.as_ref();
+                self.example(value_type.as_ref())
+            }
+            ScType::Vec(val) => {
+                let ScSpecTypeVec { element_type } = val.as_ref();
+                let inner = self.example(element_type.as_ref())?;
+                Some(format!("[ {inner} ]"))
+            }
+            ScType::Set(val) => {
+                let ScSpecTypeSet { element_type } = val.as_ref();
+                let inner = self.example(element_type.as_ref())?;
+                Some(format!("[ {inner} ]"))
+            }
+            ScType::Result(val) => {
+                let ScSpecTypeResult {
+                    ok_type,
+                    error_type,
+                } = val.as_ref();
+                let ok = self.example(ok_type.as_ref())?;
+                let error = self.example(error_type.as_ref())?;
+                Some(format!("Result<{ok}, {error}>"))
+            }
+            ScType::Tuple(val) => {
+                let ScSpecTypeTuple { value_types } = val.as_ref();
+                let names = value_types
+                    .iter()
+                    .map(|t| self.example(t))
+                    .collect::<Option<Vec<_>>>()?
+                    .join(", ");
+                Some(format!("[{names}]"))
+            }
+            ScType::Map(map) => {
+                let ScSpecTypeMap {
+                    key_type,
+                    value_type,
+                } = map.as_ref();
+                let (mut key, val) = (
+                    self.example(key_type.as_ref())?,
+                    self.example(value_type.as_ref())?,
+                );
+                if !matches!(key_type.as_ref(), ScType::Symbol) {
+                    key = format!("\"{key}\"");
+                }
+                Some(format!("{{ {key}: {val} }}"))
+            }
+            ScType::BytesN(n) => {
+                let n = n.n as usize;
+                let res = if n % 2 == 0 {
+                    "ef".repeat(n)
+                } else {
+                    let mut s = "ef".repeat(n - 1);
+                    s.push('e');
+                    s
+                };
+                Some(format!("\"{res}\""))
+            }
+            ScType::Udt(ScSpecTypeUdt { name }) => match self.find(&name.to_string_lossy()).ok() {
+                Some(ScSpecEntry::UdtStructV0(strukt)) => {
+                    let inner = strukt
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.to_string_lossy(), &f.type_))
+                        .map(|(name, type_)| {
+                            let type_ = self.example(type_)?;
+                            let name = format!(r#""{name}""#);
+                            Some(format!("{name}: {type_}"))
+                        })
+                        .collect::<Option<Vec<_>>>()?
+                        .join(", ");
+                    Some(format!(r#"{{ {inner} }}"#))
+                }
+                Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
+                Some(ScSpecEntry::UdtEnumV0(enum_)) => {
+                    enum_.cases.iter().next().map(|c| c.value.to_string())
+                }
+                Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
+            },
+            // No specific value name for these yet.
+            ScType::Val => None,
+        }
+    }
+
+    fn example_union(&self, union: &ScSpecUdtUnionV0) -> Option<String> {
+        let case = union.cases.iter().next()?;
+        let res = match case {
+            xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 { name, .. }) => {
+                name.to_string_lossy()
+            }
+            xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                name, type_, ..
+            }) => {
+                let names = type_
+                    .iter()
+                    .map(|t| self.example(t))
+                    .collect::<Option<Vec<_>>>()?
+                    .join(", ");
+                format!("[\"{}\", {names}]", name.to_string_lossy())
+            }
+        };
+        Some(res)
+    }
 }
