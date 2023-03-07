@@ -32,6 +32,15 @@ pub enum Error {
     Xdr(XdrError),
     #[error(transparent)]
     Serde(serde_json::Error),
+
+    #[error("Missing key {0} in map")]
+    MissingKey(String),
+    #[error("Failed to convert {0} to number")]
+    FailedNumConversion(serde_json::Number),
+    #[error("First argument in an enum must be a sybmol")]
+    EnumFirstValueNotSymbol,
+    #[error("Failed to find enum case {0}")]
+    FailedToFindEnumCase(String),
 }
 
 impl From<()> for Error {
@@ -285,7 +294,9 @@ impl Spec {
             .iter()
             .map(|f| {
                 let name = &f.name.to_string_lossy();
-                let v = map.get(name).ok_or(Error::Unknown)?;
+                let v = map
+                    .get(name)
+                    .ok_or_else(|| Error::MissingKey(name.clone()))?;
                 let val = self.from_json(v, &f.type_)?;
                 let key = StringM::from_str(name).unwrap();
                 Ok(ScMapEntry {
@@ -510,7 +521,7 @@ impl Spec {
                 let second_val = v.get(1);
 
                 let ScVal::Symbol(case_name) = val else {
-                     return Err(Error::Unknown)
+                     return Err(Error::EnumFirstValueNotSymbol)
                 };
                 let case = union
                     .cases
@@ -522,7 +533,7 @@ impl Spec {
                         };
                         name.as_vec() == case_name.as_vec()
                     })
-                    .ok_or(Error::Unknown)?;
+                    .ok_or_else(|| Error::FailedToFindEnumCase(case_name.to_string_lossy()))?;
 
                 let case_name = case_name.to_string_lossy();
                 match case {
@@ -636,7 +647,9 @@ pub fn from_string_primitive(s: &str, t: &ScSpecTypeDef) -> Result<ScVal, Error>
 }
 
 fn parse_const_enum(num: &serde_json::Number, enum_: &ScSpecUdtEnumV0) -> Result<ScVal, Error> {
-    let num = num.as_u64().ok_or(Error::Unknown)?;
+    let num = num
+        .as_u64()
+        .ok_or_else(|| Error::FailedNumConversion(num.clone()))?;
     let num = u32::try_from(num).map_err(|_| Error::EnumConstTooLarge(num))?;
     enum_
         .cases
