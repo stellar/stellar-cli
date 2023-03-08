@@ -64,7 +64,7 @@ impl Contract {
         vec![&env, symbol!("Hello"), strukt.c]
     }
 
-    /// Example contract method that takes a struct
+    /// Example contract method which takes a struct
     pub fn strukt(_env: Env, strukt: Test) -> Test {
         strukt
     }

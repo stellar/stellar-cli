@@ -1,15 +1,14 @@
+use crate::{commands::HEADING_SANDBOX, utils};
+use clap::arg;
+use soroban_ledger_snapshot::LedgerSnapshot;
 use std::path::PathBuf;
 
-use soroban_ledger_snapshot::LedgerSnapshot;
-
-use crate::{commands::HEADING_SANDBOX, utils};
-
 #[derive(Debug, clap::Args, Clone)]
+#[group(skip)]
 pub struct Args {
     /// File to persist ledger state
-    #[clap(
+    #[arg(
         long,
-        parse(from_os_str),
         default_value(".soroban/ledger.json"),
         env = "SOROBAN_LEDGER_FILE",
         help_heading = HEADING_SANDBOX,
