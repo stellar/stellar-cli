@@ -4,11 +4,9 @@ mod completion;
 mod config;
 mod contract;
 mod events;
-mod jsonrpc;
 mod lab;
 mod network;
 mod rpc;
-mod serve;
 mod strval;
 mod toid;
 mod utils;
@@ -38,8 +36,6 @@ enum Cmd {
     /// Read and update config
     #[clap(subcommand)]
     Config(config::Cmd),
-    /// Run a local webserver for web app development and testing
-    Serve(serve::Cmd),
     /// Watch the network for contract events
     Events(events::Cmd),
     /// Experiment with early features and expert tools
@@ -60,8 +56,6 @@ enum CmdError {
     #[error(transparent)]
     Events(#[from] events::Error),
     #[error(transparent)]
-    Serve(#[from] serve::Error),
-    #[error(transparent)]
     Lab(#[from] lab::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
@@ -71,7 +65,6 @@ async fn run(cmd: Cmd) -> Result<(), CmdError> {
     match cmd {
         Cmd::Contract(contract) => contract.run().await?,
         Cmd::Events(events) => events.run().await?,
-        Cmd::Serve(serve) => serve.run().await?,
         Cmd::Lab(lab) => lab.run().await?,
         Cmd::Version(version) => version.run(),
         Cmd::Completion(completion) => completion.run(),

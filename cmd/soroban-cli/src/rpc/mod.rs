@@ -37,7 +37,6 @@ pub enum Error {
     MissingResult,
 }
 
-// TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SendTransactionResponse {
     pub hash: String,
@@ -60,7 +59,6 @@ pub struct SendTransactionResponse {
     pub latest_ledger_close_time: u32,
 }
 
-// TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetTransactionResponse {
     pub status: String,
@@ -81,14 +79,12 @@ pub struct GetTransactionResponse {
     // TODO: add ledger info and application order
 }
 
-// TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLedgerEntryResponse {
     pub xdr: String,
     // TODO: add lastModifiedLedgerSeq and latestLedger
 }
 
-// TODO: this should also be used by serve
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Cost {
     #[serde(rename = "cpuInsns")]
@@ -184,7 +180,6 @@ impl Client {
         headers.insert("X-Client-Name", "soroban-cli".parse().unwrap());
         let version = VERSION.unwrap_or("devel");
         headers.insert("X-Client-Version", version.parse().unwrap());
-        // TODO: We should consider migrating the server subcommand to jsonrpsee
         Ok(HttpClientBuilder::default()
             .set_headers(headers)
             .build(url)?)
