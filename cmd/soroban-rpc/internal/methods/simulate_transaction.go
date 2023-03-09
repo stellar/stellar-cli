@@ -8,7 +8,6 @@ import (
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 )
 
@@ -34,8 +33,12 @@ type SimulateTransactionResponse struct {
 	LatestLedger int64                       `json:"latestLedger,string"`
 }
 
+type PreflightGetter interface {
+	GetPreflight(ctx context.Context, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (preflight.Preflight, error)
+}
+
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
-func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, ledgerEntryReader db.LedgerEntryReader) jrpc2.Handler {
+func NewSimulateTransactionHandler(logger *log.Entry, getter PreflightGetter) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
@@ -67,15 +70,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 			}
 		}
 
-		params := preflight.PreflightParameters{
-			Logger:             logger,
-			SourceAccount:      sourceAccount,
-			InvokeHostFunction: xdrOp,
-			NetworkPassphrase:  networkPassphrase,
-			LedgerEntryReader:  ledgerEntryReader,
-		}
-
-		result, err := preflight.GetPreflight(ctx, params)
+		result, err := getter.GetPreflight(ctx, sourceAccount, xdrOp)
 		if err != nil {
 			// GetPreflight fills in the latest ledger it used
 			// even in case of error
