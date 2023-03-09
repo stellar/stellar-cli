@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/config"
-	supportlog "github.com/stellar/go/support/log"
 	goxdr "github.com/stellar/go/xdr"
 
 	localConfig "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -244,20 +243,20 @@ func main() {
 			configOpts.Require()
 			err := configOpts.SetValues()
 			if err != nil {
-				fmt.Printf("failed to set values : %v\n", err)
-				os.Exit(-1)
+				fmt.Fprintf(os.Stderr, "failed to set values : %v\n", err)
+				os.Exit(1)
 			}
 			if serviceConfig.DefaultEventsLimit > serviceConfig.MaxEventsLimit {
-				fmt.Printf(
+				fmt.Fprintf(os.Stderr,
 					"default-events-limit (%v) cannot exceed max-events-limit (%v)\n",
 					serviceConfig.DefaultEventsLimit,
 					serviceConfig.MaxEventsLimit,
 				)
-				os.Exit(-1)
+				os.Exit(1)
 			}
 			if serviceConfig.PreflightWorkerCount < 1 {
-				fmt.Println("preflight-worker-count must be > 0")
-				os.Exit(-1)
+				fmt.Fprintln(os.Stderr, "preflight-worker-count must be > 0")
+				os.Exit(1)
 			}
 
 			serviceConfig.CaptiveCoreHTTPPort = uint16(captiveCoreHTTPPort)
@@ -267,8 +266,7 @@ func main() {
 			serviceConfig.LedgerEntryStorageTimeout = time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute
 			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
 			serviceConfig.MaxHealthyLedgerLatency = time.Duration(maxHealthyLedgerLatencySeconds) * time.Second
-			exitCode := daemon.Run(serviceConfig, endpoint)
-			os.Exit(exitCode)
+			daemon.Run(serviceConfig, endpoint)
 		},
 	}
 
@@ -296,12 +294,13 @@ func main() {
 	cmd.AddCommand(versionCmd)
 
 	if err := configOpts.Init(cmd); err != nil {
-		supportlog.New().WithError(err).Fatal("could not parse config options")
-		os.Exit(-1)
+		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := cmd.Execute(); err != nil {
-		supportlog.New().WithError(err).Fatal("could not run")
-		os.Exit(-1)
+		fmt.Fprintf(os.Stderr, "could not run: %v\n", err)
+
+		os.Exit(1)
 	}
 }
