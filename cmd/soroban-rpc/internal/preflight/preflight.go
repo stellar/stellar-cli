@@ -154,7 +154,6 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	// Get the auth data
 	var auth []string
 	if res.auth != nil {
-
 		// CGo doesn't have an easy way to do pointer arithmetic so,
 		// we are better off transforming the memory buffer into a large slice
 		// and finding the NULL termination after that
