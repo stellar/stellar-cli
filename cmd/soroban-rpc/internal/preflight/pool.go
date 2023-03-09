@@ -2,6 +2,7 @@ package preflight
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/stellar/go/support/log"
@@ -25,6 +26,7 @@ type PreflightWorkerPool struct {
 	ledgerEntryReader db.LedgerEntryReader
 	networkPassphrase string
 	logger            *log.Entry
+	done              chan struct{}
 	requestChan       chan workerRequest
 	wg                sync.WaitGroup
 }
@@ -34,6 +36,7 @@ func NewPreflightWorkerPool(workerCount uint, ledgerEntryReader db.LedgerEntryRe
 		ledgerEntryReader: ledgerEntryReader,
 		networkPassphrase: networkPassphrase,
 		logger:            logger,
+		done:              make(chan struct{}),
 		requestChan:       make(chan workerRequest),
 	}
 	for i := uint(0); i < workerCount; i++ {
@@ -45,14 +48,19 @@ func NewPreflightWorkerPool(workerCount uint, ledgerEntryReader db.LedgerEntryRe
 
 func (pwp *PreflightWorkerPool) work() {
 	defer pwp.wg.Done()
-	for request := range pwp.requestChan {
-		preflight, err := GetPreflight(request.ctx, request.params)
-		request.resultChan <- workerResult{preflight, err}
+	for {
+		select {
+		case <-pwp.done:
+			return
+		case request := <-pwp.requestChan:
+			preflight, err := GetPreflight(request.ctx, request.params)
+			request.resultChan <- workerResult{preflight, err}
+		}
 	}
 }
 
 func (pwp *PreflightWorkerPool) Close() {
-	close(pwp.requestChan)
+	close(pwp.done)
 	pwp.wg.Wait()
 }
 
@@ -66,6 +74,8 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, sourceAccount 
 	}
 	resultC := make(chan workerResult)
 	select {
+	case <-pwp.done:
+		return Preflight{}, errors.New("preflight worker pool is closed")
 	case pwp.requestChan <- workerRequest{ctx, params, resultC}:
 		result := <-resultC
 		return result.preflight, result.err
