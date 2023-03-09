@@ -176,7 +176,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 }
 
-func Run(cfg config.LocalConfig, endpoint string) (exitCode int) {
+func Run(cfg config.LocalConfig, endpoint string) {
 	d := MustNew(cfg)
 	supporthttp.Run(supporthttp.Config{
 		ListenAddr: endpoint,
@@ -184,9 +184,8 @@ func Run(cfg config.LocalConfig, endpoint string) (exitCode int) {
 		OnStarting: func() {
 			d.logger.Infof("Starting Soroban JSON RPC server on %v", endpoint)
 		},
-		OnStopping: func() {
+		OnStopped: func() {
 			d.Close()
 		},
 	})
-	return 0
 }
