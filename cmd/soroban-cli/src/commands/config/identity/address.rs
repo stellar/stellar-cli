@@ -1,4 +1,4 @@
-use crate::config::{locator, secret};
+use super::super::{locator, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -24,11 +24,15 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!("{}", self.private_key()?.to_string());
+        println!("{}", self.public_key()?.to_string());
         Ok(())
     }
 
-    pub fn private_key(&self) -> Result<stellar_strkey::ed25519::PrivateKey, Error> {
-        Ok(locator::read_identity(&self.name)?.private_key(self.hd_path)?)
+    pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        let res = locator::read_identity(&self.name)?;
+        let key = res.key_pair(self.hd_path)?;
+        Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+            key.public.as_bytes(),
+        )?)
     }
 }

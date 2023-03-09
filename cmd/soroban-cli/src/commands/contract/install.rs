@@ -12,8 +12,7 @@ use soroban_env_host::xdr::{
 use soroban_env_host::HostError;
 
 use crate::rpc::{self, Client};
-use crate::{config, utils};
-use soroban_cli::wasm;
+use crate::{commands::config, utils, wasm};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {

@@ -17,7 +17,7 @@ use soroban_env_host::{
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 
 use crate::{
-    config,
+    commands::config,
     rpc::{Client, Error as SorobanRpcError},
     utils,
 };

@@ -4,7 +4,7 @@ pub mod token;
 pub mod xdr;
 
 #[derive(Debug, Subcommand)]
-pub enum SubCmd {
+pub enum Cmd {
     /// Wrap, create, and manage token contracts
     Token(token::Root),
 
@@ -20,11 +20,11 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-impl SubCmd {
+impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match &self {
-            SubCmd::Token(token) => token.run().await?,
-            SubCmd::Xdr(xdr) => xdr.run()?,
+            Cmd::Token(token) => token.run().await?,
+            Cmd::Xdr(xdr) => xdr.run()?,
         }
         Ok(())
     }

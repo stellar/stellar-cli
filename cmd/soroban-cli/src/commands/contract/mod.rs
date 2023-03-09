@@ -7,7 +7,7 @@ pub mod optimize;
 pub mod read;
 
 #[derive(Debug, clap::Subcommand)]
-pub enum SubCmd {
+pub enum Cmd {
     /// Generate code client bindings for a contract
     Bindings(bindings::Cmd),
 
@@ -54,16 +54,16 @@ pub enum Error {
     Read(#[from] read::Error),
 }
 
-impl SubCmd {
+impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match &self {
-            SubCmd::Bindings(bindings) => bindings.run()?,
-            SubCmd::Deploy(deploy) => deploy.run().await?,
-            SubCmd::Inspect(inspect) => inspect.run()?,
-            SubCmd::Install(install) => install.run().await?,
-            SubCmd::Invoke(invoke) => invoke.run().await?,
-            SubCmd::Optimize(optimize) => optimize.run()?,
-            SubCmd::Read(read) => read.run()?,
+            Cmd::Bindings(bindings) => bindings.run()?,
+            Cmd::Deploy(deploy) => deploy.run().await?,
+            Cmd::Inspect(inspect) => inspect.run()?,
+            Cmd::Install(install) => install.run().await?,
+            Cmd::Invoke(invoke) => invoke.run().await?,
+            Cmd::Optimize(optimize) => optimize.run()?,
+            Cmd::Read(read) => read.run()?,
         }
         Ok(())
     }
