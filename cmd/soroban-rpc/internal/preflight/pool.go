@@ -30,17 +30,17 @@ type PreflightWorkerPool struct {
 }
 
 func NewPreflightWorkerPool(workerCount uint, ledgerEntryReader db.LedgerEntryReader, networkPassphrase string, logger *log.Entry) *PreflightWorkerPool {
-	result := PreflightWorkerPool{
+	preflightWP := PreflightWorkerPool{
 		ledgerEntryReader: ledgerEntryReader,
 		networkPassphrase: networkPassphrase,
 		logger:            logger,
 		requestChan:       make(chan workerRequest),
 	}
 	for i := uint(0); i < workerCount; i++ {
-		result.wg.Add(1)
-		go result.work()
+		preflightWP.wg.Add(1)
+		go preflightWP.work()
 	}
-	return &result
+	return &preflightWP
 }
 
 func (pwp *PreflightWorkerPool) work() {
@@ -65,8 +65,11 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, sourceAccount 
 		LedgerEntryReader:  pwp.ledgerEntryReader,
 	}
 	resultC := make(chan workerResult)
-	defer close(resultC)
-	pwp.requestChan <- workerRequest{ctx, params, resultC}
-	result := <-resultC
-	return result.preflight, result.err
+	select {
+	case pwp.requestChan <- workerRequest{ctx, params, resultC}:
+		result := <-resultC
+		return result.preflight, result.err
+	case <-ctx.Done():
+		return Preflight{}, ctx.Err()
+	}
 }
