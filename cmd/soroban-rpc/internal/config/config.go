@@ -27,4 +27,5 @@ type LocalConfig struct {
 	MaxEventsLimit                   uint
 	DefaultEventsLimit               uint
 	MaxHealthyLedgerLatency          time.Duration
+	PreflightWorkerCount             uint
 }
