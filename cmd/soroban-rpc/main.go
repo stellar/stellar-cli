@@ -255,6 +255,10 @@ func main() {
 				)
 				os.Exit(-1)
 			}
+			if serviceConfig.PreflightWorkerCount < 1 {
+				fmt.Print("preflight-worker-count must be > 0")
+				os.Exit(-1)
+			}
 
 			serviceConfig.CaptiveCoreHTTPPort = uint16(captiveCoreHTTPPort)
 			if serviceConfig.StellarCoreURL == "" {
