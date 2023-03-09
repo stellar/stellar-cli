@@ -294,10 +294,13 @@ func main() {
 	cmd.AddCommand(versionCmd)
 
 	if err := configOpts.Init(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n")
+		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "could not run: %v\n", err)
+
+		os.Exit(1)
 	}
 }
