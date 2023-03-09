@@ -77,8 +77,11 @@ func NewSimulateTransactionHandler(logger *log.Entry, networkPassphrase string, 
 
 		result, err := preflight.GetPreflight(ctx, params)
 		if err != nil {
+			// GetPreflight fills in the latest ledger it used
+			// even in case of error
 			return SimulateTransactionResponse{
-				Error: err.Error(),
+				Error:        err.Error(),
+				LatestLedger: int64(result.LatestLedger),
 			}
 		}
 

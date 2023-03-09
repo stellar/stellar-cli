@@ -148,7 +148,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	defer C.free_preflight_result(res)
 
 	if res.error != nil {
-		return Preflight{}, errors.New(C.GoString(res.error))
+		return Preflight{LatestLedger: latestLedger}, errors.New(C.GoString(res.error))
 	}
 
 	// Get the auth data
