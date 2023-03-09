@@ -1,7 +1,7 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-use crate::HEADING_RPC;
+use crate::commands::HEADING_RPC;
 
 use super::locator;
 
@@ -32,6 +32,9 @@ pub enum Error {
 
     #[error(transparent)]
     Config(#[from] locator::Error),
+
+    #[error("network arg or rpc url  and network passphrase are required if using the network")]
+    Network,
 }
 
 impl Cmd {
@@ -76,11 +79,15 @@ impl Args {
     pub fn get_network(&self) -> Result<Network, Error> {
         if let Some(name) = self.network.as_deref() {
             Ok(locator::read_network(name)?)
-        } else {
+        } else if let (Some(rpc_url), Some(network_passphrase)) =
+            (self.rpc_url.clone(), self.network_passphrase.clone())
+        {
             Ok(Network {
-                rpc_url: self.rpc_url.clone().unwrap(),
-                network_passphrase: self.network_passphrase.clone().unwrap(),
+                rpc_url,
+                network_passphrase,
             })
+        } else {
+            Err(Error::Network)
         }
     }
 }

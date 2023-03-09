@@ -35,6 +35,8 @@ pub enum Error {
     TransactionSimulationFailed(String),
     #[error("Missing result in successful response")]
     MissingResult,
+    #[error("Failed to read Error response from server")]
+    MissingError,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -217,7 +219,7 @@ impl Client {
             .map_err(|_| Error::TransactionSubmissionFailed)?;
 
         if status == "ERROR" {
-            eprintln!("error: {}", error_result_xdr.unwrap());
+            eprintln!("error: {}", error_result_xdr.ok_or(Error::MissingError)?);
             return Err(Error::TransactionSubmissionFailed);
         }
         // even if status == "success" we need to query the transaction status in order to get the result

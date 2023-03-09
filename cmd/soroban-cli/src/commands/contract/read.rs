@@ -13,7 +13,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{config::ledger_file, strval, utils};
+use crate::{commands::config::ledger_file, strval, utils};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {

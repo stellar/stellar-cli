@@ -10,11 +10,10 @@ use soroban_env_host::{
     xdr::{self, ReadXdr, WriteXdr},
 };
 
+use crate::commands::{HEADING_RPC, HEADING_SANDBOX};
 use crate::{rpc, toid, utils};
-use crate::{HEADING_RPC, HEADING_SANDBOX};
 
 #[derive(Parser, Debug)]
-#[clap()]
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required
     /// if not in sandbox mode).
@@ -139,6 +138,11 @@ pub enum Error {
     #[error("invalid timestamp in event: {ts}")]
     InvalidTimestamp { ts: String },
 
+    #[error("missing start_ledger and cursor")]
+    MissingStartLedgerAndCursor,
+    #[error("missing target")]
+    MissingTarget,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 
@@ -171,7 +175,7 @@ impl Cmd {
             (Some(start), _) => rpc::EventStart::Ledger(start),
             (_, Some(c)) => rpc::EventStart::Cursor(c),
             // should never happen because of required_unless_present flags
-            _ => panic!("missing start_ledger and cursor"),
+            _ => return Err(Error::MissingStartLedgerAndCursor),
         };
 
         // Validate that topics are made up of segments.
@@ -199,7 +203,7 @@ impl Cmd {
             (Some(rpc_url), _) => self.run_against_rpc_server(rpc_url, start).await,
             (_, Some(path)) => self.run_in_sandbox(path, start),
             // should never happen because of required_unless_present flags
-            _ => panic!("missing target"),
+            _ => return Err(Error::MissingTarget),
         }?;
 
         for event in &response.events {
