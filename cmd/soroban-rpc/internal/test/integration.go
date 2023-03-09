@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"syscall"
@@ -113,6 +114,7 @@ func (i *Test) launchDaemon() {
 		MaxEventsLimit:                   10000,
 		DefaultEventsLimit:               100,
 		MaxHealthyLedgerLatency:          time.Second * 10,
+		PreflightWorkerCount:             uint(runtime.NumCPU()),
 	}
 	i.daemon = daemon.MustNew(config)
 	i.server = httptest.NewServer(i.daemon)

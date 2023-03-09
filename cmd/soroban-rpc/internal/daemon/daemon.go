@@ -17,6 +17,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
@@ -25,11 +26,12 @@ const (
 )
 
 type Daemon struct {
-	core          *ledgerbackend.CaptiveStellarCore
-	ingestService *ingest.Service
-	db            *sqlx.DB
-	handler       *internal.Handler
-	logger        *supportlog.Entry
+	core                *ledgerbackend.CaptiveStellarCore
+	ingestService       *ingest.Service
+	db                  *sqlx.DB
+	handler             *internal.Handler
+	logger              *supportlog.Entry
+	preflightWorkerPool *preflight.PreflightWorkerPool
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -52,6 +54,7 @@ func (d *Daemon) Close() error {
 	if localErr := d.db.Close(); localErr != nil {
 		err = localErr
 	}
+	d.preflightWorkerPool.Close()
 	return err
 }
 
@@ -146,6 +149,9 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not initialize ledger entry writer: %v", err)
 	}
 
+	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
+	preflightWorkerPool := preflight.NewPreflightWorkerPool(cfg.PreflightWorkerCount, ledgerEntryReader, cfg.NetworkPassphrase, logger)
+
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:       eventStore,
 		TransactionStore: transactionStore,
@@ -155,16 +161,18 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
 		},
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
+		PreflightGetter:   preflightWorkerPool,
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)
 	}
 	return &Daemon{
-		logger:        logger,
-		core:          core,
-		ingestService: ingestService,
-		handler:       &handler,
-		db:            dbConn,
+		logger:              logger,
+		core:                core,
+		ingestService:       ingestService,
+		handler:             &handler,
+		db:                  dbConn,
+		preflightWorkerPool: preflightWorkerPool,
 	}
 }
 

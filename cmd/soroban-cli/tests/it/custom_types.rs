@@ -26,7 +26,7 @@ fn generate_help() {
         .assert()
         .success()
         .stdout(predicates::str::contains(
-            "Example contract method passing in a struct",
+            "Example contract method that takes a struct",
         ));
 }
 
@@ -117,8 +117,22 @@ fn strukt_help() {
     invoke(&Sandbox::new(), "strukt")
         .arg("--help")
         .assert()
-        .stdout(predicates::str::contains("Example contract method"))
-        .stdout(predicates::str::contains("Test Struct Docs"));
+        .stdout(predicates::str::contains(
+            "Example:\n              --strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",
+        ))
+        .stdout(predicates::str::contains(
+            "This is from the rust doc above the struct Test",
+        ));
+}
+
+#[test]
+fn complex_enum_help() {
+    invoke(&Sandbox::new(), "complex")
+        .arg("--help")
+        .assert()
+        .stdout(predicates::str::contains(
+            "--complex '[\"Struct\", { \"a\": 1, \"b\": true, \"c\": \"hello\" }]'",
+        ));
 }
 
 #[test]

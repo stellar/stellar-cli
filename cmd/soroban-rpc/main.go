@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"math"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -227,6 +228,14 @@ func main() {
 			FlagDefault: uint(30),
 			Required:    false,
 		},
+		{
+			Name:        "preflight-worker-count",
+			ConfigKey:   &serviceConfig.PreflightWorkerCount,
+			OptType:     types.Uint,
+			Required:    false,
+			FlagDefault: uint(runtime.NumCPU()),
+			Usage:       "Number of workers (read goroutines) used to compute preflights",
+		},
 	}
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -244,6 +253,10 @@ func main() {
 					serviceConfig.DefaultEventsLimit,
 					serviceConfig.MaxEventsLimit,
 				)
+				os.Exit(-1)
+			}
+			if serviceConfig.PreflightWorkerCount < 1 {
+				fmt.Println("preflight-worker-count must be > 0")
 				os.Exit(-1)
 			}
 
