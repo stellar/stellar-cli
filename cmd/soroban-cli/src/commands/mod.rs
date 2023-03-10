@@ -9,8 +9,8 @@ pub mod events;
 pub mod lab;
 pub mod version;
 
-pub const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
-pub const HEADING_RPC: &str = "OPTIONS (RPC)";
+pub const HEADING_SANDBOX: &str = "Options (Sandbox)";
+pub const HEADING_RPC: &str = "Options (RPC)";
 #[derive(Parser, Debug)]
 #[command(
     name = "soroban",
