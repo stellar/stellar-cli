@@ -54,8 +54,9 @@ rpassword = "7.2.0"
 dirs = "4.0.0"
 toml = "0.5.9"
 itertools = "0.10.5"
-sep5 =  { workspace = true}
 shlex = "1.1.0"
+sep5 =  { workspace = true }
+ethnum = { workspace = true }
 
 
 [build-dependencies]

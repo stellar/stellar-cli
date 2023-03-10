@@ -10,9 +10,9 @@ use soroban_env_host::{
         AccountEntry, AccountEntryExt, AccountId, ContractCodeEntry, ContractDataEntry,
         DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, InstallContractCodeArgs,
         LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
-        LedgerKeyContractCode, LedgerKeyContractData, ScContractCode, ScObject, ScSpecEntry,
-        ScStatic, ScVal, SequenceNumber, Signature, SignatureHint, StringM, Thresholds,
-        Transaction, TransactionEnvelope, TransactionSignaturePayload,
+        LedgerKeyContractCode, LedgerKeyContractData, ScContractExecutable, ScSpecEntry, ScVal,
+        SequenceNumber, Signature, SignatureHint, String32, Thresholds, Transaction,
+        TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
 };
@@ -88,17 +88,15 @@ pub fn add_contract_to_ledger_entries(
     // Create the contract
     let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: contract_id.into(),
-        key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+        key: ScVal::LedgerKeyContractExecutable,
     });
 
     let contract_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractData(ContractDataEntry {
             contract_id: contract_id.into(),
-            key: ScVal::Static(ScStatic::LedgerKeyContractCode),
-            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::WasmRef(Hash(
-                wasm_hash,
-            ))))),
+            key: ScVal::LedgerKeyContractExecutable,
+            val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(Hash(wasm_hash))),
         }),
         ext: LedgerEntryExt::V0,
     };
@@ -172,38 +170,43 @@ pub fn get_contract_spec_from_storage(
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
         contract_id: contract_id.into(),
-        key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+        key: ScVal::LedgerKeyContractExecutable,
     });
-    if let Ok(LedgerEntry {
-        data:
-            LedgerEntryData::ContractData(ContractDataEntry {
-                val: ScVal::Object(Some(ScObject::ContractCode(c))),
+    match storage.get(&key.into(), &Budget::default()) {
+        Ok(rc) => match rc.as_ref() {
+            LedgerEntry {
+                data:
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        val: ScVal::ContractExecutable(c),
+                        ..
+                    }),
                 ..
-            }),
-        ..
-    }) = storage.get(&key, &Budget::default())
-    {
-        match c {
-            ScContractCode::Token => {
-                let res = soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr());
-                res.map_err(FromWasmError::Parse)
-            }
-            ScContractCode::WasmRef(hash) => {
-                if let Ok(LedgerEntry {
-                    data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
-                    ..
-                }) = storage.get(
-                    &LedgerKey::ContractCode(LedgerKeyContractCode { hash }),
-                    &Budget::default(),
-                ) {
-                    soroban_spec::read::from_wasm(&code)
-                } else {
-                    Err(FromWasmError::NotFound)
+            } => match c {
+                ScContractExecutable::Token => {
+                    let res = soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr());
+                    res.map_err(FromWasmError::Parse)
                 }
-            }
-        }
-    } else {
-        Err(FromWasmError::NotFound)
+                ScContractExecutable::WasmRef(hash) => {
+                    if let Ok(rc) = storage.get(
+                        &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() })
+                            .into(),
+                        &Budget::default(),
+                    ) {
+                        match rc.as_ref() {
+                            LedgerEntry {
+                                data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
+                                ..
+                            } => soroban_spec::read::from_wasm(code),
+                            _ => Err(FromWasmError::NotFound),
+                        }
+                    } else {
+                        Err(FromWasmError::NotFound)
+                    }
+                }
+            },
+            _ => Err(FromWasmError::NotFound),
+        },
+        _ => Err(FromWasmError::NotFound),
     }
 }
 
@@ -211,7 +214,7 @@ pub fn get_contract_spec_from_storage(
 ///
 /// Might return an error
 pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {
-    if let ScVal::Object(Some(ScObject::Bytes(res_hash))) = &res {
+    if let ScVal::Bytes(res_hash) = &res {
         let mut hash_bytes: [u8; 32] = [0; 32];
         for (i, b) in res_hash.iter().enumerate() {
             hash_bytes[i] = *b;
@@ -257,7 +260,7 @@ pub fn default_account_ledger_entry(account_id: AccountId) -> LedgerEntry {
             account_id,
             balance: 0,
             flags: 0,
-            home_domain: StringM::default(),
+            home_domain: String32::default(),
             inflation_dest: None,
             num_sub_entries: 0,
             seq_num: SequenceNumber(0),

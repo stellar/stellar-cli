@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contractimpl, contracttype, symbol, vec, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec,
+    contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec,
 };
 
 pub struct Contract;
@@ -61,7 +61,7 @@ impl Contract {
     }
 
     pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
-        vec![&env, symbol!("Hello"), strukt.c]
+        vec![&env, Symbol::short("Hello"), strukt.c]
     }
 
     /// Example contract method that takes a struct
@@ -167,7 +167,7 @@ impl Contract {
 
 #[cfg(test)]
 mod test {
-    use soroban_sdk::{symbol, vec, Env};
+    use soroban_sdk::{vec, Env, Symbol};
 
     use crate::{Contract, ContractClient, Test};
 
@@ -180,8 +180,11 @@ mod test {
         let res = client.strukt_hel(&Test {
             a: 0,
             b: false,
-            c: symbol!("world"),
+            c: Symbol::short("world"),
         });
-        assert_eq!(res, vec![&env, symbol!("Hello"), symbol!("world")]);
+        assert_eq!(
+            res,
+            vec![&env, Symbol::short("Hello"), Symbol::short("world")]
+        );
     }
 }

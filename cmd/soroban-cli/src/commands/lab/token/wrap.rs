@@ -9,8 +9,8 @@ use soroban_env_host::{
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
         HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractCode, ScObject, ScStatic::LedgerKeyContractCode, ScVal,
-        SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+        PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionEnvelope,
+        TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -88,7 +88,7 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
             contract_id: ContractId::Asset(asset.clone()),
-            source: ScContractCode::Token,
+            source: ScContractExecutable::Token,
         }))?;
         let res_str = utils::vec_to_hash(&res)?;
 
@@ -151,21 +151,21 @@ fn build_wrap_token_tx(
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Static(LedgerKeyContractCode),
+            key: ScVal::LedgerKeyContractExecutable,
         }),
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Object(Some(ScObject::Vec(
+            key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
-            ))),
+            )),
         }),
     ];
     if asset != &Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Object(Some(ScObject::Vec(
+            key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
-            ))),
+            )),
         }));
     }
 
@@ -174,7 +174,7 @@ fn build_wrap_token_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id: ContractId::Asset(asset.clone()),
-                source: ScContractCode::Token,
+                source: ScContractExecutable::Token,
             }),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),

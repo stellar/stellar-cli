@@ -1,16 +1,16 @@
 #![no_std]
-use soroban_sdk::{contractimpl, symbol, vec, Address, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, vec, Address, Env, Symbol, Vec};
 
 pub struct Contract;
 
 #[contractimpl]
 impl Contract {
     pub fn hello(env: Env, world: Symbol) -> Vec<Symbol> {
-        vec![&env, symbol!("Hello"), world]
+        vec![&env, Symbol::short("Hello"), world]
     }
 
     pub fn world(env: Env, hello: Symbol) -> Vec<Symbol> {
-        vec![&env, symbol!("Hello"), hello]
+        vec![&env, Symbol::short("Hello"), hello]
     }
 
     pub fn not(env: Env, boolean: bool) -> Vec<bool> {
@@ -19,14 +19,14 @@ impl Contract {
 
     pub fn auth(env: Env, addr: Address, world: Symbol) -> Vec<Symbol> {
         addr.require_auth();
-        vec![&env, symbol!("Hello"), world]
+        vec![&env, Symbol::short("Hello"), world]
     }
 }
 
 #[cfg(test)]
 mod test {
 
-    use soroban_sdk::{symbol, vec, Env};
+    use soroban_sdk::{vec, Env, Symbol};
 
     use crate::{Contract, ContractClient};
 
@@ -35,8 +35,8 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Contract);
         let client = ContractClient::new(&env, &contract_id);
-        let world = symbol!("world");
+        let world = Symbol::short("world");
         let res = client.hello(&world);
-        assert_eq!(res, vec![&env, symbol!("Hello"), world]);
+        assert_eq!(res, vec![&env, Symbol::short("Hello"), world]);
     }
 }
