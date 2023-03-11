@@ -539,7 +539,7 @@ impl Spec {
                     .collect::<Result<Vec<_>, Error>>()?,
             ),
             (ScVal::Vec(Some(vec_)), ScSpecEntry::UdtUnionV0(union)) => {
-                println!("{vec_:#?} {union:#?}");
+                eprintln!("{vec_:#?} {union:#?}");
 
                 let v = vec_.to_vec();
                 let val = &v[0];
