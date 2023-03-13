@@ -77,6 +77,17 @@ impl Contract {
         complex
     }
 
+    pub fn complex_tuple(_env: Env) -> ComplexEnum {
+        ComplexEnum::Tuple(TupleStruct(
+            Test {
+                a: 1,
+                b: true,
+                c: Symbol::short("test"),
+            },
+            SimpleEnum::First,
+        ))
+    }
+
     pub fn address(_env: Env, address: Address) -> Address {
         address
     }

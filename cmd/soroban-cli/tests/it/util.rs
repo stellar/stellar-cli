@@ -81,11 +81,19 @@ pub fn temp_ledger_file() -> OsString {
 
 pub trait AssertExt {
     fn stdout_as_str(&self) -> String;
+    fn stderr_as_str(&self) -> String;
 }
 
 impl AssertExt for Assert {
     fn stdout_as_str(&self) -> String {
         String::from_utf8(self.get_output().stdout.clone())
+            .expect("failed to make str")
+            .trim()
+            .to_owned()
+    }
+
+    fn stderr_as_str(&self) -> String {
+        String::from_utf8(self.get_output().stderr.clone())
             .expect("failed to make str")
             .trim()
             .to_owned()

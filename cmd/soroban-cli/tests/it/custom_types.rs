@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::util::{invoke, invoke_help, invoke_with_roundtrip, Sandbox};
+use crate::util::{invoke, invoke_help, invoke_with_roundtrip, AssertExt, Sandbox};
 
 #[test]
 fn symbol() {
@@ -145,12 +145,25 @@ fn e_2_s_enum() {
     invoke_with_roundtrip("complex", json!({"Enum": "First"}));
 }
 
+fn complex_tuple() -> serde_json::Value {
+    json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]})
+}
+
 #[test]
 fn e_2_s_tuple() {
-    invoke_with_roundtrip(
-        "complex",
-        json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]}),
+    invoke_with_roundtrip("complex", complex_tuple());
+}
+
+#[test]
+fn complex_tuple_output() {
+    println!(
+        "{}",
+        invoke(&Sandbox::new(), "complex_tuple")
+            .assert()
+            .success()
+            .stderr_as_str()
     );
+    panic!("Above output is incorrect")
 }
 
 #[test]

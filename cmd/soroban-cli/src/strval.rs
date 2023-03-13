@@ -338,7 +338,6 @@ impl Spec {
             Value::Object(o) if o.len() == 1 => (o.keys().next().unwrap(), o.values().next()),
             _ => todo!(),
         };
-
         let case = union
             .cases
             .iter()
@@ -436,9 +435,9 @@ impl Spec {
     pub fn xdr_to_json(&self, val: &ScVal, output: &ScType) -> Result<Value, Error> {
         Ok(match (val, output) {
             (ScVal::Map(None) | ScVal::Vec(None), ScType::Option(_)) => Value::Null,
-            (ScVal::Bool(b), ScType::Bool) => Value::Bool(*b),
-            (ScVal::Void, ScType::Void) => Value::Null,
-            (ScVal::String(_), ScType::String)
+            (ScVal::Bool(_), ScType::Bool)
+            | (ScVal::Void, ScType::Void)
+            | (ScVal::String(_), ScType::String)
             | (ScVal::Symbol(_), ScType::Symbol)
             | (ScVal::U64(_), ScType::U64)
             | (ScVal::I64(_), ScType::I64)
@@ -539,7 +538,7 @@ impl Spec {
                     .collect::<Result<Vec<_>, Error>>()?,
             ),
             (ScVal::Vec(Some(vec_)), ScSpecEntry::UdtUnionV0(union)) => {
-                eprintln!("{vec_:#?} {union:#?}");
+                eprintln!("Parsing Union:\n{vec_:#?} {union:#?}");
 
                 let v = vec_.to_vec();
                 let val = &v[0];
@@ -816,6 +815,8 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         ScVal::Void => Value::Null,
         ScVal::LedgerKeyContractExecutable => return Err(Error::InvalidValue(None)),
         ScVal::U64(v) => Value::Number(serde_json::Number::from(*v)),
+        ScVal::Timepoint(tp) => Value::Number(serde_json::Number::from(tp.0)),
+        ScVal::Duration(d) => Value::Number(serde_json::Number::from(d.0)),
         ScVal::I64(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::U32(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::I32(v) => Value::Number(serde_json::Number::from(*v)),
@@ -883,11 +884,27 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             .to_string();
             Value::String(v)
         }
+        ScVal::U256(Uint256(inner)) => {
+            let (hi, lo) = inner.split_at(16);
+            Value::String(
+                ethnum::U256::from_words(
+                    u128::from_be_bytes(hi.try_into().unwrap()),
+                    u128::from_be_bytes(lo.try_into().unwrap()),
+                )
+                .to_string(),
+            )
+        }
+        ScVal::I256(Uint256(inner)) => {
+            let (hi, lo) = inner.split_at(16);
+            Value::String(
+                ethnum::I256::from_words(
+                    i128::from_be_bytes(hi.try_into().unwrap()),
+                    i128::from_be_bytes(lo.try_into().unwrap()),
+                )
+                .to_string(),
+            )
+        }
         ScVal::Status(_) => todo!(),
-        ScVal::Timepoint(_) => todo!(),
-        ScVal::Duration(_) => todo!(),
-        ScVal::U256(_) => todo!(),
-        ScVal::I256(_) => todo!(),
         ScVal::ContractExecutable(_) => todo!(),
         ScVal::LedgerKeyNonce(_) => todo!(), // TODO: Implement these
                                              // ScVal::ContractCode(_) | ScVal::Bitset(_) | ScVal::Status(_) => {
