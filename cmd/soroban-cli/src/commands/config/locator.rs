@@ -34,8 +34,8 @@ pub enum Error {
     IdCreationFailed { filepath: PathBuf, error: io::Error },
     #[error("Seceret file failed to deserialize")]
     NetworkDeserialization,
-    #[error("Failed to write network file")]
-    NetworkCreationFailed,
+    #[error("Failed to write network file: {0}")]
+    NetworkCreationFailed(std::io::Error),
     #[error("Error Identity directory is invalid: {name}")]
     IdentityList { name: String },
     // #[error("Config file failed to deserialize")]
@@ -121,7 +121,7 @@ impl Args {
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
         let source = ensure_directory(self.network_path(name)?)?;
         let data = toml::to_string(network).map_err(|_| Error::Deserialization)?;
-        std::fs::write(source, data).map_err(|_| Error::NetworkCreationFailed)
+        std::fs::write(source, data).map_err(Error::NetworkCreationFailed)
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {

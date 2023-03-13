@@ -12,10 +12,12 @@ const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022
 #[test]
 fn set_and_remove_network() {
     let sandbox = TestEnv::default();
-    let input = format!(
-        "add --rpc-url https://127.0.0.1 --network-passphrase \"{NETWORK_PASSPHRASE}\" local"
-    );
-    network::add::Cmd::parse(&input).unwrap().run().unwrap();
+    let input =
+        format!("--rpc-url https://127.0.0.1 --network-passphrase \"{NETWORK_PASSPHRASE}\" local");
+
+    let mut cmd = network::add::Cmd::parse(&input).unwrap();
+    cmd.network.network_passphrase = NETWORK_PASSPHRASE.to_string();
+    cmd.run().unwrap();
 
     let dir = &sandbox.temp_dir;
     let file = std::fs::read_dir(dir.join(".soroban/networks"))

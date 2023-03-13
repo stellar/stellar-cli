@@ -17,14 +17,18 @@ crate-type = ["rlib", "cdylib"]
 
 
 [dependencies]
-soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
+soroban-env-host = { workspace = true, features = [
+    "vm",
+    "serde",
+    "hostfn_log_fmt_values",
+] }
 soroban-spec = { workspace = true }
 soroban-token-spec = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
-sep5 =  { workspace = true}
-soroban-cli  = { workspace = true }
+sep5 = { workspace = true }
+soroban-cli = { workspace = true }
 
 thiserror = "1.0.31"
 sha2 = "0.10.6"
