@@ -2,7 +2,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use soroban_ledger_snapshot::LedgerSnapshot;
 
-use self::network::Network;
+use self::{network::Network, secret::Secret};
 
 pub mod identity;
 pub mod ledger_file;
@@ -37,11 +37,6 @@ pub enum Error {
 
     #[error(transparent)]
     Config(#[from] locator::Error),
-
-    #[error(
-        "Cannot sign transaction; no identity or key provided, e.g. --identity bob or --key S.."
-    )]
-    NoIdentityOrKey,
 }
 
 impl Cmd {
@@ -56,19 +51,19 @@ impl Cmd {
 
 #[derive(Debug, clap::Args, Clone)]
 pub struct Args {
-    /// Secret Key used to sign transaction sent to the rpc server
-    #[clap(long, conflicts_with = "identity", env = "SOROBAN_SECRET_KEY")]
-    pub secret_key: Option<String>,
-
     #[clap(flatten)]
     pub network: network::Args,
 
     #[clap(flatten)]
     pub ledger_file: ledger_file::Args,
 
-    #[clap(long, alias = "as", conflicts_with = "secret-key")]
-    /// Use specified identity to sign transaction
-    pub identity: Option<String>,
+    #[clap(long, alias = "source", env = "SOROBAN_ACCOUNT")]
+    /// Account that signs the final transaction.
+    /// S...          a seceret key
+    /// alice         an identity
+    /// 'kite urban.  a seed phrase
+    /// DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
+    pub source_account: Option<String>,
 
     #[clap(long)]
     /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
@@ -77,16 +72,21 @@ pub struct Args {
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
-        let key = if let Some(secret_key) = &self.secret_key {
-            secret::Secret::SecretKey {
-                secret_key: secret_key.clone(),
-            }
-        } else if let Some(identity) = &self.identity {
-            locator::read_identity(identity)?
+        let key = if let Some(source_account) = &self.source_account {
+            Args::account(source_account)?
         } else {
-            return Err(Error::NoIdentityOrKey);
+            secret::Secret::test_seed_phrase()?
         };
+
         Ok(key.key_pair(self.hd_path)?)
+    }
+
+    pub fn account(account_str: &str) -> Result<Secret, Error> {
+        if let Ok(secret) = locator::read_identity(account_str) {
+            Ok(secret)
+        } else {
+            Ok(account_str.parse::<Secret>()?)
+        }
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {

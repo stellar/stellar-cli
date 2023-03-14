@@ -18,10 +18,10 @@ pub struct Cmd {
 
     /// Optional seed to use when generating seed phrase.
     /// Random otherwise.
-    #[clap(long)]
+    #[clap(long, conflicts_with = "default-seed")]
     pub seed: Option<String>,
 
-    /// Output the generated identity as a secret
+    /// Output the generated identity as a secret key
     #[clap(long, short = 's')]
     pub as_secret: bool,
 
@@ -34,18 +34,17 @@ pub struct Cmd {
 
     /// Generate the default seed phrase. Useful for testing.
     /// Equivalent to --seed 0000000000000000
-    #[clap(long, short = 'd')]
+    #[clap(long, short = 'd', conflicts_with = "seed")]
     pub default_seed: bool,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let seed = if self.default_seed {
-            Some("0000000000000000")
+        let seed_phrase = if self.default_seed {
+            Secret::test_seed_phrase()
         } else {
-            self.seed.as_deref()
-        };
-        let seed_phrase = Secret::from_seed(seed)?;
+            Secret::from_seed(self.seed.as_deref())
+        }?;
         let secret = if self.as_secret {
             let secret = seed_phrase.private_key(self.hd_path)?;
             Secret::SecretKey {
