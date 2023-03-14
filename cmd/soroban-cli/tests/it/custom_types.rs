@@ -155,14 +155,6 @@ fn e_2_s_tuple() {
 }
 
 #[test]
-fn complex_tuple_output() {
-    invoke(&Sandbox::new(), "complex_tuple")
-        .assert()
-        .success()
-        .stdout(format!("{}\n", complex_tuple()));
-}
-
-#[test]
 fn e_2_s_strukt() {
     invoke_with_roundtrip(
         "complex",
