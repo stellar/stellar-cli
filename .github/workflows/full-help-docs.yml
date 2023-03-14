@@ -1,0 +1,32 @@
+name: CLI Help Doc
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  # Optional: allow read access to pull request. Use with `only-new-issues` option.
+  pull-requests: read
+
+jobs:
+  doc_check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: stellar/actions/rust-cache@main
+
+    - name: Generate help doc
+      # this looks goofy to get GITHUB_OUTPUT to work with multi-line return values;
+      # see https://stackoverflow.com/a/74266196/249801
+      run: |
+        cargo run --bin doc-gen --features clap-markdown
+        raw_diff=$(git diff docs/soroban-cli-full-docs.md)
+        if [ "$raw_diff" != "" ]; then echo ""; echo "Unexpected docs change:"; echo "======================="; echo ""; echo "$raw_diff"; echo ""; echo "======================="; echo ""; fi
+        echo diff=$raw_diff >> $GITHUB_OUTPUT
+      id: doc-gen
+
+    - name: Check diff
+      if: steps.doc-gen.outputs.diff != ''
+      uses: actions/github-script@v3
+      with:
+        script: |
+          core.setFailed('Expected `doc-gen` to generate no diffs, but got diff shown in previous step.\n\nUpdate the full help docs:\n\n    cargo run --bin doc-gen --features clap-markdown\n\nDo this automatically on every commit by installing the pre-commit hook as explained in the README.')

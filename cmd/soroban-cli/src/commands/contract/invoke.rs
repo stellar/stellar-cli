@@ -64,8 +64,8 @@ pub struct Cmd {
     )]
     events_file: std::path::PathBuf,
 
-    // Arguments for contract as `--arg-name value`
-    #[arg(last = true, id = "CONTRACT_FN_ARGS")]
+    // Function name as subcommand, then arguments for that function as `--arg-name value`
+    #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
     #[command(flatten)]
