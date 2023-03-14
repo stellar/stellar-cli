@@ -63,7 +63,7 @@ pub struct Cmd {
         env = "SOROBAN_EVENTS_FILE",
         help_heading = HEADING_SANDBOX,
     )]
-    events_file: std::path::PathBuf,
+    pub events_file: std::path::PathBuf,
 
     // Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]

@@ -33,6 +33,9 @@ impl Cmd {
     }
 
     pub fn private_key(&self) -> Result<stellar_strkey::ed25519::PrivateKey, Error> {
-        Ok(self.locator.read_identity(&self.name)?.private_key(self.hd_path)?)
+        Ok(self
+            .locator
+            .read_identity(&self.name)?
+            .private_key(self.hd_path)?)
     }
 }

@@ -90,7 +90,7 @@ fn invoke_hello_world_with_lib() {
         let cmd = invoke::Cmd {
             contract_id: "1".to_string(),
             wasm: Some(HELLO_WORLD.path()),
-            slop: vec!["hello".into(),"--world=world".into()],
+            slop: vec!["hello".into(), "--world=world".into()],
             ..Default::default()
         };
         let res = e.invoke_cmd(cmd).unwrap();
@@ -103,7 +103,7 @@ fn invoke_hello_world_with_lib_two() {
     TestEnv::with_default(|e| {
         let res = e
             .invoke(format!(
-                "invoke --id=1 --wasm {HELLO_WORLD} --fn=hello -- --world=world"
+                "invoke --id=1 --wasm {HELLO_WORLD} -- hello --world=world"
             ))
             .unwrap();
         assert_eq!(res, r#"["Hello","world"]"#);

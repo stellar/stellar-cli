@@ -65,7 +65,7 @@ where
     TestEnv::with_default(|e| {
         let res = e
             .invoke(format!(
-                "invoke --id=1 --wasm={CUSTOM_TYPES} --fn={func} -- --{func} {data}",
+                "invoke --id=1 --wasm={CUSTOM_TYPES} -- {func} --{func} {data}",
             ))
             .unwrap();
         assert_eq!(res, data.to_string());

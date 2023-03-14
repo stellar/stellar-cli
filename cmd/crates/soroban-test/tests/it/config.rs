@@ -258,7 +258,6 @@ fn use_env() {
         .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
 }
 
-
 fn test_hd_path(sandbox: &TestEnv, hd_path: usize) {
     let seed_phrase = sep5::SeedPhrase::from_seed_phrase(DEFAULT_SEED_PHRASE).unwrap();
     let key_pair = seed_phrase.from_path_index(hd_path, None).unwrap();
