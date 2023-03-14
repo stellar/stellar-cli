@@ -1,14 +1,15 @@
-use itertools::Itertools;
-use serde_json::Value;
 use std::str::FromStr;
+
+use itertools::Itertools;
+use serde_json::{json, Value};
 
 use soroban_env_host::xdr::{
     self, AccountId, BytesM, Error as XdrError, Hash, Int128Parts, PublicKey, ScAddress, ScBytes,
-    ScMap, ScMapEntry, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap,
-    ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt,
-    ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
-    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0,
-    ScString, ScSymbol, ScVal, ScVec, StringM, Uint256, VecM,
+    ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0,
+    ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet,
+    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0,
+    ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0,
+    ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, Uint256, VecM,
 };
 
 use crate::utils;
@@ -36,7 +37,7 @@ pub enum Error {
     #[error(transparent)]
     Xdr(XdrError),
     #[error(transparent)]
-    Serde(serde_json::Error),
+    Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Ethnum(#[from] core::num::ParseIntError),
 
@@ -48,13 +49,9 @@ pub enum Error {
     EnumFirstValueNotSymbol,
     #[error("Failed to find enum case {0}")]
     FailedToFindEnumCase(String),
+    #[error(transparent)]
+    FailedSilceToByte(#[from] std::array::TryFromSliceError),
 }
-
-// impl From<()> for Error {
-//     fn from(_: ()) -> Self {
-//         Error::Unknown
-//     }
-// }
 
 #[derive(Default, Clone)]
 pub struct Spec(pub Option<Vec<ScSpecEntry>>);
@@ -258,14 +255,13 @@ impl Spec {
             // Tuple parsing
             (ScType::Tuple(elem), Value::Array(raw)) => self.parse_tuple(t, elem, raw)?,
 
+            // User defined types parsing
             (ScType::Udt(ScSpecTypeUdt { name }), _) => self.parse_udt(name, v)?,
 
-            // TODO: Implement the rest of these
-            // ScType::Bitset => {},
-            // ScType::Status => {},
-            // ScType::Result(Box<ScSpecTypeResult>) => {},
+            // Set parsing
             (ScType::Set(set), Value::Array(values)) => self.parse_set(set, values)?,
-            // ScType::Udt(ScSpecTypeUdt) => {},
+
+            // TODO: Implement the rest of these
             (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
         };
         Ok(val)
@@ -449,9 +445,12 @@ impl Spec {
             | (ScVal::I256(_), ScType::I256)
             | (ScVal::Duration(_), ScType::Duration)
             | (ScVal::Timepoint(_), ScType::Timepoint)
-            | (ScVal::ContractExecutable(_), _)
-            | (ScVal::LedgerKeyContractExecutable, _)
-            | (ScVal::LedgerKeyNonce(_), _)
+            | (
+                ScVal::ContractExecutable(_)
+                | ScVal::LedgerKeyContractExecutable
+                | ScVal::LedgerKeyNonce(_),
+                _,
+            )
             | (ScVal::Address(_), ScType::Address)
             | (ScVal::Bytes(_), ScType::Bytes | ScType::BytesN(_)) => to_json(val)?,
 
@@ -538,8 +537,6 @@ impl Spec {
                     .collect::<Result<Vec<_>, Error>>()?,
             ),
             (ScVal::Vec(Some(vec_)), ScSpecEntry::UdtUnionV0(union)) => {
-                eprintln!("Parsing Union:\n{vec_:#?} {union:#?}");
-
                 let v = vec_.to_vec();
                 let val = &v[0];
                 let second_val = v.get(1);
@@ -605,9 +602,6 @@ impl Spec {
                     .map(|(v, t)| self.xdr_to_json(v, t))
                     .collect::<Result<Vec<_>, _>>()?,
             ),
-            // (ScObject::Vec(_), ScType::Map(_)) => todo!(),
-            // (ScObject::Vec(_), ScType::Set(_)) => todo!(),
-            // (ScObject::Vec(_), ScType::BytesN(_)) => todo!(),
             (
                 sc_obj @ (ScVal::Vec(_) | ScVal::Map(_) | ScVal::U32(_)),
                 ScType::Udt(ScSpecTypeUdt { name }),
@@ -690,8 +684,8 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::U128(Int128Parts {
-                hi: u64::from_be_bytes(hi.try_into().unwrap()),
-                lo: u64::from_be_bytes(lo.try_into().unwrap()),
+                hi: u64::from_be_bytes(hi.try_into()?),
+                lo: u64::from_be_bytes(lo.try_into()?),
             })
         }
 
@@ -702,8 +696,8 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::I128(Int128Parts {
-                hi: u64::from_be_bytes(hi.try_into().unwrap()),
-                lo: u64::from_be_bytes(lo.try_into().unwrap()),
+                hi: u64::from_be_bytes(hi.try_into()?),
+                lo: u64::from_be_bytes(lo.try_into()?),
             })
         }
 
@@ -785,7 +779,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         )),
         // Todo make proper error Which shouldn't exist
-        (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
+        (_, raw) => serde_json::from_value(raw.clone())?,
     };
     Ok(val)
 }
@@ -801,7 +795,7 @@ pub fn to_string(v: &ScVal) -> Result<String, Error> {
         ScVal::Symbol(v) => std::str::from_utf8(v.as_slice())
             .map_err(|_| Error::InvalidValue(Some(ScType::Symbol)))?
             .to_string(),
-        _ => serde_json::to_string(&to_json(v)?).map_err(Error::Serde)?,
+        _ => serde_json::to_string(&to_json(v)?)?,
     })
 }
 
@@ -888,8 +882,8 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             let (hi, lo) = inner.split_at(16);
             Value::String(
                 ethnum::U256::from_words(
-                    u128::from_be_bytes(hi.try_into().unwrap()),
-                    u128::from_be_bytes(lo.try_into().unwrap()),
+                    u128::from_be_bytes(hi.try_into()?),
+                    u128::from_be_bytes(lo.try_into()?),
                 )
                 .to_string(),
             )
@@ -898,18 +892,16 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             let (hi, lo) = inner.split_at(16);
             Value::String(
                 ethnum::I256::from_words(
-                    i128::from_be_bytes(hi.try_into().unwrap()),
-                    i128::from_be_bytes(lo.try_into().unwrap()),
+                    i128::from_be_bytes(hi.try_into()?),
+                    i128::from_be_bytes(lo.try_into()?),
                 )
                 .to_string(),
             )
         }
-        ScVal::Status(_) => todo!(),
-        ScVal::ContractExecutable(_) => todo!(),
-        ScVal::LedgerKeyNonce(_) => todo!(), // TODO: Implement these
-                                             // ScVal::ContractCode(_) | ScVal::Bitset(_) | ScVal::Status(_) => {
-                                             //     serde_json::to_value(v).map_err(Error::Serde)?
-                                             // }
+        ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
+        ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
+        ScVal::LedgerKeyNonce(ScNonceKey { nonce_address }) => sc_address_to_json(nonce_address),
+        ScVal::Status(s) => serde_json::to_value(s)?,
     };
     Ok(val)
 }
@@ -964,8 +956,8 @@ impl Spec {
             ScType::Void => Some("Null".to_string()),
             ScType::Timepoint => Some("Timepoint".to_string()),
             ScType::Duration => Some("Duration".to_string()),
-            ScType::U256 => Some("u128".to_string()),
-            ScType::I256 => Some("i128".to_string()),
+            ScType::U256 => Some("u256".to_string()),
+            ScType::I256 => Some("i256".to_string()),
             ScType::String => Some("String".to_string()),
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
@@ -1095,8 +1087,8 @@ impl Spec {
                 Some("\"GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4\"".to_string())
             }
             ScType::Void => Some("null".to_string()),
-            ScType::Timepoint => None,
-            ScType::Duration => None,
+            ScType::Timepoint => Some("1234".to_string()),
+            ScType::Duration => Some("9999".to_string()),
             ScType::U256 => Some("\"2000\"".to_string()),
             ScType::I256 => Some("\"-20000\"".to_string()),
             ScType::String => Some("\"hello world\"".to_string()),

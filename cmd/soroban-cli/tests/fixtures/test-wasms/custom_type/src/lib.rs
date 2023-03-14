@@ -80,16 +80,16 @@ impl Contract {
     pub fn complex_tuple(_env: Env) -> ComplexEnum {
         ComplexEnum::Tuple(TupleStruct(
             Test {
-                a: 1,
+                a: 42,
                 b: true,
-                c: Symbol::short("test"),
+                c: Symbol::short("world"),
             },
             SimpleEnum::First,
         ))
     }
 
-    pub fn address(_env: Env, address: Address) -> Address {
-        address
+    pub fn addresse(_env: Env, addresse: Address) -> Address {
+        addresse
     }
 
     pub fn bytes(_env: Env, bytes: Bytes) -> Bytes {

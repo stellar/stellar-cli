@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::util::{invoke, invoke_help, invoke_with_roundtrip, AssertExt, Sandbox};
+use crate::util::{invoke, invoke_help, invoke_with_roundtrip, Sandbox};
 
 #[test]
 fn symbol() {
@@ -156,14 +156,10 @@ fn e_2_s_tuple() {
 
 #[test]
 fn complex_tuple_output() {
-    println!(
-        "{}",
-        invoke(&Sandbox::new(), "complex_tuple")
-            .assert()
-            .success()
-            .stderr_as_str()
-    );
-    panic!("Above output is incorrect")
+    invoke(&Sandbox::new(), "complex_tuple")
+        .assert()
+        .success()
+        .stdout(format!("{}\n", complex_tuple()));
 }
 
 #[test]
@@ -222,7 +218,7 @@ fn negative_i64() {
 #[test]
 fn account_address() {
     invoke_with_roundtrip(
-        "address",
+        "addresse",
         json!("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS"),
     );
 }
@@ -230,7 +226,7 @@ fn account_address() {
 #[test]
 fn contract_address() {
     invoke_with_roundtrip(
-        "address",
+        "addresse",
         json!("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"),
     );
 }

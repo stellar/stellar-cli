@@ -187,10 +187,6 @@ impl Cmd {
                     .map_err(|_| Error::FunctionNameTooLong(function.clone()))?,
             ),
         ];
-        eprint!(
-            "Args:\n-------------\n{:#?}\n-----------",
-            &parsed_args.get(0)
-        );
         complete_args.extend_from_slice(parsed_args.as_slice());
         let complete_args_len = complete_args.len();
 
@@ -351,7 +347,6 @@ impl Cmd {
             self.build_host_function_parameters(contract_id, &spec_entries)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
-        eprintln!("Result:\n{res:#?}\n\n-------------------------------\n");
         let res_str = output_to_string(&spec, &res, &function)?;
 
         println!("{res_str}");
