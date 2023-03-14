@@ -18,6 +18,8 @@ pub enum Error {
     SeedPhrase(#[from] sep5::error::Error),
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
+    #[error("Invalid address {0}")]
+    InvalidAddress(String),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -70,6 +72,24 @@ pub enum Secret {
     SeedPhrase { seed_phrase: String },
 }
 
+impl FromStr for Secret {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if PrivateKey::from_string(s).is_ok() {
+            Ok(Secret::SecretKey {
+                secret_key: s.to_string(),
+            })
+        } else if sep5::SeedPhrase::from_str(s).is_ok() {
+            Ok(Secret::SeedPhrase {
+                seed_phrase: s.to_string(),
+            })
+        } else {
+            Err(Error::InvalidAddress(s.to_string()))
+        }
+    }
+}
+
 impl Secret {
     pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
         Ok(match self {
@@ -93,6 +113,10 @@ impl Secret {
         .seed_phrase
         .into_phrase();
         Ok(Secret::SeedPhrase { seed_phrase })
+    }
+
+    pub fn test_seed_phrase() -> Result<Self, Error> {
+        Self::from_seed(Some("0000000000000000"))
     }
 }
 
