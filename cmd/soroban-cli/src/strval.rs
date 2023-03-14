@@ -846,8 +846,6 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             }
             Value::Object(m)
         }
-        // TODO: Number is not the best choice here, because json parsers in clients might only
-        // handle 53-bit numbers.
         ScVal::Bytes(v) => Value::String(to_lower_hex(v.as_slice())),
         ScVal::Address(v) => sc_address_to_json(v),
         ScVal::U128(n) => {
