@@ -51,6 +51,8 @@ pub enum Error {
     FailedToFindEnumCase(String),
     #[error(transparent)]
     FailedSilceToByte(#[from] std::array::TryFromSliceError),
+    #[error(transparent)]
+    Infallible(#[from] std::convert::Infallible),
 }
 
 #[derive(Default, Clone)]
@@ -319,7 +321,7 @@ impl Spec {
                 let val = self.from_json(v, &f.type_)?;
                 let key = StringM::from_str(name).unwrap();
                 Ok(ScMapEntry {
-                    key: ScVal::Symbol(key.try_into().map_err(|_| Error::Unknown)?),
+                    key: ScVal::Symbol(key.try_into()?),
                     val,
                 })
             })
