@@ -1,3 +1,4 @@
+use clap::arg;
 use std::{
     fmt::Display,
     fs,
@@ -24,9 +25,10 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Args)]
+#[group(skip)]
 pub struct Args {
     /// Path to wasm binary
-    #[clap(long)]
+    #[arg(long)]
     pub wasm: std::path::PathBuf,
 }
 

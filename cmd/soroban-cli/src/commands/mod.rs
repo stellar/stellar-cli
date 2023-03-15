@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use clap::{AppSettings, CommandFactory, FromArgMatches, Parser};
+use clap::{command, CommandFactory, FromArgMatches, Parser};
 
 pub mod completion;
 pub mod config;
@@ -9,19 +9,18 @@ pub mod events;
 pub mod lab;
 pub mod version;
 
-pub const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
-pub const HEADING_RPC: &str = "OPTIONS (RPC)";
+pub const HEADING_SANDBOX: &str = "Options (Sandbox)";
+pub const HEADING_RPC: &str = "Options (RPC)";
 #[derive(Parser, Debug)]
-#[clap(
+#[command(
     name = "soroban",
-    version = Box::leak(Box::new(version::short())).as_str(),
-    long_version = Box::leak(Box::new(version::long())).as_str(),
+    version = version::short(),
+    long_version = version::long(),
     about = "https://soroban.stellar.org",
     disable_help_subcommand = true,
 )]
-#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 pub struct Root {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub cmd: Cmd,
 }
 
@@ -62,20 +61,20 @@ impl FromStr for Root {
 #[derive(Parser, Debug)]
 pub enum Cmd {
     /// Tools for smart contract developers
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Contract(contract::Cmd),
     /// Read and update config
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Config(config::Cmd),
     /// Run a local webserver for web app development and testing
     Events(events::Cmd),
     /// Experiment with early features and expert tools
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Lab(lab::Cmd),
     /// Print version information
     Version(version::Cmd),
     /// Print shell completion code for the specified shell.
-    #[clap(long_about = completion::LONG_ABOUT)]
+    #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
 }
 

@@ -2,7 +2,7 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
-use clap::Parser;
+use clap::{arg, command, Parser};
 use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
@@ -23,35 +23,35 @@ use crate::{
 };
 
 #[derive(Parser, Debug)]
-#[clap(group(
+#[command(group(
     clap::ArgGroup::new("wasm_src")
         .required(true)
-        .args(&["wasm", "wasm-hash"]),
+        .args(&["wasm", "wasm_hash"]),
 ))]
 pub struct Cmd {
     /// WASM file to deploy
-    #[clap(long, parse(from_os_str), group = "wasm_src")]
+    #[arg(long, group = "wasm_src")]
     wasm: Option<std::path::PathBuf>,
 
     /// Hash of the already installed/deployed WASM file
-    #[clap(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
+    #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     wasm_hash: Option<String>,
 
     /// Contract ID to deploy to
-    #[clap(
+    #[arg(
         long = "id",
-        conflicts_with = "rpc-url",
+        conflicts_with = "rpc_url",
         help_heading = HEADING_SANDBOX,
     )]
     contract_id: Option<String>,
     /// Custom salt 32-byte salt for the token id
-    #[clap(
+    #[arg(
         long,
-        conflicts_with_all = &["contract-id", "ledger-file"],
+        conflicts_with_all = &["contract_id", "ledger_file"],
         help_heading = HEADING_RPC,
     )]
     salt: Option<String>,
-    #[clap(flatten)]
+    #[command(flatten)]
     config: config::Args,
 }
 

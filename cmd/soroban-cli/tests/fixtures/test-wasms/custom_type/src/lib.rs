@@ -58,7 +58,11 @@ impl Contract {
         i64_
     }
 
-    /// Example contract method that takes a struct
+    /// Example contract method which takes a struct
+    pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
+        vec![&env, symbol!("Hello"), strukt.c]
+    }
+
     pub fn strukt(_env: Env, strukt: Test) -> Test {
         strukt
     }

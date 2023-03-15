@@ -26,7 +26,7 @@ fn generate_help() {
         .assert()
         .success()
         .stdout(predicates::str::contains(
-            "Example contract method that takes a struct",
+            "Example contract method which takes a struct",
         ));
 }
 
@@ -118,7 +118,7 @@ fn strukt_help() {
         .arg("--help")
         .assert()
         .stdout(predicates::str::contains(
-            "Example:\n              --strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",
+            "--strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",
         ))
         .stdout(predicates::str::contains(
             "This is from the rust doc above the struct Test",

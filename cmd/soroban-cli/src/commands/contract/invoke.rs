@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::Parser;
+use clap::{arg, command, Parser};
 use hex::FromHexError;
 use soroban_env_host::xdr::{ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::Host;
@@ -36,39 +36,39 @@ use crate::{
 #[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[clap(long = "id")]
+    #[arg(long = "id")]
     contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
-    #[clap(long, parse(from_os_str))]
+    #[arg(long)]
     wasm: Option<std::path::PathBuf>,
     /// Output the cost execution to stderr
-    #[clap(long = "cost")]
+    #[arg(long = "cost")]
     cost: bool,
     /// Run with an unlimited budget
-    #[clap(long = "unlimited-budget", conflicts_with = "rpc-url")]
+    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url")]
     unlimited_budget: bool,
     /// Output the footprint to stderr
-    #[clap(long = "footprint")]
+    #[arg(long = "footprint")]
     footprint: bool,
     /// Output the contract auth for the transaction to stderr
-    #[clap(long = "auth")]
+    #[arg(long = "auth")]
     auth: bool,
+
     /// File to persist event output
-    #[clap(
+    #[arg(
         long,
-        parse(from_os_str),
         default_value(".soroban/events.json"),
-        conflicts_with = "rpc-url",
+        conflicts_with = "rpc_url",
         env = "SOROBAN_EVENTS_FILE",
         help_heading = HEADING_SANDBOX,
     )]
     events_file: std::path::PathBuf,
 
     // Arguments for contract as `--arg-name value`
-    #[clap(last = true, name = "CONTRACT_FN_ARGS")]
+    #[arg(last = true, id = "CONTRACT_FN_ARGS")]
     pub slop: Vec<OsString>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config: config::Args,
 }
 
@@ -142,15 +142,13 @@ impl Cmd {
         spec_entries: &[ScSpecEntry],
     ) -> Result<(String, Spec, ScVec), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
-        let mut cmd = clap::Command::new(&self.contract_id)
+        let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
             .term_width(300)
             .max_term_width(300);
 
         for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
-            let name: &'static str = Box::leak(name.to_string_lossy().into_boxed_str());
-            // let doc: &'static str = Box::leak(doc.to_string_lossy().into_boxed_str());
-            cmd = cmd.subcommand(build_custom_cmd(name, &spec)?);
+            cmd = cmd.subcommand(build_custom_cmd(&name.to_string_lossy(), &spec)?);
         }
         cmd.build();
         let mut matches_ = cmd.get_matches_from(&self.slop);
@@ -163,16 +161,13 @@ impl Cmd {
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
-                let s = match i.type_ {
-                    ScSpecTypeDef::Bool => matches_.is_present(name.clone()).to_string(),
-                    _ => matches_
-                        .get_raw(&name)
-                        .ok_or_else(|| Error::MissingArgument(name.clone()))?
-                        .next()
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string(),
-                };
+                let s = matches_
+                    .get_raw(&name)
+                    .ok_or_else(|| Error::MissingArgument(name.clone()))?
+                    .next()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
                 spec.from_string(&s, &i.type_)
                     .map_err(|error| Error::CannotParseArg { arg: name, error })
             })
@@ -557,7 +552,7 @@ async fn get_remote_contract_spec_entries(
     })
 }
 
-fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Error> {
+fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
     let func = spec
         .find_function(name)
         .map_err(|_| Error::FunctionNotFoundInContractSpec(name.to_string()))?;
@@ -568,6 +563,7 @@ fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Err
         .iter()
         .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
         .collect::<HashMap<String, ScSpecTypeDef>>();
+    let name: &'static str = Box::leak(name.to_string().into_boxed_str());
     let mut cmd = clap::Command::new(name)
         .no_binary_name(true)
         .term_width(300)
@@ -576,21 +572,21 @@ fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Err
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
     cmd = cmd.about(Some(doc));
     for (name, type_) in inputs_map.iter() {
-        let name: &'static str = Box::leak(name.clone().into_boxed_str());
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
-            .takes_value(true)
+            .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
-            arg = arg.value_name(Box::leak(value_name.into_boxed_str()));
+            let value_name: &'static str = Box::leak(value_name.into_boxed_str());
+            arg = arg.value_name(value_name);
         }
 
         // Set up special-case arg rules
         arg = match type_ {
-            xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
+            xdr::ScSpecTypeDef::Bool => arg.num_args(0).required(false),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
             xdr::ScSpecTypeDef::I128 | xdr::ScSpecTypeDef::I64 | xdr::ScSpecTypeDef::I32 => {
                 arg.allow_hyphen_values(true)
