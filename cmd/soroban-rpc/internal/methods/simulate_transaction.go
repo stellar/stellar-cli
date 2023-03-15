@@ -8,6 +8,7 @@ import (
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 )
 
@@ -33,12 +34,13 @@ type SimulateTransactionResponse struct {
 	LatestLedger int64                       `json:"latestLedger,string"`
 }
 
-type PreflightGetter interface {
-	GetPreflight(ctx context.Context, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (preflight.Preflight, error)
+type PreflightWorkerPool interface {
+	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (preflight.Preflight, error)
+	GetJobQueueLenAndCapacity() (uint, uint)
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
-func NewSimulateTransactionHandler(logger *log.Entry, getter PreflightGetter) jrpc2.Handler {
+func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, pwp PreflightWorkerPool) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
@@ -70,13 +72,34 @@ func NewSimulateTransactionHandler(logger *log.Entry, getter PreflightGetter) jr
 			}
 		}
 
-		result, err := getter.GetPreflight(ctx, sourceAccount, xdrOp)
+		jobBufferLen, jobBufferCapacity := pwp.GetJobQueueLenAndCapacity()
+		if jobBufferLen != 0 && jobBufferLen == jobBufferCapacity {
+			return SimulateTransactionResponse{
+				Error: "All workers are busy, try again later",
+			}
+		}
+
+		readTx, err := ledgerEntryReader.NewTx(ctx)
 		if err != nil {
-			// GetPreflight fills in the latest ledger it used
-			// even in case of error
+			return SimulateTransactionResponse{
+				Error: "Cannot create read transaction",
+			}
+		}
+		defer func() {
+			_ = readTx.Done()
+		}()
+		latestLedger, err := readTx.GetLatestLedgerSequence()
+		if err != nil {
+			return SimulateTransactionResponse{
+				Error: err.Error(),
+			}
+		}
+
+		result, err := pwp.GetPreflight(ctx, readTx, sourceAccount, xdrOp)
+		if err != nil {
 			return SimulateTransactionResponse{
 				Error:        err.Error(),
-				LatestLedger: int64(result.LatestLedger),
+				LatestLedger: int64(latestLedger),
 			}
 		}
 
@@ -92,7 +115,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, getter PreflightGetter) jr
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
 			},
-			LatestLedger: int64(result.LatestLedger),
+			LatestLedger: int64(latestLedger),
 		}
 	})
 }
