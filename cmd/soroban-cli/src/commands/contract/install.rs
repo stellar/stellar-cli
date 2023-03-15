@@ -2,7 +2,7 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
-use clap::Parser;
+use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, Hash, HostFunction, InstallContractCodeArgs, InvokeHostFunctionOp,
     LedgerFootprint, LedgerKey::ContractCode, LedgerKeyContractCode, Memo, MuxedAccount, Operation,
@@ -16,9 +16,9 @@ use crate::{commands::config, utils, wasm};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
-    #[clap(flatten)]
+    #[command(flatten)]
     pub wasm: wasm::Args,
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config: config::Args,
 }
 

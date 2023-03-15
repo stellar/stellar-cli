@@ -1,3 +1,4 @@
+use clap::arg;
 use std::{
     ffi::OsStr,
     fs, io,
@@ -46,9 +47,10 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
+#[group(skip)]
 pub struct Args {
     /// Use global config
-    #[clap(long)]
+    #[arg(long)]
     pub global: bool,
 }
 
