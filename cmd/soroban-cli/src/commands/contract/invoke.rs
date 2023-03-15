@@ -6,7 +6,8 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::Parser;
 use hex::FromHexError;
-use soroban_env_host::xdr::ScSpecFunctionV0;
+use soroban_env_host::xdr::{ScBytes, ScContractExecutable, ScSpecFunctionV0};
+use soroban_env_host::Host;
 use soroban_env_host::{
     budget::{Budget, CostType},
     events::HostEvent,
@@ -16,12 +17,11 @@ use soroban_env_host::{
         Error as XdrError, HostFunction, InvokeHostFunctionOp, InvokeHostFunctionResult,
         LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, OperationResult,
-        OperationResultTr, Preconditions, PublicKey, ReadXdr, ScContractCode,
-        ScHostStorageErrorCode, ScObject, ScSpecEntry, ScSpecTypeDef, ScStatic, ScStatus, ScVal,
-        ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt,
-        TransactionResultResult, Uint256, VecM,
+        OperationResultTr, Preconditions, PublicKey, ReadXdr, ScHostStorageErrorCode, ScSpecEntry,
+        ScSpecTypeDef, ScStatus, ScVal, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+        TransactionExt, TransactionResultResult, Uint256, VecM,
     },
-    Host, HostError,
+    HostError,
 };
 use soroban_spec::read::FromWasmError;
 
@@ -180,7 +180,7 @@ impl Cmd {
 
         // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
-            ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
+            ScVal::Bytes(ScBytes(contract_id.try_into().unwrap())),
             ScVal::Symbol(
                 function
                     .try_into()
@@ -347,7 +347,6 @@ impl Cmd {
             self.build_host_function_parameters(contract_id, &spec_entries)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
-
         let res_str = output_to_string(&spec, &res, &function)?;
 
         println!("{res_str}");
@@ -526,13 +525,13 @@ async fn get_remote_contract_spec_entries(
     let contract_ref = client
         .get_ledger_entry(LedgerKey::ContractData(LedgerKeyContractData {
             contract_id: xdr::Hash(*contract_id),
-            key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+            key: ScVal::LedgerKeyContractExecutable,
         }))
         .await?;
 
     Ok(match LedgerEntryData::from_xdr_base64(contract_ref.xdr)? {
         LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::WasmRef(hash)))),
+            val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
             ..
         }) => {
             let contract_data = client
@@ -549,7 +548,7 @@ async fn get_remote_contract_spec_entries(
             }
         }
         LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))),
+            val: ScVal::ContractExecutable(ScContractExecutable::Token),
             ..
         }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
             .map_err(FromWasmError::Parse)

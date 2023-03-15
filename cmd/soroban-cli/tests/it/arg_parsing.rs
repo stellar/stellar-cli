@@ -1,7 +1,7 @@
 use crate::util::CUSTOM_TYPES;
 use serde_json::json;
 use soroban_cli::strval::{self, Spec};
-use soroban_env_host::xdr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScStatic, ScVal};
+use soroban_env_host::xdr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScVal};
 
 #[test]
 fn parse_bool() {
@@ -21,7 +21,7 @@ fn parse_null() {
     )
     .unwrap();
     println!("{parsed:#?}");
-    assert!(parsed == ScVal::Static(ScStatic::Void));
+    assert!(parsed == ScVal::Void);
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn parse_optional_bool_with_no_quotation_marks() {
     )
     .unwrap();
     println!("{parsed:#?}");
-    assert!(parsed == ScVal::Static(ScStatic::True));
+    assert!(parsed == ScVal::Bool(true));
 }
 
 #[test]

@@ -1,7 +1,5 @@
 #![no_std]
-use soroban_sdk::{
-    contractimpl, contracttype, symbol, vec, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec,
-};
+use soroban_sdk::{contractimpl, contracttype, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec};
 
 pub struct Contract;
 
@@ -60,10 +58,6 @@ impl Contract {
         i64_
     }
 
-    pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
-        vec![&env, symbol!("Hello"), strukt.c]
-    }
-
     /// Example contract method that takes a struct
     pub fn strukt(_env: Env, strukt: Test) -> Test {
         strukt
@@ -77,8 +71,8 @@ impl Contract {
         complex
     }
 
-    pub fn address(_env: Env, address: Address) -> Address {
-        address
+    pub fn addresse(_env: Env, addresse: Address) -> Address {
+        addresse
     }
 
     pub fn bytes(_env: Env, bytes: Bytes) -> Bytes {
@@ -139,49 +133,23 @@ impl Contract {
         option
     }
 
-    #[allow(clippy::too_many_arguments, unused_variables)]
-    pub fn some_types(
-        _env: Env,
-        i32: i32,
-        bool: bool,
-        symbol: Symbol,
-        strukt: Test,
-        option: Option<u32>,
-        address: Address,
-        vec: Vec<u32>,
-        set: Set<Address>,
-        tuple: (Symbol, Address, Bytes),
-    ) {
-    }
-    #[allow(clippy::too_many_arguments, unused_variables)]
-    pub fn othertypes(
-        _env: Env,
-        map: Map<Symbol, u128>,
-        bytes: Bytes,
-        bytes_n: BytesN<9>,
-        const_enum: RoyalCard,
-        simple_enum: SimpleEnum,
-    ) {
-    }
-}
+    // pub fn u256(_env: Env, u256: U256) -> U256 {
+    // u256
+    // }
 
-#[cfg(test)]
-mod test {
-    use soroban_sdk::{symbol, vec, Env};
+    // pub fn i256(_env: Env, i256: I256) -> I256 {
+    //     i256
+    // }
 
-    use crate::{Contract, ContractClient, Test};
+    // pub fn string(_env: Env, string: String) -> String {
+    //     string
+    // }
 
-    #[test]
-    fn test_hello() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Contract);
-        let client = ContractClient::new(&env, &contract_id);
+    // pub fn timepoint(_env: Env, timepoint: TimePoint) -> TimePoint {
+    //     timepoint
+    // }
 
-        let res = client.strukt_hel(&Test {
-            a: 0,
-            b: false,
-            c: symbol!("world"),
-        });
-        assert_eq!(res, vec![&env, symbol!("Hello"), symbol!("world")]);
-    }
+    // pub fn duration(_env: Env, duration: Duration) -> Duration {
+    //     duration
+    // }
 }
