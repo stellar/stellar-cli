@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{arg, command, Parser};
 use serde::{Deserialize, Serialize};
 use soroban_ledger_snapshot::LedgerSnapshot;
 
@@ -13,11 +13,11 @@ pub mod secret;
 #[derive(Debug, Parser)]
 pub enum Cmd {
     /// Configure different identities to sign transactions.
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Identity(identity::Cmd),
 
     /// Configure different networks
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Network(network::Cmd),
 }
 
@@ -50,14 +50,15 @@ impl Cmd {
 }
 
 #[derive(Debug, clap::Args, Clone)]
+#[group(skip)]
 pub struct Args {
-    #[clap(flatten)]
+    #[command(flatten)]
     pub network: network::Args,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub ledger_file: ledger_file::Args,
 
-    #[clap(long, alias = "source", env = "SOROBAN_ACCOUNT")]
+    #[arg(long, alias = "source", env = "SOROBAN_ACCOUNT")]
     /// Account that signs the final transaction.
     /// S...          a seceret key
     /// alice         an identity
@@ -65,7 +66,7 @@ pub struct Args {
     /// DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
     pub source_account: Option<String>,
 
-    #[clap(long)]
+    #[arg(long)]
     /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
     pub hd_path: Option<usize>,
 }

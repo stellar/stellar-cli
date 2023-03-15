@@ -15,7 +15,7 @@ where
 {
     let input = shlex::split(s).ok_or_else(|| {
         clap::Error::raw(
-            clap::ErrorKind::InvalidValue,
+            clap::error::ErrorKind::InvalidValue,
             format!("Invalid input for command:\n{s}"),
         )
     })?;
