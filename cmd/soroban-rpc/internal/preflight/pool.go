@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
@@ -26,18 +27,17 @@ type PreflightWorkerPool struct {
 	ledgerEntryReader db.LedgerEntryReader
 	networkPassphrase string
 	logger            *log.Entry
-	done              chan struct{}
+	isClosed          atomic.Bool
 	requestChan       chan workerRequest
 	wg                sync.WaitGroup
 }
 
-func NewPreflightWorkerPool(workerCount uint, ledgerEntryReader db.LedgerEntryReader, networkPassphrase string, logger *log.Entry) *PreflightWorkerPool {
+func NewPreflightWorkerPool(workerCount uint, jobQueueCapacity uint, ledgerEntryReader db.LedgerEntryReader, networkPassphrase string, logger *log.Entry) *PreflightWorkerPool {
 	preflightWP := PreflightWorkerPool{
 		ledgerEntryReader: ledgerEntryReader,
 		networkPassphrase: networkPassphrase,
 		logger:            logger,
-		done:              make(chan struct{}),
-		requestChan:       make(chan workerRequest),
+		requestChan:       make(chan workerRequest, jobQueueCapacity),
 	}
 	for i := uint(0); i < workerCount; i++ {
 		preflightWP.wg.Add(1)
@@ -48,38 +48,42 @@ func NewPreflightWorkerPool(workerCount uint, ledgerEntryReader db.LedgerEntryRe
 
 func (pwp *PreflightWorkerPool) work() {
 	defer pwp.wg.Done()
-	for {
-		select {
-		case <-pwp.done:
-			return
-		case request := <-pwp.requestChan:
-			preflight, err := GetPreflight(request.ctx, request.params)
-			request.resultChan <- workerResult{preflight, err}
-		}
+	for request := range pwp.requestChan {
+		preflight, err := GetPreflight(request.ctx, request.params)
+		request.resultChan <- workerResult{preflight, err}
 	}
 }
 
 func (pwp *PreflightWorkerPool) Close() {
-	close(pwp.done)
+	if !pwp.isClosed.CompareAndSwap(false, true) {
+		// it was already closed
+		return
+	}
+	close(pwp.requestChan)
 	pwp.wg.Wait()
 }
 
-func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (Preflight, error) {
+var PreflightQueueFullErr = errors.New("preflight queue full")
+
+func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (Preflight, error) {
+	if pwp.isClosed.Load() {
+		return Preflight{}, errors.New("preflight worker pool is closed")
+	}
 	params := PreflightParameters{
 		Logger:             pwp.logger,
 		SourceAccount:      sourceAccount,
 		InvokeHostFunction: op,
 		NetworkPassphrase:  pwp.networkPassphrase,
-		LedgerEntryReader:  pwp.ledgerEntryReader,
+		LedgerEntryReadTx:  readTx,
 	}
 	resultC := make(chan workerResult)
 	select {
-	case <-pwp.done:
-		return Preflight{}, errors.New("preflight worker pool is closed")
 	case pwp.requestChan <- workerRequest{ctx, params, resultC}:
 		result := <-resultC
 		return result.preflight, result.err
 	case <-ctx.Done():
 		return Preflight{}, ctx.Err()
+	default:
+		return Preflight{}, PreflightQueueFullErr
 	}
 }

@@ -115,6 +115,7 @@ func (i *Test) launchDaemon() {
 		DefaultEventsLimit:               100,
 		MaxHealthyLedgerLatency:          time.Second * 10,
 		PreflightWorkerCount:             uint(runtime.NumCPU()),
+		PreflightWorkerQueueSize:         uint(runtime.NumCPU()),
 	}
 	i.daemon = daemon.MustNew(config)
 	i.server = httptest.NewServer(i.daemon)

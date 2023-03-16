@@ -150,7 +150,8 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
-	preflightWorkerPool := preflight.NewPreflightWorkerPool(cfg.PreflightWorkerCount, ledgerEntryReader, cfg.NetworkPassphrase, logger)
+	preflightWorkerPool := preflight.NewPreflightWorkerPool(
+		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:       eventStore,
