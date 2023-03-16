@@ -2495,7 +2495,7 @@ dependencies = [
  "dirs",
  "ed25519-dalek",
  "ethnum",
- "hex",
+ "hex 0.4.3",
  "itertools",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
