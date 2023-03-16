@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{arg, command, Parser};
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
@@ -49,10 +49,10 @@ pub enum Error {
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-    #[clap(long)]
+    #[arg(long)]
     pub asset: String,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config: config::Args,
 }
 

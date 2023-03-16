@@ -152,7 +152,7 @@ pub struct EventValue {
     pub xdr: String,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ArgEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
 pub enum EventType {
     All,
     Contract,

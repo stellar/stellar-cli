@@ -150,7 +150,8 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
-	preflightWorkerPool := preflight.NewPreflightWorkerPool(cfg.PreflightWorkerCount, ledgerEntryReader, cfg.NetworkPassphrase, logger)
+	preflightWorkerPool := preflight.NewPreflightWorkerPool(
+		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:       eventStore,
@@ -176,7 +177,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 }
 
-func Run(cfg config.LocalConfig, endpoint string) (exitCode int) {
+func Run(cfg config.LocalConfig, endpoint string) {
 	d := MustNew(cfg)
 	supporthttp.Run(supporthttp.Config{
 		ListenAddr: endpoint,
@@ -184,9 +185,8 @@ func Run(cfg config.LocalConfig, endpoint string) (exitCode int) {
 		OnStarting: func() {
 			d.logger.Infof("Starting Soroban JSON RPC server on %v", endpoint)
 		},
-		OnStopping: func() {
+		OnStopped: func() {
 			d.Close()
 		},
 	})
-	return 0
 }

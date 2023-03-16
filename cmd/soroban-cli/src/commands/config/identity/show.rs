@@ -1,4 +1,5 @@
 use super::super::{locator, secret};
+use clap::arg;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -13,12 +14,13 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Args)]
+#[group(skip)]
 pub struct Cmd {
     /// Name of identity to lookup
     pub name: String,
 
     /// If identity is a seed phrase use this hd path, default is 0
-    #[clap(long)]
+    #[arg(long)]
     pub hd_path: Option<usize>,
 }
 

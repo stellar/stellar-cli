@@ -1,3 +1,4 @@
+use clap::arg;
 use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::PrivateKey;
@@ -18,16 +19,19 @@ pub enum Error {
     SeedPhrase(#[from] sep5::error::Error),
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
+    #[error("Invalid address {0}")]
+    InvalidAddress(String),
 }
 
 #[derive(Debug, clap::Args, Clone)]
+#[group(skip)]
 pub struct Args {
     /// Add using secret_key
     /// Can provide with SOROBAN_SECRET_KEY
-    #[clap(long, conflicts_with = "seed-phrase")]
+    #[arg(long, conflicts_with = "seed_phrase")]
     pub secret_key: bool,
     /// Add using 12 word seed phrase to generate secret_key
-    #[clap(long, conflicts_with = "secret-key")]
+    #[arg(long, conflicts_with = "secret_key")]
     pub seed_phrase: bool,
 }
 
@@ -70,6 +74,24 @@ pub enum Secret {
     SeedPhrase { seed_phrase: String },
 }
 
+impl FromStr for Secret {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if PrivateKey::from_string(s).is_ok() {
+            Ok(Secret::SecretKey {
+                secret_key: s.to_string(),
+            })
+        } else if sep5::SeedPhrase::from_str(s).is_ok() {
+            Ok(Secret::SeedPhrase {
+                seed_phrase: s.to_string(),
+            })
+        } else {
+            Err(Error::InvalidAddress(s.to_string()))
+        }
+    }
+}
+
 impl Secret {
     pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
         Ok(match self {
@@ -93,6 +115,10 @@ impl Secret {
         .seed_phrase
         .into_phrase();
         Ok(Secret::SeedPhrase { seed_phrase })
+    }
+
+    pub fn test_seed_phrase() -> Result<Self, Error> {
+        Self::from_seed(Some("0000000000000000"))
     }
 }
 

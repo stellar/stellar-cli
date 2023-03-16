@@ -3,7 +3,7 @@ use std::{
     io::{self, stdout},
 };
 
-use clap::{ArgEnum, Parser};
+use clap::{command, Parser, ValueEnum};
 use hex::FromHexError;
 use soroban_env_host::{
     xdr::{
@@ -18,23 +18,23 @@ use crate::{commands::config::ledger_file, strval, utils};
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[clap(long = "id")]
+    #[arg(long = "id")]
     contract_id: String,
     /// Storage key (symbols only)
-    #[clap(long = "key", conflicts_with = "key-xdr")]
+    #[arg(long = "key", conflicts_with = "key_xdr")]
     key: Option<String>,
     /// Storage key (base64-encoded XDR)
-    #[clap(long = "key-xdr", conflicts_with = "key")]
+    #[arg(long = "key-xdr", conflicts_with = "key")]
     key_xdr: Option<String>,
     /// Type of output to generate
-    #[clap(long, arg_enum, default_value("string"))]
+    #[arg(long, value_enum, default_value("string"))]
     output: Output,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     ledger: ledger_file::Args,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
     /// String
     String,

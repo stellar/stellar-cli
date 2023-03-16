@@ -1,4 +1,5 @@
 use super::{super::secret, locator};
+use clap::command;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -13,14 +14,15 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Args)]
+#[group(skip)]
 pub struct Cmd {
     /// Name of network
     pub name: String,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub network: super::Network,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config_locator: locator::Args,
 }
 

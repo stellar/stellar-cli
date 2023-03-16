@@ -1,4 +1,5 @@
 use super::super::{locator, secret};
+use clap::command;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -10,14 +11,15 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Args)]
+#[group(skip)]
 pub struct Cmd {
     /// Name of identity
     pub name: String,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub secrets: secret::Args,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config_locator: locator::Args,
 }
 

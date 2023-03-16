@@ -1,4 +1,4 @@
-use clap::{CommandFactory, Parser};
+use clap::{arg, CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use std::io;
 
@@ -19,7 +19,7 @@ To enable autocomplete permanently, run:
 #[derive(Parser, Debug)]
 pub struct Cmd {
     /// The shell type
-    #[clap(long, arg_enum)]
+    #[arg(long, value_enum)]
     shell: Shell,
 }
 

@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{arg, Parser};
 use serde::{Deserialize, Serialize};
 
 use crate::commands::HEADING_RPC;
@@ -49,28 +49,29 @@ impl Cmd {
 }
 
 #[derive(Debug, clap::Args, Clone)]
+#[group(skip)]
 pub struct Args {
     /// RPC server endpoint
-    #[clap(
-        long,
-        requires = "network-passphrase",
+    #[arg(
+        long = "rpc-url",
+        requires = "network_passphrase",
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(
+    #[arg(
         long = "network-passphrase",
-        requires = "rpc-url",
+        requires = "rpc_url",
         env = "SOROBAN_NETWORK_PASSPHRASE",
         help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
     /// Name of network to use from config
-    #[clap(
+    #[arg(
         long,
-        conflicts_with = "network-passphrase",
-        conflicts_with = "rpc-url"
+        conflicts_with = "network_passphrase",
+        conflicts_with = "rpc_url"
     )]
     pub network: Option<String>,
 }
@@ -93,16 +94,17 @@ impl Args {
 }
 
 #[derive(Debug, clap::Args, Serialize, Deserialize)]
+#[group(skip)]
 pub struct Network {
     /// RPC server endpoint
-    #[clap(
-        long,
+    #[arg(
+        long = "rpc-url",
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
     /// Network passphrase to sign the transaction sent to the rpc server
-    #[clap(
+    #[arg(
             long,
             env = "SOROBAN_NETWORK_PASSPHRASE",
             help_heading = HEADING_RPC,

@@ -50,7 +50,7 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, 
 		"getLedgerEntry":      methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
 		"getTransaction":      methods.NewGetTransactionHandler(params.TransactionStore),
 		"sendTransaction":     methods.NewSendTransactionHandler(params.Logger, params.TransactionStore, cfg.NetworkPassphrase, params.CoreClient),
-		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, params.PreflightGetter),
+		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, params.LedgerEntryReader, params.PreflightGetter),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
