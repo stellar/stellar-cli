@@ -233,7 +233,7 @@ func main() {
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(runtime.NumCPU()),
-			Usage:       "Number of workers (read goroutines) used to compute preflights. Defaults to the number of CPUs.",
+			Usage:       "Number of workers (read goroutines) used to compute preflights for the simulateTransaction endpoint. Defaults to the number of CPUs.",
 		},
 		{
 			Name:        "preflight-worker-queue-size",
@@ -241,7 +241,7 @@ func main() {
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(runtime.NumCPU()),
-			Usage:       "Number of workers (read goroutines) used to compute preflights. Defaults to the number of CPUs.",
+			Usage:       "Maximum number of outstanding preflight requests for the simulateTransaction endpoint. Defaults to the number of CPUs.",
 		},
 	}
 	cmd := &cobra.Command{
