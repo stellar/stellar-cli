@@ -150,8 +150,8 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
-	// TODO: Do we want to parameterize the jobQueueCapacity as a cmdline argument? (ERRTOOMANYKNOBS?)
-	preflightWorkerPool := preflight.NewPreflightWorkerPool(cfg.PreflightWorkerCount, 1, ledgerEntryReader, cfg.NetworkPassphrase, logger)
+	preflightWorkerPool := preflight.NewPreflightWorkerPool(
+		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
 	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:       eventStore,
@@ -161,8 +161,8 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 			URL:  cfg.StellarCoreURL,
 			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
 		},
-		LedgerEntryReader:   db.NewLedgerEntryReader(dbConn),
-		PreflightWorkerPool: preflightWorkerPool,
+		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
+		PreflightGetter:   preflightWorkerPool,
 	})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)

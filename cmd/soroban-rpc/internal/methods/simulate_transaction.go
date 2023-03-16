@@ -34,13 +34,12 @@ type SimulateTransactionResponse struct {
 	LatestLedger int64                       `json:"latestLedger,string"`
 }
 
-type PreflightWorkerPool interface {
+type PreflightGetter interface {
 	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (preflight.Preflight, error)
-	GetJobQueueLenAndCapacity() (uint, uint)
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
-func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, pwp PreflightWorkerPool) jrpc2.Handler {
+func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, getter PreflightGetter) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
@@ -72,13 +71,6 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
-		jobBufferLen, jobBufferCapacity := pwp.GetJobQueueLenAndCapacity()
-		if jobBufferLen != 0 && jobBufferLen == jobBufferCapacity {
-			return SimulateTransactionResponse{
-				Error: "All workers are busy, try again later",
-			}
-		}
-
 		readTx, err := ledgerEntryReader.NewTx(ctx)
 		if err != nil {
 			return SimulateTransactionResponse{
@@ -95,7 +87,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
-		result, err := pwp.GetPreflight(ctx, readTx, sourceAccount, xdrOp)
+		result, err := getter.GetPreflight(ctx, readTx, sourceAccount, xdrOp)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error:        err.Error(),

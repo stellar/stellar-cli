@@ -63,9 +63,7 @@ func (pwp *PreflightWorkerPool) Close() {
 	pwp.wg.Wait()
 }
 
-func (pwp *PreflightWorkerPool) GetJobQueueLenAndCapacity() (uint, uint) {
-	return uint(len(pwp.requestChan)), uint(cap(pwp.requestChan))
-}
+var PreflightQueueFullErr = errors.New("preflight queue full")
 
 func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (Preflight, error) {
 	if pwp.isClosed.Load() {
@@ -85,5 +83,7 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 		return result.preflight, result.err
 	case <-ctx.Done():
 		return Preflight{}, ctx.Err()
+	default:
+		return Preflight{}, PreflightQueueFullErr
 	}
 }
