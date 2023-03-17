@@ -21,7 +21,7 @@ type LedgerBucket[T any] struct {
 }
 
 // DefaultEventLedgerRetentionWindow represents the max number of ledgers we would like to keep
-// an incoming event in memory
+// an incoming event in memory. The value was calculated to align with (roughly) 24 hours window.
 const DefaultEventLedgerRetentionWindow = 17280
 
 // NewLedgerBucketWindow creates a new LedgerBucketWindow
