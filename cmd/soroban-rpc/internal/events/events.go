@@ -53,15 +53,12 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any events from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(networkPassphrase string, retentionWindow uint32) (*MemoryStore, error) {
-	window, err := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
-	if err != nil {
-		return nil, err
-	}
+func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
+	window := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
 	return &MemoryStore{
 		networkPassphrase: networkPassphrase,
 		eventsByLedger:    window,
-	}, nil
+	}
 }
 
 // Range defines a [Start, End) interval of Soroban events.
