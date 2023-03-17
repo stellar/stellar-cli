@@ -128,6 +128,14 @@ func main() {
 			Usage:       "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
 			ConfigKey:   &serviceConfig.CaptiveCoreUseDB,
 		},
+		{
+			Name:        "captive-core-enable-diagnostic-events",
+			OptType:     types.Bool,
+			FlagDefault: false,
+			Required:    false,
+			Usage:       "informs captive core to emit Soroban diagnostic events",
+			ConfigKey:   &serviceConfig.CaptiveCoreEnableDiagnosticEvents,
+		},
 		&config.ConfigOption{
 			Name:        "history-archive-urls",
 			ConfigKey:   &serviceConfig.HistoryArchiveURLs,

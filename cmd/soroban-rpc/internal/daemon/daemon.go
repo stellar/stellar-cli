@@ -69,21 +69,23 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	captiveCoreTomlParams.NetworkPassphrase = cfg.NetworkPassphrase
 	captiveCoreTomlParams.Strict = true
 	captiveCoreTomlParams.UseDB = cfg.CaptiveCoreUseDB
+	captiveCoreTomlParams.EnableSorobanDiagnosticEvents = cfg.CaptiveCoreEnableDiagnosticEvents
 	captiveCoreToml, err := ledgerbackend.NewCaptiveCoreTomlFromFile(cfg.CaptiveCoreConfigPath, captiveCoreTomlParams)
 	if err != nil {
 		logger.WithError(err).Fatal("Invalid captive core toml")
 	}
 
 	captiveConfig := ledgerbackend.CaptiveCoreConfig{
-		BinaryPath:          cfg.StellarCoreBinaryPath,
-		StoragePath:         cfg.CaptiveCoreStoragePath,
-		NetworkPassphrase:   cfg.NetworkPassphrase,
-		HistoryArchiveURLs:  cfg.HistoryArchiveURLs,
-		CheckpointFrequency: cfg.CheckpointFrequency,
-		Log:                 logger.WithField("subservice", "stellar-core"),
-		Toml:                captiveCoreToml,
-		UserAgent:           "captivecore",
-		UseDB:               cfg.CaptiveCoreUseDB,
+		BinaryPath:                    cfg.StellarCoreBinaryPath,
+		StoragePath:                   cfg.CaptiveCoreStoragePath,
+		NetworkPassphrase:             cfg.NetworkPassphrase,
+		HistoryArchiveURLs:            cfg.HistoryArchiveURLs,
+		CheckpointFrequency:           cfg.CheckpointFrequency,
+		Log:                           logger.WithField("subservice", "stellar-core"),
+		Toml:                          captiveCoreToml,
+		UserAgent:                     "captivecore",
+		UseDB:                         cfg.CaptiveCoreUseDB,
+		EnableSorobanDiagnosticEvents: cfg.CaptiveCoreEnableDiagnosticEvents,
 	}
 	core, err := ledgerbackend.NewCaptive(captiveConfig)
 	if err != nil {
