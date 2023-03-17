@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contractimpl, contracttype, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec};
+use soroban_sdk::{
+    contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec,
+};
 
 pub struct Contract;
 
@@ -60,7 +62,7 @@ impl Contract {
 
     /// Example contract method which takes a struct
     pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
-        vec![&env, symbol!("Hello"), strukt.c]
+        vec![&env, Symbol::short("Hello"), strukt.c]
     }
 
     pub fn strukt(_env: Env, strukt: Test) -> Test {
