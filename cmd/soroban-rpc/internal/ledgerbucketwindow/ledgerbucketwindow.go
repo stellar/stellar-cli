@@ -1,7 +1,6 @@
 package ledgerbucketwindow
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -21,14 +20,18 @@ type LedgerBucket[T any] struct {
 	BucketContent        T
 }
 
+// DefaultEventLedgerRetentionWindow represents the max number of ledgers we would like to keep
+// an incoming event in memory. The value was calculated to align with (roughly) 24 hours window.
+const DefaultEventLedgerRetentionWindow = 17280
+
 // NewLedgerBucketWindow creates a new LedgerBucketWindow
-func NewLedgerBucketWindow[T any](retentionWindow uint32) (*LedgerBucketWindow[T], error) {
+func NewLedgerBucketWindow[T any](retentionWindow uint32) *LedgerBucketWindow[T] {
 	if retentionWindow == 0 {
-		return nil, errors.New("retention window must be positive")
+		retentionWindow = DefaultEventLedgerRetentionWindow
 	}
 	return &LedgerBucketWindow[T]{
 		buckets: make([]LedgerBucket[T], 0, retentionWindow),
-	}, nil
+	}
 }
 
 // Append adds a new bucket to the window. If the window is full a bucket will be evicted and returned.
