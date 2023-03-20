@@ -42,7 +42,7 @@ type HandlerParams struct {
 }
 
 // NewJSONRPCHandler constructs a Handler instance
-func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, error) {
+func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) Handler {
 	bridge := jhttp.NewBridge(handler.Map{
 		"getHealth":           methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
 		"getEvents":           methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
@@ -50,7 +50,7 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, 
 		"getLedgerEntry":      methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
 		"getTransaction":      methods.NewGetTransactionHandler(params.TransactionStore),
 		"sendTransaction":     methods.NewSendTransactionHandler(params.Logger, params.TransactionStore, cfg.NetworkPassphrase, params.CoreClient),
-		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, params.PreflightGetter),
+		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, params.LedgerEntryReader, params.PreflightGetter),
 	}, nil)
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
@@ -62,5 +62,5 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) (Handler, 
 		bridge:  bridge,
 		logger:  params.Logger,
 		Handler: corsMiddleware.Handler(bridge),
-	}, nil
+	}
 }

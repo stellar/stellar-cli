@@ -106,6 +106,9 @@ func addTomlDependencies(dependencies *projectDependencies, tomlDeps map[string]
 			fmt.Printf("Conflicting entries in Cargo.toml file :\n%v\nvs.\n%v\n", existing, current)
 			exitErr()
 		}
+		if current.githubPath == "" {
+			continue
+		}
 		dependencies.dependencyNames[pkgName] = current
 		dependencies.dependencies = append(dependencies.dependencies, current)
 	}

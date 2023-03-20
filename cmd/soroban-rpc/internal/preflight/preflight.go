@@ -92,7 +92,7 @@ type PreflightParameters struct {
 	SourceAccount      xdr.AccountId
 	InvokeHostFunction xdr.InvokeHostFunctionOp
 	NetworkPassphrase  string
-	LedgerEntryReader  db.LedgerEntryReader
+	LedgerEntryReadTx  db.LedgerEntryReadTx
 }
 
 type Preflight struct {
@@ -101,7 +101,6 @@ type Preflight struct {
 	Result          string   // SCVal XDR in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
-	LatestLedger    uint32
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
@@ -114,14 +113,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	if err != nil {
 		return Preflight{}, err
 	}
-	readTx, err := params.LedgerEntryReader.NewTx(ctx)
-	if err != nil {
-		return Preflight{}, err
-	}
-	defer func() {
-		_ = readTx.Done()
-	}()
-	latestLedger, err := readTx.GetLatestLedgerSequence()
+	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -135,7 +127,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)
-	handle := cgo.NewHandle(snapshotSourceHandle{readTx, params.Logger})
+	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
 	res := C.preflight_host_function(
 		C.uintptr_t(handle),
@@ -148,7 +140,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	defer C.free_preflight_result(res)
 
 	if res.error != nil {
-		return Preflight{LatestLedger: latestLedger}, errors.New(C.GoString(res.error))
+		return Preflight{}, errors.New(C.GoString(res.error))
 	}
 
 	// Get the auth data
@@ -172,7 +164,6 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		Result:          C.GoString(res.result),
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),
-		LatestLedger:    latestLedger,
 	}
 	return preflight, nil
 }
