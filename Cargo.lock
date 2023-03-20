@@ -1958,7 +1958,7 @@ dependencies = [
 [[package]]
 name = "soroban-ledger-snapshot"
 version = "0.6.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4a0da68b5d71b94a327aa1f50b0209d94be2f3d9#4a0da68b5d71b94a327aa1f50b0209d94be2f3d9"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ab96798be9f4b77570ed032cb58743942592114a#ab96798be9f4b77570ed032cb58743942592114a"
 dependencies = [
  "serde",
  "serde_json",
@@ -1980,7 +1980,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk"
 version = "0.6.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4a0da68b5d71b94a327aa1f50b0209d94be2f3d9#4a0da68b5d71b94a327aa1f50b0209d94be2f3d9"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ab96798be9f4b77570ed032cb58743942592114a#ab96798be9f4b77570ed032cb58743942592114a"
 dependencies = [
  "bytes-lit",
  "ed25519-dalek",
@@ -1995,7 +1995,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk-macros"
 version = "0.6.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4a0da68b5d71b94a327aa1f50b0209d94be2f3d9#4a0da68b5d71b94a327aa1f50b0209d94be2f3d9"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ab96798be9f4b77570ed032cb58743942592114a#ab96798be9f4b77570ed032cb58743942592114a"
 dependencies = [
  "darling",
  "itertools",
@@ -2011,7 +2011,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "0.6.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4a0da68b5d71b94a327aa1f50b0209d94be2f3d9#4a0da68b5d71b94a327aa1f50b0209d94be2f3d9"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ab96798be9f4b77570ed032cb58743942592114a#ab96798be9f4b77570ed032cb58743942592114a"
 dependencies = [
  "base64 0.13.1",
  "darling",
@@ -2032,7 +2032,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-spec"
 version = "0.6.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4a0da68b5d71b94a327aa1f50b0209d94be2f3d9#4a0da68b5d71b94a327aa1f50b0209d94be2f3d9"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ab96798be9f4b77570ed032cb58743942592114a#ab96798be9f4b77570ed032cb58743942592114a"
 dependencies = [
  "soroban-sdk",
 ]
