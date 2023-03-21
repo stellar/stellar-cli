@@ -18,8 +18,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-go
-        with:
-          go-version: ${{ matrix.go }}
+      with:
+        go-version: ${{ matrix.go }}
     - name: Update Check
       run: |
         make
