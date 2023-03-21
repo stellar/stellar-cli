@@ -1,0 +1,61 @@
+name: Bump Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      base:
+        description: 'Name of branch to open PR against'
+        type: 'string'
+        default: 'main'
+
+jobs:
+
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ matrix.go }}
+    - name: Update Check
+      run: |
+        make
+        env.UPDATED_DEPENDENCIES=$(deptool analyze)
+    - name: Create Commit
+      if: ${{ env.UPDATED_DEPENDENCIES != '0' }}
+      run: |
+        deptool analyze --writeInPlace
+        go mod tidy
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git checkout -b 'release/v${{ inputs.version }}'
+        git add Cargo.toml Cargo.lock go.mod go.sum
+        git commit -m 'Bump version to ${{ inputs.version }}'
+        git push origin 'release/v${{ inputs.version }}'
+    - name: Create Pull Request
+      if: ${{ env.UPDATED_DEPENDENCIES != '0' }}
+      uses: actions/github-script@v6
+      id: create-pull-request
+      with:
+        script: |
+          const response = await github.rest.pulls.create({
+            title: 'Bump version to ${{ inputs.version }}',
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            head: 'release/v${{ inputs.version }}',
+            base: '${{ inputs.base }}',
+            body: '### What\nBump version to ${{ inputs.version }}, creating release branch.\n\n### Why\nTriggered by @${{ github.actor }} in ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.\n\n### What is next\n\nSee the release instructions for a full rundown on the release process:\nhttps://github.com/stellar/actions/blob/main/README-rust-release.md\n\nCommit any changes to the `release/v${{ inputs.version }}` branch that are needed in this release.\n\nIf this is a regular release releasing from `main`, merge this PR when ready, and after merging, create a release for this version by going to this link: https://github.com/${{ github.repository }}/releases/new?tag=v${{ inputs.version }}&title=${{ inputs.version }}\n\nIf this is a backport or patch release of a past version, see the release instructions. When ready to release this branch create a release by going to this link: \nhttps://github.com/${{ github.repository }}/releases/new?tag=v${{ inputs.version }}&title=${{ inputs.version }}&target=release/v${{ inputs.version }}'
+          });
+          return response.data.number;
+    - name: Comment on the Pull Request about Failure
+      if: ${{ env.UPDATED_DEPENDENCIES != '0' }}
+      if: steps.set-version.outcome == 'failure'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: ${{steps.create-pull-request.outputs.result}},
+            body: '🚨 There was an error setting versions when bumping version. Check out the GitHub Action that triggered this Pull Request for more information. Inspect the diff before merging.',
+          })
