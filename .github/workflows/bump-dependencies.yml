@@ -11,6 +11,9 @@ on:
 jobs:
 
   bump-version:
+    strategy:
+      matrix:
+        go: [1.20]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -24,14 +27,15 @@ jobs:
     - name: Create Commit
       if: ${{ env.UPDATED_DEPENDENCIES != '0' }}
       run: |
+        env.PR_NAME=dependencies_update/$(git log -n 1 | head -n 1 | sed -e 's/^commit //' | head -c 8)
         deptool analyze --writeInPlace
         go mod tidy
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git checkout -b 'release/v${{ inputs.version }}'
+        git checkout -b '${{ env.PR_NAME }}'
         git add Cargo.toml Cargo.lock go.mod go.sum
         git commit -m 'Bump version to ${{ inputs.version }}'
-        git push origin 'release/v${{ inputs.version }}'
+        git push origin '${{ env.PR_NAME }}'
     - name: Create Pull Request
       if: ${{ env.UPDATED_DEPENDENCIES != '0' }}
       uses: actions/github-script@v6
@@ -39,12 +43,12 @@ jobs:
       with:
         script: |
           const response = await github.rest.pulls.create({
-            title: 'Bump version to ${{ inputs.version }}',
+            title: 'Bump version to ${{ env.PR_NAME }}',
             owner: context.repo.owner,
             repo: context.repo.repo,
-            head: 'release/v${{ inputs.version }}',
+            head: '${{ env.PR_NAME }}',
             base: '${{ inputs.base }}',
-            body: '### What\nBump version to ${{ inputs.version }}, creating release branch.\n\n### Why\nTriggered by @${{ github.actor }} in ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.\n\n### What is next\n\nSee the release instructions for a full rundown on the release process:\nhttps://github.com/stellar/actions/blob/main/README-rust-release.md\n\nCommit any changes to the `release/v${{ inputs.version }}` branch that are needed in this release.\n\nIf this is a regular release releasing from `main`, merge this PR when ready, and after merging, create a release for this version by going to this link: https://github.com/${{ github.repository }}/releases/new?tag=v${{ inputs.version }}&title=${{ inputs.version }}\n\nIf this is a backport or patch release of a past version, see the release instructions. When ready to release this branch create a release by going to this link: \nhttps://github.com/${{ github.repository }}/releases/new?tag=v${{ inputs.version }}&title=${{ inputs.version }}&target=release/v${{ inputs.version }}'
+            body: '### What\nBump dependencies to the latest.\n\n### Why\nTriggered by @${{ github.actor }} in ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.\n\n### What is next\n\nSee the release instructions for a full rundown on the release process:\nhttps://github.com/stellar/actions/blob/main/README-rust-release.md\n\nCommit any changes to the `${{ env.PR_NAME }}` branch that are needed in this release.\n\nIf this is a regular release releasing from `main`, merge this PR when ready, and after merging, create a release for this version by going to this link: https://github.com/${{ github.repository }}/releases/new?tag=v${{ inputs.version }}&title=${{ inputs.version }}\n\nIf this is a backport or patch release of a past version, see the release instructions. When ready to release this branch create a release by going to this link: \nhttps://github.com/${{ github.repository }}/releases/new?tag=v${{ inputs.version }}&title=${{ inputs.version }}&target=release/v${{ inputs.version }}'
           });
           return response.data.number;
     - name: Comment on the Pull Request about Failure
