@@ -29,7 +29,7 @@ fn symbol_with_quotes() {
 
 #[test]
 fn generate_help() {
-    invoke(&TestEnv::default(), "test")
+    invoke(&TestEnv::default(), "strukt_hel")
         .arg("--help")
         .assert()
         .success()

@@ -13,7 +13,10 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{commands::config::ledger_file, strval, utils};
+use crate::{
+    commands::config::{ledger_file, locator},
+    strval, utils,
+};
 
 #[derive(Parser, Debug)]
 pub struct Cmd {
@@ -32,6 +35,9 @@ pub struct Cmd {
 
     #[command(flatten)]
     ledger: ledger_file::Args,
+
+    #[command(flatten)]
+    locator: locator::Args,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -74,6 +80,8 @@ pub enum Error {
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -104,7 +112,7 @@ impl Cmd {
             None
         };
 
-        let state = self.ledger.read()?;
+        let state = self.ledger.read(&self.locator.config_dir()?)?;
         let ledger_entries = &state.ledger_entries;
 
         let contract_id = xdr::Hash(contract_id);

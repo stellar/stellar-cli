@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::num::ParseIntError;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
@@ -31,9 +32,10 @@ use crate::{
     rpc::{self, Client},
     strval::{self, Spec},
     utils::{self, create_ledger_footprint, default_account_ledger_entry},
+    Pwd,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Contract ID to invoke
@@ -53,18 +55,15 @@ pub struct Cmd {
     footprint: bool,
     /// Output the contract auth for the transaction to stderr
     #[arg(long = "auth")]
-    auth: bool,
-
-    /// File to persist event output
+    pub auth: bool,
+    /// File to persist event output, default is .soroban/events.json
     #[arg(
         long,
-        default_value(".soroban/events.json"),
         conflicts_with = "rpc_url",
         env = "SOROBAN_EVENTS_FILE",
         help_heading = HEADING_SANDBOX,
     )]
-    pub events_file: std::path::PathBuf,
-
+    pub events_file: Option<PathBuf>,
     // Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
@@ -73,28 +72,18 @@ pub struct Cmd {
     pub config: config::Args,
 }
 
-impl Default for Cmd {
-    fn default() -> Self {
-        Self {
-            contract_id: String::new(),
-            wasm: None,
-            cost: false,
-            unlimited_budget: false,
-            footprint: false,
-            auth: false,
-            events_file: ".soroban/events.json".into(),
-            slop: vec![],
-            config: config::Args::default(),
-        }
-    }
-}
-
 impl FromStr for Cmd {
     type Err = clap::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use clap::{CommandFactory, FromArgMatches};
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(s.split_whitespace()))
+    }
+}
+
+impl Pwd for Cmd {
+    fn set_pwd(&mut self, pwd: &Path) {
+        self.config.set_pwd(pwd);
     }
 }
 
@@ -435,9 +424,11 @@ impl Cmd {
 
         self.config.set_state(&mut state)?;
 
-        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
+        let event_path = self.events_file_path()?;
+
+        events::commit(&events.0, &state, &event_path).map_err(|e| {
             Error::CannotCommitEventsFile {
-                filepath: self.events_file.clone(),
+                filepath: event_path,
                 error: e,
             }
         })?;
@@ -489,6 +480,14 @@ impl Cmd {
         utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
             contract_id: self.contract_id.clone(),
             error: e,
+        })
+    }
+
+    fn events_file_path(&self) -> Result<PathBuf, Error> {
+        Ok(if let Some(events_file) = &self.events_file {
+            PathBuf::from(events_file)
+        } else {
+            self.config.config_dir()?.join("events.json")
         })
     }
 }

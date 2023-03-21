@@ -1,7 +1,7 @@
-use std::{fmt::Display, fs};
+use std::{fmt::Display, path::Path};
 
 use assert_cmd::Command;
-use assert_fs::TempDir;
+use soroban_cli::commands::config::{locator::KeyType, secret::Secret};
 use soroban_test::{TestEnv, Wasm};
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
@@ -14,18 +14,22 @@ pub enum SecretKind {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn add_identity(dir: &TempDir, name: &str, kind: SecretKind, data: &str) {
-    let identity_dir = dir.join(".soroban").join("identities");
-    fs::create_dir_all(&identity_dir).unwrap();
-    let kind_str = match kind {
-        SecretKind::Seed => "seed_phrase",
-        SecretKind::Key => "secret_key",
+pub fn add_identity(dir: &Path, name: &str, kind: SecretKind, data: &str) {
+    let secret = match kind {
+        SecretKind::Seed => Secret::SeedPhrase {
+            seed_phrase: data.to_string(),
+        },
+        SecretKind::Key => Secret::SecretKey {
+            secret_key: data.to_string(),
+        },
     };
-    let contents = format!("{kind_str} = \"{data}\"\n");
-    fs::write(identity_dir.join(format!("{name}.toml")), contents).unwrap();
+
+    KeyType::Identity
+        .write(name, &secret, &dir.join(".soroban"))
+        .unwrap()
 }
 
-pub fn add_test_id(dir: &TempDir) -> String {
+pub fn add_test_id(dir: &Path) -> String {
     let name = "test_id";
     add_identity(
         dir,
@@ -36,7 +40,7 @@ pub fn add_test_id(dir: &TempDir) -> String {
     name.to_owned()
 }
 
-pub fn add_test_seed(dir: &TempDir) -> String {
+pub fn add_test_seed(dir: &Path) -> String {
     let name = "test_seed";
     add_identity(
         dir,
@@ -63,12 +67,20 @@ where
     D: Display,
 {
     TestEnv::with_default(|e| {
+        let data = data.to_string();
+        println!("{data}");
         let res = e
-            .invoke(format!(
-                "invoke --id=1 --wasm={CUSTOM_TYPES} -- {func} --{func} {data}",
-            ))
+            .invoke(&[
+                "--id=1",
+                "--wasm",
+                &CUSTOM_TYPES.to_string(),
+                "--",
+                func,
+                &format!("--{func}"),
+                &data,
+            ])
             .unwrap();
-        assert_eq!(res, data.to_string());
+        assert_eq!(res, data);
     });
 }
 

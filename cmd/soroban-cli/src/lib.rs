@@ -11,6 +11,8 @@ pub mod toid;
 pub mod utils;
 pub mod wasm;
 
+use std::path::Path;
+
 pub use commands::Root;
 
 pub fn parse_cmd<T>(s: &str) -> Result<T, clap::Error>
@@ -28,6 +30,8 @@ where
 
 pub trait CommandParser<T> {
     fn parse(s: &str) -> Result<T, clap::Error>;
+
+    fn parse_arg_vec(s: &[&str]) -> Result<T, clap::Error>;
 }
 
 impl<T> CommandParser<T> for T
@@ -37,4 +41,12 @@ where
     fn parse(s: &str) -> Result<T, clap::Error> {
         parse_cmd(s)
     }
+
+    fn parse_arg_vec(args: &[&str]) -> Result<T, clap::Error> {
+        T::from_arg_matches_mut(&mut T::command().no_binary_name(true).get_matches_from(args))
+    }
+}
+
+pub trait Pwd {
+    fn set_pwd(&mut self, pwd: &Path);
 }

@@ -1,3 +1,4 @@
+use soroban_cli::commands;
 use soroban_test::TestEnv;
 
 use crate::util::{
@@ -102,9 +103,14 @@ fn invoke_hello_world_with_lib() {
 fn invoke_hello_world_with_lib_two() {
     TestEnv::with_default(|e| {
         let res = e
-            .invoke(format!(
-                "invoke --id=1 --wasm {HELLO_WORLD} -- hello --world=world"
-            ))
+            .invoke(&[
+                "--id=1",
+                "--wasm",
+                &HELLO_WORLD.to_string(),
+                "--",
+                "hello",
+                "--world=world",
+            ])
             .unwrap();
         assert_eq!(res, r#"["Hello","world"]"#);
     })
@@ -201,18 +207,15 @@ fn invoke_with_sk() {
 }
 
 fn invoke_with_source(sandbox: &TestEnv, source: &str) {
-    sandbox
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--source-account")
-        .arg(source)
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(path)
-        .arg("--")
-        .arg("hello")
-        .arg("--world=world")
-        .assert()
-        .stdout("[\"Hello\",\"world\"]\n")
-        .success();
+    let cmd = sandbox.invoke(&[
+        "--source-account",
+        source,
+        "--id=1",
+        "--wasm",
+        HELLO_WORLD.path().to_str().unwrap(),
+        "--",
+        "hello",
+        "--world=world",
+    ]);
+    assert_eq!(cmd.unwrap(), "[\"Hello\",\"world\"]");
 }

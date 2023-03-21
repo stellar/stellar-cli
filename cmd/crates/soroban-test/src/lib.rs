@@ -10,6 +10,7 @@ use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
 pub use soroban_cli::commands::contract::invoke;
+use soroban_cli::{commands::contract, CommandParser, Pwd};
 
 mod wasm;
 pub use wasm::Wasm;
@@ -57,13 +58,22 @@ impl TestEnv {
         this
     }
 
-    pub fn invoke<I: AsRef<str>>(&self, command_str: I) -> Result<String, Error> {
-        self.invoke_cmd(command_str.as_ref().parse().map_err(invoke::Error::Clap)?)
+    pub fn cmd<T: CommandParser<T>>(&self, args: &str) -> T {
+        let args = format!("{args} --pwd={}", self.dir().display());
+        T::parse(&args).unwrap()
+    }
+
+    pub fn invoke<I: AsRef<str>>(&self, command_str: &[I]) -> Result<String, Error> {
+        let mut cmd = contract::invoke::Cmd::parse_arg_vec(
+            &command_str.iter().map(AsRef::as_ref).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        cmd.set_pwd(self.dir());
+        Ok(cmd.run_in_sandbox()?)
     }
 
     pub fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, Error> {
         cmd.config.locator.pwd = Some(self.dir().to_path_buf());
-        cmd.config.ledger_file.ledger_file = self.dir().to_path_buf().join(".soroban/ledger.json");
         Ok(cmd.run_in_sandbox()?)
     }
 
@@ -79,6 +89,7 @@ impl TestEnv {
             .arg("0000000000000000")
             .arg("test")
             .assert()
+            .stdout("")
             .success();
     }
 
