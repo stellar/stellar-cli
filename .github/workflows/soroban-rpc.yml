@@ -90,7 +90,7 @@ jobs:
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.7.1-1204.871accefc.focal~soroban
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.8.1-1238.903afe5e1.focal~soroban
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3

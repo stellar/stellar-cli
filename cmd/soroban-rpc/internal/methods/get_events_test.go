@@ -22,10 +22,10 @@ func TestTopicFilterMatches(t *testing.T) {
 		Type: xdr.ScValTypeScvSymbol,
 		Sym:  &transferSym,
 	}
-	sixtyfour := xdr.Int64(64)
+	sixtyfour := xdr.Uint64(64)
 	number := xdr.ScVal{
-		Type: xdr.ScValTypeScvU63,
-		U63:  &sixtyfour,
+		Type: xdr.ScValTypeScvU64,
+		U64:  &sixtyfour,
 	}
 	star := "*"
 	for _, tc := range []struct {
@@ -191,8 +191,8 @@ func TestTopicFilterJSON(t *testing.T) {
 	assert.NoError(t, json.Unmarshal([]byte("[\"*\"]"), &got))
 	assert.Equal(t, TopicFilter{{wildcard: &star}}, got)
 
-	sixtyfour := xdr.Int64(64)
-	scval := xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &sixtyfour}
+	sixtyfour := xdr.Uint64(64)
+	scval := xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &sixtyfour}
 	scvalstr, err := xdr.MarshalBase64(scval)
 	assert.NoError(t, err)
 	assert.NoError(t, json.Unmarshal([]byte(fmt.Sprintf("[%q]", scvalstr)), &got))
@@ -514,7 +514,7 @@ func TestGetEvents(t *testing.T) {
 		var txMeta []xdr.TransactionMeta
 		contractID := xdr.Hash([32]byte{})
 		for i := 0; i < 10; i++ {
-			number := xdr.Int64(i)
+			number := xdr.Uint64(i)
 			txMeta = append(txMeta, transactionMetaWithEvents(
 				[]xdr.ContractEvent{
 					// Generate a unique topic like /counter/4 for each event so we can check
@@ -522,16 +522,16 @@ func TestGetEvents(t *testing.T) {
 						contractID,
 						xdr.ScVec{
 							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+							xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 						},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					),
 				},
 			))
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
-		number := xdr.Int64(4)
+		number := xdr.Uint64(4)
 		handler := eventsRPCHandler{
 			scanner:      store,
 			maxLimit:     10000,
@@ -543,7 +543,7 @@ func TestGetEvents(t *testing.T) {
 				{Topics: []TopicFilter{
 					[]SegmentFilter{
 						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
-						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
+						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number}},
 					},
 				}},
 			},
@@ -553,8 +553,8 @@ func TestGetEvents(t *testing.T) {
 		id := events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String()
 		assert.NoError(t, err)
 		value, err := xdr.MarshalBase64(xdr.ScVal{
-			Type: xdr.ScValTypeScvU63,
-			U63:  &number,
+			Type: xdr.ScValTypeScvU64,
+			U64:  &number,
 		})
 		assert.NoError(t, err)
 		expected := []EventInfo{
@@ -576,7 +576,7 @@ func TestGetEvents(t *testing.T) {
 		store := events.NewMemoryStore("unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		otherContractID := xdr.Hash([32]byte{1})
-		number := xdr.Int64(1)
+		number := xdr.Uint64(1)
 		txMeta := []xdr.TransactionMeta{
 			// This matches neither the contract id nor the topic
 			transactionMetaWithEvents([]xdr.ContractEvent{
@@ -585,7 +585,7 @@ func TestGetEvents(t *testing.T) {
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 			// This matches the contract id but not the topic
@@ -595,7 +595,7 @@ func TestGetEvents(t *testing.T) {
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 			// This matches the topic but not the contract id
@@ -604,9 +604,9 @@ func TestGetEvents(t *testing.T) {
 					otherContractID,
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 			// This matches both the contract id and the topic
@@ -615,9 +615,9 @@ func TestGetEvents(t *testing.T) {
 					contractID,
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 		}
@@ -636,7 +636,7 @@ func TestGetEvents(t *testing.T) {
 					Topics: []TopicFilter{
 						[]SegmentFilter{
 							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
-							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
+							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number}},
 						},
 					},
 				},
@@ -646,8 +646,8 @@ func TestGetEvents(t *testing.T) {
 
 		id := events.Cursor{Ledger: 1, Tx: 4, Op: 0, Event: 0}.String()
 		value, err := xdr.MarshalBase64(xdr.ScVal{
-			Type: xdr.ScValTypeScvU63,
-			U63:  &number,
+			Type: xdr.ScValTypeScvU64,
+			U64:  &number,
 		})
 		assert.NoError(t, err)
 		expected := []EventInfo{
@@ -722,15 +722,15 @@ func TestGetEvents(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 180; i++ {
-			number := xdr.Int64(i)
+			number := xdr.Uint64(i)
 			txMeta = append(txMeta, transactionMetaWithEvents(
 				[]xdr.ContractEvent{
 					contractEvent(
 						contractID,
 						xdr.ScVec{
-							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+							xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 						},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					),
 				},
 			))
