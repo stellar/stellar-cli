@@ -31,7 +31,9 @@ func TestGetLedgerEntryNotFound(t *testing.T) {
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
 			ContractId: contractID,
-			Key:        getContractCodeLedgerKey(),
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+			},
 		},
 	})
 	require.NoError(t, err)

@@ -1,8 +1,9 @@
 package transactions
 
 import (
-	"github.com/stellar/go/ingest"
 	"sync"
+
+	"github.com/stellar/go/ingest"
 
 	"github.com/stellar/go/xdr"
 
@@ -37,16 +38,13 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any transactions from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(networkPassphrase string, retentionWindow uint32) (*MemoryStore, error) {
-	window, err := ledgerbucketwindow.NewLedgerBucketWindow[[]xdr.Hash](retentionWindow)
-	if err != nil {
-		return nil, err
-	}
+func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
+	window := ledgerbucketwindow.NewLedgerBucketWindow[[]xdr.Hash](retentionWindow)
 	return &MemoryStore{
 		networkPassphrase:    networkPassphrase,
 		transactions:         make(map[xdr.Hash]transaction),
 		transactionsByLedger: window,
-	}, nil
+	}
 }
 
 // IngestTransactions adds new transactions from the given ledger into the store.

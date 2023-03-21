@@ -145,12 +145,13 @@ fn e_2_s_enum() {
     invoke_with_roundtrip("complex", json!({"Enum": "First"}));
 }
 
+fn complex_tuple() -> serde_json::Value {
+    json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]})
+}
+
 #[test]
 fn e_2_s_tuple() {
-    invoke_with_roundtrip(
-        "complex",
-        json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]}),
-    );
+    invoke_with_roundtrip("complex", complex_tuple());
 }
 
 #[test]
@@ -209,7 +210,7 @@ fn negative_i64() {
 #[test]
 fn account_address() {
     invoke_with_roundtrip(
-        "address",
+        "addresse",
         json!("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS"),
     );
 }
@@ -217,7 +218,7 @@ fn account_address() {
 #[test]
 fn contract_address() {
     invoke_with_roundtrip(
-        "address",
+        "addresse",
         json!("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"),
     );
 }

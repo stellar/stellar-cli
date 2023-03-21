@@ -22,6 +22,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
 const (
@@ -108,7 +109,7 @@ func (i *Test) launchDaemon() {
 		LogLevel:                         logrus.DebugLevel,
 		SQLiteDBPath:                     path.Join(i.t.TempDir(), "soroban_rpc.sqlite"),
 		LedgerEntryStorageTimeout:        10 * time.Minute,
-		EventLedgerRetentionWindow:       17280,
+		EventLedgerRetentionWindow:       ledgerbucketwindow.DefaultEventLedgerRetentionWindow,
 		TransactionLedgerRetentionWindow: 1440,
 		CheckpointFrequency:              checkpointFrequency,
 		MaxEventsLimit:                   10000,

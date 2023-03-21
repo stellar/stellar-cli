@@ -18,6 +18,7 @@ import (
 
 	localConfig "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
 func mustPositiveUint32(co *config.ConfigOption) error {
@@ -185,10 +186,10 @@ func main() {
 		{
 			Name:        "event-retention-window",
 			OptType:     types.Uint32,
-			FlagDefault: uint32(17280),
+			FlagDefault: uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
 			Required:    false,
-			Usage: "configures the event retention window expressed in number of ledgers," +
-				" the default value is 17280 which corresponds to about 24 hours of history",
+			Usage: fmt.Sprintf("configures the event retention window expressed in number of ledgers,"+
+				" the default value is %d which corresponds to about 24 hours of history", ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
 			ConfigKey:      &serviceConfig.EventLedgerRetentionWindow,
 			CustomSetValue: mustPositiveUint32,
 		},

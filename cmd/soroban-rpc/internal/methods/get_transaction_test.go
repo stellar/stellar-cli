@@ -112,9 +112,8 @@ func txEnvelope(acctSeq uint32) xdr.TransactionEnvelope {
 }
 
 func TestGetTransaction(t *testing.T) {
-	store, err := transactions.NewMemoryStore("passphrase", 100)
-	assert.NoError(t, err)
-	_, err = GetTransaction(store, GetTransactionRequest{"ab"})
+	store := transactions.NewMemoryStore("passphrase", 100)
+	_, err := GetTransaction(store, GetTransactionRequest{"ab"})
 	assert.EqualError(t, err, "[-32602] unexpected hash length (2)")
 	_, err = GetTransaction(store, GetTransactionRequest{"foo                                                              "})
 	assert.EqualError(t, err, "[-32602] incorrect hash: encoding/hex: invalid byte: U+006F 'o'")

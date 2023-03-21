@@ -187,8 +187,7 @@ func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequen
 
 func TestIngestTransactions(t *testing.T) {
 	// Use a small retention window to test eviction
-	store, err := NewMemoryStore("passphrase", 3)
-	require.NoError(t, err)
+	store := NewMemoryStore("passphrase", 3)
 
 	_, ok, storeRange := store.GetTransaction(txHash(1, false))
 	require.False(t, ok)
