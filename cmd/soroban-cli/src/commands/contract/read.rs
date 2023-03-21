@@ -135,7 +135,7 @@ impl Cmd {
                 .filter_map(|(k, v)| {
                     if let LedgerKey::ContractData(kd) = *k.clone() {
                         if kd.contract_id == contract_id
-                            && kd.key != ScVal::Static(xdr::ScStatic::LedgerKeyContractCode)
+                            && kd.key != ScVal::LedgerKeyContractExecutable
                         {
                             if let LedgerEntryData::ContractData(vd) = &v.data {
                                 return Some(vd.clone());

@@ -21,8 +21,14 @@ import (
 )
 
 var (
-	testContract = []byte("a contract")
-	testSalt     = sha256.Sum256([]byte("a1"))
+	testContract   = []byte("a contract")
+	testSalt       = sha256.Sum256([]byte("a1"))
+	testContractId = []byte{
+		234, 159, 203, 129, 174, 84, 162, 159,
+		107, 59, 242, 147, 132, 125, 63, 215,
+		233, 163, 105, 253, 28, 128, 172, 175,
+		236, 106, 189, 87, 19, 23, 224, 194,
+	}
 )
 
 func getHelloWorldContract(t *testing.T) []byte {
@@ -190,6 +196,12 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	require.NoError(t, err)
 	request := methods.SimulateTransactionRequest{Transaction: txB64}
 
+	expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{
+		Type:  xdr.ScValTypeScvBytes,
+		Bytes: &xdr.ScBytes(testContractId),
+	})
+	require.NoError(t, err)
+
 	var result methods.SimulateTransactionResponse
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
 	assert.NoError(t, err)
@@ -206,7 +218,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			Results: []methods.SimulateTransactionResult{
 				{
 					Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
-					XDR:       "AAAABAAAAAEAAAAGAAAAIOqfy4GuVKKfazvyk4R9P9fpo2n9HICsr+xqvVcTF+DC",
+					XDR:       expectedXdr,
 				},
 			},
 			LatestLedger: result.LatestLedger,
