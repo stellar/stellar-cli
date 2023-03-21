@@ -80,8 +80,8 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	resultVal := *invokeHostFunctionResult.Success
 	expectedContractID, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
 	assert.NoError(t, err)
-	expectedObj := &xdr.ScObject{Type: xdr.ScObjectTypeScoBytes, Bin: &expectedContractID}
-	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvObject, Obj: &expectedObj}
+	contractIDBytes := xdr.ScBytes(expectedContractID)
+	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
 	assert.True(t, expectedScVal.Equals(resultVal))
 
 	expectedResult := xdr.TransactionResult{

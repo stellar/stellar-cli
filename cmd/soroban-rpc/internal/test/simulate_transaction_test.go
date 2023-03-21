@@ -37,16 +37,12 @@ func getHelloWorldContract(t *testing.T) []byte {
 }
 
 func createInvokeHostOperation(sourceAccount string, footprint xdr.LedgerFootprint, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
-	var contractIDBytes []byte = contractID[:]
-	contractIDObj := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &contractIDBytes,
-	}
+	var contractIDBytes = xdr.ScBytes(contractID[:])
 	methodSymbol := xdr.ScSymbol(method)
 	parameters := xdr.ScVec{
 		xdr.ScVal{
-			Type: xdr.ScValTypeScvObject,
-			Obj:  &contractIDObj,
+			Type:  xdr.ScValTypeScvBytes,
+			Bytes: &contractIDBytes,
 		},
 		xdr.ScVal{
 			Type: xdr.ScValTypeScvSymbol,
@@ -108,7 +104,9 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 					Type: xdr.LedgerEntryTypeContractData,
 					ContractData: &xdr.LedgerKeyContractData{
 						ContractId: xdr.Hash(getContractID(t, sourceAccount, testSalt, networkPassphrase)),
-						Key:        getContractCodeLedgerKey(),
+						Key: xdr.ScVal{
+							Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+						},
 					},
 				},
 			},
@@ -136,23 +134,14 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 					Type: xdr.ContractIdTypeContractIdFromSourceAccount,
 					Salt: &saltParam,
 				},
-				Source: xdr.ScContractCode{
-					Type:   xdr.ScContractCodeTypeSccontractCodeWasmRef,
+				Source: xdr.ScContractExecutable{
+					Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
 					WasmId: &contractHash,
 				},
 			},
 		},
 		SourceAccount: sourceAccount,
 	}
-}
-
-func getContractCodeLedgerKey() xdr.ScVal {
-	ledgerKeyContractCodeAddr := xdr.ScStaticScsLedgerKeyContractCode
-	contractCodeLedgerKey := xdr.ScVal{
-		Type: xdr.ScValTypeScvStatic,
-		Ic:   &ledgerKeyContractCodeAddr,
-	}
-	return contractCodeLedgerKey
 }
 
 func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPassphrase string) [32]byte {
@@ -341,13 +330,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-	addressObject := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoAddress,
-		Address: &xdr.ScAddress{
-			Type:      xdr.ScAddressTypeScAddressTypeAccount,
-			AccountId: &authAccountIDArg,
-		},
-	}
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
@@ -358,8 +340,11 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 				contractID,
 				"auth",
 				xdr.ScVal{
-					Type: xdr.ScValTypeScvObject,
-					Obj:  &addressObject,
+					Type: xdr.ScValTypeScvAddress,
+					Address: &xdr.ScAddress{
+						Type:      xdr.ScAddressTypeScAddressTypeAccount,
+						AccountId: &authAccountIDArg,
+					},
 				},
 				xdr.ScVal{
 					Type: xdr.ScValTypeScvSymbol,
@@ -387,11 +372,10 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	var obtainedResult xdr.ScVal
 	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
 	assert.NoError(t, err)
-	assert.Equal(t, xdr.ScValTypeScvObject, obtainedResult.Type)
-	obj := *obtainedResult.Obj
-	assert.Equal(t, xdr.ScObjectTypeScoVec, obj.Type)
-	assert.Len(t, *obj.Vec, 2)
-	world := (*obj.Vec)[1]
+	assert.Equal(t, xdr.ScValTypeScvVec, obtainedResult.Type)
+	assert.NotNil(t, *obtainedResult.Vec)
+	assert.Len(t, **obtainedResult.Vec, 2)
+	world := (**obtainedResult.Vec)[1]
 	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 
@@ -407,8 +391,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	ro1 := obtainedFootprint.ReadOnly[1]
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
 	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.ContractId)
-	assert.Equal(t, xdr.ScValTypeScvStatic, ro1.ContractData.Key.Type)
-	assert.Equal(t, xdr.ScStaticScsLedgerKeyContractCode, *ro1.ContractData.Key.Ic)
+	assert.Equal(t, xdr.ScValTypeScvLedgerKeyContractExecutable, ro1.ContractData.Key.Type)
 	ro2 := obtainedFootprint.ReadOnly[2]
 	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
 	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: helloWorldContract}.MarshalBinary()
