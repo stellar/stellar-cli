@@ -1,3 +1,5 @@
+use crate::commands::config::secret::Secret;
+
 use super::super::{locator, secret};
 use clap::arg;
 
@@ -15,14 +17,14 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
-    /// Name of identity to lookup
-    pub name: String,
+    /// Name of identity to lookup, default test identity used if not provided
+    pub name: Option<String>,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
     pub hd_path: Option<usize>,
 
-    #[clap(skip)]
+    #[command(flatten)]
     pub locator: locator::Args,
 }
 
@@ -33,7 +35,11 @@ impl Cmd {
     }
 
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        let res = self.locator.read_identity(&self.name)?;
+        let res = if let Some(name) = &self.name {
+            self.locator.read_identity(name)?
+        } else {
+            Secret::test_seed_phrase()?
+        };
         let key = res.key_pair(self.hd_path)?;
         Ok(stellar_strkey::ed25519::PublicKey::from_payload(
             key.public.as_bytes(),

@@ -10,7 +10,10 @@ use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
 pub use soroban_cli::commands::contract::invoke;
-use soroban_cli::{commands::contract, CommandParser, Pwd};
+use soroban_cli::{
+    commands::{config, contract},
+    CommandParser, Pwd,
+};
 
 mod wasm;
 pub use wasm::Wasm;
@@ -59,17 +62,32 @@ impl TestEnv {
     }
 
     pub fn cmd<T: CommandParser<T>>(&self, args: &str) -> T {
-        let args = format!("{args} --pwd={}", self.dir().display());
+        self.cmd_with_pwd(args, self.dir())
+    }
+
+    pub fn cmd_with_pwd<T: CommandParser<T>>(&self, args: &str, pwd: &Path) -> T {
+        let args = format!("{args} --pwd={}", pwd.display());
         T::parse(&args).unwrap()
     }
 
-    pub fn invoke<I: AsRef<str>>(&self, command_str: &[I]) -> Result<String, Error> {
+    pub fn cmd_arr_with_pwd<T: CommandParser<T>>(&self, args: &[&str], pwd: &Path) -> T {
+        let mut cmds = args.to_vec();
+        cmds.push("--pwd");
+        cmds.push(pwd.to_str().unwrap());
+        T::parse_arg_vec(&cmds).unwrap()
+    }
+
+    pub fn cmd_arr<T: CommandParser<T>>(&self, args: &[&str]) -> T {
+        self.cmd_arr_with_pwd(args, self.dir())
+    }
+
+    pub fn invoke<I: AsRef<str>>(&self, command_str: &[I]) -> Result<String, invoke::Error> {
         let mut cmd = contract::invoke::Cmd::parse_arg_vec(
             &command_str.iter().map(AsRef::as_ref).collect::<Vec<_>>(),
         )
         .unwrap();
         cmd.set_pwd(self.dir());
-        Ok(cmd.run_in_sandbox()?)
+        cmd.run_in_sandbox()
     }
 
     pub fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, Error> {
@@ -94,11 +112,10 @@ impl TestEnv {
     }
 
     pub fn test_address(&self, hd_path: usize) -> String {
-        self.new_cmd("config")
-            .args("identity address test --hd-path".split(' '))
-            .arg(format!("{hd_path}"))
-            .assert()
-            .stdout_as_str()
+        self.cmd::<config::identity::address::Cmd>(&format!("--hd-path={hd_path}"))
+            .public_key()
+            .unwrap()
+            .to_string()
     }
 
     pub fn fork(&self) -> Result<TestEnv, Error> {

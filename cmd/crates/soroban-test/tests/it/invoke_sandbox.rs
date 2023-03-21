@@ -1,4 +1,4 @@
-use soroban_cli::commands;
+use soroban_cli::commands::{self, contract};
 use soroban_test::TestEnv;
 
 use crate::util::{
@@ -163,21 +163,19 @@ fn invoke_auth_with_different_test_account() {
 #[test]
 fn invoke_auth_with_different_test_account_fail() {
     let sandbox = TestEnv::default();
-    sandbox
-        .new_cmd("contract")
-        .arg("invoke")
-        .arg("--hd-path=1")
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .arg("--")
-        .arg("auth")
-        .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
-        .arg("--world=world")
-        .assert()
-        .success()
-        .stdout("")
-        .stderr(predicates::str::contains("HostError"));
+    assert!(matches!(
+        sandbox.invoke(&[
+            "--hd-path=1",
+            "--id=1",
+            "--wasm",
+            HELLO_WORLD.path().to_str().unwrap(),
+            "--",
+            "auth",
+            &format!("--addr={DEFAULT_PUB_KEY}"),
+            "--world=world",
+        ]),
+        Err(contract::invoke::Error::Host(_))
+    ));
 }
 
 #[test]

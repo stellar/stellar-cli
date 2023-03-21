@@ -15,14 +15,14 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
-    /// Name of identity to lookup
-    pub name: String,
+    /// Name of identity to lookup, default is test identity
+    pub name: Option<String>,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
     pub hd_path: Option<usize>,
 
-    #[clap(skip)]
+    #[command(flatten)]
     pub locator: locator::Args,
 }
 
@@ -33,9 +33,11 @@ impl Cmd {
     }
 
     pub fn private_key(&self) -> Result<stellar_strkey::ed25519::PrivateKey, Error> {
-        Ok(self
-            .locator
-            .read_identity(&self.name)?
-            .private_key(self.hd_path)?)
+        Ok(if let Some(name) = &self.name {
+            self.locator.read_identity(name)?
+        } else {
+            secret::Secret::test_seed_phrase()?
+        }
+        .private_key(self.hd_path)?)
     }
 }

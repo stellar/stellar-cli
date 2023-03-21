@@ -424,14 +424,16 @@ impl Cmd {
 
         self.config.set_state(&mut state)?;
 
-        let event_path = self.events_file_path()?;
+        if !events.0.is_empty() {
+            let event_path = self.events_file_path()?;
 
-        events::commit(&events.0, &state, &event_path).map_err(|e| {
-            Error::CannotCommitEventsFile {
-                filepath: event_path,
-                error: e,
-            }
-        })?;
+            events::commit(&events.0, &state, &event_path).map_err(|e| {
+                Error::CannotCommitEventsFile {
+                    filepath: event_path,
+                    error: e,
+                }
+            })?;
+        }
 
         Ok(res_str)
     }

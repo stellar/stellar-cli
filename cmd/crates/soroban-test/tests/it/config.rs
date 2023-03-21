@@ -1,5 +1,3 @@
-use assert_cmd::Command;
-
 use assert_fs::TempDir;
 use soroban_test::{temp_ledger_file, TestEnv};
 use std::{fs, path::Path};
@@ -44,16 +42,17 @@ fn set_and_remove_network() {
     });
 }
 
-fn add_network(sandbox: &TestEnv, name: &str) -> Command {
-    let mut cmd = sandbox.new_cmd("config");
-    cmd.arg("network")
-        .arg("add")
-        .arg("--rpc-url")
-        .arg("https://127.0.0.1")
-        .arg("--network-passphrase")
-        .arg("Local Sandbox Stellar Network ; September 2022")
-        .arg(name);
-    cmd
+fn add_network(sandbox: &TestEnv, name: &str) {
+    sandbox
+        .cmd_arr::<network::add::Cmd>(&[
+            "--rpc-url",
+            "https://127.0.0.1",
+            "--network-passphrase",
+            "Local Sandbox Stellar Network ; September 2022",
+            name,
+        ])
+        .run()
+        .unwrap();
 }
 
 fn add_network_global(sandbox: &TestEnv, dir: &Path, name: &str) {
@@ -111,42 +110,35 @@ fn set_and_remove_global_network() {
 fn mulitple_networks() {
     let sandbox = TestEnv::default();
 
-    add_network(&sandbox, "local").assert().success();
-    add_network(&sandbox, "local2").assert().success();
+    add_network(&sandbox, "local");
+    add_network(&sandbox, "local2");
 
-    sandbox
-        .new_cmd("config")
-        .arg("network")
-        .arg("ls")
-        .assert()
-        .stdout("local\nlocal2\n");
+    let ls = || -> Vec<String> { sandbox.cmd::<network::ls::Cmd>("").ls().unwrap() };
 
-    sandbox
-        .new_cmd("config")
-        .arg("network")
-        .arg("rm")
-        .arg("local")
-        .assert();
-    sandbox
-        .new_cmd("config")
-        .arg("network")
-        .arg("ls")
-        .assert()
-        .stdout("local2\n");
+    assert_eq!(ls().as_slice(), ["local".to_owned(), "local2".to_owned()]);
+
+    sandbox.cmd::<network::rm::Cmd>("local").run().unwrap();
+
+    assert_eq!(ls().as_slice(), ["local2".to_owned()]);
 
     let sub_dir = sandbox.dir().join("sub_directory");
     fs::create_dir(&sub_dir).unwrap();
-    add_network(&sandbox, "local3\n")
-        .current_dir(sub_dir)
-        .assert()
-        .success();
 
     sandbox
-        .new_cmd("config")
-        .arg("network")
-        .arg("ls")
-        .assert()
-        .stdout("local2\nlocal3\n");
+        .cmd_arr_with_pwd::<network::add::Cmd>(
+            &[
+                "--rpc-url",
+                "https://127.0.0.1",
+                "--network-passphrase",
+                "Local Sandbox Stellar Network ; September 2022",
+                "local3",
+            ],
+            &sub_dir,
+        )
+        .run()
+        .unwrap();
+
+    assert_eq!(ls().as_slice(), ["local2".to_owned(), "local3".to_owned()]);
 }
 
 #[test]
@@ -226,7 +218,6 @@ fn use_different_ledger_file() {
 #[test]
 fn read_address() {
     let sandbox = TestEnv::default();
-    sandbox.gen_test_identity();
     for hd_path in 0..2 {
         test_hd_path(&sandbox, hd_path);
     }
