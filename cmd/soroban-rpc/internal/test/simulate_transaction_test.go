@@ -196,9 +196,10 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	require.NoError(t, err)
 	request := methods.SimulateTransactionRequest{Transaction: txB64}
 
+	testContractIdBytes := xdr.ScBytes(testContractId)
 	expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{
 		Type:  xdr.ScValTypeScvBytes,
-		Bytes: &xdr.ScBytes(testContractId),
+		Bytes: &testContractIdBytes,
 	})
 	require.NoError(t, err)
 
