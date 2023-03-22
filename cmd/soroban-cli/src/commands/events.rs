@@ -494,11 +494,16 @@ pub fn commit(
     };
 
     for (i, event) in new_events.iter().enumerate() {
-        let contract_event = match event {
-            events::HostEvent::Contract(e) => e,
-            events::HostEvent::Debug(e) => {
+        let contract_event = match &event.event {
+            events::Event::Contract(e) => e,
+            events::Event::Debug(e) => {
                 return Err(Error::Generic(
                     format!("debug events unsupported: {e:#?}").into(),
+                ))
+            }
+            events::Event::StructuredDebug(e) => {
+                return Err(Error::Generic(
+                    format!("structured debug events unsupported: {e:#?}").into(),
                 ))
             }
         };
@@ -548,6 +553,7 @@ pub fn commit(
             event_type: match contract_event.type_ {
                 xdr::ContractEventType::Contract => "contract",
                 xdr::ContractEventType::System => "system",
+                xdr::ContractEventType::Diagnostic => "diagnostic",
             }
             .to_string(),
             paging_token: id.clone(),
