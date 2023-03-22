@@ -494,11 +494,16 @@ pub fn commit(
     };
 
     for (i, event) in new_events.iter().enumerate() {
-        let contract_event = match event {
-            events::HostEvent::Contract(e) => e,
-            events::HostEvent::Debug(e) => {
+        let contract_event = match &event.event {
+            events::Event::Contract(e) => e,
+            events::Event::Debug(e) => {
                 return Err(Error::Generic(
                     format!("debug events unsupported: {e:#?}").into(),
+                ))
+            }
+            events::Event::StructuredDebug(e) => {
+                return Err(Error::Generic(
+                    format!("structured debug events unsupported: {e:#?}").into(),
                 ))
             }
         };
@@ -548,6 +553,7 @@ pub fn commit(
             event_type: match contract_event.type_ {
                 xdr::ContractEventType::Contract => "contract",
                 xdr::ContractEventType::System => "system",
+                xdr::ContractEventType::Diagnostic => "diagnostic",
             }
             .to_string(),
             paging_token: id.clone(),
@@ -741,24 +747,30 @@ mod tests {
         // ensure the properties match.
 
         let events: Vec<events::HostEvent> = vec![
-            events::HostEvent::Contract(xdr::ContractEvent {
-                ext: xdr::ExtensionPoint::V0,
-                contract_id: Some(xdr::Hash([0; 32])),
-                type_: xdr::ContractEventType::Contract,
-                body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
-                    topics: xdr::ScVec(vec![].try_into().unwrap()),
-                    data: xdr::ScVal::U32(12345),
+            events::HostEvent {
+                event: events::Event::Contract(xdr::ContractEvent {
+                    ext: xdr::ExtensionPoint::V0,
+                    contract_id: Some(xdr::Hash([0; 32])),
+                    type_: xdr::ContractEventType::Contract,
+                    body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
+                        topics: xdr::ScVec(vec![].try_into().unwrap()),
+                        data: xdr::ScVal::U32(12345),
+                    }),
                 }),
-            }),
-            events::HostEvent::Contract(xdr::ContractEvent {
-                ext: xdr::ExtensionPoint::V0,
-                contract_id: Some(xdr::Hash([0x1; 32])),
-                type_: xdr::ContractEventType::Contract,
-                body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
-                    topics: xdr::ScVec(vec![].try_into().unwrap()),
-                    data: xdr::ScVal::I32(67890),
+                failed_call: false,
+            },
+            events::HostEvent {
+                event: events::Event::Contract(xdr::ContractEvent {
+                    ext: xdr::ExtensionPoint::V0,
+                    contract_id: Some(xdr::Hash([0x1; 32])),
+                    type_: xdr::ContractEventType::Contract,
+                    body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
+                        topics: xdr::ScVec(vec![].try_into().unwrap()),
+                        data: xdr::ScVal::I32(67890),
+                    }),
                 }),
-            }),
+                failed_call: false,
+            },
         ];
 
         let snapshot = soroban_ledger_snapshot::LedgerSnapshot {
