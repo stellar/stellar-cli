@@ -66,14 +66,14 @@ impl TestEnv {
     /// Execute a closure which is passed a reference to the `TestEnv`.
     /// `TempDir` implements the `Drop` trait ensuring that the temporary directory
     /// it creates is deleted when the `TestEnv` is dropped. This pattern ensures
-    /// that the TestEnv cannot be dropped by the closure. For this reason, it's
+    /// that the `TestEnv` cannot be dropped by the closure. For this reason, it's
     /// recommended to use `TempDir::with_default` instead of `new` or `default`.
     ///
     /// ```rust,no_run
+    /// use soroban_test::TestEnv;
     /// TestEnv::with_default(|env| {
-    ///     env.invoke(["--id", "1", "--", "hello", "--world=world"]).unwrap();
-    ///
-    /// }
+    ///     env.invoke(&["--id", "1", "--", "hello", "--world=world"]).unwrap();
+    /// });
     /// ```
     ///
     pub fn with_default<F: FnOnce(&TestEnv)>(f: F) {
@@ -93,45 +93,54 @@ impl TestEnv {
         this
     }
 
+    /// Parses a `&str` into a command and sets the pwd to be the same as the current `TestEnv`.
+    /// Uses shlex under the hood and thus has issues parsing strings with embedded `"`s.
+    /// Thus `TestEnv::cmd_arr` is recommended to instead.
     pub fn cmd<T: CommandParser<T>>(&self, args: &str) -> T {
-        self.cmd_with_pwd(args, self.dir())
+        Self::cmd_with_pwd(args, self.dir())
     }
 
-    pub fn cmd_with_pwd<T: CommandParser<T>>(&self, args: &str, pwd: &Path) -> T {
+    /// Same as `TestEnv::cmd` but sets the pwd can be used instead of the current `TestEnv`.
+    pub fn cmd_with_pwd<T: CommandParser<T>>(args: &str, pwd: &Path) -> T {
         let args = format!("{args} --pwd={}", pwd.display());
         T::parse(&args).unwrap()
     }
 
-    pub fn cmd_arr_with_pwd<T: CommandParser<T>>(&self, args: &[&str], pwd: &Path) -> T {
+    /// Same as `TestEnv::cmd_arr` but sets the pwd can be used instead of the current `TestEnv`.
+    pub fn cmd_arr_with_pwd<T: CommandParser<T>>(args: &[&str], pwd: &Path) -> T {
         let mut cmds = args.to_vec();
         cmds.push("--pwd");
         cmds.push(pwd.to_str().unwrap());
         T::parse_arg_vec(&cmds).unwrap()
     }
 
+    /// Parse a command using an array of `&str`s, which passes the strings directly to clap
+    /// avoiding some issues `cmd` has with shlex. Use the current `TestEnv` pwd.
     pub fn cmd_arr<T: CommandParser<T>>(&self, args: &[&str]) -> T {
-        self.cmd_arr_with_pwd(args, self.dir())
+        Self::cmd_arr_with_pwd(args, self.dir())
     }
 
+    /// A convenience method for using the invoke command.
     pub fn invoke<I: AsRef<str>>(&self, command_str: &[I]) -> Result<String, invoke::Error> {
-        let mut cmd = contract::invoke::Cmd::parse_arg_vec(
+        let cmd = contract::invoke::Cmd::parse_arg_vec(
             &command_str.iter().map(AsRef::as_ref).collect::<Vec<_>>(),
         )
         .unwrap();
+        self.invoke_cmd(cmd)
+    }
+
+    /// Invoke an already parsed invoke command
+    pub fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, invoke::Error> {
         cmd.set_pwd(self.dir());
         cmd.run_in_sandbox()
     }
 
-    pub fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, Error> {
-        cmd.config.locator.pwd = Some(self.dir().to_path_buf());
-        Ok(cmd.run_in_sandbox()?)
-    }
-
+    /// Reference to current directory of the `TestEnv`.
     pub fn dir(&self) -> &TempDir {
         &self.temp_dir
     }
 
-    /// Returns the public key corresponding to the test identity's hd_path
+    /// Returns the public key corresponding to the test identity's `hd_path`
     pub fn test_address(&self, hd_path: usize) -> String {
         self.cmd::<config::identity::address::Cmd>(&format!("--hd-path={hd_path}"))
             .public_key()
@@ -139,7 +148,7 @@ impl TestEnv {
             .to_string()
     }
 
-    /// Returns the private key corresponding to the test identity's hd_path
+    /// Returns the private key corresponding to the test identity's `hd_path`
     pub fn test_show(&self, hd_path: usize) -> String {
         self.cmd::<config::identity::show::Cmd>(&format!("--hd-path={hd_path}"))
             .private_key()

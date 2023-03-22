@@ -124,19 +124,18 @@ fn mulitple_networks() {
     let sub_dir = sandbox.dir().join("sub_directory");
     fs::create_dir(&sub_dir).unwrap();
 
-    sandbox
-        .cmd_arr_with_pwd::<network::add::Cmd>(
-            &[
-                "--rpc-url",
-                "https://127.0.0.1",
-                "--network-passphrase",
-                "Local Sandbox Stellar Network ; September 2022",
-                "local3",
-            ],
-            &sub_dir,
-        )
-        .run()
-        .unwrap();
+    TestEnv::cmd_arr_with_pwd::<network::add::Cmd>(
+        &[
+            "--rpc-url",
+            "https://127.0.0.1",
+            "--network-passphrase",
+            "Local Sandbox Stellar Network ; September 2022",
+            "local3",
+        ],
+        &sub_dir,
+    )
+    .run()
+    .unwrap();
 
     assert_eq!(ls().as_slice(), ["local2".to_owned(), "local3".to_owned()]);
 }
