@@ -41,7 +41,7 @@ install_rust: Cargo.lock
 	cargo install --path ./cmd/soroban-cli
 
 install: install_rust build-libpreflight
-	go install -ldflags="${GOLDFLAGS}" -gcflags='CXXFLAGS="-mmacosx-version-min=12.3"' ${MACOS_MIN_VER} ./...
+	go install -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
 
 build_rust: Cargo.lock
 	cargo build
@@ -81,7 +81,7 @@ publish:
 # https://github.com/stellar/pipelines/stellar-horizon/Jenkinsfile-soroban-rpc-package-builder
 # as part of the package building.
 build-soroban-rpc: build-libpreflight
-	go build -ldflags="${GOLDFLAGS}" -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
+	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
 
 lint-changes:
 	golangci-lint run ./... --new-from-rev $$(git rev-parse HEAD)
