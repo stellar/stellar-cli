@@ -50,7 +50,7 @@ build: build_rust build-libpreflight
 	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
 
 build-libpreflight: Cargo.lock
-	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind
+	cargo build -p preflight --profile release-with-panic-unwind
 
 build-test-wasms: Cargo.lock
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
