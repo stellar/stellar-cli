@@ -10,7 +10,7 @@ use soroban_env_host::xdr::{ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::Host;
 use soroban_env_host::{
     budget::{Budget, CostType},
-    events::HostEvent,
+    events::Event,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
@@ -394,11 +394,13 @@ impl Cmd {
 
         for (i, event) in events.0.iter().enumerate() {
             eprint!("#{i}: ");
-            match event {
-                HostEvent::Contract(e) => {
+            match &event.event {
+                Event::Contract(e) => {
                     eprintln!("event: {}", serde_json::to_string(&e).unwrap());
                 }
-                HostEvent::Debug(e) => eprintln!("debug: {e}"),
+                Event::Debug(e) => eprintln!("debug: {e}"),
+                // TODO: print structued debug events in a nicer way
+                Event::StructuredDebug(e) => eprintln!("structured debug: {e:?}"),
             }
         }
 
