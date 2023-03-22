@@ -190,6 +190,7 @@ impl Spec {
             .map_or_else(
                 |e| match t {
                     ScType::Symbol
+                    | ScType::String
                     | ScType::Bytes
                     | ScType::BytesN(_)
                     | ScType::U128
@@ -229,6 +230,7 @@ impl Spec {
                 | ScType::I64
                 | ScType::U32
                 | ScType::U64
+                | ScType::String
                 | ScType::Symbol
                 | ScType::Address
                 | ScType::Bytes
