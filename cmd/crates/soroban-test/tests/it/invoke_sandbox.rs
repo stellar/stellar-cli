@@ -96,7 +96,7 @@ fn invoke_hello_world_with_lib() {
         };
         let res = e.invoke_cmd(cmd).unwrap();
         assert_eq!(res, r#"["Hello","world"]"#);
-    })
+    });
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn invoke_hello_world_with_lib_two() {
             ])
             .unwrap();
         assert_eq!(res, r#"["Hello","world"]"#);
-    })
+    });
 }
 // #[test]
 // fn invoke_hello_world_with_lib_three() {
