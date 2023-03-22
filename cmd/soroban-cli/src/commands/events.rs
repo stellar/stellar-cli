@@ -747,24 +747,30 @@ mod tests {
         // ensure the properties match.
 
         let events: Vec<events::HostEvent> = vec![
-            events::HostEvent::Contract(xdr::ContractEvent {
-                ext: xdr::ExtensionPoint::V0,
-                contract_id: Some(xdr::Hash([0; 32])),
-                type_: xdr::ContractEventType::Contract,
-                body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
-                    topics: xdr::ScVec(vec![].try_into().unwrap()),
-                    data: xdr::ScVal::U32(12345),
+            events::HostEvent {
+                event: events::Event::Contract(xdr::ContractEvent {
+                    ext: xdr::ExtensionPoint::V0,
+                    contract_id: Some(xdr::Hash([0; 32])),
+                    type_: xdr::ContractEventType::Contract,
+                    body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
+                        topics: xdr::ScVec(vec![].try_into().unwrap()),
+                        data: xdr::ScVal::U32(12345),
+                    }),
                 }),
-            }),
-            events::HostEvent::Contract(xdr::ContractEvent {
-                ext: xdr::ExtensionPoint::V0,
-                contract_id: Some(xdr::Hash([0x1; 32])),
-                type_: xdr::ContractEventType::Contract,
-                body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
-                    topics: xdr::ScVec(vec![].try_into().unwrap()),
-                    data: xdr::ScVal::I32(67890),
+                failed_call: false,
+            },
+            events::HostEvent {
+                event: events::Event::Contract(xdr::ContractEvent {
+                    ext: xdr::ExtensionPoint::V0,
+                    contract_id: Some(xdr::Hash([0x1; 32])),
+                    type_: xdr::ContractEventType::Contract,
+                    body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
+                        topics: xdr::ScVec(vec![].try_into().unwrap()),
+                        data: xdr::ScVal::I32(67890),
+                    }),
                 }),
-            }),
+                failed_call: false,
+            },
         ];
 
         let snapshot = soroban_ledger_snapshot::LedgerSnapshot {
