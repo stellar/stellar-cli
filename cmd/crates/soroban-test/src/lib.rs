@@ -1,9 +1,29 @@
+//! **Soroban Test** - Test framework for invoking Soroban externally.
+//!
+//! Currently soroban provides a mock test environment for writing unit tets.
+//!
+//! However, it does not provide a way to run tests aganist a local sandbox or rpc endpoint.
+//!
+//! ## Overview
+//!
+//! - `TestEnv` is a test environment for running runing tests isolated from each other.
+//! - `TestEnv::with_default` invokes a closure, which is passed a reference to a random `TestEnv`.
+//! - `TestEnv::new_assert_cmd` creates an `assert_cmd::Command` for a given subcommand and sets the current
+//!    directory to be the same as `TestEnv`.
+//! - `TestEnv::cmd` is a generic function which parses a command from a string.
+//!    Note, however, that it uses `shlex` to tokenize the string. This can cause issues
+//!    for commands which contain strings with `"`s. For example, `{"hello": "world"}` becomes
+//!    `{hello:world}`. For that reason it's recommended to use `TestEnv::cmd_arg` instead.
+//! - `TestEnv::cmd_arg` is a generic function which takes an array of `&str` which is passed directly to clap.
+//!    This is the preferred way since it ensures no string parsing footguns.
+//! - `TestEnv::invoke` a convenience function for using the invoke command.
+//!
 #![allow(
     clippy::missing_errors_doc,
     clippy::must_use_candidate,
     clippy::missing_panics_doc
 )]
-use std::{env, ffi::OsString, fmt::Display, path::Path};
+use std::{ffi::OsString, fmt::Display, path::Path};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
@@ -20,8 +40,8 @@ pub use wasm::Wasm;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to create temporary directory")]
-    TempDir(FixtureError),
+    #[error(transparent)]
+    TempDir(#[from] FixtureError),
 
     #[error(transparent)]
     FsError(#[from] fs_extra::error::Error),
@@ -43,20 +63,32 @@ impl Default for TestEnv {
 }
 
 impl TestEnv {
+    /// Execute a closure which is passed a reference to the `TestEnv`.
+    /// `TempDir` implements the `Drop` trait ensuring that the temporary directory
+    /// it creates is deleted when the `TestEnv` is dropped. This pattern ensures
+    /// that the TestEnv cannot be dropped by the closure. For this reason, it's
+    /// recommended to use `TempDir::with_default` instead of `new` or `default`.
+    ///
+    /// ```rust,no_run
+    /// TestEnv::with_default(|env| {
+    ///     env.invoke(["--id", "1", "--", "hello", "--world=world"]).unwrap();
+    ///
+    /// }
+    /// ```
+    ///
     pub fn with_default<F: FnOnce(&TestEnv)>(f: F) {
         let test_env = TestEnv::default();
-        env::set_var("SOROBAN_CONFIG_HOME", test_env.dir().path());
         f(&test_env);
-        env::remove_var("SOROBAN_CONFIG_HOME");
     }
     pub fn new() -> Result<TestEnv, Error> {
-        TempDir::new()
-            .map_err(Error::TempDir)
-            .map(|temp_dir| TestEnv { temp_dir })
+        Ok(TempDir::new().map(|temp_dir| TestEnv { temp_dir })?)
     }
-    pub fn new_cmd(&self, name: &str) -> Command {
+
+    /// Create a new `assert_cmd::Command` for a given subcommand and set's the current directory
+    /// to be the internal `temp_dir`.
+    pub fn new_assert_cmd(&self, subcommand: &str) -> Command {
         let mut this = Command::cargo_bin("soroban").unwrap_or_else(|_| Command::new("soroban"));
-        this.arg(name);
+        this.arg(subcommand);
         this.current_dir(&self.temp_dir);
         this
     }
@@ -99,18 +131,7 @@ impl TestEnv {
         &self.temp_dir
     }
 
-    pub fn gen_test_identity(&self) {
-        self.new_cmd("config")
-            .arg("identity")
-            .arg("generate")
-            .arg("--seed")
-            .arg("0000000000000000")
-            .arg("test")
-            .assert()
-            .stdout("")
-            .success();
-    }
-
+    /// Returns the public key corresponding to the test identity's hd_path
     pub fn test_address(&self, hd_path: usize) -> String {
         self.cmd::<config::identity::address::Cmd>(&format!("--hd-path={hd_path}"))
             .public_key()
@@ -118,6 +139,15 @@ impl TestEnv {
             .to_string()
     }
 
+    /// Returns the private key corresponding to the test identity's hd_path
+    pub fn test_show(&self, hd_path: usize) -> String {
+        self.cmd::<config::identity::show::Cmd>(&format!("--hd-path={hd_path}"))
+            .private_key()
+            .unwrap()
+            .to_string()
+    }
+
+    /// Copy the contents of the current `TestEnv` to another `TestEnv`
     pub fn fork(&self) -> Result<TestEnv, Error> {
         let this = TestEnv::new()?;
         self.save(&this.temp_dir)?;

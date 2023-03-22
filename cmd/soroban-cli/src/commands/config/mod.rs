@@ -81,7 +81,7 @@ pub struct Args {
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
         let key = if let Some(source_account) = &self.source_account {
-            Args::account(source_account)?
+            self.account(source_account)?
         } else {
             secret::Secret::test_seed_phrase()?
         };
@@ -89,8 +89,8 @@ impl Args {
         Ok(key.key_pair(self.hd_path)?)
     }
 
-    pub fn account(account_str: &str) -> Result<Secret, Error> {
-        if let Ok(secret) = locator::read_identity(account_str) {
+    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
+        if let Ok(secret) = self.locator.read_identity(account_str) {
             Ok(secret)
         } else {
             Ok(account_str.parse::<Secret>()?)

@@ -52,7 +52,7 @@ pub fn add_test_seed(dir: &Path) -> String {
 }
 
 pub fn invoke(sandbox: &TestEnv, func: &str) -> Command {
-    let mut s = sandbox.new_cmd("contract");
+    let mut s = sandbox.new_assert_cmd("contract");
     s.arg("invoke")
         .arg("--id=1")
         .arg("--wasm")

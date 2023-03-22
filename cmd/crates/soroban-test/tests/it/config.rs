@@ -34,7 +34,7 @@ fn set_and_remove_network() {
         //     .assert()
         //     .stdout("");
         sandbox
-            .new_cmd("config")
+            .new_assert_cmd("config")
             .arg("network")
             .arg("ls")
             .assert()
@@ -57,7 +57,7 @@ fn add_network(sandbox: &TestEnv, name: &str) {
 
 fn add_network_global(sandbox: &TestEnv, dir: &Path, name: &str) {
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
         .arg("network")
         .arg("add")
@@ -79,7 +79,7 @@ fn set_and_remove_global_network() {
     add_network_global(&sandbox, &dir, "global");
 
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
         .arg("network")
         .arg("ls")
@@ -88,7 +88,7 @@ fn set_and_remove_global_network() {
         .stdout("global\n");
 
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
         .arg("network")
         .arg("rm")
@@ -98,7 +98,7 @@ fn set_and_remove_global_network() {
         .stdout("");
 
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
         .arg("network")
         .arg("ls")
@@ -149,7 +149,7 @@ fn read_identity() {
     let ident_dir = dir.join(".soroban/identity");
     assert!(ident_dir.exists());
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .arg("identity")
         .arg("ls")
         .assert()
@@ -159,10 +159,19 @@ fn read_identity() {
 #[test]
 fn generate_identity() {
     let sandbox = TestEnv::default();
-    sandbox.gen_test_identity();
+    sandbox
+        .new_assert_cmd("config")
+        .arg("identity")
+        .arg("generate")
+        .arg("--seed")
+        .arg("0000000000000000")
+        .arg("test")
+        .assert()
+        .stdout("")
+        .success();
 
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .arg("identity")
         .arg("ls")
         .assert()
@@ -187,7 +196,7 @@ fn seed_phrase() {
     );
 
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .current_dir(dir)
         .arg("identity")
         .arg("ls")
@@ -199,7 +208,7 @@ fn seed_phrase() {
 fn use_different_ledger_file() {
     let sandbox = TestEnv::default();
     sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("invoke")
         .arg("--id=1")
         .arg("--wasm")
@@ -228,7 +237,7 @@ fn use_env() {
     let sandbox = TestEnv::default();
 
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .env(
             "SOROBAN_SECRET_KEY",
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
@@ -241,7 +250,7 @@ fn use_env() {
         .success();
 
     sandbox
-        .new_cmd("config")
+        .new_assert_cmd("config")
         .arg("identity")
         .arg("show")
         .arg("bob")

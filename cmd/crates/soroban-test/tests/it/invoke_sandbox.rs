@@ -1,9 +1,9 @@
-use soroban_cli::commands::{self, contract};
+use soroban_cli::commands::contract;
 use soroban_test::TestEnv;
 
 use crate::util::{
-    add_test_seed, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY,
-    DEFAULT_SEED_PHRASE, HELLO_WORLD,
+    add_test_seed, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE,
+    HELLO_WORLD,
 };
 
 #[test]
@@ -11,7 +11,7 @@ fn install_wasm_then_deploy_contract() {
     let hash = HELLO_WORLD.hash().unwrap();
     let sandbox = TestEnv::default();
     sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("install")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
@@ -20,7 +20,7 @@ fn install_wasm_then_deploy_contract() {
         .stdout(format!("{hash}\n"));
 
     sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("deploy")
         .arg("--wasm-hash")
         .arg(&format!("{hash}"))
@@ -33,7 +33,7 @@ fn install_wasm_then_deploy_contract() {
 #[test]
 fn deploy_contract_with_wasm_file() {
     TestEnv::default()
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("deploy")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
@@ -47,7 +47,7 @@ fn deploy_contract_with_wasm_file() {
 fn invoke_hello_world_with_deploy_first() {
     let sandbox = TestEnv::default();
     let res = sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("deploy")
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
@@ -56,7 +56,7 @@ fn invoke_hello_world_with_deploy_first() {
     let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
     let id = stdout.trim_end();
     sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("invoke")
         .arg("--id")
         .arg(id)
@@ -72,7 +72,7 @@ fn invoke_hello_world_with_deploy_first() {
 fn invoke_hello_world() {
     let sandbox = TestEnv::default();
     sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("invoke")
         .arg("--id=1")
         .arg("--wasm")
@@ -88,7 +88,7 @@ fn invoke_hello_world() {
 #[test]
 fn invoke_hello_world_with_lib() {
     TestEnv::with_default(|e| {
-        let cmd = invoke::Cmd {
+        let cmd = contract::invoke::Cmd {
             contract_id: "1".to_string(),
             wasm: Some(HELLO_WORLD.path()),
             slop: vec!["hello".into(), "--world=world".into()],
@@ -127,7 +127,7 @@ fn invoke_hello_world_with_lib_two() {
 fn invoke_auth() {
     let sandbox = TestEnv::default();
     sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("invoke")
         .arg("--id=1")
         .arg("--wasm")
@@ -145,7 +145,7 @@ fn invoke_auth() {
 fn invoke_auth_with_different_test_account() {
     let sandbox = TestEnv::default();
     sandbox
-        .new_cmd("contract")
+        .new_assert_cmd("contract")
         .arg("invoke")
         .arg("--hd-path=1")
         .arg("--id=1")

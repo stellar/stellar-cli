@@ -40,19 +40,19 @@ use crate::{
 pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id")]
-    contract_id: String,
+    pub contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[arg(long)]
-    wasm: Option<std::path::PathBuf>,
+    pub wasm: Option<std::path::PathBuf>,
     /// Output the cost execution to stderr
     #[arg(long = "cost")]
-    cost: bool,
+    pub cost: bool,
     /// Run with an unlimited budget
     #[arg(long = "unlimited-budget", conflicts_with = "rpc_url")]
-    unlimited_budget: bool,
+    pub unlimited_budget: bool,
     /// Output the footprint to stderr
     #[arg(long = "footprint")]
-    footprint: bool,
+    pub footprint: bool,
     /// Output the contract auth for the transaction to stderr
     #[arg(long = "auth")]
     pub auth: bool,
