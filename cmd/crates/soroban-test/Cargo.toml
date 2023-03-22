@@ -32,7 +32,6 @@ soroban-cli = { workspace = true }
 
 thiserror = "1.0.31"
 sha2 = "0.10.6"
-cargo = "0.68.0"
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 predicates = "2.1.5"
