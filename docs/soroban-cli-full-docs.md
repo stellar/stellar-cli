@@ -185,12 +185,12 @@ soroban contract invoke ... -- --help
 * `--unlimited-budget` — Run with an unlimited budget
 * `--footprint` — Output the footprint to stderr
 * `--auth` — Output the contract auth for the transaction to stderr
-* `--events-file <EVENTS_FILE>` — File to persist event output, default is `.soroban/events.json`
+* `--events-file <EVENTS_FILE>` — File to persist event output, default is .soroban/events.json
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a secret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
 
 
