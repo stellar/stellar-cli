@@ -285,7 +285,7 @@ fn parse_negative_i128() {
 #[test]
 fn parse_u256() {
     let num = "340000000000000000000000000000000000000";
-    invoke(&Sandbox::new(), "u256")
+    invoke(&TestEnv::default(), "u256")
         .arg("--u256")
         .arg(num)
         .assert()
@@ -299,7 +299,7 @@ fn parse_u256() {
 #[test]
 fn parse_i256() {
     let num = "170000000000000000000000000000000000000";
-    invoke(&Sandbox::new(), "i256")
+    invoke(&TestEnv::default(), "i256")
         .arg("--i256")
         .arg(num)
         .assert()
@@ -313,7 +313,7 @@ fn parse_i256() {
 #[test]
 fn parse_negative_i256() {
     let num = "-170000000000000000000000000000000000000";
-    invoke(&Sandbox::new(), "i256")
+    invoke(&TestEnv::default(), "i256")
         .arg("--i256")
         .arg(num)
         .assert()
