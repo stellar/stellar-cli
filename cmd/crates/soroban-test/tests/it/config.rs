@@ -107,7 +107,7 @@ fn set_and_remove_global_network() {
 }
 
 #[test]
-fn mulitple_networks() {
+fn multiple_networks() {
     let sandbox = TestEnv::default();
 
     add_network(&sandbox, "local");

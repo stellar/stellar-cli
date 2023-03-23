@@ -6,7 +6,7 @@
 //!
 //! ## Overview
 //!
-//! - `TestEnv` is a test environment for running runing tests isolated from each other.
+//! - `TestEnv` is a test environment for running tests isolated from each other.
 //! - `TestEnv::with_default` invokes a closure, which is passed a reference to a random `TestEnv`.
 //! - `TestEnv::new_assert_cmd` creates an `assert_cmd::Command` for a given subcommand and sets the current
 //!    directory to be the same as `TestEnv`.
