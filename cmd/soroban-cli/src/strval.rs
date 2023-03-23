@@ -190,8 +190,11 @@ impl Spec {
             .map_or_else(
                 |e| match t {
                     ScType::Symbol
+                    | ScType::String
                     | ScType::Bytes
                     | ScType::BytesN(_)
+                    | ScType::U256
+                    | ScType::I256
                     | ScType::U128
                     | ScType::I128
                     | ScType::Address => Ok(Value::String(s.to_owned())),
@@ -206,7 +209,9 @@ impl Spec {
                     _ => Err(Error::Serde(e)),
                 },
                 |val| match t {
-                    ScType::U128 | ScType::I128 => Ok(Value::String(s.to_owned())),
+                    ScType::U128 | ScType::I128 | ScType::U256 | ScType::I256 => {
+                        Ok(Value::String(s.to_owned()))
+                    }
                     _ => Ok(val),
                 },
             )
@@ -229,6 +234,7 @@ impl Spec {
                 | ScType::I64
                 | ScType::U32
                 | ScType::U64
+                | ScType::String
                 | ScType::Symbol
                 | ScType::Address
                 | ScType::Bytes

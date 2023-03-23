@@ -16,6 +16,11 @@ fn symbol() {
 }
 
 #[test]
+fn string_with_quotes() {
+    invoke_with_roundtrip("string", json!("hello world"));
+}
+
+#[test]
 fn symbol_with_quotes() {
     invoke_with_roundtrip("hello", json!("world"));
 }
@@ -266,6 +271,48 @@ fn parse_negative_i128() {
     let num = "-170000000000000000000000000000000000000";
     invoke(&Sandbox::new(), "i128")
         .arg("--i128")
+        .arg(num)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{num}"
+"#,
+        ));
+}
+
+#[test]
+fn parse_u256() {
+    let num = "340000000000000000000000000000000000000";
+    invoke(&Sandbox::new(), "u256")
+        .arg("--u256")
+        .arg(num)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{num}"
+"#,
+        ));
+}
+
+#[test]
+fn parse_i256() {
+    let num = "170000000000000000000000000000000000000";
+    invoke(&Sandbox::new(), "i256")
+        .arg("--i256")
+        .arg(num)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{num}"
+"#,
+        ));
+}
+
+#[test]
+fn parse_negative_i256() {
+    let num = "-170000000000000000000000000000000000000";
+    invoke(&Sandbox::new(), "i256")
+        .arg("--i256")
         .arg(num)
         .assert()
         .success()

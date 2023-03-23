@@ -590,9 +590,10 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         arg = match type_ {
             xdr::ScSpecTypeDef::Bool => arg.num_args(0).required(false),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
-            xdr::ScSpecTypeDef::I128 | xdr::ScSpecTypeDef::I64 | xdr::ScSpecTypeDef::I32 => {
-                arg.allow_hyphen_values(true)
-            }
+            xdr::ScSpecTypeDef::I256
+            | xdr::ScSpecTypeDef::I128
+            | xdr::ScSpecTypeDef::I64
+            | xdr::ScSpecTypeDef::I32 => arg.allow_hyphen_values(true),
             _ => arg,
         };
 
