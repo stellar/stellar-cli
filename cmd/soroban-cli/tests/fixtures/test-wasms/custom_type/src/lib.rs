@@ -1,6 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, Set, Symbol, Vec,
+    contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, Set, String, Symbol, Vec,
+    I256, U256,
 };
 
 pub struct Contract;
@@ -139,17 +140,17 @@ impl Contract {
         option
     }
 
-    // pub fn u256(_env: Env, u256: U256) -> U256 {
-    // u256
-    // }
+    pub fn u256(_env: Env, u256: U256) -> U256 {
+        u256
+    }
 
-    // pub fn i256(_env: Env, i256: I256) -> I256 {
-    //     i256
-    // }
+    pub fn i256(_env: Env, i256: I256) -> I256 {
+        i256
+    }
 
-    // pub fn string(_env: Env, string: String) -> String {
-    //     string
-    // }
+    pub fn string(_env: Env, string: String) -> String {
+        string
+    }
 
     // pub fn timepoint(_env: Env, timepoint: TimePoint) -> TimePoint {
     //     timepoint

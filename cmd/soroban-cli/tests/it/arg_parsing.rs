@@ -75,6 +75,18 @@ fn parse_i128() {
 }
 
 #[test]
+fn parse_i256() {
+    let b = -170_000_000_000_000_000_000_000_000_000_000_000_000i128;
+    let res = &format!("{b}");
+    let entries = get_spec();
+    entries.from_string(res, &ScSpecTypeDef::I256).unwrap();
+    println!(
+        "{:#?}",
+        strval::from_string_primitive(res, &ScSpecTypeDef::I256,).unwrap()
+    );
+}
+
+#[test]
 fn parse_symbol() {
     // let b = "hello";
     // let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::Symbol, &json! {b}).unwrap();
