@@ -37,6 +37,7 @@ use crate::{
 
 #[derive(Parser, Debug, Default)]
 #[allow(clippy::struct_excessive_bools)]
+#[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id")]

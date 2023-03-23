@@ -28,6 +28,7 @@ use crate::{
         .required(true)
         .args(&["wasm", "wasm_hash"]),
 ))]
+#[group(skip)]
 pub struct Cmd {
     /// WASM file to deploy
     #[arg(long, group = "wasm_src")]

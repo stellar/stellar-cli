@@ -47,6 +47,7 @@ pub enum Error {
 }
 
 #[derive(Parser, Debug)]
+#[group(skip)]
 pub struct Cmd {
     /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
     #[arg(long)]

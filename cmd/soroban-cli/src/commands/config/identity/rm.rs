@@ -8,6 +8,7 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct Cmd {
     /// Identity to remove
     pub name: String,

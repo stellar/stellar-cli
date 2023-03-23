@@ -16,6 +16,7 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct Cmd {
     /// Name of identity to lookup, default test identity used if not provided
     pub name: Option<String>,

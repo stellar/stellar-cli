@@ -9,6 +9,7 @@ use soroban_spec::gen::{
 use crate::wasm;
 
 #[derive(Parser, Debug)]
+#[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
     wasm: wasm::Args,

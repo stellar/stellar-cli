@@ -19,6 +19,7 @@ use crate::{
 };
 
 #[derive(Parser, Debug)]
+#[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id")]

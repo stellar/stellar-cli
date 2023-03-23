@@ -15,6 +15,7 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 
 #[derive(Parser, Debug)]
+#[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
     pub wasm: wasm::Args,

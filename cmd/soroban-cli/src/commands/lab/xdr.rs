@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
+#[group(skip)]
 pub struct Cmd {
     #[clap(subcommand)]
     sub: SubCmd,

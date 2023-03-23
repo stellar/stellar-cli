@@ -17,6 +17,7 @@ To enable autocomplete permanently, run:
   echo \"source <(soroban completion --shell bash)\" >> ~/.bashrc";
 
 #[derive(Parser, Debug)]
+#[group(skip)]
 pub struct Cmd {
     /// The shell type
     #[arg(long, value_enum)]

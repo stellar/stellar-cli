@@ -11,6 +11,7 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct Cmd {
     /// Name of network
     pub name: String,

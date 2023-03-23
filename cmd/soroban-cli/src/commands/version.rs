@@ -5,6 +5,7 @@ use std::fmt::Debug;
 const GIT_REVISION: &str = env!("GIT_REVISION");
 
 #[derive(Parser, Debug)]
+#[group(skip)]
 pub struct Cmd;
 
 impl Cmd {
