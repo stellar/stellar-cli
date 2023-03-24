@@ -274,7 +274,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 			{EventType: "foo"},
 		},
 		Pagination: nil,
-	}).Valid(1000), "filter 1 invalid: if set, type must be either 'system' or 'contract'")
+	}).Valid(1000), "filter 1 invalid: if set, type must be either 'system', 'contract' or 'diagnostic'")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -684,6 +684,13 @@ func TestGetEvents(t *testing.T) {
 					},
 					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 				),
+				diagnosticEvent(
+					contractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+				),
 			}),
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
@@ -978,7 +985,7 @@ func contractEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.C
 		Body: xdr.ContractEventBody{
 			V: 0,
 			V0: &xdr.ContractEventV0{
-				Topics: xdr.ScVec(topic),
+				Topics: topic,
 				Data:   body,
 			},
 		},
@@ -992,7 +999,21 @@ func systemEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.Con
 		Body: xdr.ContractEventBody{
 			V: 0,
 			V0: &xdr.ContractEventV0{
-				Topics: xdr.ScVec(topic),
+				Topics: topic,
+				Data:   body,
+			},
+		},
+	}
+}
+
+func diagnosticEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.ContractEvent {
+	return xdr.ContractEvent{
+		ContractId: &contractID,
+		Type:       xdr.ContractEventTypeDiagnostic,
+		Body: xdr.ContractEventBody{
+			V: 0,
+			V0: &xdr.ContractEventV0{
+				Topics: topic,
 				Data:   body,
 			},
 		},

@@ -79,6 +79,13 @@ func (g *GetEventsRequest) Matches(event xdr.ContractEvent) bool {
 
 const EventTypeSystem = "system"
 const EventTypeContract = "contract"
+const EventTypeDiagnostic = "diagnostic"
+
+var eventTypeFromXDR = map[xdr.ContractEventType]string{
+	xdr.ContractEventTypeSystem:     EventTypeSystem,
+	xdr.ContractEventTypeContract:   EventTypeContract,
+	xdr.ContractEventTypeDiagnostic: EventTypeDiagnostic,
+}
 
 type EventFilter struct {
 	EventType   string        `json:"type,omitempty"`
@@ -88,10 +95,10 @@ type EventFilter struct {
 
 func (e *EventFilter) Valid() error {
 	switch e.EventType {
-	case "", EventTypeSystem, EventTypeContract:
+	case "", EventTypeSystem, EventTypeContract, EventTypeDiagnostic:
 		// ok
 	default:
-		return errors.New("if set, type must be either 'system' or 'contract'")
+		return errors.New("if set, type must be either 'system', 'contract' or 'diagnostic'")
 	}
 	if len(e.ContractIDs) > 5 {
 		return errors.New("maximum 5 contract IDs per filter")
@@ -118,13 +125,7 @@ func (e *EventFilter) Matches(event xdr.ContractEvent) bool {
 }
 
 func (e *EventFilter) matchesEventType(event xdr.ContractEvent) bool {
-	if e.EventType == EventTypeContract && event.Type != xdr.ContractEventTypeContract {
-		return false
-	}
-	if e.EventType == EventTypeSystem && event.Type != xdr.ContractEventTypeSystem {
-		return false
-	}
-	return true
+	return e.EventType == "" || e.EventType == eventTypeFromXDR[event.Type]
 }
 
 func (e *EventFilter) matchesContractIDs(event xdr.ContractEvent) bool {
@@ -341,14 +342,9 @@ func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClos
 		return EventInfo{}, errors.New("unknown event version")
 	}
 
-	var eventType string
-	switch event.Type {
-	case xdr.ContractEventTypeSystem:
-		eventType = EventTypeSystem
-	case xdr.ContractEventTypeContract:
-		eventType = EventTypeContract
-	default:
-		return EventInfo{}, errors.New("unknown event type")
+	eventType, ok := eventTypeFromXDR[event.Type]
+	if !ok {
+		return EventInfo{}, fmt.Errorf("unknown XDR ContractEventType type: %d", event.Type)
 	}
 
 	// base64-xdr encode the topic
