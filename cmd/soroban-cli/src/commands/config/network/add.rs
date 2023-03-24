@@ -10,7 +10,7 @@ pub enum Error {
     Config(#[from] locator::Error),
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Name of network

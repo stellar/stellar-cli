@@ -18,7 +18,7 @@ use crate::{
     strval, utils,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke

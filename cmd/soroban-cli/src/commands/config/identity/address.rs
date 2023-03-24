@@ -15,7 +15,7 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity to lookup, default test identity used if not provided

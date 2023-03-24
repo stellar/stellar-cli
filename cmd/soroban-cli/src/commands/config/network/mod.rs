@@ -76,7 +76,7 @@ pub struct Args {
     pub network: Option<String>,
 }
 
-#[derive(Debug, clap::Args, Serialize, Deserialize)]
+#[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]
 #[group(skip)]
 pub struct Network {
     /// RPC server endpoint

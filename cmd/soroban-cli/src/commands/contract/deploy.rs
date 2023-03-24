@@ -22,7 +22,7 @@ use crate::{
     utils, wasm,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(group(
     clap::ArgGroup::new("wasm_src")
         .required(true)

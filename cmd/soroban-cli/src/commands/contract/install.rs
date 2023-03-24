@@ -14,7 +14,7 @@ use soroban_env_host::HostError;
 use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]

@@ -7,7 +7,7 @@ pub enum Error {
     Locator(#[from] locator::Error),
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Network to remove

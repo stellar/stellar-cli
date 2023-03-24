@@ -13,7 +13,7 @@ use soroban_env_host::{
 use crate::commands::{HEADING_RPC, HEADING_SANDBOX};
 use crate::{rpc, toid, utils};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required

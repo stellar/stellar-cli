@@ -1,7 +1,7 @@
 use clap::{arg, Parser, ValueEnum};
 use soroban_env_host::xdr;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// XDR type to decode to

@@ -35,7 +35,7 @@ use crate::{
     Pwd,
 };
 
-#[derive(Parser, Debug, Default)]
+#[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
 #[group(skip)]
 pub struct Cmd {
