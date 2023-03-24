@@ -81,6 +81,12 @@ const EventTypeSystem = "system"
 const EventTypeContract = "contract"
 const EventTypeDiagnostic = "diagnostic"
 
+var eventTypeFromXDR = map[xdr.ContractEventType]string{
+	xdr.ContractEventTypeSystem:     EventTypeSystem,
+	xdr.ContractEventTypeContract:   EventTypeContract,
+	xdr.ContractEventTypeDiagnostic: EventTypeDiagnostic,
+}
+
 type EventFilter struct {
 	EventType   string        `json:"type,omitempty"`
 	ContractIDs []string      `json:"contractIds,omitempty"`
@@ -119,7 +125,7 @@ func (e *EventFilter) Matches(event xdr.ContractEvent) bool {
 }
 
 func (e *EventFilter) matchesEventType(event xdr.ContractEvent) bool {
-	return e.EventType == "" || e.EventType == eventTypeFromXDR(event.Type)
+	return e.EventType == "" || e.EventType == eventTypeFromXDR[event.Type]
 }
 
 func (e *EventFilter) matchesContractIDs(event xdr.ContractEvent) bool {
@@ -330,26 +336,14 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 	}, nil
 }
 
-func eventTypeFromXDR(xdrType xdr.ContractEventType) string {
-	switch xdrType {
-	case xdr.ContractEventTypeSystem:
-		return EventTypeSystem
-	case xdr.ContractEventTypeContract:
-		return EventTypeContract
-	case xdr.ContractEventTypeDiagnostic:
-		return EventTypeDiagnostic
-	}
-	return ""
-}
-
 func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
 	v0, ok := event.Body.GetV0()
 	if !ok {
 		return EventInfo{}, errors.New("unknown event version")
 	}
 
-	eventType := eventTypeFromXDR(event.Type)
-	if eventType == "" {
+	eventType, ok := eventTypeFromXDR[event.Type]
+	if !ok {
 		return EventInfo{}, fmt.Errorf("unknown XDR ContractEventType type: %d", event.Type)
 	}
 
