@@ -15,14 +15,15 @@ fn set_and_remove_network() {
         );
 
         sandbox.cmd::<network::add::Cmd>(&input).run().unwrap();
-
-        let dir = sandbox.dir().join(".soroban/network");
-        let file = std::fs::read_dir(dir).unwrap().next().unwrap().unwrap();
-        assert_eq!(file.file_name().to_str().unwrap(), "local.toml");
-
         let res = sandbox.cmd::<network::ls::Cmd>("").ls().unwrap();
         assert_eq!(res.len(), 1);
         assert_eq!(&res[0], "local");
+
+        let dir = sandbox.dir().join(".soroban/network");
+        let read_dir = std::fs::read_dir(dir);
+        println!("{read_dir:#?}");
+        let file = read_dir.unwrap().next().unwrap().unwrap();
+        assert_eq!(file.file_name().to_str().unwrap(), "local.toml");
 
         sandbox.cmd::<network::rm::Cmd>("local").run().unwrap();
 
@@ -109,11 +110,11 @@ fn set_and_remove_global_network() {
 #[test]
 fn multiple_networks() {
     let sandbox = TestEnv::default();
+    let ls = || -> Vec<String> { sandbox.cmd::<network::ls::Cmd>("").ls().unwrap() };
 
     add_network(&sandbox, "local");
+    println!("{:#?}", ls());
     add_network(&sandbox, "local2");
-
-    let ls = || -> Vec<String> { sandbox.cmd::<network::ls::Cmd>("").ls().unwrap() };
 
     assert_eq!(ls().as_slice(), ["local".to_owned(), "local2".to_owned()]);
 
