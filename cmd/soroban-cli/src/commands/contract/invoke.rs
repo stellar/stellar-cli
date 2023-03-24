@@ -10,7 +10,7 @@ use soroban_env_host::xdr::{ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::Host;
 use soroban_env_host::{
     budget::{Budget, CostType},
-    events::HostEvent,
+    events::Event,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
@@ -64,8 +64,8 @@ pub struct Cmd {
     )]
     events_file: std::path::PathBuf,
 
-    // Arguments for contract as `--arg-name value`
-    #[arg(last = true, id = "CONTRACT_FN_ARGS")]
+    // Function name as subcommand, then arguments for that function as `--arg-name value`
+    #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
     #[command(flatten)]
@@ -394,11 +394,13 @@ impl Cmd {
 
         for (i, event) in events.0.iter().enumerate() {
             eprint!("#{i}: ");
-            match event {
-                HostEvent::Contract(e) => {
+            match &event.event {
+                Event::Contract(e) => {
                     eprintln!("event: {}", serde_json::to_string(&e).unwrap());
                 }
-                HostEvent::Debug(e) => eprintln!("debug: {e}"),
+                Event::Debug(e) => eprintln!("debug: {e}"),
+                // TODO: print structued debug events in a nicer way
+                Event::StructuredDebug(e) => eprintln!("structured debug: {e:?}"),
             }
         }
 
@@ -588,9 +590,10 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         arg = match type_ {
             xdr::ScSpecTypeDef::Bool => arg.num_args(0).required(false),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
-            xdr::ScSpecTypeDef::I128 | xdr::ScSpecTypeDef::I64 | xdr::ScSpecTypeDef::I32 => {
-                arg.allow_hyphen_values(true)
-            }
+            xdr::ScSpecTypeDef::I256
+            | xdr::ScSpecTypeDef::I128
+            | xdr::ScSpecTypeDef::I64
+            | xdr::ScSpecTypeDef::I32 => arg.allow_hyphen_values(true),
             _ => arg,
         };
 
