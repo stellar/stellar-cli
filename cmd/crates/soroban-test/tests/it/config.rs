@@ -16,12 +16,11 @@ fn set_and_remove_network() {
         println!("{read_dir:#?}");
         let file = read_dir.unwrap().next().unwrap().unwrap();
         assert_eq!(file.file_name().to_str().unwrap(), "local.toml");
-        
+
         let res = sandbox.cmd::<network::ls::Cmd>("");
         let res = res.ls().unwrap();
         assert_eq!(res.len(), 1);
         assert_eq!(&res[0], "local");
-
 
         sandbox.cmd::<network::rm::Cmd>("local").run().unwrap();
 
