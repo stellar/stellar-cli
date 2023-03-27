@@ -627,7 +627,7 @@ func TestGetEvents(t *testing.T) {
 				Value: EventInfoValue{
 					XDR: value,
 				},
-				FromSuccessfulContractCall: true,
+				InSuccessfulContractCall: true,
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -735,15 +735,15 @@ func TestGetEvents(t *testing.T) {
 		assert.NoError(t, err)
 		expected := []EventInfo{
 			{
-				EventType:                  EventTypeContract,
-				Ledger:                     1,
-				LedgerClosedAt:             now.Format(time.RFC3339),
-				ContractID:                 "0000000000000000000000000000000000000000000000000000000000000000",
-				ID:                         id,
-				PagingToken:                id,
-				Topic:                      []string{counterXdr, value},
-				Value:                      EventInfoValue{XDR: value},
-				FromSuccessfulContractCall: true,
+				EventType:                EventTypeContract,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               "0000000000000000000000000000000000000000000000000000000000000000",
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr, value},
+				Value:                    EventInfoValue{XDR: value},
+				InSuccessfulContractCall: true,
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -829,15 +829,15 @@ func TestGetEvents(t *testing.T) {
 		assert.NoError(t, err)
 		expected := []EventInfo{
 			{
-				EventType:                  EventTypeContract,
-				Ledger:                     1,
-				LedgerClosedAt:             now.Format(time.RFC3339),
-				ContractID:                 contractID.HexString(),
-				ID:                         id,
-				PagingToken:                id,
-				Topic:                      []string{counterXdr, value},
-				Value:                      EventInfoValue{XDR: value},
-				FromSuccessfulContractCall: true,
+				EventType:                EventTypeContract,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               contractID.HexString(),
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr, value},
+				Value:                    EventInfoValue{XDR: value},
+				InSuccessfulContractCall: true,
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -889,15 +889,15 @@ func TestGetEvents(t *testing.T) {
 		id := events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 1}.String()
 		expected := []EventInfo{
 			{
-				EventType:                  EventTypeSystem,
-				Ledger:                     1,
-				LedgerClosedAt:             now.Format(time.RFC3339),
-				ContractID:                 contractID.HexString(),
-				ID:                         id,
-				PagingToken:                id,
-				Topic:                      []string{counterXdr},
-				Value:                      EventInfoValue{XDR: counterXdr},
-				FromSuccessfulContractCall: true,
+				EventType:                EventTypeSystem,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               contractID.HexString(),
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr},
+				Value:                    EventInfoValue{XDR: counterXdr},
+				InSuccessfulContractCall: true,
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -956,7 +956,7 @@ func TestGetEvents(t *testing.T) {
 				Value: EventInfoValue{
 					XDR: value,
 				},
-				FromSuccessfulContractCall: true,
+				InSuccessfulContractCall: true,
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -1034,15 +1034,15 @@ func TestGetEvents(t *testing.T) {
 			expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &symbols[i]})
 			assert.NoError(t, err)
 			expected = append(expected, EventInfo{
-				EventType:                  EventTypeContract,
-				Ledger:                     5,
-				LedgerClosedAt:             now.Format(time.RFC3339),
-				ContractID:                 contractID.HexString(),
-				ID:                         id,
-				PagingToken:                id,
-				Topic:                      []string{counterXdr},
-				Value:                      EventInfoValue{XDR: expectedXdr},
-				FromSuccessfulContractCall: true,
+				EventType:                EventTypeContract,
+				Ledger:                   5,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               contractID.HexString(),
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr},
+				Value:                    EventInfoValue{XDR: expectedXdr},
+				InSuccessfulContractCall: true,
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 5}, results)

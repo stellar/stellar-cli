@@ -68,15 +68,15 @@ func (e eventTypeSet) matches(event xdr.ContractEvent) bool {
 }
 
 type EventInfo struct {
-	EventType                  string         `json:"type"`
-	Ledger                     int32          `json:"ledger,string"`
-	LedgerClosedAt             string         `json:"ledgerClosedAt"`
-	ContractID                 string         `json:"contractId"`
-	ID                         string         `json:"id"`
-	PagingToken                string         `json:"pagingToken"`
-	Topic                      []string       `json:"topic"`
-	Value                      EventInfoValue `json:"value"`
-	FromSuccessfulContractCall bool           `json:"fromSuccessfulContractCall"`
+	EventType                string         `json:"type"`
+	Ledger                   int32          `json:"ledger,string"`
+	LedgerClosedAt           string         `json:"ledgerClosedAt"`
+	ContractID               string         `json:"contractId"`
+	ID                       string         `json:"id"`
+	PagingToken              string         `json:"pagingToken"`
+	Topic                    []string       `json:"topic"`
+	Value                    EventInfoValue `json:"value"`
+	InSuccessfulContractCall bool           `json:"inSuccessfulContractCall"`
 }
 
 type EventInfoValue struct {
@@ -408,14 +408,14 @@ func eventInfoForEvent(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerCl
 	}
 
 	info := EventInfo{
-		EventType:                  eventType,
-		Ledger:                     int32(cursor.Ledger),
-		LedgerClosedAt:             ledgerClosedAt,
-		ID:                         cursor.String(),
-		PagingToken:                cursor.String(),
-		Topic:                      topic,
-		Value:                      EventInfoValue{XDR: data},
-		FromSuccessfulContractCall: event.InSuccessfulContractCall,
+		EventType:                eventType,
+		Ledger:                   int32(cursor.Ledger),
+		LedgerClosedAt:           ledgerClosedAt,
+		ID:                       cursor.String(),
+		PagingToken:              cursor.String(),
+		Topic:                    topic,
+		Value:                    EventInfoValue{XDR: data},
+		InSuccessfulContractCall: event.InSuccessfulContractCall,
 	}
 	if event.Event.ContractId != nil {
 		info.ContractID = hex.EncodeToString((*event.Event.ContractId)[:])
