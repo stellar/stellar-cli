@@ -129,7 +129,7 @@ impl Cmd {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
         let contract_id: [u8; 32] = match &self.contract_id {
             Some(id) => utils::id_from_str(id).map_err(|e| Error::CannotParseContractId {
                 contract_id: self.contract_id.as_ref().unwrap().clone(),

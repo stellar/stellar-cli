@@ -71,7 +71,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut state = self.config.get_state()?;

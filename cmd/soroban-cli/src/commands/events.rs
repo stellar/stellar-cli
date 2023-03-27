@@ -262,7 +262,7 @@ impl Cmd {
             .map_err(Error::Rpc)
     }
 
-    fn run_in_sandbox(
+    pub fn run_in_sandbox(
         &self,
         path: &path::PathBuf,
         start: rpc::EventStart,
