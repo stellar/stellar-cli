@@ -41,14 +41,17 @@ func ledgerCloseTime(seq uint32) int64 {
 func newEvent(txIndex, opIndex, eventIndex, val uint32) event {
 	v := xdr.Uint32(val)
 	return event{
-		contents: xdr.ContractEvent{
-			Type: xdr.ContractEventTypeSystem,
-			Body: xdr.ContractEventBody{
-				V: 0,
-				V0: &xdr.ContractEventV0{
-					Data: xdr.ScVal{
-						Type: xdr.ScValTypeScvU32,
-						U32:  &v,
+		contents: xdr.DiagnosticEvent{
+			InSuccessfulContractCall: true,
+			Event: xdr.ContractEvent{
+				Type: xdr.ContractEventTypeSystem,
+				Body: xdr.ContractEventBody{
+					V: 0,
+					V0: &xdr.ContractEventV0{
+						Data: xdr.ScVal{
+							Type: xdr.ScValTypeScvU32,
+							U32:  &v,
+						},
 					},
 				},
 			},
@@ -59,7 +62,7 @@ func newEvent(txIndex, opIndex, eventIndex, val uint32) event {
 	}
 }
 
-func mustMarshal(e xdr.ContractEvent) string {
+func mustMarshal(e xdr.DiagnosticEvent) string {
 	result, err := xdr.MarshalBase64(e)
 	if err != nil {
 		panic(err)
@@ -83,7 +86,7 @@ func eventsAreEqual(t *testing.T, a, b []event) {
 
 func TestScanRangeValidation(t *testing.T) {
 	m := NewMemoryStore("unit-tests", 4)
-	assertNoCalls := func(contractEvent xdr.ContractEvent, cursor Cursor, timestamp int64) bool {
+	assertNoCalls := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, timestamp int64) bool {
 		t.Fatalf("unexpected call")
 		return true
 	}
@@ -362,7 +365,7 @@ func TestScan(t *testing.T) {
 		for _, input := range genEquivalentInputs(testCase.input) {
 			var events []event
 			iterateAll := true
-			f := func(contractEvent xdr.ContractEvent, cursor Cursor, ledgerCloseTimestamp int64) bool {
+			f := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, ledgerCloseTimestamp int64) bool {
 				require.Equal(t, ledgerCloseTime(cursor.Ledger), ledgerCloseTimestamp)
 				events = append(events, event{
 					contents:   contractEvent,
