@@ -102,7 +102,7 @@ impl TestEnv {
 
     /// Same as `TestEnv::cmd` but sets the pwd can be used instead of the current `TestEnv`.
     pub fn cmd_with_pwd<T: CommandParser<T>>(args: &str, pwd: &Path) -> T {
-        let args = format!("--pwd={} {args}", pwd.display());
+        let args = format!("--pwd={pwd:?} {args}");
         T::parse(&args).unwrap()
     }
 

@@ -11,15 +11,17 @@ const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022
 fn set_and_remove_network() {
     TestEnv::with_default(|sandbox| {
         add_network(sandbox, "local");
-        let res = sandbox.cmd::<network::ls::Cmd>("").ls().unwrap();
-        assert_eq!(res.len(), 1);
-        assert_eq!(&res[0], "local");
-
-        let dir = sandbox.dir().join(".soroban/network");
+        let dir = sandbox.dir().join(".soroban").join("network");
         let read_dir = std::fs::read_dir(dir);
         println!("{read_dir:#?}");
         let file = read_dir.unwrap().next().unwrap().unwrap();
         assert_eq!(file.file_name().to_str().unwrap(), "local.toml");
+        
+        let res = sandbox.cmd::<network::ls::Cmd>("");
+        let res = res.ls().unwrap();
+        assert_eq!(res.len(), 1);
+        assert_eq!(&res[0], "local");
+
 
         sandbox.cmd::<network::rm::Cmd>("local").run().unwrap();
 

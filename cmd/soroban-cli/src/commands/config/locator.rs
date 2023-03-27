@@ -102,7 +102,6 @@ impl Args {
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
         let dir = self.config_dir()?;
-        eprintln!("{dir:?}");
         KeyType::Identity.list(&dir)
     }
 
