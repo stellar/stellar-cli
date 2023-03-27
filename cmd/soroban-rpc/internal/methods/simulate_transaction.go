@@ -99,7 +99,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		return SimulateTransactionResponse{
 			Results: []SimulateTransactionResult{
 				{
-					Events:    result.DiagnosticEvents,
+					Events:    result.Events,
 					Auth:      result.Auth,
 					Footprint: result.Footprint,
 					XDR:       result.Result,
