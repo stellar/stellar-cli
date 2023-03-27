@@ -3,6 +3,7 @@ package preflight
 import (
 	"context"
 	"errors"
+	"math"
 	"runtime/cgo"
 	"time"
 	"unsafe"
@@ -111,7 +112,7 @@ func GoNullTerminatedStringSlice(str **C.char) []string {
 		// CGo doesn't have an easy way to do pointer arithmetic so,
 		// we are better off transforming the memory buffer into a large slice
 		// and finding the NULL termination after that
-		for _, a := range unsafe.Slice(str, 1<<20) {
+		for _, a := range unsafe.Slice(str, math.MaxInt) {
 			if a == nil {
 				// we found the ending nil
 				break
