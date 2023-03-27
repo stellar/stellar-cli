@@ -74,7 +74,7 @@ pub struct Args {
     /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
     pub hd_path: Option<usize>,
 
-    #[clap(skip)]
+    #[clap(flatten)]
     pub locator: locator::Args,
 }
 
