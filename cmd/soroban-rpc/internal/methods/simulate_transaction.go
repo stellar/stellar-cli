@@ -23,6 +23,7 @@ type SimulateTransactionCost struct {
 
 type SimulateTransactionResult struct {
 	Auth      []string `json:"auth"`
+	Events    []string `json:"events"`
 	Footprint string   `json:"footprint"`
 	XDR       string   `json:"xdr"`
 }
@@ -98,6 +99,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		return SimulateTransactionResponse{
 			Results: []SimulateTransactionResult{
 				{
+					Events:    result.Events,
 					Auth:      result.Auth,
 					Footprint: result.Footprint,
 					XDR:       result.Result,
