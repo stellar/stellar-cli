@@ -650,6 +650,11 @@ impl Spec {
 
             (ScVal::Address(v), ScType::Address) => sc_address_to_json(v),
 
+            (ok_val, ScType::Result(result_type)) => {
+                let ScSpecTypeResult { ok_type, .. } = result_type.as_ref();
+                self.xdr_to_json(ok_val, ok_type)?
+            }
+
             (x, y) => return Err(Error::InvalidPair(x.clone(), y.clone())),
         })
     }

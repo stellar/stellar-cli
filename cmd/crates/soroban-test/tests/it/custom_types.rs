@@ -175,6 +175,26 @@ fn number_arg() {
 }
 
 #[test]
+fn number_arg_return_ok() {
+    invoke(&TestEnv::default(), "u32_fail_on_even")
+        .arg("--u32_")
+        .arg("1")
+        .assert()
+        .success()
+        .stdout("1\n");
+}
+
+#[test]
+fn number_arg_return_err() {
+    invoke(&TestEnv::default(), "u32_fail_on_even")
+        .arg("--u32_")
+        .arg("2")
+        .assert()
+        .success()
+        .stderr(predicates::str::contains("Status(ContractError(1))"));
+}
+
+#[test]
 fn i32() {
     invoke_with_roundtrip("i32_", 42);
 }

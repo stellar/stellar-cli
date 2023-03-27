@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, Set, String, Symbol, Vec,
-    I256, U256,
+    contracterror, contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, Set, String,
+    Symbol, Vec, I256, U256,
 };
 
 pub struct Contract;
@@ -43,10 +43,25 @@ pub enum ComplexEnum {
     Void,
 }
 
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum Error {
+    OhNo = 1,
+}
+
 #[contractimpl]
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {
         hello
+    }
+
+    pub fn u32_fail_on_even(_env: Env, u32_: u32) -> Result<u32, Error> {
+        if u32_ % 2 == 1 {
+            Ok(u32_)
+        } else {
+            Err(Error::OhNo)
+        }
     }
 
     pub fn u32_(_env: Env, u32_: u32) -> u32 {
