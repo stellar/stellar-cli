@@ -10,11 +10,7 @@ const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022
 #[test]
 fn set_and_remove_network() {
     TestEnv::with_default(|sandbox| {
-        let input = format!(
-            "--rpc-url https://127.0.0.1 --network-passphrase \"{NETWORK_PASSPHRASE}\" local"
-        );
-
-        sandbox.cmd::<network::add::Cmd>(&input).run().unwrap();
+        add_network(sandbox, "local");
         let res = sandbox.cmd::<network::ls::Cmd>("").ls().unwrap();
         assert_eq!(res.len(), 1);
         assert_eq!(&res[0], "local");
@@ -28,7 +24,7 @@ fn set_and_remove_network() {
         sandbox.cmd::<network::rm::Cmd>("local").run().unwrap();
 
         // sandbox
-        //     .new_cmd("config")
+        //     .new_assert_cmd("config")
         //     .arg("network")
         //     .arg("rm")
         //     .arg("local")
@@ -45,15 +41,19 @@ fn set_and_remove_network() {
 
 fn add_network(sandbox: &TestEnv, name: &str) {
     sandbox
-        .cmd_arr::<network::add::Cmd>(&[
-            "--rpc-url",
-            "https://127.0.0.1",
+        .new_assert_cmd("config")
+        .arg("network")
+        .arg("add")
+        .args([
+            "--rpc-url=https://127.0.0.1",
             "--network-passphrase",
-            "Local Sandbox Stellar Network ; September 2022",
+            NETWORK_PASSPHRASE,
             name,
         ])
-        .run()
-        .unwrap();
+        .assert()
+        .success()
+        .stderr("")
+        .stdout("");
 }
 
 fn add_network_global(sandbox: &TestEnv, dir: &Path, name: &str) {
