@@ -13,8 +13,8 @@
 //! - `TestEnv::cmd` is a generic function which parses a command from a string.
 //!    Note, however, that it uses `shlex` to tokenize the string. This can cause issues
 //!    for commands which contain strings with `"`s. For example, `{"hello": "world"}` becomes
-//!    `{hello:world}`. For that reason it's recommended to use `TestEnv::cmd_arg` instead.
-//! - `TestEnv::cmd_arg` is a generic function which takes an array of `&str` which is passed directly to clap.
+//!    `{hello:world}`. For that reason it's recommended to use `TestEnv::cmd_arr` instead.
+//! - `TestEnv::cmd_arr` is a generic function which takes an array of `&str` which is passed directly to clap.
 //!    This is the preferred way since it ensures no string parsing footguns.
 //! - `TestEnv::invoke` a convenience function for using the invoke command.
 //!
