@@ -96,12 +96,12 @@ type PreflightParameters struct {
 }
 
 type Preflight struct {
-	Auth            []string // ContractAuths XDR in base64
-	Events          []string // ContractEvents XDR in base64
-	Footprint       string   // LedgerFootprint XDR in base64
-	Result          string   // SCVal XDR in base64
-	CPUInstructions uint64
-	MemoryBytes     uint64
+	Auth             []string // ContractAuths XDR in base64
+	DiagnosticEvents []string // DiagnosticEvents XDR in base64
+	Footprint        string   // LedgerFootprint XDR in base64
+	Result           string   // SCVal XDR in base64
+	CPUInstructions  uint64
+	MemoryBytes      uint64
 }
 
 // GoNullTerminatedStringSlice transforms a C NULL-terminated char** array to a Go string slice
@@ -163,12 +163,12 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	}
 
 	preflight := Preflight{
-		Auth:            GoNullTerminatedStringSlice(res.auth),
-		Events:          GoNullTerminatedStringSlice(res.events),
-		Footprint:       C.GoString(res.preflight),
-		Result:          C.GoString(res.result),
-		CPUInstructions: uint64(res.cpu_instructions),
-		MemoryBytes:     uint64(res.memory_bytes),
+		Auth:             GoNullTerminatedStringSlice(res.auth),
+		DiagnosticEvents: GoNullTerminatedStringSlice(res.events),
+		Footprint:        C.GoString(res.preflight),
+		Result:           C.GoString(res.result),
+		CPUInstructions:  uint64(res.cpu_instructions),
+		MemoryBytes:      uint64(res.memory_bytes),
 	}
 	return preflight, nil
 }

@@ -7,10 +7,11 @@ use soroban_env_host::auth::RecordedAuthPayload;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::events::{Event, Events};
 use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
-use soroban_env_host::xdr::ScUnknownErrorCode::{General, Xdr};
 use soroban_env_host::xdr::{
-    self, AccountId, AddressWithNonce, ContractAuth, HostFunction, LedgerEntry, LedgerKey, ReadXdr,
-    ScHostStorageErrorCode, ScStatus, WriteXdr,
+    self, AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, LedgerEntry,
+    LedgerKey, ReadXdr, ScHostStorageErrorCode, ScStatus,
+    ScUnknownErrorCode::{General, Xdr},
+    WriteXdr,
 };
 use soroban_env_host::{Host, HostError, LedgerInfo};
 use std::convert::TryInto;
@@ -232,13 +233,20 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
 fn host_events_to_c(events: Events) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let mut xdr_base64_vec: Vec<String> = Vec::new();
     for e in events.0.iter() {
-        match &e.event {
-            Event::Contract(e) => xdr_base64_vec.push(e.to_xdr_base64()?),
-            Event::StructuredDebug(e) => xdr_base64_vec.push(e.to_xdr_base64()?),
+        let maybe_contract_event = match &e.event {
+            Event::Contract(e) => Some(e),
+            Event::StructuredDebug(e) => Some(e),
             // TODO: should we (somehow) map the debug events to XDR?
             //       I (fons) am not even sure that's possible
-            Event::Debug(_) => (),
+            Event::Debug(_) => None,
         };
+        if let Some(contract_event) = maybe_contract_event {
+            let diagnostic_event = DiagnosticEvent {
+                in_successful_contract_call: !e.failed_call,
+                event: contract_event.clone(),
+            };
+            xdr_base64_vec.push(diagnostic_event.to_xdr_base64()?);
+        }
     }
     string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
 }

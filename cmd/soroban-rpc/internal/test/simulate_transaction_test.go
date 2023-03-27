@@ -434,17 +434,18 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	// check the events
 	assert.Len(t, response.Results[0].Events, 1)
-	var event xdr.ContractEvent
+	var event xdr.DiagnosticEvent
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Events[0], &event)
 	assert.NoError(t, err)
-	assert.Equal(t, xdr.Hash(contractID), *event.ContractId)
-	assert.Equal(t, xdr.ContractEventTypeContract, event.Type)
-	assert.Equal(t, int32(0), event.Body.V)
-	assert.Equal(t, xdr.ScValTypeScvSymbol, event.Body.V0.Data.Type)
-	assert.Equal(t, xdr.ScSymbol("world"), *event.Body.V0.Data.Sym)
-	assert.Len(t, event.Body.V0.Topics, 1)
-	assert.Equal(t, xdr.ScValTypeScvString, event.Body.V0.Topics[0].Type)
-	assert.Equal(t, xdr.ScString("auth"), *event.Body.V0.Topics[0].Str)
+	assert.True(t, event.InSuccessfulContractCall)
+	assert.Equal(t, xdr.Hash(contractID), *event.Event.ContractId)
+	assert.Equal(t, xdr.ContractEventTypeContract, event.Event.Type)
+	assert.Equal(t, int32(0), event.Event.Body.V)
+	assert.Equal(t, xdr.ScValTypeScvSymbol, event.Event.Body.V0.Data.Type)
+	assert.Equal(t, xdr.ScSymbol("world"), *event.Event.Body.V0.Data.Sym)
+	assert.Len(t, event.Event.Body.V0.Topics, 1)
+	assert.Equal(t, xdr.ScValTypeScvString, event.Event.Body.V0.Topics[0].Type)
+	assert.Equal(t, xdr.ScString("auth"), *event.Event.Body.V0.Topics[0].Str)
 }
 
 func TestSimulateTransactionError(t *testing.T) {
