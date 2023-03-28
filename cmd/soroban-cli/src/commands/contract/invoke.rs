@@ -255,7 +255,7 @@ impl Cmd {
             .map(ContractAuth::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
         let events = result
-            .auth
+            .events
             .iter()
             .map(DiagnosticEvent::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
