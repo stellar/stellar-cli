@@ -16,6 +16,7 @@ typedef struct CPreflightResult {
     char *result; // SCVal XDR in base64
     char *preflight; // LedgerFootprint XDR in base64
     char **auth; // NULL terminated array of XDR ContractAuths in base64
+    char **events; // NULL terminated array of XDR DiagnosticEvents in base64
     uint64_t cpu_instructions;
     uint64_t memory_bytes;
 } CPreflightResult;

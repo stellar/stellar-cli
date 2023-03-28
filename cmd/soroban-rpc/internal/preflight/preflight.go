@@ -97,10 +97,29 @@ type PreflightParameters struct {
 
 type Preflight struct {
 	Auth            []string // ContractAuths XDR in base64
+	Events          []string // DiagnosticEvents XDR in base64
 	Footprint       string   // LedgerFootprint XDR in base64
 	Result          string   // SCVal XDR in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
+}
+
+// GoNullTerminatedStringSlice transforms a C NULL-terminated char** array to a Go string slice
+func GoNullTerminatedStringSlice(str **C.char) []string {
+	var result []string
+	if str != nil {
+		// CGo doesn't have an easy way to do pointer arithmetic so,
+		// we are better off transforming the memory buffer into a large slice
+		// and finding the NULL termination after that
+		for _, a := range unsafe.Slice(str, 1<<20) {
+			if a == nil {
+				// we found the ending nil
+				break
+			}
+			result = append(result, C.GoString(a))
+		}
+	}
+	return result
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
@@ -143,23 +162,9 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		return Preflight{}, errors.New(C.GoString(res.error))
 	}
 
-	// Get the auth data
-	var auth []string
-	if res.auth != nil {
-		// CGo doesn't have an easy way to do pointer arithmetic so,
-		// we are better off transforming the memory buffer into a large slice
-		// and finding the NULL termination after that
-		for _, a := range unsafe.Slice(res.auth, 1<<20) {
-			if a == nil {
-				// we found the ending nil
-				break
-			}
-			auth = append(auth, C.GoString(a))
-		}
-	}
-
 	preflight := Preflight{
-		Auth:            auth,
+		Auth:            GoNullTerminatedStringSlice(res.auth),
+		Events:          GoNullTerminatedStringSlice(res.events),
 		Footprint:       C.GoString(res.preflight),
 		Result:          C.GoString(res.result),
 		CPUInstructions: uint64(res.cpu_instructions),

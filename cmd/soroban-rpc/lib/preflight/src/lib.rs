@@ -5,11 +5,13 @@ extern crate soroban_env_host;
 use sha2::{Digest, Sha256};
 use soroban_env_host::auth::RecordedAuthPayload;
 use soroban_env_host::budget::Budget;
+use soroban_env_host::events::{Event, Events};
 use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
-use soroban_env_host::xdr::ScUnknownErrorCode::{General, Xdr};
 use soroban_env_host::xdr::{
-    self, AccountId, AddressWithNonce, ContractAuth, HostFunction, LedgerEntry, LedgerKey, ReadXdr,
-    ScHostStorageErrorCode, ScStatus, WriteXdr,
+    self, AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, LedgerEntry,
+    LedgerKey, ReadXdr, ScHostStorageErrorCode, ScStatus,
+    ScUnknownErrorCode::{General, Xdr},
+    WriteXdr,
 };
 use soroban_env_host::{Host, HostError, LedgerInfo};
 use std::convert::TryInto;
@@ -113,6 +115,7 @@ pub struct CPreflightResult {
     pub result: *mut libc::c_char, // SCVal XDR in base64
     pub footprint: *mut libc::c_char, // LedgerFootprint XDR in base64
     pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
+    pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
 }
@@ -126,6 +129,7 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
         result: null_mut(),
         footprint: null_mut(),
         auth: null_mut(),
+        events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
     }))
@@ -162,7 +166,7 @@ pub extern "C" fn preflight_host_function(
 }
 
 fn preflight_host_function_or_maybe_panic(
-    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
     hf: *const libc::c_char, // HostFunction XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
@@ -185,7 +189,7 @@ fn preflight_host_function_or_maybe_panic(
     let auth_payloads = host.get_recorded_auth_payloads()?;
 
     // Recover, convert and return the storage footprint and other values to C.
-    let (storage, budget, _) = host.try_finish().unwrap();
+    let (storage, budget, events) = host.try_finish().unwrap();
 
     let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
     let fp_cstr = CString::new(fp.to_xdr_base64()?)?;
@@ -195,6 +199,7 @@ fn preflight_host_function_or_maybe_panic(
         result: result_cstr.into_raw(),
         footprint: fp_cstr.into_raw(),
         auth: recorded_auth_payloads_to_c(auth_payloads)?,
+        events: host_events_to_c(events)?,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
     })
@@ -203,27 +208,11 @@ fn preflight_host_function_or_maybe_panic(
 fn recorded_auth_payloads_to_c(
     payloads: Vec<RecordedAuthPayload>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
-    // Get a vector of base64-encoded ContractAuths
-    let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
-    for p in payloads.iter() {
-        let c_str = CString::new(recorded_auth_payload_to_xdr(p).to_xdr_base64()?)?.into_raw();
-        out_vec.push(c_str);
-    }
-
-    // Add the ending NULL
-    out_vec.push(null_mut());
-
-    // Make sure length and capacity are the same
-    // (this allows using the length as the capacity when deallocating the vector)
-    out_vec.shrink_to_fit();
-    assert!(out_vec.len() == out_vec.capacity());
-
-    // Get the pointer to our vector, we will deallocate it in free_preflight_result()
-    // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
-    let ptr = out_vec.as_mut_ptr();
-    mem::forget(out_vec);
-
-    Ok(ptr)
+    let xdr_base64_vec: Vec<String> = payloads
+        .iter()
+        .map(|p| recorded_auth_payload_to_xdr(p).to_xdr_base64())
+        .collect::<Result<Vec<_>, _>>()?;
+    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
 }
 
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
@@ -239,6 +228,52 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
         // submitting the transaction.
         signature_args: Default::default(),
     }
+}
+
+fn host_events_to_c(events: Events) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
+    let mut xdr_base64_vec: Vec<String> = Vec::new();
+    for e in events.0.iter() {
+        let maybe_contract_event = match &e.event {
+            Event::Contract(e) => Some(e),
+            Event::StructuredDebug(e) => Some(e),
+            // TODO: should we (somehow) map the debug events to XDR?
+            //       I (fons) am not even sure that's possible
+            Event::Debug(_) => None,
+        };
+        if let Some(contract_event) = maybe_contract_event {
+            let diagnostic_event = DiagnosticEvent {
+                in_successful_contract_call: !e.failed_call,
+                event: contract_event.clone(),
+            };
+            xdr_base64_vec.push(diagnostic_event.to_xdr_base64()?);
+        }
+    }
+    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
+}
+
+fn string_vec_to_c_to_null_terminated_char_array(
+    v: Vec<String>,
+) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
+    let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
+    for s in v.iter() {
+        let c_str = CString::new(s.clone())?.into_raw();
+        out_vec.push(c_str);
+    }
+
+    // Add the ending NULL
+    out_vec.push(null_mut());
+
+    // Make sure length and capacity are the same
+    // (this allows using the length as the capacity when deallocating the vector)
+    out_vec.shrink_to_fit();
+    assert_eq!(out_vec.len(), out_vec.capacity());
+
+    // Get the pointer to our vector, we will deallocate it in free_c_null_terminated_char_array()
+    // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
+    let ptr = out_vec.as_mut_ptr();
+    mem::forget(out_vec);
+
+    Ok(ptr)
 }
 
 /// .
@@ -262,21 +297,29 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
             let _ = CString::from_raw((*result).footprint);
         }
         if !(*result).auth.is_null() {
-            // Iterate until we find a null value
-            let auth = (*result).auth;
-            let mut i: usize = 0;
-            loop {
-                let c_char_ptr = *auth.add(i);
-                if c_char_ptr.is_null() {
-                    break;
-                }
-                // deallocate each base64 string
-                let _ = CString::from_raw(c_char_ptr);
-                i += 1;
-            }
-            // deallocate the containing vector
-            let _ = Vec::from_raw_parts(auth, i + 1, i + 1);
+            free_c_null_terminated_char_array((*result).auth);
+        }
+        if !(*result).events.is_null() {
+            free_c_null_terminated_char_array((*result).events);
         }
         let _ = Box::from_raw(result);
+    }
+}
+
+fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
+    unsafe {
+        // Iterate until we find a null value
+        let mut i: usize = 0;
+        loop {
+            let c_char_ptr = *array.add(i);
+            if c_char_ptr.is_null() {
+                break;
+            }
+            // deallocate each base64 string
+            let _ = CString::from_raw(c_char_ptr);
+            i += 1;
+        }
+        // deallocate the containing vector
+        let _ = Vec::from_raw_parts(array, i + 1, i + 1);
     }
 }
