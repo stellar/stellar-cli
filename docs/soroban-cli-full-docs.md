@@ -189,6 +189,7 @@ soroban contract invoke ... -- --help
 * `--unlimited-budget` — Run with an unlimited budget
 * `--footprint` — Output the footprint to stderr
 * `--auth` — Output the contract auth for the transaction to stderr
+* `--events` — Output the contract events for the transaction to stderr
 * `--events-file <EVENTS_FILE>` — File to persist event output
 
   Default value: `.soroban/events.json`

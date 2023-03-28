@@ -2,8 +2,9 @@ use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::{
-    AccountEntry, AccountId, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyAccount,
-    PublicKey, ReadXdr, TransactionEnvelope, TransactionResult, Uint256, WriteXdr,
+    AccountEntry, AccountId, DiagnosticEvent, Error as XdrError, LedgerEntryData, LedgerKey,
+    LedgerKeyAccount, PublicKey, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
+    Uint256, WriteXdr,
 };
 use std::{
     collections,
@@ -100,6 +101,8 @@ pub struct SimulateTransactionResult {
     pub footprint: String,
     #[serde(deserialize_with = "deserialize_default_from_null")]
     pub auth: Vec<String>,
+    #[serde(deserialize_with = "deserialize_default_from_null")]
+    pub events: Vec<String>,
     pub xdr: String,
 }
 
@@ -206,7 +209,7 @@ impl Client {
     pub async fn send_transaction(
         &self,
         tx: &TransactionEnvelope,
-    ) -> Result<TransactionResult, Error> {
+    ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
         let client = self.client()?;
         let SendTransactionResponse {
             hash,
@@ -232,8 +235,13 @@ impl Client {
                 "SUCCESS" => {
                     // TODO: the caller should probably be printing this
                     eprintln!("{}", response.status);
-                    let result = response.result_xdr.ok_or(Error::MissingResult)?;
-                    return Ok(TransactionResult::from_xdr_base64(result)?);
+                    let result_xdr_b64 = response.result_xdr.ok_or(Error::MissingResult)?;
+                    let result = TransactionResult::from_xdr_base64(result_xdr_b64)?;
+                    let events = match response.result_meta_xdr {
+                        None => Vec::new(),
+                        Some(m) => extract_events(TransactionMeta::from_xdr_base64(m)?),
+                    };
+                    return Ok((result, events));
                 }
                 "FAILED" => {
                     // TODO: provide a more elaborate error
@@ -321,5 +329,28 @@ impl Client {
             .client()?
             .request("getEvents", Some(types::ParamsSer::Map(object)))
             .await?)
+    }
+}
+
+fn extract_events(tx_meta: TransactionMeta) -> Vec<DiagnosticEvent> {
+    match tx_meta {
+        TransactionMeta::V3(v3) => {
+            // NOTE: we assume there can only be one operation, since we only send one
+            if v3.diagnostic_events.len() == 1 {
+                v3.diagnostic_events[0].events.clone().into()
+            } else if v3.events.len() == 1 {
+                v3.events[0]
+                    .events
+                    .iter()
+                    .map(|e| DiagnosticEvent {
+                        in_successful_contract_call: true,
+                        event: e.clone(),
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        }
+        _ => Vec::new(),
     }
 }

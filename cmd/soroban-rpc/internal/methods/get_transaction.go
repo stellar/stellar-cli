@@ -49,7 +49,7 @@ type GetTransactionResponse struct {
 	EnvelopeXdr string `json:"envelopeXdr,omitempty"`
 	// ResultXdr is the TransactionResult XDR value.
 	ResultXdr string `json:"resultXdr,omitempty"`
-	// ResultXdr is the TransactionMeta XDR value.
+	// ResultMetaXdr is the TransactionMeta XDR value.
 	ResultMetaXdr string `json:"resultMetaXdr,omitempty"`
 
 	// Ledger is the sequence of the ledger which included the transaction.
