@@ -195,6 +195,24 @@ fn number_arg_return_err() {
 }
 
 #[test]
+fn void() {
+    invoke(&TestEnv::default(), "void")
+        .assert()
+        .success()
+        .stdout("\n")
+        .stderr("");
+}
+
+#[test]
+fn raw_val() {
+    invoke(&TestEnv::default(), "raw_val")
+        .assert()
+        .success()
+        .stdout("null\n")
+        .stderr("");
+}
+
+#[test]
 fn i32() {
     invoke_with_roundtrip("i32_", 42);
 }

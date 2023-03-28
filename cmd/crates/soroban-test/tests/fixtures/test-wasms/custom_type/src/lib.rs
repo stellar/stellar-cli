@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contracterror, contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, Set, String,
-    Symbol, Vec, I256, U256,
+    contracterror, contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, RawVal, Set,
+    String, Symbol, Vec, I256, U256,
 };
 
 pub struct Contract;
@@ -54,6 +54,14 @@ pub enum Error {
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {
         hello
+    }
+
+    pub fn void(_env: Env) {
+        // do nothing
+    }
+
+    pub fn raw_val(_env: Env) -> RawVal {
+        RawVal::default()
     }
 
     pub fn u32_fail_on_even(_env: Env, u32_: u32) -> Result<u32, Error> {

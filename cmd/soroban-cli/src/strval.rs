@@ -438,7 +438,8 @@ impl Spec {
     /// May panic
     pub fn xdr_to_json(&self, val: &ScVal, output: &ScType) -> Result<Value, Error> {
         Ok(match (val, output) {
-            (ScVal::Map(None) | ScVal::Vec(None), ScType::Option(_)) => Value::Null,
+            (ScVal::Void, ScType::Val)
+            | (ScVal::Map(None) | ScVal::Vec(None), ScType::Option(_)) => Value::Null,
             (ScVal::Bool(_), ScType::Bool)
             | (ScVal::Void, ScType::Void)
             | (ScVal::String(_), ScType::String)
