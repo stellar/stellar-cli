@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-16-cores
     env:
       # the gh tag of system-test repo version to run 
-      SYSTEM_TEST_GIT_REF: v1.0.8
+      SYSTEM_TEST_GIT_REF: v1.0.10
 
       # the soroban tools source code to compile and run from system test
       # refers to checked out source of current git hub ref context 
@@ -22,7 +22,7 @@ jobs:
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci, 
-      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#871accefc0c4a703c1321b4f0e48cf6e03b41960
+      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#064a2787acb9e98c70567523785333581ee1ffa4
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
       # or can use option to pull a pre-compiled image instead
       # SYSTEM_TEST_CORE_IMAGE: 
@@ -30,6 +30,9 @@ jobs:
       # sets the version of rust toolchain that will be pre-installed in the 
       # test runtime environment, tests invoke rustc/cargo
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
+
+      # sets the version of soroban-js-client used by tests
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: https://github.com/stellar/js-soroban-client.git#main
      
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
@@ -62,6 +65,7 @@ jobs:
               SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
               RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
               QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
+              JS_SOROBAN_CLIENT_NPM_VERSION=$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION \
               build
       - name: Run system test scenarios
         run: |
