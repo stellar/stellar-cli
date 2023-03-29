@@ -128,7 +128,7 @@ Deploy a contract
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
 * `--global` — Use global config
 * `--pwd <PWD>`
@@ -160,7 +160,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
 * `--global` — Use global config
 * `--pwd <PWD>`
@@ -194,7 +194,7 @@ soroban contract invoke ... -- --help
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
 * `--global` — Use global config
 * `--pwd <PWD>`
@@ -523,7 +523,7 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
 * `--global` — Use global config
 * `--pwd <PWD>`
