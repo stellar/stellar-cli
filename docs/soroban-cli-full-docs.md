@@ -191,7 +191,6 @@ soroban contract invoke ... -- --help
 * `--auth` — Output the contract auth for the transaction to stderr
 * `--events` — Output the contract events for the transaction to stderr
 * `--events-file <EVENTS_FILE>` — File to persist event output, default is .soroban/events.json
-  Default value: `.soroban/events.json`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
