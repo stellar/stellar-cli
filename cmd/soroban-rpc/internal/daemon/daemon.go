@@ -101,7 +101,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not create captive core: %v", err)
 	}
 
-  if len(cfg.HistoryArchiveURLs) == 0 {
+	if len(cfg.HistoryArchiveURLs) == 0 {
 		logger.Fatalf("no history archives url were provided")
 	}
 	// Defaults: https://pkg.go.dev/github.com/cenkalti/backoff/v4@v4.2.0#pkg-constants
@@ -206,27 +206,17 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(
 		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
-	handler, err := backoff.RetryNotifyWithData(
-		func() (internal.Handler, error) {
-			return internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
-				EventStore:       eventStore,
-				TransactionStore: transactionStore,
-				Logger:           logger,
-				CoreClient: &stellarcore.Client{
-					URL:  cfg.StellarCoreURL,
-					HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
-				},
-				LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
-				PreflightGetter:   preflightWorkerPool,
-			})
+	handler := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
+		EventStore:       eventStore,
+		TransactionStore: transactionStore,
+		Logger:           logger,
+		CoreClient: &stellarcore.Client{
+			URL:  cfg.StellarCoreURL,
+			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
 		},
-		expBackoff,
-		func(err error, dur time.Duration) {
-			logger.Errorf("Failed creating JSON RPC handler with error: %v. Retrying after %v", err, dur)
-		})
-	if err != nil {
-		logger.Fatalf("could not create handler: %v", err)
-	}
+		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
+		PreflightGetter:   preflightWorkerPool,
+	})
 
 	return &Daemon{
 		logger:              logger,
