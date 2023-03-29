@@ -19,6 +19,8 @@ impl Contract {
 
     pub fn auth(env: Env, addr: Address, world: Symbol) -> Vec<Symbol> {
         addr.require_auth();
+        // Emit test event
+        env.events().publish(("auth",), world.clone());
         vec![&env, Symbol::short("Hello"), world]
     }
 }

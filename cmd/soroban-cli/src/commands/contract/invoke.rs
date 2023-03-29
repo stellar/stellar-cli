@@ -8,7 +8,7 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
 use hex::FromHexError;
-use soroban_env_host::xdr::{ScBytes, ScContractExecutable, ScSpecFunctionV0};
+use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::Host;
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -57,6 +57,9 @@ pub struct Cmd {
     /// Output the contract auth for the transaction to stderr
     #[arg(long = "auth")]
     pub auth: bool,
+    /// Output the contract events for the transaction to stderr
+    #[arg(long = "events")]
+    pub events: bool,
     /// File to persist event output, default is .soroban/events.json
     #[arg(
         long,
@@ -276,6 +279,11 @@ impl Cmd {
             .iter()
             .map(ContractAuth::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
+        let events = result
+            .events
+            .iter()
+            .map(DiagnosticEvent::from_xdr_base64)
+            .collect::<Result<Vec<_>, _>>()?;
 
         if self.footprint {
             eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap());
@@ -283,6 +291,13 @@ impl Cmd {
 
         if self.auth {
             eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap());
+        }
+
+        if self.events {
+            eprintln!(
+                "Simulated events: {}",
+                serde_json::to_string(&events).unwrap()
+            );
         }
 
         // Send the final transaction with the actual footprint
@@ -296,7 +311,7 @@ impl Cmd {
             &key,
         )?;
 
-        let result = client.send_transaction(&tx).await?;
+        let (result, events) = client.send_transaction(&tx).await?;
         let res = match result.result {
             TransactionResultResult::TxSuccess(ops) => {
                 if ops.is_empty() {
@@ -311,6 +326,12 @@ impl Cmd {
             }
             _ => return Err(Error::MissingOperationResult),
         };
+        if self.events {
+            eprintln!(
+                "Simulated events: {}",
+                serde_json::to_string(&events).unwrap()
+            );
+        }
         output_to_string(&spec, &res, &function)
     }
 

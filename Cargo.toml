@@ -9,31 +9,31 @@ members = [
 default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 
 [workspace.dependencies.soroban-env-host]
-version = "0.0.14"
+version = "0.0.15"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "7dde7cb0b35957856a1e0c11432e00532ae20cf8"
+rev = "cf83838ae8a07a00224f0a5a3500eb7969bac7cf"
 
 [workspace.dependencies.soroban-spec]
-version = "0.6.0"
+version = "0.7.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "d6109a43262852d8374b60f18cb5304a3a368350"
+rev = "8abd3353c728f09ee1c8a2544f67a853e915afc2"
 
 
 [workspace.dependencies.soroban-token-spec]
-version = "0.6.0"
+version = "0.7.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "d6109a43262852d8374b60f18cb5304a3a368350"
+rev = "8abd3353c728f09ee1c8a2544f67a853e915afc2"
 
 
 [workspace.dependencies.soroban-sdk]
-version = "0.6.0"
+version = "0.7.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "d6109a43262852d8374b60f18cb5304a3a368350"
+rev = "8abd3353c728f09ee1c8a2544f67a853e915afc2"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "0.6.0"
+version = "0.7.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "d6109a43262852d8374b60f18cb5304a3a368350"
+rev = "8abd3353c728f09ee1c8a2544f67a853e915afc2"
 
 [workspace.dependencies.stellar-strkey]
 version = "0.0.7"
