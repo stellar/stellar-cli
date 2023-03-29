@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/creachadair/jrpc2"
@@ -17,15 +18,65 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 )
 
+type eventTypeSet map[string]interface{}
+
+func (e eventTypeSet) valid() error {
+	for key := range e {
+		switch key {
+		case EventTypeSystem, EventTypeContract, EventTypeDiagnostic:
+			// ok
+		default:
+			return errors.New("if set, type must be either 'system', 'contract' or 'diagnostic'")
+		}
+	}
+	return nil
+}
+
+func (e *eventTypeSet) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		*e = map[string]interface{}{}
+		return nil
+	}
+	var joined string
+	if err := json.Unmarshal(data, &joined); err != nil {
+		return err
+	}
+	*e = map[string]interface{}{}
+	if len(joined) == 0 {
+		return nil
+	}
+	for _, key := range strings.Split(joined, ",") {
+		(*e)[key] = nil
+	}
+	return nil
+}
+
+func (e eventTypeSet) MarshalJSON() ([]byte, error) {
+	var keys []string
+	for key := range e {
+		keys = append(keys, key)
+	}
+	return json.Marshal(strings.Join(keys, ","))
+}
+
+func (e eventTypeSet) matches(event xdr.ContractEvent) bool {
+	if len(e) == 0 {
+		return true
+	}
+	_, ok := e[eventTypeFromXDR[event.Type]]
+	return ok
+}
+
 type EventInfo struct {
-	EventType      string         `json:"type"`
-	Ledger         int32          `json:"ledger,string"`
-	LedgerClosedAt string         `json:"ledgerClosedAt"`
-	ContractID     string         `json:"contractId"`
-	ID             string         `json:"id"`
-	PagingToken    string         `json:"pagingToken"`
-	Topic          []string       `json:"topic"`
-	Value          EventInfoValue `json:"value"`
+	EventType                string         `json:"type"`
+	Ledger                   int32          `json:"ledger,string"`
+	LedgerClosedAt           string         `json:"ledgerClosedAt"`
+	ContractID               string         `json:"contractId"`
+	ID                       string         `json:"id"`
+	PagingToken              string         `json:"pagingToken"`
+	Topic                    []string       `json:"topic"`
+	Value                    EventInfoValue `json:"value"`
+	InSuccessfulContractCall bool           `json:"inSuccessfulContractCall"`
 }
 
 type EventInfoValue struct {
@@ -65,7 +116,7 @@ func (g *GetEventsRequest) Valid(maxLimit uint) error {
 	return nil
 }
 
-func (g *GetEventsRequest) Matches(event xdr.ContractEvent) bool {
+func (g *GetEventsRequest) Matches(event xdr.DiagnosticEvent) bool {
 	if len(g.Filters) == 0 {
 		return true
 	}
@@ -79,19 +130,23 @@ func (g *GetEventsRequest) Matches(event xdr.ContractEvent) bool {
 
 const EventTypeSystem = "system"
 const EventTypeContract = "contract"
+const EventTypeDiagnostic = "diagnostic"
+
+var eventTypeFromXDR = map[xdr.ContractEventType]string{
+	xdr.ContractEventTypeSystem:     EventTypeSystem,
+	xdr.ContractEventTypeContract:   EventTypeContract,
+	xdr.ContractEventTypeDiagnostic: EventTypeDiagnostic,
+}
 
 type EventFilter struct {
-	EventType   string        `json:"type,omitempty"`
+	EventType   eventTypeSet  `json:"type,omitempty"`
 	ContractIDs []string      `json:"contractIds,omitempty"`
 	Topics      []TopicFilter `json:"topics,omitempty"`
 }
 
 func (e *EventFilter) Valid() error {
-	switch e.EventType {
-	case "", EventTypeSystem, EventTypeContract:
-		// ok
-	default:
-		return errors.New("if set, type must be either 'system' or 'contract'")
+	if err := e.EventType.valid(); err != nil {
+		return errors.Wrap(err, "filter type invalid")
 	}
 	if len(e.ContractIDs) > 5 {
 		return errors.New("maximum 5 contract IDs per filter")
@@ -113,18 +168,8 @@ func (e *EventFilter) Valid() error {
 	return nil
 }
 
-func (e *EventFilter) Matches(event xdr.ContractEvent) bool {
-	return e.matchesEventType(event) && e.matchesContractIDs(event) && e.matchesTopics(event)
-}
-
-func (e *EventFilter) matchesEventType(event xdr.ContractEvent) bool {
-	if e.EventType == EventTypeContract && event.Type != xdr.ContractEventTypeContract {
-		return false
-	}
-	if e.EventType == EventTypeSystem && event.Type != xdr.ContractEventTypeSystem {
-		return false
-	}
-	return true
+func (e *EventFilter) Matches(event xdr.DiagnosticEvent) bool {
+	return e.EventType.matches(event.Event) && e.matchesContractIDs(event.Event) && e.matchesTopics(event.Event)
 }
 
 func (e *EventFilter) matchesContractIDs(event xdr.ContractEvent) bool {
@@ -259,7 +304,7 @@ type GetEventsResponse struct {
 }
 
 type eventScanner interface {
-	Scan(eventRange events.Range, f func(xdr.ContractEvent, events.Cursor, int64) bool) (uint32, error)
+	Scan(eventRange events.Range, f func(xdr.DiagnosticEvent, events.Cursor, int64) bool) (uint32, error)
 }
 
 type eventsRPCHandler struct {
@@ -293,7 +338,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 	type entry struct {
 		cursor               events.Cursor
 		ledgerCloseTimestamp int64
-		event                xdr.ContractEvent
+		event                xdr.DiagnosticEvent
 	}
 	var found []entry
 	latestLedger, err := h.scanner.Scan(
@@ -303,7 +348,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 			End:        events.MaxCursor,
 			ClampEnd:   true,
 		},
-		func(event xdr.ContractEvent, cursor events.Cursor, ledgerCloseTimestamp int64) bool {
+		func(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerCloseTimestamp int64) bool {
 			if request.Matches(event) {
 				found = append(found, entry{cursor, ledgerCloseTimestamp, event})
 			}
@@ -335,20 +380,15 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 	}, nil
 }
 
-func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
-	v0, ok := event.Body.GetV0()
+func eventInfoForEvent(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
+	v0, ok := event.Event.Body.GetV0()
 	if !ok {
 		return EventInfo{}, errors.New("unknown event version")
 	}
 
-	var eventType string
-	switch event.Type {
-	case xdr.ContractEventTypeSystem:
-		eventType = EventTypeSystem
-	case xdr.ContractEventTypeContract:
-		eventType = EventTypeContract
-	default:
-		return EventInfo{}, errors.New("unknown event type")
+	eventType, ok := eventTypeFromXDR[event.Event.Type]
+	if !ok {
+		return EventInfo{}, fmt.Errorf("unknown XDR ContractEventType type: %d", event.Event.Type)
 	}
 
 	// base64-xdr encode the topic
@@ -367,16 +407,20 @@ func eventInfoForEvent(event xdr.ContractEvent, cursor events.Cursor, ledgerClos
 		return EventInfo{}, err
 	}
 
-	return EventInfo{
-		EventType:      eventType,
-		Ledger:         int32(cursor.Ledger),
-		LedgerClosedAt: ledgerClosedAt,
-		ContractID:     hex.EncodeToString((*event.ContractId)[:]),
-		ID:             cursor.String(),
-		PagingToken:    cursor.String(),
-		Topic:          topic,
-		Value:          EventInfoValue{XDR: data},
-	}, nil
+	info := EventInfo{
+		EventType:                eventType,
+		Ledger:                   int32(cursor.Ledger),
+		LedgerClosedAt:           ledgerClosedAt,
+		ID:                       cursor.String(),
+		PagingToken:              cursor.String(),
+		Topic:                    topic,
+		Value:                    EventInfoValue{XDR: data},
+		InSuccessfulContractCall: event.InSuccessfulContractCall,
+	}
+	if event.Event.ContractId != nil {
+		info.ContractID = hex.EncodeToString((*event.Event.ContractId)[:])
+	}
+	return info, nil
 }
 
 // NewGetEventsHandler returns a json rpc handler to fetch and filter events

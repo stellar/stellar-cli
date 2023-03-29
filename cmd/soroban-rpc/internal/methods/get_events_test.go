@@ -16,16 +16,191 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 )
 
+func TestEventTypeSetMatches(t *testing.T) {
+	var defaultSet eventTypeSet
+
+	all := eventTypeSet{}
+	all[EventTypeContract] = nil
+	all[EventTypeDiagnostic] = nil
+	all[EventTypeSystem] = nil
+
+	onlyContract := eventTypeSet{}
+	onlyContract[EventTypeContract] = nil
+
+	contractEvent := xdr.ContractEvent{Type: xdr.ContractEventTypeContract}
+	diagnosticEvent := xdr.ContractEvent{Type: xdr.ContractEventTypeDiagnostic}
+	systemEvent := xdr.ContractEvent{Type: xdr.ContractEventTypeSystem}
+
+	for _, testCase := range []struct {
+		name    string
+		set     eventTypeSet
+		event   xdr.ContractEvent
+		matches bool
+	}{
+		{
+			"all matches Contract events",
+			all,
+			contractEvent,
+			true,
+		},
+		{
+			"all matches System events",
+			all,
+			systemEvent,
+			true,
+		},
+		{
+			"all matches Diagnostic events",
+			all,
+			systemEvent,
+			true,
+		},
+		{
+			"defaultSet matches Contract events",
+			defaultSet,
+			contractEvent,
+			true,
+		},
+		{
+			"defaultSet matches System events",
+			defaultSet,
+			systemEvent,
+			true,
+		},
+		{
+			"defaultSet matches Diagnostic events",
+			defaultSet,
+			systemEvent,
+			true,
+		},
+		{
+			"onlyContract set matches Contract events",
+			onlyContract,
+			contractEvent,
+			true,
+		},
+		{
+			"onlyContract does not match System events",
+			onlyContract,
+			systemEvent,
+			false,
+		},
+		{
+			"onlyContract does not match Diagnostic events",
+			defaultSet,
+			diagnosticEvent,
+			true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.matches, testCase.set.matches(testCase.event))
+		})
+	}
+}
+
+func TestEventTypeSetValid(t *testing.T) {
+	for _, testCase := range []struct {
+		name          string
+		keys          []string
+		expectedError bool
+	}{
+		{
+			"empty set",
+			[]string{},
+			false,
+		},
+		{
+			"set with one valid element",
+			[]string{EventTypeSystem},
+			false,
+		},
+		{
+			"set with two valid elements",
+			[]string{EventTypeSystem, EventTypeContract},
+			false,
+		},
+		{
+			"set with three valid elements",
+			[]string{EventTypeSystem, EventTypeContract, EventTypeDiagnostic},
+			false,
+		},
+		{
+			"set with one invalid element",
+			[]string{"abc"},
+			true,
+		},
+		{
+			"set with multiple invalid elements",
+			[]string{"abc", "def"},
+			true,
+		},
+		{
+			"set with valid elements mixed with invalid elements",
+			[]string{EventTypeSystem, "abc"},
+			true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			set := eventTypeSet{}
+			for _, key := range testCase.keys {
+				set[key] = nil
+			}
+			if testCase.expectedError {
+				assert.Error(t, set.valid())
+			} else {
+				assert.NoError(t, set.valid())
+			}
+		})
+	}
+}
+
+func TestEventTypeSetMarshaling(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			"empty set",
+			"",
+			[]string{},
+		},
+		{
+			"set with one element",
+			"a",
+			[]string{"a"},
+		},
+		{
+			"set with more than one element",
+			"a,b,c",
+			[]string{"a", "b", "c"},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			var set eventTypeSet
+			input, err := json.Marshal(testCase.input)
+			assert.NoError(t, err)
+			err = set.UnmarshalJSON(input)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testCase.expected), len(set))
+			for _, val := range testCase.expected {
+				_, ok := set[val]
+				assert.True(t, ok)
+			}
+		})
+	}
+}
+
 func TestTopicFilterMatches(t *testing.T) {
 	transferSym := xdr.ScSymbol("transfer")
 	transfer := xdr.ScVal{
 		Type: xdr.ScValTypeScvSymbol,
 		Sym:  &transferSym,
 	}
-	sixtyfour := xdr.Int64(64)
+	sixtyfour := xdr.Uint64(64)
 	number := xdr.ScVal{
-		Type: xdr.ScValTypeScvU63,
-		U63:  &sixtyfour,
+		Type: xdr.ScValTypeScvU64,
+		U64:  &sixtyfour,
 	}
 	star := "*"
 	for _, tc := range []struct {
@@ -191,8 +366,8 @@ func TestTopicFilterJSON(t *testing.T) {
 	assert.NoError(t, json.Unmarshal([]byte("[\"*\"]"), &got))
 	assert.Equal(t, TopicFilter{{wildcard: &star}}, got)
 
-	sixtyfour := xdr.Int64(64)
-	scval := xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &sixtyfour}
+	sixtyfour := xdr.Uint64(64)
+	scval := xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &sixtyfour}
 	scvalstr, err := xdr.MarshalBase64(scval)
 	assert.NoError(t, err)
 	assert.NoError(t, json.Unmarshal([]byte(fmt.Sprintf("[%q]", scvalstr)), &got))
@@ -271,10 +446,10 @@ func TestGetEventsRequestValid(t *testing.T) {
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
 		Filters: []EventFilter{
-			{EventType: "foo"},
+			{EventType: map[string]interface{}{"foo": nil}},
 		},
 		Pagination: nil,
-	}).Valid(1000), "filter 1 invalid: if set, type must be either 'system' or 'contract'")
+	}).Valid(1000), "filter 1 invalid: filter type invalid: if set, type must be either 'system', 'contract' or 'diagnostic'")
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 1,
@@ -346,8 +521,7 @@ func TestGetEvents(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("empty", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		handler := eventsRPCHandler{
 			scanner:      store,
 			maxLimit:     10000,
@@ -361,8 +535,7 @@ func TestGetEvents(t *testing.T) {
 
 	t.Run("startLedger validation", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		txMeta = append(txMeta, transactionMetaWithEvents(
 			[]xdr.ContractEvent{
@@ -399,8 +572,7 @@ func TestGetEvents(t *testing.T) {
 
 	t.Run("no filtering returns all", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 10; i++ {
 			txMeta = append(txMeta, transactionMetaWithEvents(
@@ -455,14 +627,14 @@ func TestGetEvents(t *testing.T) {
 				Value: EventInfoValue{
 					XDR: value,
 				},
+				InSuccessfulContractCall: true,
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
 	})
 
 	t.Run("filtering by contract id", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		contractIds := []xdr.Hash{
 			xdr.Hash([32]byte{}),
@@ -514,12 +686,11 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by topic", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		contractID := xdr.Hash([32]byte{})
 		for i := 0; i < 10; i++ {
-			number := xdr.Int64(i)
+			number := xdr.Uint64(i)
 			txMeta = append(txMeta, transactionMetaWithEvents(
 				[]xdr.ContractEvent{
 					// Generate a unique topic like /counter/4 for each event so we can check
@@ -527,16 +698,16 @@ func TestGetEvents(t *testing.T) {
 						contractID,
 						xdr.ScVec{
 							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+							xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 						},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					),
 				},
 			))
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
-		number := xdr.Int64(4)
+		number := xdr.Uint64(4)
 		handler := eventsRPCHandler{
 			scanner:      store,
 			maxLimit:     10000,
@@ -548,7 +719,7 @@ func TestGetEvents(t *testing.T) {
 				{Topics: []TopicFilter{
 					[]SegmentFilter{
 						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
-						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
+						{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number}},
 					},
 				}},
 			},
@@ -558,31 +729,31 @@ func TestGetEvents(t *testing.T) {
 		id := events.Cursor{Ledger: 1, Tx: 5, Op: 0, Event: 0}.String()
 		assert.NoError(t, err)
 		value, err := xdr.MarshalBase64(xdr.ScVal{
-			Type: xdr.ScValTypeScvU63,
-			U63:  &number,
+			Type: xdr.ScValTypeScvU64,
+			U64:  &number,
 		})
 		assert.NoError(t, err)
 		expected := []EventInfo{
 			{
-				EventType:      EventTypeContract,
-				Ledger:         1,
-				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
-				ID:             id,
-				PagingToken:    id,
-				Topic:          []string{counterXdr, value},
-				Value:          EventInfoValue{XDR: value},
+				EventType:                EventTypeContract,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               "0000000000000000000000000000000000000000000000000000000000000000",
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr, value},
+				Value:                    EventInfoValue{XDR: value},
+				InSuccessfulContractCall: true,
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
 	})
 
 	t.Run("filtering by both contract id and topic", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		otherContractID := xdr.Hash([32]byte{1})
-		number := xdr.Int64(1)
+		number := xdr.Uint64(1)
 		txMeta := []xdr.TransactionMeta{
 			// This matches neither the contract id nor the topic
 			transactionMetaWithEvents([]xdr.ContractEvent{
@@ -591,7 +762,7 @@ func TestGetEvents(t *testing.T) {
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 			// This matches the contract id but not the topic
@@ -601,7 +772,7 @@ func TestGetEvents(t *testing.T) {
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 			// This matches the topic but not the contract id
@@ -610,9 +781,9 @@ func TestGetEvents(t *testing.T) {
 					otherContractID,
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 			// This matches both the contract id and the topic
@@ -621,9 +792,9 @@ func TestGetEvents(t *testing.T) {
 					contractID,
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					},
-					xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
 			}),
 		}
@@ -642,7 +813,7 @@ func TestGetEvents(t *testing.T) {
 					Topics: []TopicFilter{
 						[]SegmentFilter{
 							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
-							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number}},
+							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number}},
 						},
 					},
 				},
@@ -652,28 +823,28 @@ func TestGetEvents(t *testing.T) {
 
 		id := events.Cursor{Ledger: 1, Tx: 4, Op: 0, Event: 0}.String()
 		value, err := xdr.MarshalBase64(xdr.ScVal{
-			Type: xdr.ScValTypeScvU63,
-			U63:  &number,
+			Type: xdr.ScValTypeScvU64,
+			U64:  &number,
 		})
 		assert.NoError(t, err)
 		expected := []EventInfo{
 			{
-				EventType:      EventTypeContract,
-				Ledger:         1,
-				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     contractID.HexString(),
-				ID:             id,
-				PagingToken:    id,
-				Topic:          []string{counterXdr, value},
-				Value:          EventInfoValue{XDR: value},
+				EventType:                EventTypeContract,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               contractID.HexString(),
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr, value},
+				Value:                    EventInfoValue{XDR: value},
+				InSuccessfulContractCall: true,
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
 	})
 
 	t.Run("filtering by event type", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		txMeta := []xdr.TransactionMeta{
 			transactionMetaWithEvents([]xdr.ContractEvent{
@@ -685,6 +856,13 @@ func TestGetEvents(t *testing.T) {
 					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 				),
 				systemEvent(
+					contractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
+				),
+				diagnosticEvent(
 					contractID,
 					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
@@ -703,7 +881,7 @@ func TestGetEvents(t *testing.T) {
 		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
-				{EventType: EventTypeSystem},
+				{EventType: map[string]interface{}{EventTypeSystem: nil}},
 			},
 		})
 		assert.NoError(t, err)
@@ -711,34 +889,34 @@ func TestGetEvents(t *testing.T) {
 		id := events.Cursor{Ledger: 1, Tx: 1, Op: 0, Event: 1}.String()
 		expected := []EventInfo{
 			{
-				EventType:      EventTypeSystem,
-				Ledger:         1,
-				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     contractID.HexString(),
-				ID:             id,
-				PagingToken:    id,
-				Topic:          []string{counterXdr},
-				Value:          EventInfoValue{XDR: counterXdr},
+				EventType:                EventTypeSystem,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               contractID.HexString(),
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr},
+				Value:                    EventInfoValue{XDR: counterXdr},
+				InSuccessfulContractCall: true,
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
 	})
 
 	t.Run("with limit", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 180; i++ {
-			number := xdr.Int64(i)
+			number := xdr.Uint64(i)
 			txMeta = append(txMeta, transactionMetaWithEvents(
 				[]xdr.ContractEvent{
 					contractEvent(
 						contractID,
 						xdr.ScVec{
-							xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+							xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 						},
-						xdr.ScVal{Type: xdr.ScValTypeScvU63, U63: &number},
+						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 					),
 				},
 			))
@@ -778,14 +956,14 @@ func TestGetEvents(t *testing.T) {
 				Value: EventInfoValue{
 					XDR: value,
 				},
+				InSuccessfulContractCall: true,
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
 	})
 
 	t.Run("with cursor", func(t *testing.T) {
-		store, err := events.NewMemoryStore("unit-tests", 100)
-		assert.NoError(t, err)
+		store := events.NewMemoryStore("unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		datas := []xdr.ScSymbol{
 			// ledger/transaction/operation/event
@@ -856,14 +1034,15 @@ func TestGetEvents(t *testing.T) {
 			expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &symbols[i]})
 			assert.NoError(t, err)
 			expected = append(expected, EventInfo{
-				EventType:      EventTypeContract,
-				Ledger:         5,
-				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     contractID.HexString(),
-				ID:             id,
-				PagingToken:    id,
-				Topic:          []string{counterXdr},
-				Value:          EventInfoValue{XDR: expectedXdr},
+				EventType:                EventTypeContract,
+				Ledger:                   5,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               contractID.HexString(),
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{counterXdr},
+				Value:                    EventInfoValue{XDR: expectedXdr},
+				InSuccessfulContractCall: true,
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 5}, results)
@@ -987,7 +1166,7 @@ func contractEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.C
 		Body: xdr.ContractEventBody{
 			V: 0,
 			V0: &xdr.ContractEventV0{
-				Topics: xdr.ScVec(topic),
+				Topics: topic,
 				Data:   body,
 			},
 		},
@@ -1001,7 +1180,21 @@ func systemEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.Con
 		Body: xdr.ContractEventBody{
 			V: 0,
 			V0: &xdr.ContractEventV0{
-				Topics: xdr.ScVec(topic),
+				Topics: topic,
+				Data:   body,
+			},
+		},
+	}
+}
+
+func diagnosticEvent(contractID xdr.Hash, topic []xdr.ScVal, body xdr.ScVal) xdr.ContractEvent {
+	return xdr.ContractEvent{
+		ContractId: &contractID,
+		Type:       xdr.ContractEventTypeDiagnostic,
+		Body: xdr.ContractEventBody{
+			V: 0,
+			V0: &xdr.ContractEventV0{
+				Topics: topic,
 				Data:   body,
 			},
 		},

@@ -17,5 +17,5 @@ All values passed to `--arg` are the JSON representation of SCVals.
 ## Example
 
 ```
-soroban invoke --id <HEX_CONTRACTID> --wasm <WASMFILE> --fn <FUNCNAME> -- --<contract fn argument name> <value>
+soroban invoke --id <HEX_CONTRACTID> --wasm <WASMFILE> -- <FUNCNAME> --<contract fn argument name> <value>
 ```

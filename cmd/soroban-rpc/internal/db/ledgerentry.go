@@ -108,15 +108,23 @@ func (l ledgerEntryWriter) flush() error {
 }
 
 type ledgerEntryReadTx struct {
-	tx     *sqlx.Tx
-	buffer *xdr.EncodingBuffer
+	cachedLatestLedgerSeq uint32
+	tx                    *sqlx.Tx
+	buffer                *xdr.EncodingBuffer
 }
 
-func (l ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
-	return getLatestLedgerSequence(context.Background(), l.tx)
+func (l *ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
+	if l.cachedLatestLedgerSeq != 0 {
+		return l.cachedLatestLedgerSeq, nil
+	}
+	latestLedgerSeq, err := getLatestLedgerSequence(context.Background(), l.tx)
+	if err != nil {
+		l.cachedLatestLedgerSeq = latestLedgerSeq
+	}
+	return latestLedgerSeq, err
 }
 
-func (l ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
 	encodedKey, err := encodeLedgerKey(l.buffer, key)
 	if err != nil {
 		return false, xdr.LedgerEntry{}, err
@@ -168,7 +176,7 @@ func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error)
 	tx, err := r.db.BeginTxx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	})
-	return ledgerEntryReadTx{
+	return &ledgerEntryReadTx{
 		tx:     tx,
 		buffer: xdr.NewEncodingBuffer(),
 	}, err

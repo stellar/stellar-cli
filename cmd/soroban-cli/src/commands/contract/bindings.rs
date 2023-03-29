@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use clap::{ArgEnum, Parser};
+use clap::{arg, command, Parser, ValueEnum};
 use soroban_spec::gen::{
     json,
     rust::{self, ToFormattedString},
@@ -8,16 +8,17 @@ use soroban_spec::gen::{
 
 use crate::wasm;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
-    #[clap(flatten)]
+    #[command(flatten)]
     wasm: wasm::Args,
     /// Type of output to generate
-    #[clap(long, arg_enum)]
+    #[arg(long, value_enum)]
     r#output: Output,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
     /// Rust trait, client bindings, and test harness
     Rust,

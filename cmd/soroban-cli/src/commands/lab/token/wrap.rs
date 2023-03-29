@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{arg, command, Parser};
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
@@ -9,8 +9,8 @@ use soroban_env_host::{
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
         HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractCode, ScObject, ScStatic::LedgerKeyContractCode, ScVal,
-        SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+        PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionEnvelope,
+        TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -46,13 +46,14 @@ pub enum Error {
     Config(#[from] config::Error),
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
     /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-    #[clap(long)]
+    #[arg(long)]
     pub asset: String,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config: config::Args,
 }
 
@@ -70,7 +71,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut state = self.config.get_state()?;
@@ -88,7 +89,7 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
             contract_id: ContractId::Asset(asset.clone()),
-            source: ScContractCode::Token,
+            source: ScContractExecutable::Token,
         }))?;
         let res_str = utils::vec_to_hash(&res)?;
 
@@ -151,21 +152,21 @@ fn build_wrap_token_tx(
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Static(LedgerKeyContractCode),
+            key: ScVal::LedgerKeyContractExecutable,
         }),
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Object(Some(ScObject::Vec(
+            key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
-            ))),
+            )),
         }),
     ];
     if asset != &Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
-            key: ScVal::Object(Some(ScObject::Vec(
+            key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
-            ))),
+            )),
         }));
     }
 
@@ -174,7 +175,7 @@ fn build_wrap_token_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id: ContractId::Asset(asset.clone()),
-                source: ScContractCode::Token,
+                source: ScContractExecutable::Token,
             }),
             footprint: LedgerFootprint {
                 read_only: VecM::default(),

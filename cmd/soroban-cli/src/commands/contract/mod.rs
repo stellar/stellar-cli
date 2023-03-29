@@ -21,6 +21,13 @@ pub enum Cmd {
     Install(install::Cmd),
 
     /// Invoke a contract function
+    ///
+    /// Generates an "implicit CLI" for the specified contract on-the-fly using the contract's
+    /// schema, which gets embedded into every Soroban contract. The "slop" in this command,
+    /// everything after the `--`, gets passed to this implicit CLI. Get in-depth help for a given
+    /// contract:
+    ///
+    ///     soroban contract invoke ... -- --help
     Invoke(invoke::Cmd),
 
     /// Optimize a WASM file

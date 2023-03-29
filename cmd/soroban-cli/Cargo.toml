@@ -10,10 +10,16 @@ version = "0.6.0"
 edition = "2021"
 rust-version = "1.68"
 autobins = false
+default-run = "soroban"
 
 [[bin]]
 name = "soroban"
 path = "src/bin/main.rs"
+
+[[bin]]
+name = "doc-gen"
+path = "src/bin/doc-gen.rs"
+required-features = ["clap-markdown"]
 
 [lib]
 name = "soroban_cli"
@@ -27,7 +33,7 @@ soroban-token-spec = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
-clap = { version = "3.1.18", features = ["derive", "env"] }
+clap = { version = "4.1.8", features = ["derive", "env", "deprecated", "string"] }
 base64 = "0.13.0"
 thiserror = "1.0.31"
 serde = "1.0.82"
@@ -39,7 +45,7 @@ num-bigint = "0.4"
 tokio = { version = "1", features = ["full"] }
 termcolor = "1.1.3"
 termcolor_output = "1.0.1"
-clap_complete = "3.2.3"
+clap_complete = "4.1.4"
 rand = "0.8.5"
 wasmparser = "0.90.0"
 sha2 = "0.10.6"
@@ -54,8 +60,10 @@ rpassword = "7.2.0"
 dirs = "4.0.0"
 toml = "0.5.9"
 itertools = "0.10.5"
-sep5 =  { workspace = true}
 shlex = "1.1.0"
+sep5 =  { workspace = true }
+ethnum = { workspace = true }
+clap-markdown = { version = "0.1.3", optional = true }
 
 
 [build-dependencies]

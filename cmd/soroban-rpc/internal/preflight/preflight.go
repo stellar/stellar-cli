@@ -92,16 +92,34 @@ type PreflightParameters struct {
 	SourceAccount      xdr.AccountId
 	InvokeHostFunction xdr.InvokeHostFunctionOp
 	NetworkPassphrase  string
-	LedgerEntryReader  db.LedgerEntryReader
+	LedgerEntryReadTx  db.LedgerEntryReadTx
 }
 
 type Preflight struct {
 	Auth            []string // ContractAuths XDR in base64
+	Events          []string // DiagnosticEvents XDR in base64
 	Footprint       string   // LedgerFootprint XDR in base64
 	Result          string   // SCVal XDR in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
-	LatestLedger    uint32
+}
+
+// GoNullTerminatedStringSlice transforms a C NULL-terminated char** array to a Go string slice
+func GoNullTerminatedStringSlice(str **C.char) []string {
+	var result []string
+	if str != nil {
+		// CGo doesn't have an easy way to do pointer arithmetic so,
+		// we are better off transforming the memory buffer into a large slice
+		// and finding the NULL termination after that
+		for _, a := range unsafe.Slice(str, 1<<20) {
+			if a == nil {
+				// we found the ending nil
+				break
+			}
+			result = append(result, C.GoString(a))
+		}
+	}
+	return result
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
@@ -114,14 +132,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	if err != nil {
 		return Preflight{}, err
 	}
-	readTx, err := params.LedgerEntryReader.NewTx(ctx)
-	if err != nil {
-		return Preflight{}, err
-	}
-	defer func() {
-		_ = readTx.Done()
-	}()
-	latestLedger, err := readTx.GetLatestLedgerSequence()
+	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -135,7 +146,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)
-	handle := cgo.NewHandle(snapshotSourceHandle{readTx, params.Logger})
+	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
 	res := C.preflight_host_function(
 		C.uintptr_t(handle),
@@ -148,31 +159,16 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	defer C.free_preflight_result(res)
 
 	if res.error != nil {
-		return Preflight{LatestLedger: latestLedger}, errors.New(C.GoString(res.error))
-	}
-
-	// Get the auth data
-	var auth []string
-	if res.auth != nil {
-		// CGo doesn't have an easy way to do pointer arithmetic so,
-		// we are better off transforming the memory buffer into a large slice
-		// and finding the NULL termination after that
-		for _, a := range unsafe.Slice(res.auth, 1<<20) {
-			if a == nil {
-				// we found the ending nil
-				break
-			}
-			auth = append(auth, C.GoString(a))
-		}
+		return Preflight{}, errors.New(C.GoString(res.error))
 	}
 
 	preflight := Preflight{
-		Auth:            auth,
+		Auth:            GoNullTerminatedStringSlice(res.auth),
+		Events:          GoNullTerminatedStringSlice(res.events),
 		Footprint:       C.GoString(res.preflight),
 		Result:          C.GoString(res.result),
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),
-		LatestLedger:    latestLedger,
 	}
 	return preflight, nil
 }

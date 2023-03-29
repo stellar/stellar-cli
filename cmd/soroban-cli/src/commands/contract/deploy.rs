@@ -2,18 +2,18 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
-use clap::Parser;
+use clap::{arg, command, Parser};
 use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::HashIdPreimageSourceAccountContractId;
 use soroban_env_host::xdr::{
     AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
     HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractCode,
     LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount,
-    Operation, OperationBody, Preconditions, PublicKey, ScContractCode, ScStatic, ScVal,
-    SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+    Operation, OperationBody, Preconditions, PublicKey, ScVal, SequenceNumber, Transaction,
+    TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
 };
+use soroban_env_host::xdr::{HashIdPreimageSourceAccountContractId, ScContractExecutable};
 use soroban_env_host::HostError;
 
 use crate::{
@@ -22,36 +22,37 @@ use crate::{
     utils, wasm,
 };
 
-#[derive(Parser, Debug)]
-#[clap(group(
+#[derive(Parser, Debug, Clone)]
+#[command(group(
     clap::ArgGroup::new("wasm_src")
         .required(true)
-        .args(&["wasm", "wasm-hash"]),
+        .args(&["wasm", "wasm_hash"]),
 ))]
+#[group(skip)]
 pub struct Cmd {
     /// WASM file to deploy
-    #[clap(long, parse(from_os_str), group = "wasm_src")]
+    #[arg(long, group = "wasm_src")]
     wasm: Option<std::path::PathBuf>,
 
     /// Hash of the already installed/deployed WASM file
-    #[clap(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
+    #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     wasm_hash: Option<String>,
 
     /// Contract ID to deploy to
-    #[clap(
+    #[arg(
         long = "id",
-        conflicts_with = "rpc-url",
+        conflicts_with = "rpc_url",
         help_heading = HEADING_SANDBOX,
     )]
     contract_id: Option<String>,
     /// Custom salt 32-byte salt for the token id
-    #[clap(
+    #[arg(
         long,
-        conflicts_with_all = &["contract-id", "ledger-file"],
+        conflicts_with_all = &["contract_id", "ledger_file"],
         help_heading = HEADING_RPC,
     )]
     salt: Option<String>,
-    #[clap(flatten)]
+    #[command(flatten)]
     config: config::Args,
 }
 
@@ -98,12 +99,13 @@ impl Cmd {
 
     pub async fn run_and_get_contract_id(&self) -> Result<String, Error> {
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            install::Cmd {
+            let hash = install::Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
                 config: self.config.clone(),
             }
             .run_and_get_hash()
-            .await?
+            .await?;
+            hex::encode(hash)
         } else {
             self.wasm_hash
                 .as_ref()
@@ -127,7 +129,7 @@ impl Cmd {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
         let contract_id: [u8; 32] = match &self.contract_id {
             Some(id) => utils::id_from_str(id).map_err(|e| Error::CannotParseContractId {
                 contract_id: self.contract_id.as_ref().unwrap().clone(),
@@ -201,13 +203,13 @@ fn build_create_contract_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id: ContractId::SourceAccount(Uint256(salt)),
-                source: ScContractCode::WasmRef(hash.clone()),
+                source: ScContractExecutable::WasmRef(hash.clone()),
             }),
             footprint: LedgerFootprint {
                 read_only: vec![ContractCode(LedgerKeyContractCode { hash })].try_into()?,
                 read_write: vec![ContractData(LedgerKeyContractData {
                     contract_id: Hash(contract_id.into()),
-                    key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+                    key: ScVal::LedgerKeyContractExecutable,
                 })]
                 .try_into()?,
             },

@@ -2,26 +2,28 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::num::ParseIntError;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::Parser;
+use clap::{arg, command, Parser};
 use hex::FromHexError;
-use soroban_env_host::xdr::ScSpecFunctionV0;
+use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
+use soroban_env_host::Host;
 use soroban_env_host::{
     budget::{Budget, CostType},
-    events::HostEvent,
+    events::Event,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
         Error as XdrError, HostFunction, InvokeHostFunctionOp, InvokeHostFunctionResult,
         LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, LedgerKeyContractCode,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, OperationResult,
-        OperationResultTr, Preconditions, PublicKey, ReadXdr, ScContractCode,
-        ScHostStorageErrorCode, ScObject, ScSpecEntry, ScSpecTypeDef, ScStatic, ScStatus, ScVal,
-        ScVec, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt,
-        TransactionResultResult, Uint256, VecM,
+        OperationResultTr, Preconditions, PublicKey, ReadXdr, ScHostStorageErrorCode, ScSpecEntry,
+        ScSpecTypeDef, ScStatus, ScVal, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
+        TransactionExt, TransactionResultResult, Uint256, VecM,
     },
-    Host, HostError,
+    HostError,
 };
 use soroban_spec::read::FromWasmError;
 
@@ -30,46 +32,63 @@ use crate::{
     rpc::{self, Client},
     strval::{self, Spec},
     utils::{self, create_ledger_footprint, default_account_ledger_entry},
+    Pwd,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
+#[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[clap(long = "id")]
-    contract_id: String,
+    #[arg(long = "id")]
+    pub contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
-    #[clap(long, parse(from_os_str))]
-    wasm: Option<std::path::PathBuf>,
+    #[arg(long)]
+    pub wasm: Option<std::path::PathBuf>,
     /// Output the cost execution to stderr
-    #[clap(long = "cost")]
-    cost: bool,
+    #[arg(long = "cost")]
+    pub cost: bool,
     /// Run with an unlimited budget
-    #[clap(long = "unlimited-budget", conflicts_with = "rpc-url")]
-    unlimited_budget: bool,
+    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url")]
+    pub unlimited_budget: bool,
     /// Output the footprint to stderr
-    #[clap(long = "footprint")]
-    footprint: bool,
+    #[arg(long = "footprint")]
+    pub footprint: bool,
     /// Output the contract auth for the transaction to stderr
-    #[clap(long = "auth")]
-    auth: bool,
-    /// File to persist event output
-    #[clap(
+    #[arg(long = "auth")]
+    pub auth: bool,
+    /// Output the contract events for the transaction to stderr
+    #[arg(long = "events")]
+    pub events: bool,
+    /// File to persist event output, default is .soroban/events.json
+    #[arg(
         long,
-        parse(from_os_str),
-        default_value(".soroban/events.json"),
-        conflicts_with = "rpc-url",
+        conflicts_with = "rpc_url",
         env = "SOROBAN_EVENTS_FILE",
         help_heading = HEADING_SANDBOX,
     )]
-    events_file: std::path::PathBuf,
-
-    // Arguments for contract as `--arg-name value`
-    #[clap(last = true, name = "CONTRACT_FN_ARGS")]
+    pub events_file: Option<PathBuf>,
+    // Function name as subcommand, then arguments for that function as `--arg-name value`
+    #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config: config::Args,
+}
+
+impl FromStr for Cmd {
+    type Err = clap::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use clap::{CommandFactory, FromArgMatches};
+        Self::from_arg_matches_mut(&mut Self::command().get_matches_from(s.split_whitespace()))
+    }
+}
+
+impl Pwd for Cmd {
+    fn set_pwd(&mut self, pwd: &Path) {
+        self.config.set_pwd(pwd);
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -133,6 +152,9 @@ pub enum Error {
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error("Missing argument {0}")]
     MissingArgument(String),
+
+    #[error(transparent)]
+    Clap(#[from] clap::Error),
 }
 
 impl Cmd {
@@ -142,15 +164,13 @@ impl Cmd {
         spec_entries: &[ScSpecEntry],
     ) -> Result<(String, Spec, ScVec), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
-        let mut cmd = clap::Command::new(&self.contract_id)
+        let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
             .term_width(300)
             .max_term_width(300);
 
         for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
-            let name: &'static str = Box::leak(name.to_string_lossy().into_boxed_str());
-            // let doc: &'static str = Box::leak(doc.to_string_lossy().into_boxed_str());
-            cmd = cmd.subcommand(build_custom_cmd(name, &spec)?);
+            cmd = cmd.subcommand(build_custom_cmd(&name.to_string_lossy(), &spec)?);
         }
         cmd.build();
         let mut matches_ = cmd.get_matches_from(&self.slop);
@@ -163,16 +183,13 @@ impl Cmd {
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
-                let s = match i.type_ {
-                    ScSpecTypeDef::Bool => matches_.is_present(name.clone()).to_string(),
-                    _ => matches_
-                        .get_raw(&name)
-                        .ok_or_else(|| Error::MissingArgument(name.clone()))?
-                        .next()
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string(),
-                };
+                let s = matches_
+                    .get_raw(&name)
+                    .ok_or_else(|| Error::MissingArgument(name.clone()))?
+                    .next()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
                 spec.from_string(&s, &i.type_)
                     .map_err(|error| Error::CannotParseArg { arg: name, error })
             })
@@ -180,7 +197,7 @@ impl Cmd {
 
         // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
-            ScVal::Object(Some(ScObject::Bytes(contract_id.try_into().unwrap()))),
+            ScVal::Bytes(ScBytes(contract_id.try_into().unwrap())),
             ScVal::Symbol(
                 function
                     .try_into()
@@ -203,6 +220,12 @@ impl Cmd {
     }
 
     pub async fn run(&self) -> Result<(), Error> {
+        let res = self.invoke().await?;
+        println!("{res}");
+        Ok(())
+    }
+
+    pub async fn invoke(&self) -> Result<String, Error> {
         if self.config.is_no_network() {
             self.run_in_sandbox()
         } else {
@@ -210,7 +233,7 @@ impl Cmd {
         }
     }
 
-    async fn run_against_rpc_server(&self) -> Result<(), Error> {
+    pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url);
@@ -256,6 +279,11 @@ impl Cmd {
             .iter()
             .map(ContractAuth::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
+        let events = result
+            .events
+            .iter()
+            .map(DiagnosticEvent::from_xdr_base64)
+            .collect::<Result<Vec<_>, _>>()?;
 
         if self.footprint {
             eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap());
@@ -263,6 +291,13 @@ impl Cmd {
 
         if self.auth {
             eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap());
+        }
+
+        if self.events {
+            eprintln!(
+                "Simulated events: {}",
+                serde_json::to_string(&events).unwrap()
+            );
         }
 
         // Send the final transaction with the actual footprint
@@ -276,7 +311,7 @@ impl Cmd {
             &key,
         )?;
 
-        let result = client.send_transaction(&tx).await?;
+        let (result, events) = client.send_transaction(&tx).await?;
         let res = match result.result {
             TransactionResultResult::TxSuccess(ops) => {
                 if ops.is_empty() {
@@ -291,14 +326,16 @@ impl Cmd {
             }
             _ => return Err(Error::MissingOperationResult),
         };
-        let res_str = output_to_string(&spec, &res, &function)?;
-        println!("{res_str}");
-        // TODO: print cost
-
-        Ok(())
+        if self.events {
+            eprintln!(
+                "Simulated events: {}",
+                serde_json::to_string(&events).unwrap()
+            );
+        }
+        output_to_string(&spec, &res, &function)
     }
 
-    fn run_in_sandbox(&self) -> Result<(), Error> {
+    pub fn run_in_sandbox(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -347,10 +384,7 @@ impl Cmd {
             self.build_host_function_parameters(contract_id, &spec_entries)?;
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
-
         let res_str = output_to_string(&spec, &res, &function)?;
-
-        println!("{res_str}");
 
         state.update(&h);
 
@@ -400,24 +434,30 @@ impl Cmd {
 
         for (i, event) in events.0.iter().enumerate() {
             eprint!("#{i}: ");
-            match event {
-                HostEvent::Contract(e) => {
+            match &event.event {
+                Event::Contract(e) => {
                     eprintln!("event: {}", serde_json::to_string(&e).unwrap());
                 }
-                HostEvent::Debug(e) => eprintln!("debug: {e}"),
+                Event::Debug(e) => eprintln!("debug: {e}"),
+                // TODO: print structued debug events in a nicer way
+                Event::StructuredDebug(e) => eprintln!("structured debug: {e:?}"),
             }
         }
 
         self.config.set_state(&mut state)?;
 
-        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
-            Error::CannotCommitEventsFile {
-                filepath: self.events_file.clone(),
-                error: e,
-            }
-        })?;
+        if !events.0.is_empty() {
+            let event_path = self.events_file_path()?;
 
-        Ok(())
+            events::commit(&events.0, &state, &event_path).map_err(|e| {
+                Error::CannotCommitEventsFile {
+                    filepath: event_path,
+                    error: e,
+                }
+            })?;
+        }
+
+        Ok(res_str)
     }
 
     pub fn deploy_contract_in_sandbox(
@@ -464,6 +504,14 @@ impl Cmd {
         utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
             contract_id: self.contract_id.clone(),
             error: e,
+        })
+    }
+
+    fn events_file_path(&self) -> Result<PathBuf, Error> {
+        Ok(if let Some(events_file) = &self.events_file {
+            PathBuf::from(events_file)
+        } else {
+            self.config.config_dir()?.join("events.json")
         })
     }
 }
@@ -526,13 +574,13 @@ async fn get_remote_contract_spec_entries(
     let contract_ref = client
         .get_ledger_entry(LedgerKey::ContractData(LedgerKeyContractData {
             contract_id: xdr::Hash(*contract_id),
-            key: ScVal::Static(ScStatic::LedgerKeyContractCode),
+            key: ScVal::LedgerKeyContractExecutable,
         }))
         .await?;
 
     Ok(match LedgerEntryData::from_xdr_base64(contract_ref.xdr)? {
         LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::WasmRef(hash)))),
+            val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
             ..
         }) => {
             let contract_data = client
@@ -549,7 +597,7 @@ async fn get_remote_contract_spec_entries(
             }
         }
         LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::Object(Some(ScObject::ContractCode(ScContractCode::Token))),
+            val: ScVal::ContractExecutable(ScContractExecutable::Token),
             ..
         }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
             .map_err(FromWasmError::Parse)
@@ -558,7 +606,7 @@ async fn get_remote_contract_spec_entries(
     })
 }
 
-fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Error> {
+fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
     let func = spec
         .find_function(name)
         .map_err(|_| Error::FunctionNotFoundInContractSpec(name.to_string()))?;
@@ -569,6 +617,7 @@ fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Err
         .iter()
         .map(|i| (i.name.to_string().unwrap(), i.type_.clone()))
         .collect::<HashMap<String, ScSpecTypeDef>>();
+    let name: &'static str = Box::leak(name.to_string().into_boxed_str());
     let mut cmd = clap::Command::new(name)
         .no_binary_name(true)
         .term_width(300)
@@ -577,25 +626,26 @@ fn build_custom_cmd<'a>(name: &'a str, spec: &Spec) -> Result<clap::App<'a>, Err
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
     cmd = cmd.about(Some(doc));
     for (name, type_) in inputs_map.iter() {
-        let name: &'static str = Box::leak(name.clone().into_boxed_str());
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
-            .takes_value(true)
+            .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
-            arg = arg.value_name(Box::leak(value_name.into_boxed_str()));
+            let value_name: &'static str = Box::leak(value_name.into_boxed_str());
+            arg = arg.value_name(value_name);
         }
 
         // Set up special-case arg rules
         arg = match type_ {
-            xdr::ScSpecTypeDef::Bool => arg.takes_value(false).required(false),
+            xdr::ScSpecTypeDef::Bool => arg.num_args(0).required(false),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
-            xdr::ScSpecTypeDef::I128 | xdr::ScSpecTypeDef::I64 | xdr::ScSpecTypeDef::I32 => {
-                arg.allow_hyphen_values(true)
-            }
+            xdr::ScSpecTypeDef::I256
+            | xdr::ScSpecTypeDef::I128
+            | xdr::ScSpecTypeDef::I64
+            | xdr::ScSpecTypeDef::I32 => arg.allow_hyphen_values(true),
             _ => arg,
         };
 

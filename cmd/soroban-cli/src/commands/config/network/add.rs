@@ -1,4 +1,5 @@
 use super::{super::secret, locator};
+use clap::command;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -7,27 +8,25 @@ pub enum Error {
 
     #[error(transparent)]
     Config(#[from] locator::Error),
-
-    #[error("Failed to write network file")]
-    NetworkCreationFailed,
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Parser, Clone)]
+#[group(skip)]
 pub struct Cmd {
     /// Name of network
     pub name: String,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub network: super::Network,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config_locator: locator::Args,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        self.config_locator
-            .write_network(&self.name, &self.network)
-            .map_err(|_| Error::NetworkCreationFailed)
+        Ok(self
+            .config_locator
+            .write_network(&self.name, &self.network)?)
     }
 }

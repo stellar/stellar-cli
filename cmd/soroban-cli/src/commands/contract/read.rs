@@ -3,7 +3,7 @@ use std::{
     io::{self, stdout},
 };
 
-use clap::{ArgEnum, Parser};
+use clap::{command, Parser, ValueEnum};
 use hex::FromHexError;
 use soroban_env_host::{
     xdr::{
@@ -13,28 +13,35 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::{commands::config::ledger_file, strval, utils};
+use crate::{
+    commands::config::{ledger_file, locator},
+    strval, utils,
+};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[clap(long = "id")]
+    #[arg(long = "id")]
     contract_id: String,
     /// Storage key (symbols only)
-    #[clap(long = "key", conflicts_with = "key-xdr")]
+    #[arg(long = "key", conflicts_with = "key_xdr")]
     key: Option<String>,
     /// Storage key (base64-encoded XDR)
-    #[clap(long = "key-xdr", conflicts_with = "key")]
+    #[arg(long = "key-xdr", conflicts_with = "key")]
     key_xdr: Option<String>,
     /// Type of output to generate
-    #[clap(long, arg_enum, default_value("string"))]
+    #[arg(long, value_enum, default_value("string"))]
     output: Output,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     ledger: ledger_file::Args,
+
+    #[command(flatten)]
+    locator: locator::Args,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
     /// String
     String,
@@ -74,6 +81,8 @@ pub enum Error {
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -104,7 +113,7 @@ impl Cmd {
             None
         };
 
-        let state = self.ledger.read()?;
+        let state = self.ledger.read(&self.locator.config_dir()?)?;
         let ledger_entries = &state.ledger_entries;
 
         let contract_id = xdr::Hash(contract_id);
@@ -135,7 +144,7 @@ impl Cmd {
                 .filter_map(|(k, v)| {
                     if let LedgerKey::ContractData(kd) = *k.clone() {
                         if kd.contract_id == contract_id
-                            && kd.key != ScVal::Static(xdr::ScStatic::LedgerKeyContractCode)
+                            && kd.key != ScVal::LedgerKeyContractExecutable
                         {
                             if let LedgerEntryData::ContractData(vd) = &v.data {
                                 return Some(vd.clone());

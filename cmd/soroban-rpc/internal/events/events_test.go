@@ -41,14 +41,17 @@ func ledgerCloseTime(seq uint32) int64 {
 func newEvent(txIndex, opIndex, eventIndex, val uint32) event {
 	v := xdr.Uint32(val)
 	return event{
-		contents: xdr.ContractEvent{
-			Type: xdr.ContractEventTypeSystem,
-			Body: xdr.ContractEventBody{
-				V: 0,
-				V0: &xdr.ContractEventV0{
-					Data: xdr.ScVal{
-						Type: xdr.ScValTypeScvU32,
-						U32:  &v,
+		contents: xdr.DiagnosticEvent{
+			InSuccessfulContractCall: true,
+			Event: xdr.ContractEvent{
+				Type: xdr.ContractEventTypeSystem,
+				Body: xdr.ContractEventBody{
+					V: 0,
+					V0: &xdr.ContractEventV0{
+						Data: xdr.ScVal{
+							Type: xdr.ScValTypeScvU32,
+							U32:  &v,
+						},
 					},
 				},
 			},
@@ -59,7 +62,7 @@ func newEvent(txIndex, opIndex, eventIndex, val uint32) event {
 	}
 }
 
-func mustMarshal(e xdr.ContractEvent) string {
+func mustMarshal(e xdr.DiagnosticEvent) string {
 	result, err := xdr.MarshalBase64(e)
 	if err != nil {
 		panic(err)
@@ -82,13 +85,12 @@ func eventsAreEqual(t *testing.T, a, b []event) {
 }
 
 func TestScanRangeValidation(t *testing.T) {
-	m, err := NewMemoryStore("unit-tests", 4)
-	require.NoError(t, err)
-	assertNoCalls := func(contractEvent xdr.ContractEvent, cursor Cursor, timestamp int64) bool {
+	m := NewMemoryStore("unit-tests", 4)
+	assertNoCalls := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, timestamp int64) bool {
 		t.Fatalf("unexpected call")
 		return true
 	}
-	_, err = m.Scan(Range{
+	_, err := m.Scan(Range{
 		Start:      MinCursor,
 		ClampStart: true,
 		End:        MaxCursor,
@@ -208,7 +210,7 @@ func TestScanRangeValidation(t *testing.T) {
 }
 
 func createStore(t *testing.T) *MemoryStore {
-	m, err := NewMemoryStore("unit-tests", 4)
+	m := NewMemoryStore("unit-tests", 4)
 	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            5,
 		LedgerCloseTimestamp: ledger5CloseTime,
@@ -219,19 +221,16 @@ func createStore(t *testing.T) *MemoryStore {
 		LedgerCloseTimestamp: ledger6CloseTime,
 		BucketContent:        nil,
 	})
-	require.NoError(t, err)
 	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            7,
 		LedgerCloseTimestamp: ledger7CloseTime,
 		BucketContent:        ledger7Events,
 	})
-	require.NoError(t, err)
 	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            8,
 		LedgerCloseTimestamp: ledger8CloseTime,
 		BucketContent:        ledger8Events,
 	})
-	require.NoError(t, err)
 
 	return m
 }
@@ -366,7 +365,7 @@ func TestScan(t *testing.T) {
 		for _, input := range genEquivalentInputs(testCase.input) {
 			var events []event
 			iterateAll := true
-			f := func(contractEvent xdr.ContractEvent, cursor Cursor, ledgerCloseTimestamp int64) bool {
+			f := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, ledgerCloseTimestamp int64) bool {
 				require.Equal(t, ledgerCloseTime(cursor.Ledger), ledgerCloseTimestamp)
 				events = append(events, event{
 					contents:   contractEvent,

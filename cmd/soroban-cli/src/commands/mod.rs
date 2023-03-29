@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use clap::{AppSettings, CommandFactory, FromArgMatches, Parser};
+use clap::{command, CommandFactory, FromArgMatches, Parser};
 
 pub mod completion;
 pub mod config;
@@ -9,19 +9,47 @@ pub mod events;
 pub mod lab;
 pub mod version;
 
-pub const HEADING_SANDBOX: &str = "OPTIONS (SANDBOX)";
-pub const HEADING_RPC: &str = "OPTIONS (RPC)";
+pub const HEADING_SANDBOX: &str = "Options (Sandbox)";
+pub const HEADING_RPC: &str = "Options (RPC)";
+const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
+
+Intro: https://soroban.stellar.org
+CLI Reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md";
+
+// long_about is shown when someone uses `--help`; short help when using `-h`
+const LONG_ABOUT: &str = "
+
+The easiest way to get started is to generate a new identity:
+
+    soroban config identity generate alice
+
+You can use identities with the `--source` flag in other commands later.
+
+Commands that relate to smart contract interactions are organized under the `contract` subcommand. List them:
+
+    soroban contract --help
+
+A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. `soroban contract invoke` makes use of this:
+
+    soroban contract invoke --id 1 --source alice -- --help
+
+Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
+
+    soroban contract invoke --id 1 --source alice -- hello --to world
+
+Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md";
+
 #[derive(Parser, Debug)]
-#[clap(
+#[command(
     name = "soroban",
-    version = Box::leak(Box::new(version::short())).as_str(),
-    long_version = Box::leak(Box::new(version::long())).as_str(),
-    about = "https://soroban.stellar.org",
+    version = version::short(),
+    long_version = version::long(),
+    about = ABOUT,
+    long_about = ABOUT.to_string() + LONG_ABOUT,
     disable_help_subcommand = true,
 )]
-#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 pub struct Root {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub cmd: Cmd,
 }
 
@@ -62,20 +90,20 @@ impl FromStr for Root {
 #[derive(Parser, Debug)]
 pub enum Cmd {
     /// Tools for smart contract developers
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Contract(contract::Cmd),
     /// Read and update config
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Config(config::Cmd),
     /// Run a local webserver for web app development and testing
     Events(events::Cmd),
     /// Experiment with early features and expert tools
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Lab(lab::Cmd),
     /// Print version information
     Version(version::Cmd),
     /// Print shell completion code for the specified shell.
-    #[clap(long_about = completion::LONG_ABOUT)]
+    #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
 }
 

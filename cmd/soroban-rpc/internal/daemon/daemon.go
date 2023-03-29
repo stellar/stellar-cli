@@ -21,6 +21,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
@@ -62,10 +63,8 @@ func (d *Daemon) Close() error {
 	return err
 }
 
-func MustNew(cfg config.LocalConfig) *Daemon {
-	logger := supportlog.New()
-	logger.SetLevel(cfg.LogLevel)
-
+// newCaptiveCore create a new captive core backend instance and returns it.
+func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerbackend.CaptiveStellarCore, error) {
 	httpPortUint := uint(cfg.CaptiveCoreHTTPPort)
 	var captiveCoreTomlParams ledgerbackend.CaptiveCoreTomlParams
 	captiveCoreTomlParams.HTTPPort = &httpPortUint
@@ -89,11 +88,22 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		UserAgent:           "captivecore",
 		UseDB:               cfg.CaptiveCoreUseDB,
 	}
-	core, err := ledgerbackend.NewCaptive(captiveConfig)
+	return ledgerbackend.NewCaptive(captiveConfig)
+
+}
+
+func MustNew(cfg config.LocalConfig) *Daemon {
+	logger := supportlog.New()
+	logger.SetLevel(cfg.LogLevel)
+
+	core, err := newCaptiveCore(&cfg, logger)
 	if err != nil {
 		logger.Fatalf("could not create captive core: %v", err)
 	}
 
+  if len(cfg.HistoryArchiveURLs) == 0 {
+		logger.Fatalf("no history archives url were provided")
+	}
 	// Defaults: https://pkg.go.dev/github.com/cenkalti/backoff/v4@v4.2.0#pkg-constants
 	expBackoff := backoff.NewExponentialBackOff()
 	// Default is 15m but that's too long.
@@ -133,17 +143,14 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 	expBackoff.Reset()
 
-	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
-	if err != nil {
-		logger.Fatalf("could not create event store: %v", err)
-	}
-	transactionStore, err := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
-	if err != nil {
-		logger.Fatalf("could not create transaction store: %v", err)
-	}
+	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
+	transactionStore := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
+
 	maxRetentionWindow := cfg.EventLedgerRetentionWindow
 	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
 		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
+	} else if cfg.EventLedgerRetentionWindow == 0 && cfg.TransactionLedgerRetentionWindow > ledgerbucketwindow.DefaultEventLedgerRetentionWindow {
+		maxRetentionWindow = ledgerbucketwindow.DefaultEventLedgerRetentionWindow
 	}
 
 	// initialize the stores using what was on the DB
@@ -196,7 +203,8 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	expBackoff.Reset()
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
-	preflightWorkerPool := preflight.NewPreflightWorkerPool(cfg.PreflightWorkerCount, ledgerEntryReader, cfg.NetworkPassphrase, logger)
+	preflightWorkerPool := preflight.NewPreflightWorkerPool(
+		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
 	handler, err := backoff.RetryNotifyWithData(
 		func() (internal.Handler, error) {
@@ -219,6 +227,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)
 	}
+
 	return &Daemon{
 		logger:              logger,
 		core:                core,

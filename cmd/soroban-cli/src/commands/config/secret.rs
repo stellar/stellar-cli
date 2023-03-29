@@ -1,3 +1,4 @@
+use clap::arg;
 use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::PrivateKey;
@@ -23,13 +24,14 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Args, Clone)]
+#[group(skip)]
 pub struct Args {
     /// Add using secret_key
     /// Can provide with SOROBAN_SECRET_KEY
-    #[clap(long, conflicts_with = "seed-phrase")]
+    #[arg(long, conflicts_with = "seed_phrase")]
     pub secret_key: bool,
     /// Add using 12 word seed phrase to generate secret_key
-    #[clap(long, conflicts_with = "secret-key")]
+    #[arg(long, conflicts_with = "secret_key")]
     pub seed_phrase: bool,
 }
 

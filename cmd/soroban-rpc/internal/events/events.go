@@ -19,7 +19,7 @@ type bucket struct {
 }
 
 type event struct {
-	contents   xdr.ContractEvent
+	contents   xdr.DiagnosticEvent
 	txIndex    uint32
 	opIndex    uint32
 	eventIndex uint32
@@ -53,15 +53,12 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any events from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(networkPassphrase string, retentionWindow uint32) (*MemoryStore, error) {
-	window, err := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
-	if err != nil {
-		return nil, err
-	}
+func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
+	window := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
 	return &MemoryStore{
 		networkPassphrase: networkPassphrase,
 		eventsByLedger:    window,
-	}, nil
+	}
 }
 
 // Range defines a [Start, End) interval of Soroban events.
@@ -84,7 +81,7 @@ type Range struct {
 // remaining events in the range). Note that a read lock is held for the
 // entire duration of the Scan function so f should be written in a way
 // to minimize latency.
-func (m *MemoryStore) Scan(eventRange Range, f func(xdr.ContractEvent, Cursor, int64) bool) (uint32, error) {
+func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor, int64) bool) (uint32, error) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -211,7 +208,7 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 		}
 		for i := range tx.Envelope.Operations() {
 			opIndex := uint32(i)
-			var opEvents []xdr.ContractEvent
+			var opEvents []xdr.DiagnosticEvent
 			opEvents, err = tx.GetOperationEvents(opIndex)
 			if err != nil {
 				return

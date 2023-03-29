@@ -1,4 +1,4 @@
-use clap::{CommandFactory, Parser};
+use clap::{arg, CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use std::io;
 
@@ -16,10 +16,11 @@ To enable autocomplete in the current bash shell, run:
 To enable autocomplete permanently, run:
   echo \"source <(soroban completion --shell bash)\" >> ~/.bashrc";
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
     /// The shell type
-    #[clap(long, arg_enum)]
+    #[arg(long, value_enum)]
     shell: Shell,
 }
 

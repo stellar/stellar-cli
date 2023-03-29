@@ -1,20 +1,21 @@
-use clap::{ArgEnum, Parser};
-use soroban_env_host::xdr::{self};
+use clap::{arg, Parser, ValueEnum};
+use soroban_env_host::xdr;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
     /// XDR type to decode to
-    #[clap(long, possible_values(xdr::TypeVariant::VARIANTS_STR))]
+    #[arg(long, value_parser(xdr::TypeVariant::VARIANTS_STR))]
     r#type: xdr::TypeVariant,
     /// XDR (base64 encoded) to decode
-    #[clap(long)]
+    #[arg(long)]
     xdr: String,
     /// Type of output
-    #[clap(long, arg_enum, default_value_t)]
+    #[arg(long, value_enum, default_value_t)]
     output: Output,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ArgEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
     // Default structured output
     Default,

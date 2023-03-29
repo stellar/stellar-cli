@@ -15,8 +15,7 @@ func bucket(ledgerSeq uint32) LedgerBucket[uint32] {
 }
 
 func TestAppend(t *testing.T) {
-	m, err := NewLedgerBucketWindow[uint32](3)
-	require.NoError(t, err)
+	m := NewLedgerBucketWindow[uint32](3)
 	require.Equal(t, uint32(0), m.Len())
 
 	// test appending first bucket of events
@@ -103,7 +102,6 @@ func TestAppend(t *testing.T) {
 	// append ledger 7, now we have all three buckets filled
 	evicted = m.Append(bucket(7))
 	require.Nil(t, evicted)
-	require.NoError(t, err)
 	require.Nil(t, evicted)
 	require.Equal(t, uint32(3), m.Len())
 	require.Equal(t, bucket(5), *m.Get(0))

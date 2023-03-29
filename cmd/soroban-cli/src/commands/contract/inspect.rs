@@ -1,11 +1,12 @@
-use clap::Parser;
+use clap::{command, Parser};
 use std::fmt::Debug;
 
 use crate::wasm;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
-    #[clap(flatten)]
+    #[command(flatten)]
     wasm: wasm::Args,
 }
 

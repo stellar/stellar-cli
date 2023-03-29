@@ -1,15 +1,16 @@
-use clap::Parser;
+use clap::{arg, command, Parser};
 use std::fmt::Debug;
 use wasm_opt::{OptimizationError, OptimizationOptions};
 
 use crate::wasm;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
-    #[clap(flatten)]
+    #[command(flatten)]
     wasm: wasm::Args,
     /// Path to write the optimized WASM file to (defaults to same location as --wasm with .optimized.wasm suffix)
-    #[clap(long, parse(from_os_str))]
+    #[arg(long)]
     wasm_out: Option<std::path::PathBuf>,
 }
 

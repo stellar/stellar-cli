@@ -16,6 +16,16 @@ GOLDFLAGS :=	-X 'github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/confi
 				-X 'github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config.BuildTimestamp=${BUILD_TIMESTAMP}' \
 				-X 'github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config.Branch=${REPOSITORY_BRANCH}'
 
+
+# The following works around incompatiblity beween the rust and the go linkers -
+# the rust would generate an object file with min-version of 13.0 where-as the go
+# compiler would generate a binary compatible with 12.3 and up. To align these
+# we instruct the go comiler to produce binaries comparible with version 13.0.
+# this is a mac-only limitation.
+ifeq ($(shell uname -s),Darwin)
+	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'
+endif
+
 # Always specify the build target so that libpreflight.a is always put into
 # an architecture subdirectory (i.e. target/$(CARGO_BUILD_TARGET)/release-with-panic-unwind )
 # Otherwise it will be much harder for Golang to find the library since
@@ -31,13 +41,13 @@ install_rust: Cargo.lock
 	cargo install --path ./cmd/soroban-cli
 
 install: install_rust build-libpreflight
-	go install -ldflags="${GOLDFLAGS}" ./...
+	go install -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
 
 build_rust: Cargo.lock
 	cargo build
 
 build: build_rust build-libpreflight
-	go build -ldflags="${GOLDFLAGS}" ./...
+	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
 
 build-libpreflight: Cargo.lock
 	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind
@@ -71,7 +81,7 @@ publish:
 # https://github.com/stellar/pipelines/stellar-horizon/Jenkinsfile-soroban-rpc-package-builder
 # as part of the package building.
 build-soroban-rpc: build-libpreflight
-	go build -ldflags="${GOLDFLAGS}" -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
+	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} -o soroban-rpc -trimpath -v ./cmd/soroban-rpc
 
 lint-changes:
 	golangci-lint run ./... --new-from-rev $$(git rev-parse HEAD)

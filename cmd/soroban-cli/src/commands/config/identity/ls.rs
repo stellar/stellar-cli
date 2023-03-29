@@ -1,4 +1,5 @@
 use super::super::locator;
+use clap::command;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -6,9 +7,10 @@ pub enum Error {
     Config(#[from] locator::Error),
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Parser, Clone)]
+#[group(skip)]
 pub struct Cmd {
-    #[clap(flatten)]
+    #[command(flatten)]
     pub config_locator: locator::Args,
 }
 

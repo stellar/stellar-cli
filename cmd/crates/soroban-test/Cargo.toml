@@ -1,0 +1,41 @@
+[package]
+name = "soroban-test"
+description = "Soroban Test Framework"
+homepage = "https://github.com/stellar/soroban-test"
+repository = "https://github.com/stellar/soroban-test"
+authors = ["Stellar Development Foundation <info@stellar.org>"]
+license = "Apache-2.0"
+readme = "README.md"
+version = "0.6.0"
+edition = "2021"
+rust-version = "1.67"
+autobins = false
+
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+
+[dependencies]
+soroban-env-host = { workspace = true, features = [
+    "vm",
+    "serde",
+    "hostfn_log_fmt_values",
+] }
+soroban-spec = { workspace = true }
+soroban-token-spec = { workspace = true }
+soroban-ledger-snapshot = { workspace = true }
+stellar-strkey = { workspace = true }
+soroban-sdk = { workspace = true }
+sep5 = { workspace = true }
+soroban-cli = { workspace = true }
+
+thiserror = "1.0.31"
+sha2 = "0.10.6"
+assert_cmd = "2.0.4"
+assert_fs = "1.0.7"
+predicates = "2.1.5"
+fs_extra = "1.3.0"
+
+[dev-dependencies]
+serde_json = "1.0.93"
