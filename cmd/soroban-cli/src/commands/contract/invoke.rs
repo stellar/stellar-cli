@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::num::ParseIntError;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
@@ -30,49 +32,63 @@ use crate::{
     rpc::{self, Client},
     strval::{self, Spec},
     utils::{self, create_ledger_footprint, default_account_ledger_entry},
+    Pwd,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
+#[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id")]
-    contract_id: String,
+    pub contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[arg(long)]
-    wasm: Option<std::path::PathBuf>,
+    pub wasm: Option<std::path::PathBuf>,
     /// Output the cost execution to stderr
     #[arg(long = "cost")]
-    cost: bool,
+    pub cost: bool,
     /// Run with an unlimited budget
     #[arg(long = "unlimited-budget", conflicts_with = "rpc_url")]
-    unlimited_budget: bool,
+    pub unlimited_budget: bool,
     /// Output the footprint to stderr
     #[arg(long = "footprint")]
-    footprint: bool,
+    pub footprint: bool,
     /// Output the contract auth for the transaction to stderr
     #[arg(long = "auth")]
-    auth: bool,
+    pub auth: bool,
     /// Output the contract events for the transaction to stderr
     #[arg(long = "events")]
-    events: bool,
-
-    /// File to persist event output
+    pub events: bool,
+    /// File to persist event output, default is .soroban/events.json
     #[arg(
         long,
-        default_value(".soroban/events.json"),
         conflicts_with = "rpc_url",
         env = "SOROBAN_EVENTS_FILE",
         help_heading = HEADING_SANDBOX,
     )]
-    events_file: std::path::PathBuf,
-
+    pub events_file: Option<PathBuf>,
     // Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
     #[command(flatten)]
     pub config: config::Args,
+}
+
+impl FromStr for Cmd {
+    type Err = clap::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use clap::{CommandFactory, FromArgMatches};
+        Self::from_arg_matches_mut(&mut Self::command().get_matches_from(s.split_whitespace()))
+    }
+}
+
+impl Pwd for Cmd {
+    fn set_pwd(&mut self, pwd: &Path) {
+        self.config.set_pwd(pwd);
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -136,6 +152,9 @@ pub enum Error {
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error("Missing argument {0}")]
     MissingArgument(String),
+
+    #[error(transparent)]
+    Clap(#[from] clap::Error),
 }
 
 impl Cmd {
@@ -201,6 +220,12 @@ impl Cmd {
     }
 
     pub async fn run(&self) -> Result<(), Error> {
+        let res = self.invoke().await?;
+        println!("{res}");
+        Ok(())
+    }
+
+    pub async fn invoke(&self) -> Result<String, Error> {
         if self.config.is_no_network() {
             self.run_in_sandbox()
         } else {
@@ -208,7 +233,7 @@ impl Cmd {
         }
     }
 
-    async fn run_against_rpc_server(&self) -> Result<(), Error> {
+    pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url);
@@ -307,14 +332,10 @@ impl Cmd {
                 serde_json::to_string(&events).unwrap()
             );
         }
-        let res_str = output_to_string(&spec, &res, &function)?;
-        println!("{res_str}");
-        // TODO: print cost
-
-        Ok(())
+        output_to_string(&spec, &res, &function)
     }
 
-    fn run_in_sandbox(&self) -> Result<(), Error> {
+    pub fn run_in_sandbox(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -364,8 +385,6 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
         let res_str = output_to_string(&spec, &res, &function)?;
-
-        println!("{res_str}");
 
         state.update(&h);
 
@@ -427,14 +446,18 @@ impl Cmd {
 
         self.config.set_state(&mut state)?;
 
-        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
-            Error::CannotCommitEventsFile {
-                filepath: self.events_file.clone(),
-                error: e,
-            }
-        })?;
+        if !events.0.is_empty() {
+            let event_path = self.events_file_path()?;
 
-        Ok(())
+            events::commit(&events.0, &state, &event_path).map_err(|e| {
+                Error::CannotCommitEventsFile {
+                    filepath: event_path,
+                    error: e,
+                }
+            })?;
+        }
+
+        Ok(res_str)
     }
 
     pub fn deploy_contract_in_sandbox(
@@ -481,6 +504,14 @@ impl Cmd {
         utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
             contract_id: self.contract_id.clone(),
             error: e,
+        })
+    }
+
+    fn events_file_path(&self) -> Result<PathBuf, Error> {
+        Ok(if let Some(events_file) = &self.events_file {
+            PathBuf::from(events_file)
+        } else {
+            self.config.config_dir()?.join("events.json")
         })
     }
 }

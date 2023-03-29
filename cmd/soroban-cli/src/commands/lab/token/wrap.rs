@@ -46,7 +46,8 @@ pub enum Error {
     Config(#[from] config::Error),
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
     /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
     #[arg(long)]
@@ -70,7 +71,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
         // Initialize storage and host
         // TODO: allow option to separate input and output file
         let mut state = self.config.get_state()?;

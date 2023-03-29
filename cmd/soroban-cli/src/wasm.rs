@@ -24,7 +24,7 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
     /// Path to wasm binary

@@ -48,7 +48,7 @@ impl Cmd {
     }
 }
 
-#[derive(Debug, clap::Args, Clone)]
+#[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
     /// RPC server endpoint
@@ -76,24 +76,7 @@ pub struct Args {
     pub network: Option<String>,
 }
 
-impl Args {
-    pub fn get_network(&self) -> Result<Network, Error> {
-        if let Some(name) = self.network.as_deref() {
-            Ok(locator::read_network(name)?)
-        } else if let (Some(rpc_url), Some(network_passphrase)) =
-            (self.rpc_url.clone(), self.network_passphrase.clone())
-        {
-            Ok(Network {
-                rpc_url,
-                network_passphrase,
-            })
-        } else {
-            Err(Error::Network)
-        }
-    }
-}
-
-#[derive(Debug, clap::Args, Serialize, Deserialize)]
+#[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]
 #[group(skip)]
 pub struct Network {
     /// RPC server endpoint

@@ -13,7 +13,8 @@ use soroban_env_host::{
 use crate::commands::{HEADING_RPC, HEADING_SANDBOX};
 use crate::{rpc, toid, utils};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events (required
     /// if not in sandbox mode).
@@ -261,7 +262,7 @@ impl Cmd {
             .map_err(Error::Rpc)
     }
 
-    fn run_in_sandbox(
+    pub fn run_in_sandbox(
         &self,
         path: &path::PathBuf,
         start: rpc::EventStart,
@@ -797,7 +798,8 @@ mod tests {
     fn test_does_event_fixture_load() {
         // This test ensures that the included JSON fixture file matches the
         // correct event format (for the purposes of human readability).
-        let filename = path::PathBuf::from("./tests/fixtures/test-jsons/get-events.json");
+        let filename =
+            path::PathBuf::from("../crates/soroban-test/tests/fixtures/test-jsons/get-events.json");
 
         let result = read(&filename);
         println!("{result:?}");

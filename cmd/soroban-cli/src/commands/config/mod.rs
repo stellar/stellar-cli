@@ -1,6 +1,10 @@
+use std::path::PathBuf;
+
 use clap::{arg, command, Parser};
 use serde::{Deserialize, Serialize};
 use soroban_ledger_snapshot::LedgerSnapshot;
+
+use crate::Pwd;
 
 use self::{network::Network, secret::Secret};
 
@@ -49,7 +53,7 @@ impl Cmd {
     }
 }
 
-#[derive(Debug, clap::Args, Clone)]
+#[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
     #[command(flatten)]
@@ -69,12 +73,15 @@ pub struct Args {
     #[arg(long)]
     /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
     pub hd_path: Option<usize>,
+
+    #[clap(flatten)]
+    pub locator: locator::Args,
 }
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::Keypair, Error> {
         let key = if let Some(source_account) = &self.source_account {
-            Args::account(source_account)?
+            self.account(source_account)?
         } else {
             secret::Secret::test_seed_phrase()?
         };
@@ -82,8 +89,8 @@ impl Args {
         Ok(key.key_pair(self.hd_path)?)
     }
 
-    pub fn account(account_str: &str) -> Result<Secret, Error> {
-        if let Ok(secret) = locator::read_identity(account_str) {
+    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
+        if let Ok(secret) = self.locator.read_identity(account_str) {
             Ok(secret)
         } else {
             Ok(account_str.parse::<Secret>()?)
@@ -91,7 +98,19 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        Ok(self.network.get_network()?)
+        if let Some(name) = self.network.network.as_deref() {
+            Ok(self.locator.read_network(name)?)
+        } else if let (Some(rpc_url), Some(network_passphrase)) = (
+            self.network.rpc_url.clone(),
+            self.network.network_passphrase.clone(),
+        ) {
+            Ok(Network {
+                rpc_url,
+                network_passphrase,
+            })
+        } else {
+            Err(network::Error::Network.into())
+        }
     }
 
     pub fn is_no_network(&self) -> bool {
@@ -101,11 +120,21 @@ impl Args {
     }
 
     pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {
-        Ok(self.ledger_file.read()?)
+        Ok(self.ledger_file.read(&self.locator.config_dir()?)?)
     }
 
     pub fn set_state(&self, state: &mut LedgerSnapshot) -> Result<(), Error> {
-        Ok(self.ledger_file.write(state)?)
+        Ok(self.ledger_file.write(state, &self.locator.config_dir()?)?)
+    }
+
+    pub fn config_dir(&self) -> Result<PathBuf, Error> {
+        Ok(self.locator.config_dir()?)
+    }
+}
+
+impl Pwd for Args {
+    fn set_pwd(&mut self, pwd: &std::path::Path) {
+        self.locator.set_pwd(pwd);
     }
 }
 

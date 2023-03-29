@@ -22,12 +22,13 @@ use crate::{
     utils, wasm,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(group(
     clap::ArgGroup::new("wasm_src")
         .required(true)
         .args(&["wasm", "wasm_hash"]),
 ))]
+#[group(skip)]
 pub struct Cmd {
     /// WASM file to deploy
     #[arg(long, group = "wasm_src")]
@@ -98,12 +99,13 @@ impl Cmd {
 
     pub async fn run_and_get_contract_id(&self) -> Result<String, Error> {
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            install::Cmd {
+            let hash = install::Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
                 config: self.config.clone(),
             }
             .run_and_get_hash()
-            .await?
+            .await?;
+            hex::encode(hash)
         } else {
             self.wasm_hash
                 .as_ref()
@@ -127,7 +129,7 @@ impl Cmd {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
         let contract_id: [u8; 32] = match &self.contract_id {
             Some(id) => utils::id_from_str(id).map_err(|e| Error::CannotParseContractId {
                 contract_id: self.contract_id.as_ref().unwrap().clone(),
