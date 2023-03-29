@@ -3,14 +3,18 @@ package daemon
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/jmoiron/sqlx"
+
+	"github.com/cenkalti/backoff/v4"
 
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
 	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
+	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -90,20 +94,44 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not create captive core: %v", err)
 	}
 
-	historyArchive, err := historyarchive.Connect(
-		cfg.HistoryArchiveURLs[0],
-		historyarchive.ConnectOptions{
-			CheckpointFrequency: cfg.CheckpointFrequency,
+	// Defaults: https://pkg.go.dev/github.com/cenkalti/backoff/v4@v4.2.0#pkg-constants
+	expBackoff := backoff.NewExponentialBackOff()
+	// Default is 15m but that's too long.
+	expBackoff.MaxElapsedTime = 1 * time.Minute
+	// Here and below, retry operations that could have transient errors
+	// with exponential backoff in order to be more resilient during startup.
+	historyArchive, err := backoff.RetryNotifyWithData(
+		func() (*historyarchive.Archive, error) {
+			return historyarchive.Connect(
+				cfg.HistoryArchiveURLs[0],
+				historyarchive.ConnectOptions{
+					CheckpointFrequency: cfg.CheckpointFrequency,
+				},
+			)
 		},
-	)
+		expBackoff,
+		func(err error, dur time.Duration) {
+			logger.Errorf("Failed connecting to history archive with error: %v. Retrying after %v", err, dur)
+		})
 	if err != nil {
 		logger.Fatalf("could not connect to history archive: %v", err)
 	}
+	expBackoff.Reset()
 
-	dbConn, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
+	dbConn, err := backoff.RetryNotifyWithData(
+		func() (*sqlx.DB, error) {
+			return db.OpenSQLiteDB(cfg.SQLiteDBPath)
+		},
+		expBackoff,
+		func(err error, dur time.Duration) {
+			logger.Errorf(
+				"Failed opening SQLite DB at %s with error: %v. Retrying after %v",
+				cfg.SQLiteDBPath, err, dur)
+		})
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
+	expBackoff.Reset()
 
 	eventStore, err := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
 	if err != nil {
@@ -117,12 +145,22 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
 		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
 	}
+
 	// initialize the stores using what was on the DB
 	// TODO: add a timeout?
-	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
+	txmetas, err := backoff.RetryNotifyWithData(
+		func() ([]xdr.LedgerCloseMeta, error) {
+			return db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
+		},
+		expBackoff,
+		func(err error, dur time.Duration) {
+			logger.Errorf("Failed getting txmeta cache from the database with error: %v. Retrying after %v", err, dur)
+		})
 	if err != nil {
 		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
 	}
+	expBackoff.Reset()
+
 	for _, txmeta := range txmetas {
 		// NOTE: We could optimize this to avoid unnecessary ingestion calls
 		//       (len(txmetas) can be larger than the store retention windows)
@@ -135,34 +173,49 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		}
 	}
 
-	ingestService, err := ingest.NewService(ingest.Config{
-		Logger:            logger,
-		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
-		EventStore:        eventStore,
-		TransactionStore:  transactionStore,
-		NetworkPassPhrase: cfg.NetworkPassphrase,
-		Archive:           historyArchive,
-		LedgerBackend:     core,
-		Timeout:           cfg.LedgerEntryStorageTimeout,
-	})
+	ingestService, err := backoff.RetryNotifyWithData(
+		func() (*ingest.Service, error) {
+			return ingest.NewService(ingest.Config{
+				Logger:            logger,
+				DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
+				EventStore:        eventStore,
+				TransactionStore:  transactionStore,
+				NetworkPassPhrase: cfg.NetworkPassphrase,
+				Archive:           historyArchive,
+				LedgerBackend:     core,
+				Timeout:           cfg.LedgerEntryStorageTimeout,
+			})
+		},
+		expBackoff,
+		func(err error, dur time.Duration) {
+			logger.Errorf("Failed initializing ledger entry writer with error: %v. Retrying after %v", err, dur)
+		})
 	if err != nil {
 		logger.Fatalf("could not initialize ledger entry writer: %v", err)
 	}
+	expBackoff.Reset()
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(cfg.PreflightWorkerCount, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
-	handler, err := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
-		EventStore:       eventStore,
-		TransactionStore: transactionStore,
-		Logger:           logger,
-		CoreClient: &stellarcore.Client{
-			URL:  cfg.StellarCoreURL,
-			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
+	handler, err := backoff.RetryNotifyWithData(
+		func() (internal.Handler, error) {
+			return internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
+				EventStore:       eventStore,
+				TransactionStore: transactionStore,
+				Logger:           logger,
+				CoreClient: &stellarcore.Client{
+					URL:  cfg.StellarCoreURL,
+					HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
+				},
+				LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
+				PreflightGetter:   preflightWorkerPool,
+			})
 		},
-		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
-		PreflightGetter:   preflightWorkerPool,
-	})
+		expBackoff,
+		func(err error, dur time.Duration) {
+			logger.Errorf("Failed creating JSON RPC handler with error: %v. Retrying after %v", err, dur)
+		})
 	if err != nil {
 		logger.Fatalf("could not create handler: %v", err)
 	}
