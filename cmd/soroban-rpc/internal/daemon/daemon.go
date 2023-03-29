@@ -97,7 +97,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	// Defaults: https://pkg.go.dev/github.com/cenkalti/backoff/v4@v4.2.0#pkg-constants
 	expBackoff := backoff.NewExponentialBackOff()
 	// Default is 15m but that's too long.
-	expBackoff.MaxElapsedTime = 1 * time.Minute
+	expBackoff.MaxElapsedTime = 5 * time.Minute
 	// Here and below, retry operations that could have transient errors
 	// with exponential backoff in order to be more resilient during startup.
 	historyArchive, err := backoff.RetryNotifyWithData(
