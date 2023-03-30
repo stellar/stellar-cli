@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest"
 	backends "github.com/stellar/go/ingest/ledgerbackend"
@@ -32,7 +33,7 @@ type Config struct {
 	Timeout           time.Duration
 }
 
-func NewService(cfg Config) (*Service, error) {
+func NewService(cfg Config) *Service {
 	ctx, done := context.WithCancel(context.Background())
 	o := Service{
 		logger:            cfg.Logger,
@@ -46,12 +47,21 @@ func NewService(cfg Config) (*Service, error) {
 	}
 	o.wg.Add(1)
 	go func() {
-		err := o.run(ctx, cfg.Archive)
+		// Retry running ingestion every second for 5 seconds.
+		constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
+		err := backoff.RetryNotify(
+			func() error {
+				return o.run(ctx, cfg.Archive)
+			},
+			constantBackoff,
+			func(err error, dur time.Duration) {
+				o.logger.WithError(err).Error("could not run ingestion. Retrying")
+			})
 		if err != nil && !errors.Is(err, context.Canceled) {
 			o.logger.WithError(err).Fatal("could not run ingestion")
 		}
 	}()
-	return &o, nil
+	return &o
 }
 
 type Service struct {

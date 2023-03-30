@@ -180,27 +180,16 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		}
 	}
 
-	ingestService, err := backoff.RetryNotifyWithData(
-		func() (*ingest.Service, error) {
-			return ingest.NewService(ingest.Config{
-				Logger:            logger,
-				DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
-				EventStore:        eventStore,
-				TransactionStore:  transactionStore,
-				NetworkPassPhrase: cfg.NetworkPassphrase,
-				Archive:           historyArchive,
-				LedgerBackend:     core,
-				Timeout:           cfg.LedgerEntryStorageTimeout,
-			})
-		},
-		expBackoff,
-		func(err error, dur time.Duration) {
-			logger.Errorf("Failed initializing ledger entry writer with error: %v. Retrying after %v", err, dur)
-		})
-	if err != nil {
-		logger.Fatalf("could not initialize ledger entry writer: %v", err)
-	}
-	expBackoff.Reset()
+	ingestService := ingest.NewService(ingest.Config{
+		Logger:            logger,
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
+		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
+		NetworkPassPhrase: cfg.NetworkPassphrase,
+		Archive:           historyArchive,
+		LedgerBackend:     core,
+		Timeout:           cfg.LedgerEntryStorageTimeout,
+	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(
