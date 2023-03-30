@@ -1,4 +1,8 @@
-use crate::{commands::HEADING_SANDBOX, rpc, toid};
+use crate::{
+    commands::HEADING_SANDBOX,
+    rpc::{self, does_topic_match, Event},
+    toid,
+};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use clap::arg;
 use soroban_env_host::{
@@ -186,5 +190,59 @@ impl Args {
         } else {
             pwd.join("events.json")
         }
+    }
+
+    pub fn filter_events(
+        events: &[Event],
+        path: &Path,
+        start_cursor: (u64, i32),
+        contract_ids: &[String],
+        topic_filters: &[String],
+        count: usize,
+    ) -> Vec<Event> {
+        events
+            .iter()
+            .filter(|evt| match evt.parse_cursor() {
+                Ok(event_cursor) => event_cursor > start_cursor,
+                Err(e) => {
+                    eprintln!("error parsing key 'ledger': {e:?}");
+                    eprintln!(
+                        "your sandbox events file ('{path:?}') may be corrupt, consider deleting it",
+                    );
+                    eprintln!("ignoring this event: {evt:#?}");
+
+                    false
+                }
+            })
+            .filter(|evt| {
+                // Contract ID filter(s) are optional, so we should render all
+                // events if they're omitted.
+                contract_ids.is_empty() || contract_ids.iter().any(|id| *id == evt.contract_id)
+            })
+            .filter(|evt| {
+                // Like before, no topic filters means pass everything through.
+                topic_filters.is_empty() ||
+                // Reminder: All of the topic filters are part of a single
+                // filter object, and each one contains segments, so we need to
+                // apply all of them to the given event.
+                topic_filters
+                    .iter()
+                    // quadratic, but both are <= 5 long
+                    .any(|f| {
+                        does_topic_match(
+                            &evt.topic,
+                            // misc. Rust nonsense: make a copy over the given
+                            // split filter, because passing a slice of
+                            // references is too much for this language to
+                            // handle
+                            &f.split(',')
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>()
+                        )
+                    })
+            })
+            .take(count)
+            .cloned()
+            .collect()
     }
 }

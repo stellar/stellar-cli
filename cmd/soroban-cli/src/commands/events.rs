@@ -263,13 +263,14 @@ impl Cmd {
         // Read the JSON events from disk and find the ones that match the
         // contract ID filter(s) that were passed in.
         Ok(rpc::GetEventsResponse {
-            events: file.filter_events(
+            events: events_file::Args::filter_events(
+                &file.events,
                 &path,
                 start_cursor,
                 &self.contract_ids,
                 &self.topic_filters,
                 count,
-            )?,
+            ),
             latest_ledger: file.latest_ledger,
         })
     }

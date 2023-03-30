@@ -10,7 +10,6 @@ use soroban_env_host::xdr::{
 use std::{
     collections,
     fmt::Display,
-    path::Path,
     time::{Duration, Instant},
 };
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
@@ -136,63 +135,6 @@ pub struct GetEventsResponse {
         deserialize_with = "deserialize_number_from_string"
     )]
     pub latest_ledger: u32,
-}
-
-impl GetEventsResponse {
-    pub fn filter_events(
-        &self,
-        path: &Path,
-        start_cursor: (u64, i32),
-        contract_ids: &[String],
-        topic_filters: &[String],
-        count: usize,
-    ) -> Result<Vec<Event>, Error> {
-        Ok(self
-            .events
-            .iter()
-            .filter(|evt| match evt.parse_cursor() {
-                Ok(event_cursor) => event_cursor > start_cursor,
-                Err(e) => {
-                    eprintln!("error parsing key 'ledger': {e:?}");
-                    eprintln!(
-                        "your sandbox events file ('{path:?}') may be corrupt, consider deleting it",
-                    );
-                    eprintln!("ignoring this event: {evt:#?}");
-
-                    false
-                }
-            })
-            .filter(|evt| {
-                // Contract ID filter(s) are optional, so we should render all
-                // events if they're omitted.
-                contract_ids.is_empty() || contract_ids.iter().any(|id| *id == evt.contract_id)
-            })
-            .filter(|evt| {
-                // Like before, no topic filters means pass everything through.
-                topic_filters.is_empty() ||
-                // Reminder: All of the topic filters are part of a single
-                // filter object, and each one contains segments, so we need to
-                // apply all of them to the given event.
-                topic_filters
-                    .iter()
-                    // quadratic, but both are <= 5 long
-                    .any(|f| {
-                        does_topic_match(
-                            &evt.topic,
-                            // misc. Rust nonsense: make a copy over the given
-                            // split filter, because passing a slice of
-                            // references is too much for this language to
-                            // handle
-                            &f.split(',')
-                            .map(std::string::ToString::to_string)
-                            .collect::<Vec<String>>()
-                        )
-                    })
-            })
-            .take(count)
-            .cloned()
-            .collect())
-    }
 }
 
 // Determines whether or not a particular filter matches a topic based on the
