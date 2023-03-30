@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::num::ParseIntError;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
@@ -27,7 +27,10 @@ use soroban_env_host::{
 };
 use soroban_spec::read::FromWasmError;
 
-use super::super::{config, events, HEADING_SANDBOX};
+use super::super::{
+    config::{self, events_file, locator},
+    events,
+};
 use crate::{
     rpc::{self, Client},
     strval::{self, Spec},
@@ -60,20 +63,15 @@ pub struct Cmd {
     /// Output the contract events for the transaction to stderr
     #[arg(long = "events")]
     pub events: bool,
-    /// File to persist event output, default is .soroban/events.json
-    #[arg(
-        long,
-        conflicts_with = "rpc_url",
-        env = "SOROBAN_EVENTS_FILE",
-        help_heading = HEADING_SANDBOX,
-    )]
-    pub events_file: Option<PathBuf>,
+
     // Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
     #[command(flatten)]
     pub config: config::Args,
+    #[command(flatten)]
+    pub events_file: events_file::Args,
 }
 
 impl FromStr for Cmd {
@@ -152,9 +150,12 @@ pub enum Error {
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error("Missing argument {0}")]
     MissingArgument(String),
-
     #[error(transparent)]
     Clap(#[from] clap::Error),
+    #[error(transparent)]
+    Events(#[from] events_file::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -447,16 +448,9 @@ impl Cmd {
         self.config.set_state(&mut state)?;
 
         if !events.0.is_empty() {
-            let event_path = self.events_file_path()?;
-
-            events::commit(&events.0, &state, &event_path).map_err(|e| {
-                Error::CannotCommitEventsFile {
-                    filepath: event_path,
-                    error: e,
-                }
-            })?;
+            self.events_file
+                .commit(&events.0, &state, &self.config.locator.config_dir()?)?;
         }
-
         Ok(res_str)
     }
 
@@ -504,14 +498,6 @@ impl Cmd {
         utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
             contract_id: self.contract_id.clone(),
             error: e,
-        })
-    }
-
-    fn events_file_path(&self) -> Result<PathBuf, Error> {
-        Ok(if let Some(events_file) = &self.events_file {
-            PathBuf::from(events_file)
-        } else {
-            self.config.config_dir()?.join("events.json")
         })
     }
 }
