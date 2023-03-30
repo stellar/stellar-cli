@@ -43,7 +43,7 @@ pub struct Cmd {
     /// the command-line today, though that set can have multiple IDs/topics.
     #[arg(
         long = "id",
-        num_args = 1..=5,
+        num_args = 1..=6,
         help_heading = "FILTERS"
     )]
     contract_ids: Vec<String>,
@@ -64,7 +64,7 @@ pub struct Cmd {
     /// into a single filter (i.e. combination of type, IDs, and topics).
     #[arg(
         long = "topic",
-        num_args = 1..=4,
+        num_args = 1..=5,
         help_heading = "FILTERS"
     )]
     topic_filters: Vec<String>,
@@ -166,13 +166,6 @@ pub enum OutputFormat {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let start = match (self.start_ledger, self.cursor.clone()) {
-            (Some(start), _) => rpc::EventStart::Ledger(start),
-            (_, Some(c)) => rpc::EventStart::Cursor(c),
-            // should never happen because of required_unless_present flags
-            _ => return Err(Error::MissingStartLedgerAndCursor),
-        };
-
         // Validate that topics are made up of segments.
         for topic in &self.topic_filters {
             for (i, segment) in topic.split(',').enumerate() {
@@ -195,10 +188,9 @@ impl Cmd {
         }
 
         let response = if self.network.is_no_network() {
-            let Network { rpc_url, .. } = self.network.get(&self.locator)?;
-            self.run_against_rpc_server(&rpc_url, start).await
+            self.run_in_sandbox()
         } else {
-            self.run_in_sandbox(start)
+            self.run_against_rpc_server().await
         }?;
 
         for event in &response.events {
@@ -226,11 +218,10 @@ impl Cmd {
         Ok(())
     }
 
-    async fn run_against_rpc_server(
-        &self,
-        rpc_url: &str,
-        start: rpc::EventStart,
-    ) -> Result<rpc::GetEventsResponse, Error> {
+    async fn run_against_rpc_server(&self) -> Result<rpc::GetEventsResponse, Error> {
+        let start = self.start()?;
+        let Network { rpc_url, .. } = self.network.get(&self.locator)?;
+
         for raw_contract_id in &self.contract_ids {
             // We parse the contract IDs to ensure they're the correct format,
             // but since we'll be passing them as-is to the RPC server anyway,
@@ -241,7 +232,7 @@ impl Cmd {
             })?;
         }
 
-        let client = rpc::Client::new(rpc_url);
+        let client = rpc::Client::new(&rpc_url);
         client
             .get_events(
                 start,
@@ -254,7 +245,8 @@ impl Cmd {
             .map_err(Error::Rpc)
     }
 
-    pub fn run_in_sandbox(&self, start: rpc::EventStart) -> Result<rpc::GetEventsResponse, Error> {
+    pub fn run_in_sandbox(&self) -> Result<rpc::GetEventsResponse, Error> {
+        let start = self.start()?;
         let count: usize = if self.count == 0 {
             std::usize::MAX
         } else {
@@ -280,6 +272,16 @@ impl Cmd {
             )?,
             latest_ledger: file.latest_ledger,
         })
+    }
+
+    fn start(&self) -> Result<rpc::EventStart, Error> {
+        let start = match (self.start_ledger, self.cursor.clone()) {
+            (Some(start), _) => rpc::EventStart::Ledger(start),
+            (_, Some(c)) => rpc::EventStart::Cursor(c),
+            // should never happen because of required_unless_present flags
+            _ => return Err(Error::MissingStartLedgerAndCursor),
+        };
+        Ok(start)
     }
 }
 
