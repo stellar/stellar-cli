@@ -14,7 +14,7 @@ use std::{
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
-    /// File to persist events, default is `.soroban/ledger.json`
+    /// File to persist events, default is `.soroban/events.json`
     #[arg(
         long,
         value_name = "PATH",
