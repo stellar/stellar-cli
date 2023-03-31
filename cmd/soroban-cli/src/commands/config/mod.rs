@@ -64,15 +64,11 @@ pub struct Args {
     pub ledger_file: ledger_file::Args,
 
     #[arg(long, alias = "source", env = "SOROBAN_ACCOUNT")]
-    /// Account that signs the final transaction.
-    /// S...          a seceret key
-    /// alice         an identity
-    /// 'kite urban.  a seed phrase
-    /// DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
+    /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
     pub source_account: Option<String>,
 
     #[arg(long)]
-    /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
+    /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
     #[command(flatten)]
