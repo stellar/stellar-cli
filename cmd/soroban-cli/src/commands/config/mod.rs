@@ -85,11 +85,7 @@ pub struct Args {
     pub source_account: Option<String>,
 
     #[arg(long)]
-    /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
-    ///
-    /// Example: `--hd-path 1`
-    ///
-    /// Default is `0`
+    /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
     #[command(flatten)]
