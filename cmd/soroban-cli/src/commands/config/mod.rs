@@ -8,6 +8,7 @@ use crate::Pwd;
 
 use self::{network::Network, secret::Secret};
 
+pub mod events_file;
 pub mod identity;
 pub mod ledger_file;
 pub mod locator;
@@ -74,7 +75,7 @@ pub struct Args {
     /// If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
     pub hd_path: Option<usize>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub locator: locator::Args,
 }
 
@@ -98,25 +99,11 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        if let Some(name) = self.network.network.as_deref() {
-            Ok(self.locator.read_network(name)?)
-        } else if let (Some(rpc_url), Some(network_passphrase)) = (
-            self.network.rpc_url.clone(),
-            self.network.network_passphrase.clone(),
-        ) {
-            Ok(Network {
-                rpc_url,
-                network_passphrase,
-            })
-        } else {
-            Err(network::Error::Network.into())
-        }
+        Ok(self.network.get(&self.locator)?)
     }
 
     pub fn is_no_network(&self) -> bool {
-        self.network.network.is_none()
-            && self.network.network_passphrase.is_none()
-            && self.network.rpc_url.is_none()
+        self.network.is_no_network()
     }
 
     pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {

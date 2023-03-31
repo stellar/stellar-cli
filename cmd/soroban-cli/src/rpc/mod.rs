@@ -1,15 +1,19 @@
+use itertools::Itertools;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::{
-    AccountEntry, AccountId, DiagnosticEvent, Error as XdrError, LedgerEntryData, LedgerKey,
+    self, AccountEntry, AccountId, DiagnosticEvent, Error as XdrError, LedgerEntryData, LedgerKey,
     LedgerKeyAccount, PublicKey, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
     Uint256, WriteXdr,
 };
 use std::{
     collections,
+    fmt::Display,
     time::{Duration, Instant},
 };
+use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
+use termcolor_output::colored;
 use tokio::time::sleep;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
@@ -38,6 +42,8 @@ pub enum Error {
     MissingResult,
     #[error("Failed to read Error response from server")]
     MissingError,
+    #[error("cursor is not valid")]
+    InvalidCursor,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -131,6 +137,29 @@ pub struct GetEventsResponse {
     pub latest_ledger: u32,
 }
 
+// Determines whether or not a particular filter matches a topic based on the
+// same semantics as the RPC server:
+//
+//  - for an exact segment match, the filter is a base64-encoded ScVal
+//  - for a wildcard, single-segment match, the string "*" matches exactly one
+//    segment
+//
+// The expectation is that a `filter` is a comma-separated list of segments that
+// has previously been validated, and `topic` is the list of segments applicable
+// for this event.
+//
+// [API
+// Reference](https://docs.google.com/document/d/1TZUDgo_3zPz7TiPMMHVW_mtogjLyPL0plvzGMsxSz6A/edit#bookmark=id.35t97rnag3tx)
+// [Code
+// Reference](https://github.com/stellar/soroban-tools/blob/bac1be79e8c2590c9c35ad8a0168aab0ae2b4171/cmd/soroban-rpc/internal/methods/get_events.go#L182-L203)
+pub fn does_topic_match(topic: &[String], filter: &[String]) -> bool {
+    filter.len() == topic.len()
+        && filter
+            .iter()
+            .enumerate()
+            .all(|(i, s)| *s == "*" || topic[i] == *s)
+}
+
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Event {
     #[serde(rename = "type")]
@@ -148,6 +177,104 @@ pub struct Event {
     pub contract_id: String,
     pub topic: Vec<String>,
     pub value: EventValue,
+}
+
+impl Display for Event {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "Event {} [{}]:",
+            self.paging_token,
+            self.event_type.to_ascii_uppercase()
+        )?;
+        writeln!(
+            f,
+            "  Ledger:   {} (closed at {})",
+            self.ledger, self.ledger_closed_at
+        )?;
+        writeln!(f, "  Contract: {}", self.contract_id)?;
+        writeln!(f, "  Topics:")?;
+        for topic in &self.topic {
+            let scval = xdr::ScVal::from_xdr_base64(topic).map_err(|_| std::fmt::Error)?;
+            writeln!(f, "            {scval:?}")?;
+        }
+        let scval = xdr::ScVal::from_xdr_base64(&self.value.xdr).map_err(|_| std::fmt::Error)?;
+        writeln!(f, "  Value:    {scval:?}")
+    }
+}
+
+impl Event {
+    pub fn parse_cursor(&self) -> Result<(u64, i32), Error> {
+        parse_cursor(&self.id)
+    }
+
+    pub fn pretty_print(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+        if !stdout.supports_color() {
+            println!("{self}");
+            return Ok(());
+        }
+
+        let color = match self.event_type.as_str() {
+            "system" => Color::Yellow,
+            _ => Color::Blue,
+        };
+        colored!(
+            stdout,
+            "{}Event{} {}{}{} [{}{}{}{}]:\n",
+            bold!(true),
+            bold!(false),
+            fg!(Some(Color::Green)),
+            self.paging_token,
+            reset!(),
+            bold!(true),
+            fg!(Some(color)),
+            self.event_type.to_ascii_uppercase(),
+            reset!(),
+        )?;
+
+        colored!(
+            stdout,
+            "  Ledger:   {}{}{} (closed at {}{}{})\n",
+            fg!(Some(Color::Green)),
+            self.ledger,
+            reset!(),
+            fg!(Some(Color::Green)),
+            self.ledger_closed_at,
+            reset!(),
+        )?;
+
+        colored!(
+            stdout,
+            "  Contract: {}0x{}{}\n",
+            fg!(Some(Color::Green)),
+            self.contract_id,
+            reset!(),
+        )?;
+
+        colored!(stdout, "  Topics:\n")?;
+        for topic in &self.topic {
+            let scval = xdr::ScVal::from_xdr_base64(topic)?;
+            colored!(
+                stdout,
+                "            {}{:?}{}\n",
+                fg!(Some(Color::Green)),
+                scval,
+                reset!(),
+            )?;
+        }
+
+        let scval = xdr::ScVal::from_xdr_base64(&self.value.xdr)?;
+        colored!(
+            stdout,
+            "  Value: {}{:?}{}\n",
+            fg!(Some(Color::Green)),
+            scval,
+            reset!(),
+        )?;
+
+        Ok(())
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
@@ -352,5 +479,154 @@ fn extract_events(tx_meta: TransactionMeta) -> Vec<DiagnosticEvent> {
             }
         }
         _ => Vec::new(),
+    }
+}
+
+pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
+    let (toid_part, event_index) = c.split('-').collect_tuple().ok_or(Error::InvalidCursor)?;
+    let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
+    let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
+    Ok((toid_part, start_index))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    // Taken from [RPC server
+    // tests](https://github.com/stellar/soroban-tools/blob/main/cmd/soroban-rpc/internal/methods/get_events_test.go#L21).
+    fn test_does_topic_match() {
+        struct TestCase<'a> {
+            name: &'a str,
+            filter: Vec<&'a str>,
+            includes: Vec<Vec<&'a str>>,
+            excludes: Vec<Vec<&'a str>>,
+        }
+
+        let xfer = "AAAABQAAAAh0cmFuc2Zlcg==";
+        let number = "AAAAAQB6Mcc=";
+        let star = "*";
+
+        for tc in vec![
+            // No filter means match nothing.
+            TestCase {
+                name: "<empty>",
+                filter: vec![],
+                includes: vec![],
+                excludes: vec![vec![xfer]],
+            },
+            // "*" should match "transfer/" but not "transfer/transfer" or
+            // "transfer/amount", because * is specified as a SINGLE segment
+            // wildcard.
+            TestCase {
+                name: "*",
+                filter: vec![star],
+                includes: vec![vec![xfer]],
+                excludes: vec![vec![xfer, xfer], vec![xfer, number]],
+            },
+            // "*/transfer" should match anything preceding "transfer", but
+            // nothing that isn't exactly two segments long.
+            TestCase {
+                name: "*/transfer",
+                filter: vec![star, xfer],
+                includes: vec![vec![number, xfer], vec![xfer, xfer]],
+                excludes: vec![
+                    vec![number],
+                    vec![number, number],
+                    vec![number, xfer, number],
+                    vec![xfer],
+                    vec![xfer, number],
+                    vec![xfer, xfer, xfer],
+                ],
+            },
+            // The inverse case of before: "transfer/*" should match any single
+            // segment after a segment that is exactly "transfer", but no
+            // additional segments.
+            TestCase {
+                name: "transfer/*",
+                filter: vec![xfer, star],
+                includes: vec![vec![xfer, number], vec![xfer, xfer]],
+                excludes: vec![
+                    vec![number],
+                    vec![number, number],
+                    vec![number, xfer, number],
+                    vec![xfer],
+                    vec![number, xfer],
+                    vec![xfer, xfer, xfer],
+                ],
+            },
+            // Here, we extend to exactly two wild segments after transfer.
+            TestCase {
+                name: "transfer/*/*",
+                filter: vec![xfer, star, star],
+                includes: vec![vec![xfer, number, number], vec![xfer, xfer, xfer]],
+                excludes: vec![
+                    vec![number],
+                    vec![number, number],
+                    vec![number, xfer],
+                    vec![number, xfer, number, number],
+                    vec![xfer],
+                    vec![xfer, xfer, xfer, xfer],
+                ],
+            },
+            // Here, we ensure wildcards can be in the middle of a filter: only
+            // exact matches happen on the ends, while the middle can be
+            // anything.
+            TestCase {
+                name: "transfer/*/number",
+                filter: vec![xfer, star, number],
+                includes: vec![vec![xfer, number, number], vec![xfer, xfer, number]],
+                excludes: vec![
+                    vec![number],
+                    vec![number, number],
+                    vec![number, number, number],
+                    vec![number, xfer, number],
+                    vec![xfer],
+                    vec![number, xfer],
+                    vec![xfer, xfer, xfer],
+                    vec![xfer, number, xfer],
+                ],
+            },
+        ] {
+            for topic in tc.includes {
+                assert!(
+                    does_topic_match(
+                        &topic
+                            .iter()
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>(),
+                        &tc.filter
+                            .iter()
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>()
+                    ),
+                    "test: {}, topic ({:?}) should be matched by filter ({:?})",
+                    tc.name,
+                    topic,
+                    tc.filter
+                );
+            }
+
+            for topic in tc.excludes {
+                assert!(
+                    !does_topic_match(
+                        // make deep copies of the vecs
+                        &topic
+                            .iter()
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>(),
+                        &tc.filter
+                            .iter()
+                            .map(std::string::ToString::to_string)
+                            .collect::<Vec<String>>()
+                    ),
+                    "test: {}, topic ({:?}) should NOT be matched by filter ({:?})",
+                    tc.name,
+                    topic,
+                    tc.filter
+                );
+            }
+        }
     }
 }

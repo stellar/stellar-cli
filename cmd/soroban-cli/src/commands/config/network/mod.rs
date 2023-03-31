@@ -76,6 +76,27 @@ pub struct Args {
     pub network: Option<String>,
 }
 
+impl Args {
+    pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
+        if let Some(name) = self.network.as_deref() {
+            Ok(locator.read_network(name)?)
+        } else if let (Some(rpc_url), Some(network_passphrase)) =
+            (self.rpc_url.clone(), self.network_passphrase.clone())
+        {
+            Ok(Network {
+                rpc_url,
+                network_passphrase,
+            })
+        } else {
+            Err(Error::Network)
+        }
+    }
+
+    pub fn is_no_network(&self) -> bool {
+        self.network.is_none() && self.network_passphrase.is_none() && self.rpc_url.is_none()
+    }
+}
+
 #[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]
 #[group(skip)]
 pub struct Network {
