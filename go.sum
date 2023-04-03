@@ -167,12 +167,8 @@ github.com/spf13/pflag v0.0.0-20161005214240-4bd69631f475 h1:RtZIgreTwcayPTOw7G5
 github.com/spf13/pflag v0.0.0-20161005214240-4bd69631f475/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189 h1:fvB1AFbBd6SfI9Rd0ooAJp8uLkZDbZaLFHi7ZnNP6uI=
 github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189/go.mod h1:A8kyI5cUJhb8N+3pkfONlcEcZbueH6nhAm0Fq7SrnBM=
-github.com/stellar/go v0.0.0-20230320165241-a5f3278b8282 h1:Lijy4+s8ZwC6omEHHI4zThxxqKkQ0q1JyUn0WLfKFgI=
-github.com/stellar/go v0.0.0-20230320165241-a5f3278b8282/go.mod h1:QXwuKmYVvqQZlByv0EeNb0Rgog9AP+eMmARcdt3h2rI=
-github.com/stellar/go v0.0.0-20230327114210-683d822942b9 h1:44Xv8k3TcXlPBAZUZH5tlqk2Tqbs2bqcYSjI6qDNBbM=
-github.com/stellar/go v0.0.0-20230327114210-683d822942b9/go.mod h1:QXwuKmYVvqQZlByv0EeNb0Rgog9AP+eMmARcdt3h2rI=
-github.com/stellar/go v0.0.0-20230327144237-ddcb0c7dea5a h1:4M/FzFAhWqLF5p3/2x8pCWf6fvs1Rwa8ZsO/Md2VVV0=
-github.com/stellar/go v0.0.0-20230327144237-ddcb0c7dea5a/go.mod h1:QXwuKmYVvqQZlByv0EeNb0Rgog9AP+eMmARcdt3h2rI=
+github.com/stellar/go v0.0.0-20230331111359-53b82066a0f8 h1:nXubIrtf//uIcWX1YRxZwfvCq+2V3hpSMjyaQY+vwaM=
+github.com/stellar/go v0.0.0-20230331111359-53b82066a0f8/go.mod h1:QXwuKmYVvqQZlByv0EeNb0Rgog9AP+eMmARcdt3h2rI=
 github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee h1:fbVs0xmXpBvVS4GBeiRmAE3Le70ofAqFMch1GTiq/e8=
 github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee/go.mod h1:yoxyU/M8nl9LKeWIoBrbDPQ7Cy+4jxRcWcOayZ4BMps=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
