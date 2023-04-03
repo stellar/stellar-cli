@@ -128,7 +128,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 
 	dbConn, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
-		logger.Fatalf("could not open database: %vLedger", err)
+		logger.Fatalf("could not open database: %v", err)
 	}
 
 	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
