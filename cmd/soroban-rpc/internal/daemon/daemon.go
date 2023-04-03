@@ -13,7 +13,6 @@ import (
 	"github.com/stellar/go/ingest/ledgerbackend"
 	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
-	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -129,7 +128,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 
 	dbConn, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
-		logger.Fatalf("could not open database: %v", err)
+		logger.Fatalf("could not open database: %vLedger", err)
 	}
 
 	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
@@ -144,18 +143,10 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 
 	// initialize the stores using what was on the DB
 	// TODO: add a timeout?
-	txmetas, err := backoff.RetryNotifyWithData(
-		func() ([]xdr.LedgerCloseMeta, error) {
-			return db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
-		},
-		expBackoff,
-		func(err error, dur time.Duration) {
-			logger.Errorf("Failed getting txmeta cache from the database with error: %v. Retrying after %v", err, dur)
-		})
+	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
 	if err != nil {
 		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
 	}
-	expBackoff.Reset()
 
 	for _, txmeta := range txmetas {
 		// NOTE: We could optimize this to avoid unnecessary ingestion calls
