@@ -49,11 +49,13 @@ func NewService(cfg Config) *Service {
 	go func() {
 		// Retry running ingestion every second for 5 seconds.
 		constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
+		// Don't want to keep retrying if the context gets cancelled.
+		contextBackoff := backoff.WithContext(constantBackoff, ctx)
 		err := backoff.RetryNotify(
 			func() error {
 				return o.run(ctx, cfg.Archive)
 			},
-			constantBackoff,
+			contextBackoff,
 			func(err error, dur time.Duration) {
 				o.logger.WithError(err).Error("could not run ingestion. Retrying")
 			})
