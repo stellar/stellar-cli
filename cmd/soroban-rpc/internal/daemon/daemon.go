@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/cenkalti/backoff/v4"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
