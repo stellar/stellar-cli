@@ -63,6 +63,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
+    - run: cargo install --path ./cmd/soroban-cli --debug
     - run: make test
     - run: cargo install --path ./cmd/soroban-cli --debug
     - if: startsWith(matrix.target, 'x86_64')
