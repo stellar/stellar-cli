@@ -127,20 +127,10 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 	expBackoff.Reset()
 
-	dbConn, err := backoff.RetryNotifyWithData(
-		func() (*sqlx.DB, error) {
-			return db.OpenSQLiteDB(cfg.SQLiteDBPath)
-		},
-		expBackoff,
-		func(err error, dur time.Duration) {
-			logger.Errorf(
-				"Failed opening SQLite DB at %s with error: %v. Retrying after %v",
-				cfg.SQLiteDBPath, err, dur)
-		})
+	dbConn, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
-	expBackoff.Reset()
 
 	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
 	transactionStore := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
