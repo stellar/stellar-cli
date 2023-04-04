@@ -37,6 +37,7 @@ type HandlerParams struct {
 	TransactionStore  *transactions.MemoryStore
 	CoreClient        *stellarcore.Client
 	LedgerEntryReader db.LedgerEntryReader
+	LedgerReader      db.LedgerReader
 	Logger            *log.Entry
 	PreflightGetter   methods.PreflightGetter
 }
@@ -47,6 +48,7 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) Handler {
 		"getHealth":           methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
 		"getEvents":           methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
 		"getNetwork":          methods.NewGetNetworkHandler(cfg.NetworkPassphrase, cfg.FriendbotURL, params.CoreClient),
+		"getLatestLedger":     methods.NewGetLatestLedgerHandler(params.Logger, params.LedgerEntryReader, params.LedgerReader, params.CoreClient),
 		"getLedgerEntry":      methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
 		"getTransaction":      methods.NewGetTransactionHandler(params.TransactionStore),
 		"sendTransaction":     methods.NewSendTransactionHandler(params.Logger, params.TransactionStore, cfg.NetworkPassphrase, params.CoreClient),

@@ -169,6 +169,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 			URL:  cfg.StellarCoreURL,
 			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
 		},
+		LedgerReader:      db.NewLedgerReader(dbConn),
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 		PreflightGetter:   preflightWorkerPool,
 	})
