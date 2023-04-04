@@ -217,8 +217,8 @@ fn recorded_auth_payloads_to_c(
 
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
     let address_with_nonce = match (payload.address.clone(), payload.nonce) {
+        // Note: the address and the nonce can't be present independently
         (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
-        // TODO: can the address and the nonce really be present independently?
         _ => None,
     };
     ContractAuth {
@@ -236,8 +236,7 @@ fn host_events_to_c(events: Events) -> Result<*mut *mut libc::c_char, Box<dyn er
         let maybe_contract_event = match &e.event {
             Event::Contract(e) => Some(e),
             Event::StructuredDebug(e) => Some(e),
-            // TODO: should we (somehow) map the debug events to XDR?
-            //       I (fons) am not even sure that's possible
+            // Debug events can't be translated to diagnostic events
             Event::Debug(_) => None,
         };
         if let Some(contract_event) = maybe_contract_event {
