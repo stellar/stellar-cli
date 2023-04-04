@@ -3,9 +3,7 @@ package daemon
 import (
 	"context"
 	"net/http"
-	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/stellar/go/clients/stellarcore"
@@ -102,29 +100,15 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	if len(cfg.HistoryArchiveURLs) == 0 {
 		logger.Fatalf("no history archives url were provided")
 	}
-	// Defaults: https://pkg.go.dev/github.com/cenkalti/backoff/v4@v4.2.0#pkg-constants
-	expBackoff := backoff.NewExponentialBackOff()
-	// Default is 15m but that's too long.
-	expBackoff.MaxElapsedTime = 5 * time.Minute
-	// Here and below, retry operations that could have transient errors
-	// with exponential backoff in order to be more resilient during startup.
-	historyArchive, err := backoff.RetryNotifyWithData(
-		func() (*historyarchive.Archive, error) {
-			return historyarchive.Connect(
-				cfg.HistoryArchiveURLs[0],
-				historyarchive.ConnectOptions{
-					CheckpointFrequency: cfg.CheckpointFrequency,
-				},
-			)
+	historyArchive, err := historyarchive.Connect(
+		cfg.HistoryArchiveURLs[0],
+		historyarchive.ConnectOptions{
+			CheckpointFrequency: cfg.CheckpointFrequency,
 		},
-		expBackoff,
-		func(err error, dur time.Duration) {
-			logger.Errorf("Failed connecting to history archive with error: %v. Retrying after %v", err, dur)
-		})
+	)
 	if err != nil {
 		logger.Fatalf("could not connect to history archive: %v", err)
 	}
-	expBackoff.Reset()
 
 	dbConn, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
