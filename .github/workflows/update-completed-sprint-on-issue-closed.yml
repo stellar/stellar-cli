@@ -1,0 +1,12 @@
+name: Update CompletedSprint on Issue Closed
+
+on:
+  issues:
+    types: [closed]
+  pull_request:
+    types: [closed]
+
+
+jobs:
+  update_completed_sprint:
+    uses: stellar/actions.github/workflows/update-completed-sprint-on-issue-closed.yml
