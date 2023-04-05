@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -144,6 +145,9 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		}
 	}
 
+	onIngestionRetry := func(err error, dur time.Duration) {
+		logger.WithError(err).Error("could not run ingestion. Retrying")
+	}
 	ingestService := ingest.NewService(ingest.Config{
 		Logger:            logger,
 		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
@@ -153,6 +157,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		Archive:           historyArchive,
 		LedgerBackend:     core,
 		Timeout:           cfg.LedgerEntryStorageTimeout,
+		OnIngestionRetry:  onIngestionRetry,
 	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)

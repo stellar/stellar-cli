@@ -31,6 +31,7 @@ type Config struct {
 	Archive           historyarchive.ArchiveInterface
 	LedgerBackend     backends.LedgerBackend
 	Timeout           time.Duration
+	OnIngestionRetry  backoff.Notify
 }
 
 func NewService(cfg Config) *Service {
@@ -56,9 +57,7 @@ func NewService(cfg Config) *Service {
 				return o.run(ctx, cfg.Archive)
 			},
 			contextBackoff,
-			func(err error, dur time.Duration) {
-				o.logger.WithError(err).Error("could not run ingestion. Retrying")
-			})
+			cfg.OnIngestionRetry)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			o.logger.WithError(err).Fatal("could not run ingestion")
 		}
