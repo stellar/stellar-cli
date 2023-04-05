@@ -1357,7 +1357,7 @@ dependencies = [
 
 [[package]]
 name = "preflight"
-version = "0.6.0"
+version = "0.7.1"
 dependencies = [
  "libc",
  "sha2 0.10.6",
@@ -1865,7 +1865,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "0.6.0"
+version = "0.7.1"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2046,7 +2046,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "0.6.0"
+version = "0.7.1"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2255,14 +2255,14 @@ checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
 name = "test_custom_types"
-version = "0.6.0"
+version = "0.7.1"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "0.6.0"
+version = "0.7.1"
 dependencies = [
  "soroban-sdk",
 ]

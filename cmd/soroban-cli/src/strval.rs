@@ -438,7 +438,8 @@ impl Spec {
     /// May panic
     pub fn xdr_to_json(&self, val: &ScVal, output: &ScType) -> Result<Value, Error> {
         Ok(match (val, output) {
-            (ScVal::Map(None) | ScVal::Vec(None), ScType::Option(_)) => Value::Null,
+            (ScVal::Void, ScType::Val)
+            | (ScVal::Map(None) | ScVal::Vec(None), ScType::Option(_)) => Value::Null,
             (ScVal::Bool(_), ScType::Bool)
             | (ScVal::Void, ScType::Void)
             | (ScVal::String(_), ScType::String)
@@ -649,6 +650,11 @@ impl Spec {
             (ScVal::ContractExecutable(_), _) => todo!(),
 
             (ScVal::Address(v), ScType::Address) => sc_address_to_json(v),
+
+            (ok_val, ScType::Result(result_type)) => {
+                let ScSpecTypeResult { ok_type, .. } = result_type.as_ref();
+                self.xdr_to_json(ok_val, ok_type)?
+            }
 
             (x, y) => return Err(Error::InvalidPair(x.clone(), y.clone())),
         })

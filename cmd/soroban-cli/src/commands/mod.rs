@@ -95,7 +95,7 @@ pub enum Cmd {
     /// Read and update config
     #[command(subcommand)]
     Config(config::Cmd),
-    /// Run a local webserver for web app development and testing
+    /// Watch the network for contract events
     Events(events::Cmd),
     /// Experiment with early features and expert tools
     #[command(subcommand)]
