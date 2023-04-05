@@ -22,7 +22,7 @@ func TestGetLatestLedgerSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 
 	actualLatestSequence := uint32(coreInfo.Info.Ledger.Num)
-	actualProtocolVersion := coreInfo.Info.ProtocolVersion
+	actualProtocolVersion := uint32(coreInfo.Info.ProtocolVersion)
 
 	ledgerReader := db.NewLedgerReader(test.daemon.GetDB())
 	actualLatestLedger, found, err := ledgerReader.GetLedger(context.Background(), actualLatestSequence)
@@ -30,9 +30,8 @@ func TestGetLatestLedgerSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 
-	request := methods.GetLatestLedgerRequest{}
 	var result methods.GetLatestLedgerResponse
-	err = client.CallResult(context.Background(), "getLatestLedger", request, &result)
+	err = client.CallResult(context.Background(), "getLatestLedger", nil, &result)
 	assert.NoError(t, err)
 	assert.Equal(t, result.Hash, actualLatestLedgerHash)
 	assert.Equal(t, result.Sequence, actualLatestSequence)

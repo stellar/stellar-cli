@@ -7,26 +7,23 @@ import (
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
-	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
-type GetLatestLedgerRequest struct{}
-
 type GetLatestLedgerResponse struct {
 	// Hash of the latest ledger as a hex-encoded string
 	Hash string `json:"id"`
 	// Stellar Core protocol version associated with the ledger.
-	ProtocolVersion int `json:"protocolVersion,string"`
+	ProtocolVersion uint32 `json:"protocolVersion,string"`
 	// Sequence number of the latest ledger.
 	Sequence uint32 `json:"sequence"`
 }
 
 // NewGetLatestLedgerHandler returns a JSON RPC handler to retrieve the latest ledger entry from Stellar core.
-func NewGetLatestLedgerHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, ledgerReader db.LedgerReader, coreClient *stellarcore.Client) jrpc2.Handler {
-	return handler.New(func(ctx context.Context, request GetLatestLedgerRequest) (GetLatestLedgerResponse, error) {
+func NewGetLatestLedgerHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, ledgerReader db.LedgerReader) jrpc2.Handler {
+	return handler.New(func(ctx context.Context) (GetLatestLedgerResponse, error) {
 		tx, err := ledgerEntryReader.NewTx(ctx)
 		if err != nil {
 			return GetLatestLedgerResponse{}, &jrpc2.Error{
@@ -54,16 +51,9 @@ func NewGetLatestLedgerHandler(logger *log.Entry, ledgerEntryReader db.LedgerEnt
 			}
 		}
 
-		info, err := coreClient.Info(ctx)
-		if err != nil {
-			return GetLatestLedgerResponse{}, (&jrpc2.Error{
-				Code:    code.InternalError,
-				Message: err.Error(),
-			})
-		}
 		response := GetLatestLedgerResponse{
 			Hash:            latestLedger.LedgerHash().HexString(),
-			ProtocolVersion: info.Info.ProtocolVersion,
+			ProtocolVersion: latestLedger.ProtocolVersion(),
 			Sequence:        latestSequence,
 		}
 		return response, nil
