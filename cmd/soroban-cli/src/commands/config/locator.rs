@@ -67,7 +67,7 @@ pub struct Args {
     #[arg(long)]
     pub global: bool,
 
-    #[arg(long)]
+    #[arg(long, help_heading = "TESTING_OPTIONS")]
     pub pwd: Option<PathBuf>,
 }
 
