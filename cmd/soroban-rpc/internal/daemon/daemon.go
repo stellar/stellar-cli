@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -204,7 +203,7 @@ func Run(cfg config.LocalConfig, endpoint string) {
 	go func() {
 		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Error starting or closing listener:
-			log.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
+			d.logger.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
 			os.Exit(1)
 		}
 		d.Close()
@@ -223,6 +222,6 @@ func Run(cfg config.LocalConfig, endpoint string) {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		// Error from closing listeners, or context timeout:
-		log.Printf("Error during Soroban JSON RPC server Shutdown: %v", err)
+		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
 	}
 }
