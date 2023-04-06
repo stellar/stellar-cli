@@ -32,6 +32,7 @@ use super::super::{
     events,
 };
 use crate::{
+    commands::HEADING_SANDBOX,
     rpc::{self, Client},
     strval::{self, Spec},
     utils::{self, create_ledger_footprint, default_account_ledger_entry},
@@ -43,17 +44,11 @@ use crate::{
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[arg(long = "id")]
+    #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
     pub contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[arg(long)]
     pub wasm: Option<std::path::PathBuf>,
-    /// Output the cost execution to stderr
-    #[arg(long = "cost")]
-    pub cost: bool,
-    /// Run with an unlimited budget
-    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url")]
-    pub unlimited_budget: bool,
     /// Output the footprint to stderr
     #[arg(long = "footprint")]
     pub footprint: bool,
@@ -63,6 +58,13 @@ pub struct Cmd {
     /// Output the contract events for the transaction to stderr
     #[arg(long = "events")]
     pub events: bool,
+
+    /// Output the cost execution to stderr
+    #[arg(long = "cost", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    pub cost: bool,
+    /// Run with an unlimited budget
+    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    pub unlimited_budget: bool,
 
     // Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
@@ -184,15 +186,15 @@ impl Cmd {
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
-                let s = matches_
-                    .get_raw(&name)
-                    .ok_or_else(|| Error::MissingArgument(name.clone()))?
-                    .next()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
-                spec.from_string(&s, &i.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })
+                if let Some(mut raw_val) = matches_.get_raw(&name) {
+                    let s = raw_val.next().unwrap().to_string_lossy().to_string();
+                    spec.from_string(&s, &i.type_)
+                        .map_err(|error| Error::CannotParseArg { arg: name, error })
+                } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
+                    Ok(ScVal::Void)
+                } else {
+                    Err(Error::MissingArgument(name))
+                }
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
