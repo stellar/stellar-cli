@@ -184,15 +184,15 @@ impl Cmd {
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
-                let s = matches_
-                    .get_raw(&name)
-                    .ok_or_else(|| Error::MissingArgument(name.clone()))?
-                    .next()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
-                spec.from_string(&s, &i.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })
+                if let Some(mut raw_val) = matches_.get_raw(&name) {
+                    let s = raw_val.next().unwrap().to_string_lossy().to_string();
+                    spec.from_string(&s, &i.type_)
+                        .map_err(|error| Error::CannotParseArg { arg: name, error })
+                } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
+                    Ok(ScVal::Void)
+                } else {
+                    Err(Error::MissingArgument(name))
+                }
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
