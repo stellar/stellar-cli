@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/Masterminds/squirrel v1.5.0
+	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/creachadair/jrpc2 v0.41.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/jmoiron/sqlx v1.2.0
