@@ -158,6 +158,8 @@ pub enum Error {
     Events(#[from] events_file::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error("Contract Error\n{0}: {1}")]
+    ContractInvoke(String, String),
 }
 
 impl Cmd {
@@ -386,7 +388,18 @@ impl Cmd {
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
 
-        let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
+        let res = h
+            .invoke_function(HostFunction::InvokeContract(host_function_params))
+            .map_err(
+                |host_error| match spec.find_error_type(host_error.status.get_code()) {
+                    Ok(error) => Error::ContractInvoke(
+                        error.name.to_string_lossy(),
+                        error.doc.to_string_lossy(),
+                    ),
+                    Err(error) => Error::StrVal(error),
+                },
+            )?;
+
         let res_str = output_to_string(&spec, &res, &function)?;
 
         state.update(&h);
