@@ -209,7 +209,6 @@ func Run(cfg config.LocalConfig, endpoint string) {
 			d.logger.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
 			os.Exit(1)
 		}
-		d.Close()
 	}()
 
 	// Shutdown gracefully when we receive an interrupt signal.
@@ -227,4 +226,5 @@ func Run(cfg config.LocalConfig, endpoint string) {
 		// Error from closing listeners, or context timeout:
 		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
 	}
+	d.Close()
 }
