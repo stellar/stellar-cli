@@ -185,11 +185,11 @@ soroban contract invoke ... -- --help
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--wasm <WASM>` — WASM file of the contract to invoke (if using sandbox will deploy this file)
-* `--cost` — Output the cost execution to stderr
-* `--unlimited-budget` — Run with an unlimited budget
 * `--footprint` — Output the footprint to stderr
 * `--auth` — Output the contract auth for the transaction to stderr
 * `--events` — Output the contract events for the transaction to stderr
+* `--cost` — Output the cost execution to stderr
+* `--unlimited-budget` — Run with an unlimited budget
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config

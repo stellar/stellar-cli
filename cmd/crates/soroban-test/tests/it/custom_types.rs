@@ -406,3 +406,26 @@ fn boolean_not_no_flag() {
 "#,
         );
 }
+
+#[test]
+fn option_none() {
+    invoke(&TestEnv::default(), "option")
+        .assert()
+        .success()
+        .stdout(
+            r#"null
+"#,
+        );
+}
+
+#[test]
+fn option_some() {
+    invoke(&TestEnv::default(), "option")
+        .arg("--option=1")
+        .assert()
+        .success()
+        .stdout(
+            r#"1
+"#,
+        );
+}
