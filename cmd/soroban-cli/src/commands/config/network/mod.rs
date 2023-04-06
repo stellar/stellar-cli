@@ -71,7 +71,8 @@ pub struct Args {
     #[arg(
         long,
         conflicts_with = "network_passphrase",
-        conflicts_with = "rpc_url"
+        conflicts_with = "rpc_url",
+        env = "SOROBAN_NETWORK"
     )]
     pub network: Option<String>,
 }
