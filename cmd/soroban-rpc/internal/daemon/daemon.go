@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -131,6 +132,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	if err != nil {
 		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
 	}
+
 	for _, txmeta := range txmetas {
 		// NOTE: We could optimize this to avoid unnecessary ingestion calls
 		//       (len(txmetas) can be larger than the store retention windows)
@@ -143,7 +145,10 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		}
 	}
 
-	ingestService, err := ingest.NewService(ingest.Config{
+	onIngestionRetry := func(err error, dur time.Duration) {
+		logger.WithError(err).Error("could not run ingestion. Retrying")
+	}
+	ingestService := ingest.NewService(ingest.Config{
 		Logger:            logger,
 		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
 		EventStore:        eventStore,
@@ -152,10 +157,8 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		Archive:           historyArchive,
 		LedgerBackend:     core,
 		Timeout:           cfg.LedgerEntryStorageTimeout,
+		OnIngestionRetry:  onIngestionRetry,
 	})
-	if err != nil {
-		logger.Fatalf("could not initialize ledger entry writer: %v", err)
-	}
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(
@@ -169,6 +172,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 			URL:  cfg.StellarCoreURL,
 			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
 		},
+		LedgerReader:      db.NewLedgerReader(dbConn),
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 		PreflightGetter:   preflightWorkerPool,
 	})
