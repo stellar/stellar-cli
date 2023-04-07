@@ -30,8 +30,8 @@ pub enum Error {
     JsonRpc(#[from] jsonrpsee_core::Error),
     #[error("json decoding error: {0}")]
     Serde(#[from] serde_json::Error),
-    #[error("transaction submission failed")]
-    TransactionSubmissionFailed,
+    #[error("transaction submission failed: {0}")]
+    TransactionSubmissionFailed(String),
     #[error("expected transaction status: {0}")]
     UnexpectedTransactionStatus(String),
     #[error("transaction submission timeout")]
@@ -346,11 +346,11 @@ impl Client {
         } = client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await
-            .map_err(|_| Error::TransactionSubmissionFailed)?;
+            .map_err(|err| Error::TransactionSubmissionFailed(format!("{err:#?}")))?;
 
         if status == "ERROR" {
             eprintln!("error: {}", error_result_xdr.ok_or(Error::MissingError)?);
-            return Err(Error::TransactionSubmissionFailed);
+            return Err(Error::TransactionSubmissionFailed("".to_string()));
         }
         // even if status == "success" we need to query the transaction status in order to get the result
 
@@ -372,7 +372,7 @@ impl Client {
                 }
                 "FAILED" => {
                     // TODO: provide a more elaborate error
-                    return Err(Error::TransactionSubmissionFailed);
+                    return Err(Error::TransactionSubmissionFailed(format!("{response:#?}")));
                 }
                 "NOT_FOUND" => (),
                 _ => {
