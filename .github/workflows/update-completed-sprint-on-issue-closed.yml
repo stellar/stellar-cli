@@ -9,6 +9,6 @@ on:
 jobs:
   update_completed_sprint:
     uses: stellar/actions/.github/workflows/update-completed-sprint-on-issue-closed.yml@main
-  with:
-    project_name: "Platform Scrum"
-    field_name: "CompletedSprint"
+    with:
+      project_name: "Platform Scrum"
+      field_name: "CompletedSprint"
