@@ -350,7 +350,7 @@ impl Client {
 
         if status == "ERROR" {
             eprintln!("error: {}", error_result_xdr.ok_or(Error::MissingError)?);
-            return Err(Error::TransactionSubmissionFailed("".to_string()));
+            return Err(Error::TransactionSubmissionFailed(String::new()));
         }
         // even if status == "success" we need to query the transaction status in order to get the result
 
