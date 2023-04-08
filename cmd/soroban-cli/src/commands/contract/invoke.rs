@@ -395,7 +395,7 @@ impl Cmd {
                         error.name.to_string_lossy(),
                         error.doc.to_string_lossy(),
                     ),
-                    Err(error) => Error::StrVal(error),
+                    Err(_) => host_error.into(),
                 },
             )?;
 

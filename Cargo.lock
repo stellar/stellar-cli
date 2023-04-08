@@ -1361,6 +1361,7 @@ version = "0.7.1"
 dependencies = [
  "libc",
  "sha2 0.10.6",
+ "soroban-cli",
  "soroban-env-host",
 ]
 
