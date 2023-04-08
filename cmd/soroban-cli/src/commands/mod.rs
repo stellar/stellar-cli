@@ -5,6 +5,7 @@ use clap::{command, CommandFactory, FromArgMatches, Parser};
 pub mod completion;
 pub mod config;
 pub mod contract;
+pub mod custom;
 pub mod events;
 pub mod lab;
 pub mod version;
