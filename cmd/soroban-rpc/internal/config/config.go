@@ -7,20 +7,19 @@ import (
 )
 
 type LocalConfig struct {
-	StellarCoreURL         string
-	CoreRequestTimeout     time.Duration
-	StellarCoreBinaryPath  string
-	CaptiveCoreConfigPath  string
-	CaptiveCoreStoragePath string
-	CaptiveCoreHTTPPort    uint16
-	CaptiveCoreUseDB       bool
-	FriendbotURL           string
-	NetworkPassphrase      string
-	HistoryArchiveURLs     []string
-	LogLevel               logrus.Level
-	SQLiteDBPath           string
-	// TODO: this unused but we should timeout the DB fillup
-	LedgerEntryStorageTimeout        time.Duration
+	StellarCoreURL                   string
+	CoreRequestTimeout               time.Duration
+	StellarCoreBinaryPath            string
+	CaptiveCoreConfigPath            string
+	CaptiveCoreStoragePath           string
+	CaptiveCoreHTTPPort              uint16
+	CaptiveCoreUseDB                 bool
+	FriendbotURL                     string
+	NetworkPassphrase                string
+	HistoryArchiveURLs               []string
+	LogLevel                         logrus.Level
+	SQLiteDBPath                     string
+	IngestionTimeout                 time.Duration
 	EventLedgerRetentionWindow       uint32
 	TransactionLedgerRetentionWindow uint32
 	CheckpointFrequency              uint32
