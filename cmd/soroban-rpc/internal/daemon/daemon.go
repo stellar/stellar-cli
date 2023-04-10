@@ -238,8 +238,10 @@ func Run(cfg config.LocalConfig, endpoint string, adminEndpoint string) {
 	}
 	d.Close()
 
-	if err := adminServer.Shutdown(shutdownCtx); err != nil {
-		// Error from closing listeners, or context timeout:
-		d.logger.Errorf("Error during Soroban JSON admin server Shutdown: %v", err)
+	if adminServer != nil {
+		if err := adminServer.Shutdown(shutdownCtx); err != nil {
+			// Error from closing listeners, or context timeout:
+			d.logger.Errorf("Error during Soroban JSON admin server Shutdown: %v", err)
+		}
 	}
 }
