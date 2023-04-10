@@ -127,12 +127,12 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 
 	// initialize the stores using what was on the DB
-	// TODO: add a timeout?
-	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(context.Background())
+	readTxMetaCtx, cancelReadTxMeta := context.WithTimeout(context.Background(), cfg.IngestionTimeout)
+	defer cancelReadTxMeta()
+	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(readTxMetaCtx)
 	if err != nil {
 		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
 	}
-
 	for _, txmeta := range txmetas {
 		// NOTE: We could optimize this to avoid unnecessary ingestion calls
 		//       (len(txmetas) can be larger than the store retention windows)
@@ -156,7 +156,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,
-		Timeout:           cfg.LedgerEntryStorageTimeout,
+		Timeout:           cfg.IngestionTimeout,
 		OnIngestionRetry:  onIngestionRetry,
 	})
 
