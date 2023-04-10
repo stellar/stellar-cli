@@ -108,7 +108,7 @@ func (i *Test) launchDaemon() {
 		HistoryArchiveURLs:               []string{"http://localhost:1570"},
 		LogLevel:                         logrus.DebugLevel,
 		SQLiteDBPath:                     path.Join(i.t.TempDir(), "soroban_rpc.sqlite"),
-		LedgerEntryStorageTimeout:        10 * time.Minute,
+		IngestionTimeout:                 10 * time.Minute,
 		EventLedgerRetentionWindow:       ledgerbucketwindow.DefaultEventLedgerRetentionWindow,
 		TransactionLedgerRetentionWindow: 1440,
 		CheckpointFrequency:              checkpointFrequency,
