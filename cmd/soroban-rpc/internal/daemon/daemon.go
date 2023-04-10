@@ -2,7 +2,11 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -10,7 +14,6 @@ import (
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
-	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
@@ -25,6 +28,8 @@ import (
 
 const (
 	maxLedgerEntryWriteBatchSize = 150
+	defaultReadTimeout           = 5 * time.Second
+	defaultShutdownGracePeriod   = 10 * time.Second
 )
 
 type Daemon struct {
@@ -189,14 +194,36 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 
 func Run(cfg config.LocalConfig, endpoint string) {
 	d := MustNew(cfg)
-	supporthttp.Run(supporthttp.Config{
-		ListenAddr: endpoint,
-		Handler:    d,
-		OnStarting: func() {
-			d.logger.Infof("Starting Soroban JSON RPC server on %v", endpoint)
-		},
-		OnStopped: func() {
-			d.Close()
-		},
-	})
+
+	server := &http.Server{
+		Addr:        endpoint,
+		Handler:     d,
+		ReadTimeout: defaultReadTimeout,
+	}
+
+	d.logger.Infof("Starting Soroban JSON RPC server on %v", endpoint)
+
+	go func() {
+		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			// Error starting or closing listener:
+			d.logger.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
+		}
+	}()
+
+	// Shutdown gracefully when we receive an interrupt signal.
+	// First server.Shutdown closes all open listeners, then closes all idle connections.
+	// Finally, it waits a grace period (10s here) for connections to return to idle and then shut down.
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	<-signals
+
+	// Default Shutdown grace period.
+	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), defaultShutdownGracePeriod)
+	defer shutdownRelease()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		// Error from closing listeners, or context timeout:
+		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
+	}
+	d.Close()
 }
