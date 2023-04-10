@@ -207,7 +207,6 @@ func Run(cfg config.LocalConfig, endpoint string) {
 		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Error starting or closing listener:
 			d.logger.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
-			os.Exit(1)
 		}
 	}()
 
