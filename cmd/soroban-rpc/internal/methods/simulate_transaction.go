@@ -61,7 +61,6 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		if opSourceAccount := op.SourceAccount; opSourceAccount != nil {
 			sourceAccount = opSourceAccount.ToAccountId()
 		} else {
-			// FIXME: SourceAccount() panics, so, the user can doctor an envelope which makes the server crash
 			sourceAccount = txEnvelope.SourceAccount().ToAccountId()
 		}
 
