@@ -42,7 +42,7 @@ jobs:
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
       # the soroban test cases will compile various contracts from the examples repo
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: main
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: v0.7.0
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v3
@@ -71,4 +71,5 @@ jobs:
         run: |
           docker run --rm -t --name e2e_test stellar/system-test:dev \
           --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT  \
-          --TestFilter "${{ matrix.scenario-filter }}"     
+          --TestFilter "${{ matrix.scenario-filter }}" \
+          --SorobanExamplesGitHash $SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH
