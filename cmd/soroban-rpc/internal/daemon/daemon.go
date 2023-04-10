@@ -218,7 +218,7 @@ func Run(cfg config.LocalConfig, endpoint string) {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	<-signals
 
-	// Default supporthttp Shutdown grace period.
+	// Default Shutdown grace period.
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), defaultShutdownGracePeriod)
 	defer shutdownRelease()
 
