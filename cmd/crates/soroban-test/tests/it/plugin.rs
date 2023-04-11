@@ -25,7 +25,7 @@ fn soroban_hello() {
         .assert()
         .stdout("Hello, world!\n");
 
-    // Call soroban with the PATH variable set to include the target/bin directory
+    // Call `soroban --list` with the PATH variable set to include the target/bin directory
     assert_cmd::Command::cargo_bin("soroban")
         .unwrap()
         .arg("--list")
