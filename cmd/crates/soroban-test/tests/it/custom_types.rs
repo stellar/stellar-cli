@@ -203,7 +203,7 @@ fn number_arg_return_err() {
             .unwrap_err();
         if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
             assert_eq!(name, "OhNo");
-            assert_eq!(doc, "Unknown error has occured")
+            assert_eq!(doc, "Unknown error has occured");
         };
         println!("{res:#?}");
     });
