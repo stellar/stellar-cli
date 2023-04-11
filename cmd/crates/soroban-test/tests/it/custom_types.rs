@@ -1,8 +1,9 @@
 use serde_json::json;
 
+use soroban_cli::commands;
 use soroban_test::TestEnv;
 
-use crate::util::{invoke, invoke_with_roundtrip};
+use crate::util::{invoke, invoke_with_roundtrip, CUSTOM_TYPES};
 
 #[test]
 fn symbol() {
@@ -186,12 +187,26 @@ fn number_arg_return_ok() {
 
 #[test]
 fn number_arg_return_err() {
-    invoke(&TestEnv::default(), "u32_fail_on_even")
-        .arg("--u32_")
-        .arg("2")
-        .assert()
-        .success()
-        .stderr(predicates::str::contains("Status(ContractError(1))"));
+    TestEnv::with_default(|sandbox| {
+        // matches!(res, commands::invoke::Error)
+        let p = CUSTOM_TYPES.path();
+        let wasm = p.to_str().unwrap();
+        let res = sandbox
+            .invoke(&[
+                "--id=1",
+                "--wasm",
+                wasm,
+                "--",
+                "u32_fail_on_even",
+                "--u32_=2",
+            ])
+            .unwrap_err();
+        if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
+            assert_eq!(name, "OhNo");
+            assert_eq!(doc, "Unknown error has occured")
+        };
+        println!("{res:#?}");
+    });
 }
 
 #[test]
