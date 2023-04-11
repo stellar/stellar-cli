@@ -232,7 +232,7 @@ impl Cmd {
             })?;
         }
 
-        let client = rpc::Client::new(&rpc_url);
+        let client = rpc::Client::new(&rpc_url)?;
         client
             .get_events(
                 start,
