@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/jmoiron/sqlx"
 
+	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/xdr"
 )
 
@@ -109,7 +109,7 @@ func (l ledgerEntryWriter) flush() error {
 
 type ledgerEntryReadTx struct {
 	cachedLatestLedgerSeq uint32
-	tx                    *sqlx.Tx
+	tx                    db.SessionInterface
 	buffer                *xdr.EncodingBuffer
 }
 
@@ -130,12 +130,9 @@ func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerE
 		return false, xdr.LedgerEntry{}, err
 	}
 
-	sqlStr, args, err := sq.Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).ToSql()
-	if err != nil {
-		return false, xdr.LedgerEntry{}, err
-	}
+	sql := sq.Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey})
 	var results []string
-	if err = l.tx.Select(&results, sqlStr, args...); err != nil {
+	if err = l.tx.Select(context.Background(), &results, sql); err != nil {
 		return false, xdr.LedgerEntry{}, err
 	}
 	switch len(results) {
@@ -161,10 +158,10 @@ func (l ledgerEntryReadTx) Done() error {
 }
 
 type ledgerEntryReader struct {
-	db *sqlx.DB
+	db db.SessionInterface
 }
 
-func NewLedgerEntryReader(db *sqlx.DB) LedgerEntryReader {
+func NewLedgerEntryReader(db db.SessionInterface) LedgerEntryReader {
 	return ledgerEntryReader{db: db}
 }
 
@@ -173,13 +170,15 @@ func (r ledgerEntryReader) GetLatestLedgerSequence(ctx context.Context) (uint32,
 }
 
 func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error) {
-	tx, err := r.db.BeginTxx(ctx, &sql.TxOptions{
-		ReadOnly: true,
-	})
+	txSession := r.db.Clone()
+	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
+		return nil, err
+	}
+
 	return &ledgerEntryReadTx{
-		tx:     tx,
+		tx:     txSession,
 		buffer: xdr.NewEncodingBuffer(),
-	}, err
+	}, nil
 }
 
 func encodeLedgerKey(buffer *xdr.EncodingBuffer, key xdr.LedgerKey) (string, error) {
