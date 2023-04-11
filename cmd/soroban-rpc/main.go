@@ -34,7 +34,7 @@ func mustPositiveUint32(co *config.ConfigOption) error {
 }
 
 func main() {
-	var endpoint string
+	var endpoint, adminEndpoint string
 	var captiveCoreHTTPPort, ingestionTimeoutMinutes, coreTimeoutSeconds, maxHealthyLedgerLatencySeconds uint
 	var serviceConfig localConfig.LocalConfig
 
@@ -45,6 +45,14 @@ func main() {
 			OptType:     types.String,
 			ConfigKey:   &endpoint,
 			FlagDefault: "localhost:8000",
+			Required:    false,
+		},
+		{
+			Name:        "admin-endpoint",
+			Usage:       "Admin endpoint to listen and serve on. WARNING: this should not be accessible from the Internet and does not use TLS. \"\" (default) disables the admin server",
+			OptType:     types.String,
+			ConfigKey:   &adminEndpoint,
+			FlagDefault: "",
 			Required:    false,
 		},
 		{
@@ -275,7 +283,7 @@ func main() {
 			serviceConfig.IngestionTimeout = time.Duration(ingestionTimeoutMinutes) * time.Minute
 			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
 			serviceConfig.MaxHealthyLedgerLatency = time.Duration(maxHealthyLedgerLatencySeconds) * time.Second
-			daemon.Run(serviceConfig, endpoint)
+			daemon.Run(serviceConfig, endpoint, adminEndpoint)
 		},
 	}
 
