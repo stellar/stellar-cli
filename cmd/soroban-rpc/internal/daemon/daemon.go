@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
+	dbsession "github.com/stellar/go/support/db"
 	supportlog "github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
@@ -35,7 +35,7 @@ const (
 type Daemon struct {
 	core                *ledgerbackend.CaptiveStellarCore
 	ingestService       *ingest.Service
-	db                  *sqlx.DB
+	db                  dbsession.SessionInterface
 	handler             *internal.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
@@ -45,7 +45,7 @@ func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	d.handler.ServeHTTP(writer, request)
 }
 
-func (d *Daemon) GetDB() *sqlx.DB {
+func (d *Daemon) GetDB() dbsession.SessionInterface {
 	return d.db
 }
 
@@ -192,7 +192,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	}
 }
 
-func Run(cfg config.LocalConfig, endpoint string) {
+func Run(cfg config.LocalConfig, endpoint string, adminEndpoint string) {
 	d := MustNew(cfg)
 
 	server := &http.Server{
@@ -209,6 +209,16 @@ func Run(cfg config.LocalConfig, endpoint string) {
 			d.logger.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
 		}
 	}()
+	var adminServer *http.Server
+	if adminEndpoint != "" {
+		// after importing net/http/pprof, debug endpoints are implicitly registered in the default serve mux
+		adminServer = &http.Server{Addr: adminEndpoint, Handler: http.DefaultServeMux}
+		go func() {
+			if err := adminServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+				d.logger.Errorf("Soroban admin server encountered fatal error: %v", err)
+			}
+		}()
+	}
 
 	// Shutdown gracefully when we receive an interrupt signal.
 	// First server.Shutdown closes all open listeners, then closes all idle connections.
@@ -226,4 +236,11 @@ func Run(cfg config.LocalConfig, endpoint string) {
 		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
 	}
 	d.Close()
+
+	if adminServer != nil {
+		if err := adminServer.Shutdown(shutdownCtx); err != nil {
+			// Error from closing listeners, or context timeout:
+			d.logger.Errorf("Error during Soroban JSON admin server Shutdown: %v", err)
+		}
+	}
 }
