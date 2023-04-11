@@ -11,7 +11,7 @@ pub enum Error {
     ExecutableNotFound(String),
 }
 
-pub fn run_external() -> Result<(), Error> {
+pub fn run_plugin() -> Result<(), Error> {
     let (name, args) = {
         let mut args = std::env::args().skip(1);
         let name = args.next().ok_or(Error::MissingSubcommand)?;

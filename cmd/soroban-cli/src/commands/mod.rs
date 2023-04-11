@@ -5,9 +5,9 @@ use clap::{command, CommandFactory, FromArgMatches, Parser};
 pub mod completion;
 pub mod config;
 pub mod contract;
-pub mod custom;
 pub mod events;
 pub mod lab;
+pub mod plugin;
 pub mod version;
 
 pub const HEADING_SANDBOX: &str = "Options (Sandbox)";
