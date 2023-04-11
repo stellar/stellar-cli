@@ -27,13 +27,22 @@ path = "src/lib.rs"
 doctest = false
 
 [dependencies]
-soroban-env-host = { workspace = true, features = ["vm", "serde", "hostfn_log_fmt_values"] }
+soroban-env-host = { workspace = true, features = [
+    "vm",
+    "serde",
+    "hostfn_log_fmt_values",
+] }
 soroban-spec = { workspace = true }
 soroban-token-spec = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
-clap = { version = "4.1.8", features = ["derive", "env", "deprecated", "string"] }
+clap = { version = "4.1.8", features = [
+    "derive",
+    "env",
+    "deprecated",
+    "string",
+] }
 base64 = "0.13.0"
 thiserror = "1.0.31"
 serde = "1.0.82"
@@ -65,7 +74,8 @@ shlex = "1.1.0"
 sep5 = { workspace = true }
 ethnum = { workspace = true }
 clap-markdown = { version = "0.1.3", optional = true }
-which = { workspace = true }
+which = { workspace = true, features = ["regex"] }
+strsim = "0.10.0"
 
 
 [build-dependencies]
