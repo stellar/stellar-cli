@@ -63,7 +63,6 @@ jobs:
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test
-    - run: 	cargo install --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet --target ${{ matrix.target }}
     - if: startsWith(matrix.target, 'x86_64')
       # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
       run: |
