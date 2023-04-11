@@ -10,11 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
+	dbsession "github.com/stellar/go/support/db"
 	supportlog "github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
@@ -36,7 +35,7 @@ const (
 type Daemon struct {
 	core                *ledgerbackend.CaptiveStellarCore
 	ingestService       *ingest.Service
-	db                  *sqlx.DB
+	db                  dbsession.SessionInterface
 	handler             *internal.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
@@ -46,7 +45,7 @@ func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	d.handler.ServeHTTP(writer, request)
 }
 
-func (d *Daemon) GetDB() *sqlx.DB {
+func (d *Daemon) GetDB() dbsession.SessionInterface {
 	return d.db
 }
 
