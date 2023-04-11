@@ -241,7 +241,7 @@ impl Cmd {
     pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         let network = &self.config.get_network()?;
-        let client = Client::new(&network.rpc_url);
+        let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
 
         // Get the account sequence number

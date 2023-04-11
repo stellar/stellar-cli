@@ -1881,6 +1881,7 @@ dependencies = [
  "ed25519-dalek",
  "ethnum",
  "hex",
+ "http",
  "itertools",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
