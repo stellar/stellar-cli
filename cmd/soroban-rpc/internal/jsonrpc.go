@@ -1,12 +1,13 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 
+	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
 	"github.com/creachadair/jrpc2/jhttp"
-	"github.com/rs/cors"
-
+	"github.com/go-chi/chi/middleware"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/support/log"
 
@@ -44,6 +45,12 @@ type HandlerParams struct {
 
 // NewJSONRPCHandler constructs a Handler instance
 func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) Handler {
+	bridgeOptions := jhttp.BridgeOptions{
+		Server: &jrpc2.ServerOptions{
+			Logger: func(text string) { params.Logger.Debug(text) },
+			RPCLog: &rpcLogger{logger: params.Logger},
+		},
+	}
 	bridge := jhttp.NewBridge(handler.Map{
 		"getHealth":           methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
 		"getEvents":           methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
@@ -53,16 +60,39 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) Handler {
 		"getTransaction":      methods.NewGetTransactionHandler(params.TransactionStore),
 		"sendTransaction":     methods.NewSendTransactionHandler(params.Logger, params.TransactionStore, cfg.NetworkPassphrase, params.CoreClient),
 		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, params.LedgerEntryReader, params.PreflightGetter),
-	}, nil)
-	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedHeaders: []string{"*"},
-		AllowedMethods: []string{"GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-	})
+	}, &bridgeOptions)
 
 	return Handler{
 		bridge:  bridge,
 		logger:  params.Logger,
-		Handler: corsMiddleware.Handler(bridge),
+		Handler: bridge,
 	}
+}
+
+type rpcLogger struct {
+	logger *log.Entry
+}
+
+func (r *rpcLogger) LogRequest(ctx context.Context, req *jrpc2.Request) {
+	r.logger.WithFields(log.F{
+		"subsys":   "jsonrpc",
+		"req":      middleware.GetReqID(ctx),
+		"json_req": req.ID(),
+		"method":   req.Method(),
+		// TODO: is this overkill?
+		"params": req.ParamString(),
+	}).Info("starting JSONRPC request")
+}
+
+func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
+	// TODO: Print the elapsed time (there doesn't seem to be a way to it with with jrpc2, since
+	//       LogRequest cannot modify the context)
+	r.logger.WithFields(log.F{
+		"subsys":   "jsonrpc",
+		"req":      middleware.GetReqID(ctx),
+		"json_req": rsp.ID(),
+		"error":    rsp.Error().Error(),
+		// TODO: is this overkill?
+		"result": rsp.ResultString(),
+	}).Info("finished JSONRPC request")
 }
