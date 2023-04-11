@@ -218,6 +218,7 @@ fn recorded_auth_payloads_to_c(
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
     let address_with_nonce = match (payload.address.clone(), payload.nonce) {
         (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
+        (None, None) => None,
         // the address and the nonce can't be present independently
         (a,n) =>
             panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
