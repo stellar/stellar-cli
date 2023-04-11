@@ -21,7 +21,15 @@ fn soroban_hello() {
     assert_cmd::Command::cargo_bin("soroban")
         .unwrap()
         .arg("hello")
-        .env("PATH", paths)
+        .env("PATH", &paths)
         .assert()
         .stdout("Hello, world!\n");
+
+    // Call soroban with the PATH variable set to include the target/bin directory
+    assert_cmd::Command::cargo_bin("soroban")
+        .unwrap()
+        .arg("--list")
+        .env("PATH", paths)
+        .assert()
+        .stdout("hello\n");
 }

@@ -4,6 +4,10 @@ use soroban_cli::{commands::plugin, Root};
 #[tokio::main]
 async fn main() {
     let root = Root::try_parse().unwrap_or_else(|e| {
+        if std::env::args().any(|s| &s == "--list") {
+            println!("{}", plugin::list().unwrap_or_default().join("\n"));
+            std::process::exit(0);
+        }
         if let clap::error::ErrorKind::InvalidSubcommand = e.kind() {
             if let Err(error) = plugin::run() {
                 eprintln!("error: {error}");

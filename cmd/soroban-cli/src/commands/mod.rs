@@ -50,6 +50,9 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
     disable_help_subcommand = true,
 )]
 pub struct Root {
+    /// List installed plugins. E.g. `soroban-hello`
+    #[arg(long)]
+    pub list: bool,
     #[command(subcommand)]
     pub cmd: Cmd,
 }
