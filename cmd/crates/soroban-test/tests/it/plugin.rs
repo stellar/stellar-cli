@@ -19,7 +19,7 @@ fn soroban_hello() {
 
     // Call soroban with the PATH variable set to include the target/bin directory
     assert_cmd::Command::cargo_bin("soroban")
-        .unwrap()
+        .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("hello")
         .env("PATH", &paths)
         .assert()
@@ -27,7 +27,7 @@ fn soroban_hello() {
 
     // Call `soroban --list` with the PATH variable set to include the target/bin directory
     assert_cmd::Command::cargo_bin("soroban")
-        .unwrap()
+        .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("--list")
         .env("PATH", paths)
         .assert()
