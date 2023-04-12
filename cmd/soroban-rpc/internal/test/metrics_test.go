@@ -3,18 +3,18 @@ package test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMetrics(t *testing.T) {
 	test := NewTest(t)
 	metrics, err := test.daemon.PrometheusRegistry().Gather()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for _, metricFamily := range metrics {
 		if metricFamily.GetName() == "soroban_rpc_build_info" {
 			metric := metricFamily.GetMetric()
-			assert.Len(t, metric, 1)
-			assert.Equal(t, float64(1), metric[0].GetGauge().GetValue())
+			require.Len(t, metric, 1)
+			require.Equal(t, float64(1), metric[0].GetGauge().GetValue())
 			return
 		}
 	}
