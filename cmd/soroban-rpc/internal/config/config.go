@@ -3,7 +3,6 @@ package config
 import (
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,5 +28,4 @@ type LocalConfig struct {
 	MaxHealthyLedgerLatency          time.Duration
 	PreflightWorkerCount             uint
 	PreflightWorkerQueueSize         uint
-	PrometheusRegistry               *prometheus.Registry
 }

@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/clients/stellarcore"
 
@@ -118,7 +117,6 @@ func (i *Test) launchDaemon() {
 		MaxHealthyLedgerLatency:          time.Second * 10,
 		PreflightWorkerCount:             uint(runtime.NumCPU()),
 		PreflightWorkerQueueSize:         uint(runtime.NumCPU()),
-		PrometheusRegistry:               prometheus.NewRegistry(),
 	}
 	i.daemon = daemon.MustNew(config)
 	i.server = httptest.NewServer(i.daemon)

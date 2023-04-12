@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -40,6 +41,11 @@ type Daemon struct {
 	handler             *internal.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
+	prometheusRegistry  *prometheus.Registry
+}
+
+func (d *Daemon) PrometheusRegistry() *prometheus.Registry {
+	return d.prometheusRegistry
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -98,6 +104,7 @@ func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerb
 func MustNew(cfg config.LocalConfig) *Daemon {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
+	prometheusRegistry := prometheus.NewRegistry()
 
 	core, err := newCaptiveCore(&cfg, logger)
 	if err != nil {
@@ -121,7 +128,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
-	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", cfg.PrometheusRegistry)
+	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", prometheusRegistry)
 
 	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
 	transactionStore := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
@@ -191,8 +198,9 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		handler:             &handler,
 		db:                  dbConn,
 		preflightWorkerPool: preflightWorkerPool,
+		prometheusRegistry:  prometheusRegistry,
 	}
-	d.registerMetrics(cfg.PrometheusRegistry)
+	d.registerMetrics()
 	return d
 }
 
@@ -216,7 +224,7 @@ func Run(cfg config.LocalConfig, endpoint string, adminEndpoint string) {
 	var adminServer *http.Server
 	if adminEndpoint != "" {
 		// add /metrics route to default serve mux which will be used by the admin endpoint
-		http.Handle("/metrics", promhttp.HandlerFor(cfg.PrometheusRegistry, promhttp.HandlerOpts{}))
+		http.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
 		// after importing net/http/pprof, debug endpoints are implicitly registered in the default serve mux
 		adminServer = &http.Server{Addr: adminEndpoint, Handler: http.DefaultServeMux}
 		go func() {
