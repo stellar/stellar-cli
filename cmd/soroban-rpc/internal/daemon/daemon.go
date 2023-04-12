@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
