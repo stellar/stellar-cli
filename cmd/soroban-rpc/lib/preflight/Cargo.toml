@@ -10,4 +10,3 @@ crate-type = ["staticlib"]
 libc = "0.2.2"
 sha2 = "0.10.6"
 soroban-env-host = { workspace = true, features = ["vm"] }
-soroban-cli = { workspace = true }
