@@ -55,10 +55,25 @@ pub fn run() -> Result<(), Error> {
     );
 }
 
+const MAX_HEX_LENGTH: usize = 10;
+
 pub fn list() -> Result<Vec<String>, Error> {
-    let re = regex::Regex::new(r"^soroban-").unwrap();
+    let re_str = if cfg!(target_os = "windows") {
+        r"^soroban-.*.exe$"
+    } else {
+        r"^soroban-.*"
+    };
+    let re = regex::Regex::new(re_str).unwrap();
     Ok(which::which_re(re)?
-        .filter_map(|b| b.file_name()?.to_str().map(ToString::to_string))
+        .filter_map(|b| {
+            let s = b.file_name()?.to_str()?;
+            Some(s.strip_suffix(".exe").unwrap_or(s).to_string())
+        })
+        .filter(|s| !(is_hex_string(s) && s.len() > MAX_HEX_LENGTH))
         .map(|s| s.replace("soroban-", ""))
         .collect())
+}
+
+fn is_hex_string(s: &str) -> bool {
+    s.chars().all(|s| s.is_ascii_hexdigit())
 }
