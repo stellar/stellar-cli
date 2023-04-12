@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -283,6 +284,7 @@ func main() {
 			serviceConfig.IngestionTimeout = time.Duration(ingestionTimeoutMinutes) * time.Minute
 			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
 			serviceConfig.MaxHealthyLedgerLatency = time.Duration(maxHealthyLedgerLatencySeconds) * time.Second
+			serviceConfig.PrometheusRegistry = prometheus.NewRegistry()
 			daemon.Run(serviceConfig, endpoint, adminEndpoint)
 		},
 	}

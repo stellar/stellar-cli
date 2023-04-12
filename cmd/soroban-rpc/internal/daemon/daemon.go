@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
@@ -116,10 +117,11 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		logger.Fatalf("could not connect to history archive: %v", err)
 	}
 
-	dbConn, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
+	session, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
+	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", cfg.PrometheusRegistry)
 
 	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
 	transactionStore := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
@@ -182,7 +184,7 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		PreflightGetter:   preflightWorkerPool,
 	})
 
-	return &Daemon{
+	d := &Daemon{
 		logger:              logger,
 		core:                core,
 		ingestService:       ingestService,
@@ -190,6 +192,8 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		db:                  dbConn,
 		preflightWorkerPool: preflightWorkerPool,
 	}
+	d.registerMetrics(cfg.PrometheusRegistry)
+	return d
 }
 
 func Run(cfg config.LocalConfig, endpoint string, adminEndpoint string) {
@@ -211,6 +215,8 @@ func Run(cfg config.LocalConfig, endpoint string, adminEndpoint string) {
 	}()
 	var adminServer *http.Server
 	if adminEndpoint != "" {
+		// add /metrics route to default serve mux which will be used by the admin endpoint
+		http.Handle("/metrics", promhttp.HandlerFor(cfg.PrometheusRegistry, promhttp.HandlerOpts{}))
 		// after importing net/http/pprof, debug endpoints are implicitly registered in the default serve mux
 		adminServer = &http.Server{Addr: adminEndpoint, Handler: http.DefaultServeMux}
 		go func() {
