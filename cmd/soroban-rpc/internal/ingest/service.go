@@ -36,7 +36,7 @@ type Config struct {
 
 func NewService(cfg Config) *Service {
 	ctx, done := context.WithCancel(context.Background())
-	service := Service{
+	service := &Service{
 		logger:            cfg.Logger,
 		db:                cfg.DB,
 		eventStore:        cfg.EventStore,
@@ -63,7 +63,7 @@ func NewService(cfg Config) *Service {
 			service.logger.WithError(err).Fatal("could not run ingestion")
 		}
 	}()
-	return &service
+	return service
 }
 
 type Service struct {
