@@ -38,7 +38,7 @@ type WriteTx interface {
 	Rollback() error
 }
 
-func OpenSQLiteDB(dbFilePath string) (db.SessionInterface, error) {
+func OpenSQLiteDB(dbFilePath string) (*db.Session, error) {
 	// 1. Use Write-Ahead Logging (WAL).
 	// 2. Disable WAL auto-checkpointing (we will do the checkpointing ourselves with wal_checkpoint pragmas
 	//    after every write transaction).
