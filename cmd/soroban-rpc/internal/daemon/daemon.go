@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -239,10 +239,11 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		ReadTimeout: defaultReadTimeout,
 	}
 	if adminEndpoint != "" {
-		// add /metrics route to default serve mux which will be used by the admin endpoint
-		http.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
-		// after importing net/http/pprof, debug endpoints are implicitly registered in the default serve mux
-		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: http.DefaultServeMux}
+		adminMux := http.NewServeMux()
+		adminMux.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
+		adminMux.HandleFunc("/debug/pprof/heap", pprof.Index)
+		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}
 	d.registerMetrics()
 	return d

@@ -36,7 +36,7 @@ type Config struct {
 
 func NewService(cfg Config) *Service {
 	ctx, done := context.WithCancel(context.Background())
-	o := Service{
+	service := Service{
 		logger:            cfg.Logger,
 		db:                cfg.DB,
 		eventStore:        cfg.EventStore,
@@ -46,23 +46,24 @@ func NewService(cfg Config) *Service {
 		timeout:           cfg.Timeout,
 		done:              done,
 	}
-	o.wg.Add(1)
+	service.wg.Add(1)
 	go func() {
+		defer service.wg.Done()
 		// Retry running ingestion every second for 5 seconds.
 		constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
 		// Don't want to keep retrying if the context gets canceled.
 		contextBackoff := backoff.WithContext(constantBackoff, ctx)
 		err := backoff.RetryNotify(
 			func() error {
-				return o.run(ctx, cfg.Archive)
+				return service.run(ctx, cfg.Archive)
 			},
 			contextBackoff,
 			cfg.OnIngestionRetry)
 		if err != nil && !errors.Is(err, context.Canceled) {
-			o.logger.WithError(err).Fatal("could not run ingestion")
+			service.logger.WithError(err).Fatal("could not run ingestion")
 		}
 	}()
-	return &o
+	return &service
 }
 
 type Service struct {
@@ -84,7 +85,6 @@ func (s *Service) Close() error {
 }
 
 func (s *Service) run(ctx context.Context, archive historyarchive.ArchiveInterface) error {
-	defer s.wg.Done()
 	// Create a ledger-entry baseline from a checkpoint if it wasn't done before
 	// (after that we will be adding deltas from txmeta ledger entry changes)
 	nextLedgerSeq, checkPointFillErr, err := s.maybeFillEntriesFromCheckpoint(ctx, archive)
