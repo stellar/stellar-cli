@@ -283,7 +283,7 @@ func main() {
 			serviceConfig.IngestionTimeout = time.Duration(ingestionTimeoutMinutes) * time.Minute
 			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
 			serviceConfig.MaxHealthyLedgerLatency = time.Duration(maxHealthyLedgerLatencySeconds) * time.Second
-			daemon.Run(serviceConfig, endpoint, adminEndpoint)
+			daemon.MustNew(serviceConfig, endpoint, adminEndpoint).Run()
 		},
 	}
 

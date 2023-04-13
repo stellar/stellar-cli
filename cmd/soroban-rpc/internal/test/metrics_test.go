@@ -1,6 +1,11 @@
 package test
 
 import (
+	"fmt"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
+	"io"
+	"net/http"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -8,15 +13,20 @@ import (
 
 func TestMetrics(t *testing.T) {
 	test := NewTest(t)
-	metrics, err := test.daemon.PrometheusRegistry().Gather()
+	response, err := http.Get(test.adminURL() + "/metrics")
 	require.NoError(t, err)
-	for _, metricFamily := range metrics {
-		if metricFamily.GetName() == "soroban_rpc_build_info" {
-			metric := metricFamily.GetMetric()
-			require.Len(t, metric, 1)
-			require.Equal(t, float64(1), metric[0].GetGauge().GetValue())
-			return
-		}
-	}
-	t.Fatalf("could not find soroban_rpc_build_info metric")
+	responseBytes, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	responseString := string(responseBytes)
+	t.Log(responseString)
+	buildMetric := fmt.Sprintf(
+		"soroban_rpc_build_info{branch=\"%s\",build_timestamp=\"%s\",commit=\"%s\",goversion=\"%s\",version=\"%s\"} 1",
+		config.Branch,
+		config.BuildTimestamp,
+		config.CommitHash,
+		runtime.Version(),
+		config.Version,
+	)
+	require.Contains(t, responseString, buildMetric)
 }

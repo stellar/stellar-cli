@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -42,6 +43,11 @@ type Daemon struct {
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
 	prometheusRegistry  *prometheus.Registry
+	server              *http.Server
+	adminServer         *http.Server
+	closeOnce           sync.Once
+	closeError          error
+	done                chan struct{}
 }
 
 func (d *Daemon) PrometheusRegistry() *prometheus.Registry {
@@ -56,20 +62,46 @@ func (d *Daemon) GetDB() dbsession.SessionInterface {
 	return d.db
 }
 
-func (d *Daemon) Close() error {
-	var err error
-	if localErr := d.ingestService.Close(); localErr != nil {
-		err = localErr
+func (d *Daemon) close() {
+	// Default Shutdown grace period.
+	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), defaultShutdownGracePeriod)
+	defer shutdownRelease()
+	var closeErrors []error
+
+	if err := d.server.Shutdown(shutdownCtx); err != nil {
+		// Error from closing listeners, or context timeout:
+		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
+		closeErrors = append(closeErrors, err)
 	}
-	if localErr := d.core.Close(); localErr != nil {
-		err = localErr
+	if d.adminServer != nil {
+		if err := d.adminServer.Shutdown(shutdownCtx); err != nil {
+			// Error from closing listeners, or context timeout:
+			d.logger.Errorf("Error during Soroban JSON admin server Shutdown: %v", err)
+			closeErrors = append(closeErrors, err)
+		}
+	}
+
+	if err := d.ingestService.Close(); err != nil {
+		d.logger.WithError(err).Error("Error closing ingestion service")
+		closeErrors = append(closeErrors, err)
+	}
+	if err := d.core.Close(); err != nil {
+		d.logger.WithError(err).Error("Error closing captive core")
+		closeErrors = append(closeErrors, err)
 	}
 	d.handler.Close()
-	if localErr := d.db.Close(); localErr != nil {
-		err = localErr
+	if err := d.db.Close(); err != nil {
+		d.logger.WithError(err).Error("Error closing db")
+		closeErrors = append(closeErrors, err)
 	}
 	d.preflightWorkerPool.Close()
-	return err
+	d.closeError = errors.Join(closeErrors...)
+	close(d.done)
+}
+
+func (d *Daemon) Close() error {
+	d.closeOnce.Do(d.close)
+	return d.closeError
 }
 
 // newCaptiveCore create a new captive core backend instance and returns it.
@@ -101,7 +133,7 @@ func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerb
 
 }
 
-func MustNew(cfg config.LocalConfig) *Daemon {
+func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Daemon {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
 	prometheusRegistry := prometheus.NewRegistry()
@@ -199,36 +231,36 @@ func MustNew(cfg config.LocalConfig) *Daemon {
 		db:                  dbConn,
 		preflightWorkerPool: preflightWorkerPool,
 		prometheusRegistry:  prometheusRegistry,
+		done:                make(chan struct{}),
+	}
+	d.server = &http.Server{
+		Addr:        endpoint,
+		Handler:     d,
+		ReadTimeout: defaultReadTimeout,
+	}
+	if adminEndpoint != "" {
+		// add /metrics route to default serve mux which will be used by the admin endpoint
+		http.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
+		// after importing net/http/pprof, debug endpoints are implicitly registered in the default serve mux
+		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: http.DefaultServeMux}
 	}
 	d.registerMetrics()
 	return d
 }
 
-func Run(cfg config.LocalConfig, endpoint string, adminEndpoint string) {
-	d := MustNew(cfg)
-
-	server := &http.Server{
-		Addr:        endpoint,
-		Handler:     d,
-		ReadTimeout: defaultReadTimeout,
-	}
-
-	d.logger.Infof("Starting Soroban JSON RPC server on %v", endpoint)
+func (d *Daemon) Run() {
+	d.logger.Infof("Starting Soroban JSON RPC server on %v", d.server.Addr)
 
 	go func() {
-		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if err := d.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Error starting or closing listener:
 			d.logger.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
 		}
 	}()
-	var adminServer *http.Server
-	if adminEndpoint != "" {
-		// add /metrics route to default serve mux which will be used by the admin endpoint
-		http.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
-		// after importing net/http/pprof, debug endpoints are implicitly registered in the default serve mux
-		adminServer = &http.Server{Addr: adminEndpoint, Handler: http.DefaultServeMux}
+
+	if d.adminServer != nil {
 		go func() {
-			if err := adminServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			if err := d.adminServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				d.logger.Errorf("Soroban admin server encountered fatal error: %v", err)
 			}
 		}()
@@ -239,22 +271,11 @@ func Run(cfg config.LocalConfig, endpoint string, adminEndpoint string) {
 	// Finally, it waits a grace period (10s here) for connections to return to idle and then shut down.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-	<-signals
 
-	// Default Shutdown grace period.
-	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), defaultShutdownGracePeriod)
-	defer shutdownRelease()
-
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		// Error from closing listeners, or context timeout:
-		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
-	}
-	d.Close()
-
-	if adminServer != nil {
-		if err := adminServer.Shutdown(shutdownCtx); err != nil {
-			// Error from closing listeners, or context timeout:
-			d.logger.Errorf("Error during Soroban JSON admin server Shutdown: %v", err)
-		}
+	select {
+	case <-signals:
+		d.Close()
+	case <-d.done:
+		return
 	}
 }
