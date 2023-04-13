@@ -87,12 +87,15 @@ func (r *rpcLogger) LogRequest(ctx context.Context, req *jrpc2.Request) {
 func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
 	// TODO: Print the elapsed time (there doesn't seem to be a way to it with with jrpc2, since
 	//       LogRequest cannot modify the context)
-	r.logger.WithFields(log.F{
+	logger := r.logger.WithFields(log.F{
 		"subsys":   "jsonrpc",
 		"req":      middleware.GetReqID(ctx),
 		"json_req": rsp.ID(),
-		"error":    rsp.Error().Error(),
 		// TODO: is this overkill?
 		"result": rsp.ResultString(),
-	}).Info("finished JSONRPC request")
+	})
+	if err := rsp.Error(); err != nil {
+		logger = logger.WithField("error", err.Error())
+	}
+	logger.Info("finished JSONRPC request")
 }
