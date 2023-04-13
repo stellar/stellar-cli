@@ -172,7 +172,7 @@ func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPas
 func TestSimulateTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -285,7 +285,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
@@ -451,7 +451,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 func TestSimulateTransactionError(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -486,7 +486,7 @@ func TestSimulateTransactionError(t *testing.T) {
 func TestSimulateTransactionMultipleOperations(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -526,7 +526,7 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 func TestSimulateTransactionWithoutInvokeHostFunction(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
@@ -564,7 +564,7 @@ func TestSimulateTransactionWithoutInvokeHostFunction(t *testing.T) {
 func TestSimulateTransactionUnmarshalError(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	request := methods.SimulateTransactionRequest{Transaction: "invalid"}
