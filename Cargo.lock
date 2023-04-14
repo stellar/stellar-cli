@@ -1902,6 +1902,7 @@ dependencies = [
  "soroban-spec",
  "soroban-token-spec",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "strsim",
  "termcolor",
  "termcolor_output",
  "thiserror",
@@ -1909,6 +1910,7 @@ dependencies = [
  "toml",
  "wasm-opt",
  "wasmparser 0.90.0",
+ "which",
 ]
 
 [[package]]
@@ -1970,6 +1972,10 @@ dependencies = [
  "syn 1.0.109",
  "thiserror",
 ]
+
+[[package]]
+name = "soroban-hello"
+version = "0.1.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
@@ -2064,6 +2070,7 @@ dependencies = [
  "soroban-token-spec",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
+ "which",
 ]
 
 [[package]]
@@ -2729,6 +2736,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c71e40d7d2c34a5106301fb632274ca37242cd0c9d3e64dbece371a40a2d87"
 dependencies = [
  "webpki",
+]
+
+[[package]]
+name = "which"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2441c784c52b289a054b7201fc93253e288f094e2f4be9058343127c4226a269"
+dependencies = [
+ "either",
+ "libc",
+ "once_cell",
+ "regex",
 ]
 
 [[package]]
