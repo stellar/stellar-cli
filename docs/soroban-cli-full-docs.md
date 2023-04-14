@@ -67,7 +67,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 
 * `contract` — Tools for smart contract developers
 * `config` — Read and update config
-* `events` — Run a local webserver for web app development and testing
+* `events` — Watch the network for contract events
 * `lab` — Experiment with early features and expert tools
 * `version` — Print version information
 * `completion` — Print shell completion code for the specified shell
@@ -127,11 +127,11 @@ Deploy a contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--ledger-file <LEDGER_FILE>` — File to persist ledger state
-
-  Default value: `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -159,11 +159,11 @@ Install a WASM file to the ledger without creating a contract instance
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--ledger-file <LEDGER_FILE>` — File to persist ledger state
-
-  Default value: `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -185,21 +185,20 @@ soroban contract invoke ... -- --help
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--wasm <WASM>` — WASM file of the contract to invoke (if using sandbox will deploy this file)
-* `--cost` — Output the cost execution to stderr
-* `--unlimited-budget` — Run with an unlimited budget
 * `--footprint` — Output the footprint to stderr
 * `--auth` — Output the contract auth for the transaction to stderr
-* `--events-file <EVENTS_FILE>` — File to persist event output
-
-  Default value: `.soroban/events.json`
+* `--events` — Output the contract events for the transaction to stderr
+* `--cost` — Output the cost execution to stderr
+* `--unlimited-budget` — Run with an unlimited budget
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--ledger-file <LEDGER_FILE>` — File to persist ledger state
-
-  Default value: `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--pwd <PWD>`
+* `--events-file <PATH>` — File to persist events, default is `.soroban/events.json`
 
 
 
@@ -239,9 +238,9 @@ Print the current value of a contract-data ledger entry
   - `xdr`:
     XDR
 
-* `--ledger-file <LEDGER_FILE>` — File to persist ledger state
-
-  Default value: `.soroban/ledger.json`
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -290,6 +289,7 @@ Add a new identity (keypair, ledger, macOS keychain)
 * `--secret-key` — Add using secret_key Can provide with SOROBAN_SECRET_KEY
 * `--seed-phrase` — Add using 12 word seed phrase to generate secret_key
 * `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -297,15 +297,17 @@ Add a new identity (keypair, ledger, macOS keychain)
 
 Given an identity return its address (public key)
 
-**Usage:** `soroban config identity address [OPTIONS] <NAME>`
+**Usage:** `soroban config identity address [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup
+* `<NAME>` — Name of identity to lookup, default test identity used if not provided
 
 ###### **Options:**
 
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -324,6 +326,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
 * `--global` — Use global config
+* `--pwd <PWD>`
 * `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 
@@ -338,6 +341,7 @@ List identities
 ###### **Options:**
 
 * `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -345,15 +349,16 @@ List identities
 
 Remove an identity
 
-**Usage:** `soroban config identity rm [OPTIONS] <DEFAULT_NAME>`
+**Usage:** `soroban config identity rm [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<DEFAULT_NAME>` — default name
+* `<NAME>` — Identity to remove
 
 ###### **Options:**
 
 * `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -361,15 +366,17 @@ Remove an identity
 
 Given an identity return its private key
 
-**Usage:** `soroban config identity show [OPTIONS] <NAME>`
+**Usage:** `soroban config identity show [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup
+* `<NAME>` — Name of identity to lookup, default is test identity
 
 ###### **Options:**
 
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -402,6 +409,7 @@ Add a new network
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -409,15 +417,16 @@ Add a new network
 
 Remove a network
 
-**Usage:** `soroban config network rm [OPTIONS] <DEFAULT_NAME>`
+**Usage:** `soroban config network rm [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<DEFAULT_NAME>` — default name
+* `<NAME>` — Network to remove
 
 ###### **Options:**
 
 * `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
@@ -430,12 +439,13 @@ List networks
 ###### **Options:**
 
 * `--global` — Use global config
+* `--pwd <PWD>`
 
 
 
 ## `soroban events`
 
-Run a local webserver for web app development and testing
+Watch the network for contract events
 
 **Usage:** `soroban events [OPTIONS]`
 
@@ -458,8 +468,6 @@ Run a local webserver for web app development and testing
 * `-c`, `--count <COUNT>` — The maximum number of events to display (specify "0" to show all events when using sandbox, or to defer to the server-defined limit if using RPC)
 
   Default value: `10`
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--events-file <PATH>` — Local event store (likely generated by `invoke`) to pull events from
 * `--id <CONTRACT_IDS>` — A set of (up to 5) contract IDs to filter events on. This parameter can be passed multiple times, e.g. `--id abc --id def`, or passed with multiple parameters, e.g. `--id abd def`
 * `--topic <TOPIC_FILTERS>` — A set of (up to 4) topic filters to filter event topics on. A single topic filter can contain 1-4 different segment filters, separated by commas, with an asterisk (* character) indicating a wildcard segment
 * `--type <EVENT_TYPE>` — Specifies which type of contract events to display
@@ -468,6 +476,12 @@ Run a local webserver for web app development and testing
 
   Possible values: `all`, `contract`, `system`
 
+* `--global` — Use global config
+* `--pwd <PWD>`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--events-file <PATH>` — File to persist events, default is `.soroban/events.json`
 
 
 
@@ -508,11 +522,11 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--ledger-file <LEDGER_FILE>` — File to persist ledger state
-
-  Default value: `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. S...          a seceret key alice         an identity 'kite urban.  a seed phrase DEFAULT       Is the key generated with `identity generate --seed 0000000000000000
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hd path to use, e.g. `m/44'/148'/{hd_path}`
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--pwd <PWD>`
 
 
 

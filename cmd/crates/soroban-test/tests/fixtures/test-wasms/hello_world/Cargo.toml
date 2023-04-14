@@ -1,11 +1,11 @@
 [package]
-name = "test_custom_types"
-version = "0.6.0"
+name = "test_hello_world"
+version = "0.7.1"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
 publish = false
-rust-version = "1.65"
+rust-version = "1.66"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

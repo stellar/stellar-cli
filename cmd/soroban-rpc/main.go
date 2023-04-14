@@ -34,8 +34,8 @@ func mustPositiveUint32(co *config.ConfigOption) error {
 }
 
 func main() {
-	var endpoint string
-	var captiveCoreHTTPPort, ledgerEntryStorageTimeoutMinutes, coreTimeoutSeconds, maxHealthyLedgerLatencySeconds uint
+	var endpoint, adminEndpoint string
+	var captiveCoreHTTPPort, ingestionTimeoutMinutes, coreTimeoutSeconds, maxHealthyLedgerLatencySeconds uint
 	var serviceConfig localConfig.LocalConfig
 
 	configOpts := config.ConfigOptions{
@@ -45,6 +45,14 @@ func main() {
 			OptType:     types.String,
 			ConfigKey:   &endpoint,
 			FlagDefault: "localhost:8000",
+			Required:    false,
+		},
+		{
+			Name:        "admin-endpoint",
+			Usage:       "Admin endpoint to listen and serve on. WARNING: this should not be accessible from the Internet and does not use TLS. \"\" (default) disables the admin server",
+			OptType:     types.String,
+			ConfigKey:   &adminEndpoint,
+			FlagDefault: "",
 			Required:    false,
 		},
 		{
@@ -168,10 +176,10 @@ func main() {
 			Required:    false,
 		},
 		{
-			Name:        "ledgerstorage-timeout-minutes",
-			Usage:       "Ledger Entry Storage Timeout (when bootstrapping and reading each ledger)",
+			Name:        "ingestion-timeout-minutes",
+			Usage:       "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
 			OptType:     types.Uint,
-			ConfigKey:   &ledgerEntryStorageTimeoutMinutes,
+			ConfigKey:   &ingestionTimeoutMinutes,
 			FlagDefault: uint(30),
 			Required:    false,
 		},
@@ -272,10 +280,10 @@ func main() {
 			if serviceConfig.StellarCoreURL == "" {
 				serviceConfig.StellarCoreURL = fmt.Sprintf("http://localhost:%d", captiveCoreHTTPPort)
 			}
-			serviceConfig.LedgerEntryStorageTimeout = time.Duration(ledgerEntryStorageTimeoutMinutes) * time.Minute
+			serviceConfig.IngestionTimeout = time.Duration(ingestionTimeoutMinutes) * time.Minute
 			serviceConfig.CoreRequestTimeout = time.Duration(coreTimeoutSeconds) * time.Second
 			serviceConfig.MaxHealthyLedgerLatency = time.Duration(maxHealthyLedgerLatencySeconds) * time.Second
-			daemon.Run(serviceConfig, endpoint)
+			daemon.MustNew(serviceConfig, endpoint, adminEndpoint).Run()
 		},
 	}
 

@@ -63,11 +63,12 @@ jobs:
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test-wasms
+    - run: cargo install --path ./cmd/soroban-cli --debug
     - if: startsWith(matrix.target, 'x86_64')
       # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
       run: |
-        for I in cmd/soroban-cli cmd/soroban-cli/tests/fixtures/test-wasms/hello_world; do
-          cargo test --target ${{ matrix.target }} $I
+        for I in cmd/soroban-cli cmd/crates/soroban-test cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
+          cargo test --target ${{ matrix.target }} --manifest-path $I/Cargo.toml
         done
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')

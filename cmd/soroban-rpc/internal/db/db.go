@@ -8,10 +8,10 @@ import (
 	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	migrate "github.com/rubenv/sql-migrate"
 
+	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 )
@@ -38,31 +38,28 @@ type WriteTx interface {
 	Rollback() error
 }
 
-func OpenSQLiteDB(dbFilePath string) (*sqlx.DB, error) {
+func OpenSQLiteDB(dbFilePath string) (*db.Session, error) {
 	// 1. Use Write-Ahead Logging (WAL).
 	// 2. Disable WAL auto-checkpointing (we will do the checkpointing ourselves with wal_checkpoint pragmas
 	//    after every write transaction).
 	// 3. Use synchronous=NORMAL, which is faster and still safe in WAL mode.
-	db, err := sqlx.Open("sqlite3", fmt.Sprintf("file:%s?_journal_mode=WAL&_wal_autocheckpoint=0&_synchronous=NORMAL", dbFilePath))
+	session, err := db.Open("sqlite3", fmt.Sprintf("file:%s?_journal_mode=WAL&_wal_autocheckpoint=0&_synchronous=NORMAL", dbFilePath))
 	if err != nil {
 		return nil, errors.Wrap(err, "open failed")
 	}
 
-	if err = runMigrations(db.DB, "sqlite3"); err != nil {
-		_ = db.Close()
+	if err = runMigrations(session.DB.DB, "sqlite3"); err != nil {
+		_ = session.Close()
 		return nil, errors.Wrap(err, "could not run migrations")
 	}
 
-	return db, nil
+	return session, nil
 }
 
-func getLatestLedgerSequence(ctx context.Context, q sqlx.QueryerContext) (uint32, error) {
-	sqlStr, args, err := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey}).ToSql()
-	if err != nil {
-		return 0, err
-	}
+func getLatestLedgerSequence(ctx context.Context, q db.SessionInterface) (uint32, error) {
+	sql := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey})
 	var results []string
-	if err = sqlx.SelectContext(ctx, q, &results, sqlStr, args...); err != nil {
+	if err := q.Select(ctx, &results, sql); err != nil {
 		return 0, err
 	}
 	switch len(results) {
@@ -82,7 +79,7 @@ func getLatestLedgerSequence(ctx context.Context, q sqlx.QueryerContext) (uint32
 }
 
 type readWriter struct {
-	db                    *sqlx.DB
+	db                    db.SessionInterface
 	maxBatchSize          int
 	ledgerRetentionWindow uint32
 }
@@ -91,7 +88,7 @@ type readWriter struct {
 // the size of ledger entry batches when writing ledger entries
 // and the retention window for how many historical ledgers are
 // recorded in the database.
-func NewReadWriter(db *sqlx.DB, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
+func NewReadWriter(db db.SessionInterface, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
 	return &readWriter{
 		db:                    db,
 		maxBatchSize:          maxBatchSize,
@@ -104,18 +101,18 @@ func (rw *readWriter) GetLatestLedgerSequence(ctx context.Context) (uint32, erro
 }
 
 func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
-	tx, err := rw.db.BeginTxx(ctx, nil)
-	if err != nil {
+	txSession := rw.db.Clone()
+	if err := txSession.Begin(ctx); err != nil {
 		return nil, err
 	}
-	stmtCache := sq.NewStmtCache(tx)
+	stmtCache := sq.NewStmtCache(txSession.GetTx())
 	db := rw.db
 	return writeTx{
 		postCommit: func() error {
-			_, err = db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
+			_, err := db.ExecRaw(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
 		},
-		tx:           tx,
+		tx:           txSession,
 		stmtCache:    stmtCache,
 		ledgerWriter: ledgerWriter{stmtCache: stmtCache},
 		ledgerEntryWriter: ledgerEntryWriter{
@@ -130,7 +127,7 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 
 type writeTx struct {
 	postCommit            func() error
-	tx                    *sqlx.Tx
+	tx                    db.SessionInterface
 	stmtCache             *sq.StmtCache
 	ledgerEntryWriter     ledgerEntryWriter
 	ledgerWriter          ledgerWriter
@@ -168,10 +165,10 @@ func (w writeTx) Commit(ledgerSeq uint32) error {
 }
 
 func (w writeTx) Rollback() error {
-	// sql.ErrTxDone is returned when rolling back a transaction which has
+	// errors.New("not in transaction") is returned when rolling back a transaction which has
 	// already been committed or rolled back. We can ignore those errors
 	// because we allow rolling back after commits in defer statements.
-	if err := w.tx.Rollback(); err == nil || err == sql.ErrTxDone {
+	if err := w.tx.Rollback(); err == nil || err.Error() == "not in transaction" {
 		return nil
 	} else {
 		return err

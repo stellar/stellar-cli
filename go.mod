@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/Masterminds/squirrel v1.5.0
+	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/creachadair/jrpc2 v0.41.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/jmoiron/sqlx v1.2.0
@@ -14,7 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
 	github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189
-	github.com/stellar/go v0.0.0-20230327144237-ddcb0c7dea5a
+	github.com/stellar/go v0.0.0-20230410132830-a9de2a21d17b
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/mod v0.6.0
 )

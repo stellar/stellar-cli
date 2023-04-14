@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/jmoiron/sqlx"
 
+	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/xdr"
 )
 
@@ -24,32 +24,26 @@ type LedgerWriter interface {
 }
 
 type ledgerReader struct {
-	db *sqlx.DB
+	db db.SessionInterface
 }
 
-func NewLedgerReader(db *sqlx.DB) LedgerReader {
+func NewLedgerReader(db db.SessionInterface) LedgerReader {
 	return ledgerReader{db: db}
 }
 
 // GetAllLedgers returns all ledgers in the database.
 func (r ledgerReader) GetAllLedgers(ctx context.Context) ([]xdr.LedgerCloseMeta, error) {
-	sqlStr, args, err := sq.Select("meta").From(ledgerCloseMetaTableName).OrderBy("sequence asc").ToSql()
-	if err != nil {
-		return nil, err
-	}
 	var results []xdr.LedgerCloseMeta
-	err = r.db.SelectContext(ctx, &results, sqlStr, args...)
+	sql := sq.Select("meta").From(ledgerCloseMetaTableName).OrderBy("sequence asc")
+	err := r.db.Select(ctx, &results, sql)
 	return results, err
 }
 
 // GetLedger fetches a single ledger from the db.
 func (r ledgerReader) GetLedger(ctx context.Context, sequence uint32) (xdr.LedgerCloseMeta, bool, error) {
-	sqlStr, args, err := sq.Select("meta").From(ledgerCloseMetaTableName).Where(sq.Eq{"sequence": sequence}).ToSql()
-	if err != nil {
-		return xdr.LedgerCloseMeta{}, false, err
-	}
+	sql := sq.Select("meta").From(ledgerCloseMetaTableName).Where(sq.Eq{"sequence": sequence})
 	var results []xdr.LedgerCloseMeta
-	if err = r.db.SelectContext(ctx, &results, sqlStr, args...); err != nil {
+	if err := r.db.Select(ctx, &results, sql); err != nil {
 		return xdr.LedgerCloseMeta{}, false, err
 	}
 	switch len(results) {

@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::num::ParseIntError;
+use std::path::Path;
+use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
 use hex::FromHexError;
-use soroban_env_host::xdr::{ScBytes, ScContractExecutable, ScSpecFunctionV0};
+use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::Host;
 use soroban_env_host::{
     budget::{Budget, CostType},
@@ -25,44 +27,44 @@ use soroban_env_host::{
 };
 use soroban_spec::read::FromWasmError;
 
-use super::super::{config, events, HEADING_SANDBOX};
+use super::super::{
+    config::{self, events_file, locator},
+    events,
+};
 use crate::{
+    commands::HEADING_SANDBOX,
     rpc::{self, Client},
     strval::{self, Spec},
     utils::{self, create_ledger_footprint, default_account_ledger_entry},
+    Pwd,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
+#[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[arg(long = "id")]
-    contract_id: String,
+    #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
+    pub contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[arg(long)]
-    wasm: Option<std::path::PathBuf>,
-    /// Output the cost execution to stderr
-    #[arg(long = "cost")]
-    cost: bool,
-    /// Run with an unlimited budget
-    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url")]
-    unlimited_budget: bool,
+    pub wasm: Option<std::path::PathBuf>,
     /// Output the footprint to stderr
     #[arg(long = "footprint")]
-    footprint: bool,
+    pub footprint: bool,
     /// Output the contract auth for the transaction to stderr
     #[arg(long = "auth")]
-    auth: bool,
+    pub auth: bool,
+    /// Output the contract events for the transaction to stderr
+    #[arg(long = "events")]
+    pub events: bool,
 
-    /// File to persist event output
-    #[arg(
-        long,
-        default_value(".soroban/events.json"),
-        conflicts_with = "rpc_url",
-        env = "SOROBAN_EVENTS_FILE",
-        help_heading = HEADING_SANDBOX,
-    )]
-    events_file: std::path::PathBuf,
+    /// Output the cost execution to stderr
+    #[arg(long = "cost", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    pub cost: bool,
+    /// Run with an unlimited budget
+    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    pub unlimited_budget: bool,
 
     // Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
@@ -70,6 +72,23 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub config: config::Args,
+    #[command(flatten)]
+    pub events_file: events_file::Args,
+}
+
+impl FromStr for Cmd {
+    type Err = clap::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use clap::{CommandFactory, FromArgMatches};
+        Self::from_arg_matches_mut(&mut Self::command().get_matches_from(s.split_whitespace()))
+    }
+}
+
+impl Pwd for Cmd {
+    fn set_pwd(&mut self, pwd: &Path) {
+        self.config.set_pwd(pwd);
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -133,6 +152,12 @@ pub enum Error {
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error("Missing argument {0}")]
     MissingArgument(String),
+    #[error(transparent)]
+    Clap(#[from] clap::Error),
+    #[error(transparent)]
+    Events(#[from] events_file::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -161,15 +186,15 @@ impl Cmd {
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
-                let s = matches_
-                    .get_raw(&name)
-                    .ok_or_else(|| Error::MissingArgument(name.clone()))?
-                    .next()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
-                spec.from_string(&s, &i.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })
+                if let Some(mut raw_val) = matches_.get_raw(&name) {
+                    let s = raw_val.next().unwrap().to_string_lossy().to_string();
+                    spec.from_string(&s, &i.type_)
+                        .map_err(|error| Error::CannotParseArg { arg: name, error })
+                } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
+                    Ok(ScVal::Void)
+                } else {
+                    Err(Error::MissingArgument(name))
+                }
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
@@ -198,6 +223,12 @@ impl Cmd {
     }
 
     pub async fn run(&self) -> Result<(), Error> {
+        let res = self.invoke().await?;
+        println!("{res}");
+        Ok(())
+    }
+
+    pub async fn invoke(&self) -> Result<String, Error> {
         if self.config.is_no_network() {
             self.run_in_sandbox()
         } else {
@@ -205,10 +236,10 @@ impl Cmd {
         }
     }
 
-    async fn run_against_rpc_server(&self) -> Result<(), Error> {
+    pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         let network = &self.config.get_network()?;
-        let client = Client::new(&network.rpc_url);
+        let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
@@ -251,6 +282,11 @@ impl Cmd {
             .iter()
             .map(ContractAuth::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
+        let events = result
+            .events
+            .iter()
+            .map(DiagnosticEvent::from_xdr_base64)
+            .collect::<Result<Vec<_>, _>>()?;
 
         if self.footprint {
             eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap());
@@ -258,6 +294,13 @@ impl Cmd {
 
         if self.auth {
             eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap());
+        }
+
+        if self.events {
+            eprintln!(
+                "Simulated events: {}",
+                serde_json::to_string(&events).unwrap()
+            );
         }
 
         // Send the final transaction with the actual footprint
@@ -271,7 +314,7 @@ impl Cmd {
             &key,
         )?;
 
-        let result = client.send_transaction(&tx).await?;
+        let (result, events) = client.send_transaction(&tx).await?;
         let res = match result.result {
             TransactionResultResult::TxSuccess(ops) => {
                 if ops.is_empty() {
@@ -286,14 +329,16 @@ impl Cmd {
             }
             _ => return Err(Error::MissingOperationResult),
         };
-        let res_str = output_to_string(&spec, &res, &function)?;
-        println!("{res_str}");
-        // TODO: print cost
-
-        Ok(())
+        if self.events {
+            eprintln!(
+                "Simulated events: {}",
+                serde_json::to_string(&events).unwrap()
+            );
+        }
+        output_to_string(&spec, &res, &function)
     }
 
-    fn run_in_sandbox(&self) -> Result<(), Error> {
+    pub fn run_in_sandbox(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -343,8 +388,6 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
         let res_str = output_to_string(&spec, &res, &function)?;
-
-        println!("{res_str}");
 
         state.update(&h);
 
@@ -406,14 +449,11 @@ impl Cmd {
 
         self.config.set_state(&mut state)?;
 
-        events::commit(&events.0, &state, &self.events_file).map_err(|e| {
-            Error::CannotCommitEventsFile {
-                filepath: self.events_file.clone(),
-                error: e,
-            }
-        })?;
-
-        Ok(())
+        if !events.0.is_empty() {
+            self.events_file
+                .commit(&events.0, &state, &self.config.locator.config_dir()?)?;
+        }
+        Ok(res_str)
     }
 
     pub fn deploy_contract_in_sandbox(

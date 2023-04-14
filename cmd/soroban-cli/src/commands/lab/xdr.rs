@@ -4,13 +4,14 @@ use std::fmt::Debug;
 
 use clap::{Parser, Subcommand};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
 pub struct Cmd {
     #[clap(subcommand)]
     sub: SubCmd,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 enum SubCmd {
     /// Decode XDR
     Dec(decode::Cmd),

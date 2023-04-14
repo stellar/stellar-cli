@@ -48,7 +48,7 @@ impl Cmd {
     }
 }
 
-#[derive(Debug, clap::Args, Clone)]
+#[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
     /// RPC server endpoint
@@ -71,15 +71,16 @@ pub struct Args {
     #[arg(
         long,
         conflicts_with = "network_passphrase",
-        conflicts_with = "rpc_url"
+        conflicts_with = "rpc_url",
+        env = "SOROBAN_NETWORK"
     )]
     pub network: Option<String>,
 }
 
 impl Args {
-    pub fn get_network(&self) -> Result<Network, Error> {
+    pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
         if let Some(name) = self.network.as_deref() {
-            Ok(locator::read_network(name)?)
+            Ok(locator.read_network(name)?)
         } else if let (Some(rpc_url), Some(network_passphrase)) =
             (self.rpc_url.clone(), self.network_passphrase.clone())
         {
@@ -91,9 +92,13 @@ impl Args {
             Err(Error::Network)
         }
     }
+
+    pub fn is_no_network(&self) -> bool {
+        self.network.is_none() && self.network_passphrase.is_none() && self.rpc_url.is_none()
+    }
 }
 
-#[derive(Debug, clap::Args, Serialize, Deserialize)]
+#[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]
 #[group(skip)]
 pub struct Network {
     /// RPC server endpoint

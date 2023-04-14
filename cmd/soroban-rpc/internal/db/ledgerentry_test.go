@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/xdr"
 )
 
-func getLedgerEntryAndLatestLedgerSequenceWithErr(db *sqlx.DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
+func getLedgerEntryAndLatestLedgerSequenceWithErr(db db.SessionInterface, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
 	tx, err := NewLedgerEntryReader(db).NewTx(context.Background())
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
@@ -38,7 +38,7 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db *sqlx.DB, key xdr.LedgerKey
 	return present, entry, latestSeq, doneErr
 }
 
-func getLedgerEntryAndLatestLedgerSequence(db *sqlx.DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
+func getLedgerEntryAndLatestLedgerSequence(db db.SessionInterface, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
 	present, entry, latestSeq, err := getLedgerEntryAndLatestLedgerSequenceWithErr(db, key)
 	if err != nil {
 		panic(err)
@@ -435,7 +435,7 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 	b.StopTimer()
 }
 
-func NewTestDB(tb testing.TB) *sqlx.DB {
+func NewTestDB(tb testing.TB) db.SessionInterface {
 	tmp := tb.TempDir()
 	dbPath := path.Join(tmp, "db.sqlite")
 	db, err := OpenSQLiteDB(dbPath)
@@ -443,7 +443,7 @@ func NewTestDB(tb testing.TB) *sqlx.DB {
 		assert.NoError(tb, db.Close())
 	}
 	var ver []string
-	assert.NoError(tb, db.Select(&ver, "SELECT sqlite_version()"))
+	assert.NoError(tb, db.SelectRaw(context.Background(), &ver, "SELECT sqlite_version()"))
 	tb.Logf("using sqlite version: %v", ver)
 	tb.Cleanup(func() {
 		assert.NoError(tb, db.Close())
