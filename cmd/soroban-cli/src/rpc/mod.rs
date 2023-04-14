@@ -449,14 +449,17 @@ impl Client {
             .await?)
     }
 
-    pub async fn get_ledger_entries(&self, keys: Vec<LedgerKey>) -> Result<GetLedgerEntriesResponse, Error> {
+    pub async fn get_ledger_entries(
+        &self,
+        keys: Vec<LedgerKey>,
+    ) -> Result<GetLedgerEntriesResponse, Error> {
         let mut base64_keys: Vec<String> = vec![];
-        for k in keys.iter() {
+        for k in &keys {
             let base64_result = k.to_xdr_base64();
             if base64_result.is_err() {
                 return Err(Error::Xdr(XdrError::Invalid));
             }
-            base64_keys.push(k.to_xdr_base64().unwrap())
+            base64_keys.push(k.to_xdr_base64().unwrap());
         }
         Ok(self
             .client()?
