@@ -4,19 +4,27 @@ use soroban_cli::{commands::plugin, Root};
 #[tokio::main]
 async fn main() {
     let root = Root::try_parse().unwrap_or_else(|e| {
-        if std::env::args().any(|s| &s == "--list") {
-            println!("{}", plugin::list().unwrap_or_default().join("\n"));
-            std::process::exit(0);
-        }
-        if let clap::error::ErrorKind::InvalidSubcommand = e.kind() {
-            if let Err(error) = plugin::run() {
-                eprintln!("error: {error}");
-                std::process::exit(1)
+        use clap::error::ErrorKind;
+        match e.kind() {
+            ErrorKind::InvalidSubcommand => {
+                if let Err(error) = plugin::run() {
+                    eprintln!("error: {error}");
+                    std::process::exit(1)
+                } else {
+                    std::process::exit(0)
+                }
             }
-            e.exit()
-        } else {
-            let mut cmd = Root::command();
-            e.format(&mut cmd).exit();
+            ErrorKind::MissingSubcommand if std::env::args().any(|s| &s == "--list") => {
+                println!(
+                    "Installed Plugins:\n    {}",
+                    plugin::list().unwrap_or_default().join("\n    ")
+                );
+                std::process::exit(0);
+            }
+            _ => {
+                let mut cmd = Root::command();
+                e.format(&mut cmd).exit();
+            }
         }
     });
 
