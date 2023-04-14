@@ -7,9 +7,10 @@ use soroban_env_host::xdr::{
     self, AccountId, BytesM, Error as XdrError, Hash, Int128Parts, PublicKey, ScAddress, ScBytes,
     ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0,
     ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0,
-    ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0,
-    ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, Uint256, VecM,
+    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
+    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, Uint256,
+    VecM,
 };
 
 use crate::utils;
@@ -53,6 +54,8 @@ pub enum Error {
     FailedSilceToByte(#[from] std::array::TryFromSliceError),
     #[error(transparent)]
     Infallible(#[from] std::convert::Infallible),
+    #[error("Missing Error case {0}")]
+    MissingErrorCase(u32),
 }
 
 #[derive(Default, Clone)]
@@ -163,6 +166,19 @@ impl Spec {
                 ScSpecEntry::FunctionV0(x) => Some(x),
                 _ => None,
             }))
+    }
+
+    /// # Errors
+    ///
+    pub fn find_error_type(&self, value: u32) -> Result<&ScSpecUdtErrorEnumCaseV0, Error> {
+        if let ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { cases, .. }) =
+            self.find("Error")?
+        {
+            if let Some(case) = cases.iter().find(|case| value == case.value) {
+                return Ok(case);
+            }
+        }
+        Err(Error::MissingErrorCase(value))
     }
 
     /// # Errors
@@ -438,7 +454,7 @@ impl Spec {
     /// May panic
     pub fn xdr_to_json(&self, val: &ScVal, output: &ScType) -> Result<Value, Error> {
         Ok(match (val, output) {
-            (ScVal::Void, ScType::Val | ScType::Option(_))
+            (ScVal::Void, ScType::Val | ScType::Option(_) | ScType::Tuple(_))
             | (ScVal::Map(None) | ScVal::Vec(None), ScType::Option(_)) => Value::Null,
             (ScVal::Bool(_), ScType::Bool)
             | (ScVal::Void, ScType::Void)
@@ -462,6 +478,8 @@ impl Spec {
             )
             | (ScVal::Address(_), ScType::Address)
             | (ScVal::Bytes(_), ScType::Bytes | ScType::BytesN(_)) => to_json(val)?,
+
+            (val, ScType::Result(inner)) => self.xdr_to_json(val, &inner.ok_type)?,
 
             (val, ScType::Option(inner)) => self.xdr_to_json(val, &inner.value_type)?,
             (ScVal::Map(Some(_)) | ScVal::Vec(Some(_)) | ScVal::U32(_), type_) => {
