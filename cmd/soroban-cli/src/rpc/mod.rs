@@ -36,6 +36,8 @@ pub enum Error {
     JsonRpc(#[from] jsonrpsee_core::Error),
     #[error("json decoding error: {0}")]
     Serde(#[from] serde_json::Error),
+    #[error("transaction failed: {0}")]
+    TransactionFailed(String),
     #[error("transaction submission failed: {0}")]
     TransactionSubmissionFailed(String),
     #[error("expected transaction status: {0}")]
@@ -330,6 +332,7 @@ impl Client {
             }
         }
         let uri = Uri::from_parts(parts).map_err(Error::InvalidRpcUrlFromUriParts)?;
+        tracing::trace!(?uri);
         Ok(Self {
             base_url: uri.to_string(),
         })
@@ -347,6 +350,7 @@ impl Client {
     }
 
     pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
+        tracing::trace!("Getting address {}", address);
         let key = LedgerKey::Account(LedgerKeyAccount {
             account_id: AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
                 stellar_strkey::ed25519::PublicKey::from_string(address)?.0,
@@ -356,6 +360,7 @@ impl Client {
         if let LedgerEntryData::Account(entry) =
             LedgerEntryData::read_xdr_base64(&mut response.xdr.as_bytes())?
         {
+            tracing::trace!(account=?entry);
             Ok(entry)
         } else {
             Err(Error::InvalidResponse)
@@ -367,6 +372,7 @@ impl Client {
         tx: &TransactionEnvelope,
     ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
         let client = self.client()?;
+        tracing::trace!(?tx);
         let SendTransactionResponse {
             hash,
             error_result_xdr,
@@ -378,8 +384,9 @@ impl Client {
             .map_err(|err| Error::TransactionSubmissionFailed(format!("{err:#?}")))?;
 
         if status == "ERROR" {
-            eprintln!("error: {}", error_result_xdr.ok_or(Error::MissingError)?);
-            return Err(Error::TransactionSubmissionFailed(String::new()));
+            let error = error_result_xdr.ok_or(Error::MissingError);
+            tracing::error!(?error);
+            return Err(Error::TransactionSubmissionFailed(format!("{:#?}", error?)));
         }
         // even if status == "success" we need to query the transaction status in order to get the result
 
@@ -390,7 +397,7 @@ impl Client {
             match response.status.as_str() {
                 "SUCCESS" => {
                     // TODO: the caller should probably be printing this
-                    eprintln!("{}", response.status);
+                    tracing::trace!(?response);
                     let result_xdr_b64 = response.result_xdr.ok_or(Error::MissingResult)?;
                     let result = TransactionResult::from_xdr_base64(result_xdr_b64)?;
                     let events = match response.result_meta_xdr {
@@ -400,6 +407,7 @@ impl Client {
                     return Ok((result, events));
                 }
                 "FAILED" => {
+                    tracing::error!(?response);
                     // TODO: provide a more elaborate error
                     return Err(Error::TransactionSubmissionFailed(format!("{response:#?}")));
                 }
@@ -421,11 +429,13 @@ impl Client {
         &self,
         tx: &TransactionEnvelope,
     ) -> Result<SimulateTransactionResponse, Error> {
+        tracing::trace!(?tx);
         let base64_tx = tx.to_xdr_base64()?;
         let response: SimulateTransactionResponse = self
             .client()?
             .request("simulateTransaction", rpc_params![base64_tx])
             .await?;
+        tracing::trace!(?response);
         match response.error {
             None => Ok(response),
             Some(e) => Err(Error::TransactionSimulationFailed(e)),

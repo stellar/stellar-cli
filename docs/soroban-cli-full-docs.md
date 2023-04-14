@@ -74,6 +74,13 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 
 ###### **Options:**
 
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output
+* `-q`, `--quiet` — Do not write logs to stderr
+* `-v`, `--verbose` — Log DEBUG events
+* `--very-verbose` — Log DEBUG and TRACE events
+* `--log-file <LOG_FILE>` — Write the output of the logs to a file
 * `--list` — List installed plugins. E.g. `soroban-hello`
 
 
@@ -135,7 +142,7 @@ Deploy a contract
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -167,7 +174,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -189,9 +196,6 @@ soroban contract invoke ... -- --help
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--wasm <WASM>` — WASM file of the contract to invoke (if using sandbox will deploy this file)
-* `--footprint` — Output the footprint to stderr
-* `--auth` — Output the contract auth for the transaction to stderr
-* `--events` — Output the contract events for the transaction to stderr
 * `--cost` — Output the cost execution to stderr
 * `--unlimited-budget` — Run with an unlimited budget
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -201,7 +205,7 @@ soroban contract invoke ... -- --help
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 * `--events-file <PATH>` — File to persist events, default is `.soroban/events.json`
 
 
@@ -244,7 +248,7 @@ Print the current value of a contract-data ledger entry
 
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -293,7 +297,7 @@ Add a new identity (keypair, ledger, macOS keychain)
 * `--secret-key` — Add using secret_key Can provide with SOROBAN_SECRET_KEY
 * `--seed-phrase` — Add using 12 word seed phrase to generate secret_key
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -311,7 +315,7 @@ Given an identity return its address (public key)
 
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -330,7 +334,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 * `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 
@@ -345,7 +349,7 @@ List identities
 ###### **Options:**
 
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -362,7 +366,7 @@ Remove an identity
 ###### **Options:**
 
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -380,7 +384,7 @@ Given an identity return its private key
 
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -413,7 +417,7 @@ Add a new network
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -430,7 +434,7 @@ Remove a network
 ###### **Options:**
 
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -443,7 +447,7 @@ List networks
 ###### **Options:**
 
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -481,7 +485,7 @@ Watch the network for contract events
   Possible values: `all`, `contract`, `system`
 
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -530,7 +534,7 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-* `--pwd <PWD>`
+* `--config-dir <CONFIG_DIR>`
 
 
 
