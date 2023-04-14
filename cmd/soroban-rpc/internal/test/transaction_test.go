@@ -22,7 +22,7 @@ import (
 func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	kp := keypair.Root(StandaloneNetworkPassphrase)
@@ -47,7 +47,7 @@ func TestSendTransactionSucceedsWithoutResults(t *testing.T) {
 func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	kp := keypair.Root(StandaloneNetworkPassphrase)
@@ -110,7 +110,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 func TestSendTransactionBadSequence(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	kp := keypair.Root(StandaloneNetworkPassphrase)
@@ -152,7 +152,7 @@ func TestSendTransactionBadSequence(t *testing.T) {
 func TestSendTransactionFailedInLedger(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	kp := keypair.Root(StandaloneNetworkPassphrase)
@@ -204,7 +204,7 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 func TestSendTransactionFailedInvalidXDR(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	request := methods.SendTransactionRequest{Transaction: "abcdef"}

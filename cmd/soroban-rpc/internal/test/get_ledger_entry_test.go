@@ -22,7 +22,7 @@ import (
 func TestGetLedgerEntryNotFound(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -50,7 +50,7 @@ func TestGetLedgerEntryNotFound(t *testing.T) {
 func TestGetLedgerEntryInvalidParams(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	request := methods.GetLedgerEntryRequest{
@@ -66,7 +66,7 @@ func TestGetLedgerEntryInvalidParams(t *testing.T) {
 func TestGetLedgerEntrySucceeds(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	kp := keypair.Root(StandaloneNetworkPassphrase)
