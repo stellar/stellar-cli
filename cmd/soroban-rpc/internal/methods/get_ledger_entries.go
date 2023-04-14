@@ -70,7 +70,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 			present, ledgerEntry, err := tx.GetLedgerEntry(ledgerKey)
 			if err != nil {
 				logger.WithError(err).WithField("request", request).
-					Infof("could not obtain ledger entry %s at index %d from storage", ledgerKey, i)
+					Infof("could not obtain ledger entry %v at index %d from storage", ledgerKey, i)
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
 					Code:    code.InternalError,
 					Message: fmt.Sprintf("could not obtain ledger entry %v at index %d from storage", ledgerKey, i),
