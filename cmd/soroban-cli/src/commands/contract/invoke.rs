@@ -158,6 +158,8 @@ pub enum Error {
     Events(#[from] events_file::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error("Contract Error\n{0}: {1}")]
+    ContractInvoke(String, String),
 }
 
 impl Cmd {
@@ -338,6 +340,7 @@ impl Cmd {
         output_to_string(&spec, &res, &function)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn run_in_sandbox(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
@@ -347,11 +350,9 @@ impl Cmd {
         // If a file is specified, deploy the contract to storage
         self.deploy_contract_in_sandbox(&mut state, &contract_id)?;
 
-        let key = self.config.key_pair()?;
-
         // Create source account, adding it to the ledger if not already present.
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
-            key.public.to_bytes(),
+            self.config.key_pair()?.public.to_bytes(),
         )));
         let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
             account_id: source_account.clone(),
@@ -386,7 +387,18 @@ impl Cmd {
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
 
-        let res = h.invoke_function(HostFunction::InvokeContract(host_function_params))?;
+        let res = h
+            .invoke_function(HostFunction::InvokeContract(host_function_params))
+            .map_err(
+                |host_error| match spec.find_error_type(host_error.status.get_code()) {
+                    Ok(error) => Error::ContractInvoke(
+                        error.name.to_string_lossy(),
+                        error.doc.to_string_lossy(),
+                    ),
+                    Err(_) => host_error.into(),
+                },
+            )?;
+
         let res_str = output_to_string(&spec, &res, &function)?;
 
         state.update(&h);
@@ -412,21 +424,18 @@ impl Cmd {
                 ScHostStorageErrorCode::UnknownError,
             ))
         })?;
-
         if self.footprint {
             eprintln!(
                 "Footprint: {}",
                 serde_json::to_string(&create_ledger_footprint(&storage.footprint)).unwrap(),
             );
         }
-
         if self.auth {
             eprintln!(
                 "Contract auth: {}",
                 serde_json::to_string(&contract_auth).unwrap(),
             );
         }
-
         if self.cost {
             eprintln!("Cpu Insns: {}", budget.get_cpu_insns_count());
             eprintln!("Mem Bytes: {}", budget.get_mem_bytes_count());
@@ -448,7 +457,6 @@ impl Cmd {
         }
 
         self.config.set_state(&mut state)?;
-
         if !events.0.is_empty() {
             self.events_file
                 .commit(&events.0, &state, &self.config.locator.config_dir()?)?;
