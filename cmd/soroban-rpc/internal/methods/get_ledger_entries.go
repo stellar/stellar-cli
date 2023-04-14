@@ -19,13 +19,14 @@ type GetLedgerEntriesRequest struct {
 }
 
 type LedgerEntryResult struct {
+	Found              bool   `json:"found"`
 	XDR                string `json:"xdr"`
 	LastModifiedLedger int64  `json:"lastModifiedLedgerSeq,string"`
 }
 
 type GetLedgerEntriesResponse struct {
-	Entries      []*LedgerEntryResult `json:"entries"`
-	LatestLedger int64                `json:"latestLedger,string"`
+	Entries      []LedgerEntryResult `json:"entries"`
+	LatestLedger int64               `json:"latestLedger,string"`
 }
 
 // NewGetLedgerEntriesHandler returns a JSON RPC handler to retrieve the specified ledger entries from Stellar Core.
@@ -64,7 +65,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 			}
 		}
 
-		var ledgerEntryResults []*LedgerEntryResult
+		var ledgerEntryResults []LedgerEntryResult
 		for i, ledgerKey := range ledgerKeys {
 			present, ledgerEntry, err := tx.GetLedgerEntry(ledgerKey)
 			if err != nil {
@@ -77,7 +78,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 			}
 
 			if !present {
-				ledgerEntryResults = append(ledgerEntryResults, nil)
+				ledgerEntryResults = append(ledgerEntryResults, LedgerEntryResult{Found: false})
 				continue
 			}
 
@@ -91,7 +92,8 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				}
 			}
 
-			ledgerEntryResults = append(ledgerEntryResults, &LedgerEntryResult{
+			ledgerEntryResults = append(ledgerEntryResults, LedgerEntryResult{
+				Found:              true,
 				XDR:                ledgerXDR,
 				LastModifiedLedger: int64(ledgerEntry.LastModifiedLedgerSeq),
 			})

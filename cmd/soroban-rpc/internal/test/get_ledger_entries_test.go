@@ -22,7 +22,7 @@ import (
 func TestGetLedgerEntriesNotFound(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -49,14 +49,14 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, len(result.Entries))
-	assert.Nil(t, result.Entries[0])
+	assert.False(t, result.Entries[0].Found)
 	assert.Greater(t, result.LatestLedger, int64(0))
 }
 
 func TestGetLedgerEntriesInvalidParams(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	var keys []string
@@ -74,7 +74,7 @@ func TestGetLedgerEntriesInvalidParams(t *testing.T) {
 func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	kp := keypair.Root(StandaloneNetworkPassphrase)
@@ -147,5 +147,6 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	var firstEntry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
 	assert.Equal(t, testContract, firstEntry.MustContractCode().Code)
-	assert.Nil(t, result.Entries[1])
+	assert.True(t, result.Entries[0].Found)
+	assert.False(t, result.Entries[1].Found)
 }
