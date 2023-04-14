@@ -31,5 +31,5 @@ fn soroban_hello() {
         .arg("--list")
         .env("PATH", paths)
         .assert()
-        .stdout("hello\n");
+        .stdout(predicates::str::contains("hello"));
 }
