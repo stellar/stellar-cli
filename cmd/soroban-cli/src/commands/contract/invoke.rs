@@ -567,23 +567,27 @@ async fn get_remote_contract_spec_entries(
     contract_id: &[u8; 32],
 ) -> Result<Vec<ScSpecEntry>, Error> {
     // Get the contract from the network
+    let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
+        contract_id: xdr::Hash(*contract_id),
+        key: ScVal::LedgerKeyContractExecutable,
+    });
     let contract_ref = client
-        .get_ledger_entry(LedgerKey::ContractData(LedgerKeyContractData {
-            contract_id: xdr::Hash(*contract_id),
-            key: ScVal::LedgerKeyContractExecutable,
-        }))
+        .get_ledger_entries(Vec::from([contract_key]))
         .await?;
 
-    Ok(match LedgerEntryData::from_xdr_base64(contract_ref.xdr)? {
+    let contract_ref_entry = &contract_ref.entries[0];
+    Ok(match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
         LedgerEntryData::ContractData(ContractDataEntry {
             val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
             ..
         }) => {
+            let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
             let contract_data = client
-                .get_ledger_entry(LedgerKey::ContractCode(LedgerKeyContractCode { hash }))
+                .get_ledger_entries(Vec::from([code_key]))
                 .await?;
 
-            match LedgerEntryData::from_xdr_base64(contract_data.xdr)? {
+            let contract_data_entry = &contract_data.entries[0];
+            match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
                 LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
                     let code_vec: Vec<u8> = code.into();
                     soroban_spec::read::from_wasm(&code_vec)
