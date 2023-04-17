@@ -163,19 +163,24 @@ fn invoke_auth_with_different_test_account() {
 #[test]
 fn invoke_auth_with_different_test_account_fail() {
     let sandbox = TestEnv::default();
-    assert!(matches!(
-        sandbox.invoke(&[
-            "--hd-path=1",
-            "--id=1",
-            "--wasm",
-            HELLO_WORLD.path().to_str().unwrap(),
-            "--",
-            "auth",
-            &format!("--addr={DEFAULT_PUB_KEY}"),
-            "--world=world",
-        ]),
-        Err(contract::invoke::Error::Host(_))
-    ));
+
+    let res = sandbox.invoke(&[
+        "--hd-path=1",
+        "--id=1",
+        "--wasm",
+        HELLO_WORLD.path().to_str().unwrap(),
+        "--",
+        "auth",
+        &format!("--addr={DEFAULT_PUB_KEY}"),
+        "--world=world",
+    ]);
+    assert!(res.is_err());
+    if let Err(e) = res {
+        assert!(
+            matches!(e, contract::invoke::Error::Host(_)),
+            "Expected host error got {e:?}"
+        );
+    };
 }
 
 #[test]

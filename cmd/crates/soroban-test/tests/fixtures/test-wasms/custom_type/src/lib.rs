@@ -47,6 +47,7 @@ pub enum ComplexEnum {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
+    /// Unknown error has occured
     OhNo = 1,
 }
 

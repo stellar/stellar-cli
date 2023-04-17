@@ -14,7 +14,7 @@ import (
 func TestGetNetworkSucceeds(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	request := methods.GetNetworkRequest{}

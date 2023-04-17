@@ -61,7 +61,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md
 
-**Usage:** `soroban <COMMAND>`
+**Usage:** `soroban [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -71,6 +71,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `lab` — Experiment with early features and expert tools
 * `version` — Print version information
 * `completion` — Print shell completion code for the specified shell
+
+###### **Options:**
+
+* `--list` — List installed plugins. E.g. `soroban-hello`
 
 
 

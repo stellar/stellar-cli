@@ -4,9 +4,11 @@ members = [
     "cmd/soroban-cli",
     "cmd/crates/*",
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
+    "cmd/crates/soroban-test/tests/fixtures/hello",
     "cmd/soroban-rpc/lib/preflight",
 ]
 default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
+exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.dependencies.soroban-env-host]
 version = "0.0.15"
@@ -47,6 +49,9 @@ path = "cmd/soroban-cli"
 
 [workspace.dependencies.ethnum]
 version = "1.3.2"
+
+[workspace.dependencies.which]
+version = "4.4.0"
 
 
 # [patch."https://github.com/stellar/rs-soroban-env"]
