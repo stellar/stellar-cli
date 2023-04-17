@@ -74,14 +74,18 @@ type rpcLogger struct {
 }
 
 func (r *rpcLogger) LogRequest(ctx context.Context, req *jrpc2.Request) {
-	r.logger.WithFields(log.F{
+	logger := r.logger.WithFields(log.F{
 		"subsys":   "jsonrpc",
 		"req":      middleware.GetReqID(ctx),
 		"json_req": req.ID(),
 		"method":   req.Method(),
-		// TODO: is this overkill?
-		"params": req.ParamString(),
-	}).Info("starting JSONRPC request")
+	})
+	logger.Info("starting JSONRPC request")
+
+	// Params are useful but can be really verbose, let's only print them in debug
+	logger = logger.WithField("params", req.ParamString())
+	logger.Debug("starting JSONRPC request params")
+
 }
 
 func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
@@ -91,11 +95,13 @@ func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
 		"subsys":   "jsonrpc",
 		"req":      middleware.GetReqID(ctx),
 		"json_req": rsp.ID(),
-		// TODO: is this overkill?
-		"result": rsp.ResultString(),
 	})
 	if err := rsp.Error(); err != nil {
 		logger = logger.WithField("error", err.Error())
 	}
 	logger.Info("finished JSONRPC request")
+
+	// the result is useful but can be really verbose, let's only print it with debug level
+	logger = logger.WithField("result", rsp.ResultString())
+	logger.Debug("starting JSONRPC request result")
 }
