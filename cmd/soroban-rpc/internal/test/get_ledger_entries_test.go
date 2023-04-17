@@ -48,8 +48,7 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 	err = client.CallResult(context.Background(), "getLedgerEntries", request, &result)
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, len(result.Entries))
-	assert.False(t, result.Entries[0].Found)
+	assert.Equal(t, 0, len(result.Entries))
 	assert.Greater(t, result.LatestLedger, int64(0))
 }
 
@@ -141,12 +140,11 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	var result methods.GetLedgerEntriesResponse
 	err = client.CallResult(context.Background(), "getLedgerEntries", request, &result)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(result.Entries))
+	assert.Equal(t, 1, len(result.Entries))
 	assert.Greater(t, result.LatestLedger, int64(0))
 
 	var firstEntry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
 	assert.Equal(t, testContract, firstEntry.MustContractCode().Code)
-	assert.True(t, result.Entries[0].Found)
-	assert.False(t, result.Entries[1].Found)
+	assert.Equal(t, contractKeyB64, result.Entries[0].Key)
 }
