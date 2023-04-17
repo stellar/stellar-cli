@@ -162,8 +162,18 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	}
 	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", prometheusRegistry)
 
-	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
-	transactionStore := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
+	eventStore := events.NewMemoryStore(
+		prometheusRegistry,
+		"soroban_rpc",
+		cfg.NetworkPassphrase,
+		cfg.EventLedgerRetentionWindow,
+	)
+	transactionStore := transactions.NewMemoryStore(
+		prometheusRegistry,
+		"soroban_rpc",
+		cfg.NetworkPassphrase,
+		cfg.TransactionLedgerRetentionWindow,
+	)
 
 	maxRetentionWindow := cfg.EventLedgerRetentionWindow
 	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
@@ -195,15 +205,17 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		logger.WithError(err).Error("could not run ingestion. Retrying")
 	}
 	ingestService := ingest.NewService(ingest.Config{
-		Logger:            logger,
-		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
-		EventStore:        eventStore,
-		TransactionStore:  transactionStore,
-		NetworkPassPhrase: cfg.NetworkPassphrase,
-		Archive:           historyArchive,
-		LedgerBackend:     core,
-		Timeout:           cfg.IngestionTimeout,
-		OnIngestionRetry:  onIngestionRetry,
+		Logger:              logger,
+		DB:                  db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
+		EventStore:          eventStore,
+		TransactionStore:    transactionStore,
+		NetworkPassPhrase:   cfg.NetworkPassphrase,
+		Archive:             historyArchive,
+		LedgerBackend:       core,
+		Timeout:             cfg.IngestionTimeout,
+		OnIngestionRetry:    onIngestionRetry,
+		PrometheusNamespace: "soroban_rpc",
+		PrometheusRegistry:  prometheusRegistry,
 	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)

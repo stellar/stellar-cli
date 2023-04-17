@@ -3,9 +3,9 @@ package events
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/xdr"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
@@ -85,7 +85,7 @@ func eventsAreEqual(t *testing.T, a, b []event) {
 }
 
 func TestScanRangeValidation(t *testing.T) {
-	m := NewMemoryStore("unit-tests", 4)
+	m := NewMemoryStore(prometheus.NewRegistry(), "soroban_rpc", "unit-tests", 4)
 	assertNoCalls := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, timestamp int64) bool {
 		t.Fatalf("unexpected call")
 		return true
@@ -210,7 +210,7 @@ func TestScanRangeValidation(t *testing.T) {
 }
 
 func createStore(t *testing.T) *MemoryStore {
-	m := NewMemoryStore("unit-tests", 4)
+	m := NewMemoryStore(prometheus.NewRegistry(), "soroban_rpc", "unit-tests", 4)
 	m.eventsByLedger.Append(ledgerbucketwindow.LedgerBucket[[]event]{
 		LedgerSeq:            5,
 		LedgerCloseTimestamp: ledger5CloseTime,
