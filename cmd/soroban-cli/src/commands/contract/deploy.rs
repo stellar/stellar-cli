@@ -54,6 +54,8 @@ pub struct Cmd {
     salt: Option<String>,
     #[command(flatten)]
     config: config::Args,
+    #[command(flatten)]
+    pub fee: crate::fee::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -102,6 +104,7 @@ impl Cmd {
             let hash = install::Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
                 config: self.config.clone(),
+                fee: self.fee.clone(),
             }
             .run_and_get_hash()
             .await?;
@@ -159,15 +162,13 @@ impl Cmd {
 
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
-        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
-        let fee: u32 = 100;
 
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
         let (tx, contract_id) = build_create_contract_tx(
             wasm_hash,
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             salt,
             &key,
