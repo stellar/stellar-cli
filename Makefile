@@ -38,7 +38,8 @@ Cargo.lock: Cargo.toml
 	cargo update --workspace
 
 install_rust: Cargo.lock
-	cargo install --path ./cmd/soroban-cli
+	cargo install --path ./cmd/soroban-cli --debug
+	cargo install --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
 
 install: install_rust build-libpreflight
 	go install -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
@@ -55,8 +56,10 @@ build-libpreflight: Cargo.lock
 build-test-wasms: Cargo.lock
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
 
+build-test: build-test-wasms install_rust
+
 test: build-test-wasms
-	cargo test --workspace
+	cargo test 
 
 e2e-test:
 	cargo test --test it -- --ignored
