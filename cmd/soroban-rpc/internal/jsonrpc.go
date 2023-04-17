@@ -102,5 +102,5 @@ func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
 
 	// the result is useful but can be really verbose, let's only print it with debug level
 	logger = logger.WithField("result", rsp.ResultString())
-	logger.Debug("starting JSONRPC request result")
+	logger.Debug("finished JSONRPC request result")
 }
