@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof" //nolint:gosec
 	"os"
 	"os/signal"
 	"sync"
@@ -242,8 +242,11 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	}
 	if adminEndpoint != "" {
 		adminMux := supporthttp.NewMux(logger)
-		// after importing net/http/pprof, debug endpoints are implicitly registered in the default serve mux
-		adminMux.Handle("/", http.DefaultServeMux)
+		adminMux.HandleFunc("/debug/pprof/", pprof.Index)
+		adminMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		adminMux.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
 		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}

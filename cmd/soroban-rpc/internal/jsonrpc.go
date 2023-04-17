@@ -85,7 +85,6 @@ func (r *rpcLogger) LogRequest(ctx context.Context, req *jrpc2.Request) {
 	// Params are useful but can be really verbose, let's only print them in debug
 	logger = logger.WithField("params", req.ParamString())
 	logger.Debug("starting JSONRPC request params")
-
 }
 
 func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
