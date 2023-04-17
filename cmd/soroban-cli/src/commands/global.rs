@@ -10,11 +10,11 @@ pub struct Args {
     #[clap(flatten)]
     pub locator: config::locator::Args,
 
-    /// Filter logs output
+    /// Filter logs output. To turn on "soroban_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`.
     #[arg(long, short = 'f')]
-    pub filter_logs: Option<String>,
+    pub filter_logs: Vec<String>,
 
-    /// Do not write logs to stderr
+    /// Do not write logs to stderr including `INFO`
     #[arg(long, short = 'q')]
     pub quiet: bool,
 
@@ -25,10 +25,6 @@ pub struct Args {
     /// Log DEBUG and TRACE events
     #[arg(long, alias = "vv")]
     pub very_verbose: bool,
-
-    /// Write the output of the logs to a file
-    #[arg(long, alias = "log-to")]
-    pub log_file: Option<PathBuf>,
 
     /// List installed plugins. E.g. `soroban-hello`
     #[arg(long)]

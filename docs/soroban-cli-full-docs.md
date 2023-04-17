@@ -76,11 +76,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
-* `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output
-* `-q`, `--quiet` — Do not write logs to stderr
+* `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output. To turn on "soroban_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`
+* `-q`, `--quiet` — Do not write logs to stderr including `INFO`
 * `-v`, `--verbose` — Log DEBUG events
 * `--very-verbose` — Log DEBUG and TRACE events
-* `--log-file <LOG_FILE>` — Write the output of the logs to a file
 * `--list` — List installed plugins. E.g. `soroban-hello`
 
 

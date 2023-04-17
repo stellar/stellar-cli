@@ -4,6 +4,7 @@
     clippy::missing_panics_doc
 )]
 pub mod commands;
+pub mod log;
 pub mod network;
 pub mod rpc;
 pub mod strval;

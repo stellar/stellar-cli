@@ -58,7 +58,7 @@ build-test-wasms: Cargo.lock
 
 build-test: build-test-wasms install_rust
 
-test: build-test-wasms
+test: build-test
 	cargo test 
 
 e2e-test:

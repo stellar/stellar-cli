@@ -12,7 +12,7 @@ use soroban_env_host::events::HostEvent;
 
 use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::{
-    budget::{Budget, CostType},
+    budget::Budget,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
@@ -463,26 +463,11 @@ fn log_events(
     events: &[HostEvent],
     budget: Option<&Budget>,
 ) {
-    tracing::debug!(?footprint);
-    if !auth.is_empty() {
-        tracing::debug!(?auth);
-    }
+    crate::log::auth(auth);
+    crate::log::events(events);
+    crate::log::footprint(footprint);
     if let Some(budget) = budget {
-        tracing::debug!(
-            cpu_instructions = budget.get_cpu_insns_count(),
-            mem_bytes = budget.get_mem_bytes_count()
-        );
-        for cost_type in CostType::variants() {
-            tracing::debug!(cost_typet = ?cost_type, cost = budget.get_input(*cost_type));
-        }
-    }
-
-    for (num, event) in events.iter().enumerate() {
-        if let soroban_env_host::events::Event::Debug(log) = &event.event {
-            tracing::info!(log = log.to_string());
-        } else {
-            tracing::debug!(num, event = ?event.event);
-        }
+        crate::log::budget(budget);
     }
 }
 

@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contractimpl, vec, Address, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, log, vec, Address, Env, Symbol, Vec};
 
 pub struct Contract;
 
@@ -22,6 +22,14 @@ impl Contract {
         // Emit test event
         env.events().publish(("auth",), world.clone());
         vec![&env, Symbol::short("Hello"), world]
+    }
+    /// Logs a string with `hello ` in front.
+    pub fn log(env: Env, str: Symbol) {
+        env.events().publish(
+            (Symbol::new(&env, "hello"), Symbol::new(&env, "")),
+            str.clone(),
+        );
+        log!(&env, "hello {}", str);
     }
 }
 
