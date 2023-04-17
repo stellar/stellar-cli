@@ -7,7 +7,6 @@ import (
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
 	"github.com/creachadair/jrpc2/jhttp"
-	"github.com/go-chi/chi/middleware"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/support/log"
 
@@ -75,8 +74,9 @@ type rpcLogger struct {
 
 func (r *rpcLogger) LogRequest(ctx context.Context, req *jrpc2.Request) {
 	logger := r.logger.WithFields(log.F{
-		"subsys":   "jsonrpc",
-		"req":      middleware.GetReqID(ctx),
+		"subsys": "jsonrpc",
+		// FIXME: the HTTP request context is independent from the JSONRPC context, and thus the code below doesn't work
+		// "req":      middleware.GetReqID(ctx),
 		"json_req": req.ID(),
 		"method":   req.Method(),
 	})
@@ -91,8 +91,9 @@ func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
 	// TODO: Print the elapsed time (there doesn't seem to be a way to it with with jrpc2, since
 	//       LogRequest cannot modify the context)
 	logger := r.logger.WithFields(log.F{
-		"subsys":   "jsonrpc",
-		"req":      middleware.GetReqID(ctx),
+		"subsys": "jsonrpc",
+		// FIXME: the HTTP request context is independent from the JSONRPC context, and thus the code below doesn't work
+		// "req":      middleware.GetReqID(ctx),
 		"json_req": rsp.ID(),
 	})
 	if err := rsp.Error(); err != nil {
