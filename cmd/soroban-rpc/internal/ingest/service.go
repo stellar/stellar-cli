@@ -62,9 +62,9 @@ func NewService(cfg Config) *Service {
 		[]string{"type"},
 	)
 
-	cfg.Daemon.MetricsRegistry().MustRegister(ingestionDurationMetric)
-	cfg.Daemon.MetricsRegistry().MustRegister(latestLedgerMetric)
-	cfg.Daemon.MetricsRegistry().MustRegister(ledgerStatsMetric)
+	cfg.Daemon.MetricsRegistry().MaybeRegister(ingestionDurationMetric)
+	cfg.Daemon.MetricsRegistry().MaybeRegister(latestLedgerMetric)
+	cfg.Daemon.MetricsRegistry().MaybeRegister(ledgerStatsMetric)
 
 	ctx, done := context.WithCancel(context.Background())
 	service := &Service{

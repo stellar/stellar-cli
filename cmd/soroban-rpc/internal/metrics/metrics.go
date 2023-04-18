@@ -71,3 +71,11 @@ func MakeRegistry() *Registry {
 func (r *Registry) Namespace() string {
 	return prometheusNamespace
 }
+
+// similar to Register, but doesn't return an error code in case of a failuire, so
+// that there is no error code that need to be tested.
+func (r *Registry) MaybeRegister(cs ...prometheus.Collector) {
+	for _, c := range cs {
+		r.PrometheusRegistry.Register(c) //nolint:errcheck
+	}
+}

@@ -68,7 +68,7 @@ func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentio
 		[]string{"operation"},
 	)
 
-	daemon.MetricsRegistry().Register(eventsDurationMetric)
+	daemon.MetricsRegistry().MaybeRegister(eventsDurationMetric)
 
 	return &MemoryStore{
 		networkPassphrase:    networkPassphrase,
