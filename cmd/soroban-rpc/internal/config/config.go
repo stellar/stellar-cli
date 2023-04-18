@@ -6,6 +6,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type LogFormat int
+
+const (
+	LogFormatText = iota
+	LogFormatJSON
+)
+
 type LocalConfig struct {
 	StellarCoreURL                   string
 	CoreRequestTimeout               time.Duration
@@ -18,6 +25,7 @@ type LocalConfig struct {
 	NetworkPassphrase                string
 	HistoryArchiveURLs               []string
 	LogLevel                         logrus.Level
+	LogFormat                        LogFormat
 	SQLiteDBPath                     string
 	IngestionTimeout                 time.Duration
 	EventLedgerRetentionWindow       uint32

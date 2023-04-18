@@ -126,6 +126,9 @@ func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerb
 func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Daemon {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
+	if cfg.LogFormat == config.LogFormatJSON {
+		logger.UseJSONFormatter()
+	}
 	prometheusRegistry := prometheus.NewRegistry()
 
 	core, err := newCaptiveCore(&cfg, logger)
