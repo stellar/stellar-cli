@@ -3,7 +3,6 @@ package transactions
 import (
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/require"
@@ -187,7 +186,7 @@ func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequen
 
 func TestIngestTransactions(t *testing.T) {
 	// Use a small retention window to test eviction
-	store := NewMemoryStore(prometheus.NewRegistry(), "soroban_rpc", "passphrase", 3)
+	store := NewMemoryStore("passphrase", 3)
 
 	_, ok, storeRange := store.GetTransaction(txHash(1, false))
 	require.False(t, ok)

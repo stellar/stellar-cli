@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stretchr/testify/assert"
 
@@ -37,17 +36,15 @@ func TestRetryRunningIngestion(t *testing.T) {
 		lastErr = err
 	}
 	config := Config{
-		Logger:              supportlog.New(),
-		DB:                  &ErrorReadWriter{},
-		EventStore:          nil,
-		TransactionStore:    nil,
-		NetworkPassPhrase:   "",
-		Archive:             nil,
-		LedgerBackend:       nil,
-		Timeout:             time.Second,
-		OnIngestionRetry:    incrementRetry,
-		PrometheusRegistry:  prometheus.NewRegistry(),
-		PrometheusNamespace: "soroban_rpc",
+		Logger:            supportlog.New(),
+		DB:                &ErrorReadWriter{},
+		EventStore:        nil,
+		TransactionStore:  nil,
+		NetworkPassPhrase: "",
+		Archive:           nil,
+		LedgerBackend:     nil,
+		Timeout:           time.Second,
+		OnIngestionRetry:  incrementRetry,
 	}
 	service := NewService(config)
 	retryWg.Wait()

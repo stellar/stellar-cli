@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -11,8 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
@@ -42,16 +41,11 @@ type Daemon struct {
 	handler             *internal.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
-	prometheusRegistry  *prometheus.Registry
 	server              *http.Server
 	adminServer         *http.Server
 	closeOnce           sync.Once
 	closeError          error
 	done                chan struct{}
-}
-
-func (d *Daemon) PrometheusRegistry() *prometheus.Registry {
-	return d.prometheusRegistry
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -136,7 +130,6 @@ func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerb
 func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Daemon {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
-	prometheusRegistry := prometheus.NewRegistry()
 
 	core, err := newCaptiveCore(&cfg, logger)
 	if err != nil {
@@ -160,17 +153,13 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
-	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", prometheusRegistry)
+	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", metrics.Registry)
 
 	eventStore := events.NewMemoryStore(
-		prometheusRegistry,
-		"soroban_rpc",
 		cfg.NetworkPassphrase,
 		cfg.EventLedgerRetentionWindow,
 	)
 	transactionStore := transactions.NewMemoryStore(
-		prometheusRegistry,
-		"soroban_rpc",
 		cfg.NetworkPassphrase,
 		cfg.TransactionLedgerRetentionWindow,
 	)
@@ -205,17 +194,15 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		logger.WithError(err).Error("could not run ingestion. Retrying")
 	}
 	ingestService := ingest.NewService(ingest.Config{
-		Logger:              logger,
-		DB:                  db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
-		EventStore:          eventStore,
-		TransactionStore:    transactionStore,
-		NetworkPassPhrase:   cfg.NetworkPassphrase,
-		Archive:             historyArchive,
-		LedgerBackend:       core,
-		Timeout:             cfg.IngestionTimeout,
-		OnIngestionRetry:    onIngestionRetry,
-		PrometheusNamespace: "soroban_rpc",
-		PrometheusRegistry:  prometheusRegistry,
+		Logger:            logger,
+		DB:                db.NewReadWriter(dbConn, maxLedgerEntryWriteBatchSize, maxRetentionWindow),
+		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
+		NetworkPassPhrase: cfg.NetworkPassphrase,
+		Archive:           historyArchive,
+		LedgerBackend:     core,
+		Timeout:           cfg.IngestionTimeout,
+		OnIngestionRetry:  onIngestionRetry,
 	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
@@ -242,7 +229,6 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		handler:             &handler,
 		db:                  dbConn,
 		preflightWorkerPool: preflightWorkerPool,
-		prometheusRegistry:  prometheusRegistry,
 		done:                make(chan struct{}),
 	}
 	d.server = &http.Server{
@@ -252,12 +238,11 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	}
 	if adminEndpoint != "" {
 		adminMux := http.NewServeMux()
-		adminMux.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
+		adminMux.Handle("/metrics", metrics.HTTPHandler)
 		adminMux.HandleFunc("/debug/pprof/heap", pprof.Index)
 		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}
-	d.registerMetrics()
 	return d
 }
 

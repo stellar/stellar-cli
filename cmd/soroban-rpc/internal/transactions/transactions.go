@@ -1,6 +1,7 @@
 package transactions
 
 import (
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"sync"
 	"time"
 
@@ -26,11 +27,10 @@ type MemoryStore struct {
 	// Stellar network passphrase.
 	// Accessing networkPassphrase does not need to be protected
 	// by the lock
-	networkPassphrase       string
-	lock                    sync.RWMutex
-	transactions            map[xdr.Hash]transaction
-	transactionsByLedger    *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
-	operationDurationMetric *prometheus.SummaryVec
+	networkPassphrase    string
+	lock                 sync.RWMutex
+	transactions         map[xdr.Hash]transaction
+	transactionsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -40,20 +40,12 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any transactions from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(registry *prometheus.Registry, prometheusNamespace string, networkPassphrase string, retentionWindow uint32) *MemoryStore {
+func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
 	window := ledgerbucketwindow.NewLedgerBucketWindow[[]xdr.Hash](retentionWindow)
-	operationDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Namespace: prometheusNamespace, Subsystem: "transactions", Name: "operation_duration_seconds",
-		Help: "transaction store operation durations, sliding window = 10m",
-	},
-		[]string{"operation"},
-	)
-	registry.MustRegister(operationDurationMetric)
 	return &MemoryStore{
-		networkPassphrase:       networkPassphrase,
-		transactions:            make(map[xdr.Hash]transaction),
-		transactionsByLedger:    window,
-		operationDurationMetric: operationDurationMetric,
+		networkPassphrase:    networkPassphrase,
+		transactions:         make(map[xdr.Hash]transaction),
+		transactionsByLedger: window,
 	}
 }
 
@@ -112,7 +104,7 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 	for hash, tx := range hashMap {
 		m.transactions[hash] = tx
 	}
-	m.operationDurationMetric.With(prometheus.Labels{"operation": "ingest"}).Observe(time.Since(startTime).Seconds())
+	metrics.TransactionDurationMetric.With(prometheus.Labels{"operation": "ingest"}).Observe(time.Since(startTime).Seconds())
 	return nil
 }
 
@@ -185,6 +177,6 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 		},
 	}
 
-	m.operationDurationMetric.With(prometheus.Labels{"operation": "get"}).Observe(time.Since(startTime).Seconds())
+	metrics.TransactionDurationMetric.With(prometheus.Labels{"operation": "get"}).Observe(time.Since(startTime).Seconds())
 	return tx, true, storeRange
 }

@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"io"
 	"strings"
 	"time"
@@ -38,10 +39,10 @@ func (s *Service) ingestLedgerEntryChanges(ctx context.Context, reader ingest.Ch
 	results := changeStatsProcessor.GetResults()
 	for stat, value := range results.Map() {
 		stat = strings.Replace(stat, "stats_", "change_", 1)
-		s.metrics.LedgerStatsCounter.
+		metrics.LedgerStatsMetric.
 			With(prometheus.Labels{"type": stat}).Add(float64(value.(int64)))
 	}
-	s.metrics.IngestionDuration.
+	metrics.IngestionDurationMetric.
 		With(prometheus.Labels{"type": "ledger_entries"}).Observe(time.Since(startTime).Seconds())
 	return ctx.Err()
 }

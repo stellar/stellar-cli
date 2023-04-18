@@ -2,6 +2,7 @@ package events
 
 import (
 	"errors"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"io"
 	"sort"
 	"sync"
@@ -45,9 +46,8 @@ type MemoryStore struct {
 	// by the lock
 	networkPassphrase string
 	// lock protects the mutable fields below
-	lock                    sync.RWMutex
-	eventsByLedger          *ledgerbucketwindow.LedgerBucketWindow[[]event]
-	operationDurationMetric *prometheus.SummaryVec
+	lock           sync.RWMutex
+	eventsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]event]
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -57,19 +57,11 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any events from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(registry *prometheus.Registry, prometheusNamespace string, networkPassphrase string, retentionWindow uint32) *MemoryStore {
+func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
 	window := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
-	operationDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Namespace: prometheusNamespace, Subsystem: "events", Name: "operation_duration_seconds",
-		Help: "event store operation durations, sliding window = 10m",
-	},
-		[]string{"operation"},
-	)
-	registry.MustRegister(operationDurationMetric)
 	return &MemoryStore{
-		networkPassphrase:       networkPassphrase,
-		eventsByLedger:          window,
-		operationDurationMetric: operationDurationMetric,
+		networkPassphrase: networkPassphrase,
+		eventsByLedger:    window,
 	}
 }
 
@@ -123,7 +115,8 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor,
 			}
 		}
 	}
-	m.operationDurationMetric.With(prometheus.Labels{"operation": "scan"}).Observe(time.Since(startTime).Seconds())
+	metrics.EventsDurationMetric.With(prometheus.Labels{"operation": "scan"}).
+		Observe(time.Since(startTime).Seconds())
 	return lastLedgerInWindow, nil
 }
 
@@ -191,7 +184,8 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	m.lock.Lock()
 	m.eventsByLedger.Append(bucket)
 	m.lock.Unlock()
-	m.operationDurationMetric.With(prometheus.Labels{"operation": "ingest"}).Observe(time.Since(startTime).Seconds())
+	metrics.EventsDurationMetric.With(prometheus.Labels{"operation": "ingest"}).
+		Observe(time.Since(startTime).Seconds())
 	return nil
 }
 
