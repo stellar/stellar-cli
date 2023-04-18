@@ -13,6 +13,7 @@ import (
 	backends "github.com/stellar/go/ingest/ledgerbackend"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
@@ -34,19 +35,50 @@ type Config struct {
 	LedgerBackend     backends.LedgerBackend
 	Timeout           time.Duration
 	OnIngestionRetry  backoff.Notify
+	Daemon            interfaces.Daemon
 }
 
 func NewService(cfg Config) *Service {
+	// ingestionDurationMetric is a metric for measuring the latency of ingestion
+	ingestionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: cfg.Daemon.MetricsRegistry().Namespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
+		Help: "ledger ingestion durations, sliding window = 10m",
+	},
+		[]string{"type"},
+	)
+	// latestLedgerMetric is a metric for measuring the latest ingested ledger
+	latestLedgerMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: cfg.Daemon.MetricsRegistry().Namespace(), Subsystem: "ingest", Name: "local_latest_ledger",
+		Help: "sequence number of the latest ledger ingested by this ingesting instance",
+	})
+
+	// ledgerStatsMetric is a metric which measures statistics on all ledger entries ingested by soroban rpc
+	ledgerStatsMetric := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Daemon.MetricsRegistry().Namespace(), Subsystem: "ingest", Name: "ledger_stats_total",
+			Help: "counters of different ledger stats",
+		},
+		[]string{"type"},
+	)
+
+	cfg.Daemon.MetricsRegistry().MustRegister(ingestionDurationMetric)
+	cfg.Daemon.MetricsRegistry().MustRegister(latestLedgerMetric)
+	cfg.Daemon.MetricsRegistry().MustRegister(ledgerStatsMetric)
+
 	ctx, done := context.WithCancel(context.Background())
 	service := &Service{
-		logger:            cfg.Logger,
-		db:                cfg.DB,
-		eventStore:        cfg.EventStore,
-		transactionStore:  cfg.TransactionStore,
-		ledgerBackend:     cfg.LedgerBackend,
-		networkPassPhrase: cfg.NetworkPassPhrase,
-		timeout:           cfg.Timeout,
-		done:              done,
+		logger:                  cfg.Logger,
+		db:                      cfg.DB,
+		eventStore:              cfg.EventStore,
+		transactionStore:        cfg.TransactionStore,
+		ledgerBackend:           cfg.LedgerBackend,
+		networkPassPhrase:       cfg.NetworkPassPhrase,
+		timeout:                 cfg.Timeout,
+		done:                    done,
+		daemon:                  cfg.Daemon,
+		ingestionDurationMetric: ingestionDurationMetric,
+		latestLedgerMetric:      latestLedgerMetric,
+		ledgerStatsMetric:       ledgerStatsMetric,
 	}
 	service.wg.Add(1)
 	go func() {
@@ -69,15 +101,19 @@ func NewService(cfg Config) *Service {
 }
 
 type Service struct {
-	logger            *log.Entry
-	db                db.ReadWriter
-	eventStore        *events.MemoryStore
-	transactionStore  *transactions.MemoryStore
-	ledgerBackend     backends.LedgerBackend
-	timeout           time.Duration
-	networkPassPhrase string
-	done              context.CancelFunc
-	wg                sync.WaitGroup
+	logger                  *log.Entry
+	db                      db.ReadWriter
+	eventStore              *events.MemoryStore
+	transactionStore        *transactions.MemoryStore
+	ledgerBackend           backends.LedgerBackend
+	timeout                 time.Duration
+	networkPassPhrase       string
+	done                    context.CancelFunc
+	wg                      sync.WaitGroup
+	daemon                  interfaces.Daemon
+	ingestionDurationMetric *metrics.SummaryVec
+	latestLedgerMetric      metrics.Gauge
+	ledgerStatsMetric       *metrics.CounterVec
 }
 
 func (s *Service) Close() error {
@@ -210,9 +246,9 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 		return err
 	}
 
-	metrics.IngestionDurationMetric.
+	s.ingestionDurationMetric.
 		With(prometheus.Labels{"type": "total"}).Observe(time.Since(startTime).Seconds())
-	metrics.LatestLedgerMetric.Set(float64(sequence))
+	s.latestLedgerMetric.Set(float64(sequence))
 	return nil
 }
 
@@ -221,7 +257,7 @@ func (s *Service) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.Ledge
 	if err := tx.LedgerWriter().InsertLedger(ledgerCloseMeta); err != nil {
 		return err
 	}
-	metrics.IngestionDurationMetric.
+	s.ingestionDurationMetric.
 		With(prometheus.Labels{"type": "ledger_close_meta"}).Observe(time.Since(startTime).Seconds())
 
 	if err := s.eventStore.IngestEvents(ledgerCloseMeta); err != nil {

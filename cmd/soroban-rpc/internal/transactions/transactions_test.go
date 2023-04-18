@@ -5,6 +5,7 @@ import (
 
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/xdr"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stretchr/testify/require"
 )
 
@@ -186,7 +187,7 @@ func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequen
 
 func TestIngestTransactions(t *testing.T) {
 	// Use a small retention window to test eviction
-	store := NewMemoryStore("passphrase", 3)
+	store := NewMemoryStore(interfaces.MakeNoOpDeamon(), "passphrase", 3)
 
 	_, ok, storeRange := store.GetTransaction(txHash(1, false))
 	require.False(t, ok)

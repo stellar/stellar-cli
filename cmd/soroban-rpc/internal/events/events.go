@@ -2,11 +2,13 @@ package events
 
 import (
 	"errors"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"io"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -46,8 +48,10 @@ type MemoryStore struct {
 	// by the lock
 	networkPassphrase string
 	// lock protects the mutable fields below
-	lock           sync.RWMutex
-	eventsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]event]
+	lock                 sync.RWMutex
+	eventsByLedger       *ledgerbucketwindow.LedgerBucketWindow[[]event]
+	daemon               interfaces.Daemon
+	eventsDurationMetric *metrics.SummaryVec
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -57,11 +61,26 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any events from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
+func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentionWindow uint32) *MemoryStore {
 	window := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
+
+	// eventsDurationMetric is a metric for measuring latency of event store operations
+	eventsDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsRegistry().Namespace(), Subsystem: "events", Name: "operation_duration_seconds",
+		Help: "event store operation durations, sliding window = 10m",
+	},
+		[]string{"operation"},
+	)
+
+	if daemon != nil {
+		daemon.MetricsRegistry().Register(eventsDurationMetric)
+	}
+
 	return &MemoryStore{
-		networkPassphrase: networkPassphrase,
-		eventsByLedger:    window,
+		daemon:               daemon,
+		networkPassphrase:    networkPassphrase,
+		eventsByLedger:       window,
+		eventsDurationMetric: eventsDurationMetric,
 	}
 }
 
@@ -115,7 +134,7 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor,
 			}
 		}
 	}
-	metrics.EventsDurationMetric.With(prometheus.Labels{"operation": "scan"}).
+	m.eventsDurationMetric.With(prometheus.Labels{"operation": "scan"}).
 		Observe(time.Since(startTime).Seconds())
 	return lastLedgerInWindow, nil
 }
@@ -184,7 +203,7 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	m.lock.Lock()
 	m.eventsByLedger.Append(bucket)
 	m.lock.Unlock()
-	metrics.EventsDurationMetric.With(prometheus.Labels{"operation": "ingest"}).
+	m.eventsDurationMetric.With(prometheus.Labels{"operation": "ingest"}).
 		Observe(time.Since(startTime).Seconds())
 	return nil
 }

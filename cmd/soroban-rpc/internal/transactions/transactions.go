@@ -1,9 +1,11 @@
 package transactions
 
 import (
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"sync"
 	"time"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/ingest"
@@ -27,10 +29,12 @@ type MemoryStore struct {
 	// Stellar network passphrase.
 	// Accessing networkPassphrase does not need to be protected
 	// by the lock
-	networkPassphrase    string
-	lock                 sync.RWMutex
-	transactions         map[xdr.Hash]transaction
-	transactionsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
+	networkPassphrase         string
+	lock                      sync.RWMutex
+	transactions              map[xdr.Hash]transaction
+	transactionsByLedger      *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
+	daemon                    interfaces.Daemon
+	transactionDurationMetric *metrics.SummaryVec
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -40,12 +44,27 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any transactions from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
+func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentionWindow uint32) *MemoryStore {
 	window := ledgerbucketwindow.NewLedgerBucketWindow[[]xdr.Hash](retentionWindow)
+
+	// transactionDurationMetric is a metric for measuring latency of transaction store operations
+	transactionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsRegistry().Namespace(), Subsystem: "transactions", Name: "operation_duration_seconds",
+		Help: "transaction store operation durations, sliding window = 10m",
+	},
+		[]string{"operation"},
+	)
+
+	if daemon != nil {
+		daemon.MetricsRegistry().Register(transactionDurationMetric)
+	}
+
 	return &MemoryStore{
-		networkPassphrase:    networkPassphrase,
-		transactions:         make(map[xdr.Hash]transaction),
-		transactionsByLedger: window,
+		networkPassphrase:         networkPassphrase,
+		transactions:              make(map[xdr.Hash]transaction),
+		transactionsByLedger:      window,
+		daemon:                    daemon,
+		transactionDurationMetric: transactionDurationMetric,
 	}
 }
 
@@ -104,7 +123,7 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 	for hash, tx := range hashMap {
 		m.transactions[hash] = tx
 	}
-	metrics.TransactionDurationMetric.With(prometheus.Labels{"operation": "ingest"}).Observe(time.Since(startTime).Seconds())
+	m.transactionDurationMetric.With(prometheus.Labels{"operation": "ingest"}).Observe(time.Since(startTime).Seconds())
 	return nil
 }
 
@@ -177,6 +196,6 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 		},
 	}
 
-	metrics.TransactionDurationMetric.With(prometheus.Labels{"operation": "get"}).Observe(time.Since(startTime).Seconds())
+	m.transactionDurationMetric.With(prometheus.Labels{"operation": "get"}).Observe(time.Since(startTime).Seconds())
 	return tx, true, storeRange
 }

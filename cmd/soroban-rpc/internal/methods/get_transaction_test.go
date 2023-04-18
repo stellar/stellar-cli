@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stellar/go/network"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
@@ -112,7 +113,7 @@ func txEnvelope(acctSeq uint32) xdr.TransactionEnvelope {
 }
 
 func TestGetTransaction(t *testing.T) {
-	store := transactions.NewMemoryStore("passphrase", 100)
+	store := transactions.NewMemoryStore(interfaces.MakeNoOpDeamon(), "passphrase", 100)
 	_, err := GetTransaction(store, GetTransactionRequest{"ab"})
 	assert.EqualError(t, err, "[-32602] unexpected hash length (2)")
 	_, err = GetTransaction(store, GetTransactionRequest{"foo                                                              "})

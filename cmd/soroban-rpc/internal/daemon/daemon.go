@@ -49,6 +49,7 @@ type Daemon struct {
 	closeOnce           sync.Once
 	closeError          error
 	done                chan struct{}
+	metricsRegistry     *metrics.Registry
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -153,13 +154,25 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	if err != nil {
 		logger.Fatalf("could not open database: %v", err)
 	}
-	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", metrics.Registry)
+	metricsRegistry := metrics.MakeRegistry()
+
+	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", metricsRegistry.PrometheusRegistry)
+
+	d := &Daemon{
+		logger:          logger,
+		core:            core,
+		db:              dbConn,
+		done:            make(chan struct{}),
+		metricsRegistry: metricsRegistry,
+	}
 
 	eventStore := events.NewMemoryStore(
+		d,
 		cfg.NetworkPassphrase,
 		cfg.EventLedgerRetentionWindow,
 	)
 	transactionStore := transactions.NewMemoryStore(
+		d,
 		cfg.NetworkPassphrase,
 		cfg.TransactionLedgerRetentionWindow,
 	)
@@ -203,6 +216,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		LedgerBackend:     core,
 		Timeout:           cfg.IngestionTimeout,
 		OnIngestionRetry:  onIngestionRetry,
+		Daemon:            d,
 	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
@@ -224,16 +238,12 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 
 	httpHandler := supporthttp.NewAPIMux(logger)
 	httpHandler.Handle("/", jsonRPCHandler)
-	d := &Daemon{
-		logger:              logger,
-		core:                core,
-		ingestService:       ingestService,
-		jsonRPCHandler:      &jsonRPCHandler,
-		httpHandler:         httpHandler,
-		db:                  dbConn,
-		preflightWorkerPool: preflightWorkerPool,
-		done:                make(chan struct{}),
-	}
+
+	d.preflightWorkerPool = preflightWorkerPool
+	d.ingestService = ingestService
+	d.jsonRPCHandler = &jsonRPCHandler
+	d.httpHandler = httpHandler
+
 	d.server = &http.Server{
 		Addr:        endpoint,
 		Handler:     d,
@@ -246,7 +256,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		adminMux.Handle("/metrics", metrics.HTTPHandler)
+		adminMux.Handle("/metrics", metricsRegistry.HTTPHandler)
 		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}
 	return d
@@ -282,4 +292,7 @@ func (d *Daemon) Run() {
 	case <-d.done:
 		return
 	}
+}
+func (d *Daemon) MetricsRegistry() *metrics.Registry {
+	return d.metricsRegistry
 }
