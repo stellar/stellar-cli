@@ -132,6 +132,10 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
 
+	if cfg.LogFormat == config.LogFormatJSON {
+		logger.UseJSONFormatter()
+	}
+
 	core, err := newCaptiveCore(&cfg, logger)
 	if err != nil {
 		logger.Fatalf("could not create captive core: %v", err)
