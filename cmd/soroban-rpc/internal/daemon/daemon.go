@@ -41,7 +41,6 @@ type Daemon struct {
 	ingestService       *ingest.Service
 	db                  dbsession.SessionInterface
 	jsonRPCHandler      *internal.Handler
-	httpHandler         http.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
 	prometheusRegistry  *prometheus.Registry
@@ -50,14 +49,6 @@ type Daemon struct {
 	closeOnce           sync.Once
 	closeError          error
 	done                chan struct{}
-}
-
-func (d *Daemon) PrometheusRegistry() *prometheus.Registry {
-	return d.prometheusRegistry
-}
-
-func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	d.httpHandler.ServeHTTP(writer, request)
 }
 
 func (d *Daemon) GetDB() dbsession.SessionInterface {
@@ -232,7 +223,6 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		core:                core,
 		ingestService:       ingestService,
 		jsonRPCHandler:      &jsonRPCHandler,
-		httpHandler:         httpHandler,
 		db:                  dbConn,
 		preflightWorkerPool: preflightWorkerPool,
 		prometheusRegistry:  prometheusRegistry,
@@ -240,7 +230,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	}
 	d.server = &http.Server{
 		Addr:        endpoint,
-		Handler:     d,
+		Handler:     httpHandler,
 		ReadTimeout: defaultReadTimeout,
 	}
 	if adminEndpoint != "" {
