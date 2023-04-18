@@ -61,22 +61,22 @@ func (d *Daemon) close() {
 	var closeErrors []error
 
 	if err := d.server.Shutdown(shutdownCtx); err != nil {
-		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
+		d.logger.WithError(err).Error("error during Soroban JSON RPC server Shutdown")
 		closeErrors = append(closeErrors, err)
 	}
 	if d.adminServer != nil {
 		if err := d.adminServer.Shutdown(shutdownCtx); err != nil {
-			d.logger.Errorf("Error during Soroban JSON admin server Shutdown: %v", err)
+			d.logger.WithError(err).Error("error during Soroban JSON admin server Shutdown")
 			closeErrors = append(closeErrors, err)
 		}
 	}
 
 	if err := d.ingestService.Close(); err != nil {
-		d.logger.WithError(err).Error("Error closing ingestion service")
+		d.logger.WithError(err).Error("error closing ingestion service")
 		closeErrors = append(closeErrors, err)
 	}
 	if err := d.core.Close(); err != nil {
-		d.logger.WithError(err).Error("Error closing captive core")
+		d.logger.WithError(err).Error("error closing captive core")
 		closeErrors = append(closeErrors, err)
 	}
 	d.jsonRPCHandler.Close()
@@ -133,11 +133,11 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 
 	core, err := newCaptiveCore(&cfg, logger)
 	if err != nil {
-		logger.Fatalf("could not create captive core: %v", err)
+		logger.WithError(err).Fatal("could not create captive core")
 	}
 
 	if len(cfg.HistoryArchiveURLs) == 0 {
-		logger.Fatalf("no history archives url were provided")
+		logger.Fatal("no history archives url were provided")
 	}
 	historyArchive, err := historyarchive.Connect(
 		cfg.HistoryArchiveURLs[0],
@@ -146,12 +146,12 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		},
 	)
 	if err != nil {
-		logger.Fatalf("could not connect to history archive: %v", err)
+		logger.WithError(err).Fatal("could not connect to history archive")
 	}
 
 	session, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
 	if err != nil {
-		logger.Fatalf("could not open database: %v", err)
+		logger.WithError(err).Fatal("could not open database")
 	}
 	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", prometheusRegistry)
 
@@ -170,17 +170,17 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	defer cancelReadTxMeta()
 	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(readTxMetaCtx)
 	if err != nil {
-		logger.Fatalf("could obtain txmeta cache from the database: %v", err)
+		logger.WithError(err).Fatal("could obtain txmeta cache from the database")
 	}
 	for _, txmeta := range txmetas {
 		// NOTE: We could optimize this to avoid unnecessary ingestion calls
 		//       (len(txmetas) can be larger than the store retention windows)
 		//       but it's probably not worth the pain.
 		if err := eventStore.IngestEvents(txmeta); err != nil {
-			logger.Fatalf("could initialize event memory store: %v", err)
+			logger.WithError(err).Fatal("could initialize event memory store")
 		}
 		if err := transactionStore.IngestTransactions(txmeta); err != nil {
-			logger.Fatalf("could initialize transaction memory store: %v", err)
+			logger.WithError(err).Fatal("could initialize transaction memory store")
 		}
 	}
 
@@ -248,19 +248,23 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 }
 
 func (d *Daemon) Run() {
-	d.logger.Infof("Starting Soroban JSON RPC server on %v", d.server.Addr)
+	d.logger.WithFields(supportlog.F{
+		"version": config.Version,
+		"commit":  config.CommitHash,
+		"addr":    d.server.Addr,
+	}).Info("starting Soroban JSON RPC server")
 
 	go func() {
 		if err := d.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Error starting or closing listener:
-			d.logger.Fatalf("Soroban JSON RPC server encountered fatal error: %v", err)
+			d.logger.WithError(err).Fatal("soroban JSON RPC server encountered fatal error")
 		}
 	}()
 
 	if d.adminServer != nil {
 		go func() {
 			if err := d.adminServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-				d.logger.Errorf("Soroban admin server encountered fatal error: %v", err)
+				d.logger.WithError(err).Error("soroban admin server encountered fatal error")
 			}
 		}()
 	}
