@@ -6,7 +6,6 @@ require (
 	github.com/Masterminds/squirrel v1.5.0
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/creachadair/jrpc2 v0.41.1
-	github.com/go-chi/chi v4.0.3+incompatible
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/pelletier/go-toml v1.9.0
@@ -15,7 +14,7 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
 	github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189
-	github.com/stellar/go v0.0.0-20230410132830-a9de2a21d17b
+	github.com/stellar/go v0.0.0-20230417211416-596d7bbec78b
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/mod v0.6.0
 )
@@ -30,6 +29,7 @@ require (
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
+	github.com/go-chi/chi v4.0.3+incompatible // indirect
 	github.com/go-errors/errors v0.0.0-20150906023321-a41850380601 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
 	github.com/go-git/go-billy/v5 v5.3.1 // indirect
