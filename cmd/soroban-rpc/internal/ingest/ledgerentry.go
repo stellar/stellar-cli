@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 )
 
 func (s *Service) ingestLedgerEntryChanges(ctx context.Context, reader ingest.ChangeReader, tx db.WriteTx, progressLogPeriod int) error {
@@ -39,10 +39,10 @@ func (s *Service) ingestLedgerEntryChanges(ctx context.Context, reader ingest.Ch
 	for stat, value := range results.Map() {
 		stat = strings.Replace(stat, "stats_", "change_", 1)
 		s.ledgerStatsMetric.
-			With(prometheus.Labels{"type": stat}).Add(float64(value.(int64)))
+			With(metrics.Labels{"type": stat}).Add(float64(value.(int64)))
 	}
 	s.ingestionDurationMetric.
-		With(prometheus.Labels{"type": "ledger_entries"}).Observe(time.Since(startTime).Seconds())
+		With(metrics.Labels{"type": "ledger_entries"}).Observe(time.Since(startTime).Seconds())
 	return ctx.Err()
 }
 

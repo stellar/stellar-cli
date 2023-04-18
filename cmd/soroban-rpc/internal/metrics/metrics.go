@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"runtime"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/support/logmetrics"
-
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 )
 
@@ -16,10 +15,21 @@ const (
 	prometheusNamespace = "soroban_rpc"
 )
 
+// reexport some of the prometheus data types and methods to allow
+// localization.
 type PrometheusRegistry = *prometheus.Registry
 type SummaryVec = prometheus.SummaryVec
 type Gauge = prometheus.Gauge
 type CounterVec = prometheus.CounterVec
+type SummaryOpts = prometheus.SummaryOpts
+type Labels = prometheus.Labels
+type GaugeOpts = prometheus.GaugeOpts
+type CounterOpts = prometheus.CounterOpts
+
+var NewSummaryVec = prometheus.NewSummaryVec
+var NewGaugeVec = prometheus.NewGaugeVec
+var NewGauge = prometheus.NewGauge
+var NewCounterVec = prometheus.NewCounterVec
 
 // extend the prometheus registry by adding the http handler.
 type Registry struct {
@@ -29,8 +39,8 @@ type Registry struct {
 
 func MakeRegistry() *Registry {
 	registry := prometheus.NewRegistry()
-	buildInfoGauge := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{Namespace: prometheusNamespace, Subsystem: "build", Name: "info"},
+	buildInfoGauge := NewGaugeVec(
+		GaugeOpts{Namespace: prometheusNamespace, Subsystem: "build", Name: "info"},
 		[]string{"version", "goversion", "commit", "branch", "build_timestamp"},
 	)
 	// LogMetricsHook is a metric which counts log lines emitted by soroban rpc

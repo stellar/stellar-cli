@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
 
@@ -63,7 +61,7 @@ func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentio
 	window := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
 
 	// eventsDurationMetric is a metric for measuring latency of event store operations
-	eventsDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+	eventsDurationMetric := metrics.NewSummaryVec(metrics.SummaryOpts{
 		Namespace: daemon.MetricsRegistry().Namespace(), Subsystem: "events", Name: "operation_duration_seconds",
 		Help: "event store operation durations, sliding window = 10m",
 	},
@@ -129,7 +127,7 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor,
 			}
 		}
 	}
-	m.eventsDurationMetric.With(prometheus.Labels{"operation": "scan"}).
+	m.eventsDurationMetric.With(metrics.Labels{"operation": "scan"}).
 		Observe(time.Since(startTime).Seconds())
 	return lastLedgerInWindow, nil
 }
@@ -198,7 +196,7 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	m.lock.Lock()
 	m.eventsByLedger.Append(bucket)
 	m.lock.Unlock()
-	m.eventsDurationMetric.With(prometheus.Labels{"operation": "ingest"}).
+	m.eventsDurationMetric.With(metrics.Labels{"operation": "ingest"}).
 		Observe(time.Since(startTime).Seconds())
 	return nil
 }
