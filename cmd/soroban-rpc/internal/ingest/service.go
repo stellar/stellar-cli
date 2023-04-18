@@ -76,7 +76,6 @@ func NewService(cfg Config) *Service {
 		networkPassPhrase:       cfg.NetworkPassPhrase,
 		timeout:                 cfg.Timeout,
 		done:                    done,
-		daemon:                  cfg.Daemon,
 		ingestionDurationMetric: ingestionDurationMetric,
 		latestLedgerMetric:      latestLedgerMetric,
 		ledgerStatsMetric:       ledgerStatsMetric,
@@ -111,7 +110,6 @@ type Service struct {
 	networkPassPhrase       string
 	done                    context.CancelFunc
 	wg                      sync.WaitGroup
-	daemon                  interfaces.Daemon
 	ingestionDurationMetric *metrics.SummaryVec
 	latestLedgerMetric      metrics.Gauge
 	ledgerStatsMetric       *metrics.CounterVec
