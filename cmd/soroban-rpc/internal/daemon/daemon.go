@@ -3,19 +3,21 @@ package daemon
 import (
 	"context"
 	"errors"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"net/http"
-	"net/http/pprof"
+	"net/http/pprof" //nolint:gosec
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
+
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
 	dbsession "github.com/stellar/go/support/db"
+	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
@@ -38,7 +40,8 @@ type Daemon struct {
 	core                *ledgerbackend.CaptiveStellarCore
 	ingestService       *ingest.Service
 	db                  dbsession.SessionInterface
-	handler             *internal.Handler
+	jsonRPCHandler      *internal.Handler
+	httpHandler         http.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
 	server              *http.Server
@@ -49,7 +52,7 @@ type Daemon struct {
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	d.handler.ServeHTTP(writer, request)
+	d.httpHandler.ServeHTTP(writer, request)
 }
 
 func (d *Daemon) GetDB() dbsession.SessionInterface {
@@ -57,19 +60,16 @@ func (d *Daemon) GetDB() dbsession.SessionInterface {
 }
 
 func (d *Daemon) close() {
-	// Default Shutdown grace period.
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), defaultShutdownGracePeriod)
 	defer shutdownRelease()
 	var closeErrors []error
 
 	if err := d.server.Shutdown(shutdownCtx); err != nil {
-		// Error from closing listeners, or context timeout:
 		d.logger.Errorf("Error during Soroban JSON RPC server Shutdown: %v", err)
 		closeErrors = append(closeErrors, err)
 	}
 	if d.adminServer != nil {
 		if err := d.adminServer.Shutdown(shutdownCtx); err != nil {
-			// Error from closing listeners, or context timeout:
 			d.logger.Errorf("Error during Soroban JSON admin server Shutdown: %v", err)
 			closeErrors = append(closeErrors, err)
 		}
@@ -83,7 +83,7 @@ func (d *Daemon) close() {
 		d.logger.WithError(err).Error("Error closing captive core")
 		closeErrors = append(closeErrors, err)
 	}
-	d.handler.Close()
+	d.jsonRPCHandler.Close()
 	if err := d.db.Close(); err != nil {
 		d.logger.WithError(err).Error("Error closing db")
 		closeErrors = append(closeErrors, err)
@@ -98,7 +98,7 @@ func (d *Daemon) Close() error {
 	return d.closeError
 }
 
-// newCaptiveCore create a new captive core backend instance and returns it.
+// newCaptiveCore creates a new captive core backend instance and returns it.
 func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerbackend.CaptiveStellarCore, error) {
 	httpPortUint := uint(cfg.CaptiveCoreHTTPPort)
 	var captiveCoreTomlParams ledgerbackend.CaptiveCoreTomlParams
@@ -209,7 +209,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(
 		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
-	handler := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
+	jsonRPCHandler := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		EventStore:       eventStore,
 		TransactionStore: transactionStore,
 		Logger:           logger,
@@ -222,11 +222,14 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		PreflightGetter:   preflightWorkerPool,
 	})
 
+	httpHandler := supporthttp.NewAPIMux(logger)
+	httpHandler.Handle("/", jsonRPCHandler)
 	d := &Daemon{
 		logger:              logger,
 		core:                core,
 		ingestService:       ingestService,
-		handler:             &handler,
+		jsonRPCHandler:      &jsonRPCHandler,
+		httpHandler:         httpHandler,
 		db:                  dbConn,
 		preflightWorkerPool: preflightWorkerPool,
 		done:                make(chan struct{}),
@@ -237,10 +240,13 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		ReadTimeout: defaultReadTimeout,
 	}
 	if adminEndpoint != "" {
-		adminMux := http.NewServeMux()
-		adminMux.Handle("/metrics", metrics.HTTPHandler)
-		adminMux.HandleFunc("/debug/pprof/heap", pprof.Index)
+		adminMux := supporthttp.NewMux(logger)
+		adminMux.HandleFunc("/debug/pprof/", pprof.Index)
+		adminMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		adminMux.Handle("/metrics", metrics.HTTPHandler)
 		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}
 	return d
