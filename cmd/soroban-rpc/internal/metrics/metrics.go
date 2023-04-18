@@ -49,6 +49,7 @@ func MakeRegistry() *Registry {
 
 	registry.MustRegister(prometheus.NewGoCollector())
 	registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	registry.MustRegister(buildInfoGauge)
 
 	for _, counter := range LogMetricsHook {
 		registry.MustRegister(counter)
