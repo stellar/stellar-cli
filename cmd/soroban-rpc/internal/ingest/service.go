@@ -8,15 +8,17 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest"
 	backends "github.com/stellar/go/ingest/ledgerbackend"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
+
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )

@@ -11,8 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
-
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
@@ -26,6 +24,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
@@ -160,9 +159,9 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	}
 	metricsRegistry := metrics.MakeRegistry()
 
-	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", metricsRegistry.PrometheusRegistry)
+	dbConn := dbsession.RegisterMetrics(session, metricsRegistry.Namespace(), "db", metricsRegistry.PrometheusRegistry)
 
-	d := &Daemon{
+	daemon := &Daemon{
 		logger:          logger,
 		core:            core,
 		db:              dbConn,
@@ -171,12 +170,12 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	}
 
 	eventStore := events.NewMemoryStore(
-		d,
+		daemon,
 		cfg.NetworkPassphrase,
 		cfg.EventLedgerRetentionWindow,
 	)
 	transactionStore := transactions.NewMemoryStore(
-		d,
+		daemon,
 		cfg.NetworkPassphrase,
 		cfg.TransactionLedgerRetentionWindow,
 	)
@@ -220,7 +219,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		LedgerBackend:     core,
 		Timeout:           cfg.IngestionTimeout,
 		OnIngestionRetry:  onIngestionRetry,
-		Daemon:            d,
+		Daemon:            daemon,
 	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
@@ -243,14 +242,14 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	httpHandler := supporthttp.NewAPIMux(logger)
 	httpHandler.Handle("/", jsonRPCHandler)
 
-	d.preflightWorkerPool = preflightWorkerPool
-	d.ingestService = ingestService
-	d.jsonRPCHandler = &jsonRPCHandler
-	d.httpHandler = httpHandler
+	daemon.preflightWorkerPool = preflightWorkerPool
+	daemon.ingestService = ingestService
+	daemon.jsonRPCHandler = &jsonRPCHandler
+	daemon.httpHandler = httpHandler
 
-	d.server = &http.Server{
+	daemon.server = &http.Server{
 		Addr:        endpoint,
-		Handler:     d,
+		Handler:     daemon,
 		ReadTimeout: defaultReadTimeout,
 	}
 	if adminEndpoint != "" {
@@ -261,9 +260,9 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		adminMux.Handle("/metrics", metricsRegistry.HTTPHandler)
-		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
+		daemon.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}
-	return d
+	return daemon
 }
 
 func (d *Daemon) Run() {

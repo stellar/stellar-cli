@@ -4,14 +4,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
-
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 )
 
 type transaction struct {
@@ -33,7 +33,6 @@ type MemoryStore struct {
 	lock                      sync.RWMutex
 	transactions              map[xdr.Hash]transaction
 	transactionsByLedger      *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
-	daemon                    interfaces.Daemon
 	transactionDurationMetric *metrics.SummaryVec
 }
 
@@ -55,15 +54,12 @@ func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentio
 		[]string{"operation"},
 	)
 
-	if daemon != nil {
-		daemon.MetricsRegistry().Register(transactionDurationMetric)
-	}
+	daemon.MetricsRegistry().Register(transactionDurationMetric)
 
 	return &MemoryStore{
 		networkPassphrase:         networkPassphrase,
 		transactions:              make(map[xdr.Hash]transaction),
 		transactionsByLedger:      window,
-		daemon:                    daemon,
 		transactionDurationMetric: transactionDurationMetric,
 	}
 }

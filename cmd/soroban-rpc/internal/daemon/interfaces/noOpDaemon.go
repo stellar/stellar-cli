@@ -2,16 +2,18 @@ package interfaces
 
 import "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 
-type NoOpDeamon struct {
+// The noOpDeamon is a dummy daemon implementation, supporting the Daemon interface.
+// Used only in testing.
+type noOpDaemon struct {
 	metricsRegistry *metrics.Registry
 }
 
-func MakeNoOpDeamon() *NoOpDeamon {
-	return &NoOpDeamon{
+func MakeNoOpDeamon() *noOpDaemon {
+	return &noOpDaemon{
 		metricsRegistry: metrics.MakeNoOpRegistry(),
 	}
 }
 
-func (d *NoOpDeamon) MetricsRegistry() *metrics.Registry {
+func (d *noOpDaemon) MetricsRegistry() *metrics.Registry {
 	return d.metricsRegistry
 }

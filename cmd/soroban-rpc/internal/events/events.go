@@ -7,15 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
-
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 )
 
 type bucket struct {
@@ -50,7 +49,6 @@ type MemoryStore struct {
 	// lock protects the mutable fields below
 	lock                 sync.RWMutex
 	eventsByLedger       *ledgerbucketwindow.LedgerBucketWindow[[]event]
-	daemon               interfaces.Daemon
 	eventsDurationMetric *metrics.SummaryVec
 }
 
@@ -72,12 +70,9 @@ func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentio
 		[]string{"operation"},
 	)
 
-	if daemon != nil {
-		daemon.MetricsRegistry().Register(eventsDurationMetric)
-	}
+	daemon.MetricsRegistry().Register(eventsDurationMetric)
 
 	return &MemoryStore{
-		daemon:               daemon,
 		networkPassphrase:    networkPassphrase,
 		eventsByLedger:       window,
 		eventsDurationMetric: eventsDurationMetric,
