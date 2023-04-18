@@ -125,7 +125,7 @@ func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive hi
 
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		// Do it in parallel with the upcoming captive core preparation to save time
-		s.logger.Infof("Found an empty database, creating ledger-entry baseline from the most recent checkpoint (%d). This can take up to 30 minutes, depending on the network", checkpointLedger)
+		s.logger.Infof("found an empty database, creating ledger-entry baseline from the most recent checkpoint (%d). This can take up to 30 minutes, depending on the network", checkpointLedger)
 		go func() {
 			checkPointFillErr <- s.fillEntriesFromCheckpoint(ctx, archive, checkpointLedger)
 		}()
@@ -164,16 +164,16 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 		return err
 	}
 
-	s.logger.Info("Committing checkpoint ledger entries")
+	s.logger.Info("committing checkpoint ledger entries")
 	if err := tx.Commit(checkpointLedger); err != nil {
 		return err
 	}
-	s.logger.Info("Finished checkpoint processing")
+	s.logger.Info("finished checkpoint processing")
 	return nil
 }
 
 func (s *Service) ingest(ctx context.Context, sequence uint32) error {
-	s.logger.Infof("Applying txmeta for ledger %d", sequence)
+	s.logger.Infof("applying txmeta for ledger %d", sequence)
 	ledgerCloseMeta, err := s.ledgerBackend.GetLedger(ctx, sequence)
 	if err != nil {
 		return err
