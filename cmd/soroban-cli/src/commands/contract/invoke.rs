@@ -572,7 +572,9 @@ async fn get_remote_contract_spec_entries(
         key: ScVal::LedgerKeyContractExecutable,
     });
     let contract_ref = client.get_ledger_entries(Vec::from([contract_key])).await?;
-
+    if contract_ref.entries.len() == 0 {
+        return Err(Error::MissingOperationResult);
+    }
     let contract_ref_entry = &contract_ref.entries[0];
     Ok(
         match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
@@ -582,7 +584,9 @@ async fn get_remote_contract_spec_entries(
             }) => {
                 let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
                 let contract_data = client.get_ledger_entries(Vec::from([code_key])).await?;
-
+                if contract_data.entries.len() == 0 {
+                    return Err(Error::MissingOperationResult);
+                }
                 let contract_data_entry = &contract_data.entries[0];
                 match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
                     LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {

@@ -362,6 +362,9 @@ impl Client {
         });
         let keys = Vec::from([key]);
         let response = self.get_ledger_entries(keys).await?;
+        if response.entries.len() == 0 {
+            return Err(Error::MissingResult);
+        }
         let ledger_entry = &response.entries[0];
         if let LedgerEntryData::Account(entry) =
             LedgerEntryData::read_xdr_base64(&mut ledger_entry.xdr.as_bytes())?
