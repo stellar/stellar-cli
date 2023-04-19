@@ -362,7 +362,7 @@ impl Client {
         });
         let keys = Vec::from([key]);
         let response = self.get_ledger_entries(keys).await?;
-        if response.entries.len() == 0 {
+        if response.entries.is_empty() {
             return Err(Error::MissingResult);
         }
         let ledger_entry = &response.entries[0];
