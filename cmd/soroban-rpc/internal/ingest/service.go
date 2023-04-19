@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest"
 	backends "github.com/stellar/go/ingest/ledgerbackend"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
@@ -41,30 +40,30 @@ type Config struct {
 
 func NewService(cfg Config) *Service {
 	// ingestionDurationMetric is a metric for measuring the latency of ingestion
-	ingestionDurationMetric := metrics.NewSummaryVec(metrics.SummaryOpts{
-		Namespace: cfg.Daemon.MetricsRegistry().Namespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
+	ingestionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
 		Help: "ledger ingestion durations, sliding window = 10m",
 	},
 		[]string{"type"},
 	)
 	// latestLedgerMetric is a metric for measuring the latest ingested ledger
-	latestLedgerMetric := metrics.NewGauge(metrics.GaugeOpts{
-		Namespace: cfg.Daemon.MetricsRegistry().Namespace(), Subsystem: "ingest", Name: "local_latest_ledger",
+	latestLedgerMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "local_latest_ledger",
 		Help: "sequence number of the latest ledger ingested by this ingesting instance",
 	})
 
 	// ledgerStatsMetric is a metric which measures statistics on all ledger entries ingested by soroban rpc
-	ledgerStatsMetric := metrics.NewCounterVec(
-		metrics.CounterOpts{
-			Namespace: cfg.Daemon.MetricsRegistry().Namespace(), Subsystem: "ingest", Name: "ledger_stats_total",
+	ledgerStatsMetric := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "ledger_stats_total",
 			Help: "counters of different ledger stats",
 		},
 		[]string{"type"},
 	)
 
-	cfg.Daemon.MetricsRegistry().MaybeRegister(ingestionDurationMetric)
-	cfg.Daemon.MetricsRegistry().MaybeRegister(latestLedgerMetric)
-	cfg.Daemon.MetricsRegistry().MaybeRegister(ledgerStatsMetric)
+	cfg.Daemon.MetricsRegistry().Register(ingestionDurationMetric)
+	cfg.Daemon.MetricsRegistry().Register(latestLedgerMetric)
+	cfg.Daemon.MetricsRegistry().Register(ledgerStatsMetric)
 
 	ctx, done := context.WithCancel(context.Background())
 	service := &Service{
@@ -110,9 +109,9 @@ type Service struct {
 	networkPassPhrase       string
 	done                    context.CancelFunc
 	wg                      sync.WaitGroup
-	ingestionDurationMetric *metrics.SummaryVec
-	latestLedgerMetric      metrics.Gauge
-	ledgerStatsMetric       *metrics.CounterVec
+	ingestionDurationMetric *prometheus.SummaryVec
+	latestLedgerMetric      prometheus.Gauge
+	ledgerStatsMetric       *prometheus.CounterVec
 }
 
 func (s *Service) Close() error {
@@ -246,7 +245,7 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 	}
 
 	s.ingestionDurationMetric.
-		With(metrics.Labels{"type": "total"}).Observe(time.Since(startTime).Seconds())
+		With(prometheus.Labels{"type": "total"}).Observe(time.Since(startTime).Seconds())
 	s.latestLedgerMetric.Set(float64(sequence))
 	return nil
 }
@@ -257,7 +256,7 @@ func (s *Service) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.Ledge
 		return err
 	}
 	s.ingestionDurationMetric.
-		With(metrics.Labels{"type": "ledger_close_meta"}).Observe(time.Since(startTime).Seconds())
+		With(prometheus.Labels{"type": "ledger_close_meta"}).Observe(time.Since(startTime).Seconds())
 
 	if err := s.eventStore.IngestEvents(ledgerCloseMeta); err != nil {
 		return err

@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
@@ -24,12 +26,12 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ingest"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
 const (
+	prometheusNamespace          = "soroban_rpc"
 	maxLedgerEntryWriteBatchSize = 150
 	defaultReadTimeout           = 5 * time.Second
 	defaultShutdownGracePeriod   = 10 * time.Second
@@ -48,7 +50,7 @@ type Daemon struct {
 	closeOnce           sync.Once
 	closeError          error
 	done                chan struct{}
-	metricsRegistry     *metrics.Registry
+	metricsRegistry     *prometheus.Registry
 }
 
 func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -157,9 +159,9 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	if err != nil {
 		logger.WithError(err).Fatal("could not open database")
 	}
-	metricsRegistry := metrics.MakeRegistry()
+	metricsRegistry := prometheus.NewRegistry()
 
-	dbConn := dbsession.RegisterMetrics(session, metricsRegistry.Namespace(), "db", metricsRegistry.PrometheusRegistry)
+	dbConn := dbsession.RegisterMetrics(session, prometheusNamespace, "db", metricsRegistry)
 
 	daemon := &Daemon{
 		logger:          logger,
@@ -259,9 +261,10 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		adminMux.Handle("/metrics", metricsRegistry.HTTPHandler)
+		adminMux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 		daemon.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}
+	daemon.registerMetrics()
 	return daemon
 }
 
@@ -299,7 +302,4 @@ func (d *Daemon) Run() {
 	case <-d.done:
 		return
 	}
-}
-func (d *Daemon) MetricsRegistry() *metrics.Registry {
-	return d.metricsRegistry
 }

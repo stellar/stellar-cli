@@ -1,19 +1,27 @@
 package interfaces
 
-import "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/metrics"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 // The noOpDeamon is a dummy daemon implementation, supporting the Daemon interface.
 // Used only in testing.
 type noOpDaemon struct {
-	metricsRegistry *metrics.Registry
+	metricsRegistry  *prometheus.Registry
+	metricsNamespace string
 }
 
 func MakeNoOpDeamon() *noOpDaemon {
 	return &noOpDaemon{
-		metricsRegistry: metrics.MakeNoOpRegistry(),
+		metricsRegistry:  prometheus.NewRegistry(),
+		metricsNamespace: "soroban_rpc",
 	}
 }
 
-func (d *noOpDaemon) MetricsRegistry() *metrics.Registry {
+func (d *noOpDaemon) MetricsRegistry() *prometheus.Registry {
 	return d.metricsRegistry
+}
+
+func (d *noOpDaemon) MetricsNamespace() string {
+	return d.metricsNamespace
 }
