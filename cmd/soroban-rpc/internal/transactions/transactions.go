@@ -32,6 +32,7 @@ type MemoryStore struct {
 	transactions              map[xdr.Hash]transaction
 	transactionsByLedger      *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
 	transactionDurationMetric *prometheus.SummaryVec
+	transactionCountMetric    prometheus.Summary
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -51,14 +52,18 @@ func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentio
 	},
 		[]string{"operation"},
 	)
-
-	daemon.MetricsRegistry().Register(transactionDurationMetric)
+	transactionCountMetric := prometheus.NewSummary(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(), Subsystem: "transactions", Name: "count",
+		Help: "count of transactions ingested, sliding window = 10m",
+	})
+	daemon.MetricsRegistry().MustRegister(transactionDurationMetric, transactionCountMetric)
 
 	return &MemoryStore{
 		networkPassphrase:         networkPassphrase,
 		transactions:              make(map[xdr.Hash]transaction),
 		transactionsByLedger:      window,
 		transactionDurationMetric: transactionDurationMetric,
+		transactionCountMetric:    transactionCountMetric,
 	}
 }
 
@@ -118,6 +123,7 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 		m.transactions[hash] = tx
 	}
 	m.transactionDurationMetric.With(prometheus.Labels{"operation": "ingest"}).Observe(time.Since(startTime).Seconds())
+	m.transactionCountMetric.Observe(float64(txCount))
 	return nil
 }
 

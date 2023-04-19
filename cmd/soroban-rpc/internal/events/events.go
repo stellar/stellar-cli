@@ -48,6 +48,7 @@ type MemoryStore struct {
 	lock                 sync.RWMutex
 	eventsByLedger       *ledgerbucketwindow.LedgerBucketWindow[[]event]
 	eventsDurationMetric *prometheus.SummaryVec
+	eventCountMetric     prometheus.Summary
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -68,12 +69,16 @@ func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentio
 		[]string{"operation"},
 	)
 
-	daemon.MetricsRegistry().Register(eventsDurationMetric)
-
+	eventCountMetric := prometheus.NewSummary(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(), Subsystem: "events", Name: "count",
+		Help: "count of events ingested, sliding window = 10m",
+	})
+	daemon.MetricsRegistry().MustRegister(eventCountMetric, eventsDurationMetric)
 	return &MemoryStore{
 		networkPassphrase:    networkPassphrase,
 		eventsByLedger:       window,
 		eventsDurationMetric: eventsDurationMetric,
+		eventCountMetric:     eventCountMetric,
 	}
 }
 
@@ -198,6 +203,7 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	m.lock.Unlock()
 	m.eventsDurationMetric.With(prometheus.Labels{"operation": "ingest"}).
 		Observe(time.Since(startTime).Seconds())
+	m.eventCountMetric.Observe(float64(len(events)))
 	return nil
 }
 
