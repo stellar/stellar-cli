@@ -1879,6 +1879,7 @@ dependencies = [
  "dirs",
  "ed25519-dalek",
  "ethnum",
+ "heck",
  "hex",
  "http",
  "itertools",
