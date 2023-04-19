@@ -10,6 +10,7 @@ import (
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
@@ -45,6 +46,7 @@ func TestRetryRunningIngestion(t *testing.T) {
 		LedgerBackend:     nil,
 		Timeout:           time.Second,
 		OnIngestionRetry:  incrementRetry,
+		Daemon:            interfaces.MakeNoOpDeamon(),
 	}
 	service := NewService(config)
 	retryWg.Wait()

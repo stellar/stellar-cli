@@ -13,6 +13,7 @@ import (
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/xdr"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 )
 
@@ -521,7 +522,7 @@ func TestGetEvents(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("empty", func(t *testing.T) {
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		handler := eventsRPCHandler{
 			scanner:      store,
 			maxLimit:     10000,
@@ -535,7 +536,7 @@ func TestGetEvents(t *testing.T) {
 
 	t.Run("startLedger validation", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		txMeta = append(txMeta, transactionMetaWithEvents(
 			[]xdr.ContractEvent{
@@ -572,7 +573,7 @@ func TestGetEvents(t *testing.T) {
 
 	t.Run("no filtering returns all", func(t *testing.T) {
 		contractID := xdr.Hash([32]byte{})
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 10; i++ {
 			txMeta = append(txMeta, transactionMetaWithEvents(
@@ -634,7 +635,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by contract id", func(t *testing.T) {
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		contractIds := []xdr.Hash{
 			xdr.Hash([32]byte{}),
@@ -686,7 +687,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by topic", func(t *testing.T) {
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		contractID := xdr.Hash([32]byte{})
 		for i := 0; i < 10; i++ {
@@ -750,7 +751,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by both contract id and topic", func(t *testing.T) {
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		otherContractID := xdr.Hash([32]byte{1})
 		number := xdr.Uint64(1)
@@ -844,7 +845,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("filtering by event type", func(t *testing.T) {
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		txMeta := []xdr.TransactionMeta{
 			transactionMetaWithEvents([]xdr.ContractEvent{
@@ -904,7 +905,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("with limit", func(t *testing.T) {
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 180; i++ {
@@ -963,7 +964,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("with cursor", func(t *testing.T) {
-		store := events.NewMemoryStore("unit-tests", 100)
+		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		datas := []xdr.ScSymbol{
 			// ledger/transaction/operation/event
