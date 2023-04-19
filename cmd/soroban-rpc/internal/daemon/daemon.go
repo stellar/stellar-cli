@@ -42,7 +42,6 @@ type Daemon struct {
 	ingestService       *ingest.Service
 	db                  dbsession.SessionInterface
 	jsonRPCHandler      *internal.Handler
-	httpHandler         http.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
 	server              *http.Server
@@ -51,10 +50,6 @@ type Daemon struct {
 	closeError          error
 	done                chan struct{}
 	metricsRegistry     *prometheus.Registry
-}
-
-func (d *Daemon) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	d.httpHandler.ServeHTTP(writer, request)
 }
 
 func (d *Daemon) GetDB() dbsession.SessionInterface {
@@ -247,11 +242,10 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	daemon.preflightWorkerPool = preflightWorkerPool
 	daemon.ingestService = ingestService
 	daemon.jsonRPCHandler = &jsonRPCHandler
-	daemon.httpHandler = httpHandler
 
 	daemon.server = &http.Server{
 		Addr:        endpoint,
-		Handler:     daemon,
+		Handler:     httpHandler,
 		ReadTimeout: defaultReadTimeout,
 	}
 	if adminEndpoint != "" {
