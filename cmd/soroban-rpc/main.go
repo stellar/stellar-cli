@@ -13,15 +13,15 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stellar/go/network"
-	"github.com/stellar/go/support/config"
+	supportconfig "github.com/stellar/go/support/config"
 	goxdr "github.com/stellar/go/xdr"
 
-	localConfig "github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
-func mustPositiveUint32(co *config.ConfigOption) error {
+func mustPositiveUint32(co *supportconfig.ConfigOption) error {
 	v := viper.GetInt(co.Name)
 	if v <= 0 {
 		return fmt.Errorf("%s must be positive", co.Name)
@@ -36,9 +36,9 @@ func mustPositiveUint32(co *config.ConfigOption) error {
 func main() {
 	var endpoint, adminEndpoint string
 	var captiveCoreHTTPPort, ingestionTimeoutMinutes, coreTimeoutSeconds, maxHealthyLedgerLatencySeconds uint
-	var serviceConfig localConfig.LocalConfig
+	var serviceConfig config.LocalConfig
 
-	configOpts := config.ConfigOptions{
+	configOpts := supportconfig.ConfigOptions{
 		{
 			Name:        "endpoint",
 			Usage:       "Endpoint to listen and serve on",
@@ -84,7 +84,7 @@ func main() {
 			ConfigKey:   &serviceConfig.LogLevel,
 			OptType:     types.String,
 			FlagDefault: "info",
-			CustomSetValue: func(co *config.ConfigOption) error {
+			CustomSetValue: func(co *supportconfig.ConfigOption) error {
 				ll, err := logrus.ParseLevel(viper.GetString(co.Name))
 				if err != nil {
 					return fmt.Errorf("could not parse log-level: %v", viper.GetString(co.Name))
@@ -93,6 +93,26 @@ func main() {
 				return nil
 			},
 			Usage: "minimum log severity (debug, info, warn, error) to log",
+		},
+		{
+			Name:        "log-format",
+			OptType:     types.String,
+			FlagDefault: "text",
+			Required:    false,
+			Usage:       "format used for output logs (json or text)",
+			ConfigKey:   &serviceConfig.LogFormat,
+			CustomSetValue: func(co *supportconfig.ConfigOption) error {
+				logFormatStr := viper.GetString(co.Name)
+				switch logFormatStr {
+				case "text":
+					*(co.ConfigKey.(*config.LogFormat)) = config.LogFormatText
+				case "json":
+					*(co.ConfigKey.(*config.LogFormat)) = config.LogFormatJSON
+				default:
+					return fmt.Errorf("invalid log-format: %v", logFormatStr)
+				}
+				return nil
+			},
 		},
 		{
 			Name:        "stellar-core-binary-path",
@@ -113,7 +133,7 @@ func main() {
 		{
 			Name:    "captive-core-storage-path",
 			OptType: types.String,
-			CustomSetValue: func(opt *config.ConfigOption) error {
+			CustomSetValue: func(opt *supportconfig.ConfigOption) error {
 				existingValue := viper.GetString(opt.Name)
 				if existingValue == "" || existingValue == "." {
 					cwd, err := os.Getwd()
@@ -137,13 +157,13 @@ func main() {
 			Usage:       "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
 			ConfigKey:   &serviceConfig.CaptiveCoreUseDB,
 		},
-		&config.ConfigOption{
+		{
 			Name:        "history-archive-urls",
 			ConfigKey:   &serviceConfig.HistoryArchiveURLs,
 			OptType:     types.String,
 			Required:    true,
 			FlagDefault: "",
-			CustomSetValue: func(co *config.ConfigOption) error {
+			CustomSetValue: func(co *supportconfig.ConfigOption) error {
 				stringOfUrls := viper.GetString(co.Name)
 				urlStrings := strings.Split(stringOfUrls, ",")
 
@@ -291,18 +311,18 @@ func main() {
 		Use:   "version",
 		Short: "Print version information and exit",
 		Run: func(_ *cobra.Command, _ []string) {
-			if localConfig.CommitHash == "" {
+			if config.CommitHash == "" {
 				fmt.Printf("soroban-rpc dev\n")
 			} else {
 				// avoid printing the branch for the main branch
 				// ( since that's what the end-user would typically have )
 				// but keep it for internal build ( so that we'll know from which branch it
 				// was built )
-				branch := localConfig.Branch
+				branch := config.Branch
 				if branch == "main" {
 					branch = ""
 				}
-				fmt.Printf("soroban-rpc %s (%s) %s\n", localConfig.Version, localConfig.CommitHash, branch)
+				fmt.Printf("soroban-rpc %s (%s) %s\n", config.Version, config.CommitHash, branch)
 				fmt.Printf("stellar-xdr %s\n", goxdr.CommitHash)
 			}
 		},

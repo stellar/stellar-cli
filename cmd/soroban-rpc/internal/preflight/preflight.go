@@ -47,7 +47,7 @@ func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char) *C.char {
 	}
 	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey)
 	if err != nil {
-		h.logger.Errorf("SnapshotSourceGet(): GetLedgerEntry() failed: %v", err)
+		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
 		return nil
 	}
 	if !present {
@@ -73,7 +73,7 @@ func SnapshotSourceHas(handle C.uintptr_t, cLedgerKey *C.char) C.int {
 	}
 	present, _, err := h.readTx.GetLedgerEntry(ledgerKey)
 	if err != nil {
-		h.logger.Errorf("SnapshotSourceHas(): GetLedgerEntry() failed: %v", err)
+		h.logger.WithError(err).Error("SnapshotSourceHas(): GetLedgerEntry() failed")
 		return 0
 	}
 	if present {
