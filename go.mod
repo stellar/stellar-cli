@@ -3,6 +3,7 @@ module github.com/stellar/soroban-tools
 go 1.20
 
 require (
+	github.com/BurntSushi/toml v0.3.1
 	github.com/Masterminds/squirrel v1.5.0
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/creachadair/jrpc2 v0.41.1
@@ -20,7 +21,6 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
