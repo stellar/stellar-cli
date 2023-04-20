@@ -5,10 +5,13 @@ import (
 	"io"
 	"sort"
 	"sync"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/ingest"
 	"github.com/stellar/go/xdr"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
@@ -42,8 +45,10 @@ type MemoryStore struct {
 	// by the lock
 	networkPassphrase string
 	// lock protects the mutable fields below
-	lock           sync.RWMutex
-	eventsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]event]
+	lock                 sync.RWMutex
+	eventsByLedger       *ledgerbucketwindow.LedgerBucketWindow[[]event]
+	eventsDurationMetric *prometheus.SummaryVec
+	eventCountMetric     prometheus.Summary
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -53,11 +58,27 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any events from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
+func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentionWindow uint32) *MemoryStore {
 	window := ledgerbucketwindow.NewLedgerBucketWindow[[]event](retentionWindow)
+
+	// eventsDurationMetric is a metric for measuring latency of event store operations
+	eventsDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(), Subsystem: "events", Name: "operation_duration_seconds",
+		Help: "event store operation durations, sliding window = 10m",
+	},
+		[]string{"operation"},
+	)
+
+	eventCountMetric := prometheus.NewSummary(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(), Subsystem: "events", Name: "count",
+		Help: "count of events ingested, sliding window = 10m",
+	})
+	daemon.MetricsRegistry().MustRegister(eventCountMetric, eventsDurationMetric)
 	return &MemoryStore{
-		networkPassphrase: networkPassphrase,
-		eventsByLedger:    window,
+		networkPassphrase:    networkPassphrase,
+		eventsByLedger:       window,
+		eventsDurationMetric: eventsDurationMetric,
+		eventCountMetric:     eventCountMetric,
 	}
 }
 
@@ -82,6 +103,7 @@ type Range struct {
 // entire duration of the Scan function so f should be written in a way
 // to minimize latency.
 func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor, int64) bool) (uint32, error) {
+	startTime := time.Now()
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -110,6 +132,8 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor,
 			}
 		}
 	}
+	m.eventsDurationMetric.With(prometheus.Labels{"operation": "scan"}).
+		Observe(time.Since(startTime).Seconds())
 	return lastLedgerInWindow, nil
 }
 
@@ -162,6 +186,7 @@ func seek(events []event, cursor Cursor) []event {
 // As a side effect, events which fall outside the retention window are
 // removed from the store.
 func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
+	startTime := time.Now()
 	// no need to acquire the lock because the networkPassphrase field
 	// is immutable
 	events, err := readEvents(m.networkPassphrase, ledgerCloseMeta)
@@ -176,7 +201,10 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 	m.lock.Lock()
 	m.eventsByLedger.Append(bucket)
 	m.lock.Unlock()
-	return err
+	m.eventsDurationMetric.With(prometheus.Labels{"operation": "ingest"}).
+		Observe(time.Since(startTime).Seconds())
+	m.eventCountMetric.Observe(float64(len(events)))
+	return nil
 }
 
 func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (events []event, err error) {

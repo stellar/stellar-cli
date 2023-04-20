@@ -2,11 +2,13 @@ package transactions
 
 import (
 	"sync"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/ingest"
-
 	"github.com/stellar/go/xdr"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
@@ -25,10 +27,12 @@ type MemoryStore struct {
 	// Stellar network passphrase.
 	// Accessing networkPassphrase does not need to be protected
 	// by the lock
-	networkPassphrase    string
-	lock                 sync.RWMutex
-	transactions         map[xdr.Hash]transaction
-	transactionsByLedger *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
+	networkPassphrase         string
+	lock                      sync.RWMutex
+	transactions              map[xdr.Hash]transaction
+	transactionsByLedger      *ledgerbucketwindow.LedgerBucketWindow[[]xdr.Hash]
+	transactionDurationMetric *prometheus.SummaryVec
+	transactionCountMetric    prometheus.Summary
 }
 
 // NewMemoryStore creates a new MemoryStore.
@@ -38,12 +42,28 @@ type MemoryStore struct {
 // will be included in the MemoryStore. If the MemoryStore
 // is full, any transactions from new ledgers will evict
 // older entries outside the retention window.
-func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemoryStore {
+func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentionWindow uint32) *MemoryStore {
 	window := ledgerbucketwindow.NewLedgerBucketWindow[[]xdr.Hash](retentionWindow)
+
+	// transactionDurationMetric is a metric for measuring latency of transaction store operations
+	transactionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(), Subsystem: "transactions", Name: "operation_duration_seconds",
+		Help: "transaction store operation durations, sliding window = 10m",
+	},
+		[]string{"operation"},
+	)
+	transactionCountMetric := prometheus.NewSummary(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(), Subsystem: "transactions", Name: "count",
+		Help: "count of transactions ingested, sliding window = 10m",
+	})
+	daemon.MetricsRegistry().MustRegister(transactionDurationMetric, transactionCountMetric)
+
 	return &MemoryStore{
-		networkPassphrase:    networkPassphrase,
-		transactions:         make(map[xdr.Hash]transaction),
-		transactionsByLedger: window,
+		networkPassphrase:         networkPassphrase,
+		transactions:              make(map[xdr.Hash]transaction),
+		transactionsByLedger:      window,
+		transactionDurationMetric: transactionDurationMetric,
+		transactionCountMetric:    transactionCountMetric,
 	}
 }
 
@@ -51,6 +71,7 @@ func NewMemoryStore(networkPassphrase string, retentionWindow uint32) *MemorySto
 // As a side effect, transactions which fall outside the retention window are
 // removed from the store.
 func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) error {
+	startTime := time.Now()
 	reader, err := ingest.NewLedgerTransactionReaderFromLedgerCloseMeta(m.networkPassphrase, ledgerCloseMeta)
 	if err != nil {
 		return err
@@ -101,6 +122,8 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 	for hash, tx := range hashMap {
 		m.transactions[hash] = tx
 	}
+	m.transactionDurationMetric.With(prometheus.Labels{"operation": "ingest"}).Observe(time.Since(startTime).Seconds())
+	m.transactionCountMetric.Observe(float64(txCount))
 	return nil
 }
 
@@ -139,6 +162,7 @@ func (m *MemoryStore) GetLatestLedger() LedgerInfo {
 
 // GetTransaction obtains a transaction from the store and whether it's present and the current store range
 func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRange) {
+	startTime := time.Now()
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	var storeRange StoreRange
@@ -171,5 +195,7 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 			CloseTime: internalTx.bucket.LedgerCloseTimestamp,
 		},
 	}
+
+	m.transactionDurationMetric.With(prometheus.Labels{"operation": "get"}).Observe(time.Since(startTime).Seconds())
 	return tx, true, storeRange
 }
