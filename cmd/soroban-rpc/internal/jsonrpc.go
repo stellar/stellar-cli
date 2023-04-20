@@ -54,10 +54,10 @@ func (h *handlerWithMetrics) Handle(ctx context.Context, r *jrpc2.Request) (inte
 	startTime := time.Now()
 	result, err := h.handler.Handle(ctx, r)
 	duration := time.Since(startTime).Seconds()
-	label := prometheus.Labels{"status": "ok"}
+	label := prometheus.Labels{"endpoint": h.endpoint, "status": "ok"}
 	simulateTransactionResponse, ok := result.(methods.SimulateTransactionResponse)
 	if err != nil || ok && simulateTransactionResponse.Error != "" {
-		label = prometheus.Labels{"status": "error"}
+		label["status"] = "error"
 	}
 	h.requestMetric.With(label).Observe(duration)
 	return result, err
@@ -69,7 +69,7 @@ func decorateHandlersWithMetrics(daemon interfaces.Daemon, m handler.Map) handle
 		Subsystem: "json_rpc",
 		Name:      "requests",
 		Help:      "JSON RPC request duration",
-	}, []string{"status"})
+	}, []string{"endpoint", "status"})
 	decorated := handler.Map{}
 	for endpoint, handler := range m {
 		decorated[endpoint] = &handlerWithMetrics{
