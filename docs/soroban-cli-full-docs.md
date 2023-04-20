@@ -136,7 +136,7 @@ Deploy a contract
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--pwd <PWD>`
-* `--fee <FEE>` — fee amount for transaction
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
@@ -170,7 +170,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--pwd <PWD>`
-* `--fee <FEE>` — fee amount for transaction
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--wasm <WASM>` — Path to wasm binary
@@ -209,7 +209,7 @@ soroban contract invoke ... -- --help
 * `--global` — Use global config
 * `--pwd <PWD>`
 * `--events-file <PATH>` — File to persist events, default is `.soroban/events.json`
-* `--fee <FEE>` — fee amount for transaction
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
@@ -540,7 +540,7 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--pwd <PWD>`
-* `--fee <FEE>` — fee amount for transaction
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
