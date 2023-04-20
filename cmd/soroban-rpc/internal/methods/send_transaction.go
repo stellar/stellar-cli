@@ -7,13 +7,12 @@ import (
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
-
-	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/network"
 	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
@@ -51,7 +50,8 @@ type LatestLedgerStore interface {
 }
 
 // NewSendTransactionHandler returns a submit transaction json rpc handler
-func NewSendTransactionHandler(logger *log.Entry, store LatestLedgerStore, passphrase string, coreClient *stellarcore.Client) jrpc2.Handler {
+func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, store LatestLedgerStore, passphrase string) jrpc2.Handler {
+	submitter := daemon.CoreClient()
 	return handler.New(func(ctx context.Context, request SendTransactionRequest) (SendTransactionResponse, error) {
 		var envelope xdr.TransactionEnvelope
 		err := xdr.SafeUnmarshalBase64(request.Transaction, &envelope)
@@ -73,7 +73,7 @@ func NewSendTransactionHandler(logger *log.Entry, store LatestLedgerStore, passp
 		txHash := hex.EncodeToString(hash[:])
 
 		ledgerInfo := store.GetLatestLedger()
-		resp, err := coreClient.SubmitTransaction(ctx, request.Transaction)
+		resp, err := submitter.SubmitTransaction(ctx, request.Transaction)
 		if err != nil {
 			logger.WithError(err).
 				WithField("tx", request.Transaction).Error("could not submit transaction")

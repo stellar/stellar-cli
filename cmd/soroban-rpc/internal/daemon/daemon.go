@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	prometheusNamespace          = "soroban_rpc"
 	maxLedgerEntryWriteBatchSize = 150
 	defaultReadTimeout           = 5 * time.Second
 	defaultShutdownGracePeriod   = 10 * time.Second
@@ -38,17 +39,18 @@ const (
 
 type Daemon struct {
 	core                *ledgerbackend.CaptiveStellarCore
+	coreClient          *CoreClientWithMetrics
 	ingestService       *ingest.Service
 	db                  dbsession.SessionInterface
 	jsonRPCHandler      *internal.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
-	prometheusRegistry  *prometheus.Registry
 	server              *http.Server
 	adminServer         *http.Server
 	closeOnce           sync.Once
 	closeError          error
 	done                chan struct{}
+	metricsRegistry     *prometheus.Registry
 }
 
 func (d *Daemon) GetDB() dbsession.SessionInterface {
@@ -126,10 +128,10 @@ func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerb
 func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Daemon {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
+
 	if cfg.LogFormat == config.LogFormatJSON {
 		logger.UseJSONFormatter()
 	}
-	prometheusRegistry := prometheus.NewRegistry()
 
 	core, err := newCaptiveCore(&cfg, logger)
 	if err != nil {
@@ -153,10 +155,32 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	if err != nil {
 		logger.WithError(err).Fatal("could not open database")
 	}
-	dbConn := dbsession.RegisterMetrics(session, "soroban_rpc", "db", prometheusRegistry)
+	metricsRegistry := prometheus.NewRegistry()
 
-	eventStore := events.NewMemoryStore(cfg.NetworkPassphrase, cfg.EventLedgerRetentionWindow)
-	transactionStore := transactions.NewMemoryStore(cfg.NetworkPassphrase, cfg.TransactionLedgerRetentionWindow)
+	dbConn := dbsession.RegisterMetrics(session, prometheusNamespace, "db", metricsRegistry)
+
+	daemon := &Daemon{
+		logger:          logger,
+		core:            core,
+		db:              dbConn,
+		done:            make(chan struct{}),
+		metricsRegistry: metricsRegistry,
+		coreClient: newCoreClientWithMetrics(stellarcore.Client{
+			URL:  cfg.StellarCoreURL,
+			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
+		}, metricsRegistry),
+	}
+
+	eventStore := events.NewMemoryStore(
+		daemon,
+		cfg.NetworkPassphrase,
+		cfg.EventLedgerRetentionWindow,
+	)
+	transactionStore := transactions.NewMemoryStore(
+		daemon,
+		cfg.NetworkPassphrase,
+		cfg.TransactionLedgerRetentionWindow,
+	)
 
 	maxRetentionWindow := cfg.EventLedgerRetentionWindow
 	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
@@ -197,6 +221,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		LedgerBackend:     core,
 		Timeout:           cfg.IngestionTimeout,
 		OnIngestionRetry:  onIngestionRetry,
+		Daemon:            daemon,
 	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
@@ -204,13 +229,10 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
 	jsonRPCHandler := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
-		EventStore:       eventStore,
-		TransactionStore: transactionStore,
-		Logger:           logger,
-		CoreClient: &stellarcore.Client{
-			URL:  cfg.StellarCoreURL,
-			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
-		},
+		Daemon:            daemon,
+		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
+		Logger:            logger,
 		LedgerReader:      db.NewLedgerReader(dbConn),
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 		PreflightGetter:   preflightWorkerPool,
@@ -218,17 +240,12 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 
 	httpHandler := supporthttp.NewAPIMux(logger)
 	httpHandler.Handle("/", jsonRPCHandler)
-	d := &Daemon{
-		logger:              logger,
-		core:                core,
-		ingestService:       ingestService,
-		jsonRPCHandler:      &jsonRPCHandler,
-		db:                  dbConn,
-		preflightWorkerPool: preflightWorkerPool,
-		prometheusRegistry:  prometheusRegistry,
-		done:                make(chan struct{}),
-	}
-	d.server = &http.Server{
+
+	daemon.preflightWorkerPool = preflightWorkerPool
+	daemon.ingestService = ingestService
+	daemon.jsonRPCHandler = &jsonRPCHandler
+
+	daemon.server = &http.Server{
 		Addr:        endpoint,
 		Handler:     httpHandler,
 		ReadTimeout: defaultReadTimeout,
@@ -240,11 +257,11 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		adminMux.Handle("/metrics", promhttp.HandlerFor(d.prometheusRegistry, promhttp.HandlerOpts{}))
-		d.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
+		adminMux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
+		daemon.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
 	}
-	d.registerMetrics()
-	return d
+	daemon.registerMetrics()
+	return daemon
 }
 
 func (d *Daemon) Run() {
