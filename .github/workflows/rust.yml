@@ -50,7 +50,7 @@ jobs:
           target: x86_64-apple-darwin
         - os: macos-latest
           target: aarch64-apple-darwin
-        - os: windows-latest
+        - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
