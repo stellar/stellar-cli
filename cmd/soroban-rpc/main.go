@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	supportconfig "github.com/stellar/go/support/config"
+	"github.com/stellar/go/support/errors"
 	goxdr "github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -12,20 +14,14 @@ import (
 )
 
 func main() {
-	var cfg config.Config
-	cmd := &cobra.Command{
+	var cfg, flags = config.Flags()
+
+	rootCmd := &cobra.Command{
 		Use:   "soroban-rpc",
 		Short: "Start the remote soroban-rpc server",
 		Run: func(_ *cobra.Command, _ []string) {
-			cfg.Require()
-			err := cfg.SetValues()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to set values : %v\n", err)
-				os.Exit(1)
-			}
-			err = cfg.Validate()
-			if err != nil {
-				fmt.Fprint(os.Stderr, err)
+			if err := applyFlags(cfg, flags); err != nil {
+				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			daemon.MustNew(cfg).Run()
@@ -53,16 +49,41 @@ func main() {
 		},
 	}
 
-	cmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(versionCmd)
 
-	if err := cfg.Init(cmd); err != nil {
+	if err := flags.Init(rootCmd); err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
 		os.Exit(1)
 	}
 
-	if err := cmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "could not run: %v\n", err)
 
 		os.Exit(1)
 	}
+}
+
+func applyFlags(cfg *config.Config, flags supportconfig.ConfigOptions) error {
+	err := flags.SetValues()
+	if err != nil {
+		return err
+	}
+	if cfg.ConfigPath != "" {
+		fileConfig, err := config.Read(cfg.ConfigPath)
+		if err != nil {
+			return errors.Wrap(err, "reading config file")
+		}
+		*cfg, err = config.Merge(fileConfig, cfg)
+		if err != nil {
+			return errors.Wrap(err, "merging config file")
+		}
+	}
+
+	fmt.Printf("Merged config: %+v\n", cfg)
+
+	err = cfg.Validate()
+	if err != nil {
+		return err
+	}
+	return nil
 }

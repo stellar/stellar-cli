@@ -43,7 +43,7 @@ type HandlerParams struct {
 }
 
 // NewJSONRPCHandler constructs a Handler instance
-func NewJSONRPCHandler(cfg *config.DaemonConfig, params HandlerParams) Handler {
+func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 	bridgeOptions := jhttp.BridgeOptions{
 		Server: &jrpc2.ServerOptions{
 			Logger: func(text string) { params.Logger.Debug(text) },

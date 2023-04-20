@@ -3,20 +3,15 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"go/types"
-	"math"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/stellar/go/network"
-	supportconfig "github.com/stellar/go/support/config"
+	support "github.com/stellar/go/support/config"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
@@ -28,90 +23,91 @@ const (
 	LogFormatJSON
 )
 
-type DaemonConfig struct {
-	Endpoint                         string        `toml:"endpoint" valid:"optional"`
-	AdminEndpoint                    string        `toml:"admin_endpoint" valid:"optional"`
-	IngestionTimeoutMinutes          uint          `toml:"ingestion_timeout_minutes" valid:"optional"`
-	CoreTimeoutSeconds               uint          `toml:"core_timeout_seconds" valid:"optional"`
-	MaxHealthyLedgerLatencySeconds   uint          `toml:"max_healthy_ledger_latency_seconds" valid:"optional"`
-	CheckpointFrequency              uint32        `toml:"checkpoint_frequency" valid:"optional"`
-	CoreRequestTimeout               time.Duration `toml:"core_request_timeout" valid:"optional"`
-	DefaultEventsLimit               uint          `toml:"default_events_limit" valid:"optional"`
-	EventLedgerRetentionWindow       uint32        `toml:"event_ledger_retention_window" valid:"optional"`
-	FriendbotURL                     string        `toml:"friendbot_url" valid:"optional"`
-	HistoryArchiveURLs               []string      `toml:"history_archive_urls" valid:"required"`
-	IngestionTimeout                 time.Duration `toml:"ingestion_timeout" valid:"optional"`
-	LogFormat                        LogFormat     `toml:"log_format" valid:"optional"`
-	LogLevel                         logrus.Level  `toml:"log_level" valid:"optional"`
-	MaxEventsLimit                   uint          `toml:"max_events_limit" valid:"optional"`
-	MaxHealthyLedgerLatency          time.Duration `toml:"max_healthy_ledger_latency" valid:"optional"`
-	NetworkPassphrase                string        `toml:"network_passphrase" valid:"required"`
-	PreflightWorkerCount             uint          `toml:"preflight_worker_count" valid:"optional"`
-	PreflightWorkerQueueSize         uint          `toml:"preflight_worker_queue_size" valid:"optional"`
-	SQLiteDBPath                     string        `toml:"sqlite_db_path" valid:"optional"`
-	TransactionLedgerRetentionWindow uint32        `toml:"transaction_ledger_retention_window" valid:"optional"`
+func (f LogFormat) String() string {
+	switch f {
+	case LogFormatText:
+		return "text"
+	case LogFormatJSON:
+		return "json"
+	default:
+		panic(fmt.Sprintf("unknown log format: %d", f))
+	}
 }
 
 type CaptiveCoreConfig struct {
-	CaptiveCoreConfigPath  string `toml:"captive_core_config_path" valid:"required"`
-	CaptiveCoreHTTPPort    uint16 `toml:"captive_core_http_port" valid:"optional"`
-	CaptiveCoreStoragePath string `toml:"captive_core_storage_path" valid:"optional"`
-	CaptiveCoreUseDB       bool   `toml:"captive_core_use_db" valid:"optional"`
-	StellarCoreBinaryPath  string `toml:"stellar_core_binary_path" valid:"required"`
-	StellarCoreURL         string `toml:"stellar_core_url" valid:"optional"`
+	CaptiveCoreConfigPath  string `toml:"config-path" valid:"optional"`
+	CaptiveCoreHTTPPort    uint   `toml:"http-port" valid:"optional"`
+	CaptiveCoreStoragePath string `toml:"storage-path" valid:"optional"`
+	CaptiveCoreUseDB       bool   `toml:"use-db" valid:"optional"`
+	StellarCoreBinaryPath  string `toml:"binary-path" valid:"required"`
+	StellarCoreURL         string `toml:"url" valid:"optional"`
 }
 
 // Config represents the configuration of a friendbot server
 type Config struct {
 	// Optional: The path to the config file. Not in the toml, as wouldn't make sense.
-	ConfigPath string
+	ConfigPath string `toml:"-" valid:"-"`
 
-	CaptiveCoreConfig `toml:"stellar-core" valid:"optional"`
-	DaemonConfig      `toml:"-"`
+	CaptiveCoreConfig `toml:"stellar-core" valid:"required"`
+
+	Endpoint                         string        `toml:"endpoint" valid:"optional"`
+	AdminEndpoint                    string        `toml:"admin-endpoint" valid:"optional"`
+	CheckpointFrequency              uint32        `toml:"checkpoint-frequency" valid:"optional"`
+	CoreRequestTimeout               time.Duration `toml:"core-request-timeout" valid:"optional"`
+	DefaultEventsLimit               uint          `toml:"default-events-limit" valid:"optional"`
+	EventLedgerRetentionWindow       uint32        `toml:"event-ledger-retention-window" valid:"optional"`
+	FriendbotURL                     string        `toml:"friendbot-url" valid:"optional"`
+	HistoryArchiveURLs               []string      `toml:"history-archive-urls" valid:"required"`
+	IngestionTimeout                 time.Duration `toml:"ingestion-timeout" valid:"optional"`
+	LogFormat                        LogFormat     `toml:"log-format" valid:"optional"`
+	LogLevel                         logrus.Level  `toml:"log-level" valid:"optional"`
+	MaxEventsLimit                   uint          `toml:"max-events-limit" valid:"optional"`
+	MaxHealthyLedgerLatency          time.Duration `toml:"max-healthy-ledger-latency" valid:"optional"`
+	NetworkPassphrase                string        `toml:"network-passphrase" valid:"required"`
+	PreflightWorkerCount             uint          `toml:"preflight-worker-count" valid:"optional"`
+	PreflightWorkerQueueSize         uint          `toml:"preflight-worker-queue-size" valid:"optional"`
+	SQLiteDBPath                     string        `toml:"sqlite-db-path" valid:"optional"`
+	TransactionLedgerRetentionWindow uint32        `toml:"transaction-ledger-retention-window" valid:"optional"`
 }
 
-func (cfg *Config) Require() {
-	cfg.options().Require()
-}
+func (cfg *Config) SetDefaults() {
+	cfg.CaptiveCoreHTTPPort = 11626
+	cfg.CheckpointFrequency = 64
+	cfg.CoreRequestTimeout = 2 * time.Second
+	cfg.DefaultEventsLimit = 100
+	cfg.Endpoint = "localhost:8000"
+	cfg.EventLedgerRetentionWindow = uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow)
+	cfg.IngestionTimeout = 30 * time.Minute
+	cfg.LogFormat = LogFormatText
+	cfg.LogLevel = logrus.InfoLevel
+	cfg.MaxEventsLimit = 10000
+	cfg.MaxHealthyLedgerLatency = 30 * time.Second
+	cfg.NetworkPassphrase = network.FutureNetworkPassphrase
+	cfg.PreflightWorkerCount = uint(runtime.NumCPU())
+	cfg.PreflightWorkerQueueSize = uint(runtime.NumCPU())
+	cfg.SQLiteDBPath = "soroban_rpc.sqlite"
+	cfg.StellarCoreURL = fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreHTTPPort)
+	cfg.TransactionLedgerRetentionWindow = 1440
 
-func (cfg *Config) SetValues() error {
-	return cfg.options().SetValues()
-}
-
-func (cfg *Config) Init(cmd *cobra.Command) error {
-	err := cfg.options().Init(cmd)
+	cwd, err := os.Getwd()
 	if err != nil {
-		return err
+		panic(fmt.Errorf("unable to determine the current directory: %s", err))
 	}
-	cfg.setDefaults()
-	return cfg.loadFile()
+	cfg.CaptiveCoreStoragePath = cwd
 }
 
-func (cfg *Config) setDefaults() {
-	if cfg.StellarCoreURL == "" {
-		cfg.StellarCoreURL = fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreHTTPPort)
-	}
-	cfg.IngestionTimeout = time.Duration(cfg.IngestionTimeoutMinutes) * time.Minute
-	cfg.CoreRequestTimeout = time.Duration(cfg.CoreTimeoutSeconds) * time.Second
-	cfg.MaxHealthyLedgerLatency = time.Duration(cfg.MaxHealthyLedgerLatencySeconds) * time.Second
-}
-
-func (cfg *Config) loadFile() error {
-	if cfg.ConfigPath == "" {
-		return nil
-	}
-	var fileConfig Config
-	err := supportconfig.Read(cfg.ConfigPath, &fileConfig)
+func Read(path string) (*Config, error) {
+	cfg := &Config{}
+	err := support.Read(path, cfg)
 	if err != nil {
 		switch cause := errors.Cause(err).(type) {
-		case *supportconfig.InvalidConfigError:
-			return errors.Wrap(cause, "config file")
+		case *support.InvalidConfigError:
+			return nil, errors.Wrap(cause, "config file")
 		default:
-			return err
+			return nil, err
 		}
 	}
-	*cfg, err = cfg.Merge(&fileConfig)
-	return err
+	return cfg, nil
 }
 
 func (cfg *Config) Validate() error {
@@ -123,293 +119,72 @@ func (cfg *Config) Validate() error {
 		)
 	}
 
+	if len(cfg.HistoryArchiveURLs) == 0 {
+		return fmt.Errorf("history-archive-urls is required")
+	}
+
+	if cfg.NetworkPassphrase == "" {
+		return fmt.Errorf("network-passphrase is required")
+	}
+
+	// if cfg.CaptiveCoreConfigPath == "" {
+	// 	return fmt.Errorf("captive-core-config-path is required")
+	// }
+
+	if cfg.StellarCoreBinaryPath == "" {
+		return fmt.Errorf("stellar-core-binary-path is required")
+	}
+
 	return nil
 }
 
-// Merge other into cfg, overriding local values with other values. Neither
-// config is modified, instead a new config is returned.
+// Merge a and b, preferring values from b. Neither config is modified, instead
+// a new config is returned.
 // TODO: Unit-test this
-func (cfg *Config) Merge(other *Config) (Config, error) {
+// TODO: Find a less hacky and horrible way to do this.
+func Merge(a, b *Config) (Config, error) {
+	fmt.Printf("Merging configs: %+v, %+v", a, b)
 	var buf bytes.Buffer
-	err := toml.NewEncoder(&buf).Encode(cfg)
+	aMap := map[string]interface{}{}
+	err := toml.NewEncoder(&buf).Encode(a)
 	if err != nil {
 		return Config{}, errors.Wrap(err, "encoding config")
 	}
-	err = toml.NewEncoder(&buf).Encode(other)
+	_, err = toml.Decode(buf.String(), &aMap)
 	if err != nil {
 		return Config{}, errors.Wrap(err, "encoding config")
+	}
+	buf.Reset()
+	bMap := map[string]interface{}{}
+	err = toml.NewEncoder(&buf).Encode(b)
+	if err != nil {
+		return Config{}, errors.Wrap(err, "encoding config")
+	}
+	_, err = toml.Decode(buf.String(), &bMap)
+	if err != nil {
+		return Config{}, errors.Wrap(err, "encoding config")
+	}
+	buf.Reset()
+
+	for k, v := range bMap {
+		aMap[k] = v
 	}
 
+	err = toml.NewEncoder(&buf).Encode(aMap)
+	if err != nil {
+		return Config{}, errors.Wrap(err, "encoding config")
+	}
 	var merged Config
-	_, err = toml.Decode(buf.String(), &cfg)
+	_, err = toml.Decode(buf.String(), &merged)
 	if err != nil {
 		return Config{}, errors.Wrap(err, "decoding config")
 	}
 
-	merged.ConfigPath = cfg.ConfigPath
-	if other.ConfigPath != "" {
-		merged.ConfigPath = other.ConfigPath
+	merged.ConfigPath = a.ConfigPath
+	if b.ConfigPath != "" {
+		merged.ConfigPath = b.ConfigPath
 	}
 
+	fmt.Printf("Merged: %+v", merged)
 	return merged, nil
-}
-
-func (cfg *Config) options() supportconfig.ConfigOptions {
-	return supportconfig.ConfigOptions{
-		{
-			Name:        "config-path",
-			EnvVar:      "SOROBAN_RPC_CONFIG_PATH",
-			Usage:       "File path to the toml configuration file",
-			OptType:     types.String,
-			ConfigKey:   &cfg.ConfigPath,
-			FlagDefault: "",
-			Required:    false,
-		},
-		{
-			Name:        "endpoint",
-			Usage:       "Endpoint to listen and serve on",
-			OptType:     types.String,
-			ConfigKey:   &cfg.Endpoint,
-			FlagDefault: "localhost:8000",
-			Required:    false,
-		},
-		{
-			Name:        "admin-endpoint",
-			Usage:       "Admin endpoint to listen and serve on. WARNING: this should not be accessible from the Internet and does not use TLS. \"\" (default) disables the admin server",
-			OptType:     types.String,
-			ConfigKey:   &cfg.AdminEndpoint,
-			FlagDefault: "",
-			Required:    false,
-		},
-		{
-			Name:        "stellar-core-url",
-			ConfigKey:   &cfg.StellarCoreURL,
-			OptType:     types.String,
-			Required:    false,
-			FlagDefault: "",
-			Usage:       "URL used to query Stellar Core (local captive core by default)",
-		},
-		{
-			Name:        "stellar-core-timeout-seconds",
-			Usage:       "Timeout used when submitting requests to stellar-core",
-			OptType:     types.Uint,
-			ConfigKey:   &cfg.CoreTimeoutSeconds,
-			FlagDefault: uint(2),
-			Required:    false,
-		},
-		{
-			Name:        "stellar-captive-core-http-port",
-			ConfigKey:   &cfg.CaptiveCoreHTTPPort,
-			OptType:     types.Uint,
-			Required:    false,
-			FlagDefault: uint(11626),
-			Usage:       "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
-		},
-		{
-			Name:        "log-level",
-			ConfigKey:   &cfg.LogLevel,
-			OptType:     types.String,
-			FlagDefault: "info",
-			CustomSetValue: func(co *supportconfig.ConfigOption) error {
-				ll, err := logrus.ParseLevel(viper.GetString(co.Name))
-				if err != nil {
-					return fmt.Errorf("could not parse log-level: %v", viper.GetString(co.Name))
-				}
-				*(co.ConfigKey.(*logrus.Level)) = ll
-				return nil
-			},
-			Usage: "minimum log severity (debug, info, warn, error) to log",
-		},
-		{
-			Name:        "log-format",
-			OptType:     types.String,
-			FlagDefault: "text",
-			Required:    false,
-			Usage:       "format used for output logs (json or text)",
-			ConfigKey:   &cfg.LogFormat,
-			CustomSetValue: func(co *supportconfig.ConfigOption) error {
-				logFormatStr := viper.GetString(co.Name)
-				switch logFormatStr {
-				case "text":
-					*(co.ConfigKey.(*LogFormat)) = LogFormatText
-				case "json":
-					*(co.ConfigKey.(*LogFormat)) = LogFormatJSON
-				default:
-					return fmt.Errorf("invalid log-format: %v", logFormatStr)
-				}
-				return nil
-			},
-		},
-		{
-			Name:        "stellar-core-binary-path",
-			OptType:     types.String,
-			FlagDefault: "",
-			Required:    true,
-			Usage:       "path to stellar core binary",
-			ConfigKey:   &cfg.StellarCoreBinaryPath,
-		},
-		{
-			Name:        "captive-core-config-path",
-			OptType:     types.String,
-			FlagDefault: "",
-			Required:    true,
-			Usage:       "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
-			ConfigKey:   &cfg.CaptiveCoreConfigPath,
-		},
-		{
-			Name:    "captive-core-storage-path",
-			OptType: types.String,
-			CustomSetValue: func(opt *supportconfig.ConfigOption) error {
-				existingValue := viper.GetString(opt.Name)
-				if existingValue == "" || existingValue == "." {
-					cwd, err := os.Getwd()
-					if err != nil {
-						return fmt.Errorf("Unable to determine the current directory: %s", err)
-					}
-					existingValue = cwd
-				}
-				*opt.ConfigKey.(*string) = existingValue
-				return nil
-			},
-			Required:  false,
-			Usage:     "Storage location for Captive Core bucket data",
-			ConfigKey: &cfg.CaptiveCoreStoragePath,
-		},
-		{
-			Name:        "captive-core-use-db",
-			OptType:     types.Bool,
-			FlagDefault: false,
-			Required:    false,
-			Usage:       "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
-			ConfigKey:   &cfg.CaptiveCoreUseDB,
-		},
-		{
-			Name:        "history-archive-urls",
-			ConfigKey:   &cfg.HistoryArchiveURLs,
-			OptType:     types.String,
-			Required:    true,
-			FlagDefault: "",
-			CustomSetValue: func(co *supportconfig.ConfigOption) error {
-				stringOfUrls := viper.GetString(co.Name)
-				urlStrings := strings.Split(stringOfUrls, ",")
-
-				*(co.ConfigKey.(*[]string)) = urlStrings
-				return nil
-			},
-			Usage: "comma-separated list of stellar history archives to connect with",
-		},
-		{
-			Name:      "friendbot-url",
-			Usage:     "The friendbot URL to be returned by getNetwork endpoint",
-			OptType:   types.String,
-			ConfigKey: &cfg.FriendbotURL,
-			Required:  false,
-		},
-		{
-			Name:        "network-passphrase",
-			Usage:       "Network passphrase of the Stellar network transactions should be signed for",
-			OptType:     types.String,
-			ConfigKey:   &cfg.NetworkPassphrase,
-			FlagDefault: network.FutureNetworkPassphrase,
-			Required:    true,
-		},
-		{
-			Name:        "db-path",
-			Usage:       "SQLite DB path",
-			OptType:     types.String,
-			ConfigKey:   &cfg.SQLiteDBPath,
-			FlagDefault: "soroban_rpc.sqlite",
-			Required:    false,
-		},
-		{
-			Name:        "ingestion-timeout-minutes",
-			Usage:       "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
-			OptType:     types.Uint,
-			ConfigKey:   &cfg.IngestionTimeoutMinutes,
-			FlagDefault: uint(30),
-			Required:    false,
-		},
-		{
-			Name:        "checkpoint-frequency",
-			Usage:       "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
-			OptType:     types.Uint32,
-			ConfigKey:   &cfg.CheckpointFrequency,
-			FlagDefault: uint32(64),
-			Required:    false,
-		},
-		{
-			Name:        "event-retention-window",
-			OptType:     types.Uint32,
-			FlagDefault: uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			Required:    false,
-			Usage: fmt.Sprintf("configures the event retention window expressed in number of ledgers,"+
-				" the default value is %d which corresponds to about 24 hours of history", ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			ConfigKey:      &cfg.EventLedgerRetentionWindow,
-			CustomSetValue: mustPositiveUint32,
-		},
-		{
-			Name:        "transaction-retention-window",
-			OptType:     types.Uint32,
-			FlagDefault: uint32(1440),
-			Required:    false,
-			Usage: "configures the transaction retention window expressed in number of ledgers," +
-				" the default value is 1440 which corresponds to about 2 hours of history",
-			ConfigKey:      &cfg.TransactionLedgerRetentionWindow,
-			CustomSetValue: mustPositiveUint32,
-		},
-		{
-			Name:        "max-events-limit",
-			ConfigKey:   &cfg.MaxEventsLimit,
-			OptType:     types.Uint,
-			Required:    false,
-			FlagDefault: uint(10000),
-			Usage:       "Maximum amount of events allowed in a single getEvents response",
-		},
-		{
-			Name:        "default-events-limit",
-			ConfigKey:   &cfg.DefaultEventsLimit,
-			OptType:     types.Uint,
-			Required:    false,
-			FlagDefault: uint(100),
-			Usage:       "Default cap on the amount of events included in a single getEvents response",
-		},
-		{
-			Name: "max-healthy-ledger-latency-seconds",
-			Usage: "maximum ledger latency (i.e. time elapsed since the last known ledger closing time) considered to be healthy" +
-				" (used for the /health endpoint)",
-			OptType:     types.Uint,
-			ConfigKey:   &cfg.MaxHealthyLedgerLatencySeconds,
-			FlagDefault: uint(30),
-			Required:    false,
-		},
-		{
-			Name:           "preflight-worker-count",
-			ConfigKey:      &cfg.PreflightWorkerCount,
-			OptType:        types.Uint,
-			Required:       false,
-			FlagDefault:    uint(runtime.NumCPU()),
-			Usage:          "Number of workers (read goroutines) used to compute preflights for the simulateTransaction endpoint. Defaults to the number of CPUs.",
-			CustomSetValue: mustPositiveUint32,
-		},
-		{
-			Name:        "preflight-worker-queue-size",
-			ConfigKey:   &cfg.PreflightWorkerQueueSize,
-			OptType:     types.Uint,
-			Required:    false,
-			FlagDefault: uint(runtime.NumCPU()),
-			Usage:       "Maximum number of outstanding preflight requests for the simulateTransaction endpoint. Defaults to the number of CPUs.",
-		},
-	}
-}
-
-func mustPositiveUint32(co *supportconfig.ConfigOption) error {
-	v := viper.GetInt(co.Name)
-	if v <= 0 {
-		return fmt.Errorf("%s must be positive", co.Name)
-	}
-	if v > math.MaxUint32 {
-		return fmt.Errorf("%s is too large (must be <= %d)", co.Name, math.MaxUint32)
-	}
-	*(co.ConfigKey.(*uint32)) = uint32(v)
-	return nil
 }

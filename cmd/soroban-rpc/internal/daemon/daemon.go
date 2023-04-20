@@ -125,7 +125,7 @@ func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbacken
 
 }
 
-func MustNew(cfg config.Config) *Daemon {
+func MustNew(cfg *config.Config) *Daemon {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
 
@@ -133,7 +133,7 @@ func MustNew(cfg config.Config) *Daemon {
 		logger.UseJSONFormatter()
 	}
 
-	core, err := newCaptiveCore(&cfg, logger)
+	core, err := newCaptiveCore(cfg, logger)
 	if err != nil {
 		logger.WithError(err).Fatal("could not create captive core")
 	}
@@ -228,7 +228,7 @@ func MustNew(cfg config.Config) *Daemon {
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(
 		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
-	jsonRPCHandler := internal.NewJSONRPCHandler(&cfg.DaemonConfig, internal.HandlerParams{
+	jsonRPCHandler := internal.NewJSONRPCHandler(cfg, internal.HandlerParams{
 		Daemon:            daemon,
 		EventStore:        eventStore,
 		TransactionStore:  transactionStore,
