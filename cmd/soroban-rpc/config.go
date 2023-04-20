@@ -22,13 +22,7 @@ type Config struct {
 	// The path to the config file
 	ConfigPath string
 
-	Endpoint                       string `toml:"endpoint" valid:"optional"`
-	AdminEndpoint                  string `toml:"admin-endpoint" valid:"optional"`
-	CaptiveCoreHTTPPort            uint   `toml:"captive-core-http-port" valid:"optional"`
-	IngestionTimeoutMinutes        uint   `toml:"ingestion-timeout-minutes" valid:"optional"`
-	CoreTimeoutSeconds             uint   `toml:"core-timeout-seconds" valid:"optional"`
-	MaxHealthyLedgerLatencySeconds uint   `toml:"max-healthy-ledger-latency-seconds" valid:"optional"`
-	localConfig.LocalConfig        `toml:"-"`
+	localConfig.LocalConfig `toml:"-"`
 }
 
 func (cfg *Config) Read(path string) error {
@@ -85,7 +79,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 		},
 		{
 			Name:        "stellar-core-url",
-			ConfigKey:   &cfg.LocalConfig.StellarCoreURL,
+			ConfigKey:   &cfg.StellarCoreURL,
 			OptType:     types.String,
 			Required:    false,
 			FlagDefault: "",
@@ -109,7 +103,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 		},
 		{
 			Name:        "log-level",
-			ConfigKey:   &cfg.LocalConfig.LogLevel,
+			ConfigKey:   &cfg.LogLevel,
 			OptType:     types.String,
 			FlagDefault: "info",
 			CustomSetValue: func(co *supportconfig.ConfigOption) error {
@@ -128,7 +122,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			FlagDefault: "text",
 			Required:    false,
 			Usage:       "format used for output logs (json or text)",
-			ConfigKey:   &cfg.LocalConfig.LogFormat,
+			ConfigKey:   &cfg.LogFormat,
 			CustomSetValue: func(co *supportconfig.ConfigOption) error {
 				logFormatStr := viper.GetString(co.Name)
 				switch logFormatStr {
@@ -148,7 +142,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			FlagDefault: "",
 			Required:    true,
 			Usage:       "path to stellar core binary",
-			ConfigKey:   &cfg.LocalConfig.StellarCoreBinaryPath,
+			ConfigKey:   &cfg.StellarCoreBinaryPath,
 		},
 		{
 			Name:        "captive-core-config-path",
@@ -156,7 +150,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			FlagDefault: "",
 			Required:    true,
 			Usage:       "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
-			ConfigKey:   &cfg.LocalConfig.CaptiveCoreConfigPath,
+			ConfigKey:   &cfg.CaptiveCoreConfigPath,
 		},
 		{
 			Name:    "captive-core-storage-path",
@@ -175,7 +169,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			},
 			Required:  false,
 			Usage:     "Storage location for Captive Core bucket data",
-			ConfigKey: &cfg.LocalConfig.CaptiveCoreStoragePath,
+			ConfigKey: &cfg.CaptiveCoreStoragePath,
 		},
 		{
 			Name:        "captive-core-use-db",
@@ -183,11 +177,11 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			FlagDefault: false,
 			Required:    false,
 			Usage:       "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
-			ConfigKey:   &cfg.LocalConfig.CaptiveCoreUseDB,
+			ConfigKey:   &cfg.CaptiveCoreUseDB,
 		},
 		{
 			Name:        "history-archive-urls",
-			ConfigKey:   &cfg.LocalConfig.HistoryArchiveURLs,
+			ConfigKey:   &cfg.HistoryArchiveURLs,
 			OptType:     types.String,
 			Required:    true,
 			FlagDefault: "",
@@ -204,14 +198,14 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			Name:      "friendbot-url",
 			Usage:     "The friendbot URL to be returned by getNetwork endpoint",
 			OptType:   types.String,
-			ConfigKey: &cfg.LocalConfig.FriendbotURL,
+			ConfigKey: &cfg.FriendbotURL,
 			Required:  false,
 		},
 		{
 			Name:        "network-passphrase",
 			Usage:       "Network passphrase of the Stellar network transactions should be signed for",
 			OptType:     types.String,
-			ConfigKey:   &cfg.LocalConfig.NetworkPassphrase,
+			ConfigKey:   &cfg.NetworkPassphrase,
 			FlagDefault: network.FutureNetworkPassphrase,
 			Required:    true,
 		},
@@ -219,7 +213,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			Name:        "db-path",
 			Usage:       "SQLite DB path",
 			OptType:     types.String,
-			ConfigKey:   &cfg.LocalConfig.SQLiteDBPath,
+			ConfigKey:   &cfg.SQLiteDBPath,
 			FlagDefault: "soroban_rpc.sqlite",
 			Required:    false,
 		},
@@ -235,7 +229,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			Name:        "checkpoint-frequency",
 			Usage:       "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
 			OptType:     types.Uint32,
-			ConfigKey:   &cfg.LocalConfig.CheckpointFrequency,
+			ConfigKey:   &cfg.CheckpointFrequency,
 			FlagDefault: uint32(64),
 			Required:    false,
 		},
@@ -246,7 +240,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			Required:    false,
 			Usage: fmt.Sprintf("configures the event retention window expressed in number of ledgers,"+
 				" the default value is %d which corresponds to about 24 hours of history", ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			ConfigKey:      &cfg.LocalConfig.EventLedgerRetentionWindow,
+			ConfigKey:      &cfg.EventLedgerRetentionWindow,
 			CustomSetValue: mustPositiveUint32,
 		},
 		{
@@ -256,12 +250,12 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 			Required:    false,
 			Usage: "configures the transaction retention window expressed in number of ledgers," +
 				" the default value is 1440 which corresponds to about 2 hours of history",
-			ConfigKey:      &cfg.LocalConfig.TransactionLedgerRetentionWindow,
+			ConfigKey:      &cfg.TransactionLedgerRetentionWindow,
 			CustomSetValue: mustPositiveUint32,
 		},
 		{
 			Name:        "max-events-limit",
-			ConfigKey:   &cfg.LocalConfig.MaxEventsLimit,
+			ConfigKey:   &cfg.MaxEventsLimit,
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(10000),
@@ -269,7 +263,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 		},
 		{
 			Name:        "default-events-limit",
-			ConfigKey:   &cfg.LocalConfig.DefaultEventsLimit,
+			ConfigKey:   &cfg.DefaultEventsLimit,
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(100),
@@ -286,7 +280,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 		},
 		{
 			Name:        "preflight-worker-count",
-			ConfigKey:   &cfg.LocalConfig.PreflightWorkerCount,
+			ConfigKey:   &cfg.PreflightWorkerCount,
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(runtime.NumCPU()),
@@ -294,7 +288,7 @@ func (cfg *Config) options() supportconfig.ConfigOptions {
 		},
 		{
 			Name:        "preflight-worker-queue-size",
-			ConfigKey:   &cfg.LocalConfig.PreflightWorkerQueueSize,
+			ConfigKey:   &cfg.PreflightWorkerQueueSize,
 			OptType:     types.Uint,
 			Required:    false,
 			FlagDefault: uint(runtime.NumCPU()),
