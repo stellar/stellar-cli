@@ -7,7 +7,7 @@ import (
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
-	"github.com/stellar/go/clients/stellarcore"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 )
 
 type GetNetworkRequest struct{}
@@ -19,7 +19,8 @@ type GetNetworkResponse struct {
 }
 
 // NewGetNetworkHandler returns a json rpc handler to for the getNetwork method
-func NewGetNetworkHandler(networkPassphrase, friendbotURL string, coreClient *stellarcore.Client) jrpc2.Handler {
+func NewGetNetworkHandler(daemon interfaces.Daemon, networkPassphrase, friendbotURL string) jrpc2.Handler {
+	coreClient := daemon.CoreClient()
 	return handler.New(func(ctx context.Context, request GetNetworkRequest) (GetNetworkResponse, error) {
 		info, err := coreClient.Info(ctx)
 		if err != nil {
