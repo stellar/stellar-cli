@@ -189,7 +189,17 @@ impl Cmd {
             .map(|i| {
                 let name = i.name.to_string().unwrap();
                 if let Some(mut raw_val) = matches_.get_raw(&name) {
-                    let s = raw_val.next().unwrap().to_string_lossy().to_string();
+                    let mut s = raw_val.next().unwrap().to_string_lossy().to_string();
+                    if matches!(i.type_, ScSpecTypeDef::Address) {
+                        let cmd = crate::commands::config::identity::address::Cmd {
+                            name: Some(s.clone()),
+                            hd_path: Some(0),
+                            locator: self.config.locator.clone(),
+                        };
+                        if let Ok(address) = cmd.public_key() {
+                            s = address.to_string();
+                        }
+                    }
                     spec.from_string(&s, &i.type_)
                         .map_err(|error| Error::CannotParseArg { arg: name, error })
                 } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
