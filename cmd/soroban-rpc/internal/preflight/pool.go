@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/support/log"
@@ -33,6 +34,7 @@ type PreflightWorkerPool struct {
 	requestChan              chan workerRequest
 	concurrentRequestsMetric prometheus.Gauge
 	errorFullCounter         prometheus.Counter
+	durationMetric           *prometheus.SummaryVec
 	wg                       sync.WaitGroup
 }
 
@@ -51,21 +53,30 @@ func NewPreflightWorkerPool(daemon interfaces.Daemon, workerCount uint, jobQueue
 	}, func() float64 {
 		return float64(len(preflightWP.requestChan))
 	})
-	concurrentRequestsMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+	preflightWP.concurrentRequestsMetric = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: daemon.MetricsNamespace(),
 		Subsystem: "preflight_pool",
 		Name:      "concurrent_requests",
 		Help:      "number of preflight requests currently running",
 	})
-	preflightWP.concurrentRequestsMetric = concurrentRequestsMetric
-	errorFullCounter := prometheus.NewCounter(prometheus.CounterOpts{
+	preflightWP.errorFullCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: daemon.MetricsNamespace(),
 		Subsystem: "preflight_pool",
 		Name:      "queue_full_errors",
-		Help:      "number of full queue errors",
+		Help:      "number of preflight full queue errors",
 	})
-	preflightWP.errorFullCounter = errorFullCounter
-	daemon.MetricsRegistry().MustRegister(requestQueueMetric, concurrentRequestsMetric, errorFullCounter)
+	preflightWP.durationMetric = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(),
+		Subsystem: "preflight_pool",
+		Name:      "request_duration",
+		Help:      "preflight request duration broken down by status",
+	}, []string{"status", "type"})
+	daemon.MetricsRegistry().MustRegister(
+		requestQueueMetric,
+		preflightWP.concurrentRequestsMetric,
+		preflightWP.errorFullCounter,
+		preflightWP.durationMetric,
+	)
 	for i := uint(0); i < workerCount; i++ {
 		preflightWP.wg.Add(1)
 		go preflightWP.work()
@@ -77,7 +88,15 @@ func (pwp *PreflightWorkerPool) work() {
 	defer pwp.wg.Done()
 	for request := range pwp.requestChan {
 		pwp.concurrentRequestsMetric.Inc()
+		startTime := time.Now()
 		preflight, err := GetPreflight(request.ctx, request.params)
+		status := "ok"
+		if err != nil {
+			status = "error"
+		}
+		pwp.durationMetric.With(
+			prometheus.Labels{"type": "all", "status": status},
+		).Observe(time.Since(startTime).Seconds())
 		pwp.concurrentRequestsMetric.Dec()
 		request.resultChan <- workerResult{preflight, err}
 	}
@@ -94,21 +113,44 @@ func (pwp *PreflightWorkerPool) Close() {
 
 var PreflightQueueFullErr = errors.New("preflight queue full")
 
+type metricsLedgerEntryWrapper struct {
+	db.LedgerEntryReadTx
+	totalDuration *float64
+}
+
+func (m metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+	startTime := time.Now()
+	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key)
+	*m.totalDuration += time.Since(startTime).Seconds()
+	return ok, entry, err
+}
+
 func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (Preflight, error) {
 	if pwp.isClosed.Load() {
 		return Preflight{}, errors.New("preflight worker pool is closed")
+	}
+	wrappedTx := metricsLedgerEntryWrapper{
+		LedgerEntryReadTx: readTx,
+		totalDuration:     new(float64),
 	}
 	params := PreflightParameters{
 		Logger:             pwp.logger,
 		SourceAccount:      sourceAccount,
 		InvokeHostFunction: op,
 		NetworkPassphrase:  pwp.networkPassphrase,
-		LedgerEntryReadTx:  readTx,
+		LedgerEntryReadTx:  wrappedTx,
 	}
 	resultC := make(chan workerResult)
 	select {
 	case pwp.requestChan <- workerRequest{ctx, params, resultC}:
 		result := <-resultC
+		status := "ok"
+		if result.err != nil {
+			status = "error"
+		}
+		pwp.durationMetric.With(
+			prometheus.Labels{"type": "db", "status": status},
+		).Observe(*wrappedTx.totalDuration)
 		return result.preflight, result.err
 	case <-ctx.Done():
 		return Preflight{}, ctx.Err()
