@@ -39,6 +39,7 @@ const (
 
 type Daemon struct {
 	core                *ledgerbackend.CaptiveStellarCore
+	coreClient          *CoreClientWithMetrics
 	ingestService       *ingest.Service
 	db                  dbsession.SessionInterface
 	jsonRPCHandler      *internal.Handler
@@ -164,6 +165,10 @@ func MustNew(cfg config.Config) *Daemon {
 		db:              dbConn,
 		done:            make(chan struct{}),
 		metricsRegistry: metricsRegistry,
+		coreClient: newCoreClientWithMetrics(stellarcore.Client{
+			URL:  cfg.StellarCoreURL,
+			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
+		}, metricsRegistry),
 	}
 
 	eventStore := events.NewMemoryStore(
@@ -224,13 +229,10 @@ func MustNew(cfg config.Config) *Daemon {
 		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
 	jsonRPCHandler := internal.NewJSONRPCHandler(&cfg.DaemonConfig, internal.HandlerParams{
-		EventStore:       eventStore,
-		TransactionStore: transactionStore,
-		Logger:           logger,
-		CoreClient: &stellarcore.Client{
-			URL:  cfg.StellarCoreURL,
-			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
-		},
+		Daemon:            daemon,
+		EventStore:        eventStore,
+		TransactionStore:  transactionStore,
+		Logger:            logger,
 		LedgerReader:      db.NewLedgerReader(dbConn),
 		LedgerEntryReader: db.NewLedgerEntryReader(dbConn),
 		PreflightGetter:   preflightWorkerPool,

@@ -103,34 +103,36 @@ func (i *Test) waitForCheckpoint() {
 }
 
 func (i *Test) launchDaemon(coreBinaryPath string) {
-	config := config.LocalConfig{
-		StellarCoreURL:                   "http://localhost:" + strconv.Itoa(stellarCorePort),
-		CoreRequestTimeout:               time.Second * 2,
-		StellarCoreBinaryPath:            coreBinaryPath,
-		CaptiveCoreConfigPath:            path.Join(i.composePath, "captive-core-integration-tests.cfg"),
-		CaptiveCoreStoragePath:           i.t.TempDir(),
-		CaptiveCoreHTTPPort:              0,
-		CaptiveCoreUseDB:                 true,
-		FriendbotURL:                     friendbotURL,
-		NetworkPassphrase:                StandaloneNetworkPassphrase,
-		HistoryArchiveURLs:               []string{"http://localhost:1570"},
-		LogLevel:                         logrus.DebugLevel,
-		SQLiteDBPath:                     path.Join(i.t.TempDir(), "soroban_rpc.sqlite"),
-		IngestionTimeout:                 10 * time.Minute,
-		EventLedgerRetentionWindow:       ledgerbucketwindow.DefaultEventLedgerRetentionWindow,
-		TransactionLedgerRetentionWindow: 1440,
-		CheckpointFrequency:              checkpointFrequency,
-		MaxEventsLimit:                   10000,
-		DefaultEventsLimit:               100,
-		MaxHealthyLedgerLatency:          time.Second * 10,
-		PreflightWorkerCount:             uint(runtime.NumCPU()),
-		PreflightWorkerQueueSize:         uint(runtime.NumCPU()),
+	config := config.Config{
+		CaptiveCoreConfig: config.CaptiveCoreConfig{
+			StellarCoreURL:         "http://localhost:" + strconv.Itoa(stellarCorePort),
+			StellarCoreBinaryPath:  coreBinaryPath,
+			CaptiveCoreConfigPath:  path.Join(i.composePath, "captive-core-integration-tests.cfg"),
+			CaptiveCoreStoragePath: i.t.TempDir(),
+			CaptiveCoreHTTPPort:    0,
+			CaptiveCoreUseDB:       true,
+		},
+		DaemonConfig: config.DaemonConfig{
+			Endpoint:                         fmt.Sprintf("localhost:%d", sorobanRPCPort),
+			AdminEndpoint:                    fmt.Sprintf("localhost:%d", adminPort),
+			CoreRequestTimeout:               time.Second * 2,
+			FriendbotURL:                     friendbotURL,
+			NetworkPassphrase:                StandaloneNetworkPassphrase,
+			HistoryArchiveURLs:               []string{"http://localhost:1570"},
+			LogLevel:                         logrus.DebugLevel,
+			SQLiteDBPath:                     path.Join(i.t.TempDir(), "soroban_rpc.sqlite"),
+			IngestionTimeout:                 10 * time.Minute,
+			EventLedgerRetentionWindow:       ledgerbucketwindow.DefaultEventLedgerRetentionWindow,
+			TransactionLedgerRetentionWindow: 1440,
+			CheckpointFrequency:              checkpointFrequency,
+			MaxEventsLimit:                   10000,
+			DefaultEventsLimit:               100,
+			MaxHealthyLedgerLatency:          time.Second * 10,
+			PreflightWorkerCount:             uint(runtime.NumCPU()),
+			PreflightWorkerQueueSize:         uint(runtime.NumCPU()),
+		},
 	}
-	i.daemon = daemon.MustNew(
-		config,
-		fmt.Sprintf("localhost:%d", sorobanRPCPort),
-		fmt.Sprintf("localhost:%d", adminPort),
-	)
+	i.daemon = daemon.MustNew(config)
 	go i.daemon.Run()
 
 	// wait for the storage to catch up for 1 minute

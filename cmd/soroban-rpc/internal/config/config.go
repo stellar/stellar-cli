@@ -66,8 +66,8 @@ type Config struct {
 	// Optional: The path to the config file. Not in the toml, as wouldn't make sense.
 	ConfigPath string
 
-	DaemonConfig      `toml:"-"`
 	CaptiveCoreConfig `toml:"stellar-core" valid:"optional"`
+	DaemonConfig      `toml:"-"`
 }
 
 func (cfg *Config) Require() {
