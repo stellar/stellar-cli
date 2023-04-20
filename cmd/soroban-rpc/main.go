@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -39,26 +38,11 @@ func main() {
 				fmt.Fprintf(os.Stderr, "failed to set values : %v\n", err)
 				os.Exit(1)
 			}
-			if configOpts.DefaultEventsLimit > configOpts.MaxEventsLimit {
-				fmt.Fprintf(os.Stderr,
-					"default-events-limit (%v) cannot exceed max-events-limit (%v)\n",
-					configOpts.DefaultEventsLimit,
-					configOpts.MaxEventsLimit,
-				)
+			err = configOpts.Validate()
+			if err != nil {
+				fmt.Fprint(os.Stderr, err)
 				os.Exit(1)
 			}
-			if configOpts.PreflightWorkerCount < 1 {
-				fmt.Fprintln(os.Stderr, "preflight-worker-count must be > 0")
-				os.Exit(1)
-			}
-
-			configOpts.LocalConfig.CaptiveCoreHTTPPort = uint16(configOpts.CaptiveCoreHTTPPort)
-			if configOpts.StellarCoreURL == "" {
-				configOpts.StellarCoreURL = fmt.Sprintf("http://localhost:%d", configOpts.CaptiveCoreHTTPPort)
-			}
-			configOpts.IngestionTimeout = time.Duration(configOpts.IngestionTimeoutMinutes) * time.Minute
-			configOpts.CoreRequestTimeout = time.Duration(configOpts.CoreTimeoutSeconds) * time.Second
-			configOpts.MaxHealthyLedgerLatency = time.Duration(configOpts.MaxHealthyLedgerLatencySeconds) * time.Second
 			daemon.MustNew(configOpts.LocalConfig, configOpts.Endpoint, configOpts.AdminEndpoint).Run()
 		},
 	}

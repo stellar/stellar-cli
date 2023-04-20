@@ -1,15 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/types"
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
 	"github.com/stellar/go/network"
 	supportconfig "github.com/stellar/go/support/config"
 	"github.com/stellar/go/support/errors"
@@ -25,19 +29,6 @@ type Config struct {
 	localConfig.LocalConfig `toml:"-"`
 }
 
-func (cfg *Config) Read(path string) error {
-	err := supportconfig.Read(path, cfg)
-	if err != nil {
-		switch cause := errors.Cause(err).(type) {
-		case *supportconfig.InvalidConfigError:
-			return errors.Wrap(cause, "config file")
-		default:
-			return err
-		}
-	}
-	return nil
-}
-
 func (cfg *Config) Require() {
 	cfg.options().Require()
 }
@@ -47,7 +38,78 @@ func (cfg *Config) SetValues() error {
 }
 
 func (cfg *Config) Init(cmd *cobra.Command) error {
-	return cfg.options().Init(cmd)
+	err := cfg.options().Init(cmd)
+	if err != nil {
+		return err
+	}
+	return cfg.loadFile()
+}
+
+func (cfg *Config) loadFile() error {
+	if cfg.ConfigPath == "" {
+		return nil
+	}
+	var fileConfig Config
+	err := supportconfig.Read(cfg.ConfigPath, &fileConfig)
+	if err != nil {
+		switch cause := errors.Cause(err).(type) {
+		case *supportconfig.InvalidConfigError:
+			return errors.Wrap(cause, "config file")
+		default:
+			return err
+		}
+	}
+	*cfg, err = cfg.Merge(&fileConfig)
+	return err
+}
+
+func (cfg *Config) Validate() error {
+	if cfg.DefaultEventsLimit > cfg.MaxEventsLimit {
+		return fmt.Errorf(
+			"default-events-limit (%v) cannot exceed max-events-limit (%v)\n",
+			cfg.DefaultEventsLimit,
+			cfg.MaxEventsLimit,
+		)
+	}
+	if cfg.PreflightWorkerCount < 1 {
+		return fmt.Errorf("preflight-worker-count must be > 0")
+	}
+
+	if cfg.StellarCoreURL == "" {
+		cfg.StellarCoreURL = fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreHTTPPort)
+	}
+	cfg.IngestionTimeout = time.Duration(cfg.IngestionTimeoutMinutes) * time.Minute
+	cfg.CoreRequestTimeout = time.Duration(cfg.CoreTimeoutSeconds) * time.Second
+	cfg.MaxHealthyLedgerLatency = time.Duration(cfg.MaxHealthyLedgerLatencySeconds) * time.Second
+	return nil
+}
+
+// Merge other into cfg, overriding local values with other values. Neither
+// config is modified, instead a new config is returned.
+// TODO: Unit-test this
+func (cfg *Config) Merge(other *Config) (Config, error) {
+	var buf bytes.Buffer
+	err := toml.NewEncoder(&buf).Encode(cfg)
+	if err != nil {
+		return Config{}, errors.Wrap(err, "encoding config")
+	}
+	err = toml.NewEncoder(&buf).Encode(other)
+	if err != nil {
+		return Config{}, errors.Wrap(err, "encoding config")
+	}
+
+	var merged Config
+	_, err = toml.Decode(buf.String(), &cfg)
+	if err != nil {
+		return Config{}, errors.Wrap(err, "decoding config")
+	}
+
+	merged.ConfigPath = cfg.ConfigPath
+	if other.ConfigPath != "" {
+		merged.ConfigPath = other.ConfigPath
+	}
+
+	return merged, nil
 }
 
 func (cfg *Config) options() supportconfig.ConfigOptions {
