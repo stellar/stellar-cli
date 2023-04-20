@@ -2,48 +2,33 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	supportconfig "github.com/stellar/go/support/config"
 	goxdr "github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
 )
 
-func mustPositiveUint32(co *supportconfig.ConfigOption) error {
-	v := viper.GetInt(co.Name)
-	if v <= 0 {
-		return fmt.Errorf("%s must be positive", co.Name)
-	}
-	if v > math.MaxUint32 {
-		return fmt.Errorf("%s is too large (must be <= %d)", co.Name, math.MaxUint32)
-	}
-	*(co.ConfigKey.(*uint32)) = uint32(v)
-	return nil
-}
-
 func main() {
-	var configOpts Config
+	var cfg config.Config
 	cmd := &cobra.Command{
 		Use:   "soroban-rpc",
 		Short: "Start the remote soroban-rpc server",
 		Run: func(_ *cobra.Command, _ []string) {
-			configOpts.Require()
-			err := configOpts.SetValues()
+			cfg.Require()
+			err := cfg.SetValues()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to set values : %v\n", err)
 				os.Exit(1)
 			}
-			err = configOpts.Validate()
+			err = cfg.Validate()
 			if err != nil {
 				fmt.Fprint(os.Stderr, err)
 				os.Exit(1)
 			}
-			daemon.MustNew(configOpts.LocalConfig, configOpts.Endpoint, configOpts.AdminEndpoint).Run()
+			daemon.MustNew(cfg).Run()
 		},
 	}
 
@@ -70,7 +55,7 @@ func main() {
 
 	cmd.AddCommand(versionCmd)
 
-	if err := configOpts.Init(cmd); err != nil {
+	if err := cfg.Init(cmd); err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
 		os.Exit(1)
 	}
