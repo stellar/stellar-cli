@@ -13,7 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: stellar/actions/rust-cache@main
-
+    - run: rustup update
     - name: Generate help doc
       # this looks goofy to get GITHUB_OUTPUT to work with multi-line return values;
       # see https://stackoverflow.com/a/74266196/249801
