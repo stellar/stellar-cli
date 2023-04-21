@@ -1,13 +1,11 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"runtime"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/sirupsen/logrus"
 
 	"github.com/stellar/go/network"
@@ -142,49 +140,115 @@ func (cfg *Config) Validate() error {
 // a new config is returned.
 // TODO: Unit-test this
 // TODO: Find a less hacky and horrible way to do this.
-func Merge(a, b *Config) (Config, error) {
-	fmt.Printf("Merging configs: %+v, %+v", a, b)
-	var buf bytes.Buffer
-	aMap := map[string]interface{}{}
-	err := toml.NewEncoder(&buf).Encode(a)
-	if err != nil {
-		return Config{}, errors.Wrap(err, "encoding config")
+func (a *Config) Merge(b *Config) Config {
+	merged := Config{
+		CaptiveCoreConfig:                a.CaptiveCoreConfig.Merge(&b.CaptiveCoreConfig),
+		ConfigPath:                       b.ConfigPath,
+		Endpoint:                         b.Endpoint,
+		AdminEndpoint:                    b.AdminEndpoint,
+		CheckpointFrequency:              b.CheckpointFrequency,
+		CoreRequestTimeout:               b.CoreRequestTimeout,
+		DefaultEventsLimit:               b.DefaultEventsLimit,
+		EventLedgerRetentionWindow:       b.EventLedgerRetentionWindow,
+		FriendbotURL:                     b.FriendbotURL,
+		HistoryArchiveURLs:               b.HistoryArchiveURLs,
+		IngestionTimeout:                 b.IngestionTimeout,
+		LogFormat:                        b.LogFormat,
+		LogLevel:                         b.LogLevel,
+		MaxEventsLimit:                   b.MaxEventsLimit,
+		MaxHealthyLedgerLatency:          b.MaxHealthyLedgerLatency,
+		NetworkPassphrase:                b.NetworkPassphrase,
+		PreflightWorkerCount:             b.PreflightWorkerCount,
+		PreflightWorkerQueueSize:         b.PreflightWorkerQueueSize,
+		SQLiteDBPath:                     b.SQLiteDBPath,
+		TransactionLedgerRetentionWindow: b.TransactionLedgerRetentionWindow,
 	}
-	_, err = toml.Decode(buf.String(), &aMap)
-	if err != nil {
-		return Config{}, errors.Wrap(err, "encoding config")
+	if merged.ConfigPath == "" {
+		merged.ConfigPath = a.ConfigPath
 	}
-	buf.Reset()
-	bMap := map[string]interface{}{}
-	err = toml.NewEncoder(&buf).Encode(b)
-	if err != nil {
-		return Config{}, errors.Wrap(err, "encoding config")
+	if merged.Endpoint == "" {
+		merged.Endpoint = a.Endpoint
 	}
-	_, err = toml.Decode(buf.String(), &bMap)
-	if err != nil {
-		return Config{}, errors.Wrap(err, "encoding config")
+	if merged.AdminEndpoint == "" {
+		merged.AdminEndpoint = a.AdminEndpoint
 	}
-	buf.Reset()
+	if merged.CheckpointFrequency == 0 {
+		merged.CheckpointFrequency = a.CheckpointFrequency
+	}
+	if merged.CoreRequestTimeout == 0 {
+		merged.CoreRequestTimeout = a.CoreRequestTimeout
+	}
+	if merged.DefaultEventsLimit == 0 {
+		merged.DefaultEventsLimit = a.DefaultEventsLimit
+	}
+	if merged.EventLedgerRetentionWindow == 0 {
+		merged.EventLedgerRetentionWindow = a.EventLedgerRetentionWindow
+	}
+	if merged.FriendbotURL == "" {
+		merged.FriendbotURL = a.FriendbotURL
+	}
+	if len(merged.HistoryArchiveURLs) == 0 {
+		merged.HistoryArchiveURLs = a.HistoryArchiveURLs
+	}
+	if merged.IngestionTimeout == 0 {
+		merged.IngestionTimeout = a.IngestionTimeout
+	}
+	if merged.LogFormat == 0 {
+		merged.LogFormat = a.LogFormat
+	}
+	if merged.MaxEventsLimit == 0 {
+		merged.MaxEventsLimit = a.MaxEventsLimit
+	}
+	if merged.MaxHealthyLedgerLatency == 0 {
+		merged.MaxHealthyLedgerLatency = a.MaxHealthyLedgerLatency
+	}
+	if merged.LogLevel == logrus.Level(0) {
+		merged.LogLevel = b.LogLevel
+	}
+	if merged.PreflightWorkerCount == 0 {
+		merged.PreflightWorkerCount = a.PreflightWorkerCount
+	}
+	if merged.PreflightWorkerQueueSize == 0 {
+		merged.PreflightWorkerQueueSize = a.PreflightWorkerQueueSize
+	}
+	if merged.SQLiteDBPath == "" {
+		merged.SQLiteDBPath = a.SQLiteDBPath
+	}
+	if merged.TransactionLedgerRetentionWindow == 0 {
+		merged.TransactionLedgerRetentionWindow = a.TransactionLedgerRetentionWindow
+	}
+	if merged.NetworkPassphrase == "" {
+		merged.NetworkPassphrase = a.NetworkPassphrase
+	}
+	return merged
+}
 
-	for k, v := range bMap {
-		aMap[k] = v
+func (a *CaptiveCoreConfig) Merge(b *CaptiveCoreConfig) CaptiveCoreConfig {
+	merged := CaptiveCoreConfig{
+		CaptiveCoreConfigPath:  b.CaptiveCoreConfigPath,
+		CaptiveCoreHTTPPort:    b.CaptiveCoreHTTPPort,
+		CaptiveCoreStoragePath: b.CaptiveCoreStoragePath,
+		CaptiveCoreUseDB:       b.CaptiveCoreUseDB,
+		StellarCoreBinaryPath:  b.StellarCoreBinaryPath,
+		StellarCoreURL:         b.StellarCoreURL,
 	}
-
-	err = toml.NewEncoder(&buf).Encode(aMap)
-	if err != nil {
-		return Config{}, errors.Wrap(err, "encoding config")
+	if merged.CaptiveCoreConfigPath == "" {
+		merged.CaptiveCoreConfigPath = a.CaptiveCoreConfigPath
 	}
-	var merged Config
-	_, err = toml.Decode(buf.String(), &merged)
-	if err != nil {
-		return Config{}, errors.Wrap(err, "decoding config")
+	if merged.CaptiveCoreHTTPPort == 0 {
+		merged.CaptiveCoreHTTPPort = a.CaptiveCoreHTTPPort
 	}
-
-	merged.ConfigPath = a.ConfigPath
-	if b.ConfigPath != "" {
-		merged.ConfigPath = b.ConfigPath
+	if merged.CaptiveCoreStoragePath == "" {
+		merged.CaptiveCoreStoragePath = a.CaptiveCoreStoragePath
 	}
-
-	fmt.Printf("Merged: %+v", merged)
-	return merged, nil
+	if !merged.CaptiveCoreUseDB {
+		merged.CaptiveCoreUseDB = a.CaptiveCoreUseDB
+	}
+	if merged.StellarCoreBinaryPath == "" {
+		merged.StellarCoreBinaryPath = a.StellarCoreBinaryPath
+	}
+	if merged.StellarCoreURL == "" {
+		merged.StellarCoreURL = a.StellarCoreURL
+	}
+	return merged
 }

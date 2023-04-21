@@ -73,10 +73,7 @@ func applyFlags(cfg *config.Config, flags supportconfig.ConfigOptions) error {
 		if err != nil {
 			return errors.Wrap(err, "reading config file")
 		}
-		*cfg, err = config.Merge(fileConfig, cfg)
-		if err != nil {
-			return errors.Wrap(err, "merging config file")
-		}
+		*cfg = fileConfig.Merge(cfg)
 	}
 
 	fmt.Printf("Merged config: %+v\n", cfg)
