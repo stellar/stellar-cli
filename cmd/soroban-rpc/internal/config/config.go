@@ -118,22 +118,38 @@ func (cfg *Config) Validate() error {
 	}
 
 	if len(cfg.HistoryArchiveURLs) == 0 {
-		return fmt.Errorf("history-archive-urls is required")
+		return cannotBeBlank(
+			"history-archive-urls",
+			"HISTORY_ARCHIVE_URLS",
+		)
 	}
 
 	if cfg.NetworkPassphrase == "" {
-		return fmt.Errorf("network-passphrase is required")
+		return cannotBeBlank(
+			"network-passphrase",
+			"NETWORK_PASSPHRASE",
+		)
 	}
 
 	// if cfg.CaptiveCoreConfigPath == "" {
-	// 	return fmt.Errorf("captive-core-config-path is required")
+	// 	return cannotBeBlank(
+	// 		"captive-core-config-path",
+	// 		"CAPTIVE_CORE_CONFIG_PATH",
+	// 	)
 	// }
 
 	if cfg.StellarCoreBinaryPath == "" {
-		return fmt.Errorf("stellar-core-binary-path is required")
+		return cannotBeBlank(
+			"stellar-core-binary-path",
+			"STELLAR_CORE_BINARY_PATH",
+		)
 	}
 
 	return nil
+}
+
+func cannotBeBlank(name, envVar string) error {
+	return fmt.Errorf("Invalid config: %s is blank. Please specify --%s on the command line or set the %s environment variable.", name, name, envVar)
 }
 
 // Merge a and b, preferring values from b. Neither config is modified, instead

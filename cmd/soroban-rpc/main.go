@@ -76,8 +76,6 @@ func applyFlags(cfg *config.Config, flags supportconfig.ConfigOptions) error {
 		*cfg = fileConfig.Merge(cfg)
 	}
 
-	fmt.Printf("Merged config: %+v\n", cfg)
-
 	err = cfg.Validate()
 	if err != nil {
 		return err
