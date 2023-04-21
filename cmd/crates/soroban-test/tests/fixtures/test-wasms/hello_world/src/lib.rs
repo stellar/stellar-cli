@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contractimpl, vec, Address, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, vec, Address, Env, String, Symbol, Vec};
 
 pub struct Contract;
 
@@ -23,6 +23,9 @@ impl Contract {
         env.events().publish(("auth",), world.clone());
         vec![&env, Symbol::short("Hello"), world]
     }
+
+    #[allow(unused_variables)]
+    pub fn multi_word_cmd(env: Env, contract_owner: String) {}
 }
 
 #[cfg(test)]
