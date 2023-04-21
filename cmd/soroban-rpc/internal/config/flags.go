@@ -158,6 +158,9 @@ func Flags() (*Config, support.ConfigOptions) {
 			Required:    true,
 			CustomSetValue: func(co *support.ConfigOption) error {
 				stringOfUrls := viper.GetString(co.Name)
+				if stringOfUrls == "" {
+					return nil
+				}
 				urlStrings := strings.Split(stringOfUrls, ",")
 
 				*(co.ConfigKey.(*[]string)) = urlStrings
