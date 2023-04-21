@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/stellar/go/ingest/ledgerbackend"
 	"github.com/stellar/go/network"
 	support "github.com/stellar/go/support/config"
 	"github.com/stellar/go/support/errors"
@@ -32,44 +33,38 @@ func (f LogFormat) String() string {
 	}
 }
 
-type CaptiveCoreConfig struct {
-	CaptiveCoreConfigPath  string `toml:"config-path" valid:"optional"`
-	CaptiveCoreHTTPPort    uint   `toml:"http-port" valid:"optional"`
-	CaptiveCoreStoragePath string `toml:"storage-path" valid:"optional"`
-	CaptiveCoreUseDB       bool   `toml:"use-db" valid:"optional"`
-	StellarCoreBinaryPath  string `toml:"binary-path" valid:"required"`
-	StellarCoreURL         string `toml:"url" valid:"optional"`
-}
+type CaptiveCoreConfig = ledgerbackend.CaptiveCoreToml
 
 // Config represents the configuration of a friendbot server
 type Config struct {
 	// Optional: The path to the config file. Not in the toml, as wouldn't make sense.
 	ConfigPath string `toml:"-" valid:"-"`
 
-	CaptiveCoreConfig `toml:"stellar-core" valid:"required"`
+	CaptiveCoreConfig `toml:"STELLAR_CORE" valid:"required"`
 
-	Endpoint                         string        `toml:"endpoint" valid:"optional"`
-	AdminEndpoint                    string        `toml:"admin-endpoint" valid:"optional"`
-	CheckpointFrequency              uint32        `toml:"checkpoint-frequency" valid:"optional"`
-	CoreRequestTimeout               time.Duration `toml:"core-request-timeout" valid:"optional"`
-	DefaultEventsLimit               uint          `toml:"default-events-limit" valid:"optional"`
-	EventLedgerRetentionWindow       uint32        `toml:"event-ledger-retention-window" valid:"optional"`
-	FriendbotURL                     string        `toml:"friendbot-url" valid:"optional"`
-	HistoryArchiveURLs               []string      `toml:"history-archive-urls" valid:"required"`
-	IngestionTimeout                 time.Duration `toml:"ingestion-timeout" valid:"optional"`
-	LogFormat                        LogFormat     `toml:"log-format" valid:"optional"`
-	LogLevel                         logrus.Level  `toml:"log-level" valid:"optional"`
-	MaxEventsLimit                   uint          `toml:"max-events-limit" valid:"optional"`
-	MaxHealthyLedgerLatency          time.Duration `toml:"max-healthy-ledger-latency" valid:"optional"`
-	NetworkPassphrase                string        `toml:"network-passphrase" valid:"required"`
-	PreflightWorkerCount             uint          `toml:"preflight-worker-count" valid:"optional"`
-	PreflightWorkerQueueSize         uint          `toml:"preflight-worker-queue-size" valid:"optional"`
-	SQLiteDBPath                     string        `toml:"sqlite-db-path" valid:"optional"`
-	TransactionLedgerRetentionWindow uint32        `toml:"transaction-ledger-retention-window" valid:"optional"`
+	CaptiveCoreStoragePath           string        `toml:"CAPTIVE_CORE_STORAGE_PATH" valid:"optional"`
+	Endpoint                         string        `toml:"ENDPOINT" valid:"optional"`
+	AdminEndpoint                    string        `toml:"ADMIN_ENDPOINT" valid:"optional"`
+	CheckpointFrequency              uint32        `toml:"CHECKPOINT_FREQUENCY" valid:"optional"`
+	CoreRequestTimeout               time.Duration `toml:"CORE_REQUEST_TIMEOUT" valid:"optional"`
+	DefaultEventsLimit               uint          `toml:"DEFAULT_EVENTS_LIMIT" valid:"optional"`
+	EventLedgerRetentionWindow       uint32        `toml:"EVENT_LEDGER_RETENTION_WINDOW" valid:"optional"`
+	FriendbotURL                     string        `toml:"FRIENDBOT_URL" valid:"optional"`
+	HistoryArchiveURLs               []string      `toml:"HISTORY_ARCHIVE_URLS" valid:"required"`
+	IngestionTimeout                 time.Duration `toml:"INGESTION_TIMEOUT" valid:"optional"`
+	LogFormat                        LogFormat     `toml:"LOG_FORMAT" valid:"optional"`
+	LogLevel                         logrus.Level  `toml:"LOG_LEVEL" valid:"optional"`
+	MaxEventsLimit                   uint          `toml:"MAX_EVENTS_LIMIT" valid:"optional"`
+	MaxHealthyLedgerLatency          time.Duration `toml:"MAX_HEALTHY_LEDGER_LATENCY" valid:"optional"`
+	NetworkPassphrase                string        `toml:"NETWORK_PASSPHRASE" valid:"required"`
+	PreflightWorkerCount             uint          `toml:"PREFLIGHT_WORKER_COUNT" valid:"optional"`
+	PreflightWorkerQueueSize         uint          `toml:"PREFLIGHT_WORKER_QUEUE_SIZE" valid:"optional"`
+	SQLiteDBPath                     string        `toml:"SQLITE_DB_PATH" valid:"optional"`
+	TransactionLedgerRetentionWindow uint32        `toml:"TRANSACTION_LEDGER_RETENTION_WINDOW" valid:"optional"`
 }
 
 func (cfg *Config) SetDefaults() {
-	cfg.CaptiveCoreHTTPPort = 11626
+	cfg.CaptiveCoreConfig.HTTPPort = 11626
 	cfg.CheckpointFrequency = 64
 	cfg.CoreRequestTimeout = 2 * time.Second
 	cfg.DefaultEventsLimit = 100
@@ -84,7 +79,6 @@ func (cfg *Config) SetDefaults() {
 	cfg.PreflightWorkerCount = uint(runtime.NumCPU())
 	cfg.PreflightWorkerQueueSize = uint(runtime.NumCPU())
 	cfg.SQLiteDBPath = "soroban_rpc.sqlite"
-	cfg.StellarCoreURL = fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreHTTPPort)
 	cfg.TransactionLedgerRetentionWindow = 1440
 
 	cwd, err := os.Getwd()
@@ -241,18 +235,18 @@ func (a *Config) Merge(b *Config) Config {
 
 func (a *CaptiveCoreConfig) Merge(b *CaptiveCoreConfig) CaptiveCoreConfig {
 	merged := CaptiveCoreConfig{
-		CaptiveCoreConfigPath:  b.CaptiveCoreConfigPath,
 		CaptiveCoreHTTPPort:    b.CaptiveCoreHTTPPort,
+		CaptiveCorePeerPort:    b.CaptiveCorePeerPort,
 		CaptiveCoreStoragePath: b.CaptiveCoreStoragePath,
 		CaptiveCoreUseDB:       b.CaptiveCoreUseDB,
 		StellarCoreBinaryPath:  b.StellarCoreBinaryPath,
 		StellarCoreURL:         b.StellarCoreURL,
 	}
-	if merged.CaptiveCoreConfigPath == "" {
-		merged.CaptiveCoreConfigPath = a.CaptiveCoreConfigPath
-	}
 	if merged.CaptiveCoreHTTPPort == 0 {
 		merged.CaptiveCoreHTTPPort = a.CaptiveCoreHTTPPort
+	}
+	if merged.CaptiveCorePeerPort == 0 {
+		merged.CaptiveCorePeerPort = a.CaptiveCorePeerPort
 	}
 	if merged.CaptiveCoreStoragePath == "" {
 		merged.CaptiveCoreStoragePath = a.CaptiveCoreStoragePath

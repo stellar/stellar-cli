@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/pprof" //nolint:gosec
 	"os"
@@ -99,13 +100,16 @@ func (d *Daemon) Close() error {
 // newCaptiveCore creates a new captive core backend instance and returns it.
 func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbackend.CaptiveStellarCore, error) {
 	httpPortUint := uint(cfg.CaptiveCoreHTTPPort)
-	var captiveCoreTomlParams ledgerbackend.CaptiveCoreTomlParams
-	captiveCoreTomlParams.HTTPPort = &httpPortUint
-	captiveCoreTomlParams.HistoryArchiveURLs = cfg.HistoryArchiveURLs
-	captiveCoreTomlParams.NetworkPassphrase = cfg.NetworkPassphrase
-	captiveCoreTomlParams.Strict = true
-	captiveCoreTomlParams.UseDB = cfg.CaptiveCoreUseDB
-	captiveCoreToml, err := ledgerbackend.NewCaptiveCoreTomlFromFile(cfg.CaptiveCoreConfigPath, captiveCoreTomlParams)
+	peerPortUint := uint(cfg.CaptiveCorePeerPort)
+	captiveCoreToml, err := ledgerbackend.NewCaptiveCoreToml(ledgerbackend.CaptiveCoreTomlParams{
+		HTTPPort:           &httpPortUint,
+		HistoryArchiveURLs: cfg.HistoryArchiveURLs,
+		NetworkPassphrase:  cfg.NetworkPassphrase,
+		Strict:             true,
+		UseDB:              cfg.CaptiveCoreUseDB,
+		PeerPort:           &peerPortUint,
+		CoreBinaryPath:     cfg.StellarCoreBinaryPath,
+	})
 	if err != nil {
 		logger.WithError(err).Fatal("Invalid captive core toml")
 	}
@@ -117,7 +121,7 @@ func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbacken
 		HistoryArchiveURLs:  cfg.HistoryArchiveURLs,
 		CheckpointFrequency: cfg.CheckpointFrequency,
 		Log:                 logger.WithField("subservice", "stellar-core"),
-		Toml:                captiveCoreToml,
+		Toml:                &cfg.CaptiveCoreConfig,
 		UserAgent:           "captivecore",
 		UseDB:               cfg.CaptiveCoreUseDB,
 	}
@@ -166,7 +170,7 @@ func MustNew(cfg *config.Config) *Daemon {
 		done:            make(chan struct{}),
 		metricsRegistry: metricsRegistry,
 		coreClient: newCoreClientWithMetrics(stellarcore.Client{
-			URL:  cfg.StellarCoreURL,
+			URL:  fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreConfig.HTTPPort),
 			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
 		}, metricsRegistry),
 	}

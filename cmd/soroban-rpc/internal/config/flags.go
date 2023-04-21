@@ -114,14 +114,6 @@ func Flags() (*Config, support.ConfigOptions) {
 			Required:    true,
 		},
 		{
-			Name:        "captive-core-config-path",
-			Usage:       "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
-			OptType:     types.String,
-			ConfigKey:   &cfg.CaptiveCoreConfigPath,
-			FlagDefault: cfg.CaptiveCoreConfigPath,
-			Required:    true,
-		},
-		{
 			Name:        "captive-core-storage-path",
 			Usage:       "Storage location for Captive Core bucket data",
 			OptType:     types.String,
