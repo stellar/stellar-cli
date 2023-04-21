@@ -18,9 +18,11 @@ use crate::{commands::config, utils, wasm};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub wasm: wasm::Args,
-    #[command(flatten)]
     pub config: config::Args,
+    #[command(flatten)]
+    pub fee: crate::fee::Args,
+    #[command(flatten)]
+    pub wasm: wasm::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -77,14 +79,12 @@ impl Cmd {
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
-        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
-        let fee: u32 = 100;
         let sequence: i64 = account_details.seq_num.into();
 
         let (tx, hash) = build_install_contract_code_tx(
             contract,
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             &key,
         )?;
