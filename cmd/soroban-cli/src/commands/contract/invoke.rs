@@ -74,6 +74,8 @@ pub struct Cmd {
     pub config: config::Args,
     #[command(flatten)]
     pub events_file: events_file::Args,
+    #[command(flatten)]
+    pub fee: crate::fee::Args,
 }
 
 impl FromStr for Cmd {
@@ -247,8 +249,6 @@ impl Cmd {
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
-        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
-        let fee: u32 = 100;
         let sequence: i64 = account_details.seq_num.into();
 
         // Get the contract
@@ -267,7 +267,7 @@ impl Cmd {
             None,
             None,
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             &key,
         )?;
@@ -311,7 +311,7 @@ impl Cmd {
             Some(footprint),
             Some(auth),
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             &key,
         )?;
