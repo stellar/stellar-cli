@@ -55,6 +55,8 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub config: config::Args,
+    #[command(flatten)]
+    pub fee: crate::fee::Args,
 }
 
 impl Cmd {
@@ -107,8 +109,6 @@ impl Cmd {
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
-        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
-        let fee: u32 = 100;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
         let contract_id = get_contract_id(&asset, network_passphrase)?;
@@ -116,7 +116,7 @@ impl Cmd {
             &asset,
             &contract_id,
             sequence + 1,
-            fee,
+            self.fee.fee,
             network_passphrase,
             &key,
         )?;
