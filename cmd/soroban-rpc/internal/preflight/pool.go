@@ -68,7 +68,7 @@ func NewPreflightWorkerPool(daemon interfaces.Daemon, workerCount uint, jobQueue
 	preflightWP.durationMetric = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: daemon.MetricsNamespace(),
 		Subsystem: "preflight_pool",
-		Name:      "request_duration",
+		Name:      "request_ledger_get_duration_seconds",
 		Help:      "preflight request duration broken down by status",
 	}, []string{"status", "type"})
 	daemon.MetricsRegistry().MustRegister(
@@ -150,7 +150,7 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 		}
 		pwp.durationMetric.With(
 			prometheus.Labels{"type": "db", "status": status},
-		).Observe(float64(wrappedTx.totalDurationMs * 1000))
+		).Observe(float64(wrappedTx.totalDurationMs) / 1000.0)
 		return result.preflight, result.err
 	case <-ctx.Done():
 		return Preflight{}, ctx.Err()
