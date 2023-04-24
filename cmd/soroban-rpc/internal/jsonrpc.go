@@ -54,6 +54,8 @@ func decorateHandlersWithMetrics(daemon interfaces.Daemon, m handler.Map) handle
 	}, []string{"endpoint", "status"})
 	decorated := handler.Map{}
 	for endpoint, h := range m {
+		// create copy of h so it can be used in closure bleow
+		h := h
 		decorated[endpoint] = handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
 			startTime := time.Now()
 			result, err := h.Handle(ctx, r)
