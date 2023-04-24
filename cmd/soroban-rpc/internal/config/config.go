@@ -16,24 +16,6 @@ import (
 
 //go:generate go run github.com/kevinburke/go-bindata/go-bindata@v3.18.0+incompatible -nometadata -ignore .+\.(go|swp)$ -pkg config -o default_generated.go .
 
-type LogFormat int
-
-const (
-	LogFormatText = iota
-	LogFormatJSON
-)
-
-func (f LogFormat) String() string {
-	switch f {
-	case LogFormatText:
-		return "text"
-	case LogFormatJSON:
-		return "json"
-	default:
-		panic(fmt.Sprintf("unknown log format: %d", f))
-	}
-}
-
 type CaptiveCoreConfig = ledgerbackend.CaptiveCoreToml
 
 // Config represents the configuration of a friendbot server
