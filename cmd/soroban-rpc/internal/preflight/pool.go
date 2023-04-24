@@ -27,15 +27,16 @@ type workerRequest struct {
 }
 
 type PreflightWorkerPool struct {
-	ledgerEntryReader        db.LedgerEntryReader
-	networkPassphrase        string
-	logger                   *log.Entry
-	isClosed                 atomic.Bool
-	requestChan              chan workerRequest
-	concurrentRequestsMetric prometheus.Gauge
-	errorFullCounter         prometheus.Counter
-	durationMetric           *prometheus.SummaryVec
-	wg                       sync.WaitGroup
+	ledgerEntryReader          db.LedgerEntryReader
+	networkPassphrase          string
+	logger                     *log.Entry
+	isClosed                   atomic.Bool
+	requestChan                chan workerRequest
+	concurrentRequestsMetric   prometheus.Gauge
+	errorFullCounter           prometheus.Counter
+	durationMetric             *prometheus.SummaryVec
+	ledgerEntriesFetchedMetric prometheus.Summary
+	wg                         sync.WaitGroup
 }
 
 func NewPreflightWorkerPool(daemon interfaces.Daemon, workerCount uint, jobQueueCapacity uint, ledgerEntryReader db.LedgerEntryReader, networkPassphrase string, logger *log.Entry) *PreflightWorkerPool {
@@ -71,11 +72,18 @@ func NewPreflightWorkerPool(daemon interfaces.Daemon, workerCount uint, jobQueue
 		Name:      "request_ledger_get_duration_seconds",
 		Help:      "preflight request duration broken down by status",
 	}, []string{"status", "type"})
+	preflightWP.ledgerEntriesFetchedMetric = prometheus.NewSummary(prometheus.SummaryOpts{
+		Namespace: daemon.MetricsNamespace(),
+		Subsystem: "preflight_pool",
+		Name:      "request_ledger_entries_fetched",
+		Help:      "ledger entries fetched by simulate transaction calls",
+	})
 	daemon.MetricsRegistry().MustRegister(
 		requestQueueMetric,
 		preflightWP.concurrentRequestsMetric,
 		preflightWP.errorFullCounter,
 		preflightWP.durationMetric,
+		preflightWP.ledgerEntriesFetchedMetric,
 	)
 	for i := uint(0); i < workerCount; i++ {
 		preflightWP.wg.Add(1)
@@ -115,13 +123,15 @@ var PreflightQueueFullErr = errors.New("preflight queue full")
 
 type metricsLedgerEntryWrapper struct {
 	db.LedgerEntryReadTx
-	totalDurationMs uint64
+	totalDurationMs      uint64
+	ledgerEntriesFetched uint32
 }
 
 func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
 	startTime := time.Now()
 	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key)
 	atomic.AddUint64(&m.totalDurationMs, uint64(time.Since(startTime).Milliseconds()))
+	atomic.AddUint32(&m.ledgerEntriesFetched, 1)
 	return ok, entry, err
 }
 
@@ -131,7 +141,6 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 	}
 	wrappedTx := metricsLedgerEntryWrapper{
 		LedgerEntryReadTx: readTx,
-		totalDurationMs:   0,
 	}
 	params := PreflightParameters{
 		Logger:             pwp.logger,
@@ -144,13 +153,16 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 	select {
 	case pwp.requestChan <- workerRequest{ctx, params, resultC}:
 		result := <-resultC
-		status := "ok"
-		if result.err != nil {
-			status = "error"
+		if wrappedTx.ledgerEntriesFetched > 0 {
+			status := "ok"
+			if result.err != nil {
+				status = "error"
+			}
+			pwp.durationMetric.With(
+				prometheus.Labels{"type": "db", "status": status},
+			).Observe(float64(wrappedTx.totalDurationMs) / 1000.0)
 		}
-		pwp.durationMetric.With(
-			prometheus.Labels{"type": "db", "status": status},
-		).Observe(float64(wrappedTx.totalDurationMs) / 1000.0)
+		pwp.ledgerEntriesFetchedMetric.Observe(float64(wrappedTx.ledgerEntriesFetched))
 		return result.preflight, result.err
 	case <-ctx.Done():
 		return Preflight{}, ctx.Err()
