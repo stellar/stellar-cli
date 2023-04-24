@@ -122,9 +122,11 @@ func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbacken
 		HistoryArchiveURLs:  cfg.HistoryArchiveURLs,
 		CheckpointFrequency: cfg.CheckpointFrequency,
 		Log:                 logger.WithField("subservice", "stellar-core"),
-		Toml:                &cfg.CaptiveCoreConfig,
-		UserAgent:           "captivecore",
-		UseDB:               cfg.CaptiveCoreUseDB,
+		Toml: &ledgerbackend.CaptiveCoreToml{
+			CaptiveCoreTomlValues: cfg.CaptiveCoreConfig,
+		},
+		UserAgent: "captivecore",
+		UseDB:     cfg.CaptiveCoreUseDB,
 	}
 	return ledgerbackend.NewCaptive(captiveConfig)
 

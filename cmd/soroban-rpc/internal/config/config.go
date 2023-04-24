@@ -16,7 +16,7 @@ import (
 
 //go:generate go run github.com/kevinburke/go-bindata/go-bindata@v3.18.0+incompatible -nometadata -ignore .+\.(go|swp)$ -pkg config -o default_generated.go .
 
-type CaptiveCoreConfig = ledgerbackend.CaptiveCoreToml
+type CaptiveCoreConfig = ledgerbackend.CaptiveCoreTomlValues
 
 // Config represents the configuration of a friendbot server
 type Config struct {
