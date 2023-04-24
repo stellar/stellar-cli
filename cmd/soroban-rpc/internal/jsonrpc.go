@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/creachadair/jrpc2"
@@ -44,39 +45,33 @@ type HandlerParams struct {
 	Daemon            interfaces.Daemon
 }
 
-type handlerWithMetrics struct {
-	handler       jrpc2.Handler
-	endpoint      string
-	requestMetric *prometheus.SummaryVec
-}
-
-func (h *handlerWithMetrics) Handle(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
-	startTime := time.Now()
-	result, err := h.handler.Handle(ctx, r)
-	duration := time.Since(startTime).Seconds()
-	label := prometheus.Labels{"endpoint": h.endpoint, "status": "ok"}
-	simulateTransactionResponse, ok := result.(methods.SimulateTransactionResponse)
-	if err != nil || ok && simulateTransactionResponse.Error != "" {
-		label["status"] = "error"
-	}
-	h.requestMetric.With(label).Observe(duration)
-	return result, err
-}
-
 func decorateHandlersWithMetrics(daemon interfaces.Daemon, m handler.Map) handler.Map {
 	requestMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: daemon.MetricsNamespace(),
 		Subsystem: "json_rpc",
-		Name:      "requests",
+		Name:      "request_duration_seconds",
 		Help:      "JSON RPC request duration",
 	}, []string{"endpoint", "status"})
 	decorated := handler.Map{}
-	for endpoint, handler := range m {
-		decorated[endpoint] = &handlerWithMetrics{
-			handler:       handler,
-			endpoint:      endpoint,
-			requestMetric: requestMetric,
-		}
+	for endpoint, h := range m {
+		decorated[endpoint] = handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
+			startTime := time.Now()
+			result, err := h.Handle(ctx, r)
+			duration := time.Since(startTime).Seconds()
+			label := prometheus.Labels{"endpoint": r.Method(), "status": "ok"}
+			simulateTransactionResponse, ok := result.(methods.SimulateTransactionResponse)
+			if ok && simulateTransactionResponse.Error != "" {
+				label["status"] = "error"
+			} else if err != nil {
+				if jsonRPCErr, ok := err.(*jrpc2.Error); ok {
+					prometheusLabelReplacer := strings.NewReplacer(" ", "_", "-", "_", "(", "", ")", "")
+					status := prometheusLabelReplacer.Replace(jsonRPCErr.Code.String())
+					label["status"] = status
+				}
+			}
+			requestMetric.With(label).Observe(duration)
+			return result, err
+		})
 	}
 	daemon.MetricsRegistry().MustRegister(requestMetric)
 	return decorated
