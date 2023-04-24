@@ -2,13 +2,15 @@ package test
 
 import (
 	"fmt"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"io"
 	"net/http"
+	"net/url"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 )
 
 func TestMetrics(t *testing.T) {
@@ -26,7 +28,9 @@ func TestMetrics(t *testing.T) {
 }
 
 func getMetrics(test *Test) string {
-	response, err := http.Get(test.adminURL() + "/metrics")
+	metricsURL, err := url.JoinPath(test.adminURL(), "/metrics")
+	require.NoError(test.t, err)
+	response, err := http.Get(metricsURL)
 	require.NoError(test.t, err)
 	responseBytes, err := io.ReadAll(response.Body)
 	require.NoError(test.t, err)
