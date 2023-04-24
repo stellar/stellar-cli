@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"runtime"
 	"time"
 
@@ -40,9 +41,19 @@ type Config struct {
 	// Optional: The path to the config file. Not in the toml, as wouldn't make sense.
 	ConfigPath string `toml:"-" valid:"-"`
 
+	// TODO: Enforce this when parsing this toml file
+	Strict bool `toml:"STRICT" valid:"optional"`
+
+	// TODO: Figure out what to do with these two flags. They conflict with the embedded captive-core config below
+	StellarCoreURL   string `toml:"-" valid:"-"`
+	CaptiveCoreUseDB bool   `toml:"-" valid:"-"`
+
 	CaptiveCoreConfig `toml:"STELLAR_CORE" valid:"required"`
 
-	CaptiveCoreStoragePath           string        `toml:"CAPTIVE_CORE_STORAGE_PATH" valid:"optional"`
+	// TODO: Is there a way to include these two in the CaptiveCoreConfig?
+	CaptiveCoreStoragePath string `toml:"CAPTIVE_CORE_STORAGE_PATH" valid:"optional"`
+	StellarCoreBinaryPath  string `toml:"STELLAR_CORE_BINARY_PATH" valid:"optional"`
+
 	Endpoint                         string        `toml:"ENDPOINT" valid:"optional"`
 	AdminEndpoint                    string        `toml:"ADMIN_ENDPOINT" valid:"optional"`
 	CheckpointFrequency              uint32        `toml:"CHECKPOINT_FREQUENCY" valid:"optional"`
@@ -65,6 +76,7 @@ type Config struct {
 
 func (cfg *Config) SetDefaults() {
 	cfg.CaptiveCoreConfig.HTTPPort = 11626
+	cfg.CaptiveCoreConfig.NetworkPassphrase = cfg.NetworkPassphrase
 	cfg.CheckpointFrequency = 64
 	cfg.CoreRequestTimeout = 2 * time.Second
 	cfg.DefaultEventsLimit = 100
@@ -90,6 +102,7 @@ func (cfg *Config) SetDefaults() {
 
 func Read(path string) (*Config, error) {
 	cfg := &Config{}
+	// TODO: Enforce strict parsing here
 	err := support.Read(path, cfg)
 	if err != nil {
 		switch cause := errors.Cause(err).(type) {
@@ -131,6 +144,10 @@ func (cfg *Config) Validate() error {
 	// 		"CAPTIVE_CORE_CONFIG_PATH",
 	// 	)
 	// }
+	if cfg.Strict && cfg.CaptiveCoreConfig.BucketDirPath != "" {
+		return errors.New("could not unmarshal captive core toml: setting BUCKET_DIR_PATH is disallowed for Captive Core, use CAPTIVE_CORE_STORAGE_PATH instead")
+	}
+	// Validate home domains etc as in CaptiveCoreToml.validate
 
 	if cfg.StellarCoreBinaryPath == "" {
 		return cannotBeBlank(
@@ -147,118 +164,37 @@ func cannotBeBlank(name, envVar string) error {
 }
 
 // Merge a and b, preferring values from b. Neither config is modified, instead
-// a new config is returned.
+// a new struct is returned.
 // TODO: Unit-test this
-// TODO: Find a less hacky and horrible way to do this.
-func (a *Config) Merge(b *Config) Config {
-	merged := Config{
-		CaptiveCoreConfig:                a.CaptiveCoreConfig.Merge(&b.CaptiveCoreConfig),
-		ConfigPath:                       b.ConfigPath,
-		Endpoint:                         b.Endpoint,
-		AdminEndpoint:                    b.AdminEndpoint,
-		CheckpointFrequency:              b.CheckpointFrequency,
-		CoreRequestTimeout:               b.CoreRequestTimeout,
-		DefaultEventsLimit:               b.DefaultEventsLimit,
-		EventLedgerRetentionWindow:       b.EventLedgerRetentionWindow,
-		FriendbotURL:                     b.FriendbotURL,
-		HistoryArchiveURLs:               b.HistoryArchiveURLs,
-		IngestionTimeout:                 b.IngestionTimeout,
-		LogFormat:                        b.LogFormat,
-		LogLevel:                         b.LogLevel,
-		MaxEventsLimit:                   b.MaxEventsLimit,
-		MaxHealthyLedgerLatency:          b.MaxHealthyLedgerLatency,
-		NetworkPassphrase:                b.NetworkPassphrase,
-		PreflightWorkerCount:             b.PreflightWorkerCount,
-		PreflightWorkerQueueSize:         b.PreflightWorkerQueueSize,
-		SQLiteDBPath:                     b.SQLiteDBPath,
-		TransactionLedgerRetentionWindow: b.TransactionLedgerRetentionWindow,
+func mergeStructs(a, b reflect.Value) reflect.Value {
+	if a.Type() != b.Type() {
+		panic("Cannot merge structs of different types")
 	}
-	if merged.ConfigPath == "" {
-		merged.ConfigPath = a.ConfigPath
-	}
-	if merged.Endpoint == "" {
-		merged.Endpoint = a.Endpoint
-	}
-	if merged.AdminEndpoint == "" {
-		merged.AdminEndpoint = a.AdminEndpoint
-	}
-	if merged.CheckpointFrequency == 0 {
-		merged.CheckpointFrequency = a.CheckpointFrequency
-	}
-	if merged.CoreRequestTimeout == 0 {
-		merged.CoreRequestTimeout = a.CoreRequestTimeout
-	}
-	if merged.DefaultEventsLimit == 0 {
-		merged.DefaultEventsLimit = a.DefaultEventsLimit
-	}
-	if merged.EventLedgerRetentionWindow == 0 {
-		merged.EventLedgerRetentionWindow = a.EventLedgerRetentionWindow
-	}
-	if merged.FriendbotURL == "" {
-		merged.FriendbotURL = a.FriendbotURL
-	}
-	if len(merged.HistoryArchiveURLs) == 0 {
-		merged.HistoryArchiveURLs = a.HistoryArchiveURLs
-	}
-	if merged.IngestionTimeout == 0 {
-		merged.IngestionTimeout = a.IngestionTimeout
-	}
-	if merged.LogFormat == 0 {
-		merged.LogFormat = a.LogFormat
-	}
-	if merged.MaxEventsLimit == 0 {
-		merged.MaxEventsLimit = a.MaxEventsLimit
-	}
-	if merged.MaxHealthyLedgerLatency == 0 {
-		merged.MaxHealthyLedgerLatency = a.MaxHealthyLedgerLatency
-	}
-	if merged.LogLevel == logrus.Level(0) {
-		merged.LogLevel = b.LogLevel
-	}
-	if merged.PreflightWorkerCount == 0 {
-		merged.PreflightWorkerCount = a.PreflightWorkerCount
-	}
-	if merged.PreflightWorkerQueueSize == 0 {
-		merged.PreflightWorkerQueueSize = a.PreflightWorkerQueueSize
-	}
-	if merged.SQLiteDBPath == "" {
-		merged.SQLiteDBPath = a.SQLiteDBPath
-	}
-	if merged.TransactionLedgerRetentionWindow == 0 {
-		merged.TransactionLedgerRetentionWindow = a.TransactionLedgerRetentionWindow
-	}
-	if merged.NetworkPassphrase == "" {
-		merged.NetworkPassphrase = a.NetworkPassphrase
+	structType := a.Type()
+	merged := reflect.New(structType).Elem()
+	for i := 0; i < structType.NumField(); i++ {
+		if !merged.Field(i).CanSet() {
+			// Can't set unexported fields
+			// TODO: Figure out how to fix this, cause this means it can't set the captiveCoreTomlValues
+			continue
+		}
+		val := b.Field(i)
+		if val.IsZero() {
+			val = a.Field(i)
+		}
+		if val.Kind() == reflect.Struct {
+			// Recurse into structs
+			val = mergeStructs(a.Field(i), b.Field(i))
+		}
+		merged.Field(i).Set(val)
+
 	}
 	return merged
 }
 
-func (a *CaptiveCoreConfig) Merge(b *CaptiveCoreConfig) CaptiveCoreConfig {
-	merged := CaptiveCoreConfig{
-		CaptiveCoreHTTPPort:    b.CaptiveCoreHTTPPort,
-		CaptiveCorePeerPort:    b.CaptiveCorePeerPort,
-		CaptiveCoreStoragePath: b.CaptiveCoreStoragePath,
-		CaptiveCoreUseDB:       b.CaptiveCoreUseDB,
-		StellarCoreBinaryPath:  b.StellarCoreBinaryPath,
-		StellarCoreURL:         b.StellarCoreURL,
-	}
-	if merged.CaptiveCoreHTTPPort == 0 {
-		merged.CaptiveCoreHTTPPort = a.CaptiveCoreHTTPPort
-	}
-	if merged.CaptiveCorePeerPort == 0 {
-		merged.CaptiveCorePeerPort = a.CaptiveCorePeerPort
-	}
-	if merged.CaptiveCoreStoragePath == "" {
-		merged.CaptiveCoreStoragePath = a.CaptiveCoreStoragePath
-	}
-	if !merged.CaptiveCoreUseDB {
-		merged.CaptiveCoreUseDB = a.CaptiveCoreUseDB
-	}
-	if merged.StellarCoreBinaryPath == "" {
-		merged.StellarCoreBinaryPath = a.StellarCoreBinaryPath
-	}
-	if merged.StellarCoreURL == "" {
-		merged.StellarCoreURL = a.StellarCoreURL
-	}
-	return merged
+func (cfg Config) Merge(cfg2 Config) Config {
+	return mergeStructs(
+		reflect.ValueOf(cfg),
+		reflect.ValueOf(cfg2),
+	).Interface().(Config)
 }

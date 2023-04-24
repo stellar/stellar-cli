@@ -65,8 +65,8 @@ func Flags() (*Config, support.ConfigOptions) {
 			Name:        "stellar-captive-core-http-port",
 			Usage:       "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
 			OptType:     types.Uint,
-			ConfigKey:   &cfg.CaptiveCoreHTTPPort,
-			FlagDefault: cfg.CaptiveCoreHTTPPort,
+			ConfigKey:   &cfg.CaptiveCoreConfig.HTTPPort,
+			FlagDefault: cfg.CaptiveCoreConfig.HTTPPort,
 			Required:    false,
 		},
 		{

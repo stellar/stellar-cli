@@ -99,20 +99,21 @@ func (d *Daemon) Close() error {
 
 // newCaptiveCore creates a new captive core backend instance and returns it.
 func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbackend.CaptiveStellarCore, error) {
-	httpPortUint := uint(cfg.CaptiveCoreHTTPPort)
-	peerPortUint := uint(cfg.CaptiveCorePeerPort)
-	captiveCoreToml, err := ledgerbackend.NewCaptiveCoreToml(ledgerbackend.CaptiveCoreTomlParams{
-		HTTPPort:           &httpPortUint,
-		HistoryArchiveURLs: cfg.HistoryArchiveURLs,
-		NetworkPassphrase:  cfg.NetworkPassphrase,
-		Strict:             true,
-		UseDB:              cfg.CaptiveCoreUseDB,
-		PeerPort:           &peerPortUint,
-		CoreBinaryPath:     cfg.StellarCoreBinaryPath,
-	})
-	if err != nil {
-		logger.WithError(err).Fatal("Invalid captive core toml")
-	}
+	// TODO: Figure out what to do with ledgerbackend.NewCaptiveCoreToml. It sets some defaults we want to keep, but I don't want to duplicate the logic really...
+	// httpPortUint := uint(cfg.CaptiveCoreConfig.HTTPPort)
+	// peerPortUint := uint(cfg.CaptiveCoreConfig.PeerPort)
+	// captiveCoreToml, err := ledgerbackend.NewCaptiveCoreToml(ledgerbackend.CaptiveCoreTomlParams{
+	// 	HTTPPort:           &httpPortUint,
+	// 	HistoryArchiveURLs: cfg.HistoryArchiveURLs,
+	// 	NetworkPassphrase:  cfg.NetworkPassphrase,
+	// 	Strict:             true,
+	// 	UseDB:              cfg.CaptiveCoreUseDB,
+	// 	PeerPort:           &peerPortUint,
+	// 	CoreBinaryPath:     cfg.StellarCoreBinaryPath,
+	// })
+	// if err != nil {
+	// 	logger.WithError(err).Fatal("Invalid captive core toml")
+	// }
 
 	captiveConfig := ledgerbackend.CaptiveCoreConfig{
 		BinaryPath:          cfg.StellarCoreBinaryPath,
