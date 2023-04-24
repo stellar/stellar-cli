@@ -17,7 +17,9 @@ import (
 
 func Flags() (*Config, support.ConfigOptions) {
 	cfg := &Config{}
-	cfg.SetDefaults()
+	if err := cfg.SetDefaults(); err != nil {
+		panic(err)
+	}
 	return cfg, support.ConfigOptions{
 		{
 			Name:        "config-path",

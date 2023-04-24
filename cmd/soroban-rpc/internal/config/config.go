@@ -7,14 +7,15 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/sirupsen/logrus"
 
 	"github.com/stellar/go/ingest/ledgerbackend"
-	"github.com/stellar/go/network"
 	support "github.com/stellar/go/support/config"
 	"github.com/stellar/go/support/errors"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
+
+//go:generate go run github.com/kevinburke/go-bindata/go-bindata@v3.18.0+incompatible -nometadata -ignore .+\.(go|swp)$ -pkg config -o default_generated.go .
 
 type LogFormat int
 
@@ -74,30 +75,28 @@ type Config struct {
 	TransactionLedgerRetentionWindow uint32        `toml:"TRANSACTION_LEDGER_RETENTION_WINDOW" valid:"optional"`
 }
 
-func (cfg *Config) SetDefaults() {
-	cfg.CaptiveCoreConfig.HTTPPort = 11626
-	cfg.CaptiveCoreConfig.NetworkPassphrase = cfg.NetworkPassphrase
-	cfg.CheckpointFrequency = 64
-	cfg.CoreRequestTimeout = 2 * time.Second
-	cfg.DefaultEventsLimit = 100
-	cfg.Endpoint = "localhost:8000"
-	cfg.EventLedgerRetentionWindow = uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow)
-	cfg.IngestionTimeout = 30 * time.Minute
-	cfg.LogFormat = LogFormatText
-	cfg.LogLevel = logrus.InfoLevel
-	cfg.MaxEventsLimit = 10000
-	cfg.MaxHealthyLedgerLatency = 30 * time.Second
-	cfg.NetworkPassphrase = network.FutureNetworkPassphrase
+func (cfg *Config) SetDefaults() error {
+	defaults, err := Asset("default.toml")
+	if err != nil {
+		return err
+	}
+	err = toml.Unmarshal(defaults, cfg)
+	if err != nil {
+		return err
+	}
+
+	// Some defaults we can't encode in the default toml file
+
 	cfg.PreflightWorkerCount = uint(runtime.NumCPU())
 	cfg.PreflightWorkerQueueSize = uint(runtime.NumCPU())
-	cfg.SQLiteDBPath = "soroban_rpc.sqlite"
-	cfg.TransactionLedgerRetentionWindow = 1440
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		panic(fmt.Errorf("unable to determine the current directory: %s", err))
+		return fmt.Errorf("unable to determine the current directory: %s", err)
 	}
 	cfg.CaptiveCoreStoragePath = cwd
+
+	return nil
 }
 
 func Read(path string) (*Config, error) {

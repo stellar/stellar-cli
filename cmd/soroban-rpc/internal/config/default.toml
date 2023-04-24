@@ -1,0 +1,30 @@
+CHECKPOINT_FREQUENCY = 64
+COREREQUEST_TIMEOUT = "2s"
+DEFAULT_EVENTS_LIMIT = 100
+ENDPOINT = "localhost:8000"
+EVENT_LEDGER_RETENTION_WINDOW = 17280
+INGESTION_TIMEOUT = "30m"
+LOG_FORMAT = "text"
+LOG_LEVEL = "info"
+MAX_EVENTS_LIMIT = 10000
+MAX_HEALTHY_LEDGER_LATENCY = "30s"
+
+# Network Passphrase
+# NETWORK_PASSPHRASE = "Test SDF Future Network ; October 2022"
+
+# Change these to the number of CPUs you have
+# PREFLIGHT_WORKER_COUNT = 4
+# PREFLIGHT_WORKER_QUEUE_SIZE = 4
+
+SQLITE_DB_PATH = "soroban_rpc.sqlite"
+TRANSACTION_LEDGER_RETENTION_WINDOW = 1440
+
+# Set an explicit captive-core storage path
+# CAPTIVE_CORE_STORAGE_PATH = "/etc/stellar/soroban-rpc/captive-core"
+
+# TODO: Include all fields here (commented) as a form of documentation
+
+[STELLAR_CORE]
+HTTP_PORT = 11626
+
+# TODO: Include the captive core config defaults here
