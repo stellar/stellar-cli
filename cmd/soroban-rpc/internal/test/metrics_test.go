@@ -13,13 +13,7 @@ import (
 
 func TestMetrics(t *testing.T) {
 	test := NewTest(t)
-	response, err := http.Get(test.adminURL() + "/metrics")
-	require.NoError(t, err)
-	responseBytes, err := io.ReadAll(response.Body)
-	require.NoError(t, err)
-	require.NoError(t, response.Body.Close())
-	responseString := string(responseBytes)
-	t.Log(responseString)
+	metrics := getMetrics(test)
 	buildMetric := fmt.Sprintf(
 		"soroban_rpc_build_info{branch=\"%s\",build_timestamp=\"%s\",commit=\"%s\",goversion=\"%s\",version=\"%s\"} 1",
 		config.Branch,
@@ -28,5 +22,14 @@ func TestMetrics(t *testing.T) {
 		runtime.Version(),
 		config.Version,
 	)
-	require.Contains(t, responseString, buildMetric)
+	require.Contains(t, metrics, buildMetric)
+}
+
+func getMetrics(test *Test) string {
+	response, err := http.Get(test.adminURL() + "/metrics")
+	require.NoError(test.t, err)
+	responseBytes, err := io.ReadAll(response.Body)
+	require.NoError(test.t, err)
+	require.NoError(test.t, response.Body.Close())
+	return string(responseBytes)
 }

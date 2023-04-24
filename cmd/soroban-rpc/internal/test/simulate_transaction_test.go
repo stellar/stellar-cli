@@ -446,6 +446,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Len(t, event.Event.Body.V0.Topics, 1)
 	assert.Equal(t, xdr.ScValTypeScvString, event.Event.Body.V0.Topics[0].Type)
 	assert.Equal(t, xdr.ScString("auth"), *event.Event.Body.V0.Topics[0].Str)
+
+	metrics := getMetrics(test)
+	t.Log(metrics)
 }
 
 func TestSimulateTransactionError(t *testing.T) {
