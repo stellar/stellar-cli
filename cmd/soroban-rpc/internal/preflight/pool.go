@@ -115,13 +115,13 @@ var PreflightQueueFullErr = errors.New("preflight queue full")
 
 type metricsLedgerEntryWrapper struct {
 	db.LedgerEntryReadTx
-	totalDuration *float64
+	totalDurationMs uint64
 }
 
-func (m metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
 	startTime := time.Now()
 	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key)
-	*m.totalDuration += time.Since(startTime).Seconds()
+	atomic.AddUint64(&m.totalDurationMs, uint64(time.Since(startTime).Milliseconds()))
 	return ok, entry, err
 }
 
@@ -131,14 +131,14 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 	}
 	wrappedTx := metricsLedgerEntryWrapper{
 		LedgerEntryReadTx: readTx,
-		totalDuration:     new(float64),
+		totalDurationMs:   0,
 	}
 	params := PreflightParameters{
 		Logger:             pwp.logger,
 		SourceAccount:      sourceAccount,
 		InvokeHostFunction: op,
 		NetworkPassphrase:  pwp.networkPassphrase,
-		LedgerEntryReadTx:  wrappedTx,
+		LedgerEntryReadTx:  &wrappedTx,
 	}
 	resultC := make(chan workerResult)
 	select {
@@ -150,7 +150,7 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 		}
 		pwp.durationMetric.With(
 			prometheus.Labels{"type": "db", "status": status},
-		).Observe(*wrappedTx.totalDuration)
+		).Observe(float64(wrappedTx.totalDurationMs * 1000))
 		return result.preflight, result.err
 	case <-ctx.Done():
 		return Preflight{}, ctx.Err()
