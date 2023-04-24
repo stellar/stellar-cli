@@ -226,7 +226,13 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(
-		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
+		daemon,
+		cfg.PreflightWorkerCount,
+		cfg.PreflightWorkerQueueSize,
+		ledgerEntryReader,
+		cfg.NetworkPassphrase,
+		logger,
+	)
 
 	jsonRPCHandler := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
 		Daemon:            daemon,
