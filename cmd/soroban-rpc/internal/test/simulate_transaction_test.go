@@ -448,7 +448,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScString("auth"), *event.Event.Body.V0.Topics[0].Str)
 
 	metrics := getMetrics(test)
-	t.Log(metrics)
+	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 1")
 }
 
 func TestSimulateTransactionError(t *testing.T) {
