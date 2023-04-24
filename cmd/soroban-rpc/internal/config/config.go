@@ -5,7 +5,6 @@ import (
 	"os"
 	"reflect"
 	"runtime"
-	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/sirupsen/logrus"
@@ -55,32 +54,32 @@ type Config struct {
 	CaptiveCoreStoragePath string `toml:"CAPTIVE_CORE_STORAGE_PATH" valid:"optional"`
 	StellarCoreBinaryPath  string `toml:"STELLAR_CORE_BINARY_PATH" valid:"optional"`
 
-	Endpoint                         string        `toml:"ENDPOINT" valid:"optional"`
-	AdminEndpoint                    string        `toml:"ADMIN_ENDPOINT" valid:"optional"`
-	CheckpointFrequency              uint32        `toml:"CHECKPOINT_FREQUENCY" valid:"optional"`
-	CoreRequestTimeout               time.Duration `toml:"CORE_REQUEST_TIMEOUT" valid:"optional"`
-	DefaultEventsLimit               uint          `toml:"DEFAULT_EVENTS_LIMIT" valid:"optional"`
-	EventLedgerRetentionWindow       uint32        `toml:"EVENT_LEDGER_RETENTION_WINDOW" valid:"optional"`
-	FriendbotURL                     string        `toml:"FRIENDBOT_URL" valid:"optional"`
-	HistoryArchiveURLs               []string      `toml:"HISTORY_ARCHIVE_URLS" valid:"required"`
-	IngestionTimeout                 time.Duration `toml:"INGESTION_TIMEOUT" valid:"optional"`
-	LogFormat                        LogFormat     `toml:"LOG_FORMAT" valid:"optional"`
-	LogLevel                         logrus.Level  `toml:"LOG_LEVEL" valid:"optional"`
-	MaxEventsLimit                   uint          `toml:"MAX_EVENTS_LIMIT" valid:"optional"`
-	MaxHealthyLedgerLatency          time.Duration `toml:"MAX_HEALTHY_LEDGER_LATENCY" valid:"optional"`
-	NetworkPassphrase                string        `toml:"NETWORK_PASSPHRASE" valid:"required"`
-	PreflightWorkerCount             uint          `toml:"PREFLIGHT_WORKER_COUNT" valid:"optional"`
-	PreflightWorkerQueueSize         uint          `toml:"PREFLIGHT_WORKER_QUEUE_SIZE" valid:"optional"`
-	SQLiteDBPath                     string        `toml:"SQLITE_DB_PATH" valid:"optional"`
-	TransactionLedgerRetentionWindow uint32        `toml:"TRANSACTION_LEDGER_RETENTION_WINDOW" valid:"optional"`
+	Endpoint                         string       `toml:"ENDPOINT" valid:"optional"`
+	AdminEndpoint                    string       `toml:"ADMIN_ENDPOINT" valid:"optional"`
+	CheckpointFrequency              uint32       `toml:"CHECKPOINT_FREQUENCY" valid:"optional"`
+	CoreRequestTimeout               Duration     `toml:"CORE_REQUEST_TIMEOUT" valid:"optional"`
+	DefaultEventsLimit               uint         `toml:"DEFAULT_EVENTS_LIMIT" valid:"optional"`
+	EventLedgerRetentionWindow       uint32       `toml:"EVENT_LEDGER_RETENTION_WINDOW" valid:"optional"`
+	FriendbotURL                     string       `toml:"FRIENDBOT_URL" valid:"optional"`
+	HistoryArchiveURLs               []string     `toml:"HISTORY_ARCHIVE_URLS" valid:"required"`
+	IngestionTimeout                 Duration     `toml:"INGESTION_TIMEOUT" valid:"optional"`
+	LogFormat                        LogFormat    `toml:"LOG_FORMAT" valid:"optional"`
+	LogLevel                         logrus.Level `toml:"LOG_LEVEL" valid:"optional"`
+	MaxEventsLimit                   uint         `toml:"MAX_EVENTS_LIMIT" valid:"optional"`
+	MaxHealthyLedgerLatency          Duration     `toml:"MAX_HEALTHY_LEDGER_LATENCY" valid:"optional"`
+	NetworkPassphrase                string       `toml:"NETWORK_PASSPHRASE" valid:"required"`
+	PreflightWorkerCount             uint         `toml:"PREFLIGHT_WORKER_COUNT" valid:"optional"`
+	PreflightWorkerQueueSize         uint         `toml:"PREFLIGHT_WORKER_QUEUE_SIZE" valid:"optional"`
+	SQLiteDBPath                     string       `toml:"SQLITE_DB_PATH" valid:"optional"`
+	TransactionLedgerRetentionWindow uint32       `toml:"TRANSACTION_LEDGER_RETENTION_WINDOW" valid:"optional"`
 }
 
 func (cfg *Config) SetDefaults() error {
-	defaults, err := Asset("default.toml")
+	defaults, err := AssetString("default.toml")
 	if err != nil {
 		return err
 	}
-	err = toml.Unmarshal(defaults, cfg)
+	_, err = toml.Decode(defaults, cfg)
 	if err != nil {
 		return err
 	}

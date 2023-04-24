@@ -172,7 +172,7 @@ func MustNew(cfg *config.Config) *Daemon {
 		metricsRegistry: metricsRegistry,
 		coreClient: newCoreClientWithMetrics(stellarcore.Client{
 			URL:  fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreConfig.HTTPPort),
-			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
+			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout.Duration},
 		}, metricsRegistry),
 	}
 
@@ -195,7 +195,7 @@ func MustNew(cfg *config.Config) *Daemon {
 	}
 
 	// initialize the stores using what was on the DB
-	readTxMetaCtx, cancelReadTxMeta := context.WithTimeout(context.Background(), cfg.IngestionTimeout)
+	readTxMetaCtx, cancelReadTxMeta := context.WithTimeout(context.Background(), cfg.IngestionTimeout.Duration)
 	defer cancelReadTxMeta()
 	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(readTxMetaCtx)
 	if err != nil {
@@ -224,7 +224,7 @@ func MustNew(cfg *config.Config) *Daemon {
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,
-		Timeout:           cfg.IngestionTimeout,
+		Timeout:           cfg.IngestionTimeout.Duration,
 		OnIngestionRetry:  onIngestionRetry,
 		Daemon:            daemon,
 	})

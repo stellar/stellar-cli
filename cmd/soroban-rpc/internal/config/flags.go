@@ -295,6 +295,6 @@ func mustDuration(co *support.ConfigOption) error {
 	if err != nil {
 		return err
 	}
-	*(co.ConfigKey.(*time.Duration)) = d
+	*(co.ConfigKey.(*Duration)) = Duration{d}
 	return nil
 }
