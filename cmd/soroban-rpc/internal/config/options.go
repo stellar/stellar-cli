@@ -15,15 +15,15 @@ import (
 
 // ConfigOption is a complete description of the configuration of a command line option
 type ConfigOption struct {
-	Name           string                    // e.g. "database-url"
-	EnvVar         string                    // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name
-	TomlKey        string                    // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name. - to omit from toml
-	Usage          string                    // Help text
-	OptType        types.BasicKind           // The type of this option, e.g. types.Bool
-	DefaultValue   interface{}               // A default if no option is provided. Omit or set to `nil` if no default
-	ConfigKey      interface{}               // Pointer to the final key in the linked Config struct
-	CustomSetValue func(interface{}) error   // Optional function for custom validation/transformation
-	Validate       func(*ConfigOption) error // Function called after loading all options, to validate the configuration
+	Name           string                                 // e.g. "database-url"
+	EnvVar         string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name
+	TomlKey        string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name. - to omit from toml
+	Usage          string                                 // Help text
+	OptType        types.BasicKind                        // The type of this option, e.g. types.Bool
+	DefaultValue   interface{}                            // A default if no option is provided. Omit or set to `nil` if no default
+	ConfigKey      interface{}                            // Pointer to the final key in the linked Config struct
+	CustomSetValue func(*ConfigOption, interface{}) error // Optional function for custom validation/transformation
+	Validate       func(*ConfigOption) error              // Function called after loading all options, to validate the configuration
 }
 
 func mustDocumentAllOptions() {
@@ -83,7 +83,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:        types.String,
 			ConfigKey:      &cfg.CoreRequestTimeout,
 			DefaultValue:   cfg.CoreRequestTimeout.String(),
-			CustomSetValue: cfg.CoreRequestTimeout.UnmarshalTOML,
+			CustomSetValue: parseValue(cfg.CoreRequestTimeout.UnmarshalTOML),
 		},
 		{
 			Name:         "stellar-captive-core-http-port",
@@ -98,17 +98,17 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:      types.String,
 			ConfigKey:    &cfg.LogLevel,
 			DefaultValue: cfg.LogLevel.String(),
-			CustomSetValue: func(i interface{}) error {
+			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case string:
 					ll, err := logrus.ParseLevel(v)
 					if err != nil {
-						return fmt.Errorf("could not parse log-level: %v", v)
+						return fmt.Errorf("could not parse %s: %v", option.Name, v)
 					}
 					cfg.LogLevel = ll
 					return nil
 				default:
-					return fmt.Errorf("could not parse log-level: %v", v)
+					return fmt.Errorf("could not parse %s: %v", option.Name, v)
 				}
 			},
 		},
@@ -118,7 +118,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:        types.String,
 			ConfigKey:      &cfg.LogFormat,
 			DefaultValue:   cfg.LogFormat.String(),
-			CustomSetValue: cfg.LogFormat.UnmarshalTOML,
+			CustomSetValue: parseValue(cfg.LogFormat.UnmarshalTOML),
 		},
 		{
 			Name:         "stellar-core-binary-path",
@@ -126,14 +126,14 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:      types.String,
 			ConfigKey:    &cfg.StellarCoreBinaryPath,
 			DefaultValue: cfg.StellarCoreBinaryPath,
-			Validate:     Required,
+			Validate:     required,
 		},
 		{
 			Name:      "captive-core-config-path",
 			Usage:     "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
 			OptType:   types.String,
 			ConfigKey: &cfg.CaptiveCoreConfigPath,
-			Validate:  Required,
+			Validate:  required,
 		},
 		{
 			Name:         "captive-core-storage-path",
@@ -141,7 +141,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:      types.String,
 			ConfigKey:    &cfg.CaptiveCoreStoragePath,
 			DefaultValue: cfg.CaptiveCoreStoragePath,
-			CustomSetValue: func(i interface{}) error {
+			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case string:
 					if v == "" || v == "." {
@@ -161,7 +161,7 @@ func (cfg *Config) options() ConfigOptions {
 					cfg.CaptiveCoreStoragePath = cwd
 					return nil
 				default:
-					return fmt.Errorf("could not parse path: %v", v)
+					return fmt.Errorf("Could not parse %s: %v", option.Name, v)
 				}
 			},
 		},
@@ -178,7 +178,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:      types.String,
 			ConfigKey:    &cfg.HistoryArchiveURLs,
 			DefaultValue: strings.Join(cfg.HistoryArchiveURLs, ","),
-			CustomSetValue: func(i interface{}) error {
+			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case string:
 					if v == "" {
@@ -191,10 +191,10 @@ func (cfg *Config) options() ConfigOptions {
 					cfg.HistoryArchiveURLs = v
 					return nil
 				default:
-					return fmt.Errorf("could not parse history-archive-urls: %v", v)
+					return fmt.Errorf("Could not parse %s: %v", option.Name, v)
 				}
 			},
-			Validate: Required,
+			Validate: required,
 		},
 		{
 			Name:         "friendbot-url",
@@ -209,7 +209,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:      types.String,
 			ConfigKey:    &cfg.NetworkPassphrase,
 			DefaultValue: cfg.NetworkPassphrase,
-			Validate:     Required,
+			Validate:     required,
 		},
 		{
 			Name:         "db-path",
@@ -224,7 +224,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:        types.String,
 			ConfigKey:      &cfg.IngestionTimeout,
 			DefaultValue:   cfg.IngestionTimeout.String(),
-			CustomSetValue: cfg.IngestionTimeout.UnmarshalTOML,
+			CustomSetValue: parseValue(cfg.IngestionTimeout.UnmarshalTOML),
 		},
 		{
 			Name:         "checkpoint-frequency",
@@ -240,7 +240,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:        types.Uint32,
 			ConfigKey:      &cfg.EventLedgerRetentionWindow,
 			DefaultValue:   cfg.EventLedgerRetentionWindow,
-			CustomSetValue: cfg.EventLedgerRetentionWindow.UnmarshalTOML,
+			CustomSetValue: parseValue(cfg.EventLedgerRetentionWindow.UnmarshalTOML),
 		},
 		{
 			Name: "transaction-retention-window",
@@ -249,7 +249,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:        types.Uint32,
 			ConfigKey:      &cfg.TransactionLedgerRetentionWindow,
 			DefaultValue:   cfg.TransactionLedgerRetentionWindow,
-			CustomSetValue: cfg.TransactionLedgerRetentionWindow.UnmarshalTOML,
+			CustomSetValue: parseValue(cfg.TransactionLedgerRetentionWindow.UnmarshalTOML),
 		},
 		{
 			Name:         "max-events-limit",
@@ -282,7 +282,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:        types.String,
 			ConfigKey:      &cfg.MaxHealthyLedgerLatency,
 			DefaultValue:   cfg.MaxHealthyLedgerLatency.String(),
-			CustomSetValue: cfg.MaxHealthyLedgerLatency.UnmarshalTOML,
+			CustomSetValue: parseValue(cfg.MaxHealthyLedgerLatency.UnmarshalTOML),
 		},
 		{
 			Name:           "preflight-worker-count",
@@ -290,7 +290,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:        types.Uint,
 			ConfigKey:      &cfg.PreflightWorkerCount,
 			DefaultValue:   cfg.PreflightWorkerCount,
-			CustomSetValue: cfg.PreflightWorkerCount.UnmarshalTOML,
+			CustomSetValue: parseValue(cfg.PreflightWorkerCount.UnmarshalTOML),
 		},
 		{
 			Name:         "preflight-worker-queue-size",
@@ -315,7 +315,7 @@ func (options ConfigOptions) Validate() error {
 	return nil
 }
 
-func Required(option *ConfigOption) error {
+func required(option *ConfigOption) error {
 	if !reflect.ValueOf(option.ConfigKey).Elem().IsZero() {
 		return nil
 	}
@@ -342,4 +342,10 @@ func Required(option *ConfigOption) error {
 	}
 
 	return fmt.Errorf("Invalid config: %s is required.%s", option.Name, advice)
+}
+
+func parseValue(f func(interface{}) error) func(*ConfigOption, interface{}) error {
+	return func(option *ConfigOption, i interface{}) error {
+		return errors.Wrapf(f(i), "Could not parse %s", option.Name)
+	}
 }
