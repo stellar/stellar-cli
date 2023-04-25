@@ -2,13 +2,16 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
 	"github.com/creachadair/jrpc2/jhttp"
+	"github.com/go-chi/chi/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/support/log"
 
@@ -45,7 +48,7 @@ type HandlerParams struct {
 	Daemon            interfaces.Daemon
 }
 
-func decorateHandlersWithMetrics(daemon interfaces.Daemon, m handler.Map) handler.Map {
+func decorateHandlers(daemon interfaces.Daemon, logger *log.Entry, m handler.Map) handler.Map {
 	requestMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: daemon.MetricsNamespace(),
 		Subsystem: "json_rpc",
@@ -57,9 +60,11 @@ func decorateHandlersWithMetrics(daemon interfaces.Daemon, m handler.Map) handle
 		// create copy of h so it can be used in closure bleow
 		h := h
 		decorated[endpoint] = handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
+			reqID := strconv.FormatUint(middleware.NextRequestID(), 10)
+			logRequest(logger, reqID, r)
 			startTime := time.Now()
 			result, err := h.Handle(ctx, r)
-			duration := time.Since(startTime).Seconds()
+			duration := time.Since(startTime)
 			label := prometheus.Labels{"endpoint": r.Method(), "status": "ok"}
 			simulateTransactionResponse, ok := result.(methods.SimulateTransactionResponse)
 			if ok && simulateTransactionResponse.Error != "" {
@@ -71,7 +76,8 @@ func decorateHandlersWithMetrics(daemon interfaces.Daemon, m handler.Map) handle
 					label["status"] = status
 				}
 			}
-			requestMetric.With(label).Observe(duration)
+			requestMetric.With(label).Observe(duration.Seconds())
+			logResponse(logger, reqID, duration, label["status"], result)
 			return result, err
 		})
 	}
@@ -79,15 +85,48 @@ func decorateHandlersWithMetrics(daemon interfaces.Daemon, m handler.Map) handle
 	return decorated
 }
 
+func logRequest(logger *log.Entry, reqID string, req *jrpc2.Request) {
+	logger = logger.WithFields(log.F{
+		"subsys":   "jsonrpc",
+		"req":      reqID,
+		"json_req": req.ID(),
+		"method":   req.Method(),
+	})
+	logger.Info("starting JSONRPC request")
+
+	// Params are useful but can be really verbose, let's only print them in debug level
+	logger = logger.WithField("params", req.ParamString())
+	logger.Debug("starting JSONRPC request params")
+}
+
+func logResponse(logger *log.Entry, reqID string, duration time.Duration, status string, response any) {
+	logger = logger.WithFields(log.F{
+		"subsys":   "jsonrpc",
+		"req":      reqID,
+		"duration": duration.String(),
+		"json_req": reqID,
+		"status":   status,
+	})
+	logger.Info("finished JSONRPC request")
+
+	if status == "ok" {
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			// the result is useful but can be really verbose, let's only print it with debug level
+			logger = logger.WithField("result", string(responseBytes))
+			logger.Debug("finished JSONRPC request result")
+		}
+	}
+}
+
 // NewJSONRPCHandler constructs a Handler instance
 func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) Handler {
 	bridgeOptions := jhttp.BridgeOptions{
 		Server: &jrpc2.ServerOptions{
 			Logger: func(text string) { params.Logger.Debug(text) },
-			RPCLog: &rpcLogger{logger: params.Logger},
 		},
 	}
-	bridge := jhttp.NewBridge(decorateHandlersWithMetrics(params.Daemon, handler.Map{
+	bridge := jhttp.NewBridge(decorateHandlers(params.Daemon, params.Logger, handler.Map{
 		"getHealth":           methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
 		"getEvents":           methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
 		"getNetwork":          methods.NewGetNetworkHandler(params.Daemon, cfg.NetworkPassphrase, cfg.FriendbotURL),
@@ -103,42 +142,4 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) Handler {
 		logger:  params.Logger,
 		Handler: bridge,
 	}
-}
-
-type rpcLogger struct {
-	logger *log.Entry
-}
-
-func (r *rpcLogger) LogRequest(ctx context.Context, req *jrpc2.Request) {
-	logger := r.logger.WithFields(log.F{
-		"subsys": "jsonrpc",
-		// FIXME: the HTTP request context is independent from the JSONRPC context, and thus the code below doesn't work
-		// "req":      middleware.GetReqID(ctx),
-		"json_req": req.ID(),
-		"method":   req.Method(),
-	})
-	logger.Info("starting JSONRPC request")
-
-	// Params are useful but can be really verbose, let's only print them in debug level
-	logger = logger.WithField("params", req.ParamString())
-	logger.Debug("starting JSONRPC request params")
-}
-
-func (r *rpcLogger) LogResponse(ctx context.Context, rsp *jrpc2.Response) {
-	// TODO: Print the elapsed time (there doesn't seem to be a way to it with with jrpc2, since
-	//       LogRequest cannot modify the context)
-	logger := r.logger.WithFields(log.F{
-		"subsys": "jsonrpc",
-		// FIXME: the HTTP request context is independent from the JSONRPC context, and thus the code below doesn't work
-		// "req":      middleware.GetReqID(ctx),
-		"json_req": rsp.ID(),
-	})
-	if err := rsp.Error(); err != nil {
-		logger = logger.WithField("error", err.Error())
-	}
-	logger.Info("finished JSONRPC request")
-
-	// the result is useful but can be really verbose, let's only print it with debug level
-	logger = logger.WithField("result", rsp.ResultString())
-	logger.Debug("finished JSONRPC request result")
 }
