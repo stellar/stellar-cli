@@ -132,6 +132,7 @@ func NewJSONRPCHandler(cfg *config.LocalConfig, params HandlerParams) Handler {
 		"getNetwork":          methods.NewGetNetworkHandler(params.Daemon, cfg.NetworkPassphrase, cfg.FriendbotURL),
 		"getLatestLedger":     methods.NewGetLatestLedgerHandler(params.LedgerEntryReader, params.LedgerReader),
 		"getLedgerEntry":      methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
+		"getLedgerEntries":    methods.NewGetLedgerEntriesHandler(params.Logger, params.LedgerEntryReader),
 		"getTransaction":      methods.NewGetTransactionHandler(params.TransactionStore),
 		"sendTransaction":     methods.NewSendTransactionHandler(params.Daemon, params.Logger, params.TransactionStore, cfg.NetworkPassphrase),
 		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, params.LedgerEntryReader, params.PreflightGetter),
