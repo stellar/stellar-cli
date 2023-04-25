@@ -13,7 +13,7 @@ const basicToml = `
 HISTORY_ARCHIVE_URLS = [ "http://history-futurenet.stellar.org" ]
 NETWORK_PASSPHRASE = "Test SDF Future Network ; October 2022"
 
-# TODO: This would make more sense as STELLAR_CORE.BINARY_PATH
+# TODO: Maybe this would make more sense as STELLAR_CORE.BINARY_PATH
 STELLAR_CORE_BINARY_PATH = "/usr/bin/stellar-core"
 CAPTIVE_CORE_USE_DB = true
 CAPTIVE_CORE_STORAGE_PATH = "/etc/stellar/soroban-rpc"

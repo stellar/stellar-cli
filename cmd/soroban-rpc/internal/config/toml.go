@@ -76,7 +76,7 @@ func (cfg *Config) MarshalTOML() ([]byte, error) {
 				// need to split it on whitespace every x chars
 				Comment: option.Usage,
 				// output unset values commented out
-				// TODO: Provide example values for these
+				// TODO: Provide commented example values for these
 				Commented: reflect.ValueOf(option.ConfigKey).Elem().IsZero(),
 			},
 			value,

@@ -11,12 +11,10 @@ import (
 	"github.com/stellar/go/support/errors"
 )
 
-// Config represents the configuration of a friendbot server
+// Config represents the configuration of a soroban-rpc server
 type Config struct {
-	// Optional: The path to the config file. Not in the toml, as wouldn't make sense.
 	ConfigPath string
 
-	// TODO: Enforce this when parsing this toml file
 	Strict bool
 
 	StellarCoreURL         string
@@ -110,7 +108,6 @@ func (cfg *Config) Validate() error {
 
 // Merge a and b, preferring values from b. Neither config is modified, instead
 // a new struct is returned.
-// TODO: Unit-test this
 func mergeStructs(a, b reflect.Value) reflect.Value {
 	if a.Type() != b.Type() {
 		panic("Cannot merge structs of different types")
@@ -120,7 +117,6 @@ func mergeStructs(a, b reflect.Value) reflect.Value {
 	for i := 0; i < structType.NumField(); i++ {
 		if !merged.Field(i).CanSet() {
 			// Can't set unexported fields
-			// TODO: Figure out how to fix this, cause this means it can't set the captiveCoreTomlValues
 			continue
 		}
 		val := b.Field(i)

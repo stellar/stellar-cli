@@ -29,7 +29,6 @@ func TestMustDocumentAllOptions(t *testing.T) {
 	options := cfg.options()
 	optionsByField := map[uintptr]*ConfigOption{}
 	for _, option := range options {
-		// TODO: Not sure this gives us the struct field name
 		key := uintptr(reflect.ValueOf(option.ConfigKey).UnsafePointer())
 		if existing, ok := optionsByField[key]; ok {
 			t.Errorf("Conflicting ConfigOptions %s and %s, point to the same struct field", existing.Name, option.Name)
