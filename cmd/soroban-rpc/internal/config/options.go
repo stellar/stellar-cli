@@ -26,12 +26,6 @@ type ConfigOption struct {
 	Validate       func(*ConfigOption) error              // Function called after loading all options, to validate the configuration
 }
 
-func mustDocumentAllOptions() {
-	// TODO: Implement this with reflect to check there is an option for each config field recursively
-	// cfg, docs := Options()
-	// reflect.ValueOf(cfg).VisibleFields()
-}
-
 // ConfigOptions is a group of ConfigOptions that can be for convenience
 // initialized and set at the same time.
 type ConfigOptions []*ConfigOption

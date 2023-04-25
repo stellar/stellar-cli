@@ -10,10 +10,6 @@ import (
 	"github.com/stellar/go/support/errors"
 )
 
-func init() {
-	mustDocumentAllOptions()
-}
-
 // Config represents the configuration of a friendbot server
 type Config struct {
 	// Optional: The path to the config file. Not in the toml, as wouldn't make sense.
