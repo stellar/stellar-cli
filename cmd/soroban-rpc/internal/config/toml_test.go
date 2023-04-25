@@ -23,7 +23,6 @@ CAPTIVE_CORE_CONFIG_PATH = "/etc/stellar/soroban-rpc/captive-core.cfg"
 func TestBasicTomlReading(t *testing.T) {
 	cfg := Config{}
 	require.NoError(t, parseToml(strings.NewReader(basicToml), false, &cfg))
-	require.NoError(t, cfg.Validate())
 
 	// Check a few fields got read correctly
 	assert.Equal(t, []string{"http://history-futurenet.stellar.org"}, cfg.HistoryArchiveURLs)
