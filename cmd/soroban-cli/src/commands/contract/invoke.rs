@@ -7,6 +7,7 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
+use heck::ToKebabCase;
 use hex::FromHexError;
 use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::Host;
@@ -626,6 +627,10 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         .no_binary_name(true)
         .term_width(300)
         .max_term_width(300);
+    let kebab_name = name.to_kebab_case();
+    if kebab_name != name {
+        cmd = cmd.alias(kebab_name);
+    }
     let func = spec.find_function(name).unwrap();
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
     cmd = cmd.about(Some(doc));
@@ -633,6 +638,7 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
+            .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());
