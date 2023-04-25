@@ -14,10 +14,14 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
+// Deprecated. Use GetLedgerEntriesRequest instead.
+// TODO(https://github.com/stellar/soroban-tools/issues/374) remove after getLedgerEntries is deployed.
 type GetLedgerEntryRequest struct {
 	Key string `json:"key"`
 }
 
+// Deprecated. Use GetLedgerEntriesResponse instead.
+// TODO(https://github.com/stellar/soroban-tools/issues/374) remove after getLedgerEntries is deployed.
 type GetLedgerEntryResponse struct {
 	XDR                string `json:"xdr"`
 	LastModifiedLedger int64  `json:"lastModifiedLedgerSeq,string"`
@@ -25,6 +29,8 @@ type GetLedgerEntryResponse struct {
 }
 
 // NewGetLedgerEntryHandler returns a json rpc handler to retrieve the specified ledger entry from stellar core
+// Deprecated. use NewGetLedgerEntriesHandler instead.
+// TODO(https://github.com/stellar/soroban-tools/issues/374) remove after getLedgerEntries is deployed.
 func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetLedgerEntryRequest) (GetLedgerEntryResponse, error) {
 		var key xdr.LedgerKey

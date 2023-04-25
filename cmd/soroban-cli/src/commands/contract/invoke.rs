@@ -7,6 +7,7 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
+use heck::ToKebabCase;
 use hex::FromHexError;
 use soroban_env_host::events::HostEvent;
 
@@ -69,6 +70,8 @@ pub struct Cmd {
     pub config: config::Args,
     #[command(flatten)]
     pub events_file: events_file::Args,
+    #[command(flatten)]
+    pub fee: crate::fee::Args,
 }
 
 impl FromStr for Cmd {
@@ -132,6 +135,8 @@ pub enum Error {
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing operation result")]
     MissingOperationResult,
+    #[error("missing result")]
+    MissingResult,
     #[error(transparent)]
     StrVal(#[from] strval::Error),
     #[error(transparent)]
@@ -237,8 +242,6 @@ impl Cmd {
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
-        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
-        let fee: u32 = 100;
         let sequence: i64 = account_details.seq_num.into();
 
         // Get the contract
@@ -257,7 +260,7 @@ impl Cmd {
             None,
             None,
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             &key,
         )?;
@@ -290,7 +293,7 @@ impl Cmd {
             Some(footprint),
             Some(auth),
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             &key,
         )?;
@@ -526,39 +529,45 @@ async fn get_remote_contract_spec_entries(
     contract_id: &[u8; 32],
 ) -> Result<Vec<ScSpecEntry>, Error> {
     // Get the contract from the network
-    let contract_ref = client
-        .get_ledger_entry(LedgerKey::ContractData(LedgerKeyContractData {
-            contract_id: xdr::Hash(*contract_id),
-            key: ScVal::LedgerKeyContractExecutable,
-        }))
-        .await?;
-
-    Ok(match LedgerEntryData::from_xdr_base64(contract_ref.xdr)? {
-        LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
-            ..
-        }) => {
-            let contract_data = client
-                .get_ledger_entry(LedgerKey::ContractCode(LedgerKeyContractCode { hash }))
-                .await?;
-
-            match LedgerEntryData::from_xdr_base64(contract_data.xdr)? {
-                LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
-                    let code_vec: Vec<u8> = code.into();
-                    soroban_spec::read::from_wasm(&code_vec)
-                        .map_err(Error::CannotParseContractSpec)?
+    let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
+        contract_id: xdr::Hash(*contract_id),
+        key: ScVal::LedgerKeyContractExecutable,
+    });
+    let contract_ref = client.get_ledger_entries(Vec::from([contract_key])).await?;
+    if contract_ref.entries.is_empty() {
+        return Err(Error::MissingResult);
+    }
+    let contract_ref_entry = &contract_ref.entries[0];
+    Ok(
+        match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
+            LedgerEntryData::ContractData(ContractDataEntry {
+                val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
+                ..
+            }) => {
+                let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
+                let contract_data = client.get_ledger_entries(Vec::from([code_key])).await?;
+                if contract_data.entries.is_empty() {
+                    return Err(Error::MissingResult);
                 }
-                scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+                let contract_data_entry = &contract_data.entries[0];
+                match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
+                    LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
+                        let code_vec: Vec<u8> = code.into();
+                        soroban_spec::read::from_wasm(&code_vec)
+                            .map_err(Error::CannotParseContractSpec)?
+                    }
+                    scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+                }
             }
-        }
-        LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::ContractExecutable(ScContractExecutable::Token),
-            ..
-        }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
-            .map_err(FromWasmError::Parse)
-            .map_err(Error::CannotParseContractSpec)?,
-        scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
-    })
+            LedgerEntryData::ContractData(ContractDataEntry {
+                val: ScVal::ContractExecutable(ScContractExecutable::Token),
+                ..
+            }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+                .map_err(FromWasmError::Parse)
+                .map_err(Error::CannotParseContractSpec)?,
+            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+        },
+    )
 }
 
 fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
@@ -577,6 +586,10 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         .no_binary_name(true)
         .term_width(300)
         .max_term_width(300);
+    let kebab_name = name.to_kebab_case();
+    if kebab_name != name {
+        cmd = cmd.alias(kebab_name);
+    }
     let func = spec.find_function(name).unwrap();
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
     cmd = cmd.about(Some(doc));
@@ -584,6 +597,7 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
+            .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());
