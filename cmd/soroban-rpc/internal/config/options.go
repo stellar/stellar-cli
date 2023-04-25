@@ -113,7 +113,7 @@ func (cfg *Config) options() ConfigOptions {
 			ConfigKey: &cfg.StellarCoreURL,
 		},
 		{
-			Name:           "stellar-core-timeout-seconds",
+			Name:           "stellar-core-timeout",
 			Usage:          "Timeout used when submitting requests to stellar-core",
 			OptType:        types.String,
 			ConfigKey:      &cfg.CoreRequestTimeout,
