@@ -32,6 +32,21 @@ func (f *LogFormat) UnmarshalText(text []byte) error {
 	return nil
 }
 
+func (f LogFormat) MarshalTOML() ([]byte, error) {
+	return f.MarshalText()
+}
+
+func (f *LogFormat) UnmarshalTOML(i interface{}) error {
+	switch v := i.(type) {
+	case []byte:
+		return f.UnmarshalText(v)
+	case string:
+		return f.UnmarshalText([]byte(v))
+	default:
+		return fmt.Errorf("unknown log format: %v", v)
+	}
+}
+
 func (f LogFormat) String() string {
 	switch f {
 	case LogFormatText:

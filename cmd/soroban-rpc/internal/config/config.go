@@ -1,22 +1,18 @@
 package config
 
 import (
-	"fmt"
-	"os"
 	"reflect"
-	"runtime"
 
-	"github.com/BurntSushi/toml"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 
-	"github.com/stellar/go/ingest/ledgerbackend"
 	support "github.com/stellar/go/support/config"
 	"github.com/stellar/go/support/errors"
 )
 
-//go:generate go run github.com/kevinburke/go-bindata/go-bindata@v3.18.0+incompatible -nometadata -ignore .+\.(go|swp)$ -pkg config -o default_generated.go .
-
-type CaptiveCoreConfig = ledgerbackend.CaptiveCoreTomlValues
+func init() {
+	mustDocumentAllOptions()
+}
 
 // Config represents the configuration of a friendbot server
 type Config struct {
@@ -26,61 +22,75 @@ type Config struct {
 	// TODO: Enforce this when parsing this toml file
 	Strict bool `toml:"STRICT" valid:"optional"`
 
-	// TODO: Figure out what to do with these two flags. They conflict with the embedded captive-core config below
-	StellarCoreURL   string `toml:"-" valid:"-"`
-	CaptiveCoreUseDB bool   `toml:"-" valid:"-"`
-
-	CaptiveCoreConfig `toml:"STELLAR_CORE" valid:"required"`
-
-	// TODO: Is there a way to include these two in the CaptiveCoreConfig?
+	StellarCoreURL         string `toml:"-" valid:"-"`
+	CaptiveCoreUseDB       bool   `toml:"-" valid:"-"`
 	CaptiveCoreStoragePath string `toml:"CAPTIVE_CORE_STORAGE_PATH" valid:"optional"`
 	StellarCoreBinaryPath  string `toml:"STELLAR_CORE_BINARY_PATH" valid:"optional"`
+	CaptiveCoreConfigPath  string `toml:"CAPTIVE_CORE_CONFIG_PATH" valid:"optional"`
+	CaptiveCoreHTTPPort    int    `toml:"CAPTIVE_CORE_HTTP_PORT" valid:"optional"`
 
-	Endpoint                         string       `toml:"ENDPOINT" valid:"optional"`
-	AdminEndpoint                    string       `toml:"ADMIN_ENDPOINT" valid:"optional"`
-	CheckpointFrequency              uint32       `toml:"CHECKPOINT_FREQUENCY" valid:"optional"`
-	CoreRequestTimeout               Duration     `toml:"CORE_REQUEST_TIMEOUT" valid:"optional"`
-	DefaultEventsLimit               uint         `toml:"DEFAULT_EVENTS_LIMIT" valid:"optional"`
-	EventLedgerRetentionWindow       uint32       `toml:"EVENT_LEDGER_RETENTION_WINDOW" valid:"optional"`
-	FriendbotURL                     string       `toml:"FRIENDBOT_URL" valid:"optional"`
-	HistoryArchiveURLs               []string     `toml:"HISTORY_ARCHIVE_URLS" valid:"required"`
-	IngestionTimeout                 Duration     `toml:"INGESTION_TIMEOUT" valid:"optional"`
-	LogFormat                        LogFormat    `toml:"LOG_FORMAT" valid:"optional"`
-	LogLevel                         logrus.Level `toml:"LOG_LEVEL" valid:"optional"`
-	MaxEventsLimit                   uint         `toml:"MAX_EVENTS_LIMIT" valid:"optional"`
-	MaxHealthyLedgerLatency          Duration     `toml:"MAX_HEALTHY_LEDGER_LATENCY" valid:"optional"`
-	NetworkPassphrase                string       `toml:"NETWORK_PASSPHRASE" valid:"required"`
-	PreflightWorkerCount             uint         `toml:"PREFLIGHT_WORKER_COUNT" valid:"optional"`
-	PreflightWorkerQueueSize         uint         `toml:"PREFLIGHT_WORKER_QUEUE_SIZE" valid:"optional"`
-	SQLiteDBPath                     string       `toml:"SQLITE_DB_PATH" valid:"optional"`
-	TransactionLedgerRetentionWindow uint32       `toml:"TRANSACTION_LEDGER_RETENTION_WINDOW" valid:"optional"`
+	Endpoint                         string         `toml:"ENDPOINT" valid:"optional"`
+	AdminEndpoint                    string         `toml:"ADMIN_ENDPOINT" valid:"optional"`
+	CheckpointFrequency              uint32         `toml:"CHECKPOINT_FREQUENCY" valid:"optional"`
+	CoreRequestTimeout               Duration       `toml:"CORE_REQUEST_TIMEOUT" valid:"optional"`
+	DefaultEventsLimit               uint           `toml:"DEFAULT_EVENTS_LIMIT" valid:"optional"`
+	EventLedgerRetentionWindow       PositiveUint32 `toml:"EVENT_LEDGER_RETENTION_WINDOW" valid:"optional"`
+	FriendbotURL                     string         `toml:"FRIENDBOT_URL" valid:"optional"`
+	HistoryArchiveURLs               []string       `toml:"HISTORY_ARCHIVE_URLS" valid:"required"`
+	IngestionTimeout                 Duration       `toml:"INGESTION_TIMEOUT" valid:"optional"`
+	LogFormat                        LogFormat      `toml:"LOG_FORMAT" valid:"optional"`
+	LogLevel                         logrus.Level   `toml:"LOG_LEVEL" valid:"optional"`
+	MaxEventsLimit                   uint           `toml:"MAX_EVENTS_LIMIT" valid:"optional"`
+	MaxHealthyLedgerLatency          Duration       `toml:"MAX_HEALTHY_LEDGER_LATENCY" valid:"optional"`
+	NetworkPassphrase                string         `toml:"NETWORK_PASSPHRASE" valid:"required"`
+	PreflightWorkerCount             PositiveUint   `toml:"PREFLIGHT_WORKER_COUNT" valid:"optional"`
+	PreflightWorkerQueueSize         PositiveUint   `toml:"PREFLIGHT_WORKER_QUEUE_SIZE" valid:"optional"`
+	SQLiteDBPath                     string         `toml:"SQLITE_DB_PATH" valid:"optional"`
+	TransactionLedgerRetentionWindow PositiveUint32 `toml:"TRANSACTION_LEDGER_RETENTION_WINDOW" valid:"optional"`
+}
+
+func (cfg *Config) Init(cmd *cobra.Command) error {
+	return cfg.flags().Init(cmd)
+}
+
+func (cfg *Config) SetValues() error {
+	// We start with the defaults
+	if err := cfg.SetDefaults(); err != nil {
+		return err
+	}
+
+	// Then we load from the flags
+	flags := Config{}
+	err := flags.flags().SetValues()
+	if err != nil {
+		return err
+	}
+
+	// Merge flags on top of the defaults
+	*cfg = cfg.Merge(flags)
+
+	// If we specified a config file, we load that but give CLI-flags precedence
+	if cfg.ConfigPath != "" {
+		fileConfig, err := Read(cfg.ConfigPath, cfg.Strict)
+		if err != nil {
+			return errors.Wrap(err, "reading config file")
+		}
+		*cfg = fileConfig.Merge(*cfg)
+	}
+
+	// Finally, we can validate the config
+	return cfg.Validate()
 }
 
 func (cfg *Config) SetDefaults() error {
-	defaults, err := AssetString("default.toml")
-	if err != nil {
-		return err
+	// TODO: Test this works
+	for _, option := range cfg.options() {
+		reflect.ValueOf(option.ConfigKey).Elem().Set(reflect.ValueOf(option.DefaultValue))
 	}
-	_, err = toml.Decode(defaults, cfg)
-	if err != nil {
-		return err
-	}
-
-	// Some defaults we can't encode in the default toml file
-
-	cfg.PreflightWorkerCount = uint(runtime.NumCPU())
-	cfg.PreflightWorkerQueueSize = uint(runtime.NumCPU())
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("unable to determine the current directory: %s", err)
-	}
-	cfg.CaptiveCoreStoragePath = cwd
-
 	return nil
 }
 
-func Read(path string) (*Config, error) {
+func Read(path string, strict bool) (*Config, error) {
 	cfg := &Config{}
 	// TODO: Enforce strict parsing here
 	err := support.Read(path, cfg)
@@ -96,64 +106,7 @@ func Read(path string) (*Config, error) {
 }
 
 func (cfg *Config) Validate() error {
-	if cfg.DefaultEventsLimit > cfg.MaxEventsLimit {
-		return fmt.Errorf(
-			"default-events-limit (%v) cannot exceed max-events-limit (%v)\n",
-			cfg.DefaultEventsLimit,
-			cfg.MaxEventsLimit,
-		)
-	}
-
-	if len(cfg.HistoryArchiveURLs) == 0 {
-		return cannotBeBlank(
-			"history-archive-urls",
-			"HISTORY_ARCHIVE_URLS",
-		)
-	}
-
-	if cfg.NetworkPassphrase == "" {
-		return cannotBeBlank(
-			"network-passphrase",
-			"NETWORK_PASSPHRASE",
-		)
-	}
-
-	// if cfg.CaptiveCoreConfigPath == "" {
-	// 	return cannotBeBlank(
-	// 		"captive-core-config-path",
-	// 		"CAPTIVE_CORE_CONFIG_PATH",
-	// 	)
-	// }
-	if cfg.Strict && cfg.CaptiveCoreConfig.BucketDirPath != "" {
-		return errors.New("could not unmarshal captive core toml: setting BUCKET_DIR_PATH is disallowed for Captive Core, use CAPTIVE_CORE_STORAGE_PATH instead")
-	}
-	// Validate home domains etc as in CaptiveCoreToml.validate
-
-	if cfg.Strict && cfg.CaptiveCoreConfig.NetworkPassphrase != "" {
-		return errors.New("could not unmarshal captive core toml: setting STELLAR_CORE.NETWORK_PASSPHRASE is disallowed for Captive Core, use top level NETWORK_PASSPHRASE instead")
-	}
-	cfg.CaptiveCoreConfig.NetworkPassphrase = cfg.NetworkPassphrase
-	if cfg.NetworkPassphrase == "" {
-		return cannotBeBlank(
-			"network-passphrase",
-			"NETWORK_PASSPHRASE",
-		)
-	}
-
-	// Validate home domains etc as in CaptiveCoreToml.validate
-
-	if cfg.StellarCoreBinaryPath == "" {
-		return cannotBeBlank(
-			"stellar-core-binary-path",
-			"STELLAR_CORE_BINARY_PATH",
-		)
-	}
-
-	return nil
-}
-
-func cannotBeBlank(name, envVar string) error {
-	return fmt.Errorf("Invalid config: %s is blank. Please specify --%s on the command line or set the %s environment variable.", name, name, envVar)
+	return cfg.options().Validate()
 }
 
 // Merge a and b, preferring values from b. Neither config is modified, instead
