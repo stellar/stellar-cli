@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"go/types"
 	"os"
+	"os/exec"
 	"reflect"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
@@ -31,15 +35,15 @@ type ConfigOption struct {
 type ConfigOptions []*ConfigOption
 
 func (cfg *Config) options() ConfigOptions {
+	defaultStellarCoreBinaryPath, _ := exec.LookPath("stellar-core")
 	return ConfigOptions{
 		{
-			Name:         "config-path",
-			EnvVar:       "SOROBAN_RPC_CONFIG_PATH",
-			TomlKey:      "-",
-			Usage:        "File path to the toml configuration file",
-			OptType:      types.String,
-			ConfigKey:    &cfg.ConfigPath,
-			DefaultValue: cfg.ConfigPath,
+			Name:      "config-path",
+			EnvVar:    "SOROBAN_RPC_CONFIG_PATH",
+			TomlKey:   "-",
+			Usage:     "File path to the toml configuration file",
+			OptType:   types.String,
+			ConfigKey: &cfg.ConfigPath,
 		},
 		{
 			Name:         "config-strict",
@@ -48,35 +52,33 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "Enable strict toml configuration file parsing",
 			OptType:      types.Bool,
 			ConfigKey:    &cfg.Strict,
-			DefaultValue: cfg.Strict,
+			DefaultValue: false,
 		},
 		{
 			Name:         "endpoint",
 			Usage:        "Endpoint to listen and serve on",
 			OptType:      types.String,
 			ConfigKey:    &cfg.Endpoint,
-			DefaultValue: cfg.Endpoint,
+			DefaultValue: "localhost:8000",
 		},
 		{
-			Name:         "admin-endpoint",
-			Usage:        "Admin endpoint to listen and serve on. WARNING: this should not be accessible from the Internet and does not use TLS. \"\" (default) disables the admin server",
-			OptType:      types.String,
-			ConfigKey:    &cfg.AdminEndpoint,
-			DefaultValue: cfg.AdminEndpoint,
+			Name:      "admin-endpoint",
+			Usage:     "Admin endpoint to listen and serve on. WARNING: this should not be accessible from the Internet and does not use TLS. \"\" (default) disables the admin server",
+			OptType:   types.String,
+			ConfigKey: &cfg.AdminEndpoint,
 		},
 		{
-			Name:         "stellar-core-url",
-			Usage:        "URL used to query Stellar Core (local captive core by default)",
-			OptType:      types.String,
-			ConfigKey:    &cfg.StellarCoreURL,
-			DefaultValue: cfg.StellarCoreURL,
+			Name:      "stellar-core-url",
+			Usage:     "URL used to query Stellar Core (local captive core by default)",
+			OptType:   types.String,
+			ConfigKey: &cfg.StellarCoreURL,
 		},
 		{
 			Name:           "stellar-core-timeout-seconds",
 			Usage:          "Timeout used when submitting requests to stellar-core",
 			OptType:        types.String,
 			ConfigKey:      &cfg.CoreRequestTimeout,
-			DefaultValue:   cfg.CoreRequestTimeout.String(),
+			DefaultValue:   Duration{2 * time.Second},
 			CustomSetValue: parseValue(cfg.CoreRequestTimeout.UnmarshalTOML),
 		},
 		{
@@ -84,14 +86,14 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
 			OptType:      types.Uint,
 			ConfigKey:    &cfg.CaptiveCoreHTTPPort,
-			DefaultValue: cfg.CaptiveCoreHTTPPort,
+			DefaultValue: uint(11626),
 		},
 		{
 			Name:         "log-level",
 			Usage:        "minimum log severity (debug, info, warn, error) to log",
 			OptType:      types.String,
 			ConfigKey:    &cfg.LogLevel,
-			DefaultValue: cfg.LogLevel.String(),
+			DefaultValue: logrus.InfoLevel,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case string:
@@ -111,7 +113,7 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:          "format used for output logs (json or text)",
 			OptType:        types.String,
 			ConfigKey:      &cfg.LogFormat,
-			DefaultValue:   cfg.LogFormat.String(),
+			DefaultValue:   LogFormatText,
 			CustomSetValue: parseValue(cfg.LogFormat.UnmarshalTOML),
 		},
 		{
@@ -119,7 +121,7 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "path to stellar core binary",
 			OptType:      types.String,
 			ConfigKey:    &cfg.StellarCoreBinaryPath,
-			DefaultValue: cfg.StellarCoreBinaryPath,
+			DefaultValue: defaultStellarCoreBinaryPath,
 			Validate:     required,
 		},
 		{
@@ -130,11 +132,10 @@ func (cfg *Config) options() ConfigOptions {
 			Validate:  required,
 		},
 		{
-			Name:         "captive-core-storage-path",
-			Usage:        "Storage location for Captive Core bucket data",
-			OptType:      types.String,
-			ConfigKey:    &cfg.CaptiveCoreStoragePath,
-			DefaultValue: cfg.CaptiveCoreStoragePath,
+			Name:      "captive-core-storage-path",
+			Usage:     "Storage location for Captive Core bucket data",
+			OptType:   types.String,
+			ConfigKey: &cfg.CaptiveCoreStoragePath,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case string:
@@ -164,14 +165,13 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
 			OptType:      types.Bool,
 			ConfigKey:    &cfg.CaptiveCoreUseDB,
-			DefaultValue: cfg.CaptiveCoreUseDB,
+			DefaultValue: false,
 		},
 		{
-			Name:         "history-archive-urls",
-			Usage:        "comma-separated list of stellar history archives to connect with",
-			OptType:      types.String,
-			ConfigKey:    &cfg.HistoryArchiveURLs,
-			DefaultValue: strings.Join(cfg.HistoryArchiveURLs, ","),
+			Name:      "history-archive-urls",
+			Usage:     "comma-separated list of stellar history archives to connect with",
+			OptType:   types.String,
+			ConfigKey: &cfg.HistoryArchiveURLs,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case string:
@@ -191,18 +191,17 @@ func (cfg *Config) options() ConfigOptions {
 			Validate: required,
 		},
 		{
-			Name:         "friendbot-url",
-			Usage:        "The friendbot URL to be returned by getNetwork endpoint",
-			OptType:      types.String,
-			ConfigKey:    &cfg.FriendbotURL,
-			DefaultValue: cfg.FriendbotURL,
+			Name:      "friendbot-url",
+			Usage:     "The friendbot URL to be returned by getNetwork endpoint",
+			OptType:   types.String,
+			ConfigKey: &cfg.FriendbotURL,
 		},
 		{
 			Name:         "network-passphrase",
 			Usage:        "Network passphrase of the Stellar network transactions should be signed for",
 			OptType:      types.String,
 			ConfigKey:    &cfg.NetworkPassphrase,
-			DefaultValue: cfg.NetworkPassphrase,
+			DefaultValue: network.FutureNetworkPassphrase,
 			Validate:     required,
 		},
 		{
@@ -210,14 +209,14 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "SQLite DB path",
 			OptType:      types.String,
 			ConfigKey:    &cfg.SQLiteDBPath,
-			DefaultValue: cfg.SQLiteDBPath,
+			DefaultValue: "soroban_rpc.sqlite",
 		},
 		{
 			Name:           "ingestion-timeout",
 			Usage:          "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
 			OptType:        types.String,
 			ConfigKey:      &cfg.IngestionTimeout,
-			DefaultValue:   cfg.IngestionTimeout.String(),
+			DefaultValue:   Duration{30 * time.Minute},
 			CustomSetValue: parseValue(cfg.IngestionTimeout.UnmarshalTOML),
 		},
 		{
@@ -225,7 +224,7 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
 			OptType:      types.Uint32,
 			ConfigKey:    &cfg.CheckpointFrequency,
-			DefaultValue: cfg.CheckpointFrequency,
+			DefaultValue: uint32(64),
 		},
 		{
 			Name: "event-retention-window",
@@ -233,7 +232,7 @@ func (cfg *Config) options() ConfigOptions {
 				" the default value is %d which corresponds to about 24 hours of history", ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
 			OptType:        types.Uint32,
 			ConfigKey:      &cfg.EventLedgerRetentionWindow,
-			DefaultValue:   cfg.EventLedgerRetentionWindow,
+			DefaultValue:   uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
 			CustomSetValue: parseValue(cfg.EventLedgerRetentionWindow.UnmarshalTOML),
 		},
 		{
@@ -242,7 +241,7 @@ func (cfg *Config) options() ConfigOptions {
 				" the default value is 1440 which corresponds to about 2 hours of history",
 			OptType:        types.Uint32,
 			ConfigKey:      &cfg.TransactionLedgerRetentionWindow,
-			DefaultValue:   cfg.TransactionLedgerRetentionWindow,
+			DefaultValue:   uint32(1440),
 			CustomSetValue: parseValue(cfg.TransactionLedgerRetentionWindow.UnmarshalTOML),
 		},
 		{
@@ -250,14 +249,14 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "Maximum amount of events allowed in a single getEvents response",
 			OptType:      types.Uint,
 			ConfigKey:    &cfg.MaxEventsLimit,
-			DefaultValue: cfg.MaxEventsLimit,
+			DefaultValue: uint(10000),
 		},
 		{
 			Name:         "default-events-limit",
 			Usage:        "Default cap on the amount of events included in a single getEvents response",
 			OptType:      types.Uint,
 			ConfigKey:    &cfg.DefaultEventsLimit,
-			DefaultValue: cfg.DefaultEventsLimit,
+			DefaultValue: uint(100),
 			Validate: func(co *ConfigOption) error {
 				if cfg.DefaultEventsLimit > cfg.MaxEventsLimit {
 					return fmt.Errorf(
@@ -275,7 +274,7 @@ func (cfg *Config) options() ConfigOptions {
 				" (used for the /health endpoint)",
 			OptType:        types.String,
 			ConfigKey:      &cfg.MaxHealthyLedgerLatency,
-			DefaultValue:   cfg.MaxHealthyLedgerLatency.String(),
+			DefaultValue:   Duration{30 * time.Second},
 			CustomSetValue: parseValue(cfg.MaxHealthyLedgerLatency.UnmarshalTOML),
 		},
 		{
@@ -283,7 +282,7 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:          "Number of workers (read goroutines) used to compute preflights for the simulateTransaction endpoint. Defaults to the number of CPUs.",
 			OptType:        types.Uint,
 			ConfigKey:      &cfg.PreflightWorkerCount,
-			DefaultValue:   cfg.PreflightWorkerCount,
+			DefaultValue:   uint(runtime.NumCPU()),
 			CustomSetValue: parseValue(cfg.PreflightWorkerCount.UnmarshalTOML),
 		},
 		{
@@ -291,7 +290,7 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "Maximum number of outstanding preflight requests for the simulateTransaction endpoint. Defaults to the number of CPUs.",
 			OptType:      types.Uint,
 			ConfigKey:    &cfg.PreflightWorkerQueueSize,
-			DefaultValue: cfg.PreflightWorkerQueueSize,
+			DefaultValue: uint(runtime.NumCPU()),
 		},
 	}
 }
