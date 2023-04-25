@@ -47,7 +47,25 @@ func main() {
 		},
 	}
 
+	genConfigFileCmd := &cobra.Command{
+		Use:   "gen-config-file",
+		Short: "Generate a config file with default settings",
+		Run: func(_ *cobra.Command, _ []string) {
+			if err := cfg.SetDefaults(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			out, err := cfg.MarshalTOML()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println(string(out))
+		},
+	}
+
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(genConfigFileCmd)
 
 	if err := cfg.Init(rootCmd); err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
