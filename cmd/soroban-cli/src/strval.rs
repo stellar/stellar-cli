@@ -3,15 +3,7 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 
-use soroban_env_host::xdr::{
-    self, AccountId, BytesM, Error as XdrError, Hash, Int128Parts, PublicKey, ScAddress, ScBytes,
-    ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0,
-    ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
-    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
-    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, Uint256,
-    VecM,
-};
+use soroban_env_host::xdr::{self, AccountId, BytesM, Error as XdrError, Hash, Int128Parts, Int256Parts, PublicKey, ScAddress, ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, Uint256, UInt256Parts, VecM};
 
 use crate::utils;
 
@@ -716,7 +708,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
-            ScVal::U128(Int128Parts {
+            ScVal::U128(UInt128Parts {
                 hi: u64::from_be_bytes(hi.try_into()?),
                 lo: u64::from_be_bytes(lo.try_into()?),
             })
@@ -729,19 +721,37 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::I128(Int128Parts {
-                hi: u64::from_be_bytes(hi.try_into()?),
+                hi: i64::from_be_bytes(hi.try_into()?),
                 lo: u64::from_be_bytes(lo.try_into()?),
             })
         }
 
         // Number parsing
         (ScType::U256, Value::String(s)) => {
-            let num = ethnum::U256::from_str_prefixed(s)?;
-            ScVal::U256(Uint256(num.to_be_bytes()))
+            let (hi, lo) = ethnum::U256::from_str_prefixed(s)?.into_words();
+            let hi_bytes = hi.to_be_bytes();
+            let (hi_hi, hi_lo) = hi_bytes.split_at(8);
+            let lo_bytes = lo.to_be_bytes();
+            let (lo_hi, lo_lo) = lo_bytes.split_at(8);
+            ScVal::U256(UInt256Parts{
+                hi_hi: u64::from_be_bytes(hi_hi.try_into()?),
+                hi_lo: u64::from_be_bytes(hi_lo.try_into()?),
+                lo_hi: u64::from_be_bytes(lo_hi.try_into()?),
+                lo_lo: u64::from_be_bytes(lo_lo.try_into()?),
+            })
         }
         (ScType::I256, Value::String(s)) => {
-            let num = ethnum::I256::from_str_prefixed(s)?;
-            ScVal::I256(Uint256(num.to_be_bytes()))
+            let (hi, lo) = ethnum::I256::from_str_prefixed(s)?.into_words();
+            let hi_bytes = hi.to_be_bytes();
+            let (hi_hi, hi_lo) = hi_bytes.split_at(8);
+            let lo_bytes = lo.to_be_bytes();
+            let (lo_hi, lo_lo) = lo_bytes.split_at(8);
+            ScVal::I256(Int256Parts{
+                hi_hi: i64::from_be_bytes(hi_hi.try_into()?),
+                hi_lo: u64::from_be_bytes(hi_lo.try_into()?),
+                lo_hi: u64::from_be_bytes(lo_hi.try_into()?),
+                lo_lo: u64::from_be_bytes(lo_lo.try_into()?),
+            })
         }
 
         (ScType::I32, Value::Number(n)) => ScVal::I32(
@@ -909,24 +919,44 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             .to_string();
             Value::String(v)
         }
-        ScVal::U256(Uint256(inner)) => {
-            let (hi, lo) = inner.split_at(16);
+        ScVal::U256(u256parts) => {
+            let hi_bytes = [u256parts.hi_hi.to_be_bytes(),u256parts.hi_lo.to_be_bytes()].concat();
+            let lo_bytes = [u256parts.lo_hi.to_be_bytes(),u256parts.lo_lo.to_be_bytes()].concat();
+            let hi = u128::from_be_bytes(
+                hi_bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(ScType::U256)))?,
+            );
+            let lo = u128::from_be_bytes(
+                lo_bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(ScType::U256)))?,
+            );
             Value::String(
-                ethnum::U256::from_words(
-                    u128::from_be_bytes(hi.try_into()?),
-                    u128::from_be_bytes(lo.try_into()?),
-                )
-                .to_string(),
+                ethnum::U256::from_words(hi, lo).to_string(),
             )
         }
-        ScVal::I256(Uint256(inner)) => {
-            let (hi, lo) = inner.split_at(16);
+        ScVal::I256(i256parts) => {
+            let hi_bytes = [i256parts.hi_hi.to_be_bytes(),i256parts.hi_lo.to_be_bytes()].concat();
+            let lo_bytes = [i256parts.lo_hi.to_be_bytes(),i256parts.lo_lo.to_be_bytes()].concat();
+            let hi = i128::from_be_bytes(
+                hi_bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(ScType::I256)))?,
+            );
+
+            let lo = u128::from_be_bytes(
+                lo_bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(ScType::I256)))?,
+            );
             Value::String(
-                ethnum::I256::from_words(
-                    i128::from_be_bytes(hi.try_into()?),
-                    i128::from_be_bytes(lo.try_into()?),
-                )
-                .to_string(),
+                // TODO: double-check that the 'as' below is correct
+                ethnum::I256::from_words(hi, lo as i128).to_string(),
             )
         }
         ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
