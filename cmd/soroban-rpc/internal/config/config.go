@@ -132,6 +132,14 @@ func (cfg *Config) Validate() error {
 	if cfg.Strict && cfg.CaptiveCoreConfig.NetworkPassphrase != "" {
 		return errors.New("could not unmarshal captive core toml: setting STELLAR_CORE.NETWORK_PASSPHRASE is disallowed for Captive Core, use top level NETWORK_PASSPHRASE instead")
 	}
+	cfg.CaptiveCoreConfig.NetworkPassphrase = cfg.NetworkPassphrase
+	if cfg.NetworkPassphrase == "" {
+		return cannotBeBlank(
+			"network-passphrase",
+			"NETWORK_PASSPHRASE",
+		)
+	}
+
 	// Validate home domains etc as in CaptiveCoreToml.validate
 
 	if cfg.StellarCoreBinaryPath == "" {
