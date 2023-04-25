@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	support "github.com/stellar/go/support/config"
 	"github.com/stellar/go/support/errors"
 )
 
@@ -42,14 +43,18 @@ type Config struct {
 	PreflightWorkerQueueSize         uint
 	SQLiteDBPath                     string
 	TransactionLedgerRetentionWindow uint32
+
+	// We memoize these
+	optionsCache *ConfigOptions
+	flagsCache   *support.ConfigOptions
 }
 
 func (cfg *Config) Init(cmd *cobra.Command) error {
 	return cfg.flags().Init(cmd)
 }
 
+// We start with the defaults
 func (cfg *Config) SetValues() error {
-	// We start with the defaults
 	if err := cfg.SetDefaults(); err != nil {
 		return err
 	}
@@ -73,8 +78,7 @@ func (cfg *Config) SetValues() error {
 		*cfg = fileConfig.Merge(*cfg)
 	}
 
-	// Finally, we can validate the config
-	return cfg.Validate()
+	return nil
 }
 
 func (cfg *Config) SetDefaults() error {

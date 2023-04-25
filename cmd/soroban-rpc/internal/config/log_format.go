@@ -5,7 +5,7 @@ import "fmt"
 type LogFormat int
 
 const (
-	LogFormatText = iota
+	LogFormatText LogFormat = iota
 	LogFormatJSON
 )
 

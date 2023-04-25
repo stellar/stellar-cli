@@ -74,8 +74,11 @@ func (o *ConfigOption) marshalTOML() (interface{}, error) {
 type ConfigOptions []*ConfigOption
 
 func (cfg *Config) options() ConfigOptions {
+	if cfg.optionsCache != nil {
+		return *cfg.optionsCache
+	}
 	defaultStellarCoreBinaryPath, _ := exec.LookPath("stellar-core")
-	return ConfigOptions{
+	cfg.optionsCache = &ConfigOptions{
 		{
 			Name:      "config-path",
 			EnvVar:    "SOROBAN_RPC_CONFIG_PATH",
@@ -158,7 +161,7 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "format used for output logs (json or text)",
 			OptType:      types.String,
 			ConfigKey:    &cfg.LogFormat,
-			DefaultValue: LogFormatText,
+			DefaultValue: LogFormatText.String(),
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case nil:
@@ -367,6 +370,7 @@ func (cfg *Config) options() ConfigOptions {
 			Validate:     positive,
 		},
 	}
+	return *cfg.optionsCache
 }
 
 func (options ConfigOptions) Validate() error {

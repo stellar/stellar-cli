@@ -8,23 +8,36 @@ import (
 	support "github.com/stellar/go/support/config"
 )
 
+// Bind binds the config options to viper.
+func (cfg *Config) Bind() {
+	for _, flag := range cfg.flags() {
+		flag.Bind()
+	}
+}
+
 func (cfg *Config) flags() support.ConfigOptions {
+	if cfg.flagsCache != nil {
+		return *cfg.flagsCache
+	}
 	options := cfg.options()
-	flags := make([]*support.ConfigOption, 0, len(options))
+	flags := make(support.ConfigOptions, 0, len(options))
 	for _, option := range options {
 		if f := option.flag(); f != nil {
 			flags = append(flags, f)
 		}
 	}
+	cfg.flagsCache = &flags
 	return flags
 }
 
 // Convert our configOption into a CLI flag, if it should be one.
 func (o *ConfigOption) flag() *support.ConfigOption {
 	flagDefault := o.DefaultValue
-	switch o.OptType {
-	case types.String:
-		flagDefault = fmt.Sprint(flagDefault)
+	if flagDefault != nil {
+		switch o.OptType {
+		case types.String:
+			flagDefault = fmt.Sprint(flagDefault)
+		}
 	}
 	f := &support.ConfigOption{
 		Name:        o.Name,
