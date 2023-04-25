@@ -46,23 +46,27 @@ func (o *ConfigOption) setValue(i interface{}) error {
 		return o.CustomSetValue(o, i)
 	}
 
-	switch o.OptType {
-	case types.Bool:
-		reflect.ValueOf(o.ConfigKey).Elem().SetBool(i.(bool))
-	case types.Int:
-		reflect.ValueOf(o.ConfigKey).Elem().SetInt(i.(int64))
-	case types.String:
-		reflect.ValueOf(o.ConfigKey).Elem().SetString(i.(string))
-	case types.Uint:
-		fmt.Printf("Setting %s to %d: %T", o.Name, i, i)
-		reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint)))
-	case types.Uint32:
-		reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint32)))
-	case types.Uint64:
-		reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint64)))
-	default:
-		return fmt.Errorf("Unsupported type %v", o.OptType)
-	}
+	reflect.ValueOf(o.ConfigKey).Elem().Set(
+		reflect.ValueOf(i),
+	)
+
+	// kind := reflect.ValueOf(o.ConfigKey).Elem().Kind()
+	// switch kind {
+	// case reflect.Bool:
+	// 	reflect.ValueOf(o.ConfigKey).Elem().SetBool(i.(bool))
+	// case reflect.Int:
+	// 	reflect.ValueOf(o.ConfigKey).Elem().SetInt(int64(i.(int)))
+	// case reflect.Uint:
+	// 	reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint)))
+	// case reflect.Uint32:
+	// 	reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint32)))
+	// case reflect.Uint64:
+	// 	reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint64)))
+	// case reflect.String:
+	// 	reflect.ValueOf(o.ConfigKey).Elem().SetString(i.(string))
+	// default:
+	// 	return fmt.Errorf("Unsupported type %v", o.OptType)
+	// }
 
 	return nil
 }
@@ -115,8 +119,8 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:          "Timeout used when submitting requests to stellar-core",
 			OptType:        types.String,
 			ConfigKey:      &cfg.CoreRequestTimeout,
-			DefaultValue:   Duration{2 * time.Second},
-			CustomSetValue: parseValue(cfg.CoreRequestTimeout.UnmarshalTOML),
+			DefaultValue:   2 * time.Second,
+			CustomSetValue: parseDuration,
 		},
 		{
 			Name:         "stellar-captive-core-http-port",
@@ -264,8 +268,8 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:          "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
 			OptType:        types.String,
 			ConfigKey:      &cfg.IngestionTimeout,
-			DefaultValue:   Duration{30 * time.Minute},
-			CustomSetValue: parseValue(cfg.IngestionTimeout.UnmarshalTOML),
+			DefaultValue:   30 * time.Minute,
+			CustomSetValue: parseDuration,
 		},
 		{
 			Name:         "checkpoint-frequency",
@@ -278,19 +282,19 @@ func (cfg *Config) options() ConfigOptions {
 			Name: "event-retention-window",
 			Usage: fmt.Sprintf("configures the event retention window expressed in number of ledgers,"+
 				" the default value is %d which corresponds to about 24 hours of history", ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			OptType:        types.Uint32,
-			ConfigKey:      &cfg.EventLedgerRetentionWindow,
-			DefaultValue:   uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			CustomSetValue: parseValue(cfg.EventLedgerRetentionWindow.UnmarshalTOML),
+			OptType:      types.Uint32,
+			ConfigKey:    &cfg.EventLedgerRetentionWindow,
+			DefaultValue: uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
+			Validate:     positive,
 		},
 		{
 			Name: "transaction-retention-window",
 			Usage: "configures the transaction retention window expressed in number of ledgers," +
 				" the default value is 1440 which corresponds to about 2 hours of history",
-			OptType:        types.Uint32,
-			ConfigKey:      &cfg.TransactionLedgerRetentionWindow,
-			DefaultValue:   uint32(1440),
-			CustomSetValue: parseValue(cfg.TransactionLedgerRetentionWindow.UnmarshalTOML),
+			OptType:      types.Uint32,
+			ConfigKey:    &cfg.TransactionLedgerRetentionWindow,
+			DefaultValue: uint32(1440),
+			Validate:     positive,
 		},
 		{
 			Name:         "max-events-limit",
@@ -322,16 +326,16 @@ func (cfg *Config) options() ConfigOptions {
 				" (used for the /health endpoint)",
 			OptType:        types.String,
 			ConfigKey:      &cfg.MaxHealthyLedgerLatency,
-			DefaultValue:   Duration{30 * time.Second},
-			CustomSetValue: parseValue(cfg.MaxHealthyLedgerLatency.UnmarshalTOML),
+			DefaultValue:   30 * time.Second,
+			CustomSetValue: parseDuration,
 		},
 		{
-			Name:           "preflight-worker-count",
-			Usage:          "Number of workers (read goroutines) used to compute preflights for the simulateTransaction endpoint. Defaults to the number of CPUs.",
-			OptType:        types.Uint,
-			ConfigKey:      &cfg.PreflightWorkerCount,
-			DefaultValue:   uint(runtime.NumCPU()),
-			CustomSetValue: parseValue(cfg.PreflightWorkerCount.UnmarshalTOML),
+			Name:         "preflight-worker-count",
+			Usage:        "Number of workers (read goroutines) used to compute preflights for the simulateTransaction endpoint. Defaults to the number of CPUs.",
+			OptType:      types.Uint,
+			ConfigKey:    &cfg.PreflightWorkerCount,
+			DefaultValue: uint(runtime.NumCPU()),
+			Validate:     positive,
 		},
 		{
 			Name:         "preflight-worker-queue-size",
@@ -339,6 +343,7 @@ func (cfg *Config) options() ConfigOptions {
 			OptType:      types.Uint,
 			ConfigKey:    &cfg.PreflightWorkerQueueSize,
 			DefaultValue: uint(runtime.NumCPU()),
+			Validate:     positive,
 		},
 	}
 }
@@ -385,8 +390,39 @@ func required(option *ConfigOption) error {
 	return fmt.Errorf("Invalid config: %s is required.%s", option.Name, advice)
 }
 
+func positive(option *ConfigOption) error {
+	switch v := option.ConfigKey.(type) {
+	case *int, *int8, *int16, *int32, *int64:
+		if reflect.ValueOf(v).Elem().Int() <= 0 {
+			return fmt.Errorf("%s must be positive", option.Name)
+		}
+	case *uint, *uint8, *uint16, *uint32, *uint64:
+		if reflect.ValueOf(v).Elem().Uint() <= 0 {
+			return fmt.Errorf("%s must be positive", option.Name)
+		}
+	default:
+		return fmt.Errorf("Invalid config: %s is not a positive integer", option.Name)
+	}
+	return nil
+}
+
 func parseValue(f func(interface{}) error) func(*ConfigOption, interface{}) error {
 	return func(option *ConfigOption, i interface{}) error {
 		return errors.Wrapf(f(i), "Could not parse %s", option.Name)
 	}
+}
+
+// TODO: Handle more duration formats, like int for seconds?
+func parseDuration(option *ConfigOption, i interface{}) error {
+	switch v := i.(type) {
+	case string:
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return errors.Wrapf(err, "Could not parse duration: %q", v)
+		}
+		*option.ConfigKey.(*time.Duration) = d
+	default:
+		return fmt.Errorf("Invalid config: %s is not a duration", option.Name)
+	}
+	return nil
 }

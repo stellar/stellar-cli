@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -23,26 +24,26 @@ type Config struct {
 	CaptiveCoreStoragePath string
 	StellarCoreBinaryPath  string
 	CaptiveCoreConfigPath  string
-	CaptiveCoreHTTPPort    int
+	CaptiveCoreHTTPPort    uint
 
 	Endpoint                         string
 	AdminEndpoint                    string
 	CheckpointFrequency              uint32
-	CoreRequestTimeout               Duration
+	CoreRequestTimeout               time.Duration
 	DefaultEventsLimit               uint
-	EventLedgerRetentionWindow       PositiveUint32
+	EventLedgerRetentionWindow       uint32
 	FriendbotURL                     string
 	HistoryArchiveURLs               []string
-	IngestionTimeout                 Duration
+	IngestionTimeout                 time.Duration
 	LogFormat                        LogFormat
 	LogLevel                         logrus.Level
 	MaxEventsLimit                   uint
-	MaxHealthyLedgerLatency          Duration
+	MaxHealthyLedgerLatency          time.Duration
 	NetworkPassphrase                string
-	PreflightWorkerCount             PositiveUint
-	PreflightWorkerQueueSize         PositiveUint
+	PreflightWorkerCount             uint
+	PreflightWorkerQueueSize         uint
 	SQLiteDBPath                     string
-	TransactionLedgerRetentionWindow PositiveUint32
+	TransactionLedgerRetentionWindow uint32
 }
 
 func (cfg *Config) Init(cmd *cobra.Command) error {
