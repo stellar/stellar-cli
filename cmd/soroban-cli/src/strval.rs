@@ -695,6 +695,7 @@ fn parse_const_enum(num: &serde_json::Number, enum_: &ScSpecUdtEnumV0) -> Result
 /// # Errors
 ///
 /// Might return an error
+#[allow(clippy::too_many_lines)]
 pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
     let val: ScVal = match (t, v) {
         // Boolean parsing
@@ -845,6 +846,7 @@ pub fn to_string(v: &ScVal) -> Result<String, Error> {
 /// # Errors
 ///
 /// Might return an error
+#[allow(clippy::too_many_lines)]
 pub fn to_json(v: &ScVal) -> Result<Value, Error> {
     #[allow(clippy::match_same_arms)]
     let val: Value = match v {
@@ -956,6 +958,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             );
             Value::String(
                 // TODO: double-check that the 'as' below is correct
+                #[allow(clippy::cast_possible_wrap)]
                 ethnum::I256::from_words(hi, lo as i128).to_string(),
             )
         }
