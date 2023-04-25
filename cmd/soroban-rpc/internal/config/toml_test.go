@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 
@@ -32,15 +31,41 @@ func TestBasicTomlReading(t *testing.T) {
 	assert.Equal(t, "/usr/bin/stellar-core", cfg.StellarCoreBinaryPath)
 }
 
+func TestBasicTomlReadingStrictMode(t *testing.T) {
+	invalidToml := `UNKNOWN = "key"`
+	cfg := Config{}
+
+	// Should panic when unknown key and strict set in the cli flags
+	require.EqualError(
+		t,
+		parseToml(strings.NewReader(invalidToml), true, &cfg),
+		"Invalid config: unknown field \"UNKNOWN\"",
+	)
+
+	// Should panic when unknown key and strict set in the config file
+	invalidStrictToml := `
+	STRICT = true
+	UNKNOWN = "key"
+`
+	require.EqualError(
+		t,
+		parseToml(strings.NewReader(invalidStrictToml), false, &cfg),
+		"Invalid config: unknown field \"UNKNOWN\"",
+	)
+
+	// It passes on a valid config
+	require.NoError(t, parseToml(strings.NewReader(basicToml), true, &cfg))
+}
+
 func TestBasicTomlWriting(t *testing.T) {
 	// Set up a default config
 	cfg := Config{}
 	require.NoError(t, cfg.SetDefaults())
 
 	// Output it to toml
-	buf := &bytes.Buffer{}
-	require.NoError(t, cfg.marshalToml(buf))
+	out, err := cfg.MarshalTOML()
+	require.NoError(t, err)
 
 	// Spot-check that the output looks right
-	t.Log(buf.String())
+	t.Log(string(out))
 }

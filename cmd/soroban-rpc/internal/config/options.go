@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ type ConfigOption struct {
 	ConfigKey      interface{}                            // Pointer to the final key in the linked Config struct
 	CustomSetValue func(*ConfigOption, interface{}) error // Optional function for custom validation/transformation
 	Validate       func(*ConfigOption) error              // Function called after loading all options, to validate the configuration
+	MarshalTOML    func(*ConfigOption) (interface{}, error)
 }
 
 func (o *ConfigOption) getTomlKey() string {
@@ -46,29 +48,25 @@ func (o *ConfigOption) setValue(i interface{}) error {
 		return o.CustomSetValue(o, i)
 	}
 
-	reflect.ValueOf(o.ConfigKey).Elem().Set(
-		reflect.ValueOf(i),
-	)
-
-	// kind := reflect.ValueOf(o.ConfigKey).Elem().Kind()
-	// switch kind {
-	// case reflect.Bool:
-	// 	reflect.ValueOf(o.ConfigKey).Elem().SetBool(i.(bool))
-	// case reflect.Int:
-	// 	reflect.ValueOf(o.ConfigKey).Elem().SetInt(int64(i.(int)))
-	// case reflect.Uint:
-	// 	reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint)))
-	// case reflect.Uint32:
-	// 	reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint32)))
-	// case reflect.Uint64:
-	// 	reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint64)))
-	// case reflect.String:
-	// 	reflect.ValueOf(o.ConfigKey).Elem().SetString(i.(string))
-	// default:
-	// 	return fmt.Errorf("Unsupported type %v", o.OptType)
-	// }
+	reflect.ValueOf(o.ConfigKey).Elem().Set(reflect.ValueOf(i))
 
 	return nil
+}
+
+func (o *ConfigOption) marshalTOML() (interface{}, error) {
+	if o.MarshalTOML != nil {
+		return o.MarshalTOML(o)
+	}
+	// go-toml doesn't handle ints other than `int`, so we have to do that ourselves.
+	switch v := o.ConfigKey.(type) {
+	case *int, *int8, *int16, *int32, *int64:
+		return []byte(strconv.FormatInt(reflect.ValueOf(v).Elem().Int(), 10)), nil
+	case *uint, *uint8, *uint16, *uint32, *uint64:
+		return []byte(strconv.FormatUint(reflect.ValueOf(v).Elem().Uint(), 10)), nil
+	default:
+		// Unknown, hopefully go-toml knows what to do with it! :crossed_fingers:
+		return reflect.ValueOf(o.ConfigKey).Elem().Interface(), nil
+	}
 }
 
 // ConfigOptions is a group of ConfigOptions that can be for convenience
@@ -121,6 +119,7 @@ func (cfg *Config) options() ConfigOptions {
 			ConfigKey:      &cfg.CoreRequestTimeout,
 			DefaultValue:   2 * time.Second,
 			CustomSetValue: parseDuration,
+			MarshalTOML:    marshalDuration,
 		},
 		{
 			Name:         "stellar-captive-core-http-port",
@@ -147,6 +146,9 @@ func (cfg *Config) options() ConfigOptions {
 				default:
 					return fmt.Errorf("could not parse %s: %v", option.Name, v)
 				}
+			},
+			MarshalTOML: func(option *ConfigOption) (interface{}, error) {
+				return cfg.LogLevel.String(), nil
 			},
 		},
 		{
@@ -270,6 +272,7 @@ func (cfg *Config) options() ConfigOptions {
 			ConfigKey:      &cfg.IngestionTimeout,
 			DefaultValue:   30 * time.Minute,
 			CustomSetValue: parseDuration,
+			MarshalTOML:    marshalDuration,
 		},
 		{
 			Name:         "checkpoint-frequency",
@@ -328,6 +331,7 @@ func (cfg *Config) options() ConfigOptions {
 			ConfigKey:      &cfg.MaxHealthyLedgerLatency,
 			DefaultValue:   30 * time.Second,
 			CustomSetValue: parseDuration,
+			MarshalTOML:    marshalDuration,
 		},
 		{
 			Name:         "preflight-worker-count",
@@ -425,4 +429,11 @@ func parseDuration(option *ConfigOption, i interface{}) error {
 		return fmt.Errorf("Invalid config: %s is not a duration", option.Name)
 	}
 	return nil
+}
+
+func marshalDuration(option *ConfigOption) (interface{}, error) {
+	if option.ConfigKey == nil {
+		return nil, nil
+	}
+	return option.ConfigKey.(*time.Duration).String(), nil
 }
