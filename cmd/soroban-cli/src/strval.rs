@@ -3,7 +3,15 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 
-use soroban_env_host::xdr::{self, AccountId, BytesM, Error as XdrError, Hash, Int128Parts, Int256Parts, PublicKey, ScAddress, ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, Uint256, UInt256Parts, VecM};
+use soroban_env_host::xdr::{
+    self, AccountId, BytesM, Error as XdrError, Hash, Int128Parts, Int256Parts, PublicKey,
+    ScAddress, ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
+    ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
+    ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
+    ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
+    ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
+    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
+};
 
 use crate::utils;
 
@@ -734,7 +742,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
             let (hi_hi, hi_lo) = hi_bytes.split_at(8);
             let lo_bytes = lo.to_be_bytes();
             let (lo_hi, lo_lo) = lo_bytes.split_at(8);
-            ScVal::U256(UInt256Parts{
+            ScVal::U256(UInt256Parts {
                 hi_hi: u64::from_be_bytes(hi_hi.try_into()?),
                 hi_lo: u64::from_be_bytes(hi_lo.try_into()?),
                 lo_hi: u64::from_be_bytes(lo_hi.try_into()?),
@@ -747,7 +755,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
             let (hi_hi, hi_lo) = hi_bytes.split_at(8);
             let lo_bytes = lo.to_be_bytes();
             let (lo_hi, lo_lo) = lo_bytes.split_at(8);
-            ScVal::I256(Int256Parts{
+            ScVal::I256(Int256Parts {
                 hi_hi: i64::from_be_bytes(hi_hi.try_into()?),
                 hi_lo: u64::from_be_bytes(hi_lo.try_into()?),
                 lo_hi: u64::from_be_bytes(lo_hi.try_into()?),
@@ -922,8 +930,8 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             Value::String(v)
         }
         ScVal::U256(u256parts) => {
-            let hi_bytes = [u256parts.hi_hi.to_be_bytes(),u256parts.hi_lo.to_be_bytes()].concat();
-            let lo_bytes = [u256parts.lo_hi.to_be_bytes(),u256parts.lo_lo.to_be_bytes()].concat();
+            let hi_bytes = [u256parts.hi_hi.to_be_bytes(), u256parts.hi_lo.to_be_bytes()].concat();
+            let lo_bytes = [u256parts.lo_hi.to_be_bytes(), u256parts.lo_lo.to_be_bytes()].concat();
             let hi = u128::from_be_bytes(
                 hi_bytes
                     .as_slice()
@@ -936,13 +944,11 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
                     .try_into()
                     .map_err(|_| Error::InvalidValue(Some(ScType::U256)))?,
             );
-            Value::String(
-                ethnum::U256::from_words(hi, lo).to_string(),
-            )
+            Value::String(ethnum::U256::from_words(hi, lo).to_string())
         }
         ScVal::I256(i256parts) => {
-            let hi_bytes = [i256parts.hi_hi.to_be_bytes(),i256parts.hi_lo.to_be_bytes()].concat();
-            let lo_bytes = [i256parts.lo_hi.to_be_bytes(),i256parts.lo_lo.to_be_bytes()].concat();
+            let hi_bytes = [i256parts.hi_hi.to_be_bytes(), i256parts.hi_lo.to_be_bytes()].concat();
+            let lo_bytes = [i256parts.lo_hi.to_be_bytes(), i256parts.lo_lo.to_be_bytes()].concat();
             let hi = i128::from_be_bytes(
                 hi_bytes
                     .as_slice()
