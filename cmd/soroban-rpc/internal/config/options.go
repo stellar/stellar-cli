@@ -30,6 +30,43 @@ type ConfigOption struct {
 	Validate       func(*ConfigOption) error              // Function called after loading all options, to validate the configuration
 }
 
+func (o *ConfigOption) getTomlKey() string {
+	if o.TomlKey != "" {
+		return o.TomlKey
+	}
+	if o.EnvVar != "" && o.EnvVar != "-" {
+		return o.EnvVar
+	}
+	return strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_"))
+}
+
+// TODO: See if we can combine OptType and CustomSetValue into just SetValue/ParseValue
+func (o *ConfigOption) setValue(i interface{}) error {
+	if o.CustomSetValue != nil {
+		return o.CustomSetValue(o, i)
+	}
+
+	switch o.OptType {
+	case types.Bool:
+		reflect.ValueOf(o.ConfigKey).Elem().SetBool(i.(bool))
+	case types.Int:
+		reflect.ValueOf(o.ConfigKey).Elem().SetInt(i.(int64))
+	case types.String:
+		reflect.ValueOf(o.ConfigKey).Elem().SetString(i.(string))
+	case types.Uint:
+		fmt.Printf("Setting %s to %d: %T", o.Name, i, i)
+		reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint)))
+	case types.Uint32:
+		reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint32)))
+	case types.Uint64:
+		reflect.ValueOf(o.ConfigKey).Elem().SetUint(uint64(i.(uint64)))
+	default:
+		return fmt.Errorf("Unsupported type %v", o.OptType)
+	}
+
+	return nil
+}
+
 // ConfigOptions is a group of ConfigOptions that can be for convenience
 // initialized and set at the same time.
 type ConfigOptions []*ConfigOption
@@ -183,6 +220,17 @@ func (cfg *Config) options() ConfigOptions {
 					return nil
 				case []string:
 					cfg.HistoryArchiveURLs = v
+					return nil
+				case []interface{}:
+					cfg.HistoryArchiveURLs = make([]string, len(v))
+					for i, s := range v {
+						switch s := s.(type) {
+						case string:
+							cfg.HistoryArchiveURLs[i] = s
+						default:
+							return fmt.Errorf("Could not parse %s: %v", option.Name, v)
+						}
+					}
 					return nil
 				default:
 					return fmt.Errorf("Could not parse %s: %v", option.Name, v)
