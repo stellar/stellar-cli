@@ -167,30 +167,30 @@ func MustNew(cfg *config.Config) *Daemon {
 		metricsRegistry: metricsRegistry,
 		coreClient: newCoreClientWithMetrics(stellarcore.Client{
 			URL:  cfg.StellarCoreURL,
-			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout.Duration},
+			HTTP: &http.Client{Timeout: cfg.CoreRequestTimeout},
 		}, metricsRegistry),
 	}
 
 	eventStore := events.NewMemoryStore(
 		daemon,
 		cfg.NetworkPassphrase,
-		cfg.EventLedgerRetentionWindow.Value,
+		cfg.EventLedgerRetentionWindow,
 	)
 	transactionStore := transactions.NewMemoryStore(
 		daemon,
 		cfg.NetworkPassphrase,
-		cfg.TransactionLedgerRetentionWindow.Value,
+		cfg.TransactionLedgerRetentionWindow,
 	)
 
-	maxRetentionWindow := cfg.EventLedgerRetentionWindow.Value
-	if cfg.TransactionLedgerRetentionWindow.Value > maxRetentionWindow {
-		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow.Value
-	} else if cfg.EventLedgerRetentionWindow.Value == 0 && cfg.TransactionLedgerRetentionWindow.Value > ledgerbucketwindow.DefaultEventLedgerRetentionWindow {
+	maxRetentionWindow := cfg.EventLedgerRetentionWindow
+	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
+		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
+	} else if cfg.EventLedgerRetentionWindow == 0 && cfg.TransactionLedgerRetentionWindow > ledgerbucketwindow.DefaultEventLedgerRetentionWindow {
 		maxRetentionWindow = ledgerbucketwindow.DefaultEventLedgerRetentionWindow
 	}
 
 	// initialize the stores using what was on the DB
-	readTxMetaCtx, cancelReadTxMeta := context.WithTimeout(context.Background(), cfg.IngestionTimeout.Duration)
+	readTxMetaCtx, cancelReadTxMeta := context.WithTimeout(context.Background(), cfg.IngestionTimeout)
 	defer cancelReadTxMeta()
 	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(readTxMetaCtx)
 	if err != nil {
@@ -219,14 +219,14 @@ func MustNew(cfg *config.Config) *Daemon {
 		NetworkPassPhrase: cfg.NetworkPassphrase,
 		Archive:           historyArchive,
 		LedgerBackend:     core,
-		Timeout:           cfg.IngestionTimeout.Duration,
+		Timeout:           cfg.IngestionTimeout,
 		OnIngestionRetry:  onIngestionRetry,
 		Daemon:            daemon,
 	})
 
 	ledgerEntryReader := db.NewLedgerEntryReader(dbConn)
 	preflightWorkerPool := preflight.NewPreflightWorkerPool(
-		cfg.PreflightWorkerCount.Value, cfg.PreflightWorkerQueueSize.Value, ledgerEntryReader, cfg.NetworkPassphrase, logger)
+		cfg.PreflightWorkerCount, cfg.PreflightWorkerQueueSize, ledgerEntryReader, cfg.NetworkPassphrase, logger)
 
 	jsonRPCHandler := internal.NewJSONRPCHandler(cfg, internal.HandlerParams{
 		Daemon:            daemon,

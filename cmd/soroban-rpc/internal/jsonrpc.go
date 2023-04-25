@@ -51,7 +51,7 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		},
 	}
 	bridge := jhttp.NewBridge(handler.Map{
-		"getHealth":           methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency.Duration),
+		"getHealth":           methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
 		"getEvents":           methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
 		"getNetwork":          methods.NewGetNetworkHandler(params.Daemon, cfg.NetworkPassphrase, cfg.FriendbotURL),
 		"getLatestLedger":     methods.NewGetLatestLedgerHandler(params.LedgerEntryReader, params.LedgerReader),
