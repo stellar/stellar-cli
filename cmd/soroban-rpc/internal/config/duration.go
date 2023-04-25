@@ -10,7 +10,7 @@ type Duration struct {
 }
 
 func (d Duration) MarshalTOML() ([]byte, error) {
-	return []byte(fmt.Sprint("%q", d.String())), nil
+	return []byte(d.String()), nil
 }
 
 func (d *Duration) UnmarshalTOML(i interface{}) error {

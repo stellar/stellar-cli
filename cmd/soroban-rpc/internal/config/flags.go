@@ -3,7 +3,6 @@ package config
 import (
 	"github.com/spf13/viper"
 	support "github.com/stellar/go/support/config"
-	"github.com/stellar/go/support/errors"
 )
 
 func (cfg *Config) flags() support.ConfigOptions {
@@ -30,10 +29,7 @@ func (o *ConfigOption) flag() *support.ConfigOption {
 	}
 	if o.CustomSetValue != nil {
 		f.CustomSetValue = func(co *support.ConfigOption) error {
-			return errors.Wrapf(
-				o.CustomSetValue(viper.Get(co.Name)),
-				"unable to parse %s", co.Name,
-			)
+			return o.CustomSetValue(o, viper.Get(o.Name))
 		}
 	}
 	return f
