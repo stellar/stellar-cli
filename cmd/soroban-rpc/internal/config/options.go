@@ -136,15 +136,17 @@ func (cfg *Config) options() ConfigOptions {
 			DefaultValue: logrus.InfoLevel,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
+				case nil:
+					return nil
 				case string:
 					ll, err := logrus.ParseLevel(v)
 					if err != nil {
-						return fmt.Errorf("could not parse %s: %v", option.Name, v)
+						return fmt.Errorf("Could not parse %s: %q", option.Name, v)
 					}
 					cfg.LogLevel = ll
 					return nil
 				default:
-					return fmt.Errorf("could not parse %s: %v", option.Name, v)
+					return fmt.Errorf("Could not parse %s: %q", option.Name, v)
 				}
 			},
 			MarshalTOML: func(option *ConfigOption) (interface{}, error) {
@@ -152,12 +154,25 @@ func (cfg *Config) options() ConfigOptions {
 			},
 		},
 		{
-			Name:           "log-format",
-			Usage:          "format used for output logs (json or text)",
-			OptType:        types.String,
-			ConfigKey:      &cfg.LogFormat,
-			DefaultValue:   LogFormatText,
-			CustomSetValue: parseValue(cfg.LogFormat.UnmarshalTOML),
+			Name:         "log-format",
+			Usage:        "format used for output logs (json or text)",
+			OptType:      types.String,
+			ConfigKey:    &cfg.LogFormat,
+			DefaultValue: LogFormatText,
+			CustomSetValue: func(option *ConfigOption, i interface{}) error {
+				switch v := i.(type) {
+				case nil:
+					return nil
+				case string:
+					return errors.Wrapf(
+						cfg.LogFormat.UnmarshalText([]byte(v)),
+						"Could not parse %s",
+						option.Name,
+					)
+				default:
+					return fmt.Errorf("Could not parse %s: %q", option.Name, v)
+				}
+			},
 		},
 		{
 			Name:         "stellar-core-binary-path",
@@ -217,6 +232,8 @@ func (cfg *Config) options() ConfigOptions {
 			ConfigKey: &cfg.HistoryArchiveURLs,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
+				case nil:
+					return nil
 				case string:
 					if v == "" {
 						cfg.HistoryArchiveURLs = nil
@@ -377,8 +394,8 @@ func required(option *ConfigOption) error {
 	if option.EnvVar != "" && option.EnvVar != "-" {
 		waysToSet = append(waysToSet, fmt.Sprintf("set the %s environment variable", option.EnvVar))
 	}
-	if option.TomlKey != "" && option.TomlKey != "-" {
-		waysToSet = append(waysToSet, fmt.Sprintf("set %s in the config file", option.EnvVar))
+	if option.getTomlKey() != "-" {
+		waysToSet = append(waysToSet, fmt.Sprintf("set %s in the config file", option.getTomlKey()))
 	}
 
 	advice := ""
@@ -391,7 +408,7 @@ func required(option *ConfigOption) error {
 		advice = fmt.Sprintf(" Please %s, %s, or %s.", waysToSet[0], waysToSet[1], waysToSet[2])
 	}
 
-	return fmt.Errorf("Invalid config: %s is required.%s", option.Name, advice)
+	return fmt.Errorf("%s is required.%s", option.Name, advice)
 }
 
 func positive(option *ConfigOption) error {
@@ -405,7 +422,7 @@ func positive(option *ConfigOption) error {
 			return fmt.Errorf("%s must be positive", option.Name)
 		}
 	default:
-		return fmt.Errorf("Invalid config: %s is not a positive integer", option.Name)
+		return fmt.Errorf("%s is not a positive integer", option.Name)
 	}
 	return nil
 }
@@ -419,6 +436,8 @@ func parseValue(f func(interface{}) error) func(*ConfigOption, interface{}) erro
 // TODO: Handle more duration formats, like int for seconds?
 func parseDuration(option *ConfigOption, i interface{}) error {
 	switch v := i.(type) {
+	case nil:
+		return nil
 	case string:
 		d, err := time.ParseDuration(v)
 		if err != nil {
@@ -426,7 +445,7 @@ func parseDuration(option *ConfigOption, i interface{}) error {
 		}
 		*option.ConfigKey.(*time.Duration) = d
 	default:
-		return fmt.Errorf("Invalid config: %s is not a duration", option.Name)
+		return fmt.Errorf("%s is not a duration", option.Name)
 	}
 	return nil
 }

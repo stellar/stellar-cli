@@ -1,6 +1,9 @@
 package config
 
 import (
+	"fmt"
+	"go/types"
+
 	"github.com/spf13/viper"
 	support "github.com/stellar/go/support/config"
 )
@@ -18,11 +21,16 @@ func (cfg *Config) flags() support.ConfigOptions {
 
 // Convert our configOption into a CLI flag, if it should be one.
 func (o *ConfigOption) flag() *support.ConfigOption {
+	flagDefault := o.DefaultValue
+	switch o.OptType {
+	case types.String:
+		flagDefault = fmt.Sprint(flagDefault)
+	}
 	f := &support.ConfigOption{
 		Name:        o.Name,
 		EnvVar:      o.EnvVar,
 		OptType:     o.OptType,
-		FlagDefault: o.DefaultValue,
+		FlagDefault: flagDefault,
 		Required:    false,
 		Usage:       o.Usage,
 		ConfigKey:   o.ConfigKey,
