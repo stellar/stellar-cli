@@ -13,7 +13,7 @@ const basicToml = `
 HISTORY_ARCHIVE_URLS = [ "http://history-futurenet.stellar.org" ]
 NETWORK_PASSPHRASE = "Test SDF Future Network ; October 2022"
 
-# TODO: Maybe this would make more sense as STELLAR_CORE.BINARY_PATH
+# testing comments work ok
 STELLAR_CORE_BINARY_PATH = "/usr/bin/stellar-core"
 CAPTIVE_CORE_USE_DB = true
 CAPTIVE_CORE_STORAGE_PATH = "/etc/stellar/soroban-rpc"
@@ -24,24 +24,31 @@ func TestBasicTomlReading(t *testing.T) {
 	cfg := Config{}
 	require.NoError(t, parseToml(strings.NewReader(basicToml), false, &cfg))
 
-	// Check a few fields got read correctly
+	// Check the fields got read correctly
 	assert.Equal(t, []string{"http://history-futurenet.stellar.org"}, cfg.HistoryArchiveURLs)
 	assert.Equal(t, network.FutureNetworkPassphrase, cfg.NetworkPassphrase)
-	assert.Equal(t, "/usr/bin/stellar-core", cfg.StellarCoreBinaryPath)
+	assert.Equal(t, true, cfg.CaptiveCoreUseDB)
+	assert.Equal(t, "/etc/stellar/soroban-rpc", cfg.CaptiveCoreStoragePath)
+	assert.Equal(t, "/etc/stellar/soroban-rpc/captive-core.cfg", cfg.CaptiveCoreConfigPath)
 }
 
 func TestBasicTomlReadingStrictMode(t *testing.T) {
 	invalidToml := `UNKNOWN = "key"`
 	cfg := Config{}
 
-	// Should panic when unknown key and strict set in the cli flags
+	// Should ignore unknown fields when strict is not set
+	require.NoError(t, parseToml(strings.NewReader(invalidToml), false, &cfg))
+
+	// Should panic when unknown key is present and strict is set in the cli
+	// flags
 	require.EqualError(
 		t,
 		parseToml(strings.NewReader(invalidToml), true, &cfg),
 		"Invalid config: unknown field \"UNKNOWN\"",
 	)
 
-	// Should panic when unknown key and strict set in the config file
+	// Should panic when unknown key is present and strict is set in the
+	// config file
 	invalidStrictToml := `
 	STRICT = true
 	UNKNOWN = "key"
@@ -52,7 +59,7 @@ func TestBasicTomlReadingStrictMode(t *testing.T) {
 		"Invalid config: unknown field \"UNKNOWN\"",
 	)
 
-	// It passes on a valid config
+	// It succeeds with a valid config
 	require.NoError(t, parseToml(strings.NewReader(basicToml), true, &cfg))
 }
 
