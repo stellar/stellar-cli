@@ -6,6 +6,7 @@ pub mod completion;
 pub mod config;
 pub mod contract;
 pub mod events;
+pub mod global;
 pub mod lab;
 pub mod plugin;
 pub mod version;
@@ -50,9 +51,9 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
     disable_help_subcommand = true,
 )]
 pub struct Root {
-    /// List installed plugins. E.g. `soroban-hello`
-    #[arg(long)]
-    pub list: bool,
+    #[clap(flatten)]
+    pub global_args: global::Args,
+
     #[command(subcommand)]
     pub cmd: Cmd,
 }

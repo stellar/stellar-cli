@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contractimpl, vec, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contractimpl, log, vec, Address, Env, String, Symbol, Vec};
 
 pub struct Contract;
 
@@ -26,6 +26,14 @@ impl Contract {
 
     #[allow(unused_variables)]
     pub fn multi_word_cmd(env: Env, contract_owner: String) {}
+    /// Logs a string with `hello ` in front.
+    pub fn log(env: Env, str: Symbol) {
+        env.events().publish(
+            (Symbol::new(&env, "hello"), Symbol::new(&env, "")),
+            str.clone(),
+        );
+        log!(&env, "hello {}", str);
+    }
 }
 
 #[cfg(test)]

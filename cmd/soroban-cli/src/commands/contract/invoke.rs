@@ -9,11 +9,11 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::{arg, command, Parser};
 use heck::ToKebabCase;
 use hex::FromHexError;
+use soroban_env_host::events::HostEvent;
+
 use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
-use soroban_env_host::Host;
 use soroban_env_host::{
-    budget::{Budget, CostType},
-    events::Event,
+    budget::Budget,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
@@ -26,6 +26,7 @@ use soroban_env_host::{
     },
     HostError,
 };
+use soroban_env_host::{DiagnosticLevel, Host};
 use soroban_spec::read::FromWasmError;
 
 use super::super::{
@@ -50,21 +51,15 @@ pub struct Cmd {
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[arg(long)]
     pub wasm: Option<std::path::PathBuf>,
-    /// Output the footprint to stderr
-    #[arg(long = "footprint")]
-    pub footprint: bool,
-    /// Output the contract auth for the transaction to stderr
-    #[arg(long = "auth")]
-    pub auth: bool,
-    /// Output the contract events for the transaction to stderr
-    #[arg(long = "events")]
-    pub events: bool,
 
     /// Output the cost execution to stderr
     #[arg(long = "cost", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
     pub cost: bool,
     /// Run with an unlimited budget
-    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    #[arg(long = "unlimited-budget", 
+          conflicts_with = "rpc_url", 
+          conflicts_with = "network",
+          help_heading = HEADING_SANDBOX)]
     pub unlimited_budget: bool,
 
     // Function name as subcommand, then arguments for that function as `--arg-name value`
@@ -123,11 +118,6 @@ pub enum Error {
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
-    // #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
-    // UnexpectedArgumentCount {
-    //     provided: usize,
-    //     expected: usize,
-    //     function: String,
     // },
     #[error("function name {0} is too long")]
     FunctionNameTooLong(String),
@@ -147,8 +137,6 @@ pub enum Error {
     MissingOperationResult,
     #[error("missing result")]
     MissingResult,
-    // #[error("args file error {0}")]
-    // ArgsFile(std::path::PathBuf),
     #[error(transparent)]
     StrVal(#[from] strval::Error),
     #[error(transparent)]
@@ -244,6 +232,8 @@ impl Cmd {
     }
 
     pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
+        let network = self.config.get_network()?;
+        tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
@@ -292,21 +282,10 @@ impl Cmd {
             .iter()
             .map(DiagnosticEvent::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
-
-        if self.footprint {
-            eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap());
+        if !events.is_empty() {
+            tracing::debug!(simulation_events=?events);
         }
-
-        if self.auth {
-            eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap());
-        }
-
-        if self.events {
-            eprintln!(
-                "Simulated events: {}",
-                serde_json::to_string(&events).unwrap()
-            );
-        }
+        log_events(&footprint, &auth, &[], None);
 
         // Send the final transaction with the actual footprint
         let tx = build_invoke_contract_tx(
@@ -320,6 +299,10 @@ impl Cmd {
         )?;
 
         let (result, events) = client.send_transaction(&tx).await?;
+        tracing::debug!(?result);
+        if !events.is_empty() {
+            tracing::debug!(?events);
+        }
         let res = match result.result {
             TransactionResultResult::TxSuccess(ops) => {
                 if ops.is_empty() {
@@ -334,16 +317,10 @@ impl Cmd {
             }
             _ => return Err(Error::MissingOperationResult),
         };
-        if self.events {
-            eprintln!(
-                "Simulated events: {}",
-                serde_json::to_string(&events).unwrap()
-            );
-        }
+
         output_to_string(&spec, &res, &function)
     }
 
-    #[allow(clippy::too_many_lines)]
     pub fn run_in_sandbox(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
@@ -389,18 +366,16 @@ impl Cmd {
 
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
-
+        h.set_diagnostic_level(DiagnosticLevel::Debug);
         let res = h
             .invoke_function(HostFunction::InvokeContract(host_function_params))
-            .map_err(
-                |host_error| match spec.find_error_type(host_error.status.get_code()) {
-                    Ok(error) => Error::ContractInvoke(
-                        error.name.to_string_lossy(),
-                        error.doc.to_string_lossy(),
-                    ),
-                    Err(_) => host_error.into(),
-                },
-            )?;
+            .map_err(|host_error| {
+                if let Ok(error) = spec.find_error_type(host_error.status.get_code()) {
+                    Error::ContractInvoke(error.name.to_string_lossy(), error.doc.to_string_lossy())
+                } else {
+                    host_error.into()
+                }
+            })?;
 
         let res_str = output_to_string(&spec, &res, &function)?;
 
@@ -421,43 +396,13 @@ impl Cmd {
                 }
             })
             .collect();
-
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
         })?;
-        if self.footprint {
-            eprintln!(
-                "Footprint: {}",
-                serde_json::to_string(&create_ledger_footprint(&storage.footprint)).unwrap(),
-            );
-        }
-        if self.auth {
-            eprintln!(
-                "Contract auth: {}",
-                serde_json::to_string(&contract_auth).unwrap(),
-            );
-        }
-        if self.cost {
-            eprintln!("Cpu Insns: {}", budget.get_cpu_insns_count());
-            eprintln!("Mem Bytes: {}", budget.get_mem_bytes_count());
-            for cost_type in CostType::variants() {
-                eprintln!("Cost ({cost_type:?}): {}", budget.get_input(*cost_type));
-            }
-        }
-
-        for (i, event) in events.0.iter().enumerate() {
-            eprint!("#{i}: ");
-            match &event.event {
-                Event::Contract(e) => {
-                    eprintln!("event: {}", serde_json::to_string(&e).unwrap());
-                }
-                Event::Debug(e) => eprintln!("debug: {e}"),
-                // TODO: print structued debug events in a nicer way
-                Event::StructuredDebug(e) => eprintln!("structured debug: {e:?}"),
-            }
-        }
+        let footprint = &create_ledger_footprint(&storage.footprint);
+        log_events(footprint, &contract_auth, &events.0, Some(&budget));
 
         self.config.set_state(&mut state)?;
         if !events.0.is_empty() {
@@ -512,6 +457,20 @@ impl Cmd {
             contract_id: self.contract_id.clone(),
             error: e,
         })
+    }
+}
+
+fn log_events(
+    footprint: &LedgerFootprint,
+    auth: &[ContractAuth],
+    events: &[HostEvent],
+    budget: Option<&Budget>,
+) {
+    crate::log::auth(auth);
+    crate::log::events(events);
+    crate::log::footprint(footprint);
+    if let Some(budget) = budget {
+        crate::log::budget(budget);
     }
 }
 
