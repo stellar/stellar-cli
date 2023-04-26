@@ -54,7 +54,10 @@ jobs:
         with:
           path: soroban-tools
       - uses: stellar/actions/rust-cache@main
-      - run: test "$SYSTEM_TEST_CORE_IMAGE" && docker pull $SYSTEM_TEST_CORE_IMAGE
+      - run: |
+          if [ -n "$SYSTEM_TEST_CORE_IMAGE" ]; then
+            docker pull "$SYSTEM_TEST_CORE_IMAGE"
+          fi
       - uses: satackey/action-docker-layer-caching@v0.0.11
         continue-on-error: true
         with:
