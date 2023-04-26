@@ -2,9 +2,12 @@ package config
 
 import (
 	"bytes"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -97,11 +100,37 @@ func TestRoundTrip(t *testing.T) {
 	// Set up a default config
 	cfg := Config{}
 	require.NoError(t, cfg.LoadDefaults())
-	// TODO: Set all the options for this to test parsing/serialization of them all
+
+	// Generate test values for every option, so we can round-trip test them all.
+	for _, option := range cfg.options() {
+		optType := reflect.ValueOf(option.ConfigKey).Elem().Type()
+		switch option.ConfigKey.(type) {
+		case *bool:
+			*option.ConfigKey.(*bool) = true
+		case *string:
+			*option.ConfigKey.(*string) = "test"
+		case *uint:
+			*option.ConfigKey.(*uint) = 42
+		case *uint32:
+			*option.ConfigKey.(*uint32) = 32
+		case *time.Duration:
+			*option.ConfigKey.(*time.Duration) = 5 * time.Second
+		case *[]string:
+			*option.ConfigKey.(*[]string) = []string{"a", "b"}
+		case *logrus.Level:
+			*option.ConfigKey.(*logrus.Level) = logrus.InfoLevel
+		case *LogFormat:
+			*option.ConfigKey.(*LogFormat) = LogFormatText
+		default:
+			t.Fatalf("TestRoundTrip not implemented for type %s, on option %s, please add a test value", optType.Kind(), option.Name)
+		}
+	}
 
 	// Output it to toml
 	outBytes, err := cfg.MarshalTOML()
 	require.NoError(t, err)
+
+	// t.Log(string(outBytes))
 
 	// Parse it back
 	require.NoError(
