@@ -930,43 +930,36 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             Value::String(v)
         }
         ScVal::U256(u256parts) => {
-            let hi_bytes = [u256parts.hi_hi.to_be_bytes(), u256parts.hi_lo.to_be_bytes()].concat();
-            let lo_bytes = [u256parts.lo_hi.to_be_bytes(), u256parts.lo_lo.to_be_bytes()].concat();
-            let hi = u128::from_be_bytes(
-                hi_bytes
+            let bytes = [
+                u256parts.hi_hi.to_be_bytes(),
+                u256parts.hi_lo.to_be_bytes(),
+                u256parts.lo_hi.to_be_bytes(),
+                u256parts.lo_lo.to_be_bytes(),
+            ]
+            .concat();
+            let u256 = ethnum::U256::from_be_bytes(
+                bytes
                     .as_slice()
                     .try_into()
                     .map_err(|_| Error::InvalidValue(Some(ScType::U256)))?,
             );
-            let lo = u128::from_be_bytes(
-                lo_bytes
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(ScType::U256)))?,
-            );
-            Value::String(ethnum::U256::from_words(hi, lo).to_string())
+            Value::String(u256.to_string())
         }
         ScVal::I256(i256parts) => {
-            let hi_bytes = [i256parts.hi_hi.to_be_bytes(), i256parts.hi_lo.to_be_bytes()].concat();
-            let lo_bytes = [i256parts.lo_hi.to_be_bytes(), i256parts.lo_lo.to_be_bytes()].concat();
-            let hi = i128::from_be_bytes(
-                hi_bytes
+            let bytes = [
+                i256parts.hi_hi.to_be_bytes(),
+                i256parts.hi_lo.to_be_bytes(),
+                i256parts.lo_hi.to_be_bytes(),
+                i256parts.lo_lo.to_be_bytes(),
+            ]
+            .concat();
+            let i256 = ethnum::I256::from_be_bytes(
+                bytes
                     .as_slice()
                     .try_into()
                     .map_err(|_| Error::InvalidValue(Some(ScType::I256)))?,
             );
-
-            let lo = u128::from_be_bytes(
-                lo_bytes
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(ScType::I256)))?,
-            );
-            Value::String(
-                // TODO: double-check that the 'as' below is correct
-                #[allow(clippy::cast_possible_wrap)]
-                ethnum::I256::from_words(hi, lo as i128).to_string(),
-            )
+            Value::String(i256.to_string())
         }
         ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
         ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
