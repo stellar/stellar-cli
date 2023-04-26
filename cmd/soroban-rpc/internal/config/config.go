@@ -44,7 +44,7 @@ type Config struct {
 	SQLiteDBPath                     string
 	TransactionLedgerRetentionWindow uint32
 
-	// We memoize these
+	// We memoize these, so they bind to viper flags correctly
 	optionsCache *ConfigOptions
 	flagsCache   *support.ConfigOptions
 }
