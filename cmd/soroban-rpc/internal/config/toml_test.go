@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -90,4 +91,21 @@ func TestBasicTomlWriting(t *testing.T) {
 	// comment when outputting multi-line comments, which go-toml does *not* do
 	// by default.
 	assert.Contains(t, out, "# configures the event retention window expressed in number of ledgers, the\n# default value is 17280 which corresponds to about 24 hours of history")
+}
+
+func TestRoundTrip(t *testing.T) {
+	// Set up a default config
+	cfg := Config{}
+	require.NoError(t, cfg.LoadDefaults())
+	// TODO: Set all the options for this to test parsing/serialization of them all
+
+	// Output it to toml
+	outBytes, err := cfg.MarshalTOML()
+	require.NoError(t, err)
+
+	// Parse it back
+	require.NoError(
+		t,
+		parseToml(bytes.NewReader(outBytes), false, &cfg),
+	)
 }
