@@ -59,12 +59,22 @@ func TestBasicTomlReadingStrictMode(t *testing.T) {
 func TestBasicTomlWriting(t *testing.T) {
 	// Set up a default config
 	cfg := Config{}
-	require.NoError(t, cfg.SetDefaults())
+	require.NoError(t, cfg.LoadDefaults())
 
 	// Output it to toml
-	out, err := cfg.MarshalTOML()
+	outBytes, err := cfg.MarshalTOML()
 	require.NoError(t, err)
 
-	// Spot-check that the output looks right
-	t.Log(string(out))
+	out := string(outBytes)
+
+	// Spot-check that the output looks right. Try to check one value for each
+	// type of option. (string, duration, uint, etc...)
+	assert.Contains(t, out, "NETWORK_PASSPHRASE = \"Test SDF Future Network ; October 2022\"")
+	assert.Contains(t, out, "STELLAR_CORE_TIMEOUT = \"2s\"")
+	assert.Contains(t, out, "STELLAR_CAPTIVE_CORE_HTTP_PORT = 11626")
+	assert.Contains(t, out, "LOG_LEVEL = \"info\"")
+	assert.Contains(t, out, "LOG_FORMAT = \"text\"")
+
+	// Check that the output contains comments about each option
+	assert.Contains(t, out, "# Network passphrase of the Stellar network transactions should be signed for")
 }

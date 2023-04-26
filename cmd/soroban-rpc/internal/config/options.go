@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"reflect"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,61 +16,6 @@ import (
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
-
-// ConfigOption is a complete description of the configuration of a command line option
-type ConfigOption struct {
-	Name           string                                 // e.g. "database-url"
-	EnvVar         string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name
-	TomlKey        string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name. - to omit from toml
-	Usage          string                                 // Help text
-	OptType        types.BasicKind                        // The type of this option, e.g. types.Bool
-	DefaultValue   interface{}                            // A default if no option is provided. Omit or set to `nil` if no default
-	ConfigKey      interface{}                            // Pointer to the final key in the linked Config struct
-	CustomSetValue func(*ConfigOption, interface{}) error // Optional function for custom validation/transformation
-	Validate       func(*ConfigOption) error              // Function called after loading all options, to validate the configuration
-	MarshalTOML    func(*ConfigOption) (interface{}, error)
-}
-
-func (o *ConfigOption) getTomlKey() string {
-	if o.TomlKey != "" {
-		return o.TomlKey
-	}
-	if o.EnvVar != "" && o.EnvVar != "-" {
-		return o.EnvVar
-	}
-	return strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_"))
-}
-
-// TODO: See if we can combine OptType and CustomSetValue into just SetValue/ParseValue
-func (o *ConfigOption) setValue(i interface{}) error {
-	if o.CustomSetValue != nil {
-		return o.CustomSetValue(o, i)
-	}
-
-	reflect.ValueOf(o.ConfigKey).Elem().Set(reflect.ValueOf(i))
-
-	return nil
-}
-
-func (o *ConfigOption) marshalTOML() (interface{}, error) {
-	if o.MarshalTOML != nil {
-		return o.MarshalTOML(o)
-	}
-	// go-toml doesn't handle ints other than `int`, so we have to do that ourselves.
-	switch v := o.ConfigKey.(type) {
-	case *int, *int8, *int16, *int32, *int64:
-		return []byte(strconv.FormatInt(reflect.ValueOf(v).Elem().Int(), 10)), nil
-	case *uint, *uint8, *uint16, *uint32, *uint64:
-		return []byte(strconv.FormatUint(reflect.ValueOf(v).Elem().Uint(), 10)), nil
-	default:
-		// Unknown, hopefully go-toml knows what to do with it! :crossed_fingers:
-		return reflect.ValueOf(o.ConfigKey).Elem().Interface(), nil
-	}
-}
-
-// ConfigOptions is a group of ConfigOptions that can be for convenience
-// initialized and set at the same time.
-type ConfigOptions []*ConfigOption
 
 func (cfg *Config) options() ConfigOptions {
 	if cfg.optionsCache != nil {
@@ -91,7 +35,7 @@ func (cfg *Config) options() ConfigOptions {
 			Name:         "config-strict",
 			EnvVar:       "SOROBAN_RPC_CONFIG_STRICT",
 			TomlKey:      "STRICT",
-			Usage:        "Enable strict toml configuration file parsing",
+			Usage:        "Enable strict toml configuration file parsing. This will prevent unknown fields in the config toml from being parsed.",
 			OptType:      types.Bool,
 			ConfigKey:    &cfg.Strict,
 			DefaultValue: false,
@@ -114,6 +58,15 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:     "URL used to query Stellar Core (local captive core by default)",
 			OptType:   types.String,
 			ConfigKey: &cfg.StellarCoreURL,
+			Validate: func(co *ConfigOption) error {
+				// This is a bit awkward. We're actually setting a default, but we
+				// can't do that until the config is fully parsed, so we do it as a
+				// validator here.
+				if cfg.StellarCoreURL == "" {
+					*co.ConfigKey.(*string) = fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreHTTPPort)
+				}
+				return nil
+			},
 		},
 		{
 			Name:           "stellar-core-timeout",
@@ -147,10 +100,14 @@ func (cfg *Config) options() ConfigOptions {
 						return fmt.Errorf("Could not parse %s: %q", option.Name, v)
 					}
 					cfg.LogLevel = ll
-					return nil
+				case logrus.Level:
+					cfg.LogLevel = v
+				case *logrus.Level:
+					cfg.LogLevel = *v
 				default:
 					return fmt.Errorf("Could not parse %s: %q", option.Name, v)
 				}
+				return nil
 			},
 			MarshalTOML: func(option *ConfigOption) (interface{}, error) {
 				return cfg.LogLevel.String(), nil
@@ -161,7 +118,7 @@ func (cfg *Config) options() ConfigOptions {
 			Usage:        "format used for output logs (json or text)",
 			OptType:      types.String,
 			ConfigKey:    &cfg.LogFormat,
-			DefaultValue: LogFormatText.String(),
+			DefaultValue: LogFormatText,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
 				case nil:
@@ -172,9 +129,17 @@ func (cfg *Config) options() ConfigOptions {
 						"Could not parse %s",
 						option.Name,
 					)
+				case LogFormat:
+					cfg.LogFormat = v
+				case *LogFormat:
+					cfg.LogFormat = *v
 				default:
 					return fmt.Errorf("Could not parse %s: %q", option.Name, v)
 				}
+				return nil
+			},
+			MarshalTOML: func(option *ConfigOption) (interface{}, error) {
+				return cfg.LogFormat.String(), nil
 			},
 		},
 		{
@@ -229,40 +194,12 @@ func (cfg *Config) options() ConfigOptions {
 			DefaultValue: false,
 		},
 		{
-			Name:      "history-archive-urls",
-			Usage:     "comma-separated list of stellar history archives to connect with",
-			OptType:   types.String,
-			ConfigKey: &cfg.HistoryArchiveURLs,
-			CustomSetValue: func(option *ConfigOption, i interface{}) error {
-				switch v := i.(type) {
-				case nil:
-					return nil
-				case string:
-					if v == "" {
-						cfg.HistoryArchiveURLs = nil
-					} else {
-						cfg.HistoryArchiveURLs = strings.Split(v, ",")
-					}
-					return nil
-				case []string:
-					cfg.HistoryArchiveURLs = v
-					return nil
-				case []interface{}:
-					cfg.HistoryArchiveURLs = make([]string, len(v))
-					for i, s := range v {
-						switch s := s.(type) {
-						case string:
-							cfg.HistoryArchiveURLs[i] = s
-						default:
-							return fmt.Errorf("Could not parse %s: %v", option.Name, v)
-						}
-					}
-					return nil
-				default:
-					return fmt.Errorf("Could not parse %s: %v", option.Name, v)
-				}
-			},
-			Validate: required,
+			Name:           "history-archive-urls",
+			Usage:          "comma-separated list of stellar history archives to connect with",
+			OptType:        types.String,
+			ConfigKey:      &cfg.HistoryArchiveURLs,
+			CustomSetValue: parseStringArray,
+			Validate:       required,
 		},
 		{
 			Name:      "friendbot-url",
@@ -373,19 +310,6 @@ func (cfg *Config) options() ConfigOptions {
 	return *cfg.optionsCache
 }
 
-func (options ConfigOptions) Validate() error {
-	for _, option := range options {
-		if option.Validate != nil {
-			err := option.Validate(option)
-			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("Invalid config value for %s", option.Name))
-			}
-		}
-	}
-
-	return nil
-}
-
 func required(option *ConfigOption) error {
 	if !reflect.ValueOf(option.ConfigKey).Elem().IsZero() {
 		return nil
@@ -448,10 +372,44 @@ func parseDuration(option *ConfigOption, i interface{}) error {
 			return errors.Wrapf(err, "Could not parse duration: %q", v)
 		}
 		*option.ConfigKey.(*time.Duration) = d
+	case time.Duration:
+		*option.ConfigKey.(*time.Duration) = v
+	case *time.Duration:
+		*option.ConfigKey.(*time.Duration) = *v
 	default:
 		return fmt.Errorf("%s is not a duration", option.Name)
 	}
 	return nil
+}
+
+func parseStringArray(option *ConfigOption, i interface{}) error {
+	switch v := i.(type) {
+	case nil:
+		return nil
+	case string:
+		if v == "" {
+			*option.ConfigKey.(*[]string) = nil
+		} else {
+			*option.ConfigKey.(*[]string) = strings.Split(v, ",")
+		}
+		return nil
+	case []string:
+		*option.ConfigKey.(*[]string) = v
+		return nil
+	case []interface{}:
+		*option.ConfigKey.(*[]string) = make([]string, len(v))
+		for i, s := range v {
+			switch s := s.(type) {
+			case string:
+				(*option.ConfigKey.(*[]string))[i] = s
+			default:
+				return fmt.Errorf("Could not parse %s: %v", option.Name, v)
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("Could not parse %s: %v", option.Name, v)
+	}
 }
 
 func marshalDuration(option *ConfigOption) (interface{}, error) {

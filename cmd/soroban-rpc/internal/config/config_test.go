@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stellar/go/network"
 	"github.com/stretchr/testify/assert"
@@ -39,10 +40,10 @@ func ExampleConfig() {
 	// Output: localhost:8000
 }
 
-func TestConfigSetDefaults(t *testing.T) {
+func TestConfigLoadDefaults(t *testing.T) {
 	// Set up a default config
 	cfg := Config{}
-	require.NoError(t, cfg.SetDefaults())
+	require.NoError(t, cfg.LoadDefaults())
 
 	// Check that the defaults are set
 	assert.Equal(t, network.FutureNetworkPassphrase, cfg.NetworkPassphrase)
@@ -75,4 +76,30 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, "only in b", b.Endpoint)
 	assert.Equal(t, "in both (a)", a.FriendbotURL)
 	assert.Equal(t, "in both (b)", b.FriendbotURL)
+}
+
+func TestMergeDurations(t *testing.T) {
+	// Values only in a should be preserved
+	{
+		a := Config{CoreRequestTimeout: 2 * time.Second}
+		b := Config{}
+		c := a.Merge(b)
+		assert.Equal(t, 2*time.Second, c.CoreRequestTimeout)
+	}
+
+	// Values only in b should be preserved
+	{
+		a := Config{}
+		b := Config{CoreRequestTimeout: 2 * time.Second}
+		c := a.Merge(b)
+		assert.Equal(t, 2*time.Second, c.CoreRequestTimeout)
+	}
+
+	// Values in b should take precedence over values in a
+	{
+		a := Config{CoreRequestTimeout: 1 * time.Second}
+		b := Config{CoreRequestTimeout: 2 * time.Second}
+		c := a.Merge(b)
+		assert.Equal(t, 2*time.Second, c.CoreRequestTimeout)
+	}
 }

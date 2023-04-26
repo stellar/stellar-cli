@@ -7,6 +7,7 @@ import (
 )
 
 func TestAllConfigKeysMustBePointers(t *testing.T) {
+	// This test is to ensure we've set up all the config keys correctly.
 	cfg := Config{}
 	for _, option := range cfg.options() {
 		kind := reflect.ValueOf(option.ConfigKey).Type().Kind()
@@ -18,6 +19,9 @@ func TestAllConfigKeysMustBePointers(t *testing.T) {
 }
 
 func TestMustDocumentAllOptions(t *testing.T) {
+	// This test ensures we've documented all the config options, and not missed
+	// any when adding new flags (or accidentally added conflicting duplicates).
+
 	// Allow us to explicitly exclude any fields on the Config struct, which are not going to have Options.
 	// e.g. "ConfigPath"
 	excluded := map[string]bool{}
