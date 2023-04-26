@@ -7,12 +7,13 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
+use heck::ToKebabCase;
 use hex::FromHexError;
+use soroban_env_host::events::HostEvent;
+
 use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
-use soroban_env_host::Host;
 use soroban_env_host::{
-    budget::{Budget, CostType},
-    events::Event,
+    budget::Budget,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
@@ -25,6 +26,7 @@ use soroban_env_host::{
     },
     HostError,
 };
+use soroban_env_host::{DiagnosticLevel, Host};
 use soroban_spec::read::FromWasmError;
 
 use super::super::{
@@ -49,21 +51,15 @@ pub struct Cmd {
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
     #[arg(long)]
     pub wasm: Option<std::path::PathBuf>,
-    /// Output the footprint to stderr
-    #[arg(long = "footprint")]
-    pub footprint: bool,
-    /// Output the contract auth for the transaction to stderr
-    #[arg(long = "auth")]
-    pub auth: bool,
-    /// Output the contract events for the transaction to stderr
-    #[arg(long = "events")]
-    pub events: bool,
 
     /// Output the cost execution to stderr
     #[arg(long = "cost", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
     pub cost: bool,
     /// Run with an unlimited budget
-    #[arg(long = "unlimited-budget", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    #[arg(long = "unlimited-budget", 
+          conflicts_with = "rpc_url", 
+          conflicts_with = "network",
+          help_heading = HEADING_SANDBOX)]
     pub unlimited_budget: bool,
 
     // Function name as subcommand, then arguments for that function as `--arg-name value`
@@ -74,6 +70,8 @@ pub struct Cmd {
     pub config: config::Args,
     #[command(flatten)]
     pub events_file: events_file::Args,
+    #[command(flatten)]
+    pub fee: crate::fee::Args,
 }
 
 impl FromStr for Cmd {
@@ -120,11 +118,6 @@ pub enum Error {
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
-    // #[error("unexpected number of arguments: {provided} (function {function} expects {expected} argument(s))")]
-    // UnexpectedArgumentCount {
-    //     provided: usize,
-    //     expected: usize,
-    //     function: String,
     // },
     #[error("function name {0} is too long")]
     FunctionNameTooLong(String),
@@ -142,8 +135,8 @@ pub enum Error {
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing operation result")]
     MissingOperationResult,
-    // #[error("args file error {0}")]
-    // ArgsFile(std::path::PathBuf),
+    #[error("missing result")]
+    MissingResult,
     #[error(transparent)]
     StrVal(#[from] strval::Error),
     #[error(transparent)]
@@ -249,6 +242,8 @@ impl Cmd {
     }
 
     pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
+        let network = self.config.get_network()?;
+        tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
@@ -257,8 +252,6 @@ impl Cmd {
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
-        // TODO: create a cmdline parameter for the fee instead of simply using the minimum fee
-        let fee: u32 = 100;
         let sequence: i64 = account_details.seq_num.into();
 
         // Get the contract
@@ -277,7 +270,7 @@ impl Cmd {
             None,
             None,
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             &key,
         )?;
@@ -299,21 +292,10 @@ impl Cmd {
             .iter()
             .map(DiagnosticEvent::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
-
-        if self.footprint {
-            eprintln!("Footprint: {}", serde_json::to_string(&footprint).unwrap());
+        if !events.is_empty() {
+            tracing::debug!(simulation_events=?events);
         }
-
-        if self.auth {
-            eprintln!("Contract auth: {}", serde_json::to_string(&auth).unwrap());
-        }
-
-        if self.events {
-            eprintln!(
-                "Simulated events: {}",
-                serde_json::to_string(&events).unwrap()
-            );
-        }
+        log_events(&footprint, &auth, &[], None);
 
         // Send the final transaction with the actual footprint
         let tx = build_invoke_contract_tx(
@@ -321,12 +303,16 @@ impl Cmd {
             Some(footprint),
             Some(auth),
             sequence + 1,
-            fee,
+            self.fee.fee,
             &network.network_passphrase,
             &key,
         )?;
 
         let (result, events) = client.send_transaction(&tx).await?;
+        tracing::debug!(?result);
+        if !events.is_empty() {
+            tracing::debug!(?events);
+        }
         let res = match result.result {
             TransactionResultResult::TxSuccess(ops) => {
                 if ops.is_empty() {
@@ -341,16 +327,10 @@ impl Cmd {
             }
             _ => return Err(Error::MissingOperationResult),
         };
-        if self.events {
-            eprintln!(
-                "Simulated events: {}",
-                serde_json::to_string(&events).unwrap()
-            );
-        }
+
         output_to_string(&spec, &res, &function)
     }
 
-    #[allow(clippy::too_many_lines)]
     pub fn run_in_sandbox(&self) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
@@ -396,18 +376,16 @@ impl Cmd {
 
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
-
+        h.set_diagnostic_level(DiagnosticLevel::Debug);
         let res = h
             .invoke_function(HostFunction::InvokeContract(host_function_params))
-            .map_err(
-                |host_error| match spec.find_error_type(host_error.status.get_code()) {
-                    Ok(error) => Error::ContractInvoke(
-                        error.name.to_string_lossy(),
-                        error.doc.to_string_lossy(),
-                    ),
-                    Err(_) => host_error.into(),
-                },
-            )?;
+            .map_err(|host_error| {
+                if let Ok(error) = spec.find_error_type(host_error.status.get_code()) {
+                    Error::ContractInvoke(error.name.to_string_lossy(), error.doc.to_string_lossy())
+                } else {
+                    host_error.into()
+                }
+            })?;
 
         let res_str = output_to_string(&spec, &res, &function)?;
 
@@ -428,43 +406,13 @@ impl Cmd {
                 }
             })
             .collect();
-
         let (storage, budget, events) = h.try_finish().map_err(|_h| {
             HostError::from(ScStatus::HostStorageError(
                 ScHostStorageErrorCode::UnknownError,
             ))
         })?;
-        if self.footprint {
-            eprintln!(
-                "Footprint: {}",
-                serde_json::to_string(&create_ledger_footprint(&storage.footprint)).unwrap(),
-            );
-        }
-        if self.auth {
-            eprintln!(
-                "Contract auth: {}",
-                serde_json::to_string(&contract_auth).unwrap(),
-            );
-        }
-        if self.cost {
-            eprintln!("Cpu Insns: {}", budget.get_cpu_insns_count());
-            eprintln!("Mem Bytes: {}", budget.get_mem_bytes_count());
-            for cost_type in CostType::variants() {
-                eprintln!("Cost ({cost_type:?}): {}", budget.get_input(*cost_type));
-            }
-        }
-
-        for (i, event) in events.0.iter().enumerate() {
-            eprint!("#{i}: ");
-            match &event.event {
-                Event::Contract(e) => {
-                    eprintln!("event: {}", serde_json::to_string(&e).unwrap());
-                }
-                Event::Debug(e) => eprintln!("debug: {e}"),
-                // TODO: print structued debug events in a nicer way
-                Event::StructuredDebug(e) => eprintln!("structured debug: {e:?}"),
-            }
-        }
+        let footprint = &create_ledger_footprint(&storage.footprint);
+        log_events(footprint, &contract_auth, &events.0, Some(&budget));
 
         self.config.set_state(&mut state)?;
         if !events.0.is_empty() {
@@ -519,6 +467,20 @@ impl Cmd {
             contract_id: self.contract_id.clone(),
             error: e,
         })
+    }
+}
+
+fn log_events(
+    footprint: &LedgerFootprint,
+    auth: &[ContractAuth],
+    events: &[HostEvent],
+    budget: Option<&Budget>,
+) {
+    crate::log::auth(auth);
+    crate::log::events(events);
+    crate::log::footprint(footprint);
+    if let Some(budget) = budget {
+        crate::log::budget(budget);
     }
 }
 
@@ -577,39 +539,45 @@ async fn get_remote_contract_spec_entries(
     contract_id: &[u8; 32],
 ) -> Result<Vec<ScSpecEntry>, Error> {
     // Get the contract from the network
-    let contract_ref = client
-        .get_ledger_entry(LedgerKey::ContractData(LedgerKeyContractData {
-            contract_id: xdr::Hash(*contract_id),
-            key: ScVal::LedgerKeyContractExecutable,
-        }))
-        .await?;
-
-    Ok(match LedgerEntryData::from_xdr_base64(contract_ref.xdr)? {
-        LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
-            ..
-        }) => {
-            let contract_data = client
-                .get_ledger_entry(LedgerKey::ContractCode(LedgerKeyContractCode { hash }))
-                .await?;
-
-            match LedgerEntryData::from_xdr_base64(contract_data.xdr)? {
-                LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
-                    let code_vec: Vec<u8> = code.into();
-                    soroban_spec::read::from_wasm(&code_vec)
-                        .map_err(Error::CannotParseContractSpec)?
+    let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
+        contract_id: xdr::Hash(*contract_id),
+        key: ScVal::LedgerKeyContractExecutable,
+    });
+    let contract_ref = client.get_ledger_entries(Vec::from([contract_key])).await?;
+    if contract_ref.entries.is_empty() {
+        return Err(Error::MissingResult);
+    }
+    let contract_ref_entry = &contract_ref.entries[0];
+    Ok(
+        match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
+            LedgerEntryData::ContractData(ContractDataEntry {
+                val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
+                ..
+            }) => {
+                let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
+                let contract_data = client.get_ledger_entries(Vec::from([code_key])).await?;
+                if contract_data.entries.is_empty() {
+                    return Err(Error::MissingResult);
                 }
-                scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+                let contract_data_entry = &contract_data.entries[0];
+                match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
+                    LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
+                        let code_vec: Vec<u8> = code.into();
+                        soroban_spec::read::from_wasm(&code_vec)
+                            .map_err(Error::CannotParseContractSpec)?
+                    }
+                    scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+                }
             }
-        }
-        LedgerEntryData::ContractData(ContractDataEntry {
-            val: ScVal::ContractExecutable(ScContractExecutable::Token),
-            ..
-        }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
-            .map_err(FromWasmError::Parse)
-            .map_err(Error::CannotParseContractSpec)?,
-        scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
-    })
+            LedgerEntryData::ContractData(ContractDataEntry {
+                val: ScVal::ContractExecutable(ScContractExecutable::Token),
+                ..
+            }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+                .map_err(FromWasmError::Parse)
+                .map_err(Error::CannotParseContractSpec)?,
+            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+        },
+    )
 }
 
 fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
@@ -628,6 +596,10 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         .no_binary_name(true)
         .term_width(300)
         .max_term_width(300);
+    let kebab_name = name.to_kebab_case();
+    if kebab_name != name {
+        cmd = cmd.alias(kebab_name);
+    }
     let func = spec.find_function(name).unwrap();
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
     cmd = cmd.about(Some(doc));
@@ -635,6 +607,7 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         let mut arg = clap::Arg::new(name);
         arg = arg
             .long(name)
+            .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());

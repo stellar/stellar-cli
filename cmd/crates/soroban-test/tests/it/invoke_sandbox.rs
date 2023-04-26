@@ -245,3 +245,17 @@ fn invoke_with_source(sandbox: &TestEnv, source: &str) {
     ]);
     assert_eq!(cmd.unwrap(), "[\"Hello\",\"world\"]");
 }
+
+#[test]
+fn handles_kebab_case() {
+    assert!(TestEnv::default()
+        .invoke(&[
+            "--id=1",
+            "--wasm",
+            HELLO_WORLD.path().to_str().unwrap(),
+            "--",
+            "multi-word-cmd",
+            "--contract-owner=world",
+        ])
+        .is_ok());
+}

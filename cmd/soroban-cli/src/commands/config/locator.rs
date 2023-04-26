@@ -68,7 +68,7 @@ pub struct Args {
     pub global: bool,
 
     #[arg(long, help_heading = "TESTING_OPTIONS")]
-    pub pwd: Option<PathBuf>,
+    pub config_dir: Option<PathBuf>,
 }
 
 impl Args {
@@ -86,7 +86,7 @@ impl Args {
     }
 
     pub fn current_dir(&self) -> Result<PathBuf, Error> {
-        self.pwd.as_ref().map_or_else(
+        self.config_dir.as_ref().map_or_else(
             || std::env::current_dir().map_err(|_| Error::CurrentDirNotFound),
             |pwd| Ok(pwd.clone()),
         )
@@ -242,6 +242,6 @@ fn global_config_path() -> Result<PathBuf, Error> {
 
 impl Pwd for Args {
     fn set_pwd(&mut self, pwd: &Path) {
-        self.pwd = Some(pwd.to_path_buf());
+        self.config_dir = Some(pwd.to_path_buf());
     }
 }
