@@ -84,14 +84,12 @@ impl Args {
             let contract_event = match &event.event {
                 events::Event::Contract(e) => e,
                 events::Event::Debug(e) => {
-                    return Err(Error::Generic(
-                        format!("debug events unsupported: {e:#?}").into(),
-                    ))
+                    tracing::trace!("debug events unsupported: {e:#?}");
+                    continue;
                 }
                 events::Event::StructuredDebug(e) => {
-                    return Err(Error::Generic(
-                        format!("structured debug events unsupported: {e:#?}").into(),
-                    ))
+                    tracing::trace!("structured debug events unsupported: {e:#?}");
+                    continue;
                 }
             };
 

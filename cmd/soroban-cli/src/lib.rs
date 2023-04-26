@@ -5,6 +5,7 @@
 )]
 pub mod commands;
 pub mod fee;
+pub mod log;
 pub mod network;
 pub mod rpc;
 pub mod strval;
