@@ -63,7 +63,7 @@ func (cfg *Config) options() ConfigOptions {
 				// can't do that until the config is fully parsed, so we do it as a
 				// validator here.
 				if cfg.StellarCoreURL == "" {
-					*co.ConfigKey.(*string) = fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreHTTPPort)
+					cfg.StellarCoreURL = fmt.Sprintf("http://localhost:%d", cfg.CaptiveCoreHTTPPort)
 				}
 				return nil
 			},
