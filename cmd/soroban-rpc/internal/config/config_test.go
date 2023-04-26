@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"runtime"
 	"testing"
 
@@ -8,6 +9,35 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func ExampleConfig() {
+	var cfg Config
+	var err error
+
+	// If you want to load from cli flags, you must call Bind
+	cfg.Bind()
+
+	// Load values from: defaults, env vars, cli flags, then config file
+	// Priority: defaults < config file < env vars < cli flags
+	err = cfg.SetValues()
+	if err != nil {
+		panic(err)
+	}
+
+	// Ensure that what we parsed makes sense
+	err = cfg.Validate()
+	if err != nil {
+		// This is commented in this example, because the default values are
+		// missing some required fields, so the default config we parsed above is
+		// invalid.
+		// panic(err)
+	}
+
+	// Use the values
+	fmt.Println(cfg.Endpoint)
+
+	// Output: localhost:8000
+}
 
 func TestConfigSetDefaults(t *testing.T) {
 	// Set up a default config
