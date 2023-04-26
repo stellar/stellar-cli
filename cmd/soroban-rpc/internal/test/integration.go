@@ -104,17 +104,15 @@ func (i *Test) waitForCheckpoint() {
 
 func (i *Test) launchDaemon(coreBinaryPath string) {
 	config := config.Config{
-		CaptiveCoreConfig: config.CaptiveCoreConfig{
-			URL:         "http://localhost:" + strconv.Itoa(stellarCorePort),
-			BinaryPath:  coreBinaryPath,
-			ConfigPath:  path.Join(i.composePath, "captive-core-integration-tests.cfg"),
-			StoragePath: i.t.TempDir(),
-			HTTPPort:    0,
-			UseDB:       true,
-		},
 		Endpoint:                         fmt.Sprintf("localhost:%d", sorobanRPCPort),
 		AdminEndpoint:                    fmt.Sprintf("localhost:%d", adminPort),
+		StellarCoreURL:                   "http://localhost:" + strconv.Itoa(stellarCorePort),
 		CoreRequestTimeout:               time.Second * 2,
+		StellarCoreBinaryPath:            coreBinaryPath,
+		CaptiveCoreConfigPath:            path.Join(i.composePath, "captive-core-integration-tests.cfg"),
+		CaptiveCoreStoragePath:           i.t.TempDir(),
+		CaptiveCoreHTTPPort:              0,
+		CaptiveCoreUseDB:                 true,
 		FriendbotURL:                     friendbotURL,
 		NetworkPassphrase:                StandaloneNetworkPassphrase,
 		HistoryArchiveURLs:               []string{"http://localhost:1570"},
