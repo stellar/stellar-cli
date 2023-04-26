@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/pelletier/go-toml"
 )
@@ -72,9 +75,11 @@ func (cfg *Config) MarshalTOML() ([]byte, error) {
 		tree.SetWithOptions(
 			key,
 			toml.SetOptions{
-				// TODO: line-wrap this, the toml library will auto-comment it, we just
-				// need to split it on whitespace every x chars
-				Comment: option.Usage,
+				Comment: strings.ReplaceAll(
+					wordWrap(option.Usage, 80-2),
+					"\n",
+					"\n ",
+				),
 				// output unset values commented out
 				// TODO: Provide commented example values for these
 				Commented: reflect.ValueOf(option.ConfigKey).Elem().IsZero(),
@@ -84,4 +89,36 @@ func (cfg *Config) MarshalTOML() ([]byte, error) {
 	}
 
 	return tree.Marshal()
+}
+
+func wordWrap(text string, lineWidth int) string {
+	wrap := make([]byte, 0, len(text)+2*len(text)/lineWidth)
+	eoLine := lineWidth
+	inWord := false
+	for i, j := 0, 0; ; {
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if size == 0 && r == utf8.RuneError {
+			r = ' '
+		}
+		if unicode.IsSpace(r) {
+			if inWord {
+				if i >= eoLine {
+					wrap = append(wrap, '\n')
+					eoLine = len(wrap) + lineWidth
+				} else if len(wrap) > 0 {
+					wrap = append(wrap, ' ')
+				}
+				wrap = append(wrap, text[j:i]...)
+			}
+			inWord = false
+		} else if !inWord {
+			inWord = true
+			j = i
+		}
+		if size == 0 && r == ' ' {
+			break
+		}
+		i += size
+	}
+	return string(wrap)
 }
