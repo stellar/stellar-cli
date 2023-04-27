@@ -37,7 +37,7 @@ func parseToml(r io.Reader, strict bool, cfg *Config) error {
 	if cfg.Strict || strict {
 		for _, key := range tree.Keys() {
 			if _, ok := validKeys[key]; !ok {
-				return fmt.Errorf("Invalid config: unknown field %q", key)
+				return fmt.Errorf("Invalid config: unexpected entry specified in toml file %q", key)
 			}
 		}
 	}

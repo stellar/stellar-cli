@@ -14,7 +14,6 @@ func TestAllConfigKeysMustBePointers(t *testing.T) {
 		if kind != reflect.Pointer {
 			t.Errorf("ConfigOption.ConfigKey must be a pointer, got %s for %s", kind, option.Name)
 		}
-
 	}
 }
 

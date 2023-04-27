@@ -56,9 +56,7 @@ func (o *ConfigOption) setValue(i interface{}) error {
 	if o.CustomSetValue != nil {
 		return o.CustomSetValue(o, i)
 	}
-
 	reflect.ValueOf(o.ConfigKey).Elem().Set(reflect.ValueOf(i))
-
 	return nil
 }
 
