@@ -61,7 +61,7 @@ jobs:
       - name: Build horizon
         uses: docker/build-push-action@v4
         with:
-          context: $SYSTEM_TEST_GO_GIT_REF
+          context: ${{ env.SYSTEM_TEST_GO_GIT_REF }}
           file: services/horizon/docker/Dockerfile.dev
           target: builder
           push: false
@@ -71,7 +71,7 @@ jobs:
       - name: Build friendbot
         uses: docker/build-push-action@v4
         with:
-          context: $SYSTEM_TEST_GO_GIT_REF
+          context: ${{ env.SYSTEM_TEST_GO_GIT_REF }}
           file: services/friendbot/docker/Dockerfile
           push: false
           tags: stellar/system-test-friendbot:dev
@@ -90,7 +90,7 @@ jobs:
         with:
           file: cmd/soroban-rpc/docker/Dockerfile
           build-args:
-            - DOCKERHUB_RUST_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION
+            - DOCKERHUB_RUST_VERSION=${{ env.SYSTEM_TEST_RUST_TOOLCHAIN_VERSION }}
           target: builder
           push: false
           tags: stellar/system-test-soroban-cli:dev
@@ -99,11 +99,11 @@ jobs:
       - name: Build stellar-core
         uses: docker/build-push-action@v4
         with:
-          context: $SYSTEM_TEST_CORE_GIT_REF
+          context: ${{ env.SYSTEM_TEST_CORE_GIT_REF }}
           file: docker/Dockerfile.testing
           build-args:
             - BUILDKIT_CONTEXT_KEEP_GIT_DIR=true
-            - CONFIGURE_FLAGS=$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS
+            - CONFIGURE_FLAGS=${{ env.SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS }}
           target: builder
           push: false
           tags: stellar/system-test-soroban-cli:dev
@@ -113,9 +113,9 @@ jobs:
       - name: Build quickstart
         uses: docker/build-push-action@v4
         with:
-          context: $SYSTEM_TEST_QUICKSTART_GIT_REF
+          context: ${{ env.SYSTEM_TEST_QUICKSTART_GIT_REF }}
           build-args:
-            - STELLAR_CORE_IMAGE_REF=$SYSTEM_TEST_CORE_GIT_REF
+            - STELLAR_CORE_IMAGE_REF=${{ env.SYSTEM_TEST_CORE_GIT_REF }}
             - HORIZON_IMAGE_REF=stellar/system-test-horizon:dev
             - FRIENDBOT_IMAGE_REF=stellar/system-test-friendbot:dev
             - SOROBAN_RPC_IMAGE_REF=stellar/system-test-soroban-rpc:dev
@@ -130,9 +130,9 @@ jobs:
           build-args:
             - QUICKSTART_IMAGE_REF=stellar/system-test-base:dev
             - SOROBAN_CLI_IMAGE_REF=stellar/system-test-soroban-cli:dev
-            - RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION
+            - RUST_TOOLCHAIN_VERSION=${{ env.SYSTEM_TEST_RUST_TOOLCHAIN_VERSION }}
             - NODE_VERSION=14.20.0
-            - JS_SOROBAN_CLIENT_NPM_VERSION=$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION
+            - JS_SOROBAN_CLIENT_NPM_VERSION=${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION }}
           push: false
           tags: stellar/system-test:dev
           cache-from: type=gha
