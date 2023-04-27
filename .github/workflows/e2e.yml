@@ -55,8 +55,8 @@ jobs:
           path: soroban-tools
       - uses: stellar/actions/rust-cache@main
       - run: |
-          docker pull golang 1.20
-          docker pull golang 1.19.1
+          docker pull golang:1.20
+          docker pull golang:1.19.1
           docker pull ubuntu:focal
           if [ -n "$SYSTEM_TEST_CORE_IMAGE" ]; then
             docker pull "$SYSTEM_TEST_CORE_IMAGE"
