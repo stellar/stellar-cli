@@ -30,6 +30,7 @@ jobs:
       # sets the version of rust toolchain that will be pre-installed in the 
       # test runtime environment, tests invoke rustc/cargo
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
+      SYSTEM_TEST_RUST_IMAGE: rust:latest
 
       # sets the version of soroban-js-client used by tests
       SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: https://github.com/stellar/js-soroban-client.git#main
@@ -90,7 +91,7 @@ jobs:
         with:
           file: cmd/soroban-cli/docker/Dockerfile
           build-args: |
-            DOCKERHUB_RUST_VERSION=${{ env.SYSTEM_TEST_RUST_TOOLCHAIN_VERSION }}
+            DOCKERHUB_RUST_VERSION=${{ env.SYSTEM_TEST_RUST_IMAGE }}
           target: builder
           push: false
           tags: stellar/system-test-soroban-cli:dev
