@@ -33,6 +33,8 @@ jobs:
 
       # sets the version of soroban-js-client used by tests
       SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: https://github.com/stellar/js-soroban-client.git#main
+
+      SYSTEM_TEST_GO_GIT_REF: https://github.com/stellar/go.git\#soroban-xdr-next
      
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
@@ -54,32 +56,87 @@ jobs:
         with:
           path: soroban-tools
       - uses: stellar/actions/rust-cache@main
-      - run: |
-          docker pull golang:1.20
-          docker pull golang:1.19.1
-          docker pull ubuntu:focal
-          if [ -n "$SYSTEM_TEST_CORE_IMAGE" ]; then
-            docker pull "$SYSTEM_TEST_CORE_IMAGE"
-          fi
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build horizon
+        uses: docker/build-push-action@v4
         with:
-          key: system-test-docker-cache-{hash}
-          restore-keys: |
-            system-test-docker-cache-
-      - name: Build system test with component versions
-        run: |
-          cd $GITHUB_WORKSPACE/system-test; \
-          make \
-              CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
-              CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
-              CORE_IMAGE=$SYSTEM_TEST_CORE_IMAGE \
-              SOROBAN_RPC_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
-              SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
-              RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
-              QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
-              JS_SOROBAN_CLIENT_NPM_VERSION=$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION \
-              build
+          context: $SYSTEM_TEST_GO_GIT_REF
+          file: services/horizon/docker/Dockerfile.dev
+          target: builder
+          push: false
+          tags: stellar/system-test-horizon:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build friendbot
+        uses: docker/build-push-action@v4
+        with:
+          context: $SYSTEM_TEST_GO_GIT_REF
+          file: services/friendbot/docker/Dockerfile
+          push: false
+          tags: stellar/system-test-friendbot:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build soroban-rpc
+        uses: docker/build-push-action@v4
+        with:
+          file: cmd/soroban-rpc/docker/Dockerfile
+          push: false
+          tags: stellar/system-test-soroban-rpc:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build stellar-cli
+        uses: docker/build-push-action@v4
+        with:
+          file: cmd/soroban-rpc/docker/Dockerfile
+          build-args:
+            - DOCKERHUB_RUST_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION
+          target: builder
+          push: false
+          tags: stellar/system-test-soroban-cli:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build stellar-core
+        uses: docker/build-push-action@v4
+        with:
+          context: $SYSTEM_TEST_CORE_GIT_REF
+          file: docker/Dockerfile.testing
+          build-args:
+            - BUILDKIT_CONTEXT_KEEP_GIT_DIR=true
+            - CONFIGURE_FLAGS=$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS
+          target: builder
+          push: false
+          tags: stellar/system-test-soroban-cli:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build quickstart
+        uses: docker/build-push-action@v4
+        with:
+          context: $SYSTEM_TEST_QUICKSTART_GIT_REF
+          build-args:
+            - STELLAR_CORE_IMAGE_REF=$SYSTEM_TEST_CORE_GIT_REF
+            - HORIZON_IMAGE_REF=stellar/system-test-horizon:dev
+            - FRIENDBOT_IMAGE_REF=stellar/system-test-friendbot:dev
+            - SOROBAN_RPC_IMAGE_REF=stellar/system-test-soroban-rpc:dev
+          push: false
+          tags: stellar/system-test-base:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build system test
+        uses: docker/build-push-action@v4
+        with:
+          context: $GITHUB_WORKSPACE/system-test
+          build-args:
+            - QUICKSTART_IMAGE_REF=stellar/system-test-base:dev
+            - SOROBAN_CLI_IMAGE_REF=stellar/system-test-soroban-cli:dev
+            - RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION
+            - NODE_VERSION=14.20.0
+            - JS_SOROBAN_CLIENT_NPM_VERSION=$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION
+          push: false
+          tags: stellar/system-test:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - name: Run system test scenarios
         run: |
           docker run --rm -t --name e2e_test stellar/system-test:dev \
