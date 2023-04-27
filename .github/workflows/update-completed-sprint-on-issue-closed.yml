@@ -4,14 +4,22 @@ on:
   issues:
     types: [closed]
   pull_request:
-    types: [closed, comment]
+    types: [closed]
 
 jobs:
   update-completed-sprint:
     runs-on: ubuntu-latest
     steps:
-      - uses: stellar/actions/update-completed-sprint-on-issue-closed@main
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.GH_PROJECT_MANAGEMENT_APP_ID }}
+          private_key: ${{ secrets.GH_PROJECT_MANAGEMENT_APP_PEM }}
+      - name: Update CompletedSprint on Issue Closed
+        id: update_completedsprint_on_issue_closed
+        uses: stellar/actions/update-completed-sprint-on-issue-closed@main
         with:
           project_name: "Platform Scrum"
           field_name: "CompletedSprint"
-          project_token: ${{ secrets.GHPROJECT_TOKEN }}
+          project_token: ${{ steps.generate_token.outputs.token }}
