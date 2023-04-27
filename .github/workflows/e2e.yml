@@ -34,7 +34,7 @@ jobs:
       # sets the version of soroban-js-client used by tests
       SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: https://github.com/stellar/js-soroban-client.git#main
 
-      SYSTEM_TEST_GO_GIT_REF: https://github.com/stellar/go.git\#soroban-xdr-next
+      SYSTEM_TEST_GO_GIT_REF: https://github.com/stellar/go.git#soroban-xdr-next
      
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
