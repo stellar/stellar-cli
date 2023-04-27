@@ -85,10 +85,10 @@ jobs:
           tags: stellar/system-test-soroban-rpc:dev
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build stellar-cli
+      - name: Build soroban-cli
         uses: docker/build-push-action@v4
         with:
-          file: cmd/soroban-rpc/docker/Dockerfile
+          file: cmd/soroban-cli/docker/Dockerfile
           build-args: |
             DOCKERHUB_RUST_VERSION=${{ env.SYSTEM_TEST_RUST_TOOLCHAIN_VERSION }}
           target: builder
