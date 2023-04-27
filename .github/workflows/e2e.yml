@@ -106,7 +106,7 @@ jobs:
             CONFIGURE_FLAGS=${{ env.SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS }}
           target: builder
           push: false
-          tags: stellar/system-test-soroban-cli:dev
+          tags: stellar/system-test-core:dev
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -115,7 +115,7 @@ jobs:
         with:
           context: ${{ env.SYSTEM_TEST_QUICKSTART_GIT_REF }}
           build-args: |
-            STELLAR_CORE_IMAGE_REF=${{ env.SYSTEM_TEST_CORE_GIT_REF }}
+            STELLAR_CORE_IMAGE_REF=stellar/system-test-core:dev
             HORIZON_IMAGE_REF=stellar/system-test-horizon:dev
             FRIENDBOT_IMAGE_REF=stellar/system-test-friendbot:dev
             SOROBAN_RPC_IMAGE_REF=stellar/system-test-soroban-rpc:dev
