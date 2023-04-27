@@ -105,7 +105,6 @@ jobs:
           build-args: |
             BUILDKIT_CONTEXT_KEEP_GIT_DIR=true
             CONFIGURE_FLAGS=${{ env.SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS }}
-          target: builder
           push: false
           tags: stellar/system-test-core:dev
           cache-from: type=gha
