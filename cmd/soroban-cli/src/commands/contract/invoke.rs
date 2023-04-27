@@ -27,6 +27,7 @@ use soroban_env_host::{
     HostError,
 };
 use soroban_env_host::{DiagnosticLevel, Host};
+use soroban_sdk::token;
 use soroban_spec::read::FromWasmError;
 
 use super::super::{
@@ -56,8 +57,8 @@ pub struct Cmd {
     #[arg(long = "cost", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
     pub cost: bool,
     /// Run with an unlimited budget
-    #[arg(long = "unlimited-budget", 
-          conflicts_with = "rpc_url", 
+    #[arg(long = "unlimited-budget",
+          conflicts_with = "rpc_url",
           conflicts_with = "network",
           help_heading = HEADING_SANDBOX)]
     pub unlimited_budget: bool,
@@ -182,7 +183,17 @@ impl Cmd {
             .map(|i| {
                 let name = i.name.to_string().unwrap();
                 if let Some(mut raw_val) = matches_.get_raw(&name) {
-                    let s = raw_val.next().unwrap().to_string_lossy().to_string();
+                    let mut s = raw_val.next().unwrap().to_string_lossy().to_string();
+                    if matches!(i.type_, ScSpecTypeDef::Address) {
+                        let cmd = crate::commands::config::identity::address::Cmd {
+                            name: Some(s.clone()),
+                            hd_path: Some(0),
+                            locator: self.config.locator.clone(),
+                        };
+                        if let Ok(address) = cmd.public_key() {
+                            s = address.to_string();
+                        }
+                    }
                     spec.from_string(&s, &i.type_)
                         .map_err(|error| Error::CannotParseArg { arg: name, error })
                 } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
@@ -562,7 +573,7 @@ async fn get_remote_contract_spec_entries(
             LedgerEntryData::ContractData(ContractDataEntry {
                 val: ScVal::ContractExecutable(ScContractExecutable::Token),
                 ..
-            }) => soroban_spec::read::parse_raw(&soroban_token_spec::spec_xdr())
+            }) => soroban_spec::read::parse_raw(&token::Spec::spec_xdr())
                 .map_err(FromWasmError::Parse)
                 .map_err(Error::CannotParseContractSpec)?,
             scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
