@@ -43,7 +43,7 @@ func ExampleConfig() {
 func TestConfigLoadDefaults(t *testing.T) {
 	// Set up a default config
 	cfg := Config{}
-	require.NoError(t, cfg.LoadDefaults())
+	require.NoError(t, cfg.loadDefaults())
 
 	// Check that the defaults are set
 	assert.Equal(t, network.FutureNetworkPassphrase, cfg.NetworkPassphrase)

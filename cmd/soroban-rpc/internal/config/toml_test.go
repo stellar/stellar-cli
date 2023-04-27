@@ -70,7 +70,7 @@ func TestBasicTomlReadingStrictMode(t *testing.T) {
 func TestBasicTomlWriting(t *testing.T) {
 	// Set up a default config
 	cfg := Config{}
-	require.NoError(t, cfg.LoadDefaults())
+	require.NoError(t, cfg.loadDefaults())
 
 	// Output it to toml
 	outBytes, err := cfg.MarshalTOML()
@@ -99,7 +99,7 @@ func TestBasicTomlWriting(t *testing.T) {
 func TestRoundTrip(t *testing.T) {
 	// Set up a default config
 	cfg := Config{}
-	require.NoError(t, cfg.LoadDefaults())
+	require.NoError(t, cfg.loadDefaults())
 
 	// Generate test values for every option, so we can round-trip test them all.
 	for _, option := range cfg.options() {

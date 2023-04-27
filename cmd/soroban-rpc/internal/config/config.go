@@ -55,18 +55,18 @@ func (cfg *Config) Init(cmd *cobra.Command) error {
 
 // We start with the defaults
 func (cfg *Config) SetValues() error {
-	if err := cfg.LoadDefaults(); err != nil {
+	if err := cfg.loadDefaults(); err != nil {
 		return err
 	}
 
 	// Then we load from the cli flags and environment variables
-	if err := cfg.LoadFlags(); err != nil {
+	if err := cfg.loadFlags(); err != nil {
 		return err
 	}
 
 	// If we specified a config file, we load that
 	if cfg.ConfigPath != "" {
-		fileConfig, err := LoadConfigPath(cfg.ConfigPath, cfg.Strict)
+		fileConfig, err := loadConfigPath(cfg.ConfigPath, cfg.Strict)
 		if err != nil {
 			return errors.Wrap(err, "reading config file")
 		}
@@ -77,8 +77,8 @@ func (cfg *Config) SetValues() error {
 	return nil
 }
 
-// LoadDefaults populates the config with default values
-func (cfg *Config) LoadDefaults() error {
+// loadDefaults populates the config with default values
+func (cfg *Config) loadDefaults() error {
 	for _, option := range cfg.options() {
 		if option.DefaultValue != nil {
 			if err := option.setValue(option.DefaultValue); err != nil {
@@ -89,9 +89,9 @@ func (cfg *Config) LoadDefaults() error {
 	return nil
 }
 
-// LoadFlags populates the config with values from the cli flags and
+// loadFlags populates the config with values from the cli flags and
 // environment variables
-func (cfg *Config) LoadFlags() error {
+func (cfg *Config) loadFlags() error {
 	flags := Config{}
 	err := flags.flags().SetValues()
 	if err != nil {
@@ -103,11 +103,11 @@ func (cfg *Config) LoadFlags() error {
 	return nil
 }
 
-// LoadConfigPath loads a new config from a toml file at the given path. Strict
+// loadConfigPath loads a new config from a toml file at the given path. Strict
 // mode will return an error if there are any unknown toml variables set. Note,
 // strict-mode can also be set by putting `STRICT=true` in the config.toml file
 // itself.
-func LoadConfigPath(path string, strict bool) (*Config, error) {
+func loadConfigPath(path string, strict bool) (*Config, error) {
 	cfg := &Config{}
 
 	file, err := os.Open(path)
