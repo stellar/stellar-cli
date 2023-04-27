@@ -6,7 +6,9 @@ pub mod completion;
 pub mod config;
 pub mod contract;
 pub mod events;
+pub mod global;
 pub mod lab;
+pub mod plugin;
 pub mod version;
 
 pub const HEADING_SANDBOX: &str = "Options (Sandbox)";
@@ -49,6 +51,9 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
     disable_help_subcommand = true,
 )]
 pub struct Root {
+    #[clap(flatten)]
+    pub global_args: global::Args,
+
     #[command(subcommand)]
     pub cmd: Cmd,
 }

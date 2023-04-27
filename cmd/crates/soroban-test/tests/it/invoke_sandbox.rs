@@ -1,4 +1,4 @@
-use soroban_cli::commands::contract;
+use soroban_cli::commands::{config::identity, contract};
 use soroban_test::TestEnv;
 
 use crate::util::{
@@ -137,7 +137,30 @@ fn invoke_auth() {
         .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
         .arg("--world=world")
         .assert()
-        .stdout("[\"Hello\",\"world\"]\n")
+        .stdout(format!("\"{DEFAULT_PUB_KEY}\"\n"))
+        .success();
+}
+
+#[test]
+fn invoke_auth_with_identity() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .cmd::<identity::generate::Cmd>("test -d ")
+        .run()
+        .unwrap();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--")
+        .arg("auth")
+        .arg("--addr=test")
+        .arg("--world=world")
+        .assert()
+        .stdout(format!("\"{DEFAULT_PUB_KEY}\"\n"))
         .success();
 }
 
@@ -156,26 +179,31 @@ fn invoke_auth_with_different_test_account() {
         .arg(&format!("--addr={DEFAULT_PUB_KEY_1}"))
         .arg("--world=world")
         .assert()
-        .stdout("[\"Hello\",\"world\"]\n")
+        .stdout(format!("\"{DEFAULT_PUB_KEY_1}\"\n"))
         .success();
 }
 
 #[test]
 fn invoke_auth_with_different_test_account_fail() {
     let sandbox = TestEnv::default();
-    assert!(matches!(
-        sandbox.invoke(&[
-            "--hd-path=1",
-            "--id=1",
-            "--wasm",
-            HELLO_WORLD.path().to_str().unwrap(),
-            "--",
-            "auth",
-            &format!("--addr={DEFAULT_PUB_KEY}"),
-            "--world=world",
-        ]),
-        Err(contract::invoke::Error::Host(_))
-    ));
+
+    let res = sandbox.invoke(&[
+        "--hd-path=1",
+        "--id=1",
+        "--wasm",
+        HELLO_WORLD.path().to_str().unwrap(),
+        "--",
+        "auth",
+        &format!("--addr={DEFAULT_PUB_KEY}"),
+        "--world=world",
+    ]);
+    assert!(res.is_err());
+    if let Err(e) = res {
+        assert!(
+            matches!(e, contract::invoke::Error::Host(_)),
+            "Expected host error got {e:?}"
+        );
+    };
 }
 
 #[test]
@@ -216,4 +244,18 @@ fn invoke_with_source(sandbox: &TestEnv, source: &str) {
         "--world=world",
     ]);
     assert_eq!(cmd.unwrap(), "[\"Hello\",\"world\"]");
+}
+
+#[test]
+fn handles_kebab_case() {
+    assert!(TestEnv::default()
+        .invoke(&[
+            "--id=1",
+            "--wasm",
+            HELLO_WORLD.path().to_str().unwrap(),
+            "--",
+            "multi-word-cmd",
+            "--contract-owner=world",
+        ])
+        .is_ok());
 }

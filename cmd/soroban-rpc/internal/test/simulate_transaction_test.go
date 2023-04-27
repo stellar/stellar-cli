@@ -172,7 +172,7 @@ func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPas
 func TestSimulateTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -285,7 +285,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
@@ -446,12 +446,18 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Len(t, event.Event.Body.V0.Topics, 1)
 	assert.Equal(t, xdr.ScValTypeScvString, event.Event.Body.V0.Topics[0].Type)
 	assert.Equal(t, xdr.ScString("auth"), *event.Event.Body.V0.Topics[0].Str)
+
+	metrics := getMetrics(test)
+	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 1")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 1")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 1")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 4")
 }
 
 func TestSimulateTransactionError(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -486,7 +492,7 @@ func TestSimulateTransactionError(t *testing.T) {
 func TestSimulateTransactionMultipleOperations(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
@@ -526,7 +532,7 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 func TestSimulateTransactionWithoutInvokeHostFunction(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
@@ -564,7 +570,7 @@ func TestSimulateTransactionWithoutInvokeHostFunction(t *testing.T) {
 func TestSimulateTransactionUnmarshalError(t *testing.T) {
 	test := NewTest(t)
 
-	ch := jhttp.NewChannel(test.server.URL, nil)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	request := methods.SimulateTransactionRequest{Transaction: "invalid"}

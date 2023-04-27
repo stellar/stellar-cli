@@ -102,13 +102,13 @@ impl TestEnv {
 
     /// Same as `TestEnv::cmd` but sets the pwd can be used instead of the current `TestEnv`.
     pub fn cmd_with_pwd<T: CommandParser<T>>(args: &str, pwd: &Path) -> T {
-        let args = format!("--pwd={pwd:?} {args}");
+        let args = format!("--config-dir={pwd:?} {args}");
         T::parse(&args).unwrap()
     }
 
     /// Same as `TestEnv::cmd_arr` but sets the pwd can be used instead of the current `TestEnv`.
     pub fn cmd_arr_with_pwd<T: CommandParser<T>>(args: &[&str], pwd: &Path) -> T {
-        let mut cmds = vec!["--pwd", pwd.to_str().unwrap()];
+        let mut cmds = vec!["--config-dir", pwd.to_str().unwrap()];
         cmds.extend_from_slice(args);
         T::parse_arg_vec(&cmds).unwrap()
     }
