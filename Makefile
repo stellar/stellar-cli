@@ -48,7 +48,6 @@ build_rust: Cargo.lock
 	cargo build
 
 build: build_rust build-libpreflight
-	go generate ./...
 	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
 
 build-libpreflight: Cargo.lock
