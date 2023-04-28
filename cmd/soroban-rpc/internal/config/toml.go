@@ -5,8 +5,6 @@ import (
 	"io"
 	"reflect"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/pelletier/go-toml"
 )
@@ -91,34 +89,22 @@ func (cfg *Config) MarshalTOML() ([]byte, error) {
 	return tree.Marshal()
 }
 
+// From https://gist.github.com/kennwhite/306317d81ab4a885a965e25aa835b8ef
 func wordWrap(text string, lineWidth int) string {
-	wrap := make([]byte, 0, len(text)+2*len(text)/lineWidth)
-	eoLine := lineWidth
-	inWord := false
-	for i, j := 0, 0; ; {
-		r, size := utf8.DecodeRuneInString(text[i:])
-		if size == 0 && r == utf8.RuneError {
-			r = ' '
-		}
-		if unicode.IsSpace(r) {
-			if inWord {
-				if i >= eoLine {
-					wrap = append(wrap, '\n')
-					eoLine = len(wrap) + lineWidth
-				} else if len(wrap) > 0 {
-					wrap = append(wrap, ' ')
-				}
-				wrap = append(wrap, text[j:i]...)
-			}
-			inWord = false
-		} else if !inWord {
-			inWord = true
-			j = i
-		}
-		if size == 0 && r == ' ' {
-			break
-		}
-		i += size
+	words := strings.Fields(strings.TrimSpace(text))
+	if len(words) == 0 {
+		return text
 	}
-	return string(wrap)
+	wrapped := words[0]
+	spaceLeft := lineWidth - len(wrapped)
+	for _, word := range words[1:] {
+		if len(word)+1 > spaceLeft {
+			wrapped += "\n" + word
+			spaceLeft = lineWidth - len(word)
+		} else {
+			wrapped += " " + word
+			spaceLeft -= 1 + len(word)
+		}
+	}
+	return wrapped
 }
