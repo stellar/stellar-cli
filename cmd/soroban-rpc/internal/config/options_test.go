@@ -17,7 +17,7 @@ func TestAllConfigKeysMustBePointers(t *testing.T) {
 	}
 }
 
-func TestMustDocumentAllOptions(t *testing.T) {
+func TestAllConfigFieldsMustHaveASingleOption(t *testing.T) {
 	// This test ensures we've documented all the config options, and not missed
 	// any when adding new flags (or accidentally added conflicting duplicates).
 
