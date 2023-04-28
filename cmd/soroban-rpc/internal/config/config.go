@@ -129,10 +129,9 @@ func (cfg *Config) Validate() error {
 
 // Merge a and b, preferring values from b. Neither config is modified, instead
 // a new struct is returned.
-func mergeStructs(a, b reflect.Value) reflect.Value {
-	if a.Type() != b.Type() {
-		panic("Cannot merge structs of different types")
-	}
+func (cfg Config) Merge(cfg2 Config) Config {
+	a := reflect.ValueOf(cfg)
+	b := reflect.ValueOf(cfg2)
 	structType := a.Type()
 	merged := reflect.New(structType).Elem()
 	for i := 0; i < structType.NumField(); i++ {
@@ -144,19 +143,8 @@ func mergeStructs(a, b reflect.Value) reflect.Value {
 		if val.IsZero() {
 			val = a.Field(i)
 		}
-		if val.Kind() == reflect.Struct {
-			// Recurse into structs
-			val = mergeStructs(a.Field(i), b.Field(i))
-		}
 		merged.Field(i).Set(val)
 
 	}
-	return merged
-}
-
-func (cfg Config) Merge(cfg2 Config) Config {
-	return mergeStructs(
-		reflect.ValueOf(cfg),
-		reflect.ValueOf(cfg2),
-	).Interface().(Config)
+	return merged.Interface().(Config)
 }
