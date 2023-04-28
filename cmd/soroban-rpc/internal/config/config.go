@@ -144,7 +144,6 @@ func (cfg Config) Merge(cfg2 Config) Config {
 			val = a.Field(i)
 		}
 		merged.Field(i).Set(val)
-
 	}
 	return merged.Interface().(Config)
 }

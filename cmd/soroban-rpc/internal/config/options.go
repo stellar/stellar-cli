@@ -100,7 +100,7 @@ func (cfg *Config) options() ConfigOptions {
 				case string:
 					ll, err := logrus.ParseLevel(v)
 					if err != nil {
-						return fmt.Errorf("Could not parse %s: %q", option.Name, v)
+						return fmt.Errorf("could not parse %s: %q", option.Name, v)
 					}
 					cfg.LogLevel = ll
 				case logrus.Level:
@@ -108,7 +108,7 @@ func (cfg *Config) options() ConfigOptions {
 				case *logrus.Level:
 					cfg.LogLevel = *v
 				default:
-					return fmt.Errorf("Could not parse %s: %q", option.Name, v)
+					return fmt.Errorf("could not parse %s: %q", option.Name, v)
 				}
 				return nil
 			},
@@ -129,7 +129,7 @@ func (cfg *Config) options() ConfigOptions {
 				case string:
 					return errors.Wrapf(
 						cfg.LogFormat.UnmarshalText([]byte(v)),
-						"Could not parse %s",
+						"could not parse %s",
 						option.Name,
 					)
 				case LogFormat:
@@ -137,7 +137,7 @@ func (cfg *Config) options() ConfigOptions {
 				case *LogFormat:
 					cfg.LogFormat = *v
 				default:
-					return fmt.Errorf("Could not parse %s: %q", option.Name, v)
+					return fmt.Errorf("could not parse %s: %q", option.Name, v)
 				}
 				return nil
 			},
@@ -171,7 +171,7 @@ func (cfg *Config) options() ConfigOptions {
 					if v == "" || v == "." {
 						cwd, err := os.Getwd()
 						if err != nil {
-							return fmt.Errorf("Unable to determine the current directory: %s", err)
+							return fmt.Errorf("unable to determine the current directory: %s", err)
 						}
 						v = cwd
 					}
@@ -180,12 +180,12 @@ func (cfg *Config) options() ConfigOptions {
 				case nil:
 					cwd, err := os.Getwd()
 					if err != nil {
-						return fmt.Errorf("Unable to determine the current directory: %s", err)
+						return fmt.Errorf("unable to determine the current directory: %s", err)
 					}
 					cfg.CaptiveCoreStoragePath = cwd
 					return nil
 				default:
-					return fmt.Errorf("Could not parse %s: %v", option.Name, v)
+					return fmt.Errorf("could not parse %s: %v", option.Name, v)
 				}
 			},
 		},
@@ -280,7 +280,7 @@ func (cfg *Config) options() ConfigOptions {
 			Validate: func(co *ConfigOption) error {
 				if cfg.DefaultEventsLimit > cfg.MaxEventsLimit {
 					return fmt.Errorf(
-						"default-events-limit (%v) cannot exceed max-events-limit (%v)\n",
+						"default-events-limit (%v) cannot exceed max-events-limit (%v)",
 						cfg.DefaultEventsLimit,
 						cfg.MaxEventsLimit,
 					)
@@ -365,12 +365,6 @@ func positive(option *ConfigOption) error {
 	return nil
 }
 
-func parseValue(f func(interface{}) error) func(*ConfigOption, interface{}) error {
-	return func(option *ConfigOption, i interface{}) error {
-		return errors.Wrapf(f(i), "Could not parse %s", option.Name)
-	}
-}
-
 func parseUint(option *ConfigOption, i interface{}) error {
 	switch v := i.(type) {
 	case nil:
@@ -395,7 +389,7 @@ func parseUint(option *ConfigOption, i interface{}) error {
 		*option.ConfigKey.(*uint) = uint(u64)
 	default:
 		fmt.Printf("%T\n", v)
-		return fmt.Errorf("Could not parse uint %s: %v", option.Name, i)
+		return fmt.Errorf("could not parse uint %s: %v", option.Name, i)
 	}
 	return nil
 }
@@ -429,7 +423,7 @@ func parseUint32(option *ConfigOption, i interface{}) error {
 		}
 		*option.ConfigKey.(*uint32) = uint32(u64)
 	default:
-		return fmt.Errorf("Could not parse uint32 %s: %v", option.Name, i)
+		return fmt.Errorf("could not parse uint32 %s: %v", option.Name, i)
 	}
 	return nil
 }
@@ -442,7 +436,7 @@ func parseDuration(option *ConfigOption, i interface{}) error {
 	case string:
 		d, err := time.ParseDuration(v)
 		if err != nil {
-			return errors.Wrapf(err, "Could not parse duration: %q", v)
+			return errors.Wrapf(err, "could not parse duration: %q", v)
 		}
 		*option.ConfigKey.(*time.Duration) = d
 	case time.Duration:
@@ -476,12 +470,12 @@ func parseStringArray(option *ConfigOption, i interface{}) error {
 			case string:
 				(*option.ConfigKey.(*[]string))[i] = s
 			default:
-				return fmt.Errorf("Could not parse %s: %v", option.Name, v)
+				return fmt.Errorf("could not parse %s: %v", option.Name, v)
 			}
 		}
 		return nil
 	default:
-		return fmt.Errorf("Could not parse %s: %v", option.Name, v)
+		return fmt.Errorf("could not parse %s: %v", option.Name, v)
 	}
 }
 
