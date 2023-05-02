@@ -2,14 +2,13 @@ package config
 
 import (
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	support "github.com/stellar/go/support/config"
-	"github.com/stellar/go/support/errors"
 )
 
 // Config represents the configuration of a soroban-rpc server
@@ -66,12 +65,16 @@ func (cfg *Config) SetValues() error {
 
 	// If we specified a config file, we load that
 	if cfg.ConfigPath != "" {
-		fileConfig, err := loadConfigPath(cfg.ConfigPath, cfg.Strict)
-		if err != nil {
-			return errors.Wrap(err, "reading config file")
+		// Merge in the config file flags
+		if err := cfg.loadConfigPath(); err != nil {
+			return err
 		}
-		// Merge in the config file flags, giving CLI-flags precedence
-		*cfg = fileConfig.Merge(*cfg)
+
+		// Load from cli flags and environment variables again, to overwrite what we
+		// got from the config file
+		if err := cfg.loadFlags(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -92,14 +95,13 @@ func (cfg *Config) loadDefaults() error {
 // loadFlags populates the config with values from the cli flags and
 // environment variables
 func (cfg *Config) loadFlags() error {
-	flags := Config{}
-	err := flags.flags().SetValues()
-	if err != nil {
-		return err
+	for _, option := range cfg.options() {
+		if viper.IsSet(option.Name) {
+			if err := option.setValue(viper.Get(option.Name)); err != nil {
+				return err
+			}
+		}
 	}
-
-	// Merge flags on top of the defaults
-	*cfg = cfg.Merge(flags)
 	return nil
 }
 
@@ -107,43 +109,15 @@ func (cfg *Config) loadFlags() error {
 // mode will return an error if there are any unknown toml variables set. Note,
 // strict-mode can also be set by putting `STRICT=true` in the config.toml file
 // itself.
-func loadConfigPath(path string, strict bool) (*Config, error) {
-	cfg := &Config{}
-
-	file, err := os.Open(path)
+func (cfg *Config) loadConfigPath() error {
+	file, err := os.Open(cfg.ConfigPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
-
-	err = parseToml(file, strict, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
+	return parseToml(file, cfg.Strict, cfg)
 }
 
 func (cfg *Config) Validate() error {
 	return cfg.options().Validate()
-}
-
-// Merge a and b, preferring values from b. Neither config is modified, instead
-// a new struct is returned.
-func (cfg Config) Merge(cfg2 Config) Config {
-	a := reflect.ValueOf(cfg)
-	b := reflect.ValueOf(cfg2)
-	structType := a.Type()
-	merged := reflect.New(structType).Elem()
-	for i := 0; i < structType.NumField(); i++ {
-		if !merged.Field(i).CanSet() {
-			// Can't set unexported fields
-			continue
-		}
-		val := b.Field(i)
-		if val.IsZero() {
-			val = a.Field(i)
-		}
-		merged.Field(i).Set(val)
-	}
-	return merged.Interface().(Config)
 }

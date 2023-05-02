@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
-	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/stellar/go/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,55 +52,26 @@ func TestConfigLoadDefaults(t *testing.T) {
 	// TODO: Check other defaults
 }
 
-func TestMerge(t *testing.T) {
-	a := Config{
-		NetworkPassphrase: "only in a",
-		FriendbotURL:      "in both (a)",
-	}
-	b := Config{
-		Endpoint:     "only in b",
-		FriendbotURL: "in both (b)",
-	}
-	c := a.Merge(b)
-
-	// Values only in a should be preserved
-	assert.Equal(t, a.NetworkPassphrase, c.NetworkPassphrase)
-
-	// Values only in b should be preserved
-	assert.Equal(t, b.Endpoint, c.Endpoint)
-
-	// Values in b should take precedence over values in a
-	assert.Equal(t, b.FriendbotURL, c.FriendbotURL)
-
-	// Check that the original configs are unchanged
-	assert.Equal(t, "only in a", a.NetworkPassphrase)
-	assert.Equal(t, "only in b", b.Endpoint)
-	assert.Equal(t, "in both (a)", a.FriendbotURL)
-	assert.Equal(t, "in both (b)", b.FriendbotURL)
-}
-
-func TestMergeDurations(t *testing.T) {
-	// Values only in a should be preserved
-	{
-		a := Config{CoreRequestTimeout: 2 * time.Second}
-		b := Config{}
-		c := a.Merge(b)
-		assert.Equal(t, 2*time.Second, c.CoreRequestTimeout)
+func TestConfigLoadFlagsDefaultValuesOverrideExisting(t *testing.T) {
+	// Set up a config with an existing non-default value
+	cfg := Config{
+		NetworkPassphrase: "existing value",
+		LogLevel:          logrus.InfoLevel,
+		Endpoint:          "localhost:8000",
 	}
 
-	// Values only in b should be preserved
-	{
-		a := Config{}
-		b := Config{CoreRequestTimeout: 2 * time.Second}
-		c := a.Merge(b)
-		assert.Equal(t, 2*time.Second, c.CoreRequestTimeout)
-	}
+	// Set up a flag set with the default value
+	viper.Set("network-passphrase", "")
+	viper.Set("log-level", logrus.PanicLevel)
+	defer viper.Reset()
 
-	// Values in b should take precedence over values in a
-	{
-		a := Config{CoreRequestTimeout: 1 * time.Second}
-		b := Config{CoreRequestTimeout: 2 * time.Second}
-		c := a.Merge(b)
-		assert.Equal(t, 2*time.Second, c.CoreRequestTimeout)
-	}
+	// Load the flags
+	require.NoError(t, cfg.loadFlags())
+
+	// Check that the flag value is set
+	assert.Equal(t, "", cfg.NetworkPassphrase)
+	assert.Equal(t, logrus.PanicLevel, cfg.LogLevel)
+
+	// Check it didn't overwrite values which were not set in the flags
+	assert.Equal(t, "localhost:8000", cfg.Endpoint)
 }
