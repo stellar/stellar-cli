@@ -2,11 +2,11 @@ package config
 
 import (
 	"reflect"
+	"regexp"
 	"testing"
 	"unsafe"
 
-	"github.com/pelletier/go-toml"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAllConfigKeysMustBePointers(t *testing.T) {
@@ -63,31 +63,47 @@ func TestAllConfigFieldsMustHaveASingleOption(t *testing.T) {
 	}
 }
 
+// Use this regex to validate all our config toml keys.
+// This is based on the simple bare key regex at: https://toml.io/en/v1.0.0#keys
+// Toml, actually allows much more complex keys, via quoted keys, but we want
+// to keep things simple.
+//
+// The one exception we make is `.` in keys, which allows us to have nested
+// objects.
+var keyRegex = regexp.MustCompile(`^[.A-Za-z0-9_-]+$`)
+
 func TestAllOptionsMustHaveAUniqueValidTomlKey(t *testing.T) {
 	// This test ensures we've set a toml key for all the config options, and the
 	// keys are all unique & valid. Note, we don't need to check that all struct
 	// fields on the config have an option, because the test above checks that.
 
 	// Allow us to explicitly exclude any fields on the Config struct, which are
-	// not going to be in the toml.
-	// e.g. "ConfigPath"
-	excluded := map[string]bool{}
+	// not going to be in the toml. This should be the "Name" field of the
+	// ConfigOption we wish to exclude.
+	excluded := map[string]bool{
+		"config-path": true,
+	}
 
 	cfg := Config{}
 	options := cfg.options()
 	optionsByTomlKey := map[string]interface{}{}
 	for _, option := range options {
 		key, ok := option.getTomlKey()
-		if !ok && !excluded[option.Name] {
+		if excluded[option.Name] {
+			if ok {
+				t.Errorf("Found unexpected toml key for excluded ConfigOption %s. Does the test need updating?", option.Name)
+			}
+			continue
+		}
+		if !ok {
 			t.Errorf("Missing toml key for ConfigOption %s", option.Name)
 		}
 		if existing, ok := optionsByTomlKey[key]; ok {
 			t.Errorf("Conflicting ConfigOptions %s and %s, have the same toml key: %s", existing, option.Name, key)
 		}
 		optionsByTomlKey[key] = option.Name
-	}
 
-	// Ensure the keys are valid toml keys
-	_, err := toml.TreeFromMap(optionsByTomlKey)
-	require.NoError(t, err, "Invalid toml keys in ConfigOptions")
+		// Ensure the keys are simple valid toml keys
+		assert.True(t, keyRegex.MatchString(key), "Invalid toml key for ConfigOption %s: %s", option.Name, key)
+	}
 }

@@ -43,6 +43,9 @@ type ConfigOption struct {
 
 // Returns false if this option is omitted in the toml
 func (o ConfigOption) getTomlKey() (string, bool) {
+	if o.TomlKey == "-" || o.TomlKey == "_" {
+		return "", false
+	}
 	if o.TomlKey != "" {
 		return o.TomlKey, true
 	}
