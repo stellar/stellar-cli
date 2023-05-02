@@ -17,8 +17,8 @@ func parseToml(r io.Reader, strict bool, cfg *Config) error {
 
 	validKeys := map[string]struct{}{}
 	for _, option := range cfg.options() {
-		key := option.getTomlKey()
-		if key == "-" {
+		key, ok := option.getTomlKey()
+		if !ok {
 			continue
 		}
 		validKeys[key] = struct{}{}
@@ -51,8 +51,8 @@ func (cfg *Config) MarshalTOML() ([]byte, error) {
 
 	// tomlMarshalerType := reflect.TypeOf((*toml.Marshaler)(nil)).Elem()
 	for _, option := range cfg.options() {
-		key := option.getTomlKey()
-		if key == "-" {
+		key, ok := option.getTomlKey()
+		if !ok {
 			continue
 		}
 

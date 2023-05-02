@@ -332,8 +332,9 @@ func required(option *ConfigOption) error {
 	if option.EnvVar != "" && option.EnvVar != "-" {
 		waysToSet = append(waysToSet, fmt.Sprintf("set the %s environment variable", option.EnvVar))
 	}
-	if option.getTomlKey() != "-" {
-		waysToSet = append(waysToSet, fmt.Sprintf("set %s in the config file", option.getTomlKey()))
+
+	if tomlKey, hasTomlKey := option.getTomlKey(); hasTomlKey {
+		waysToSet = append(waysToSet, fmt.Sprintf("set %s in the config file", tomlKey))
 	}
 
 	advice := ""

@@ -10,19 +10,29 @@ import (
 
 func TestConfigOptionGetTomlKey(t *testing.T) {
 	// Explicitly set toml key
-	assert.Equal(t, "TOML_KEY", ConfigOption{TomlKey: "TOML_KEY"}.getTomlKey())
+	key, ok := ConfigOption{TomlKey: "TOML_KEY"}.getTomlKey()
+	assert.Equal(t, "TOML_KEY", key)
+	assert.True(t, ok)
 
 	// Explicitly disabled toml key
-	assert.Equal(t, "-", ConfigOption{TomlKey: "-"}.getTomlKey())
+	key, ok = ConfigOption{TomlKey: "-"}.getTomlKey()
+	assert.Equal(t, "-", key)
+	assert.True(t, ok)
 
 	// Fallback to env var
-	assert.Equal(t, "ENV_VAR", ConfigOption{EnvVar: "ENV_VAR"}.getTomlKey())
+	key, ok = ConfigOption{EnvVar: "ENV_VAR"}.getTomlKey()
+	assert.Equal(t, "ENV_VAR", key)
+	assert.True(t, ok)
 
 	// Env-var disabled, autogenerate from name
-	assert.Equal(t, "TEST_FLAG", ConfigOption{Name: "test-flag", EnvVar: "-"}.getTomlKey())
+	key, ok = ConfigOption{Name: "test-flag", EnvVar: "-"}.getTomlKey()
+	assert.Equal(t, "TEST_FLAG", key)
+	assert.True(t, ok)
 
 	// Env-var not set, autogenerate from name
-	assert.Equal(t, "TEST_FLAG", ConfigOption{Name: "test-flag"}.getTomlKey())
+	key, ok = ConfigOption{Name: "test-flag"}.getTomlKey()
+	assert.Equal(t, "TEST_FLAG", key)
+	assert.True(t, ok)
 }
 
 func TestValidateRequired(t *testing.T) {

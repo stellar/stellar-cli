@@ -41,14 +41,14 @@ type ConfigOption struct {
 	MarshalTOML    func(*ConfigOption) (interface{}, error)
 }
 
-func (o ConfigOption) getTomlKey() string {
+func (o ConfigOption) getTomlKey() (string, bool) {
 	if o.TomlKey != "" {
-		return o.TomlKey
+		return o.TomlKey, true
 	}
 	if o.EnvVar != "" && o.EnvVar != "-" {
-		return o.EnvVar
+		return o.EnvVar, true
 	}
-	return strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_"))
+	return strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_")), true
 }
 
 // TODO: See if we can combine OptType and CustomSetValue into just SetValue/ParseValue

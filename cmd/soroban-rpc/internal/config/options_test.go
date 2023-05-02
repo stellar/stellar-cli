@@ -59,3 +59,29 @@ func TestAllConfigFieldsMustHaveASingleOption(t *testing.T) {
 		}
 	}
 }
+
+func TestAllOptionsMustHaveAUniqueValidTomlKey(t *testing.T) {
+	// This test ensures we've set a toml key for all the config options, and the
+	// keys are all unique & valid. Note, we don't need to check that all struct
+	// fields on the config have an option, because the test above checks that.
+
+	// Allow us to explicitly exclude any fields on the Config struct, which are
+	// not going to be in the toml.
+	// e.g. "ConfigPath"
+	excluded := map[string]bool{}
+
+	cfg := Config{}
+
+	options := cfg.options()
+	optionsByTomlKey := map[string]*ConfigOption{}
+	for _, option := range options {
+		key, ok := option.getTomlKey()
+		if !ok && !excluded[option.Name] {
+			t.Errorf("Missing toml key for ConfigOption %s", option.Name)
+		}
+		if existing, ok := optionsByTomlKey[key]; ok {
+			t.Errorf("Conflicting ConfigOptions %s and %s, have the same toml key: %s", existing.Name, option.Name, key)
+		}
+		optionsByTomlKey[key] = option
+	}
+}
