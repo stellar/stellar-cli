@@ -103,7 +103,9 @@ func (i *Test) waitForCheckpoint() {
 }
 
 func (i *Test) launchDaemon(coreBinaryPath string) {
-	config := config.LocalConfig{
+	config := config.Config{
+		Endpoint:                         fmt.Sprintf("localhost:%d", sorobanRPCPort),
+		AdminEndpoint:                    fmt.Sprintf("localhost:%d", adminPort),
 		StellarCoreURL:                   "http://localhost:" + strconv.Itoa(stellarCorePort),
 		CoreRequestTimeout:               time.Second * 2,
 		StellarCoreBinaryPath:            coreBinaryPath,
@@ -126,11 +128,7 @@ func (i *Test) launchDaemon(coreBinaryPath string) {
 		PreflightWorkerCount:             uint(runtime.NumCPU()),
 		PreflightWorkerQueueSize:         uint(runtime.NumCPU()),
 	}
-	i.daemon = daemon.MustNew(
-		config,
-		fmt.Sprintf("localhost:%d", sorobanRPCPort),
-		fmt.Sprintf("localhost:%d", adminPort),
-	)
+	i.daemon = daemon.MustNew(&config)
 	go i.daemon.Run()
 
 	// wait for the storage to catch up for 1 minute

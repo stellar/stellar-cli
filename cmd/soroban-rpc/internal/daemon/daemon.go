@@ -97,7 +97,7 @@ func (d *Daemon) Close() error {
 }
 
 // newCaptiveCore creates a new captive core backend instance and returns it.
-func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerbackend.CaptiveStellarCore, error) {
+func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbackend.CaptiveStellarCore, error) {
 	httpPortUint := uint(cfg.CaptiveCoreHTTPPort)
 	var captiveCoreTomlParams ledgerbackend.CaptiveCoreTomlParams
 	captiveCoreTomlParams.HTTPPort = &httpPortUint
@@ -125,7 +125,7 @@ func newCaptiveCore(cfg *config.LocalConfig, logger *supportlog.Entry) (*ledgerb
 
 }
 
-func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Daemon {
+func MustNew(cfg *config.Config) *Daemon {
 	logger := supportlog.New()
 	logger.SetLevel(cfg.LogLevel)
 
@@ -133,7 +133,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		logger.UseJSONFormatter()
 	}
 
-	core, err := newCaptiveCore(&cfg, logger)
+	core, err := newCaptiveCore(cfg, logger)
 	if err != nil {
 		logger.WithError(err).Fatal("could not create captive core")
 	}
@@ -234,7 +234,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		logger,
 	)
 
-	jsonRPCHandler := internal.NewJSONRPCHandler(&cfg, internal.HandlerParams{
+	jsonRPCHandler := internal.NewJSONRPCHandler(cfg, internal.HandlerParams{
 		Daemon:            daemon,
 		EventStore:        eventStore,
 		TransactionStore:  transactionStore,
@@ -252,11 +252,11 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 	daemon.jsonRPCHandler = &jsonRPCHandler
 
 	daemon.server = &http.Server{
-		Addr:        endpoint,
+		Addr:        cfg.Endpoint,
 		Handler:     httpHandler,
 		ReadTimeout: defaultReadTimeout,
 	}
-	if adminEndpoint != "" {
+	if cfg.AdminEndpoint != "" {
 		adminMux := supporthttp.NewMux(logger)
 		adminMux.HandleFunc("/debug/pprof/", pprof.Index)
 		adminMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -264,7 +264,7 @@ func MustNew(cfg config.LocalConfig, endpoint string, adminEndpoint string) *Dae
 		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		adminMux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
-		daemon.adminServer = &http.Server{Addr: adminEndpoint, Handler: adminMux}
+		daemon.adminServer = &http.Server{Addr: cfg.AdminEndpoint, Handler: adminMux}
 	}
 	daemon.registerMetrics()
 	return daemon
