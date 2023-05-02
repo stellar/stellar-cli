@@ -60,7 +60,7 @@ func TestBasicTomlReadingStrictMode(t *testing.T) {
 	require.EqualError(
 		t,
 		parseToml(strings.NewReader(invalidStrictToml), false, &cfg),
-		"Invalid config: unknown field \"UNKNOWN\"",
+		"Invalid config: unexpected entry specified in toml file \"UNKNOWN\"",
 	)
 
 	// It succeeds with a valid config

@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"testing"
 	"unsafe"
+
+	"github.com/pelletier/go-toml"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAllConfigKeysMustBePointers(t *testing.T) {
@@ -71,17 +74,21 @@ func TestAllOptionsMustHaveAUniqueValidTomlKey(t *testing.T) {
 	excluded := map[string]bool{}
 
 	cfg := Config{}
-
 	options := cfg.options()
-	optionsByTomlKey := map[string]*ConfigOption{}
+	optionsByTomlKey := map[string]interface{}{}
 	for _, option := range options {
 		key, ok := option.getTomlKey()
 		if !ok && !excluded[option.Name] {
 			t.Errorf("Missing toml key for ConfigOption %s", option.Name)
 		}
 		if existing, ok := optionsByTomlKey[key]; ok {
-			t.Errorf("Conflicting ConfigOptions %s and %s, have the same toml key: %s", existing.Name, option.Name, key)
+			t.Errorf("Conflicting ConfigOptions %s and %s, have the same toml key: %s", existing, option.Name, key)
 		}
-		optionsByTomlKey[key] = option
+		optionsByTomlKey[key] = option.Name
 	}
+
+	// Ensure the keys are valid toml keys
+	_, err := toml.TreeFromMap(optionsByTomlKey)
+	require.NoError(t, err, "Invalid toml keys in ConfigOptions")
+
 }

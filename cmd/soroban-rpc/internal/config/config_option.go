@@ -41,6 +41,7 @@ type ConfigOption struct {
 	MarshalTOML    func(*ConfigOption) (interface{}, error)
 }
 
+// Returns false if this option is omitted in the toml
 func (o ConfigOption) getTomlKey() (string, bool) {
 	if o.TomlKey != "" {
 		return o.TomlKey, true
