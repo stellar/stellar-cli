@@ -35,7 +35,7 @@ func parseToml(r io.Reader, strict bool, cfg *Config) error {
 	if cfg.Strict || strict {
 		for _, key := range tree.Keys() {
 			if _, ok := validKeys[key]; !ok {
-				return fmt.Errorf("Invalid config: unexpected entry specified in toml file %q", key)
+				return fmt.Errorf("invalid config: unexpected entry specified in toml file %q", key)
 			}
 		}
 	}
@@ -49,7 +49,6 @@ func (cfg *Config) MarshalTOML() ([]byte, error) {
 		return nil, err
 	}
 
-	// tomlMarshalerType := reflect.TypeOf((*toml.Marshaler)(nil)).Elem()
 	for _, option := range cfg.options() {
 		key, ok := option.getTomlKey()
 		if !ok {

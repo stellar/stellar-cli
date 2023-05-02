@@ -90,5 +90,4 @@ func TestAllOptionsMustHaveAUniqueValidTomlKey(t *testing.T) {
 	// Ensure the keys are valid toml keys
 	_, err := toml.TreeFromMap(optionsByTomlKey)
 	require.NoError(t, err, "Invalid toml keys in ConfigOptions")
-
 }

@@ -48,7 +48,7 @@ func TestBasicTomlReadingStrictMode(t *testing.T) {
 	require.EqualError(
 		t,
 		parseToml(strings.NewReader(invalidToml), true, &cfg),
-		"Invalid config: unexpected entry specified in toml file \"UNKNOWN\"",
+		"invalid config: unexpected entry specified in toml file \"UNKNOWN\"",
 	)
 
 	// Should panic when unknown key is present and strict is set in the
@@ -60,7 +60,7 @@ func TestBasicTomlReadingStrictMode(t *testing.T) {
 	require.EqualError(
 		t,
 		parseToml(strings.NewReader(invalidStrictToml), false, &cfg),
-		"Invalid config: unexpected entry specified in toml file \"UNKNOWN\"",
+		"invalid config: unexpected entry specified in toml file \"UNKNOWN\"",
 	)
 
 	// It succeeds with a valid config

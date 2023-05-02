@@ -49,7 +49,6 @@ func TestConfigLoadDefaults(t *testing.T) {
 	// Check that the defaults are set
 	assert.Equal(t, network.FutureNetworkPassphrase, cfg.NetworkPassphrase)
 	assert.Equal(t, uint(runtime.NumCPU()), cfg.PreflightWorkerCount)
-	// TODO: Check other defaults
 }
 
 func TestConfigLoadFlagsDefaultValuesOverrideExisting(t *testing.T) {
