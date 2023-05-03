@@ -16,6 +16,10 @@ default-run = "soroban"
 name = "soroban"
 path = "src/bin/main.rs"
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+
 [[bin]]
 name = "doc-gen"
 path = "src/bin/doc-gen.rs"
