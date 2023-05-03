@@ -6,7 +6,9 @@ use std::{
     path::Path,
 };
 
-use soroban_env_host::xdr::{self, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry};
+use soroban_env_host::xdr::{
+    self, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, StringM,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -180,8 +182,7 @@ impl Display for ContractSpec {
                         writeln!(f)?;
                     }
                     ScSpecEntry::UdtUnionV0(udt) => {
-                        // TODO: What is `lib`? Do we need that?
-                        writeln!(f, " • Union: {}", udt.name.to_string_lossy())?;
+                        writeln!(f, " • Union: {}", format_name(&udt.lib, &udt.name))?;
                         if udt.doc.len() > 0 {
                             writeln!(
                                 f,
@@ -196,8 +197,7 @@ impl Display for ContractSpec {
                         writeln!(f)?;
                     }
                     ScSpecEntry::UdtStructV0(udt) => {
-                        // TODO: What is `lib`? Do we need that?
-                        writeln!(f, " • Struct: {}", udt.name.to_string_lossy())?;
+                        writeln!(f, " • Struct: {}", format_name(&udt.lib, &udt.name))?;
                         if udt.doc.len() > 0 {
                             writeln!(
                                 f,
@@ -220,8 +220,7 @@ impl Display for ContractSpec {
                         writeln!(f)?;
                     }
                     ScSpecEntry::UdtEnumV0(udt) => {
-                        // TODO: What is `lib`? Do we need that?
-                        writeln!(f, " • Enum: {}", udt.name.to_string_lossy())?;
+                        writeln!(f, " • Enum: {}", format_name(&udt.lib, &udt.name))?;
                         if udt.doc.len() > 0 {
                             writeln!(
                                 f,
@@ -236,8 +235,7 @@ impl Display for ContractSpec {
                         writeln!(f)?;
                     }
                     ScSpecEntry::UdtErrorEnumV0(udt) => {
-                        // TODO: What is `lib`? Do we need that?
-                        writeln!(f, " • Error: {}", udt.name.to_string_lossy())?;
+                        writeln!(f, " • Error: {}", format_name(&udt.lib, &udt.name))?;
                         if udt.doc.len() > 0 {
                             writeln!(
                                 f,
@@ -266,6 +264,14 @@ fn indent(s: &str, n: usize) -> String {
         .map(|line| format!("{}{}", pad, line))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
+    if lib.len() > 0 {
+        format!("{}::{}", lib.to_string_lossy(), name.to_string_lossy())
+    } else {
+        format!("{}", name.to_string_lossy())
+    }
 }
 
 /// # Errors
