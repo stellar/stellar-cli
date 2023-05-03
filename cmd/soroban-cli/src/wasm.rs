@@ -7,7 +7,8 @@ use std::{
 };
 
 use soroban_env_host::xdr::{
-    self, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, StringM,
+    self, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0,
+    ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -160,95 +161,11 @@ impl Display for ContractSpec {
             writeln!(f, "Contract Spec:")?;
             for spec_entry in &self.spec {
                 match spec_entry {
-                    ScSpecEntry::FunctionV0(func) => {
-                        writeln!(f, " • Function: {}", func.name.to_string_lossy())?;
-                        if func.doc.len() > 0 {
-                            writeln!(
-                                f,
-                                "     Docs: {}",
-                                &indent(&func.doc.to_string_lossy(), 11).trim()
-                            )?;
-                        }
-                        writeln!(
-                            f,
-                            "     Inputs: {}",
-                            indent(&format!("{:#?}", func.inputs), 5).trim()
-                        )?;
-                        writeln!(
-                            f,
-                            "     Output: {}",
-                            indent(&format!("{:#?}", func.outputs), 5).trim()
-                        )?;
-                        writeln!(f)?;
-                    }
-                    ScSpecEntry::UdtUnionV0(udt) => {
-                        writeln!(f, " • Union: {}", format_name(&udt.lib, &udt.name))?;
-                        if udt.doc.len() > 0 {
-                            writeln!(
-                                f,
-                                "     Docs: {}",
-                                indent(&udt.doc.to_string_lossy(), 10).trim()
-                            )?;
-                        }
-                        writeln!(f, "     Cases:")?;
-                        for case in udt.cases.iter() {
-                            writeln!(f, "      • {}", indent(&format!("{:#?}", case), 8).trim())?;
-                        }
-                        writeln!(f)?;
-                    }
-                    ScSpecEntry::UdtStructV0(udt) => {
-                        writeln!(f, " • Struct: {}", format_name(&udt.lib, &udt.name))?;
-                        if udt.doc.len() > 0 {
-                            writeln!(
-                                f,
-                                "     Docs: {}",
-                                indent(&udt.doc.to_string_lossy(), 10).trim()
-                            )?;
-                        }
-                        writeln!(f, "     Fields:")?;
-                        for field in udt.fields.iter() {
-                            writeln!(
-                                f,
-                                "      • {}: {}",
-                                field.name.to_string_lossy(),
-                                indent(&format!("{:#?}", field.type_), 8).trim()
-                            )?;
-                            if field.doc.len() > 0 {
-                                writeln!(f, "{}", indent(&format!("{:#?}", field.doc), 8))?;
-                            }
-                        }
-                        writeln!(f)?;
-                    }
-                    ScSpecEntry::UdtEnumV0(udt) => {
-                        writeln!(f, " • Enum: {}", format_name(&udt.lib, &udt.name))?;
-                        if udt.doc.len() > 0 {
-                            writeln!(
-                                f,
-                                "     Docs: {}",
-                                indent(&udt.doc.to_string_lossy(), 10).trim()
-                            )?;
-                        }
-                        writeln!(f, "     Cases:")?;
-                        for case in udt.cases.iter() {
-                            writeln!(f, "      • {}", indent(&format!("{:#?}", case), 8).trim())?;
-                        }
-                        writeln!(f)?;
-                    }
-                    ScSpecEntry::UdtErrorEnumV0(udt) => {
-                        writeln!(f, " • Error: {}", format_name(&udt.lib, &udt.name))?;
-                        if udt.doc.len() > 0 {
-                            writeln!(
-                                f,
-                                "     Docs: {}",
-                                indent(&udt.doc.to_string_lossy(), 10).trim()
-                            )?;
-                        }
-                        writeln!(f, "     Cases:")?;
-                        for case in udt.cases.iter() {
-                            writeln!(f, "      • {}", indent(&format!("{:#?}", case), 8).trim())?;
-                        }
-                        writeln!(f)?;
-                    }
+                    ScSpecEntry::FunctionV0(func) => write_func(f, func)?,
+                    ScSpecEntry::UdtUnionV0(udt) => write_union(f, udt)?,
+                    ScSpecEntry::UdtStructV0(udt) => write_struct(f, udt)?,
+                    ScSpecEntry::UdtEnumV0(udt) => write_enum(f, udt)?,
+                    ScSpecEntry::UdtErrorEnumV0(udt) => write_error(f, udt)?,
                 }
             }
         } else {
@@ -258,10 +175,109 @@ impl Display for ContractSpec {
     }
 }
 
+fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::fmt::Result {
+    writeln!(f, " • Function: {}", func.name.to_string_lossy())?;
+    if func.doc.len() > 0 {
+        writeln!(
+            f,
+            "     Docs: {}",
+            &indent(&func.doc.to_string_lossy(), 11).trim()
+        )?;
+    }
+    writeln!(
+        f,
+        "     Inputs: {}",
+        indent(&format!("{:#?}", func.inputs), 5).trim()
+    )?;
+    writeln!(
+        f,
+        "     Output: {}",
+        indent(&format!("{:#?}", func.outputs), 5).trim()
+    )?;
+    writeln!(f)?;
+    Ok(())
+}
+
+fn write_union(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtUnionV0) -> std::fmt::Result {
+    writeln!(f, " • Union: {}", format_name(&udt.lib, &udt.name))?;
+    if udt.doc.len() > 0 {
+        writeln!(
+            f,
+            "     Docs: {}",
+            indent(&udt.doc.to_string_lossy(), 10).trim()
+        )?;
+    }
+    writeln!(f, "     Cases:")?;
+    for case in udt.cases.iter() {
+        writeln!(f, "      • {}", indent(&format!("{case:#?}"), 8).trim())?;
+    }
+    writeln!(f)?;
+    Ok(())
+}
+
+fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std::fmt::Result {
+    writeln!(f, " • Struct: {}", format_name(&udt.lib, &udt.name))?;
+    if udt.doc.len() > 0 {
+        writeln!(
+            f,
+            "     Docs: {}",
+            indent(&udt.doc.to_string_lossy(), 10).trim()
+        )?;
+    }
+    writeln!(f, "     Fields:")?;
+    for field in udt.fields.iter() {
+        writeln!(
+            f,
+            "      • {}: {}",
+            field.name.to_string_lossy(),
+            indent(&format!("{:#?}", field.type_), 8).trim()
+        )?;
+        if field.doc.len() > 0 {
+            writeln!(f, "{}", indent(&format!("{:#?}", field.doc), 8))?;
+        }
+    }
+    writeln!(f)?;
+    Ok(())
+}
+
+fn write_enum(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtEnumV0) -> std::fmt::Result {
+    writeln!(f, " • Enum: {}", format_name(&udt.lib, &udt.name))?;
+    if udt.doc.len() > 0 {
+        writeln!(
+            f,
+            "     Docs: {}",
+            indent(&udt.doc.to_string_lossy(), 10).trim()
+        )?;
+    }
+    writeln!(f, "     Cases:")?;
+    for case in udt.cases.iter() {
+        writeln!(f, "      • {}", indent(&format!("{case:#?}"), 8).trim())?;
+    }
+    writeln!(f)?;
+    Ok(())
+}
+
+fn write_error(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtErrorEnumV0) -> std::fmt::Result {
+    writeln!(f, " • Error: {}", format_name(&udt.lib, &udt.name))?;
+    if udt.doc.len() > 0 {
+        writeln!(
+            f,
+            "     Docs: {}",
+            indent(&udt.doc.to_string_lossy(), 10).trim()
+        )?;
+    }
+    writeln!(f, "     Cases:")?;
+    for case in udt.cases.iter() {
+        writeln!(f, "      • {}", indent(&format!("{case:#?}"), 8).trim())?;
+    }
+    writeln!(f)?;
+    Ok(())
+}
+
 fn indent(s: &str, n: usize) -> String {
     let pad = " ".repeat(n);
     s.lines()
-        .map(|line| format!("{}{}", pad, line))
+        .map(|line| format!("{pad}{line}"))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -270,7 +286,7 @@ fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
     if lib.len() > 0 {
         format!("{}::{}", lib.to_string_lossy(), name.to_string_lossy())
     } else {
-        format!("{}", name.to_string_lossy())
+        name.to_string_lossy()
     }
 }
 
