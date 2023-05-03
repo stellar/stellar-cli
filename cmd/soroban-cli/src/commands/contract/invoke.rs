@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{Infallible, TryInto};
 use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::path::Path;
@@ -11,7 +11,6 @@ use heck::ToKebabCase;
 use hex::FromHexError;
 use soroban_env_host::events::HostEvent;
 
-use soroban_env_host::xdr::{DiagnosticEvent, ScBytes, ScContractExecutable, ScSpecFunctionV0};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
@@ -22,7 +21,8 @@ use soroban_env_host::{
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, OperationResult,
         OperationResultTr, Preconditions, PublicKey, ReadXdr, ScHostStorageErrorCode, ScSpecEntry,
         ScSpecTypeDef, ScStatus, ScVal, ScVec, SequenceNumber, Transaction, TransactionEnvelope,
-        TransactionExt, TransactionResultResult, Uint256, VecM,
+        TransactionExt, TransactionResultResult, Uint256, VecM, DiagnosticEvent, ExtensionPoint, HostFunctionArgs, ScBytes, ScContractExecutable,
+        ScSpecFunctionV0, SorobanResources, SorobanTransactionData,
     },
     HostError,
 };
@@ -154,6 +154,12 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error("Contract Error\n{0}: {1}")]
     ContractInvoke(String, String),
+}
+
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
 }
 
 impl Cmd {
@@ -322,7 +328,7 @@ impl Cmd {
                 match &ops[0] {
                     OperationResult::OpInner(OperationResultTr::InvokeHostFunction(
                         InvokeHostFunctionResult::Success(r),
-                    )) => r.clone(),
+                    )) => r[0].clone(),
                     _ => return Err(Error::MissingOperationResult),
                 }
             }
@@ -378,8 +384,14 @@ impl Cmd {
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
         h.set_diagnostic_level(DiagnosticLevel::Debug);
-        let res = h
-            .invoke_function(HostFunction::InvokeContract(host_function_params))
+        let resv = h
+            .invoke_functions(
+                vec![HostFunction {
+                    args: HostFunctionArgs::InvokeContract(host_function_params),
+                    auth: Default::default(),
+                }]
+                .try_into()?,
+            )
             .map_err(|host_error| {
                 if let Ok(error) = spec.find_error_type(host_error.status.get_code()) {
                     Error::ContractInvoke(error.name.to_string_lossy(), error.doc.to_string_lossy())
@@ -388,7 +400,7 @@ impl Cmd {
                 }
             })?;
 
-        let res_str = output_to_string(&spec, &res, &function)?;
+        let res_str = output_to_string(&spec, &resv[0], &function)?;
 
         state.update(&h);
 
@@ -517,9 +529,11 @@ fn build_invoke_contract_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::InvokeContract(parameters),
-            footprint: final_footprint,
-            auth: final_auth.try_into()?,
+            functions: vec![HostFunction {
+                args: HostFunctionArgs::InvokeContract(parameters),
+                auth: final_auth.try_into()?,
+            }]
+            .try_into()?,
         }),
     };
     let tx = Transaction {
@@ -529,7 +543,19 @@ fn build_invoke_contract_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V0,
+        ext: TransactionExt::V1(SorobanTransactionData {
+            resources: SorobanResources {
+                footprint: final_footprint,
+                // TODO: what values should be filled?
+                instructions: 0,
+                read_bytes: 0,
+                write_bytes: 0,
+                extended_meta_data_size_bytes: 0,
+            },
+            // TODO: what value should be filled?
+            refundable_fee: 0,
+            ext: ExtensionPoint::V0,
+        }),
     };
 
     Ok(utils::sign_transaction(key, &tx, network_passphrase)?)

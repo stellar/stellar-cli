@@ -2,17 +2,16 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
-use clap::{command, Parser};
-use soroban_env_host::xdr::{
-    Error as XdrError, Hash, HostFunction, InstallContractCodeArgs, InvokeHostFunctionOp,
-    LedgerFootprint, LedgerKey::ContractCode, LedgerKeyContractCode, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt,
-    Uint256, VecM,
-};
-use soroban_env_host::HostError;
-
 use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
+use clap::{command, Parser};
+use soroban_env_host::xdr::{
+    Error as XdrError, ExtensionPoint, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
+    LedgerFootprint, LedgerKey::ContractCode, LedgerKeyContractCode, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, SequenceNumber, SorobanResources, Transaction,
+    TransactionEnvelope, TransactionExt, Uint256, UploadContractWasmArgs, VecM,
+};
+use soroban_sdk::xdr::SorobanTransactionData;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -27,8 +26,6 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
@@ -106,15 +103,13 @@ pub(crate) fn build_install_contract_code_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::InstallContractCode(InstallContractCodeArgs {
-                code: contract.try_into()?,
-            }),
-            footprint: LedgerFootprint {
-                read_only: VecM::default(),
-                read_write: vec![ContractCode(LedgerKeyContractCode { hash: hash.clone() })]
-                    .try_into()?,
-            },
-            auth: VecM::default(),
+            functions: vec![HostFunction {
+                args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {
+                    code: contract.try_into()?,
+                }),
+                auth: Default::default(),
+            }]
+            .try_into()?,
         }),
     };
 
@@ -125,7 +120,23 @@ pub(crate) fn build_install_contract_code_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V0,
+        ext: TransactionExt::V1(SorobanTransactionData {
+            resources: SorobanResources {
+                footprint: LedgerFootprint {
+                    read_only: VecM::default(),
+                    read_write: vec![ContractCode(LedgerKeyContractCode { hash: hash.clone() })]
+                        .try_into()?,
+                },
+                // TODO: what values should be used here?
+                instructions: 0,
+                read_bytes: 0,
+                write_bytes: 0,
+                extended_meta_data_size_bytes: 0,
+            },
+            // TODO: what value to use here?
+            refundable_fee: 0,
+            ext: ExtensionPoint::V0,
+        }),
     };
 
     let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;

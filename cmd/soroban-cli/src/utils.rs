@@ -3,16 +3,16 @@ use std::{io::ErrorKind, path::Path};
 use ed25519_dalek::Signer;
 use hex::FromHexError;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::UploadContractWasmArgs;
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
     xdr::{
         AccountEntry, AccountEntryExt, AccountId, ContractCodeEntry, ContractDataEntry,
-        DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, InstallContractCodeArgs,
-        LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
-        LedgerKeyContractCode, LedgerKeyContractData, ScContractExecutable, ScSpecEntry, ScVal,
-        SequenceNumber, Signature, SignatureHint, String32, Thresholds, Transaction,
-        TransactionEnvelope, TransactionSignaturePayload,
+        DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryData,
+        LedgerEntryExt, LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData,
+        ScContractExecutable, ScSpecEntry, ScVal, SequenceNumber, Signature, SignatureHint,
+        String32, Thresholds, Transaction, TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
 };
@@ -27,7 +27,7 @@ use crate::network::sandbox_network_id;
 ///
 /// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
-    let args_xdr = InstallContractCodeArgs {
+    let args_xdr = UploadContractWasmArgs {
         code: contract.try_into()?,
     }
     .to_xdr()?;
@@ -197,7 +197,7 @@ pub fn get_contract_spec_from_storage(
                             LedgerEntry {
                                 data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
                                 ..
-                            } => soroban_spec::read::from_wasm(code),
+                            } => soroban_spec::read::from_wasm(code.as_vec()),
                             _ => Err(FromWasmError::NotFound),
                         }
                     } else {
