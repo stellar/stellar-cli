@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-use soroban_env_host::xdr::{self, ReadXdr, ScEnvMetaEntry, ScSpecEntry, ScMetaEntry, ScMetaV0};
+use soroban_env_host::xdr::{self, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -143,7 +143,7 @@ impl Display for ContractSpec {
             writeln!(f, "Contract Meta: {meta}")?;
             for meta_entry in &self.meta {
                 match meta_entry {
-                    ScMetaEntry::ScMetaV0(ScMetaV0{key, val}) => {
+                    ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
                         writeln!(f, " • {key}: {val}")?;
                     }
                 }
@@ -163,7 +163,8 @@ impl Display for ContractSpec {
                         func.inputs.as_slice(),
                         func.outputs.as_slice(),
                         if func.doc.len() > 0 {
-                            "\n   Docs: ".to_owned()+&func.doc.to_string_lossy().replace("\n", "\n         ")
+                            "\n   Docs: ".to_owned()
+                                + &func.doc.to_string_lossy().replace("\n", "\n         ")
                         } else {
                             "".to_string()
                         }
