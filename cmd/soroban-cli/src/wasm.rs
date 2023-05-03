@@ -139,8 +139,8 @@ impl Display for ContractSpec {
             writeln!(f, "Env Meta: None")?;
         }
 
-        if let Some(meta) = &self.meta_base64 {
-            writeln!(f, "Contract Meta: {meta}")?;
+        if let Some(_meta) = &self.meta_base64 {
+            writeln!(f, "Contract Meta:")?;
             for meta_entry in &self.meta {
                 match meta_entry {
                     ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
@@ -152,34 +152,50 @@ impl Display for ContractSpec {
             writeln!(f, "Contract Meta: None")?;
         }
 
-        if let Some(spec_base64) = &self.spec_base64 {
-            writeln!(f, "Contract Spec: {spec_base64}")?;
+        if let Some(_spec_base64) = &self.spec_base64 {
+            writeln!(f, "Contract Spec:")?;
             for spec_entry in &self.spec {
                 match spec_entry {
-                    ScSpecEntry::FunctionV0(func) => writeln!(
-                        f,
-                        " • Function: {}\n   Inputs: ({:?})\n   Returns: ({:?}){}\n",
-                        func.name.to_string_lossy(),
-                        func.inputs.as_slice(),
-                        func.outputs.as_slice(),
+                    ScSpecEntry::FunctionV0(func) => {
+                        writeln!(
+                            f,
+                            " • Function: {}\n     Inputs: {}\n     Returns: {}",
+                            func.name.to_string_lossy(),
+                            indent(&format!("{:#?}", func.inputs), 5).trim(),
+                            indent(&format!("{:#?}", func.outputs), 5).trim(),
+                        )?;
                         if func.doc.len() > 0 {
-                            "\n   Docs: ".to_owned()
-                                + &func.doc.to_string_lossy().replace("\n", "\n         ")
-                        } else {
-                            "".to_string()
+                            writeln!(
+                                f,
+                                "\n     Docs: {}",
+                                &indent(&func.doc.to_string_lossy(), 11).trim()
+                            )?;
                         }
-                    )?,
+                        writeln!(f)?;
+                    }
                     ScSpecEntry::UdtUnionV0(udt) => {
-                        writeln!(f, " • Union: {udt:?}\n")?;
+                        writeln!(
+                            f,
+                            " • Union: {}\n",
+                            indent(&format!("{:#?}", udt), 3).trim()
+                        )?;
                     }
                     ScSpecEntry::UdtStructV0(udt) => {
-                        writeln!(f, " • Struct: {udt:?}\n")?;
+                        writeln!(
+                            f,
+                            " • Struct: {}\n",
+                            indent(&format!("{:#?}", udt), 3).trim()
+                        )?;
                     }
                     ScSpecEntry::UdtEnumV0(udt) => {
-                        writeln!(f, " • Enum: {udt:?}\n")?;
+                        writeln!(f, " • Enum: {}\n", indent(&format!("{:#?}", udt), 3).trim())?;
                     }
                     ScSpecEntry::UdtErrorEnumV0(udt) => {
-                        writeln!(f, " • Error: {udt:?}\n")?;
+                        writeln!(
+                            f,
+                            " • Error: {}\n",
+                            indent(&format!("{:#?}", udt), 3).trim()
+                        )?;
                     }
                 }
             }
@@ -188,6 +204,14 @@ impl Display for ContractSpec {
         }
         Ok(())
     }
+}
+
+fn indent(s: &str, n: usize) -> String {
+    let pad = " ".repeat(n);
+    s.lines()
+        .map(|line| format!("{}{}", pad, line))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// # Errors
