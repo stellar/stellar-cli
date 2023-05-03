@@ -163,7 +163,7 @@ impl Display for ContractSpec {
                         func.inputs.as_slice(),
                         func.outputs.as_slice(),
                         if func.doc.len() > 0 {
-                            "\n   Docs: ".to_owned()+&func.doc.to_string_lossy()
+                            "\n   Docs: ".to_owned()+&func.doc.to_string_lossy().replace("\n", "\n         ")
                         } else {
                             "".to_string()
                         }
