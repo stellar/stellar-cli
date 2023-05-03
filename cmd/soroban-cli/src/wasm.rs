@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-use soroban_env_host::xdr::{self, ReadXdr, ScEnvMetaEntry, ScSpecEntry};
+use soroban_env_host::xdr::{self, ReadXdr, ScEnvMetaEntry, ScSpecEntry, ScMetaEntry, ScMetaV0};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -59,6 +59,7 @@ impl Args {
     pub fn parse(&self) -> Result<ContractSpec, Error> {
         let contents = self.read()?;
         let mut env_meta: Option<&[u8]> = None;
+        let mut meta: Option<&[u8]> = None;
         let mut spec: Option<&[u8]> = None;
         for payload in wasmparser::Parser::new(0).parse_all(&contents) {
             let payload = payload.map_err(|e| Error::CannotParseWasm {
@@ -68,6 +69,7 @@ impl Args {
             if let wasmparser::Payload::CustomSection(section) = payload {
                 let out = match section.name() {
                     "contractenvmetav0" => &mut env_meta,
+                    "contractmetav0" => &mut meta,
                     "contractspecv0" => &mut spec,
                     _ => continue,
                 };
@@ -84,6 +86,15 @@ impl Args {
             vec![]
         };
 
+        let mut meta_base64 = None;
+        let meta = if let Some(meta) = meta {
+            meta_base64 = Some(base64::encode(meta));
+            let mut cursor = Cursor::new(meta);
+            ScMetaEntry::read_xdr_iter(&mut cursor).collect::<Result<Vec<_>, xdr::Error>>()?
+        } else {
+            vec![]
+        };
+
         let mut spec_base64 = None;
         let spec = if let Some(spec) = spec {
             spec_base64 = Some(base64::encode(spec));
@@ -96,6 +107,8 @@ impl Args {
         Ok(ContractSpec {
             env_meta_base64,
             env_meta,
+            meta_base64,
+            meta,
             spec_base64,
             spec,
         })
@@ -105,6 +118,8 @@ impl Args {
 pub struct ContractSpec {
     pub env_meta_base64: Option<String>,
     pub env_meta: Vec<ScEnvMetaEntry>,
+    pub meta_base64: Option<String>,
+    pub meta: Vec<ScMetaEntry>,
     pub spec_base64: Option<String>,
     pub spec: Vec<ScSpecEntry>,
 }
@@ -124,28 +139,46 @@ impl Display for ContractSpec {
             writeln!(f, "Env Meta: None")?;
         }
 
+        if let Some(meta) = &self.meta_base64 {
+            writeln!(f, "Contract Meta: {meta}")?;
+            for meta_entry in &self.meta {
+                match meta_entry {
+                    ScMetaEntry::ScMetaV0(ScMetaV0{key, val}) => {
+                        writeln!(f, " • {key}: {val}")?;
+                    }
+                }
+            }
+        } else {
+            writeln!(f, "Contract Meta: None")?;
+        }
+
         if let Some(spec_base64) = &self.spec_base64 {
             writeln!(f, "Contract Spec: {spec_base64}")?;
             for spec_entry in &self.spec {
                 match spec_entry {
                     ScSpecEntry::FunctionV0(func) => writeln!(
                         f,
-                        " • Function: {} ({:?}) -> ({:?})",
+                        " • Function: {}\n   Inputs: ({:?})\n   Returns: ({:?}){}\n",
                         func.name.to_string_lossy(),
                         func.inputs.as_slice(),
                         func.outputs.as_slice(),
+                        if func.doc.len() > 0 {
+                            "\n   Docs: ".to_owned()+&func.doc.to_string_lossy()
+                        } else {
+                            "".to_string()
+                        }
                     )?,
                     ScSpecEntry::UdtUnionV0(udt) => {
-                        writeln!(f, " • Union: {udt:?}")?;
+                        writeln!(f, " • Union: {udt:?}\n")?;
                     }
                     ScSpecEntry::UdtStructV0(udt) => {
-                        writeln!(f, " • Struct: {udt:?}")?;
+                        writeln!(f, " • Struct: {udt:?}\n")?;
                     }
                     ScSpecEntry::UdtEnumV0(udt) => {
-                        writeln!(f, " • Enum: {udt:?}")?;
+                        writeln!(f, " • Enum: {udt:?}\n")?;
                     }
                     ScSpecEntry::UdtErrorEnumV0(udt) => {
-                        writeln!(f, " • Error: {udt:?}")?;
+                        writeln!(f, " • Error: {udt:?}\n")?;
                     }
                 }
             }

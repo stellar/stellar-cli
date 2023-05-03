@@ -19,12 +19,7 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         println!("File: {}", self.wasm.wasm.to_string_lossy());
-        let parsed = self.wasm.parse()?;
-        if parsed.env_meta.len() > 0 {
-            print!("{:#?}", (parsed.env_meta, parsed.spec.clone()));
-        } else {
-            print!("{:#?}", (parsed.spec));
-        }
+        println!("{}", self.wasm.parse()?);
         Ok(())
     }
 }
