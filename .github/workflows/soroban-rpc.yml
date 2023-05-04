@@ -140,8 +140,8 @@ jobs:
             sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
           sudo apt-get update
-          sudo apt-get remove docker-compose
-          sudo apt-get install docker-compose-plugin
+          sudo apt-get remove -y moby-compose
+          sudo apt-get install -y docker-compose-plugin
 
 
           # sudo pip3 install pip --upgrade
