@@ -123,7 +123,7 @@ func GoNullTerminatedStringSlice(str **C.char) []string {
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
-	hfB64, err := xdr.MarshalBase64(params.InvokeHostFunction.Function)
+	hfB64, err := xdr.MarshalBase64(params.InvokeHostFunction.Functions)
 	if err != nil {
 		return Preflight{}, err
 	}

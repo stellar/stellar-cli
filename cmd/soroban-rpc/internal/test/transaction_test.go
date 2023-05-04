@@ -81,8 +81,10 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	expectedContractID, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
 	assert.NoError(t, err)
 	contractIDBytes := xdr.ScBytes(expectedContractID)
-	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
-	assert.True(t, expectedScVal.Equals(resultVal))
+	expectedScVal := []xdr.ScVal{{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}}
+	assert.Equal(t, len(expectedScVal), len(resultVal))
+	assert.Equal(t, len(expectedScVal), int(1))
+	assert.True(t, expectedScVal[0].Equals(resultVal[0]))
 
 	expectedResult := xdr.TransactionResult{
 		FeeCharged: 100,
