@@ -429,12 +429,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	var obtainedResult xdr.ScVal
 	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
 	assert.NoError(t, err)
-	assert.Equal(t, xdr.ScValTypeScvVec, obtainedResult.Type)
-	assert.NotNil(t, *obtainedResult.Vec)
-	assert.Len(t, **obtainedResult.Vec, 2)
-	world := (**obtainedResult.Vec)[1]
-	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
-	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
+	assert.Equal(t, xdr.ScValTypeScvAddress, obtainedResult.Type)
+	assert.NotNil(t, obtainedResult.Address)
+	assert.Equal(t, authAccountIDArg, obtainedResult.Address.MustAccountId())
 
 	// check the footprint
 	var obtainedFootprint xdr.LedgerFootprint
@@ -471,7 +468,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.RootInvocation.ContractId)
 	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.FunctionName)
 	assert.Len(t, obtainedAuth.RootInvocation.Args, 2)
-	world = obtainedAuth.RootInvocation.Args[1]
+	world := obtainedAuth.RootInvocation.Args[1]
 	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
