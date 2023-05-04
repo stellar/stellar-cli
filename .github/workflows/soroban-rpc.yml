@@ -130,6 +130,8 @@ jobs:
           sudo pip3 install pip --upgrade
           sudo pip3 install pyopenssl --upgrade
           sudo pip3 install docker-compose
+          # Give running user docker access, needed by docker-compose
+          sudo gpasswd -a $(whoami) docker
 
       - name: Build libpreflight
         run: make build-libpreflight
