@@ -386,13 +386,10 @@ impl Cmd {
             self.build_host_function_parameters(contract_id, &spec_entries)?;
         h.set_diagnostic_level(DiagnosticLevel::Debug);
         let resv = h
-            .invoke_functions(
-                vec![HostFunction {
-                    args: HostFunctionArgs::InvokeContract(host_function_params),
-                    auth: Default::default(),
-                }]
-                .try_into()?,
-            )
+            .invoke_functions(vec![HostFunction {
+                args: HostFunctionArgs::InvokeContract(host_function_params),
+                auth: VecM::default(),
+            }])
             .map_err(|host_error| {
                 if let Ok(error) = spec.find_error_type(host_error.status.get_code()) {
                     Error::ContractInvoke(error.name.to_string_lossy(), error.doc.to_string_lossy())

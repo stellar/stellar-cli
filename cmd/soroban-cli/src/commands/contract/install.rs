@@ -107,7 +107,7 @@ pub(crate) fn build_install_contract_code_tx(
                 args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {
                     code: contract.try_into()?,
                 }),
-                auth: Default::default(),
+                auth: VecM::default(),
             }]
             .try_into()?,
         }),

@@ -99,16 +99,13 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info);
 
-        let res = h.invoke_functions(
-            vec![HostFunction {
-                args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                    contract_id: ContractId::Asset(asset.clone()),
-                    executable: ScContractExecutable::Token,
-                }),
-                auth: Default::default(),
-            }]
-            .try_into()?,
-        )?;
+        let res = h.invoke_functions(vec![HostFunction {
+            args: HostFunctionArgs::CreateContract(CreateContractArgs {
+                contract_id: ContractId::Asset(asset.clone()),
+                executable: ScContractExecutable::Token,
+            }),
+            auth: VecM::default(),
+        }])?;
 
         let res_str = utils::vec_to_hash(&res[0])?;
 
@@ -195,7 +192,7 @@ fn build_wrap_token_tx(
                     contract_id: ContractId::Asset(asset.clone()),
                     executable: ScContractExecutable::Token,
                 }),
-                auth: Default::default(),
+                auth: VecM::default(),
             }]
             .try_into()?,
         }),

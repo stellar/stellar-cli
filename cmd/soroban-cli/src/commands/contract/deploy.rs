@@ -12,7 +12,7 @@ use soroban_env_host::xdr::{
     LedgerKey::ContractCode, LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData,
     Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScVal, SequenceNumber,
     SorobanResources, SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
-    Uint256, WriteXdr,
+    Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::xdr::{HashIdPreimageSourceAccountContractId, ScContractExecutable};
 use soroban_env_host::HostError;
@@ -208,7 +208,7 @@ fn build_create_contract_tx(
                     contract_id: ContractId::SourceAccount(Uint256(salt)),
                     executable: ScContractExecutable::WasmRef(hash.clone()),
                 }),
-                auth: Default::default(),
+                auth: VecM::default(),
             }]
             .try_into()?,
         }),
