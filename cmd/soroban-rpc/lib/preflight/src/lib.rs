@@ -8,10 +8,10 @@ use soroban_env_host::budget::Budget;
 use soroban_env_host::events::{Event, Events};
 use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
 use soroban_env_host::xdr::{
-    self, AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, LedgerEntry,
-    LedgerKey, ReadXdr, ScHostStorageErrorCode, ScStatus,
+    self, AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, InvokeHostFunctionOp,
+    LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode, ScStatus,
     ScUnknownErrorCode::{General, Xdr},
-    WriteXdr,
+    ScVal, WriteXdr,
 };
 use soroban_env_host::{Host, HostError, LedgerInfo};
 use std::convert::TryInto;
@@ -112,7 +112,7 @@ fn storage_footprint_to_ledger_footprint(
 #[repr(C)]
 pub struct CPreflightResult {
     pub error: *mut libc::c_char, // Error string in case of error, otherwise null
-    pub result: *mut libc::c_char, // SCVal XDR in base64
+    pub results: *mut *mut libc::c_char, // NULL terminated array of XDR SCVals in base64
     pub footprint: *mut libc::c_char, // LedgerFootprint XDR in base64
     pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
     pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
@@ -126,7 +126,7 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
     // caller needs to invoke free_preflight_result(result) when done
     Box::into_raw(Box::new(CPreflightResult {
         error: c_str.into_raw(),
-        result: null_mut(),
+        results: null_mut(),
         footprint: null_mut(),
         auth: null_mut(),
         events: null_mut(),
@@ -138,14 +138,14 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
 #[no_mangle]
 pub extern "C" fn preflight_host_function(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
-    hf: *const libc::c_char, // HostFunction XDR in base64
+    invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        preflight_host_function_or_maybe_panic(handle, hf, source_account, ledger_info)
+        preflight_host_function_or_maybe_panic(handle, invoke_hf_op, source_account, ledger_info)
     }));
     match res {
         Err(panic) => match panic.downcast::<String>() {
@@ -167,12 +167,12 @@ pub extern "C" fn preflight_host_function(
 
 fn preflight_host_function_or_maybe_panic(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
-    hf: *const libc::c_char, // HostFunction XDR in base64
+    invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> Result<CPreflightResult, Box<dyn error::Error>> {
-    let hf_cstr = unsafe { CStr::from_ptr(hf) };
-    let hf = HostFunction::from_xdr_base64(hf_cstr.to_str()?)?;
+    let invoke_hf_op_cstr = unsafe { CStr::from_ptr(invoke_hf_op) };
+    let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(invoke_hf_op_cstr.to_str()?)?;
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
     let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str()?)?;
     let src = Rc::new(CSnapshotSource { handle });
@@ -185,7 +185,7 @@ fn preflight_host_function_or_maybe_panic(
     host.set_ledger_info(ledger_info.into());
 
     // Run the preflight.
-    let result = host.invoke_function(hf)?;
+    let results = host.invoke_functions(invoke_hf_op.functions.into())?;
     let auth_payloads = host.get_recorded_auth_payloads()?;
 
     // Recover, convert and return the storage footprint and other values to C.
@@ -193,16 +193,23 @@ fn preflight_host_function_or_maybe_panic(
 
     let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
     let fp_cstr = CString::new(fp.to_xdr_base64()?)?;
-    let result_cstr = CString::new(result.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        result: result_cstr.into_raw(),
+        results: scvals_to_c(results)?,
         footprint: fp_cstr.into_raw(),
         auth: recorded_auth_payloads_to_c(auth_payloads)?,
         events: host_events_to_c(events)?,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
     })
+}
+
+fn scvals_to_c(scvals: Vec<ScVal>) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
+    let xdr_base64_vec: Vec<String> = scvals
+        .iter()
+        .map(|v| v.to_xdr_base64())
+        .collect::<Result<Vec<_>, _>>()?;
+    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
 }
 
 fn recorded_auth_payloads_to_c(
@@ -291,8 +298,8 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
         if !(*result).error.is_null() {
             let _ = CString::from_raw((*result).error);
         }
-        if !(*result).result.is_null() {
-            let _ = CString::from_raw((*result).result);
+        if !(*result).results.is_null() {
+            free_c_null_terminated_char_array((*result).results);
         }
         if !(*result).footprint.is_null() {
             let _ = CString::from_raw((*result).footprint);
