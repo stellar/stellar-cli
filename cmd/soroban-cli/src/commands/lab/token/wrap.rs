@@ -1,6 +1,9 @@
 use clap::{arg, command, Parser};
 use regex::Regex;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::{
+    ExtensionPoint, HostFunctionArgs, SorobanResources, SorobanTransactionData,
+};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
@@ -14,9 +17,8 @@ use soroban_env_host::{
     },
     Host, HostError,
 };
-use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 use std::convert::Infallible;
-use soroban_env_host::xdr::{ExtensionPoint, HostFunctionArgs, SorobanResources, SorobanTransactionData};
+use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 
 use crate::{
     commands::config,
@@ -97,13 +99,16 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info);
 
-        let res = h.invoke_functions(vec![HostFunction {
-            args: HostFunctionArgs::CreateContract( CreateContractArgs{
-                contract_id: ContractId::Asset(asset.clone()),
-                executable: ScContractExecutable::Token,
-            }),
-            auth: Default::default(),
-        }].try_into()?)?;
+        let res = h.invoke_functions(
+            vec![HostFunction {
+                args: HostFunctionArgs::CreateContract(CreateContractArgs {
+                    contract_id: ContractId::Asset(asset.clone()),
+                    executable: ScContractExecutable::Token,
+                }),
+                auth: Default::default(),
+            }]
+            .try_into()?,
+        )?;
 
         let res_str = utils::vec_to_hash(&res[0])?;
 
@@ -183,18 +188,18 @@ fn build_wrap_token_tx(
     }
 
     let op = Operation {
-            source_account: None,
-            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                functions: vec![HostFunction {
-                    args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                        contract_id: ContractId::Asset(asset.clone()),
-                        executable: ScContractExecutable::Token,
-                    }),
-                    auth: Default::default(),
-                }]
-                    .try_into()?,
-            }),
-        };
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            functions: vec![HostFunction {
+                args: HostFunctionArgs::CreateContract(CreateContractArgs {
+                    contract_id: ContractId::Asset(asset.clone()),
+                    executable: ScContractExecutable::Token,
+                }),
+                auth: Default::default(),
+            }]
+            .try_into()?,
+        }),
+    };
 
     let tx = Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),

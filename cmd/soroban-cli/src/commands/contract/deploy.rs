@@ -6,7 +6,14 @@ use clap::{arg, command, Parser};
 use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{AccountId, ContractId, CreateContractArgs, Error as XdrError, ExtensionPoint, Hash, HashIdPreimage, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractCode, LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScVal, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt, Uint256, WriteXdr};
+use soroban_env_host::xdr::{
+    AccountId, ContractId, CreateContractArgs, Error as XdrError, ExtensionPoint, Hash,
+    HashIdPreimage, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint,
+    LedgerKey::ContractCode, LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScVal, SequenceNumber,
+    SorobanResources, SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
+    Uint256, WriteXdr,
+};
 use soroban_env_host::xdr::{HashIdPreimageSourceAccountContractId, ScContractExecutable};
 use soroban_env_host::HostError;
 
@@ -194,18 +201,18 @@ fn build_create_contract_tx(
     let contract_id = Sha256::digest(preimage_xdr);
 
     let op = Operation {
-            source_account: None,
-            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                functions: vec![HostFunction {
-                    args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                        contract_id: ContractId::SourceAccount(Uint256(salt)),
-                        executable: ScContractExecutable::WasmRef(hash.clone()),
-                    }),
-                    auth: Default::default(),
-                }]
-                    .try_into()?,
-            }),
-        };
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            functions: vec![HostFunction {
+                args: HostFunctionArgs::CreateContract(CreateContractArgs {
+                    contract_id: ContractId::SourceAccount(Uint256(salt)),
+                    executable: ScContractExecutable::WasmRef(hash.clone()),
+                }),
+                auth: Default::default(),
+            }]
+            .try_into()?,
+        }),
+    };
     let tx = Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
@@ -221,7 +228,7 @@ fn build_create_contract_tx(
                         contract_id: Hash(contract_id.into()),
                         key: ScVal::LedgerKeyContractExecutable,
                     })]
-                        .try_into()?,
+                    .try_into()?,
                 },
                 // TODO: what values should be used here?
                 instructions: 0,
