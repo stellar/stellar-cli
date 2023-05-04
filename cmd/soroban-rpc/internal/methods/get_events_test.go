@@ -1071,9 +1071,14 @@ func ledgerCloseMetaWithEvents(sequence uint32, closeTimestamp int64, txMeta ...
 					Body: xdr.OperationBody{
 						Type: xdr.OperationTypeInvokeHostFunction,
 						InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
-							Function: xdr.HostFunction{
-								Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-								InvokeArgs: &xdr.ScVec{},
+							Functions: []xdr.HostFunction{
+								{
+									Args: xdr.HostFunctionArgs{
+										Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+										InvokeContract: &xdr.ScVec{},
+									},
+									Auth: []xdr.ContractAuth{},
+								},
 							},
 						},
 					},

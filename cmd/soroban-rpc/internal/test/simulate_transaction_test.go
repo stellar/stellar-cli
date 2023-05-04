@@ -42,7 +42,7 @@ func getHelloWorldContract(t *testing.T) []byte {
 	return ret
 }
 
-func createInvokeHostOperation(sourceAccount string, footprint xdr.LedgerFootprint, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
+func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunctions {
 	var contractIDBytes = xdr.ScBytes(contractID[:])
 	methodSymbol := xdr.ScSymbol(method)
 	parameters := xdr.ScVec{
@@ -56,23 +56,28 @@ func createInvokeHostOperation(sourceAccount string, footprint xdr.LedgerFootpri
 		},
 	}
 	parameters = append(parameters, args...)
-	return &txnbuild.InvokeHostFunction{
-		Footprint: footprint,
-		Function: xdr.HostFunction{
-			Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-			InvokeArgs: &parameters,
+	return &txnbuild.InvokeHostFunctions{
+
+		Functions: []xdr.HostFunction{
+			{
+				Args: xdr.HostFunctionArgs{
+					Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+					InvokeContract: &parameters,
+				},
+			},
 		},
+		Ext:           ext,
 		SourceAccount: sourceAccount,
 	}
 }
 
-func createInstallContractCodeOperation(t *testing.T, sourceAccount string, contractCode []byte, includeFootprint bool) *txnbuild.InvokeHostFunction {
-	var footprint xdr.LedgerFootprint
-	if includeFootprint {
-		installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+func createInstallContractCodeOperation(t *testing.T, sourceAccount string, contractCode []byte, includeExt bool) *txnbuild.InvokeHostFunctions {
+	var ext xdr.TransactionExt
+	if includeExt {
+		uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
 		assert.NoError(t, err)
-		contractHash := sha256.Sum256(installContractCodeArgs)
-		footprint = xdr.LedgerFootprint{
+		contractHash := sha256.Sum256(uploadContractCodeArgs)
+		footprint := xdr.LedgerFootprint{
 			ReadWrite: []xdr.LedgerKey{
 				{
 					Type: xdr.LedgerEntryTypeContractCode,
@@ -82,29 +87,48 @@ func createInstallContractCodeOperation(t *testing.T, sourceAccount string, cont
 				},
 			},
 		}
+		ext = xdr.TransactionExt{
+			V: 1,
+			SorobanData: &xdr.SorobanTransactionData{
+				Resources: xdr.SorobanResources{
+					Footprint:                 footprint,
+					Instructions:              0,
+					ReadBytes:                 0,
+					WriteBytes:                0,
+					ExtendedMetaDataSizeBytes: 0,
+				},
+				RefundableFee: 0,
+				Ext:           xdr.ExtensionPoint{},
+			},
+		}
 	}
 
-	return &txnbuild.InvokeHostFunction{
-		Footprint: footprint,
-		Function: xdr.HostFunction{
-			Type: xdr.HostFunctionTypeHostFunctionTypeInstallContractCode,
-			InstallContractCodeArgs: &xdr.InstallContractCodeArgs{
-				Code: contractCode,
+	return &txnbuild.InvokeHostFunctions{
+		Ext: ext,
+		Functions: []xdr.HostFunction{
+			{
+				Args: xdr.HostFunctionArgs{
+					Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
+					UploadContractWasm: &xdr.UploadContractWasmArgs{
+						Code: contractCode,
+					},
+				},
+				Auth: []xdr.ContractAuth{},
 			},
 		},
 		SourceAccount: sourceAccount,
 	}
 }
 
-func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string, includeFootprint bool) *txnbuild.InvokeHostFunction {
+func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string, includeExt bool) *txnbuild.InvokeHostFunctions {
 	saltParam := xdr.Uint256(testSalt)
 
-	var footprint xdr.LedgerFootprint
-	if includeFootprint {
-		installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+	var ext xdr.TransactionExt
+	if includeExt {
+		uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
 		assert.NoError(t, err)
-		contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
-		footprint = xdr.LedgerFootprint{
+		contractHash := xdr.Hash(sha256.Sum256(uploadContractCodeArgs))
+		footprint := xdr.LedgerFootprint{
 			ReadWrite: []xdr.LedgerKey{
 				{
 					Type: xdr.LedgerEntryTypeContractData,
@@ -125,25 +149,45 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 				},
 			},
 		}
+		ext = xdr.TransactionExt{
+			V: 1,
+			SorobanData: &xdr.SorobanTransactionData{
+				Resources: xdr.SorobanResources{
+					Footprint:                 footprint,
+					Instructions:              0,
+					ReadBytes:                 0,
+					WriteBytes:                0,
+					ExtendedMetaDataSizeBytes: 0,
+				},
+				RefundableFee: 0,
+				Ext:           xdr.ExtensionPoint{},
+			},
+		}
 	}
 
-	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contractCode}.MarshalBinary()
+	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
 	assert.NoError(t, err)
-	contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
+	contractHash := xdr.Hash(sha256.Sum256(uploadContractCodeArgs))
 
-	return &txnbuild.InvokeHostFunction{
-		Footprint: footprint,
-		Function: xdr.HostFunction{
-			Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
-			CreateContractArgs: &xdr.CreateContractArgs{
-				ContractId: xdr.ContractId{
-					Type: xdr.ContractIdTypeContractIdFromSourceAccount,
-					Salt: &saltParam,
+	return &txnbuild.InvokeHostFunctions{
+		Ext: ext,
+
+		Functions: []xdr.HostFunction{
+			{
+				Args: xdr.HostFunctionArgs{
+					Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+					CreateContract: &xdr.CreateContractArgs{
+						ContractId: xdr.ContractId{
+							Type: xdr.ContractIdTypeContractIdFromSourceAccount,
+							Salt: &saltParam,
+						},
+						Executable: xdr.ScContractExecutable{
+							Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
+							WasmId: &contractHash,
+						},
+					},
 				},
-				Source: xdr.ScContractExecutable{
-					Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-					WasmId: &contractHash,
-				},
+				Auth: []xdr.ContractAuth{},
 			},
 		},
 		SourceAccount: sourceAccount,
@@ -349,7 +393,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInvokeHostOperation(
 				address,
-				xdr.LedgerFootprint{},
+				xdr.TransactionExt{},
 				contractID,
 				"auth",
 				xdr.ScVal{
@@ -404,9 +448,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScValTypeScvLedgerKeyContractExecutable, ro1.ContractData.Key.Type)
 	ro2 := obtainedFootprint.ReadOnly[2]
 	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
-	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: helloWorldContract}.MarshalBinary()
+	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: helloWorldContract}.MarshalBinary()
 	assert.NoError(t, err)
-	contractHash := sha256.Sum256(installContractCodeArgs)
+	contractHash := sha256.Sum256(uploadContractCodeArgs)
 	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
 	assert.NoError(t, err)
 
@@ -458,8 +502,8 @@ func TestSimulateTransactionError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.LedgerFootprint{}, xdr.Hash{}, "noMethod")
-	invokeHostOp.Function.InvokeArgs = &xdr.ScVec{}
+	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.TransactionExt{}, xdr.Hash{}, "noMethod")
+	invokeHostOp.Functions[0].Args.InvokeContract = &xdr.ScVec{}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
