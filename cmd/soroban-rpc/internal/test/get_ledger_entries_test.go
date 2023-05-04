@@ -140,7 +140,7 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	var result methods.GetLedgerEntriesResponse
 	err = client.CallResult(context.Background(), "getLedgerEntries", request, &result)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result.Entries))
+	require.Equal(t, 1, len(result.Entries))
 	assert.Greater(t, result.LatestLedger, int64(0))
 
 	var firstEntry xdr.LedgerEntryData
