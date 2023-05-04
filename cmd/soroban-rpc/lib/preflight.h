@@ -13,7 +13,7 @@ typedef struct CLedgerInfo {
 
 typedef struct CPreflightResult {
     char *error; // Error string in case of error, otherwise null
-    char *result; // SCVal XDR in base64
+    char **results; // NULL terminated array of XDR SCVals in base64
     char *preflight; // LedgerFootprint XDR in base64
     char **auth; // NULL terminated array of XDR ContractAuths in base64
     char **events; // NULL terminated array of XDR DiagnosticEvents in base64
@@ -22,7 +22,7 @@ typedef struct CPreflightResult {
 } CPreflightResult;
 
 CPreflightResult *preflight_host_function(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
-                                          char *hf, // HostFunction XDR in base64
+                                          char *invoke_hf_op, // InvokeHostFunctionOp XDR in base64
                                           const char *source_account, // AccountId XDR in base64
                                           const struct CLedgerInfo ledger_info);
 

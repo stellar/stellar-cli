@@ -7,11 +7,12 @@ use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
-    HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractCode,
-    LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount,
-    Operation, OperationBody, Preconditions, PublicKey, ScVal, SequenceNumber, Transaction,
-    TransactionEnvelope, TransactionExt, Uint256, VecM, WriteXdr,
+    AccountId, ContractId, CreateContractArgs, Error as XdrError, ExtensionPoint, Hash,
+    HashIdPreimage, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint,
+    LedgerKey::ContractCode, LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData,
+    Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScVal, SequenceNumber,
+    SorobanResources, SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
+    Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::xdr::{HashIdPreimageSourceAccountContractId, ScContractExecutable};
 use soroban_env_host::HostError;
@@ -202,19 +203,14 @@ fn build_create_contract_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateContract(CreateContractArgs {
-                contract_id: ContractId::SourceAccount(Uint256(salt)),
-                source: ScContractExecutable::WasmRef(hash.clone()),
-            }),
-            footprint: LedgerFootprint {
-                read_only: vec![ContractCode(LedgerKeyContractCode { hash })].try_into()?,
-                read_write: vec![ContractData(LedgerKeyContractData {
-                    contract_id: Hash(contract_id.into()),
-                    key: ScVal::LedgerKeyContractExecutable,
-                })]
-                .try_into()?,
-            },
-            auth: VecM::default(),
+            functions: vec![HostFunction {
+                args: HostFunctionArgs::CreateContract(CreateContractArgs {
+                    contract_id: ContractId::SourceAccount(Uint256(salt)),
+                    executable: ScContractExecutable::WasmRef(hash.clone()),
+                }),
+                auth: VecM::default(),
+            }]
+            .try_into()?,
         }),
     };
     let tx = Transaction {
@@ -224,7 +220,26 @@ fn build_create_contract_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V0,
+        ext: TransactionExt::V1(SorobanTransactionData {
+            resources: SorobanResources {
+                footprint: LedgerFootprint {
+                    read_only: vec![ContractCode(LedgerKeyContractCode { hash })].try_into()?,
+                    read_write: vec![ContractData(LedgerKeyContractData {
+                        contract_id: Hash(contract_id.into()),
+                        key: ScVal::LedgerKeyContractExecutable,
+                    })]
+                    .try_into()?,
+                },
+                // TODO: what values should be used here?
+                instructions: 0,
+                read_bytes: 0,
+                write_bytes: 0,
+                extended_meta_data_size_bytes: 0,
+            },
+            // TODO: what value to use here?
+            refundable_fee: 0,
+            ext: ExtensionPoint::V0,
+        }),
     };
 
     let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;

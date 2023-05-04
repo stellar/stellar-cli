@@ -99,7 +99,7 @@ type Preflight struct {
 	Auth            []string // ContractAuths XDR in base64
 	Events          []string // DiagnosticEvents XDR in base64
 	Footprint       string   // LedgerFootprint XDR in base64
-	Result          string   // SCVal XDR in base64
+	Results         []string // SCVal XDRs in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
 }
@@ -123,11 +123,12 @@ func GoNullTerminatedStringSlice(str **C.char) []string {
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
-	hfB64, err := xdr.MarshalBase64(params.InvokeHostFunction.Function)
+	// TODO: this will be broken until the Go XDR is updated
+	invokeHostFunctionB64, err := xdr.MarshalBase64(params.InvokeHostFunction)
 	if err != nil {
 		return Preflight{}, err
 	}
-	hfCString := C.CString(hfB64)
+	invokeHostFunctionCString := C.CString(invokeHostFunctionB64)
 	sourceAccountB64, err := xdr.MarshalBase64(params.SourceAccount)
 	if err != nil {
 		return Preflight{}, err
@@ -150,11 +151,11 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	defer handle.Delete()
 	res := C.preflight_host_function(
 		C.uintptr_t(handle),
-		hfCString,
+		invokeHostFunctionCString,
 		sourceAccountCString,
 		li,
 	)
-	C.free(unsafe.Pointer(hfCString))
+	C.free(unsafe.Pointer(invokeHostFunctionCString))
 	C.free(unsafe.Pointer(sourceAccountCString))
 	defer C.free_preflight_result(res)
 
@@ -166,7 +167,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		Auth:            GoNullTerminatedStringSlice(res.auth),
 		Events:          GoNullTerminatedStringSlice(res.events),
 		Footprint:       C.GoString(res.preflight),
-		Result:          C.GoString(res.result),
+		Results:         GoNullTerminatedStringSlice(res.results),
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),
 	}
