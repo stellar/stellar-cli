@@ -127,11 +127,25 @@ jobs:
       # See https://stackoverflow.com/questions/66579446/error-executing-docker-compose-building-webserver-unable-to-prepare-context-un
       - name: Work around Docker Compose problem
         run: |
-          sudo pip3 install pip --upgrade
-          sudo pip3 install pyopenssl --upgrade
-          sudo pip3 install docker-compose
-          # Give running user docker access, needed by docker-compose
-          sudo gpasswd -a $(whoami) docker
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates curl gnupg
+          
+          # Install docker apt repo
+          sudo install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          sudo chmod a+r /etc/apt/keyrings/docker.gpg
+          echo \
+            "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+            "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+          # Install docker-compose v2 from apt repo
+          sudo apt-get update
+          sudo apt-get remove -y moby-compose
+          sudo apt-get install -y docker-compose-plugin
+
+          echo "Docker Compose Version:"
+          docker-compose version
 
       - name: Build libpreflight
         run: make build-libpreflight
