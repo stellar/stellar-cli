@@ -7,12 +7,7 @@ use soroban_env_host::auth::RecordedAuthPayload;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::events::{Event, Events};
 use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
-use soroban_env_host::xdr::{
-    self, AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, InvokeHostFunctionOp,
-    LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode, ScStatus,
-    ScUnknownErrorCode::{General, Xdr},
-    ScVal, WriteXdr,
-};
+use soroban_env_host::xdr::{self, AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntry, LedgerKey, ReadXdr, ScHostStorageErrorCode, ScStatus, ScUnknownErrorCode::{General, Xdr}, ScVal, SorobanResources, SorobanTransactionData, WriteXdr};
 use soroban_env_host::{Host, HostError, LedgerInfo};
 use std::convert::TryInto;
 use std::ffi::{CStr, CString};
@@ -113,7 +108,7 @@ fn storage_footprint_to_ledger_footprint(
 pub struct CPreflightResult {
     pub error: *mut libc::c_char, // Error string in case of error, otherwise null
     pub results: *mut *mut libc::c_char, // NULL terminated array of XDR SCVals in base64
-    pub footprint: *mut libc::c_char, // LedgerFootprint XDR in base64
+    pub transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64
     pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
     pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
     pub cpu_instructions: u64,
@@ -127,7 +122,7 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
     Box::into_raw(Box::new(CPreflightResult {
         error: c_str.into_raw(),
         results: null_mut(),
-        footprint: null_mut(),
+        transaction_data: null_mut(),
         auth: null_mut(),
         events: null_mut(),
         cpu_instructions: 0,
@@ -136,7 +131,7 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
 }
 
 #[no_mangle]
-pub extern "C" fn preflight_host_function(
+pub extern "C" fn preflight_invoke_hf_op(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
     invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
@@ -145,7 +140,7 @@ pub extern "C" fn preflight_host_function(
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        preflight_host_function_or_maybe_panic(handle, invoke_hf_op, source_account, ledger_info)
+        preflight_invoke_hf_op_or_maybe_panic(handle, invoke_hf_op, source_account, ledger_info)
     }));
     match res {
         Err(panic) => match panic.downcast::<String>() {
@@ -165,7 +160,7 @@ pub extern "C" fn preflight_host_function(
     }
 }
 
-fn preflight_host_function_or_maybe_panic(
+fn preflight_invoke_hf_op_or_maybe_panic(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
     invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
@@ -192,15 +187,32 @@ fn preflight_host_function_or_maybe_panic(
     let (storage, budget, events) = host.try_finish().unwrap();
 
     let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
-    let fp_cstr = CString::new(fp.to_xdr_base64()?)?;
+    let transaction_data = calculate_soroban_transaction_data(fp)?;
+    let transaction_data = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),
         results: scvals_to_c(results)?,
-        footprint: fp_cstr.into_raw(),
+        transaction_data: transaction_data.into_raw(),
         auth: recorded_auth_payloads_to_c(auth_payloads)?,
         events: host_events_to_c(events)?,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
+    })
+
+}
+
+fn calculate_soroban_transaction_data(fp: LedgerFootprint)  -> Result<SorobanTransactionData, Box<dyn error::Error>> {
+    // TODO
+    Ok(SorobanTransactionData{
+        resources: SorobanResources {
+            footprint: fp,
+            instructions: 0,
+            read_bytes: 0,
+            write_bytes: 0,
+            extended_meta_data_size_bytes: 0,
+        },
+        refundable_fee: 0,
+        ext: ExtensionPoint::V0,
     })
 }
 
@@ -301,8 +313,8 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
         if !(*result).results.is_null() {
             free_c_null_terminated_char_array((*result).results);
         }
-        if !(*result).footprint.is_null() {
-            let _ = CString::from_raw((*result).footprint);
+        if !(*result).transaction_data.is_null() {
+            let _ = CString::from_raw((*result).transaction_data);
         }
         if !(*result).auth.is_null() {
             free_c_null_terminated_char_array((*result).auth);

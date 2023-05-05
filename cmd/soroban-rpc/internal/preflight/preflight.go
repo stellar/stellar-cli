@@ -98,7 +98,7 @@ type PreflightParameters struct {
 type Preflight struct {
 	Auth            []string // ContractAuths XDR in base64
 	Events          []string // DiagnosticEvents XDR in base64
-	Footprint       string   // LedgerFootprint XDR in base64
+	TransactionData string   // SorobanTransactionData XDR in base64
 	Results         []string // SCVal XDRs in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
@@ -149,7 +149,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	sourceAccountCString := C.CString(sourceAccountB64)
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
-	res := C.preflight_host_function(
+	res := C.preflight_invoke_hf_op(
 		C.uintptr_t(handle),
 		invokeHostFunctionCString,
 		sourceAccountCString,
@@ -166,7 +166,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	preflight := Preflight{
 		Auth:            GoNullTerminatedStringSlice(res.auth),
 		Events:          GoNullTerminatedStringSlice(res.events),
-		Footprint:       C.GoString(res.preflight),
+		TransactionData: C.GoString(res.transaction_data),
 		Results:         GoNullTerminatedStringSlice(res.results),
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),

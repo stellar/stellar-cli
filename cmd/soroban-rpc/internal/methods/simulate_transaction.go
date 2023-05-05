@@ -21,19 +21,23 @@ type SimulateTransactionCost struct {
 	MemoryBytes     uint64 `json:"memBytes,string"`
 }
 
+// TODO: should this refer to each InvokeHostFunctionOp within the transaction
+//
+//	or to each HostFunction within each InvokeHostFunctionOp
 type SimulateTransactionResult struct {
-	Auth      []string `json:"auth"`
-	Events    []string `json:"events"`
-	Footprint string   `json:"footprint"`
+	Auth   []string `json:"auth"`
+	Events []string `json:"events"`
 	// TODO: update documentation and review field name
-	XDRs []string `json:"xdrs"`
+	XDRs []string `json:"xdrs"` // SCVal XDRs in base64
 }
 
 type SimulateTransactionResponse struct {
-	Error        string                      `json:"error,omitempty"`
-	Results      []SimulateTransactionResult `json:"results,omitempty"`
-	Cost         SimulateTransactionCost     `json:"cost"`
-	LatestLedger int64                       `json:"latestLedger,string"`
+	Error string `json:"error,omitempty"`
+	// TODO: update documentation and review field name
+	TransactionData string                      `json:"transaction_data"` // SorobanTransactionData XDR in base64
+	Results         []SimulateTransactionResult `json:"results,omitempty"`
+	Cost            SimulateTransactionCost     `json:"cost"`
+	LatestLedger    int64                       `json:"latestLedger,string"`
 }
 
 type PreflightGetter interface {
@@ -99,12 +103,12 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		return SimulateTransactionResponse{
 			Results: []SimulateTransactionResult{
 				{
-					Events:    result.Events,
-					Auth:      result.Auth,
-					Footprint: result.Footprint,
-					XDRs:      result.Results,
+					Events: result.Events,
+					Auth:   result.Auth,
+					XDRs:   result.Results,
 				},
 			},
+			TransactionData: result.TransactionData,
 			Cost: SimulateTransactionCost{
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
