@@ -1,7 +1,7 @@
 use http::{uri::Authority, Uri};
 use itertools::Itertools;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
-use jsonrpsee_http_client::{types, HeaderMap, HttpClient, HttpClientBuilder};
+use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, DiagnosticEvent, Error as XdrError, LedgerEntryData, LedgerKey,
@@ -9,11 +9,11 @@ use soroban_env_host::xdr::{
     Uint256, WriteXdr,
 };
 use std::{
-    collections,
     fmt::Display,
     str::FromStr,
     time::{Duration, Instant},
 };
+use jsonrpsee_core::params::ObjectParams;
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
@@ -506,17 +506,20 @@ impl Client {
             pagination.insert("limit".to_string(), limit.into());
         }
 
-        let mut object = collections::BTreeMap::<&str, jsonrpsee_core::JsonValue>::new();
+        let mut oparams = ObjectParams::new();
         match start {
-            EventStart::Ledger(l) => object.insert("startLedger", l.to_string().into()),
-            EventStart::Cursor(c) => pagination.insert("cursor".to_string(), c.into()),
+            EventStart::Ledger(l) => oparams.insert("startLedger", l.to_string())?,
+            EventStart::Cursor(c) => {
+                let _ = pagination.insert("cursor".to_string(), c.into());
+            },
         };
-        object.insert("filters", vec![filters].into());
-        object.insert("pagination", pagination.into());
+        oparams.insert("filters", vec![filters])?;
+        oparams.insert("pagination", pagination)?;
+
 
         Ok(self
             .client()?
-            .request("getEvents", Some(types::ParamsSer::Map(object)))
+            .request("getEvents", oparams)
             .await?)
     }
 }
