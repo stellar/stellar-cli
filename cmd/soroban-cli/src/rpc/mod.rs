@@ -1,5 +1,6 @@
 use http::{uri::Authority, Uri};
 use itertools::Itertools;
+use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
@@ -13,7 +14,6 @@ use std::{
     str::FromStr,
     time::{Duration, Instant},
 };
-use jsonrpsee_core::params::ObjectParams;
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
@@ -511,16 +511,12 @@ impl Client {
             EventStart::Ledger(l) => oparams.insert("startLedger", l.to_string())?,
             EventStart::Cursor(c) => {
                 let _ = pagination.insert("cursor".to_string(), c.into());
-            },
+            }
         };
         oparams.insert("filters", vec![filters])?;
         oparams.insert("pagination", pagination)?;
 
-
-        Ok(self
-            .client()?
-            .request("getEvents", oparams)
-            .await?)
+        Ok(self.client()?.request("getEvents", oparams).await?)
     }
 }
 
