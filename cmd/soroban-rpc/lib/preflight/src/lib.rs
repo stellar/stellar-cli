@@ -18,6 +18,7 @@ use std::convert::TryInto;
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
+use std::ptr;
 use std::rc::Rc;
 use std::{error, mem};
 use xdr::LedgerFootprint;
@@ -330,4 +331,102 @@ fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
         // deallocate the containing vector
         let _ = Vec::from_raw_parts(array, i + 1, i + 1);
     }
+}
+
+#[repr(C)]
+pub struct TransactionResources {
+    /// Number of CPU instructions.
+    pub instructions: u32,
+    /// Number of ledger entries the transaction reads.
+    pub read_entries: u32,
+    /// Number of ledger entries the transaction writes (these are also counted
+    /// as entries that are being read for the sake of the respective fees).
+    pub write_entries: u32,
+    /// Number of bytes read from ledger.
+    pub read_bytes: u32,
+    /// Number of bytes written to ledger.
+    pub write_bytes: u32,
+    /// Size of the metadata that transaction emits. Consists of the size of
+    /// the events XDR, the size of writeable entries XDR before the transaction
+    /// is applied, the size of writeable entries XDR after the transaction is
+    /// applied.
+    pub metadata_size_bytes: u32,
+    /// Size of the transaction XDR.
+    pub transaction_size_bytes: u32,
+}
+
+#[repr(C)]
+pub struct FeeConfiguration {
+    /// Fee per `INSTRUCTIONS_INCREMENT=10000` instructions.
+    pub fee_per_instruction_increment: i64,
+    /// Fee per 1 entry read from ledger.
+    pub fee_per_read_entry: i64,
+    /// Fee per 1 entry written to ledger.
+    pub fee_per_write_entry: i64,
+    /// Fee per 1KB read from ledger.
+    pub fee_per_read_1kb: i64,
+    /// Fee per 1KB written to ledger.
+    pub fee_per_write_1kb: i64,
+    /// Fee per 1KB written to history (the history write size is based on
+    /// transaction size and `TX_BASE_RESULT_SIZE`).
+    pub fee_per_historical_1kb: i64,
+    /// Fee per 1KB of metadata written.
+    pub fee_per_metadata_1kb: i64,
+    /// Fee per 1KB propagate to the network (the propagated size is equal to
+    /// the transaction size).
+    pub fee_per_propagate_1kb: i64,
+}
+
+#[repr(C)]
+pub struct ComputeTransactionResourceFeeResult {
+    pub fee: i64,
+    pub refundable_fee: i64,
+}
+
+#[no_mangle]
+/// Computes the resource fee for a transaction based on the resource
+/// consumption and the fee-related network configuration.
+///
+/// Returns a pair of `(fee, refundable_fee)`, where refundable fee is also
+/// included into the final fee.
+pub extern "C" fn compute_transaction_resource_fee(
+    transaction_resources: *const libc::c_char,
+    fee_configuration: *const libc::c_char,
+    result: *const libc::c_char,
+)  {
+    // cast all input pointers.
+    let transaction_res = unsafe {
+        let mut p;
+        p = ptr::NonNull::new(
+            transaction_resources as *mut TransactionResources
+        ).unwrap();
+        p.as_mut()
+    };
+    let fee_config = unsafe {
+        let mut p;
+        p = ptr::NonNull::new(
+            fee_configuration as *mut FeeConfiguration
+        ).unwrap();
+        p.as_mut()
+    };
+    let out_res = unsafe {
+        let mut p;
+        p = ptr::NonNull::new(
+            result as *mut ComputeTransactionResourceFeeResult
+        ).unwrap();
+        p.as_mut()
+    };
+    // todo.
+    (out_res.fee, out_res.refundable_fee) = soroban_env_host::fees::compute_transaction_resource_fee(
+        &soroban_env_host::fees::TransactionResources{
+            instructions: transaction_res.instructions,
+            read_entries: transaction_res.read_entries,
+            write_entries: transaction_res.write_entries,
+            read_bytes: transaction_res.
+            write_bytes: transaction_res.
+            metadata_size_bytes: transaction_res.
+            transaction_size_bytes: transaction_res.
+        },
+        &soroban_env_host::fees::FeeConfiguration{},
+    )
 }
