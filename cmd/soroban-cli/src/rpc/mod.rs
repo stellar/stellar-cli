@@ -510,7 +510,7 @@ impl Client {
         match start {
             EventStart::Ledger(l) => oparams.insert("startLedger", l.to_string())?,
             EventStart::Cursor(c) => {
-                let _ = pagination.insert("cursor".to_string(), c.into());
+                pagination.insert("cursor".to_string(), c.into());
             }
         };
         oparams.insert("filters", vec![filters])?;
