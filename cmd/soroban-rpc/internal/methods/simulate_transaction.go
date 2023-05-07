@@ -23,15 +23,15 @@ type SimulateTransactionCost struct {
 
 // SimulateHostFunctionResult contains the simulation result of each HostFunction within each InvokeHostFunctionOp
 type SimulateHostFunctionResult struct {
-	Auth   []string `json:"auth"`
-	Events []string `json:"events"`
-	XDR    string   `json:"xdr"`
+	Auth []string `json:"auth"`
+	XDR  string   `json:"xdr"`
 }
 
 type SimulateTransactionResponse struct {
 	Error string `json:"error,omitempty"`
-	// TODO: update documentation and review field name
+	// TODO: update documentation and review field names
 	TransactionData string                       `json:"transaction_data"` // SorobanTransactionData XDR in base64
+	Events          []string                     `json:"events"`           // DiagnosticEvent XDR in base64
 	MinResourceFee  int64                        `json:"minResourceFee,string"`
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`
 	Cost            SimulateTransactionCost      `json:"cost"`
@@ -107,11 +107,11 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		//
 		// FIXME: this is wrong! we should be able to get the auth and events for each separate function
 		//        but needs to be implemented in libpreflight first
-		hostFunctionResults[0].Events = result.Events
 		hostFunctionResults[0].Auth = result.Auth
 
 		return SimulateTransactionResponse{
 			Results:         hostFunctionResults,
+			Events:          result.Events,
 			TransactionData: result.TransactionData,
 			MinResourceFee:  result.MinFee,
 			Cost: SimulateTransactionCost{

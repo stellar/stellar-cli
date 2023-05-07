@@ -484,9 +484,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 
 	// check the events
-	assert.Len(t, response.Results[0].Events, 1)
+	assert.Len(t, response.Events, 1)
 	var event xdr.DiagnosticEvent
-	err = xdr.SafeUnmarshalBase64(response.Results[0].Events[0], &event)
+	err = xdr.SafeUnmarshalBase64(response.Events[0], &event)
 	assert.NoError(t, err)
 	assert.True(t, event.InSuccessfulContractCall)
 	assert.Equal(t, xdr.Hash(contractID), *event.Event.ContractId)
