@@ -260,10 +260,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
+			// TODO: place actual string
+			TransactionData: "",
 			Results: []methods.SimulateHostFunctionResult{
 				{
-					Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
-					XDR:       expectedXdr,
+					XDR: expectedXdr,
 				},
 			},
 			LatestLedger: result.LatestLedger,
@@ -434,8 +435,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, authAccountIDArg, obtainedResult.Address.MustAccountId())
 
 	// check the footprint
-	var obtainedFootprint xdr.LedgerFootprint
-	err = xdr.SafeUnmarshalBase64(response.Results[0].Footprint, &obtainedFootprint)
+	var obtainedTransactionData xdr.SorobanTransactionData
+	err = xdr.SafeUnmarshalBase64(response.TransactionData, &obtainedTransactionData)
+	obtainedFootprint := obtainedTransactionData.Resources.Footprint
 	assert.NoError(t, err)
 	assert.Len(t, obtainedFootprint.ReadWrite, 1)
 	assert.Len(t, obtainedFootprint.ReadOnly, 3)
@@ -453,6 +455,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	contractHash := sha256.Sum256(uploadContractCodeArgs)
 	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
 	assert.NoError(t, err)
+
+	// TODO: check the other transactiondata fields
 
 	// check the auth
 	assert.Len(t, response.Results[0].Auth, 1)
