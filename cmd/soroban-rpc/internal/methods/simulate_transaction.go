@@ -32,7 +32,7 @@ type SimulateTransactionResponse struct {
 	Error string `json:"error,omitempty"`
 	// TODO: update documentation and review field name
 	TransactionData string                       `json:"transaction_data"` // SorobanTransactionData XDR in base64
-	MinFee          int64                        `json:"minFee,string"`
+	MinResourceFee  int64                        `json:"minResourceFee,string"`
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`
 	Cost            SimulateTransactionCost      `json:"cost"`
 	LatestLedger    int64                        `json:"latestLedger,string"`
@@ -113,7 +113,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		return SimulateTransactionResponse{
 			Results:         hostFunctionResults,
 			TransactionData: result.TransactionData,
-			MinFee:          result.MinFee,
+			MinResourceFee:  result.MinFee,
 			Cost: SimulateTransactionCost{
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,

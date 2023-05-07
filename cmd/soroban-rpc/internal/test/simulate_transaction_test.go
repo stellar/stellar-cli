@@ -260,8 +260,8 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			// TODO: place actual string
-			TransactionData: "",
+			TransactionData: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MIAAGWMAAAAAAAAAGQAAABkAAAAAAAAABQAAAAA",
+			MinResourceFee:  result.MinResourceFee,
 			Results: []methods.SimulateHostFunctionResult{
 				{
 					XDR: expectedXdr,

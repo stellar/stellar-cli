@@ -397,12 +397,11 @@ fn calculate_unmodified_ledger_entry_bytes(
             }
             Err(e) => {
                 if e.status == ScHostStorageErrorCode::AccessToUnknownEntry.into() {
-                    // If not present in the unmodified ledger storage, assume it to be due to the
-                    // entry being created by a host function invocation.
+                    // The entry is not present in the unmodified ledger storage.
+                    // We assume it to be due to the entry being created by a host function invocation.
                     // Thus, we shouldn't count it in as unmodified.
                     continue;
                 }
-                println!("{:?}", e);
                 return Err(e)?;
             }
         };
