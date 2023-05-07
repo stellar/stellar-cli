@@ -389,10 +389,23 @@ fn calculate_unmodified_ledger_entry_bytes(
     let mut res: u32 = 0;
     for lk in ledger_entries {
         // TODO: remove unnecessary Rc
-        let le = snapshot_source.get(&Rc::new(lk.clone()))?;
-        let entry_bytes = le.to_xdr()?;
-        let key_bytes = lk.to_xdr()?;
-        res += (entry_bytes.len() + key_bytes.len()) as u32;
+        match snapshot_source.get(&Rc::new(lk.clone())) {
+            Ok(le) => {
+                let entry_bytes = le.to_xdr()?;
+                let key_bytes = lk.to_xdr()?;
+                res += (entry_bytes.len() + key_bytes.len()) as u32;
+            }
+            Err(e) => {
+                if e.status == ScHostStorageErrorCode::AccessToUnknownEntry.into() {
+                    // If not present in the unmodified ledger storage, assume it to be due to the
+                    // entry being created by a host function invocation.
+                    // Thus, we shouldn't count it in as unmodified.
+                    continue;
+                }
+                println!("{:?}", e);
+                return Err(e)?;
+            }
+        };
     }
     Ok(res)
 }
