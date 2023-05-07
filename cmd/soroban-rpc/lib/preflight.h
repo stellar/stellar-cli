@@ -15,6 +15,7 @@ typedef struct CPreflightResult {
     char *error; // Error string in case of error, otherwise null
     char **results; // NULL terminated array of XDR SCVals in base64
     char *transaction_data; // SorobanTransactionData XDR in base64
+    int64_t min_fee; // Minimum recommended resource fee
     char **auth; // NULL terminated array of XDR ContractAuths in base64
     char **events; // NULL terminated array of XDR DiagnosticEvents in base64
     uint64_t cpu_instructions;

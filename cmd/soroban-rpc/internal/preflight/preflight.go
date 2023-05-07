@@ -99,6 +99,7 @@ type Preflight struct {
 	Auth            []string // ContractAuths XDR in base64
 	Events          []string // DiagnosticEvents XDR in base64
 	TransactionData string   // SorobanTransactionData XDR in base64
+	MinFee          int64
 	Results         []string // SCVal XDRs in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
@@ -167,6 +168,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		Auth:            GoNullTerminatedStringSlice(res.auth),
 		Events:          GoNullTerminatedStringSlice(res.events),
 		TransactionData: C.GoString(res.transaction_data),
+		MinFee:          res.min_fee,
 		Results:         GoNullTerminatedStringSlice(res.results),
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),

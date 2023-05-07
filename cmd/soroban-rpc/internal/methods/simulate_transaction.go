@@ -21,23 +21,21 @@ type SimulateTransactionCost struct {
 	MemoryBytes     uint64 `json:"memBytes,string"`
 }
 
-// TODO: should this refer to each InvokeHostFunctionOp within the transaction
-//
-//	or to each HostFunction within each InvokeHostFunctionOp
-type SimulateTransactionResult struct {
+// SimulateHostFunctionResult contains the simulation result of each HostFunction within each InvokeHostFunctionOp
+type SimulateHostFunctionResult struct {
 	Auth   []string `json:"auth"`
 	Events []string `json:"events"`
-	// TODO: update documentation and review field name
-	XDRs []string `json:"xdrs"` // SCVal XDRs in base64
+	XDR    string   `json:"xdr"`
 }
 
 type SimulateTransactionResponse struct {
 	Error string `json:"error,omitempty"`
 	// TODO: update documentation and review field name
-	TransactionData string                      `json:"transaction_data"` // SorobanTransactionData XDR in base64
-	Results         []SimulateTransactionResult `json:"results,omitempty"`
-	Cost            SimulateTransactionCost     `json:"cost"`
-	LatestLedger    int64                       `json:"latestLedger,string"`
+	TransactionData string                       `json:"transaction_data"` // SorobanTransactionData XDR in base64
+	MinFee          int64                        `json:"minFee,string"`
+	Results         []SimulateHostFunctionResult `json:"results,omitempty"`
+	Cost            SimulateTransactionCost      `json:"cost"`
+	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
 type PreflightGetter interface {
@@ -100,15 +98,24 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
+		hostFunctionResults := make([]SimulateHostFunctionResult, len(result.Results))
+		for i := 0; i < len(hostFunctionResults); i++ {
+			hostFunctionResults[i].XDR = result.Results[i]
+		}
+
+		// For now, attribute the full auth and and events to the first function
+		//
+		// FIXME: this is wrong! we should be able to get the auth and events for each separate function
+		//        but needs to be implemented in libpreflight first
+		hostFunctionResults[0].Events = result.Events
+		hostFunctionResults[0].Auth = result.Auth
+
 		return SimulateTransactionResponse{
-			Results: []SimulateTransactionResult{
-				{
-					Events: result.Events,
-					Auth:   result.Auth,
-					XDRs:   result.Results,
-				},
-			},
+			Results:         hostFunctionResults,
 			TransactionData: result.TransactionData,
+			// FIXME: this cast shouldn't be necessary
+			//       find out why it doesn't work without it
+			MinFee: int64(result.MinFee),
 			Cost: SimulateTransactionCost{
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,

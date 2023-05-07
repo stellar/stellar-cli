@@ -260,7 +260,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			Results: []methods.SimulateTransactionResult{
+			Results: []methods.SimulateHostFunctionResult{
 				{
 					Footprint: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MI=",
 					XDR:       expectedXdr,
