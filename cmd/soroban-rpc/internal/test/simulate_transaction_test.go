@@ -87,6 +87,8 @@ func createInstallContractCodeOperation(t *testing.T, sourceAccount string, cont
 				},
 			},
 		}
+		// TODO: fill in this data properly
+		//       we will most likely need to invoke the preflight endpoint
 		ext = xdr.TransactionExt{
 			V: 1,
 			SorobanData: &xdr.SorobanTransactionData{
@@ -149,6 +151,8 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 				},
 			},
 		}
+		// TODO: fill in this data properly
+		//       we will most likely need to invoke the preflight endpoint
 		ext = xdr.TransactionExt{
 			V: 1,
 			SorobanData: &xdr.SorobanTransactionData{
@@ -394,6 +398,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInvokeHostOperation(
 				address,
+				// TODO: fill in this data properly
+				//       we will most likely need to invoke the preflight endpoint
 				xdr.TransactionExt{},
 				contractID,
 				"auth",
