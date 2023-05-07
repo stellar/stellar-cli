@@ -113,9 +113,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		return SimulateTransactionResponse{
 			Results:         hostFunctionResults,
 			TransactionData: result.TransactionData,
-			// FIXME: this cast shouldn't be necessary
-			//       find out why it doesn't work without it
-			MinFee: int64(result.MinFee),
+			MinFee:          result.MinFee,
 			Cost: SimulateTransactionCost{
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,

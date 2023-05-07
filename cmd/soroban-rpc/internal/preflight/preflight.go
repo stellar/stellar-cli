@@ -168,7 +168,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		Auth:            GoNullTerminatedStringSlice(res.auth),
 		Events:          GoNullTerminatedStringSlice(res.events),
 		TransactionData: C.GoString(res.transaction_data),
-		MinFee:          res.min_fee,
+		MinFee:          int64(res.min_fee),
 		Results:         GoNullTerminatedStringSlice(res.results),
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),
