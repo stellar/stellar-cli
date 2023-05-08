@@ -21,7 +21,7 @@ type SimulateTransactionCost struct {
 	MemoryBytes     uint64 `json:"memBytes,string"`
 }
 
-// SimulateHostFunctionResult contains the simulation result of each HostFunction within each InvokeHostFunctionOp
+// SimulateHostFunctionResult contains the simulation result of each HostFunction within the single InvokeHostFunctionOp allowed in a Transaction
 type SimulateHostFunctionResult struct {
 	Auth []string `json:"auth"`
 	XDR  string   `json:"xdr"`
