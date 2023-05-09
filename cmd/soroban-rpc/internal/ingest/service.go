@@ -3,6 +3,7 @@ package ingest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -24,6 +25,8 @@ import (
 const (
 	ledgerEntryBaselineProgressLogPeriod = 10000
 )
+
+var errEmptyArchives = fmt.Errorf("cannot start ingestion without history archives, wait until first history archives are published")
 
 type Config struct {
 	Logger            *log.Entry
@@ -86,7 +89,12 @@ func NewService(cfg Config) *Service {
 		contextBackoff := backoff.WithContext(constantBackoff, ctx)
 		err := backoff.RetryNotify(
 			func() error {
-				return service.run(ctx, cfg.Archive)
+				err := service.run(ctx, cfg.Archive)
+				if errors.Is(err, errEmptyArchives) {
+					// keep retrying until history archives are published
+					constantBackoff.Reset()
+				}
+				return err
 			},
 			contextBackoff,
 			cfg.OnIngestionRetry)
@@ -153,6 +161,8 @@ func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive hi
 		var checkpointLedger uint32
 		if root, rootErr := archive.GetRootHAS(); rootErr != nil {
 			return 0, checkPointFillErr, rootErr
+		} else if root.CurrentLedger == 0 {
+			return 0, checkPointFillErr, errEmptyArchives
 		} else {
 			checkpointLedger = root.CurrentLedger
 		}
