@@ -198,6 +198,8 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let (storage, budget, events) = host.try_finish().unwrap();
 
     let diagnostic_events = host_events_to_diagnostic_events(&events)?;
+    // TODO: add the auth info to invoke_hf_op so that it's taken into account when estimating the
+    //       transaction size
     let (transaction_data, min_fee) = compute_transaction_data_and_min_fee(
         &invoke_hf_op,
         &CSnapshotSource { handle },
