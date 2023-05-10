@@ -220,6 +220,7 @@ func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPas
 
 func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbuild.TransactionParams) (txnbuild.TransactionParams, methods.SimulateTransactionResponse) {
 	savedAutoIncrement := params.IncrementSequenceNum
+
 	params.IncrementSequenceNum = false
 	tx, err := txnbuild.NewTransaction(params)
 	params.IncrementSequenceNum = savedAutoIncrement
@@ -391,7 +392,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInstallContractCodeOperation(t, account.AccountID, helloWorldContract, false),
 		},
-		BaseFee: txnbuild.MinBaseFee * 100,
+		BaseFee: 2992,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
