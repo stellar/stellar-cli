@@ -309,7 +309,6 @@ fn estimate_max_transaction_size(
 
     // Add a 15% leeway
     let envelope_size = envelope_size * 115 / 100;
-    println!("envelope_size: {}", envelope_size);
     Ok(envelope_size as u32)
 }
 

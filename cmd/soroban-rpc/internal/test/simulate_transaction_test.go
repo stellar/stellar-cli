@@ -88,8 +88,7 @@ func createInstallContractCodeOperation(t *testing.T, sourceAccount string, cont
 				},
 			},
 		}
-		// TODO: fill in this data properly
-		//       we will most likely need to invoke the preflight endpoint
+		// TODO: stop filling in data here, it should simply be preflight'ed
 		ext = xdr.TransactionExt{
 			V: 1,
 			SorobanData: &xdr.SorobanTransactionData{
@@ -220,7 +219,6 @@ func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPas
 
 func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbuild.TransactionParams) (txnbuild.TransactionParams, methods.SimulateTransactionResponse) {
 	savedAutoIncrement := params.IncrementSequenceNum
-
 	params.IncrementSequenceNum = false
 	tx, err := txnbuild.NewTransaction(params)
 	params.IncrementSequenceNum = savedAutoIncrement
@@ -392,7 +390,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInstallContractCodeOperation(t, account.AccountID, helloWorldContract, false),
 		},
-		BaseFee: 2992,
+		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -401,18 +399,19 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
+	params, _ = preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase, true),
+			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase, false),
 		},
-		// TODO: replace this will the preflight min value?
-		BaseFee: txnbuild.MinBaseFee * 1000,
+		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+
+	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
