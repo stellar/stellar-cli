@@ -390,12 +390,12 @@ fn calculate_unmodified_ledger_entry_bytes(
 ) -> Result<u32, Box<dyn error::Error>> {
     let mut res: u32 = 0;
     for lk in ledger_entries {
+        res += lk.to_xdr()?.len() as u32;
         // TODO: remove unnecessary Rc
         match snapshot_source.get(&Rc::new(lk.clone())) {
             Ok(le) => {
                 let entry_bytes = le.to_xdr()?;
-                let key_bytes = lk.to_xdr()?;
-                res += (entry_bytes.len() + key_bytes.len()) as u32;
+                res += entry_bytes.len() as u32;
             }
             Err(e) => {
                 if e.status == ScHostStorageErrorCode::AccessToUnknownEntry.into() {
