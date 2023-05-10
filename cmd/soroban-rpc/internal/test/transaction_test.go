@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
@@ -231,12 +232,22 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedHashHex, result.Hash)
-	assert.Equal(t, proto.TXStatusPending, result.Status)
+	if !assert.Equal(t, proto.TXStatusPending, result.Status) {
+		var txResult xdr.TransactionResult
+		err := xdr.SafeUnmarshalBase64(result.ErrorResultXDR, &txResult)
+		assert.NoError(t, err)
+		fmt.Printf("error: %#v\n", txResult)
+	}
 	assert.NotZero(t, result.LatestLedger)
 	assert.NotZero(t, result.LatestLedgerCloseTime)
 
 	response := getTransaction(t, client, expectedHashHex)
-	assert.Equal(t, methods.TransactionStatusSuccess, response.Status)
+	if !assert.Equal(t, methods.TransactionStatusSuccess, response.Status) {
+		var txResult xdr.TransactionResult
+		err := xdr.SafeUnmarshalBase64(response.ResultXdr, &txResult)
+		assert.NoError(t, err)
+		fmt.Printf("error: %#v\n", txResult)
+	}
 	assert.NotNil(t, response.ResultXdr)
 	assert.Greater(t, response.Ledger, result.LatestLedger)
 	assert.Greater(t, response.LedgerCloseTime, result.LatestLedgerCloseTime)

@@ -349,7 +349,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInstallContractCodeOperation(t, account.AccountID, helloWorldContract, true),
 		},
-		BaseFee: txnbuild.MinBaseFee,
+		// TODO: replace this will the preflight min value?
+		BaseFee: txnbuild.MinBaseFee * 10000,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -363,7 +364,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase, true),
 		},
-		BaseFee: txnbuild.MinBaseFee,
+		// TODO: replace this will the preflight min value?
+		BaseFee: txnbuild.MinBaseFee * 1000,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -416,7 +418,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 				},
 			),
 		},
-		BaseFee: txnbuild.MinBaseFee,
+		// TODO: replace this will the preflight min value?
+		BaseFee: txnbuild.MinBaseFee * 1000,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
