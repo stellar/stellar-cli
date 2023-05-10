@@ -230,10 +230,13 @@ fn compute_transaction_data_and_min_fee(
     let soroban_resources = calculate_soroban_resources(snapshot_source, storage, budget, events)?;
     let fee_configuration = get_fee_configuration(snapshot_source)?;
 
+    let read_write_entries = soroban_resources.footprint.read_write.as_vec().len() as u32;
+
     let transaction_resources = TransactionResources {
         instructions: soroban_resources.instructions,
-        read_entries: soroban_resources.footprint.read_only.as_vec().len() as u32,
-        write_entries: soroban_resources.footprint.read_write.as_vec().len() as u32,
+        read_entries: soroban_resources.footprint.read_only.as_vec().len() as u32
+            + read_write_entries,
+        write_entries: read_write_entries,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: soroban_resources.write_bytes,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
@@ -306,6 +309,7 @@ fn estimate_max_transaction_size(
 
     // Add a 15% leeway
     let envelope_size = envelope_size * 115 / 100;
+    println!("envelope_size: {}", envelope_size);
     Ok(envelope_size as u32)
 }
 
