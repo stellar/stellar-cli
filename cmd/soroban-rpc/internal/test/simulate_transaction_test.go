@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"os"
 	"path"
 	"runtime"
@@ -217,6 +218,47 @@ func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPas
 	return hashedContractID
 }
 
+func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbuild.TransactionParams) (txnbuild.TransactionParams, methods.SimulateTransactionResponse) {
+	savedAutoIncrement := params.IncrementSequenceNum
+	params.IncrementSequenceNum = false
+	tx, err := txnbuild.NewTransaction(params)
+	params.IncrementSequenceNum = savedAutoIncrement
+	assert.NoError(t, err)
+	assert.Len(t, params.Operations, 1)
+	op, ok := params.Operations[0].(*txnbuild.InvokeHostFunctions)
+	assert.True(t, ok)
+	txB64, err := tx.Base64()
+	assert.NoError(t, err)
+
+	request := methods.SimulateTransactionRequest{Transaction: txB64}
+	var response methods.SimulateTransactionResponse
+	err = client.CallResult(context.Background(), "simulateTransaction", request, &response)
+	assert.NoError(t, err)
+	if !assert.Empty(t, response.Error) {
+		fmt.Println(response.Error)
+	}
+	var transactionData xdr.SorobanTransactionData
+	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
+	op.Ext = xdr.TransactionExt{
+		V:           1,
+		SorobanData: &transactionData,
+	}
+	for i, res := range response.Results {
+		var auth []xdr.ContractAuth
+		for _, b64 := range res.Auth {
+			var a xdr.ContractAuth
+			err := xdr.SafeUnmarshalBase64(b64, &a)
+			assert.NoError(t, err)
+			auth = append(auth, a)
+		}
+		op.Functions[i].Auth = auth
+	}
+
+	params.Operations = []txnbuild.Operation{op}
+	params.BaseFee += response.MinResourceFee
+	return params, response
+}
+
 func TestSimulateTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 
@@ -343,18 +385,18 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	helloWorldContract := getHelloWorldContract(t)
 
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+	params, _ := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, account.AccountID, helloWorldContract, true),
+			createInstallContractCodeOperation(t, account.AccountID, helloWorldContract, false),
 		},
-		// TODO: replace this will the preflight min value?
-		BaseFee: txnbuild.MinBaseFee * 10000,
+		BaseFee: txnbuild.MinBaseFee * 100,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+	tx, err := txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
