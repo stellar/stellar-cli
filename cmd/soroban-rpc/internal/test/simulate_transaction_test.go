@@ -157,6 +157,7 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	}
 	var transactionData xdr.SorobanTransactionData
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
+	assert.NoError(t, err)
 	op.Ext = xdr.TransactionExt{
 		V:           1,
 		SorobanData: &transactionData,
