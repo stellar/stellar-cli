@@ -20,6 +20,7 @@ use soroban_env_host::xdr::{
     TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use soroban_env_host::{Host, HostError, LedgerInfo};
+use std::cmp::max;
 use std::convert::TryInto;
 use std::ffi::{CStr, CString};
 use std::panic;
@@ -334,8 +335,11 @@ fn calculate_soroban_resources(
     let meta_data_size_bytes =
         original_write_ledger_entry_bytes + write_bytes + calculate_event_size_bytes(events)?;
 
-    // Add a 30% leeway
-    let instructions = budget.get_cpu_insns_count() * 13 / 10;
+    // Add a 15% leeway with a minimum of 50k instructions
+    let instructions = max(
+        budget.get_cpu_insns_count() + 50000,
+        budget.get_cpu_insns_count() * 115 / 100,
+    );
     Ok(SorobanResources {
         footprint: fp,
         instructions: instructions as u32,
