@@ -72,41 +72,8 @@ func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, con
 	}
 }
 
-func createInstallContractCodeOperation(t *testing.T, sourceAccount string, contractCode []byte, includeExt bool) *txnbuild.InvokeHostFunctions {
-	var ext xdr.TransactionExt
-	if includeExt {
-		uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
-		assert.NoError(t, err)
-		contractHash := sha256.Sum256(uploadContractCodeArgs)
-		footprint := xdr.LedgerFootprint{
-			ReadWrite: []xdr.LedgerKey{
-				{
-					Type: xdr.LedgerEntryTypeContractCode,
-					ContractCode: &xdr.LedgerKeyContractCode{
-						Hash: contractHash,
-					},
-				},
-			},
-		}
-		// TODO: stop filling in data here, it should simply be preflight'ed
-		ext = xdr.TransactionExt{
-			V: 1,
-			SorobanData: &xdr.SorobanTransactionData{
-				Resources: xdr.SorobanResources{
-					Footprint:                 footprint,
-					Instructions:              0,
-					ReadBytes:                 0,
-					WriteBytes:                0,
-					ExtendedMetaDataSizeBytes: 0,
-				},
-				RefundableFee: 0,
-				Ext:           xdr.ExtensionPoint{},
-			},
-		}
-	}
-
+func createInstallContractCodeOperation(sourceAccount string, contractCode []byte) *txnbuild.InvokeHostFunctions {
 	return &txnbuild.InvokeHostFunctions{
-		Ext: ext,
 		Functions: []xdr.HostFunction{
 			{
 				Args: xdr.HostFunctionArgs{
@@ -115,67 +82,19 @@ func createInstallContractCodeOperation(t *testing.T, sourceAccount string, cont
 						Code: contractCode,
 					},
 				},
-				Auth: []xdr.ContractAuth{},
 			},
 		},
 		SourceAccount: sourceAccount,
 	}
 }
 
-func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string, includeExt bool) *txnbuild.InvokeHostFunctions {
+func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string) *txnbuild.InvokeHostFunctions {
 	saltParam := xdr.Uint256(testSalt)
-
-	var ext xdr.TransactionExt
-	if includeExt {
-		uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
-		assert.NoError(t, err)
-		contractHash := xdr.Hash(sha256.Sum256(uploadContractCodeArgs))
-		footprint := xdr.LedgerFootprint{
-			ReadWrite: []xdr.LedgerKey{
-				{
-					Type: xdr.LedgerEntryTypeContractData,
-					ContractData: &xdr.LedgerKeyContractData{
-						ContractId: xdr.Hash(getContractID(t, sourceAccount, testSalt, networkPassphrase)),
-						Key: xdr.ScVal{
-							Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
-						},
-					},
-				},
-			},
-			ReadOnly: []xdr.LedgerKey{
-				{
-					Type: xdr.LedgerEntryTypeContractCode,
-					ContractCode: &xdr.LedgerKeyContractCode{
-						Hash: contractHash,
-					},
-				},
-			},
-		}
-		// TODO: fill in this data properly
-		//       we will most likely need to invoke the preflight endpoint
-		ext = xdr.TransactionExt{
-			V: 1,
-			SorobanData: &xdr.SorobanTransactionData{
-				Resources: xdr.SorobanResources{
-					Footprint:                 footprint,
-					Instructions:              0,
-					ReadBytes:                 0,
-					WriteBytes:                0,
-					ExtendedMetaDataSizeBytes: 0,
-				},
-				RefundableFee: 0,
-				Ext:           xdr.ExtensionPoint{},
-			},
-		}
-	}
-
 	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
 	assert.NoError(t, err)
 	contractHash := xdr.Hash(sha256.Sum256(uploadContractCodeArgs))
 
 	return &txnbuild.InvokeHostFunctions{
-		Ext: ext,
-
 		Functions: []xdr.HostFunction{
 			{
 				Args: xdr.HostFunctionArgs{
@@ -217,7 +136,7 @@ func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPas
 	return hashedContractID
 }
 
-func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbuild.TransactionParams) (txnbuild.TransactionParams, methods.SimulateTransactionResponse) {
+func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbuild.TransactionParams) txnbuild.TransactionParams {
 	savedAutoIncrement := params.IncrementSequenceNum
 	params.IncrementSequenceNum = false
 	tx, err := txnbuild.NewTransaction(params)
@@ -255,7 +174,7 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 
 	params.Operations = []txnbuild.Operation{op}
 	params.BaseFee += response.MinResourceFee
-	return params, response
+	return params
 }
 
 func TestSimulateTransactionSucceeds(t *testing.T) {
@@ -272,7 +191,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+			createInstallContractCodeOperation(sourceAccount, testContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -305,7 +224,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			TransactionData: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MIAAGWMAAAAAAAAAGQAAABkAAAAAAAAABQAAAAA",
+			TransactionData: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MIAAHLLAAAAJAAAAGQAAACIAAAAAAAAABsAAAAA",
 			MinResourceFee:  result.MinResourceFee,
 			Results: []methods.SimulateHostFunctionResult{
 				{
@@ -318,7 +237,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	)
 
 	// test operation which does not have a source account
-	withoutSourceAccountOp := createInstallContractCodeOperation(t, "", testContract, false)
+	withoutSourceAccountOp := createInstallContractCodeOperation("", testContract)
 	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: sourceAccount,
@@ -350,7 +269,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
+			createInstallContractCodeOperation(sourceAccount, testContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -384,11 +303,11 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	helloWorldContract := getHelloWorldContract(t)
 
-	params, _ := preflightTransactionParams(t, client, txnbuild.TransactionParams{
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, account.AccountID, helloWorldContract, false),
+			createInstallContractCodeOperation(account.AccountID, helloWorldContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -399,11 +318,11 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	params, _ = preflightTransactionParams(t, client, txnbuild.TransactionParams{
+	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase, false),
+			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -596,8 +515,8 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, sourceAccount, testContract, false),
-			createCreateContractOperation(t, sourceAccount, testContract, StandaloneNetworkPassphrase, false),
+			createInstallContractCodeOperation(sourceAccount, testContract),
+			createCreateContractOperation(t, sourceAccount, testContract, StandaloneNetworkPassphrase),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
