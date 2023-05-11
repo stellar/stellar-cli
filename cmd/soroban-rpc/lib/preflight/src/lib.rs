@@ -334,8 +334,8 @@ fn calculate_soroban_resources(
     let meta_data_size_bytes =
         original_write_ledger_entry_bytes + write_bytes + calculate_event_size_bytes(events)?;
 
-    // Add a 15% leeway
-    let instructions = budget.get_cpu_insns_count() * 115 / 100;
+    // Add a 30% leeway
+    let instructions = budget.get_cpu_insns_count() * 13 / 10;
     Ok(SorobanResources {
         footprint: fp,
         instructions: instructions as u32,
