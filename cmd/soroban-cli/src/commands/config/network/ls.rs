@@ -1,7 +1,6 @@
 use clap::command;
 
 use crate::commands::config::locator::Location;
-
 use super::locator;
 
 #[derive(thiserror::Error, Debug)]
