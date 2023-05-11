@@ -81,7 +81,9 @@ impl TestEnv {
         f(&test_env);
     }
     pub fn new() -> Result<TestEnv, Error> {
-        Ok(TempDir::new().map(|temp_dir| TestEnv { temp_dir })?)
+        let this = TempDir::new().map(|temp_dir| TestEnv { temp_dir })?;
+        std::env::set_var("XDG_CONFIG_HOME", this.temp_dir.as_os_str());
+        Ok(this)
     }
 
     /// Create a new `assert_cmd::Command` for a given subcommand and set's the current directory
