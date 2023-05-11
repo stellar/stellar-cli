@@ -442,8 +442,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInvokeHostOperation(
 				address,
-				// TODO: fill in this data properly
-				//       we will most likely need to invoke the preflight endpoint
 				xdr.TransactionExt{},
 				contractID,
 				"auth",
@@ -460,8 +458,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 				},
 			),
 		},
-		// TODO: replace this will the preflight min value?
-		BaseFee: txnbuild.MinBaseFee * 1000,
+		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -547,7 +544,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
-	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 4")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 14")
 }
 
 func TestSimulateTransactionError(t *testing.T) {
