@@ -30,8 +30,8 @@ type SimulateHostFunctionResult struct {
 type SimulateTransactionResponse struct {
 	Error string `json:"error,omitempty"`
 	// TODO: update documentation and review field names
-	TransactionData string                       `json:"transaction_data"` // SorobanTransactionData XDR in base64
-	Events          []string                     `json:"events"`           // DiagnosticEvent XDR in base64
+	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
+	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
 	MinResourceFee  int64                        `json:"minResourceFee,string"`
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`
 	Cost            SimulateTransactionCost      `json:"cost"`
