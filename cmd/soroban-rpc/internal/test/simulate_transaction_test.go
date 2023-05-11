@@ -225,7 +225,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			TransactionData: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MIAAHLLAAAAJAAAAGQAAACIAAAAAAAAABsAAAAA",
+			TransactionData: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MIAARueAAAAJAAAAGQAAACIAAAAAAAAABsAAAAA",
 			MinResourceFee:  result.MinResourceFee,
 			Results: []methods.SimulateHostFunctionResult{
 				{
