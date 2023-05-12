@@ -12,7 +12,7 @@ use soroban_env_host::fees::{
 use soroban_env_host::storage::{AccessType, Footprint, SnapshotSource, Storage, StorageMap};
 use soroban_env_host::xdr::{
     self, AccountId, AddressWithNonce, ContractAuth, DecoratedSignature, DiagnosticEvent,
-    ExtensionPoint, InvokeHostFunctionOp, LedgerEntry, LedgerKey, Memo, MuxedAccount,
+    ExtensionPoint, HostFunction, InvokeHostFunctionOp, LedgerEntry, LedgerKey, Memo, MuxedAccount,
     MuxedAccountMed25519, Operation, OperationBody, Preconditions, ReadXdr, ScHostStorageErrorCode,
     ScStatus,
     ScUnknownErrorCode::{General, Xdr},
@@ -197,23 +197,33 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     host.set_source_account(source_account);
     host.set_ledger_info(ledger_info.into());
 
-    // Run the preflight.
+    // Add auths to the functions, so that they are later taken into account for
+    // the envelope size estimation
     let mut results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)> = Vec::new();
-    for f in invoke_hf_op.functions.as_vec() {
+
+    // Run the preflight.
+    let mut functions_with_auths: Vec<HostFunction> = invoke_hf_op.functions.clone().into_vec();
+    for (i, f) in invoke_hf_op.functions.as_vec().iter().enumerate() {
         // Hack to obtain the auth of each function separately
         host.switch_to_recording_auth(); // resets auth from previous calls
         let results = host.invoke_functions(vec![f.clone()])?;
-        results_and_auths.push((results[0].clone(), host.get_recorded_auth_payloads()?));
+        let auths = host.get_recorded_auth_payloads()?;
+        functions_with_auths[i].auth = auths
+            .iter()
+            .map(recorded_auth_payload_to_xdr)
+            .collect::<Vec<_>>()
+            .try_into()?;
+        results_and_auths.push((results[0].clone(), auths));
     }
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, events) = host.try_finish().unwrap();
 
     let diagnostic_events = host_events_to_diagnostic_events(&events)?;
-    // TODO: add the auth info to invoke_hf_op so that it's taken into account when estimating the
-    //       transaction size
     let (transaction_data, min_fee) = compute_transaction_data_and_min_fee(
-        &invoke_hf_op,
+        &InvokeHostFunctionOp {
+            functions: functions_with_auths.try_into()?,
+        },
         &CSnapshotSource { handle },
         &storage,
         &budget,
@@ -504,10 +514,10 @@ fn get_c_host_function_preflight_array(
     results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)>,
 ) -> Result<(*mut CHostFunctionPreflight, libc::size_t), Box<dyn error::Error>> {
     let mut out_vec: Vec<CHostFunctionPreflight> = Vec::new();
-    for (result, auths) in results_and_auths.iter() {
+    for (result, auths) in results_and_auths {
         let result_c_str = CString::new(result.to_xdr_base64()?)?.into_raw();
         out_vec.push(CHostFunctionPreflight {
-            auth: recorded_auth_payloads_to_c(auths)?,
+            auth: recorded_auth_payloads_to_c(&auths)?,
             result: result_c_str,
         });
     }
