@@ -115,12 +115,18 @@ fn storage_footprint_to_ledger_footprint(foot: &Footprint) -> Result<LedgerFootp
 }
 
 #[repr(C)]
+pub struct CHostFunctionPreflight {
+    pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
+    pub result: *mut libc::c_char,    // XDR SCVal in base64
+}
+
+#[repr(C)]
 pub struct CPreflightResult {
     pub error: *mut libc::c_char, // Error string in case of error, otherwise null
-    pub results: *mut *mut libc::c_char, // NULL terminated array of XDR SCVals in base64
+    pub results: *mut CHostFunctionPreflight, // array of CHostFunctionPreflight
+    pub results_size: libc::size_t,
     pub transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64
-    pub min_fee: i64,             // Minimum recommended resource fee
-    pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
+    pub min_fee: i64,                        // Minimum recommended resource fee
     pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
@@ -133,9 +139,9 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
     Box::into_raw(Box::new(CPreflightResult {
         error: c_str.into_raw(),
         results: null_mut(),
+        results_size: 0,
         transaction_data: null_mut(),
         min_fee: 0,
-        auth: null_mut(),
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
@@ -192,8 +198,13 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     host.set_ledger_info(ledger_info.into());
 
     // Run the preflight.
-    let results = host.invoke_functions(invoke_hf_op.clone().functions.into())?;
-    let auth_payloads = host.get_recorded_auth_payloads()?;
+    let mut results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)> = Vec::new();
+    for f in invoke_hf_op.functions.as_vec() {
+        // Hack to obtain the auth of each function separately
+        host.switch_to_recording_auth(); // resets auth from previous calls
+        let results = host.invoke_functions(vec![f.clone()])?;
+        results_and_auths.push((results[0].clone(), host.get_recorded_auth_payloads()?));
+    }
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, events) = host.try_finish().unwrap();
@@ -209,12 +220,13 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         &diagnostic_events,
     )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
+    let (results, results_size) = get_c_host_function_preflight_array(results_and_auths)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        results: scvals_to_c(results)?,
+        results: results,
+        results_size: results_size,
         transaction_data: transaction_data_cstr.into_raw(),
         min_fee: min_fee,
-        auth: recorded_auth_payloads_to_c(auth_payloads)?,
         events: diagnostic_events_to_c(diagnostic_events)?,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
@@ -427,22 +439,14 @@ fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32, xdr:
     Ok(res)
 }
 
-fn scvals_to_c(scvals: Vec<ScVal>) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
-    let xdr_base64_vec: Vec<String> = scvals
-        .iter()
-        .map(|v| v.to_xdr_base64())
-        .collect::<Result<Vec<_>, _>>()?;
-    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
-}
-
 fn recorded_auth_payloads_to_c(
-    payloads: Vec<RecordedAuthPayload>,
+    payloads: &Vec<RecordedAuthPayload>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let xdr_base64_vec: Vec<String> = payloads
         .iter()
         .map(|p| recorded_auth_payload_to_xdr(p).to_xdr_base64())
         .collect::<Result<Vec<_>, _>>()?;
-    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
+    string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
 
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
@@ -491,10 +495,38 @@ fn diagnostic_events_to_c(
         .iter()
         .map(DiagnosticEvent::to_xdr_base64)
         .collect::<Result<Vec<_>, _>>()?;
-    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
+    string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
 
-fn string_vec_to_c_to_null_terminated_char_array(
+// TODO: can we factor out the common parts of get_c_null_terminated_host_function_preflight_array and
+//       string_vec_to_c_null_terminated_char_array ?
+fn get_c_host_function_preflight_array(
+    results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)>,
+) -> Result<(*mut CHostFunctionPreflight, libc::size_t), Box<dyn error::Error>> {
+    let mut out_vec: Vec<CHostFunctionPreflight> = Vec::new();
+    for (result, auths) in results_and_auths.iter() {
+        let result_c_str = CString::new(result.to_xdr_base64()?)?.into_raw();
+        out_vec.push(CHostFunctionPreflight {
+            auth: recorded_auth_payloads_to_c(auths)?,
+            result: result_c_str,
+        });
+    }
+
+    // Make sure length and capacity are the same
+    // (this allows using the length as the capacity when deallocating the vector)
+    out_vec.shrink_to_fit();
+    assert_eq!(out_vec.len(), out_vec.capacity());
+
+    // Get the pointer to our vector, we will deallocate it in free_c_null_terminated_char_array()
+    // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
+    let ptr = out_vec.as_mut_ptr();
+    let size = out_vec.len();
+    mem::forget(out_vec);
+
+    Ok((ptr, size))
+}
+
+fn string_vec_to_c_null_terminated_char_array(
     v: Vec<String>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
@@ -534,13 +566,18 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
             let _ = CString::from_raw((*result).error);
         }
         if !(*result).results.is_null() {
-            free_c_null_terminated_char_array((*result).results);
+            let results = Vec::from_raw_parts(
+                (*result).results,
+                (*result).results_size,
+                (*result).results_size,
+            );
+            for result in results.iter() {
+                free_c_null_terminated_char_array(result.auth);
+                let _ = CString::from_raw(result.result);
+            }
         }
         if !(*result).transaction_data.is_null() {
             let _ = CString::from_raw((*result).transaction_data);
-        }
-        if !(*result).auth.is_null() {
-            free_c_null_terminated_char_array((*result).auth);
         }
         if !(*result).events.is_null() {
             free_c_null_terminated_char_array((*result).events);

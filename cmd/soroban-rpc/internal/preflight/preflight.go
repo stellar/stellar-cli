@@ -95,12 +95,16 @@ type PreflightParameters struct {
 	LedgerEntryReadTx  db.LedgerEntryReadTx
 }
 
+type HostFunctionPreflight struct {
+	Result string   // XDR SCVal in base64
+	Auth   []string // ContractAuths XDR in base64
+}
+
 type Preflight struct {
-	Auth            []string // ContractAuths XDR in base64
 	Events          []string // DiagnosticEvents XDR in base64
 	TransactionData string   // SorobanTransactionData XDR in base64
 	MinFee          int64
-	Results         []string // SCVal XDRs in base64
+	Results         []HostFunctionPreflight
 	CPUInstructions uint64
 	MemoryBytes     uint64
 }
@@ -164,12 +168,20 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		return Preflight{}, errors.New(C.GoString(res.error))
 	}
 
+	cHostFunctionPreflights := (*[1 << 20]C.CHostFunctionPreflight)(unsafe.Pointer(res.results))[:res.results_size:res.results_size]
+	hostFunctionPreflights := make([]HostFunctionPreflight, len(cHostFunctionPreflights))
+	for i, cHostFunctionPreflight := range cHostFunctionPreflights {
+		hostFunctionPreflights[i] = HostFunctionPreflight{
+			Result: C.GoString(cHostFunctionPreflight.result),
+			Auth:   GoNullTerminatedStringSlice(cHostFunctionPreflight.auth),
+		}
+	}
+
 	preflight := Preflight{
-		Auth:            GoNullTerminatedStringSlice(res.auth),
 		Events:          GoNullTerminatedStringSlice(res.events),
 		TransactionData: C.GoString(res.transaction_data),
 		MinFee:          int64(res.min_fee),
-		Results:         GoNullTerminatedStringSlice(res.results),
+		Results:         hostFunctionPreflights,
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),
 	}

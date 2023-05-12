@@ -292,6 +292,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, result, resultForRequestWithDifferentTxSource)
 }
 
+// TODO: we should add a test preflighting an InvokeHostFunctionOp with multiple host functions
+//       we can probably just modify TestSimulateInvokeContractTransactionSucceeds
+
 func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 

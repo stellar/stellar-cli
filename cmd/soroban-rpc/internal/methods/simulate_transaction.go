@@ -100,14 +100,11 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 
 		hostFunctionResults := make([]SimulateHostFunctionResult, len(result.Results))
 		for i := 0; i < len(hostFunctionResults); i++ {
-			hostFunctionResults[i].XDR = result.Results[i]
+			hostFunctionResults[i] = SimulateHostFunctionResult{
+				Auth: result.Results[i].Auth,
+				XDR:  result.Results[i].Result,
+			}
 		}
-
-		// For now, attribute the full auth and and events to the first function
-		//
-		// FIXME: this is wrong! we should be able to get the auth and events for each separate function
-		//        but needs to be implemented in libpreflight first
-		hostFunctionResults[0].Auth = result.Auth
 
 		return SimulateTransactionResponse{
 			Results:         hostFunctionResults,
