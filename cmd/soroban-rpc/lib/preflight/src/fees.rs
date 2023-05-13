@@ -178,8 +178,7 @@ fn calculate_modified_read_write_ledger_entry_bytes(
                     res += (entry_bytes.len() + key_bytes.len()) as u32;
                 }
             }
-            // TODO: turn this panic into an error
-            None => panic!("ledger entry not in footprint"),
+            None => return Err("storage ledger entry not found in footprint".into()),
         }
     }
     Ok(res)
