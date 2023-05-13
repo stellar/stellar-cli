@@ -250,19 +250,8 @@ fn get_c_host_function_preflight_array(
             result: result_c_str,
         });
     }
-
-    // Make sure length and capacity are the same
-    // (this allows using the length as the capacity when deallocating the vector)
-    out_vec.shrink_to_fit();
-    assert_eq!(out_vec.len(), out_vec.capacity());
-
-    // Get the pointer to our vector, we will deallocate it in free_c_null_terminated_char_array()
-    // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
-    let ptr = out_vec.as_mut_ptr();
     let size = out_vec.len();
-    mem::forget(out_vec);
-
-    Ok((ptr, size))
+    Ok((vec_to_c_array(out_vec), size))
 }
 
 fn string_vec_to_c_null_terminated_char_array(
@@ -277,17 +266,21 @@ fn string_vec_to_c_null_terminated_char_array(
     // Add the ending NULL
     out_vec.push(null_mut());
 
+    Ok(vec_to_c_array(out_vec))
+}
+
+fn vec_to_c_array<T>(mut v: Vec<T>) -> *mut T {
     // Make sure length and capacity are the same
     // (this allows using the length as the capacity when deallocating the vector)
-    out_vec.shrink_to_fit();
-    assert_eq!(out_vec.len(), out_vec.capacity());
+    v.shrink_to_fit();
+    assert_eq!(v.len(), v.capacity());
 
     // Get the pointer to our vector, we will deallocate it in free_c_null_terminated_char_array()
     // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
-    let ptr = out_vec.as_mut_ptr();
-    mem::forget(out_vec);
+    let ptr = v.as_mut_ptr();
+    mem::forget(v);
 
-    Ok(ptr)
+    ptr
 }
 
 /// .
