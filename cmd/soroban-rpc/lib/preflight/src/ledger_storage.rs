@@ -38,7 +38,7 @@ pub(crate) enum Error {
 }
 
 impl Error {
-    fn to_host_error(self) -> HostError {
+    fn to_host_error(&self) -> HostError {
         match self {
             Error::NotFound => HostError::from(ScHostStorageErrorCode::AccessToUnknownEntry),
             Error::Xdr(_) => ScStatus::UnknownError(Xdr).into(),
@@ -59,14 +59,14 @@ impl LedgerStorage {
         if res.is_null() {
             return Err(Error::NotFound);
         }
-        let res_cstr = unsafe { CStr::from_ptr(res) };
+        let unsafe_cstr = unsafe { CStr::from_ptr(res) };
         // Make a safe copy of the string before freeing it
         // Note: If we wanted more performance we should create an unsafe version of get_xdr_base64() which
         //       returned a view of the C buffer as follows:
-        // return Ok((res, res_cstr.to_bytes())); // we would later need to call FreeGoCString(res)
-        let res_str = String::from_utf8_lossy(res_cstr.to_bytes()).to_string();
+        // return Ok((res, unsafe_cstr.to_bytes())); // we would later need to call FreeGoCString(res)
+        let str = String::from_utf8_lossy(unsafe_cstr.to_bytes()).to_string();
         unsafe { FreeGoCString(res) };
-        Ok(res_str)
+        Ok(str)
     }
 
     pub fn get_xdr(&self, key: &LedgerKey) -> Result<Vec<u8>, Error> {
@@ -77,7 +77,9 @@ impl LedgerStorage {
 
 impl SnapshotSource for LedgerStorage {
     fn get(&self, key: &Rc<LedgerKey>) -> Result<Rc<LedgerEntry>, HostError> {
-        let base64_str = self.get_xdr_base64(&*key).map_err(Error::to_host_error)?;
+        let base64_str = self
+            .get_xdr_base64(key)
+            .map_err(|e| Error::to_host_error(&e))?;
         let entry =
             LedgerEntry::from_xdr_base64(base64_str).map_err(|_| ScStatus::UnknownError(Xdr))?;
         Ok(entry.into())

@@ -13,7 +13,7 @@ use soroban_env_host::events::{Event, Events};
 use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
     AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, InvokeHostFunctionOp,
-    ReadXdr, ScVal, WriteXdr,
+    ReadXdr, ScVal, ScVec, WriteXdr,
 };
 use soroban_env_host::{Host, LedgerInfo};
 use std::convert::TryInto;
@@ -152,7 +152,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, events) = host.try_finish().unwrap();
 
-    let diagnostic_events = host_events_to_diagnostic_events(&events)?;
+    let diagnostic_events = host_events_to_diagnostic_events(&events);
     let (transaction_data, min_fee) = fees::compute_transaction_data_and_min_fee(
         &InvokeHostFunctionOp {
             functions: functions_with_auths.try_into()?,
@@ -168,10 +168,10 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let (results, results_size) = get_c_host_function_preflight_array(results_and_auths)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        results: results,
-        results_size: results_size,
+        results,
+        results_size,
         transaction_data: transaction_data_cstr.into_raw(),
-        min_fee: min_fee,
+        min_fee,
         events: diagnostic_events_to_c(diagnostic_events)?,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
@@ -179,7 +179,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 }
 
 fn recorded_auth_payloads_to_c(
-    payloads: &Vec<RecordedAuthPayload>,
+    payloads: Vec<RecordedAuthPayload>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let xdr_base64_vec: Vec<String> = payloads
         .iter()
@@ -201,18 +201,15 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
         root_invocation: payload.invocation.clone(),
         // signature_args is left empty. This is where the client will put their signatures when
         // submitting the transaction.
-        signature_args: Default::default(),
+        signature_args: ScVec::default(),
     }
 }
 
-fn host_events_to_diagnostic_events(
-    events: &Events,
-) -> Result<Vec<DiagnosticEvent>, Box<dyn error::Error>> {
+fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
     let mut res: Vec<DiagnosticEvent> = Vec::new();
-    for e in events.0.iter() {
+    for e in &events.0 {
         let maybe_contract_event = match &e.event {
-            Event::Contract(e) => Some(e),
-            Event::StructuredDebug(e) => Some(e),
+            Event::Contract(e) | Event::StructuredDebug(e) => Some(e),
             // Debug events can't be translated to diagnostic events
             Event::Debug(_) => None,
         };
@@ -224,7 +221,7 @@ fn host_events_to_diagnostic_events(
             res.push(diagnostic_event);
         }
     }
-    Ok(res)
+    res
 }
 
 fn diagnostic_events_to_c(
@@ -246,7 +243,7 @@ fn get_c_host_function_preflight_array(
     for (result, auths) in results_and_auths {
         let result_c_str = CString::new(result.to_xdr_base64()?)?.into_raw();
         out_vec.push(CHostFunctionPreflight {
-            auth: recorded_auth_payloads_to_c(&auths)?,
+            auth: recorded_auth_payloads_to_c(auths)?,
             result: result_c_str,
         });
     }
@@ -258,7 +255,7 @@ fn string_vec_to_c_null_terminated_char_array(
     v: Vec<String>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
-    for s in v.iter() {
+    for s in &v {
         let c_str = CString::new(s.clone())?.into_raw();
         out_vec.push(c_str);
     }
@@ -295,7 +292,7 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
     }
     unsafe {
         if !(*result).error.is_null() {
-            let _ = CString::from_raw((*result).error);
+            _ = CString::from_raw((*result).error);
         }
         if !(*result).results.is_null() {
             let results = Vec::from_raw_parts(
@@ -303,18 +300,18 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
                 (*result).results_size,
                 (*result).results_size,
             );
-            for result in results.iter() {
+            for result in &results {
                 free_c_null_terminated_char_array(result.auth);
-                let _ = CString::from_raw(result.result);
+                _ = CString::from_raw(result.result);
             }
         }
         if !(*result).transaction_data.is_null() {
-            let _ = CString::from_raw((*result).transaction_data);
+            _ = CString::from_raw((*result).transaction_data);
         }
         if !(*result).events.is_null() {
             free_c_null_terminated_char_array((*result).events);
         }
-        let _ = Box::from_raw(result);
+        _ = Box::from_raw(result);
     }
 }
 
@@ -328,10 +325,10 @@ fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
                 break;
             }
             // deallocate each string
-            let _ = CString::from_raw(c_char_ptr);
+            _ = CString::from_raw(c_char_ptr);
             i += 1;
         }
         // deallocate the containing vector
-        let _ = Vec::from_raw_parts(array, i + 1, i + 1);
+        _ = Vec::from_raw_parts(array, i + 1, i + 1);
     }
 }

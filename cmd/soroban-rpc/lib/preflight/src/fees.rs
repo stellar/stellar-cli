@@ -8,11 +8,11 @@ use soroban_env_host::xdr;
 use soroban_env_host::xdr::{
     DecoratedSignature, DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint,
     LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    SequenceNumber, SignatureHint, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
+    SequenceNumber, Signature, SignatureHint, SorobanResources, SorobanTransactionData,
+    Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::error;
 
 pub(crate) fn compute_transaction_data_and_min_fee(
@@ -23,13 +23,13 @@ pub(crate) fn compute_transaction_data_and_min_fee(
     events: &Vec<DiagnosticEvent>,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let soroban_resources = calculate_soroban_resources(snapshot_source, storage, budget, events)?;
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let fee_configuration = get_fee_configuration(snapshot_source);
 
-    let read_write_entries = soroban_resources.footprint.read_write.as_vec().len() as u32;
+    let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
 
     let transaction_resources = TransactionResources {
         instructions: soroban_resources.instructions,
-        read_entries: soroban_resources.footprint.read_only.as_vec().len() as u32
+        read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?
             + read_write_entries,
         write_entries: read_write_entries,
         read_bytes: soroban_resources.read_bytes,
@@ -65,7 +65,7 @@ fn estimate_max_transaction_size(
     let signatures: Vec<DecoratedSignature> = vec![
         DecoratedSignature {
             hint: SignatureHint([0; 4]),
-            signature: Default::default(),
+            signature: Signature::default(),
         };
         20
     ];
@@ -101,7 +101,7 @@ fn estimate_max_transaction_size(
 
     // Add a 15% leeway
     let envelope_size = envelope_size * 115 / 100;
-    Ok(envelope_size as u32)
+    Ok(u32::try_from(envelope_size)?)
 }
 
 fn calculate_soroban_resources(
@@ -117,9 +117,9 @@ fn calculate_soroban_resources(
       metadataSize = readBytes(footprint.readWrite) + writeBytes + eventsSize
     */
     let original_write_ledger_entry_bytes =
-        calculate_unmodified_ledger_entry_bytes(&fp.read_write.as_vec(), snapshot_source)?;
+        calculate_unmodified_ledger_entry_bytes(fp.read_write.as_vec(), snapshot_source)?;
     let read_bytes =
-        calculate_unmodified_ledger_entry_bytes(&fp.read_only.as_vec(), snapshot_source)?
+        calculate_unmodified_ledger_entry_bytes(fp.read_only.as_vec(), snapshot_source)?
             + original_write_ledger_entry_bytes;
     let write_bytes =
         calculate_modified_read_write_ledger_entry_bytes(&storage.footprint, &storage.map, budget)?;
@@ -133,21 +133,19 @@ fn calculate_soroban_resources(
     );
     Ok(SorobanResources {
         footprint: fp,
-        instructions: instructions as u32,
-        read_bytes: read_bytes,
-        write_bytes: write_bytes,
+        instructions: u32::try_from(instructions)?,
+        read_bytes,
+        write_bytes,
         extended_meta_data_size_bytes: meta_data_size_bytes,
     })
 }
 
-fn get_fee_configuration(
-    _snapshot_source: &ledger_storage::LedgerStorage,
-) -> Result<FeeConfiguration, Box<dyn error::Error>> {
+fn get_fee_configuration(_snapshot_source: &ledger_storage::LedgerStorage) -> FeeConfiguration {
     // TODO: (at least part of) these values should be obtained from the network's ConfigSetting LedgerEntries
     //       (instead of hardcoding them to the initial values in the network)
 
     // Taken from Stellar Core's InitialSorobanNetworkConfig in NetworkConfig.h
-    Ok(FeeConfiguration {
+    FeeConfiguration {
         fee_per_instruction_increment: 100,
         fee_per_read_entry: 5000,
         fee_per_write_entry: 20000,
@@ -156,7 +154,7 @@ fn get_fee_configuration(
         fee_per_historical_1kb: 100,
         fee_per_metadata_1kb: 200,
         fee_per_propagate_1kb: 2000,
-    })
+    }
 }
 
 fn calculate_modified_read_write_ledger_entry_bytes(
@@ -172,7 +170,7 @@ fn calculate_modified_read_write_ledger_entry_bytes(
                 if let Some(le) = ole {
                     let entry_bytes = le.to_xdr()?;
                     let key_bytes = lk.to_xdr()?;
-                    res += (entry_bytes.len() + key_bytes.len()) as u32;
+                    res += u32::try_from(entry_bytes.len() + key_bytes.len())?;
                 }
             }
             None => return Err("storage ledger entry not found in footprint".into()),
@@ -187,10 +185,10 @@ fn calculate_unmodified_ledger_entry_bytes(
 ) -> Result<u32, Box<dyn error::Error>> {
     let mut res: u32 = 0;
     for lk in ledger_entries {
-        res += lk.to_xdr()?.len() as u32;
+        res += u32::try_from(lk.to_xdr()?.len())?;
         match snapshot_source.get_xdr(lk) {
             Ok(entry_bytes) => {
-                res += entry_bytes.len() as u32;
+                res += u32::try_from(entry_bytes.len())?;
             }
             Err(e) => {
                 match e {
@@ -209,11 +207,11 @@ fn calculate_unmodified_ledger_entry_bytes(
     Ok(res)
 }
 
-fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32, xdr::Error> {
+fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32, Box<dyn error::Error>> {
     let mut res: u32 = 0;
     for e in events {
         let event_xdr = e.to_xdr()?;
-        res += event_xdr.len() as u32;
+        res += u32::try_from(event_xdr.len())?;
     }
     Ok(res)
 }
