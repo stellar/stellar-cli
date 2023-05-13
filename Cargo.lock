@@ -1420,9 +1420,11 @@ dependencies = [
 name = "preflight"
 version = "0.7.1"
 dependencies = [
+ "base64 0.13.1",
  "libc",
  "sha2 0.10.6",
  "soroban-env-host",
+ "thiserror",
 ]
 
 [[package]]

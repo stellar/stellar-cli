@@ -468,7 +468,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 14")
-
 }
 
 func TestSimulateTransactionError(t *testing.T) {
