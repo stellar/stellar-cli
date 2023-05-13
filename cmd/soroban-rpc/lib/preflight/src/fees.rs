@@ -62,16 +62,13 @@ fn estimate_max_transaction_size(
     // generate the maximum memo size and signature size
     // TODO: is this being too conservative?
     let memo_text: Vec<u8> = [0; 28].into();
-    // TODO: find a better way to do this:
-    let mut signatures: Vec<DecoratedSignature> = vec![];
-    let mut signatures_left = 20;
-    while signatures_left > 0 {
-        signatures.push(DecoratedSignature {
+    let signatures: Vec<DecoratedSignature> = vec![
+        DecoratedSignature {
             hint: SignatureHint([0; 4]),
             signature: Default::default(),
-        });
-        signatures_left -= 1;
-    }
+        };
+        20
+    ];
     let envelope = TransactionV1Envelope {
         tx: Transaction {
             source_account: source.clone(),
