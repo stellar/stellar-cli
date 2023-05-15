@@ -33,8 +33,8 @@ type SimulateTransactionResponse struct {
 	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
 	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
 	MinResourceFee  int64                        `json:"minResourceFee,string"`
-	Results         []SimulateHostFunctionResult `json:"results,omitempty"`
-	Cost            SimulateTransactionCost      `json:"cost"`
+	Results         []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
+	Cost            SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
 	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 

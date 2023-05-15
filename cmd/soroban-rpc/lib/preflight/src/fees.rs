@@ -143,6 +143,8 @@ fn calculate_soroban_resources(
 fn get_fee_configuration(_snapshot_source: &ledger_storage::LedgerStorage) -> FeeConfiguration {
     // TODO: (at least part of) these values should be obtained from the network's ConfigSetting LedgerEntries
     //       (instead of hardcoding them to the initial values in the network)
+    //       Specifically, we need to derive it from ConfigSettingContractComputeV0 which can
+    //       be retrieved using the ConfigSetting/CONFIG_SETTING_CONTRACT_COMPUTE_V0.
 
     // Taken from Stellar Core's InitialSorobanNetworkConfig in NetworkConfig.h
     FeeConfiguration {

@@ -128,7 +128,6 @@ func GoNullTerminatedStringSlice(str **C.char) []string {
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
-	// TODO: this will be broken until the Go XDR is updated
 	invokeHostFunctionB64, err := xdr.MarshalBase64(params.InvokeHostFunction)
 	if err != nil {
 		return Preflight{}, err

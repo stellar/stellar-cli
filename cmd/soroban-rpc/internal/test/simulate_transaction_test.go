@@ -427,7 +427,11 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
 	assert.NoError(t, err)
 
-	// TODO: check the other transactiondata fields
+	assert.NotZero(t, obtainedTransactionData.RefundableFee)
+	assert.NotZero(t, obtainedTransactionData.Resources.ExtendedMetaDataSizeBytes)
+	assert.NotZero(t, obtainedTransactionData.Resources.Instructions)
+	assert.NotZero(t, obtainedTransactionData.Resources.ReadBytes)
+	assert.NotZero(t, obtainedTransactionData.Resources.WriteBytes)
 
 	// check the auth
 	assert.Len(t, response.Results[0].Auth, 1)
