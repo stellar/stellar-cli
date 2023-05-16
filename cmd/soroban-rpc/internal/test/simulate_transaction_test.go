@@ -1,8 +1,10 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path"
@@ -58,7 +60,6 @@ func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, con
 	}
 	parameters = append(parameters, args...)
 	return &txnbuild.InvokeHostFunctions{
-
 		Functions: []xdr.HostFunction{
 			{
 				Args: xdr.HostFunctionArgs{
@@ -292,9 +293,6 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, result, resultForRequestWithDifferentTxSource)
 }
 
-// TODO: we should add a test preflighting an InvokeHostFunctionOp with multiple host functions
-//       we can probably just modify TestSimulateInvokeContractTransactionSucceeds
-
 func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 
@@ -388,8 +386,16 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	txB64, err := tx.Base64()
+
+	// modify the above transaction by doubling the invoked host call.
+	txXDR := tx.ToXDR()
+	txXDR.V1.Tx.Operations[0].Body.InvokeHostFunctionOp.Functions = append(txXDR.V1.Tx.Operations[0].Body.InvokeHostFunctionOp.Functions, txXDR.V1.Tx.Operations[0].Body.InvokeHostFunctionOp.Functions[0])
+	txXDR.V1.Signatures = tx.Signatures()
+	var txBytes bytes.Buffer
+	_, err = xdr.Marshal(&txBytes, txXDR)
 	require.NoError(t, err)
+	txB64 := base64.StdEncoding.EncodeToString(txBytes.Bytes())
+
 	request := methods.SimulateTransactionRequest{Transaction: txB64}
 	var response methods.SimulateTransactionResponse
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &response)
@@ -397,7 +403,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Empty(t, response.Error)
 
 	// check the result
-	assert.Len(t, response.Results, 1)
+	assert.Len(t, response.Results, 2)
 	var obtainedResult xdr.ScVal
 	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
 	assert.NoError(t, err)
@@ -453,7 +459,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 
 	// check the events
-	assert.Len(t, response.Events, 1)
+	assert.Len(t, response.Events, 2)
 	var event xdr.DiagnosticEvent
 	err = xdr.SafeUnmarshalBase64(response.Events[0], &event)
 	assert.NoError(t, err)
