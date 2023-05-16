@@ -54,6 +54,10 @@ jobs:
         with:
           path: soroban-tools
       - uses: stellar/actions/rust-cache@main
+      - name: Setup DNS
+        uses: self-actuated/hetzner-dns-action@v1
+        with:
+          dns: 8.8.8.8
       - name: Build system test with component versions
         run: |
           cd $GITHUB_WORKSPACE/system-test; \
