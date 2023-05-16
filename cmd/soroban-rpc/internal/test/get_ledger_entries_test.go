@@ -79,17 +79,18 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	kp := keypair.Root(StandaloneNetworkPassphrase)
 	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
 
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, account.AccountID, testContract, true),
+			createInstallContractCodeOperation(account.AccountID, testContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+	tx, err := txnbuild.NewTransaction(params)
 	require.NoError(t, err)
 	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
 	require.NoError(t, err)

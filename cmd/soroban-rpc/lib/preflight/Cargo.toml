@@ -7,6 +7,10 @@ publish = false
 crate-type = ["staticlib"]
 
 [dependencies]
+# TODO: base64 and thiserror are also used by the CLI,
+#       should we make them workspace dependencies?
+base64 = "0.13.0"
+thiserror = "1.0.31"
 libc = "0.2.2"
 sha2 = "0.10.6"
 soroban-env-host = { workspace = true, features = ["vm"] }

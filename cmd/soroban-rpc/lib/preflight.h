@@ -11,20 +11,26 @@ typedef struct CLedgerInfo {
   uint32_t base_reserve;
 } CLedgerInfo;
 
+typedef struct CHostFunctionPreflight {
+    char **auth; // NULL terminated array of XDR ContractAuths in base64
+    char *result; // XDR SCVal in base64
+} CHostFunctionPreflight;
+
 typedef struct CPreflightResult {
     char *error; // Error string in case of error, otherwise null
-    char **results; // NULL terminated array of XDR SCVals in base64
-    char *preflight; // LedgerFootprint XDR in base64
-    char **auth; // NULL terminated array of XDR ContractAuths in base64
+    CHostFunctionPreflight *results; // array of CHostFunctionPreflight
+    size_t results_size;
+    char *transaction_data; // SorobanTransactionData XDR in base64
+    int64_t min_fee; // Minimum recommended resource fee
     char **events; // NULL terminated array of XDR DiagnosticEvents in base64
     uint64_t cpu_instructions;
     uint64_t memory_bytes;
 } CPreflightResult;
 
-CPreflightResult *preflight_host_function(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
-                                          char *invoke_hf_op, // InvokeHostFunctionOp XDR in base64
-                                          const char *source_account, // AccountId XDR in base64
-                                          const struct CLedgerInfo ledger_info);
+CPreflightResult *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+                                         char *invoke_hf_op, // InvokeHostFunctionOp XDR in base64
+                                         const char *source_account, // AccountId XDR in base64
+                                         const struct CLedgerInfo ledger_info);
 
 // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
 extern char *SnapshotSourceGet(uintptr_t handle, char *ledger_key);
