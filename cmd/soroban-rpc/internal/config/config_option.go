@@ -56,10 +56,22 @@ func (o ConfigOption) getTomlKey() (string, bool) {
 }
 
 // TODO: See if we can combine OptType and CustomSetValue into just SetValue/ParseValue
-func (o *ConfigOption) setValue(i interface{}) error {
+func (o *ConfigOption) setValue(i interface{}) (err error) {
 	if o.CustomSetValue != nil {
 		return o.CustomSetValue(o, i)
 	}
+	// it's unfortunate that Set below panics when it cannot set the value..
+	// we'll want to catch this so that we can alert the user nicely.
+	defer func() {
+		if recoverRes := recover(); recoverRes != nil {
+			var ok bool
+			if err, ok = recoverRes.(error); ok {
+				return
+			}
+
+			err = errors.Errorf("config option setting error ('%s') %v", o.Name, recoverRes)
+		}
+	}()
 	reflect.ValueOf(o.ConfigKey).Elem().Set(reflect.ValueOf(i))
 	return nil
 }

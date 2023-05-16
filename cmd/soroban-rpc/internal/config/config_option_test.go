@@ -106,3 +106,12 @@ func TestValidatePositiveInt(t *testing.T) {
 	require.NoError(t, o.setValue(1))
 	assert.NoError(t, o.Validate(o))
 }
+func TestUnassignableFiels(t *testing.T) {
+	var co ConfigOption
+	var b bool
+	co.Name = "mykey"
+	co.ConfigKey = &b
+	err := co.setValue("abc")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), co.Name)
+}
