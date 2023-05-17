@@ -289,7 +289,8 @@ impl Cmd {
             });
         }
         let result = &simulation_response.results[0];
-        let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation_response.transaction_data)?;
+        let transaction_data =
+            SorobanTransactionData::from_xdr_base64(&simulation_response.transaction_data)?;
         let auth = result
             .auth
             .iter()

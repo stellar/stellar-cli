@@ -128,9 +128,7 @@ pub struct SimulateHostFunctionResult {
 pub struct SimulateTransactionResponse {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
-    #[serde(
-        rename = "transactionData"
-    )]
+    #[serde(rename = "transactionData")]
     pub transaction_data: String,
     #[serde(deserialize_with = "deserialize_default_from_null")]
     pub events: Vec<String>,
