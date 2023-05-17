@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"runtime"
 	"testing"
 
@@ -12,33 +11,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ExampleConfig() {
+func TestLoadConfigPath(t *testing.T) {
 	var cfg Config
-	var err error
 
-	// If you want to load from cli flags, you must call Bind
-	cfg.Bind()
+	viper.Set("config-path", "./test.soroban.rpc.config")
+	viper.Set("stellar-core-binary-path", "/usr/overriden/stellar-core")
+	defer viper.Reset()
 
-	// Load values from: defaults, env vars, cli flags, then config file
-	// Priority: defaults < config file < env vars < cli flags
-	err = cfg.SetValues()
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, cfg.SetValues())
+	require.NoError(t, cfg.Validate())
 
-	// Ensure that what we parsed makes sense
-	err = cfg.Validate()
-	if err != nil {
-		// This is commented in this example, because the default values are
-		// missing some required fields, so the default config we parsed above is
-		// invalid.
-		// panic(err)
-	}
-
-	// Use the values
-	fmt.Println(cfg.Endpoint)
-
-	// Output: localhost:8000
+	assert.Equal(t, cfg.CaptiveCoreConfigPath, "/opt/stellar/soroban-rpc/etc/stellar-captive-core.cfg")
+	assert.Equal(t, cfg.StellarCoreBinaryPath, "/usr/bin/stellar-core", "env or cli flags should override --config-path values")
 }
 
 func TestConfigLoadDefaults(t *testing.T) {
