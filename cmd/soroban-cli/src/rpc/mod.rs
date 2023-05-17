@@ -119,22 +119,30 @@ pub struct Cost {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct SimulateTransactionResult {
-    pub footprint: String,
-    #[serde(deserialize_with = "deserialize_default_from_null")]
+pub struct SimulateHostFunctionResult {
     pub auth: Vec<String>,
-    #[serde(deserialize_with = "deserialize_default_from_null")]
-    pub events: Vec<String>,
     pub xdr: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SimulateTransactionResponse {
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub results: Vec<SimulateTransactionResult>,
-    pub cost: Cost,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
+    #[serde(
+        rename = "transactionData"
+    )]
+    pub transaction_data: String,
+    #[serde(deserialize_with = "deserialize_default_from_null")]
+    pub events: Vec<String>,
+    #[serde(
+        rename = "minResourceFee",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub min_resource_fee: u32,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub results: Vec<SimulateHostFunctionResult>,
+    pub cost: Cost,
+
     #[serde(
         rename = "latestLedger",
         deserialize_with = "deserialize_number_from_string"

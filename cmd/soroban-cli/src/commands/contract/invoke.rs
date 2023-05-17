@@ -289,13 +289,13 @@ impl Cmd {
             });
         }
         let result = &simulation_response.results[0];
-        let footprint = LedgerFootprint::from_xdr_base64(&result.footprint)?;
+        let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation_response.transaction_data)?;
         let auth = result
             .auth
             .iter()
             .map(ContractAuth::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
-        let events = result
+        let events = simulation_response
             .events
             .iter()
             .map(DiagnosticEvent::from_xdr_base64)
@@ -303,15 +303,23 @@ impl Cmd {
         if !events.is_empty() {
             tracing::debug!(simulation_events=?events);
         }
-        log_events(&footprint, &auth, &[], None);
+
+        log_events(&transaction_data.resources.footprint, &auth, &[], None);
+
+        // update the fees of the actual transaction to meet the minimum resource fees.
+        let mut final_fees = self.fee.fee;
+        let classic_transaction_fees = crate::fee::Args::default().fee;
+        if final_fees < classic_transaction_fees + simulation_response.min_resource_fee {
+            final_fees = classic_transaction_fees + simulation_response.min_resource_fee;
+        }
 
         // Send the final transaction with the actual footprint
         let tx = build_invoke_contract_tx(
             host_function_params,
-            Some(footprint),
+            Some(transaction_data),
             Some(auth),
             sequence + 1,
-            self.fee.fee,
+            final_fees,
             &network.network_passphrase,
             &key,
         )?;
@@ -511,18 +519,29 @@ pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<Stri
 
 fn build_invoke_contract_tx(
     parameters: ScVec,
-    footprint: Option<LedgerFootprint>,
+    transaction_data: Option<SorobanTransactionData>,
     auth: Option<Vec<ContractAuth>>,
     sequence: i64,
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
 ) -> Result<TransactionEnvelope, Error> {
-    // Use a default footprint if none provided
-    let final_footprint = footprint.unwrap_or(LedgerFootprint {
-        read_only: VecM::default(),
-        read_write: VecM::default(),
+    // Use a default transaction_data if none provided
+    let final_transaction_data = transaction_data.unwrap_or(SorobanTransactionData {
+        resources: SorobanResources {
+            footprint: LedgerFootprint {
+                read_only: VecM::default(),
+                read_write: VecM::default(),
+            },
+            instructions: 0,
+            read_bytes: 0,
+            write_bytes: 0,
+            extended_meta_data_size_bytes: 0,
+        },
+        refundable_fee: 0,
+        ext: ExtensionPoint::V0,
     });
+
     let final_auth = auth.unwrap_or(Vec::default());
     let op = Operation {
         source_account: None,
@@ -541,19 +560,7 @@ fn build_invoke_contract_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(SorobanTransactionData {
-            resources: SorobanResources {
-                footprint: final_footprint,
-                // TODO: what values should be filled?
-                instructions: 0,
-                read_bytes: 0,
-                write_bytes: 0,
-                extended_meta_data_size_bytes: 0,
-            },
-            // TODO: what value should be filled?
-            refundable_fee: 0,
-            ext: ExtensionPoint::V0,
-        }),
+        ext: TransactionExt::V1(final_transaction_data),
     };
 
     Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
