@@ -52,27 +52,20 @@ func (cfg *Config) Init(cmd *cobra.Command) error {
 	return cfg.flags().Init(cmd)
 }
 
-// We start with the defaults
+// Values applied as defaults -> flags/env -> config file
 func (cfg *Config) SetValues() error {
 	if err := cfg.loadDefaults(); err != nil {
 		return err
 	}
 
-	// Then we load from the cli flags and environment variables
+	cfg.Bind()
 	if err := cfg.loadFlags(); err != nil {
 		return err
 	}
 
-	// If we specified a config file, we load that
 	if cfg.ConfigPath != "" {
 		// Merge in the config file flags
 		if err := cfg.loadConfigPath(); err != nil {
-			return err
-		}
-
-		// Load from cli flags and environment variables again, to overwrite what we
-		// got from the config file
-		if err := cfg.loadFlags(); err != nil {
 			return err
 		}
 	}
