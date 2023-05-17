@@ -11,24 +11,24 @@ default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.dependencies.soroban-env-host]
-version = "0.0.15"
+version = "0.0.16"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "83ab1b0e2ce7e08d33d686ed4b4ea0564b454160"
+rev = "0c0cae6fa22b751e7fd95d7ce7556ac6d7b7010e"
 
 [workspace.dependencies.soroban-spec]
-version = "0.7.0"
+version = "0.8.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "9bbac60c25cee9aa995025db5af828c243d15690"
+rev = "090f5c88e8f8b67f4d02010665aedfea6ee43db3"
 
 [workspace.dependencies.soroban-sdk]
-version = "0.7.0"
+version = "0.8.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "9bbac60c25cee9aa995025db5af828c243d15690"
+rev = "090f5c88e8f8b67f4d02010665aedfea6ee43db3"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "0.7.0"
+version = "0.8.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "9bbac60c25cee9aa995025db5af828c243d15690"
+rev = "090f5c88e8f8b67f4d02010665aedfea6ee43db3"
 
 [workspace.dependencies.soroban-cli]
 version = "0.7.1"

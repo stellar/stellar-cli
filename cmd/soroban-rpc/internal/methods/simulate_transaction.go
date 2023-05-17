@@ -21,18 +21,21 @@ type SimulateTransactionCost struct {
 	MemoryBytes     uint64 `json:"memBytes,string"`
 }
 
-type SimulateTransactionResult struct {
-	Auth      []string `json:"auth"`
-	Events    []string `json:"events"`
-	Footprint string   `json:"footprint"`
-	XDR       string   `json:"xdr"`
+// SimulateHostFunctionResult contains the simulation result of each HostFunction within the single InvokeHostFunctionOp allowed in a Transaction
+type SimulateHostFunctionResult struct {
+	Auth []string `json:"auth"`
+	XDR  string   `json:"xdr"`
 }
 
 type SimulateTransactionResponse struct {
-	Error        string                      `json:"error,omitempty"`
-	Results      []SimulateTransactionResult `json:"results,omitempty"`
-	Cost         SimulateTransactionCost     `json:"cost"`
-	LatestLedger int64                       `json:"latestLedger,string"`
+	Error string `json:"error,omitempty"`
+	// TODO: update documentation and review field names
+	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
+	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
+	MinResourceFee  int64                        `json:"minResourceFee,string"`
+	Results         []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
+	Cost            SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
+	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
 type PreflightGetter interface {
@@ -95,15 +98,19 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
+		hostFunctionResults := make([]SimulateHostFunctionResult, len(result.Results))
+		for i := 0; i < len(hostFunctionResults); i++ {
+			hostFunctionResults[i] = SimulateHostFunctionResult{
+				Auth: result.Results[i].Auth,
+				XDR:  result.Results[i].Result,
+			}
+		}
+
 		return SimulateTransactionResponse{
-			Results: []SimulateTransactionResult{
-				{
-					Events:    result.Events,
-					Auth:      result.Auth,
-					Footprint: result.Footprint,
-					XDR:       result.Result,
-				},
-			},
+			Results:         hostFunctionResults,
+			Events:          result.Events,
+			TransactionData: result.TransactionData,
+			MinResourceFee:  result.MinFee,
 			Cost: SimulateTransactionCost{
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,

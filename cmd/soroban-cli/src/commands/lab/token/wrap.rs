@@ -1,6 +1,9 @@
 use clap::{arg, command, Parser};
 use regex::Regex;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::{
+    ExtensionPoint, HostFunctionArgs, SorobanResources, SorobanTransactionData,
+};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
@@ -14,6 +17,7 @@ use soroban_env_host::{
     },
     Host, HostError,
 };
+use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 
 use crate::{
@@ -44,6 +48,12 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error(transparent)]
     Config(#[from] config::Error),
+}
+
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -89,11 +99,15 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info);
 
-        let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
-            contract_id: ContractId::Asset(asset.clone()),
-            source: ScContractExecutable::Token,
-        }))?;
-        let res_str = utils::vec_to_hash(&res)?;
+        let res = h.invoke_functions(vec![HostFunction {
+            args: HostFunctionArgs::CreateContract(CreateContractArgs {
+                contract_id: ContractId::Asset(asset.clone()),
+                executable: ScContractExecutable::Token,
+            }),
+            auth: VecM::default(),
+        }])?;
+
+        let res_str = utils::vec_to_hash(&res[0])?;
 
         state.update(&h);
         self.config.set_state(&mut state)?;
@@ -173,17 +187,17 @@ fn build_wrap_token_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            function: HostFunction::CreateContract(CreateContractArgs {
-                contract_id: ContractId::Asset(asset.clone()),
-                source: ScContractExecutable::Token,
-            }),
-            footprint: LedgerFootprint {
-                read_only: VecM::default(),
-                read_write: read_write.try_into()?,
-            },
-            auth: VecM::default(),
+            functions: vec![HostFunction {
+                args: HostFunctionArgs::CreateContract(CreateContractArgs {
+                    contract_id: ContractId::Asset(asset.clone()),
+                    executable: ScContractExecutable::Token,
+                }),
+                auth: VecM::default(),
+            }]
+            .try_into()?,
         }),
     };
+
     let tx = Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
@@ -191,7 +205,22 @@ fn build_wrap_token_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V0,
+        ext: TransactionExt::V1(SorobanTransactionData {
+            resources: SorobanResources {
+                footprint: LedgerFootprint {
+                    read_only: VecM::default(),
+                    read_write: read_write.try_into()?,
+                },
+                // TODO: what values should be used here?
+                instructions: 0,
+                read_bytes: 0,
+                write_bytes: 0,
+                extended_meta_data_size_bytes: 0,
+            },
+            // TODO: what value to use here?
+            refundable_fee: 0,
+            ext: ExtensionPoint::V0,
+        }),
     };
 
     Ok(utils::sign_transaction(key, &tx, network_passphrase)?)

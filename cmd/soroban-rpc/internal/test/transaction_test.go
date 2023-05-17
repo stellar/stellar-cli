@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
@@ -54,17 +55,18 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	address := kp.Address()
 	account := txnbuild.NewSimpleAccount(address, 0)
 
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, account.AccountID, testContract, true),
+			createInstallContractCodeOperation(account.AccountID, testContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+	tx, err := txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	response := sendSuccessfulTransaction(t, client, kp, tx)
 
@@ -81,8 +83,10 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	expectedContractID, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
 	assert.NoError(t, err)
 	contractIDBytes := xdr.ScBytes(expectedContractID)
-	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
-	assert.True(t, expectedScVal.Equals(resultVal))
+	expectedScVal := []xdr.ScVal{{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}}
+	assert.Equal(t, len(expectedScVal), len(resultVal))
+	assert.Equal(t, len(expectedScVal), int(1))
+	assert.True(t, expectedScVal[0].Equals(resultVal[0]))
 
 	expectedResult := xdr.TransactionResult{
 		FeeCharged: 100,
@@ -104,6 +108,8 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	}
 	var resultXdr xdr.TransactionResult
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
+	// We cannot really predict the charged fee
+	expectedResult.FeeCharged = resultXdr.FeeCharged
 	assert.Equal(t, expectedResult, resultXdr)
 }
 
@@ -159,14 +165,19 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	address := kp.Address()
 	account := txnbuild.NewSimpleAccount(address, 0)
 
+	op := createInstallContractCodeOperation(account.AccountID, testContract)
+	// without the presources the tx will fail
+	op.Ext = xdr.TransactionExt{
+		V:           1,
+		SorobanData: &xdr.SorobanTransactionData{},
+	}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			// without the footprint the tx will fail
-			createInstallContractCodeOperation(t, account.AccountID, testContract, false),
+			op,
 		},
-		BaseFee: txnbuild.MinBaseFee,
+		BaseFee: txnbuild.MinBaseFee * 1000,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
@@ -186,7 +197,12 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedHashHex, result.Hash)
-	assert.Equal(t, proto.TXStatusPending, result.Status)
+	if !assert.Equal(t, proto.TXStatusPending, result.Status) {
+		var txResult xdr.TransactionResult
+		err := xdr.SafeUnmarshalBase64(result.ErrorResultXDR, &txResult)
+		assert.NoError(t, err)
+		fmt.Printf("error: %#v\n", txResult)
+	}
 	assert.NotZero(t, result.LatestLedger)
 	assert.NotZero(t, result.LatestLedgerCloseTime)
 
@@ -229,12 +245,22 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedHashHex, result.Hash)
-	assert.Equal(t, proto.TXStatusPending, result.Status)
+	if !assert.Equal(t, proto.TXStatusPending, result.Status) {
+		var txResult xdr.TransactionResult
+		err := xdr.SafeUnmarshalBase64(result.ErrorResultXDR, &txResult)
+		assert.NoError(t, err)
+		fmt.Printf("error: %#v\n", txResult)
+	}
 	assert.NotZero(t, result.LatestLedger)
 	assert.NotZero(t, result.LatestLedgerCloseTime)
 
 	response := getTransaction(t, client, expectedHashHex)
-	assert.Equal(t, methods.TransactionStatusSuccess, response.Status)
+	if !assert.Equal(t, methods.TransactionStatusSuccess, response.Status) {
+		var txResult xdr.TransactionResult
+		err := xdr.SafeUnmarshalBase64(response.ResultXdr, &txResult)
+		assert.NoError(t, err)
+		fmt.Printf("error: %#v\n", txResult)
+	}
 	assert.NotNil(t, response.ResultXdr)
 	assert.Greater(t, response.Ledger, result.LatestLedger)
 	assert.Greater(t, response.LedgerCloseTime, result.LatestLedgerCloseTime)

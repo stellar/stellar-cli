@@ -72,17 +72,18 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	kp := keypair.Root(StandaloneNetworkPassphrase)
 	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
 
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(t, account.AccountID, testContract, true),
+			createInstallContractCodeOperation(account.AccountID, testContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+	tx, err := txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
 	assert.NoError(t, err)
@@ -98,9 +99,9 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	txStatusResponse := getTransaction(t, client, sendTxResponse.Hash)
 	assert.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
 
-	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: testContract}.MarshalBinary()
+	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: testContract}.MarshalBinary()
 	assert.NoError(t, err)
-	contractHash := sha256.Sum256(installContractCodeArgs)
+	contractHash := sha256.Sum256(uploadContractCodeArgs)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractCode,
 		ContractCode: &xdr.LedgerKeyContractCode{

@@ -1,3 +1,7 @@
+mod fees;
+mod ledger_storage;
+
+extern crate base64;
 extern crate libc;
 extern crate sha2;
 extern crate soroban_env_host;
@@ -6,69 +10,18 @@ use sha2::{Digest, Sha256};
 use soroban_env_host::auth::RecordedAuthPayload;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::events::{Event, Events};
-use soroban_env_host::storage::{self, AccessType, SnapshotSource, Storage};
+use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
-    self, AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, LedgerEntry,
-    LedgerKey, ReadXdr, ScHostStorageErrorCode, ScStatus,
-    ScUnknownErrorCode::{General, Xdr},
-    WriteXdr,
+    AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, InvokeHostFunctionOp,
+    ReadXdr, ScVal, ScVec, WriteXdr,
 };
-use soroban_env_host::{Host, HostError, LedgerInfo};
+use soroban_env_host::{Host, LedgerInfo};
 use std::convert::TryInto;
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
 use std::rc::Rc;
 use std::{error, mem};
-use xdr::LedgerFootprint;
-
-extern "C" {
-    // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
-    fn SnapshotSourceGet(
-        handle: libc::uintptr_t,
-        ledger_key: *const libc::c_char,
-    ) -> *const libc::c_char;
-    // LedgerKey XDR in base64 string to bool
-    fn SnapshotSourceHas(handle: libc::uintptr_t, ledger_key: *const libc::c_char) -> libc::c_int;
-    // Free Strings returned from Go functions
-    fn FreeGoCString(str: *const libc::c_char);
-}
-
-struct CSnapshotSource {
-    handle: libc::uintptr_t,
-}
-
-impl SnapshotSource for CSnapshotSource {
-    fn get(&self, key: &Rc<LedgerKey>) -> Result<Rc<LedgerEntry>, HostError> {
-        let key_xdr = key
-            .to_xdr_base64()
-            .map_err(|_| ScStatus::UnknownError(Xdr))?;
-        let key_cstr = CString::new(key_xdr).map_err(|_| ScStatus::UnknownError(General))?;
-        let res = unsafe { SnapshotSourceGet(self.handle, key_cstr.as_ptr()) };
-        if res.is_null() {
-            return Err(HostError::from(
-                ScHostStorageErrorCode::AccessToUnknownEntry,
-            ));
-        }
-        let res_cstr = unsafe { CStr::from_ptr(res) };
-        let res_str = res_cstr
-            .to_str()
-            .map_err(|_| ScStatus::UnknownError(General))?;
-        let entry =
-            LedgerEntry::from_xdr_base64(res_str).map_err(|_| ScStatus::UnknownError(Xdr))?;
-        unsafe { FreeGoCString(res) };
-        Ok(entry.into())
-    }
-
-    fn has(&self, key: &Rc<LedgerKey>) -> Result<bool, HostError> {
-        let key_xdr = key
-            .to_xdr_base64()
-            .map_err(|_| ScStatus::UnknownError(Xdr))?;
-        let key_cstr = CString::new(key_xdr).map_err(|_| ScStatus::UnknownError(Xdr))?;
-        let res = unsafe { SnapshotSourceHas(self.handle, key_cstr.as_ptr()) };
-        Ok(res != 0)
-    }
-}
 
 #[repr(C)]
 pub struct CLedgerInfo {
@@ -92,29 +45,19 @@ impl From<CLedgerInfo> for LedgerInfo {
     }
 }
 
-fn storage_footprint_to_ledger_footprint(
-    foot: &storage::Footprint,
-) -> Result<LedgerFootprint, xdr::Error> {
-    let mut read_only: Vec<LedgerKey> = Vec::new();
-    let mut read_write: Vec<LedgerKey> = Vec::new();
-    for (k, v) in &foot.0 {
-        match v {
-            AccessType::ReadOnly => read_only.push((**k).clone()),
-            AccessType::ReadWrite => read_write.push((**k).clone()),
-        }
-    }
-    Ok(LedgerFootprint {
-        read_only: read_only.try_into()?,
-        read_write: read_write.try_into()?,
-    })
+#[repr(C)]
+pub struct CHostFunctionPreflight {
+    pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
+    pub result: *mut libc::c_char,    // XDR SCVal in base64
 }
 
 #[repr(C)]
 pub struct CPreflightResult {
     pub error: *mut libc::c_char, // Error string in case of error, otherwise null
-    pub result: *mut libc::c_char, // SCVal XDR in base64
-    pub footprint: *mut libc::c_char, // LedgerFootprint XDR in base64
-    pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
+    pub results: *mut CHostFunctionPreflight, // array of CHostFunctionPreflight
+    pub results_size: libc::size_t,
+    pub transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64
+    pub min_fee: i64,                        // Minimum recommended resource fee
     pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
@@ -126,9 +69,10 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
     // caller needs to invoke free_preflight_result(result) when done
     Box::into_raw(Box::new(CPreflightResult {
         error: c_str.into_raw(),
-        result: null_mut(),
-        footprint: null_mut(),
-        auth: null_mut(),
+        results: null_mut(),
+        results_size: 0,
+        transaction_data: null_mut(),
+        min_fee: 0,
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
@@ -136,16 +80,16 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
 }
 
 #[no_mangle]
-pub extern "C" fn preflight_host_function(
+pub extern "C" fn preflight_invoke_hf_op(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
-    hf: *const libc::c_char, // HostFunction XDR in base64
+    invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        preflight_host_function_or_maybe_panic(handle, hf, source_account, ledger_info)
+        preflight_invoke_hf_op_or_maybe_panic(handle, invoke_hf_op, source_account, ledger_info)
     }));
     match res {
         Err(panic) => match panic.downcast::<String>() {
@@ -165,17 +109,19 @@ pub extern "C" fn preflight_host_function(
     }
 }
 
-fn preflight_host_function_or_maybe_panic(
+fn preflight_invoke_hf_op_or_maybe_panic(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
-    hf: *const libc::c_char, // HostFunction XDR in base64
+    invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> Result<CPreflightResult, Box<dyn error::Error>> {
-    let hf_cstr = unsafe { CStr::from_ptr(hf) };
-    let hf = HostFunction::from_xdr_base64(hf_cstr.to_str()?)?;
+    let invoke_hf_op_cstr = unsafe { CStr::from_ptr(invoke_hf_op) };
+    let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(invoke_hf_op_cstr.to_str()?)?;
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
     let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str()?)?;
-    let src = Rc::new(CSnapshotSource { handle });
+    let src = Rc::new(ledger_storage::LedgerStorage {
+        golang_handle: handle,
+    });
     let storage = Storage::with_recording_footprint(src);
     let budget = Budget::default();
     let host = Host::with_storage_and_budget(storage, budget);
@@ -184,22 +130,49 @@ fn preflight_host_function_or_maybe_panic(
     host.set_source_account(source_account);
     host.set_ledger_info(ledger_info.into());
 
+    // Add auths to the functions, so that they are later taken into account for
+    // the envelope size estimation
+    let mut results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)> = Vec::new();
+
     // Run the preflight.
-    let result = host.invoke_function(hf)?;
-    let auth_payloads = host.get_recorded_auth_payloads()?;
+    let mut functions_with_auths: Vec<HostFunction> = invoke_hf_op.functions.clone().into_vec();
+    for (i, f) in invoke_hf_op.functions.as_vec().iter().enumerate() {
+        // Hack to obtain the auth of each function separately
+        host.switch_to_recording_auth(); // resets auth from previous calls
+        let results = host.invoke_functions(vec![f.clone()])?;
+        let auths = host.get_recorded_auth_payloads()?;
+        functions_with_auths[i].auth = auths
+            .iter()
+            .map(recorded_auth_payload_to_xdr)
+            .collect::<Vec<_>>()
+            .try_into()?;
+        results_and_auths.push((results[0].clone(), auths));
+    }
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, events) = host.try_finish().unwrap();
 
-    let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
-    let fp_cstr = CString::new(fp.to_xdr_base64()?)?;
-    let result_cstr = CString::new(result.to_xdr_base64()?)?;
+    let diagnostic_events = host_events_to_diagnostic_events(&events);
+    let (transaction_data, min_fee) = fees::compute_transaction_data_and_min_fee(
+        &InvokeHostFunctionOp {
+            functions: functions_with_auths.try_into()?,
+        },
+        &ledger_storage::LedgerStorage {
+            golang_handle: handle,
+        },
+        &storage,
+        &budget,
+        &diagnostic_events,
+    )?;
+    let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
+    let (results, results_size) = get_c_host_function_preflight_array(results_and_auths)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        result: result_cstr.into_raw(),
-        footprint: fp_cstr.into_raw(),
-        auth: recorded_auth_payloads_to_c(auth_payloads)?,
-        events: host_events_to_c(events)?,
+        results,
+        results_size,
+        transaction_data: transaction_data_cstr.into_raw(),
+        min_fee,
+        events: diagnostic_events_to_c(diagnostic_events)?,
         cpu_instructions: budget.get_cpu_insns_count(),
         memory_bytes: budget.get_mem_bytes_count(),
     })
@@ -212,7 +185,7 @@ fn recorded_auth_payloads_to_c(
         .iter()
         .map(|p| recorded_auth_payload_to_xdr(p).to_xdr_base64())
         .collect::<Result<Vec<_>, _>>()?;
-    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
+    string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
 
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
@@ -228,16 +201,15 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
         root_invocation: payload.invocation.clone(),
         // signature_args is left empty. This is where the client will put their signatures when
         // submitting the transaction.
-        signature_args: Default::default(),
+        signature_args: ScVec::default(),
     }
 }
 
-fn host_events_to_c(events: Events) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
-    let mut xdr_base64_vec: Vec<String> = Vec::new();
-    for e in events.0.iter() {
+fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
+    let mut res: Vec<DiagnosticEvent> = Vec::new();
+    for e in &events.0 {
         let maybe_contract_event = match &e.event {
-            Event::Contract(e) => Some(e),
-            Event::StructuredDebug(e) => Some(e),
+            Event::Contract(e) | Event::StructuredDebug(e) => Some(e),
             // Debug events can't be translated to diagnostic events
             Event::Debug(_) => None,
         };
@@ -246,17 +218,44 @@ fn host_events_to_c(events: Events) -> Result<*mut *mut libc::c_char, Box<dyn er
                 in_successful_contract_call: !e.failed_call,
                 event: contract_event.clone(),
             };
-            xdr_base64_vec.push(diagnostic_event.to_xdr_base64()?);
+            res.push(diagnostic_event);
         }
     }
-    string_vec_to_c_to_null_terminated_char_array(xdr_base64_vec)
+    res
 }
 
-fn string_vec_to_c_to_null_terminated_char_array(
+fn diagnostic_events_to_c(
+    events: Vec<DiagnosticEvent>,
+) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
+    let xdr_base64_vec: Vec<String> = events
+        .iter()
+        .map(DiagnosticEvent::to_xdr_base64)
+        .collect::<Result<Vec<_>, _>>()?;
+    string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
+}
+
+// TODO: can we factor out the common parts of get_c_null_terminated_host_function_preflight_array and
+//       string_vec_to_c_null_terminated_char_array ?
+fn get_c_host_function_preflight_array(
+    results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)>,
+) -> Result<(*mut CHostFunctionPreflight, libc::size_t), Box<dyn error::Error>> {
+    let mut out_vec: Vec<CHostFunctionPreflight> = Vec::new();
+    for (result, auths) in results_and_auths {
+        let result_c_str = CString::new(result.to_xdr_base64()?)?.into_raw();
+        out_vec.push(CHostFunctionPreflight {
+            auth: recorded_auth_payloads_to_c(auths)?,
+            result: result_c_str,
+        });
+    }
+    let size = out_vec.len();
+    Ok((vec_to_c_array(out_vec), size))
+}
+
+fn string_vec_to_c_null_terminated_char_array(
     v: Vec<String>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
-    for s in v.iter() {
+    for s in &v {
         let c_str = CString::new(s.clone())?.into_raw();
         out_vec.push(c_str);
     }
@@ -264,17 +263,21 @@ fn string_vec_to_c_to_null_terminated_char_array(
     // Add the ending NULL
     out_vec.push(null_mut());
 
+    Ok(vec_to_c_array(out_vec))
+}
+
+fn vec_to_c_array<T>(mut v: Vec<T>) -> *mut T {
     // Make sure length and capacity are the same
     // (this allows using the length as the capacity when deallocating the vector)
-    out_vec.shrink_to_fit();
-    assert_eq!(out_vec.len(), out_vec.capacity());
+    v.shrink_to_fit();
+    assert_eq!(v.len(), v.capacity());
 
     // Get the pointer to our vector, we will deallocate it in free_c_null_terminated_char_array()
     // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
-    let ptr = out_vec.as_mut_ptr();
-    mem::forget(out_vec);
+    let ptr = v.as_mut_ptr();
+    mem::forget(v);
 
-    Ok(ptr)
+    ptr
 }
 
 /// .
@@ -289,21 +292,26 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
     }
     unsafe {
         if !(*result).error.is_null() {
-            let _ = CString::from_raw((*result).error);
+            _ = CString::from_raw((*result).error);
         }
-        if !(*result).result.is_null() {
-            let _ = CString::from_raw((*result).result);
+        if !(*result).results.is_null() {
+            let results = Vec::from_raw_parts(
+                (*result).results,
+                (*result).results_size,
+                (*result).results_size,
+            );
+            for result in &results {
+                free_c_null_terminated_char_array(result.auth);
+                _ = CString::from_raw(result.result);
+            }
         }
-        if !(*result).footprint.is_null() {
-            let _ = CString::from_raw((*result).footprint);
-        }
-        if !(*result).auth.is_null() {
-            free_c_null_terminated_char_array((*result).auth);
+        if !(*result).transaction_data.is_null() {
+            _ = CString::from_raw((*result).transaction_data);
         }
         if !(*result).events.is_null() {
             free_c_null_terminated_char_array((*result).events);
         }
-        let _ = Box::from_raw(result);
+        _ = Box::from_raw(result);
     }
 }
 
@@ -316,11 +324,11 @@ fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
             if c_char_ptr.is_null() {
                 break;
             }
-            // deallocate each base64 string
-            let _ = CString::from_raw(c_char_ptr);
+            // deallocate each string
+            _ = CString::from_raw(c_char_ptr);
             i += 1;
         }
         // deallocate the containing vector
-        let _ = Vec::from_raw_parts(array, i + 1, i + 1);
+        _ = Vec::from_raw_parts(array, i + 1, i + 1);
     }
 }
