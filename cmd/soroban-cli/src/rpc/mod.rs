@@ -52,6 +52,8 @@ pub enum Error {
     MissingError,
     #[error("cursor is not valid")]
     InvalidCursor,
+    #[error("unexpected ({length}) simulate transaction result length")]
+    UnexpectedSimulateTransactionResultSize { length: usize },
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -99,7 +101,7 @@ pub struct GetTransactionResponse {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct LedgerEntryResult {
     pub xdr: String,
-    #[serde(rename = "lastModifiedLedger")]
+    #[serde(rename = "lastModifiedLedgerSeq")]
     pub last_modified_ledger: String,
 }
 
@@ -112,9 +114,15 @@ pub struct GetLedgerEntriesResponse {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Cost {
-    #[serde(rename = "cpuInsns")]
+    #[serde(
+        rename = "cpuInsns",
+        deserialize_with = "deserialize_number_from_string",
+    )]
     pub cpu_insns: String,
-    #[serde(rename = "memBytes")]
+    #[serde(
+        rename = "memBytes",
+        deserialize_with = "deserialize_number_from_string",
+    )]
     pub mem_bytes: String,
 }
 
@@ -450,10 +458,14 @@ impl Client {
     ) -> Result<SimulateTransactionResponse, Error> {
         tracing::trace!(?tx);
         let base64_tx = tx.to_xdr_base64()?;
+        println!("before sending tx...");
+        // the following doesn't seems to send the request.
+        // TODO : investigate it.
         let response: SimulateTransactionResponse = self
             .client()?
             .request("simulateTransaction", rpc_params![base64_tx])
             .await?;
+        println!("after receiving tx {}", response.error.clone().unwrap());
         tracing::trace!(?response);
         match response.error {
             None => Ok(response),

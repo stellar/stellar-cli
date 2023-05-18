@@ -250,6 +250,7 @@ impl Cmd {
     }
 
     pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
+        println!("contract/invoke run_against_rpc_server...");
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
@@ -324,7 +325,7 @@ impl Cmd {
             &network.network_passphrase,
             &key,
         )?;
-
+        
         let (result, events) = client.send_transaction(&tx).await?;
         tracing::debug!(?result);
         if !events.is_empty() {

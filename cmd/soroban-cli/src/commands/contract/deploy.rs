@@ -149,6 +149,7 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {
+        println!("contract/deploy run_against_rpc_server...");
         let network = self.config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
             // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
