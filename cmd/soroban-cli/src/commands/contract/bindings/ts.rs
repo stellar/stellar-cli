@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::PathBuf, println};
+use std::{fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
 use soroban_spec::gen::ts;
@@ -33,9 +33,9 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let spec = self.wasm.parse().unwrap().spec;
-        println!("here");
-        let p: ts::boilerplate::Project = self.wasm.wasm.clone().try_into()?;
-        println!("2");
+        std::fs::remove_dir_all(&self.root_dir)?;
+        std::fs::create_dir(&self.root_dir)?;
+        let p: ts::boilerplate::Project = self.root_dir.clone().try_into()?;
         p.init(&self.contract_name, &self.contract_id, &spec)?;
         Ok(())
     }
