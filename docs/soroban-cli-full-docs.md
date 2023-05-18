@@ -7,6 +7,9 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban`↴](#soroban)
 * [`soroban contract`↴](#soroban-contract)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
+* [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
+* [`soroban contract bindings rust`↴](#soroban-contract-bindings-rust)
+* [`soroban contract bindings ts`↴](#soroban-contract-bindings-ts)
 * [`soroban contract deploy`↴](#soroban-contract-deploy)
 * [`soroban contract inspect`↴](#soroban-contract-inspect)
 * [`soroban contract install`↴](#soroban-contract-install)
@@ -106,19 +109,50 @@ Tools for smart contract developers
 
 Generate code client bindings for a contract
 
-**Usage:** `soroban contract bindings --wasm <WASM> --output <OUTPUT>`
+**Usage:** `soroban contract bindings <COMMAND>`
+
+###### **Subcommands:**
+
+* `json` — Generate Json Bindings
+* `rust` — Generate Rust bindings
+* `ts` — 
+
+
+
+## `soroban contract bindings json`
+
+Generate Json Bindings
+
+**Usage:** `soroban contract bindings json --wasm <WASM>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — Path to wasm binary
-* `--output <OUTPUT>` — Type of output to generate
 
-  Possible values:
-  - `rust`:
-    Rust trait, client bindings, and test harness
-  - `json`:
-    Json representation of contract spec types
 
+
+## `soroban contract bindings rust`
+
+Generate Rust bindings
+
+**Usage:** `soroban contract bindings rust --wasm <WASM>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Path to wasm binary
+
+
+
+## `soroban contract bindings ts`
+
+**Usage:** `soroban contract bindings ts --wasm <WASM> --root-dir <ROOT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Path to wasm binary
+* `--root-dir <ROOT_DIR>` — where to place generated project
+* `--contract-name <CONTRACT_NAME>`
+* `--contract-id <CONTRACT_ID>`
 
 
 

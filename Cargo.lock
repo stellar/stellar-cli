@@ -741,6 +741,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0a93d233ebf96623465aad4046a8d3aa4da22d4f4beba5388838c8a434bbb4"
 
 [[package]]
+name = "glob"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
+
+[[package]]
 name = "globset"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,6 +962,26 @@ dependencies = [
  "thread_local",
  "walkdir",
  "winapi-util",
+]
+
+[[package]]
+name = "include_dir"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18762faeff7122e89e0857b02f7ce6fcc0d101d5e9ad2ad7846cc01d61b7f19e"
+dependencies = [
+ "glob",
+ "include_dir_macros",
+]
+
+[[package]]
+name = "include_dir_macros"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b139284b5cf57ecfa712bcc66950bb635b31aff41c188e8a4cfc758eca374a3f"
+dependencies = [
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]
@@ -1985,7 +2011,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec",
+ "soroban-spec 0.8.2",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "strsim",
  "termcolor",
@@ -2114,7 +2140,7 @@ dependencies = [
  "quote",
  "sha2 0.9.9",
  "soroban-env-common",
- "soroban-spec",
+ "soroban-spec 0.8.0",
  "stellar-xdr",
  "syn 2.0.15",
 ]
@@ -2126,6 +2152,29 @@ source = "git+https://github.com/stellar/rs-soroban-sdk?rev=090f5c88e8f8b67f4d02
 dependencies = [
  "base64 0.13.1",
  "darling",
+ "itertools",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sha2 0.9.9",
+ "stellar-xdr",
+ "syn 2.0.15",
+ "thiserror",
+ "wasmparser 0.88.0",
+]
+
+[[package]]
+name = "soroban-spec"
+version = "0.8.2"
+source = "git+https://github.com/ahalabs/rs-soroban-sdk?rev=14ce186845311c75ee9daab023837bbfd5f382a5#14ce186845311c75ee9daab023837bbfd5f382a5"
+dependencies = [
+ "base64 0.13.1",
+ "darling",
+ "heck",
+ "include_dir",
  "itertools",
  "prettyplease",
  "proc-macro2",
@@ -2155,7 +2204,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec",
+ "soroban-spec 0.8.2",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "which",
