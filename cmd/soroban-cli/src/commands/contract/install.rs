@@ -117,7 +117,7 @@ impl Cmd {
             tracing::debug!(simulation_events=?events);
         }
 
-        //log_events(&transaction_data.resources.footprint, &auth, &[], None);
+        println!("auth length {}", auth.len());
 
         // update the fees of the actual transaction to meet the minimum resource fees.
         let mut final_fees = self.fee.fee;
@@ -157,7 +157,7 @@ pub(crate) fn build_install_contract_code_tx(
     let final_auth = auth.unwrap_or(Vec::default());
 
     let op = Operation {
-        source_account: None,
+        source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             functions: vec![HostFunction {
                 args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {

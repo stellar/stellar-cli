@@ -128,6 +128,7 @@ pub struct Cost {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SimulateHostFunctionResult {
+    #[serde(deserialize_with = "deserialize_default_from_null")]
     pub auth: Vec<String>,
     pub xdr: String,
 }
@@ -148,7 +149,6 @@ pub struct SimulateTransactionResponse {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub results: Vec<SimulateHostFunctionResult>,
     pub cost: Cost,
-
     #[serde(
         rename = "latestLedger",
         deserialize_with = "deserialize_number_from_string"
@@ -458,14 +458,10 @@ impl Client {
     ) -> Result<SimulateTransactionResponse, Error> {
         tracing::trace!(?tx);
         let base64_tx = tx.to_xdr_base64()?;
-        println!("before sending tx...");
-        // the following doesn't seems to send the request.
-        // TODO : investigate it.
         let response: SimulateTransactionResponse = self
             .client()?
             .request("simulateTransaction", rpc_params![base64_tx])
             .await?;
-        println!("after receiving tx {}", response.error.clone().unwrap());
         tracing::trace!(?response);
         match response.error {
             None => Ok(response),
