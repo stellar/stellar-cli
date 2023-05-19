@@ -88,13 +88,12 @@ impl Cmd {
             &key,
         )?;
 
-        // Simulate, prepare, and sign the txn
-        let unsigned_tx = client.prepare_transaction(&tx_without_preflight, None).await?;
-        let tx = utils::sign_transaction(&key, &unsigned_tx, &network.network_passphrase)?;
-
-        println!("contract/install run_against_rpc_server ( before sending )...");
-        // Send the transaction to the network
-        client.send_transaction(&tx).await?;
+        client.prepare_and_send_transaction(
+            &tx_without_preflight,
+            &key,
+            &network.network_passphrase,
+            None,
+        ).await?;
 
         Ok(hash)
     }

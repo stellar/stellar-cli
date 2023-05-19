@@ -136,7 +136,7 @@ impl Cmd {
             &key,
         )?;
 
-        client.send_transaction(&tx).await?;
+        client.prepare_and_send_transaction(&tx, &key, network_passphrase, None).await?;
 
         Ok(hex::encode(&contract_id))
     }
@@ -163,7 +163,7 @@ fn build_wrap_token_tx(
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<TransactionEnvelope, Error> {
+) -> Result<Transaction, Error> {
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
@@ -199,7 +199,7 @@ fn build_wrap_token_tx(
         }),
     };
 
-    let tx = Transaction {
+    Ok(Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
@@ -222,9 +222,7 @@ fn build_wrap_token_tx(
             refundable_fee: 0,
             ext: ExtensionPoint::V0,
         }),
-    };
-
-    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
+    })
 }
 
 fn parse_asset(str: &str) -> Result<Asset, Error> {

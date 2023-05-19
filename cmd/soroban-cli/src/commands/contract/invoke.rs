@@ -274,19 +274,20 @@ impl Cmd {
         // Get the ledger footprint
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
-        let tx_without_preflight = build_invoke_contract_tx(
+        let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
             self.fee.fee,
             &key,
         )?;
 
-        // Simulate, prepare, and sign the txn
-        let unsigned_tx = client.prepare_transaction(&tx_without_preflight, Some(log_events)).await?;
-        let tx = utils::sign_transaction(&key, &unsigned_tx, &network.network_passphrase)?;
+        let (result, events) = client.prepare_and_send_transaction(
+            &tx,
+            &key,
+            &network.network_passphrase,
+            Some(log_events),
+        ).await?;
 
-        // Send the transaction to the network
-        let (result, events) = client.send_transaction(&tx).await?;
         tracing::debug!(?result);
         if !events.is_empty() {
             tracing::debug!(?events);

@@ -175,7 +175,7 @@ impl Cmd {
             salt,
             &key,
         )?;
-        client.send_transaction(&tx).await?;
+        client.prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None).await?;
 
         Ok(hex::encode(contract_id.0))
     }
@@ -188,7 +188,7 @@ fn build_create_contract_tx(
     network_passphrase: &str,
     salt: [u8; 32],
     key: &ed25519_dalek::Keypair,
-) -> Result<(TransactionEnvelope, Hash), Error> {
+) -> Result<(Transaction, Hash), Error> {
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage =
         HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
@@ -243,9 +243,7 @@ fn build_create_contract_tx(
         }),
     };
 
-    let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;
-
-    Ok((envelope, Hash(contract_id.into())))
+    Ok((tx, Hash(contract_id.into())))
 }
 
 #[cfg(test)]

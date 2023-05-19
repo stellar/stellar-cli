@@ -22,6 +22,7 @@ use std::{
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
+use crate::utils;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -515,6 +516,18 @@ impl Client {
             signatures: VecM::default(),
         })).await?;
         assemble_transaction(tx, &sim_response, log_events)
+    }
+
+    pub async fn prepare_and_send_transaction(
+        &self,
+        tx_without_preflight: &Transaction,
+        key: &ed25519_dalek::Keypair,
+        network_passphrase: &str,
+        log_events: Option<LogEvents>
+    ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
+        let unsigned_tx = self.prepare_transaction(&tx_without_preflight, log_events).await?;
+        let tx = utils::sign_transaction(key, &unsigned_tx, network_passphrase)?;
+        self.send_transaction(&tx).await
     }
 
     pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponse, Error> {
