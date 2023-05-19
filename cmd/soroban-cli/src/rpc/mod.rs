@@ -113,6 +113,22 @@ pub struct GetLedgerEntriesResponse {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetNetworkResponse {
+    #[serde(
+        rename = "friendbotUrl",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub friendbot_url: Option<String>,
+    pub passphrase: String,
+    #[serde(
+        rename = "protocolVersion",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub protocol_version: u32,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Cost {
     #[serde(
         rename = "cpuInsns",
@@ -369,6 +385,14 @@ impl Client {
         Ok(HttpClientBuilder::default()
             .set_headers(headers)
             .build(url)?)
+    }
+
+    pub async fn get_network(&self) -> Result<GetNetworkResponse, Error> {
+        tracing::trace!("Getting network");
+        Ok(self
+            .client()?
+            .request("getNetwork", rpc_params![])
+            .await?)
     }
 
     pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
