@@ -36,6 +36,7 @@ func main() {
 		Run: func(_ *cobra.Command, _ []string) {
 			if config.CommitHash == "" {
 				fmt.Printf("soroban-rpc dev\n")
+				fmt.Printf("stellar-xdr %s\n", goxdr.CommitHash)
 			} else {
 				// avoid printing the branch for the main branch
 				// ( since that's what the end-user would typically have )
