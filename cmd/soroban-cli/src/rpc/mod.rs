@@ -7,7 +7,8 @@ use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, DiagnosticEvent, Error as XdrError, LedgerEntryData, LedgerKey,
     LedgerKeyAccount, PublicKey, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
-    Uint256, WriteXdr,
+    Uint256, WriteXdr, FeeBumpTransactionInnerTx, VecM, OperationBody, HostFunction, TransactionExt,
+    ContractAuth, SorobanTransactionData,
 };
 use std::{
     fmt::Display,
@@ -54,6 +55,8 @@ pub enum Error {
     InvalidCursor,
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
+    #[error("unexpected ({count}) number of operations")]
+    UnexpectedOperationCount { count: usize },
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -493,6 +496,18 @@ impl Client {
         }
     }
 
+    // Simulate a transaction, then assemble the result of the simulation into the envelope, so it
+    // is ready for sending to the network.
+    pub async fn prepare_transaction(
+        &self,
+        tx: &TransactionEnvelope,
+        network_passphrase: &str,
+    ) -> Result<TransactionEnvelope, Error> {
+        tracing::trace!(?tx);
+        let sim_response = self.simulate_transaction(tx).await?;
+        assemble_transaction(tx, &network_passphrase, &sim_response)
+    }
+
     pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponse, Error> {
         Ok(self
             .client()?
@@ -586,6 +601,81 @@ pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
     let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
     let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
     Ok((toid_part, start_index))
+}
+
+// Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
+// submission to the network.
+pub fn assemble_transaction(raw: &TransactionEnvelope, network_passphrase: &str, simulation: &SimulateTransactionResponse) -> Result<TransactionEnvelope, Error> {
+    match raw {
+        // TODO: Support v0 txns. I think it should just be a passthrough?
+        TransactionEnvelope::TxV0(_) => Err(Error::TransactionSimulationFailed("V0 transactions are not supported".to_string())),
+        TransactionEnvelope::Tx(raw_envelope) => {
+            let mut envelope = raw_envelope.clone();
+            // TODO: Should we keep this?
+            let events = simulation
+                .events
+                .iter()
+                .map(DiagnosticEvent::from_xdr_base64)
+                .collect::<Result<Vec<_>, _>>()?;
+            if !events.is_empty() {
+                tracing::debug!(simulation_events=?events);
+            }
+
+            // update the fees of the actual transaction to meet the minimum resource fees.
+            let mut fee = envelope.tx.fee;
+            let classic_transaction_fees = crate::fee::Args::default().fee;
+            if fee < classic_transaction_fees + simulation.min_resource_fee {
+                fee = classic_transaction_fees + simulation.min_resource_fee;
+            }
+
+            // Right now simulate.results is one-result-per-function, and assumes there is only one
+            // operation in the txn, so we need to enforce that here. I (Paul) think that is a bug
+            // in soroban-rpc.simulateTransaction design, and we should fix it there.
+            if envelope.tx.operations.len() != 1 {
+                return Err(Error::UnexpectedOperationCount {
+                    count: envelope.tx.operations.len(),
+                });
+            }
+
+            let mut op = envelope.tx.operations[0].clone();
+            if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
+                if simulation.results.len() != body.functions.len() {
+                    return Err(Error::UnexpectedSimulateTransactionResultSize {
+                        length: simulation.results.len(),
+                    });
+                }
+
+                let auths = simulation.results.iter().map(|r| VecM::try_from(
+                    r.auth.iter().map(ContractAuth::from_xdr_base64).collect::<Result<Vec<_>, _>>()?
+                )).collect::<Result<Vec<_>, _>>()?;
+                body.functions = body.functions.iter().zip(auths).map(|(f, auth)| {
+                    HostFunction{ args: f.args.clone(), auth: auth.clone() }
+                }).collect::<Vec<_>>().try_into()?;
+            } else {
+                if simulation.results.len() != 0 {
+                    return Err(Error::UnexpectedSimulateTransactionResultSize {
+                        length: simulation.results.len(),
+                    });
+                }
+            }
+
+            envelope.tx.fee = fee;
+            envelope.tx.operations = vec![op].try_into()?;
+            envelope.tx.ext = TransactionExt::V1(
+                SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?
+            );
+            Ok(TransactionEnvelope::Tx(envelope))
+        },
+        TransactionEnvelope::TxFeeBump(raw_envelope) => {
+            let mut envelope = raw_envelope.clone();
+            let FeeBumpTransactionInnerTx::Tx(inner_raw) = &envelope.tx.inner_tx;
+            let TransactionEnvelope::Tx(inner_tx) = assemble_transaction(&TransactionEnvelope::Tx(inner_raw.clone()), network_passphrase, simulation)? else {
+                return Err(Error::TransactionSimulationFailed("Failed to assemble inner transaction".to_string()));
+            };
+            envelope.tx.inner_tx = FeeBumpTransactionInnerTx::Tx(inner_tx);
+            Ok(TransactionEnvelope::TxFeeBump(envelope))
+        },
+    }
 }
 
 #[cfg(test)]
