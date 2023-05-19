@@ -23,7 +23,7 @@ use soroban_env_host::{
         PublicKey, ReadXdr, ScBytes, ScContractExecutable, ScHostStorageErrorCode, ScSpecEntry,
         ScSpecFunctionV0, ScSpecTypeDef, ScStatus, ScVal, ScVec, SequenceNumber, SorobanResources,
         SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
-        TransactionResultResult, Uint256, VecM,
+        TransactionV1Envelope, TransactionResultResult, Uint256, VecM,
     },
     HostError,
 };
@@ -283,49 +283,12 @@ impl Cmd {
             &network.network_passphrase,
             &key,
         )?;
-        let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
-        if simulation_response.results.len() != 1 {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation_response.results.len(),
-            });
-        }
-        let result = &simulation_response.results[0];
-        let transaction_data =
-            SorobanTransactionData::from_xdr_base64(&simulation_response.transaction_data)?;
-        let auth = result
-            .auth
-            .iter()
-            .map(ContractAuth::from_xdr_base64)
-            .collect::<Result<Vec<_>, _>>()?;
-        let events = simulation_response
-            .events
-            .iter()
-            .map(DiagnosticEvent::from_xdr_base64)
-            .collect::<Result<Vec<_>, _>>()?;
-        if !events.is_empty() {
-            tracing::debug!(simulation_events=?events);
-        }
 
-        log_events(&transaction_data.resources.footprint, &auth, &[], None);
+        // Simulate, prepare, and sign the txn
+        let unsigned_tx = client.prepare_transaction(&tx_without_footprint, Some(log_events)).await?;
+        let tx = utils::sign_transaction(&key, &unsigned_tx, &network.network_passphrase)?;
 
-        // update the fees of the actual transaction to meet the minimum resource fees.
-        let mut final_fees = self.fee.fee;
-        let classic_transaction_fees = crate::fee::Args::default().fee;
-        if final_fees < classic_transaction_fees + simulation_response.min_resource_fee {
-            final_fees = classic_transaction_fees + simulation_response.min_resource_fee;
-        }
-
-        // Send the final transaction with the actual footprint
-        let tx = build_invoke_contract_tx(
-            host_function_params,
-            Some(transaction_data),
-            Some(auth),
-            sequence + 1,
-            final_fees,
-            &network.network_passphrase,
-            &key,
-        )?;
-        
+        // Send the transaction to the network
         let (result, events) = client.send_transaction(&tx).await?;
         tracing::debug!(?result);
         if !events.is_empty() {
@@ -433,7 +396,7 @@ impl Cmd {
             ))
         })?;
         let footprint = &create_ledger_footprint(&storage.footprint);
-        log_events(footprint, &contract_auth, &events.0, Some(&budget));
+        log_events(footprint, &vec![contract_auth.try_into()?], &events.0, Some(&budget));
 
         self.config.set_state(&mut state)?;
         if !events.0.is_empty() {
@@ -493,7 +456,7 @@ impl Cmd {
 
 fn log_events(
     footprint: &LedgerFootprint,
-    auth: &[ContractAuth],
+    auth: &Vec<VecM<ContractAuth>>,
     events: &[HostEvent],
     budget: Option<&Budget>,
 ) {
@@ -527,7 +490,7 @@ fn build_invoke_contract_tx(
     fee: u32,
     network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<TransactionEnvelope, Error> {
+) -> Result<Transaction, Error> {
     // Use a default transaction_data if none provided
     let final_transaction_data = transaction_data.unwrap_or(SorobanTransactionData {
         resources: SorobanResources {
@@ -555,7 +518,7 @@ fn build_invoke_contract_tx(
             .try_into()?,
         }),
     };
-    let tx = Transaction {
+    Ok(Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
@@ -563,9 +526,7 @@ fn build_invoke_contract_tx(
         memo: Memo::None,
         operations: vec![op].try_into()?,
         ext: TransactionExt::V1(final_transaction_data),
-    };
-
-    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
+    })
 }
 
 async fn get_remote_contract_spec_entries(
