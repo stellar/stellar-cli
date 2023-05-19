@@ -274,18 +274,15 @@ impl Cmd {
         // Get the ledger footprint
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
-        let tx_without_footprint = build_invoke_contract_tx(
+        let tx_without_preflight = build_invoke_contract_tx(
             host_function_params.clone(),
-            None,
-            None,
             sequence + 1,
             self.fee.fee,
-            &network.network_passphrase,
             &key,
         )?;
 
         // Simulate, prepare, and sign the txn
-        let unsigned_tx = client.prepare_transaction(&tx_without_footprint, Some(log_events)).await?;
+        let unsigned_tx = client.prepare_transaction(&tx_without_preflight, Some(log_events)).await?;
         let tx = utils::sign_transaction(&key, &unsigned_tx, &network.network_passphrase)?;
 
         // Send the transaction to the network
@@ -484,15 +481,11 @@ pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<Stri
 
 fn build_invoke_contract_tx(
     parameters: ScVec,
-    transaction_data: Option<SorobanTransactionData>,
-    auth: Option<Vec<ContractAuth>>,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
 ) -> Result<Transaction, Error> {
-    // Use a default transaction_data if none provided
-    let final_transaction_data = transaction_data.unwrap_or(SorobanTransactionData {
+    let transaction_data = SorobanTransactionData {
         resources: SorobanResources {
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
@@ -505,15 +498,14 @@ fn build_invoke_contract_tx(
         },
         refundable_fee: 0,
         ext: ExtensionPoint::V0,
-    });
+    };
 
-    let final_auth = auth.unwrap_or(Vec::default());
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             functions: vec![HostFunction {
                 args: HostFunctionArgs::InvokeContract(parameters),
-                auth: final_auth.try_into()?,
+                auth: Vec::default().try_into()?,
             }]
             .try_into()?,
         }),
@@ -525,7 +517,7 @@ fn build_invoke_contract_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(final_transaction_data),
+        ext: TransactionExt::V1(transaction_data),
     })
 }
 

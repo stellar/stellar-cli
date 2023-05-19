@@ -81,62 +81,19 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let (tx_without_preflight, _hash) = build_install_contract_code_tx(
+        let (tx_without_preflight, hash) = build_install_contract_code_tx(
             contract.clone(),
             sequence + 1,
             self.fee.fee,
-            &network.network_passphrase,
             &key,
-            None,
-            None,
         )?;
 
-        println!("contract/install run_against_rpc_server ( before simulate )...");
-        let simulation_response = client.simulate_transaction(&tx_without_preflight).await?;
-        if simulation_response.results.len() != 1 {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation_response.results.len(),
-            });
-        }
-        println!("contract/install run_against_rpc_server ( after simulate )...");
-
-        let result = &simulation_response.results[0];
-        let transaction_data =
-            SorobanTransactionData::from_xdr_base64(&simulation_response.transaction_data)?;
-        let auth = result
-            .auth
-            .iter()
-            .map(ContractAuth::from_xdr_base64)
-            .collect::<Result<Vec<_>, _>>()?;
-        let events = simulation_response
-            .events
-            .iter()
-            .map(DiagnosticEvent::from_xdr_base64)
-            .collect::<Result<Vec<_>, _>>()?;
-        if !events.is_empty() {
-            tracing::debug!(simulation_events=?events);
-        }
-
-        println!("auth length {}", auth.len());
-
-        // update the fees of the actual transaction to meet the minimum resource fees.
-        let mut final_fees = self.fee.fee;
-        let classic_transaction_fees = crate::fee::Args::default().fee;
-        if final_fees < classic_transaction_fees + simulation_response.min_resource_fee {
-            final_fees = classic_transaction_fees + simulation_response.min_resource_fee;
-        }
-
-        let (tx, hash) = build_install_contract_code_tx(
-            contract,
-            sequence + 1,
-            final_fees,
-            &network.network_passphrase,
-            &key,
-            Some(transaction_data),
-            Some(auth),
-        )?;
+        // Simulate, prepare, and sign the txn
+        let unsigned_tx = client.prepare_transaction(&tx_without_preflight, None).await?;
+        let tx = utils::sign_transaction(&key, &unsigned_tx, &network.network_passphrase)?;
 
         println!("contract/install run_against_rpc_server ( before sending )...");
+        // Send the transaction to the network
         client.send_transaction(&tx).await?;
 
         Ok(hash)
@@ -147,14 +104,9 @@ pub(crate) fn build_install_contract_code_tx(
     contract: Vec<u8>,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-    transaction_data: Option<SorobanTransactionData>,
-    auth: Option<Vec<ContractAuth>>,
-) -> Result<(TransactionEnvelope, Hash), XdrError> {
+) -> Result<(Transaction, Hash), XdrError> {
     let hash = utils::contract_hash(&contract)?;
-
-    let final_auth = auth.unwrap_or(Vec::default());
 
     let op = Operation {
         source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
@@ -163,13 +115,13 @@ pub(crate) fn build_install_contract_code_tx(
                 args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {
                     code: contract.try_into()?,
                 }),
-                auth: final_auth.try_into()?,
+                auth: Vec::default().try_into()?,
             }]
             .try_into()?,
         }),
     };
 
-    let final_transaction_data = transaction_data.unwrap_or(SorobanTransactionData {
+    let transaction_data = SorobanTransactionData {
         resources: SorobanResources {
             footprint: LedgerFootprint {
                 read_only: VecM::default(),
@@ -182,7 +134,7 @@ pub(crate) fn build_install_contract_code_tx(
         },
         refundable_fee: 0,
         ext: ExtensionPoint::V0,
-    });
+    };
 
     let tx = Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
@@ -191,12 +143,10 @@ pub(crate) fn build_install_contract_code_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(final_transaction_data),
+        ext: TransactionExt::V1(transaction_data),
     };
 
-    let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;
-
-    Ok((envelope, hash))
+    Ok((tx, hash))
 }
 
 #[cfg(test)]
@@ -209,11 +159,8 @@ mod tests {
             b"foo".to_vec(),
             300,
             1,
-            "Public Global Stellar Network ; September 2015",
             &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap(),
-            None,
-            None,
         );
 
         assert!(result.is_ok());
