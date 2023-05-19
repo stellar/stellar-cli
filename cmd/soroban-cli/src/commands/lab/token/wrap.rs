@@ -12,8 +12,8 @@ use soroban_env_host::{
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
         HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionEnvelope,
-        TransactionExt, Uint256, VecM, WriteXdr,
+        PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionExt,
+        Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -163,7 +163,7 @@ fn build_wrap_token_tx(
     contract_id: &Hash,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
+    _network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
 ) -> Result<Transaction, Error> {
     let mut read_write = vec![

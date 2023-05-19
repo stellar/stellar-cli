@@ -6,10 +6,9 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractAuth, DiagnosticEvent, Error as XdrError, ExtensionPoint, Hash, HostFunction,
-    HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ReadXdr, SequenceNumber, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt, Uint256,
+    Error as XdrError, ExtensionPoint, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
+    LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions, SequenceNumber,
+    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, Uint256,
     UploadContractWasmArgs, VecM,
 };
 

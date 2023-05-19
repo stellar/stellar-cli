@@ -11,8 +11,7 @@ use soroban_env_host::xdr::{
     HashIdPreimage, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint,
     LedgerKey::ContractCode, LedgerKey::ContractData, LedgerKeyContractCode, LedgerKeyContractData,
     Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScVal, SequenceNumber,
-    SorobanResources, SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
-    Uint256, VecM, WriteXdr,
+    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::xdr::{HashIdPreimageSourceAccountContractId, ScContractExecutable};
 use soroban_env_host::HostError;

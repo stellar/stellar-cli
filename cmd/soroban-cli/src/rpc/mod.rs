@@ -10,10 +10,10 @@ use soroban_env_host::{
     events::HostEvent,
     xdr::{
         self, AccountEntry, AccountId, ContractAuth, DiagnosticEvent, Error as XdrError,
-        FeeBumpTransactionInnerTx, HostFunction, LedgerEntryData, LedgerFootprint, LedgerKey,
-        LedgerKeyAccount, OperationBody, PublicKey, ReadXdr, SorobanTransactionData, Transaction,
-        TransactionEnvelope, TransactionExt, TransactionMeta, TransactionResult,
-        TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        HostFunction, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, OperationBody,
+        PublicKey, ReadXdr, SorobanTransactionData, Transaction, TransactionEnvelope,
+        TransactionExt, TransactionMeta, TransactionResult, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
     },
 };
 use std::{
@@ -531,7 +531,7 @@ impl Client {
         log_events: Option<LogEvents>,
     ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
         let unsigned_tx = self
-            .prepare_transaction(&tx_without_preflight, log_events)
+            .prepare_transaction(tx_without_preflight, log_events)
             .await?;
         let tx = utils::sign_transaction(key, &unsigned_tx, network_passphrase)?;
         self.send_transaction(&tx).await
@@ -699,16 +699,14 @@ pub fn assemble_transaction(
             .zip(auths)
             .map(|(f, auth)| HostFunction {
                 args: f.args.clone(),
-                auth: auth.clone(),
+                auth,
             })
             .collect::<Vec<_>>()
             .try_into()?;
-    } else {
-        if simulation.results.len() != 0 {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation.results.len(),
-            });
-        }
+    } else if simulation.results.is_empty() {
+        return Err(Error::UnexpectedSimulateTransactionResultSize {
+            length: simulation.results.len(),
+        });
     }
 
     tx.fee = fee;
