@@ -175,7 +175,9 @@ impl Cmd {
             salt,
             &key,
         )?;
-        client.prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None).await?;
+        client
+            .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
+            .await?;
 
         Ok(hex::encode(contract_id.0))
     }

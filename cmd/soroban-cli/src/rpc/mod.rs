@@ -1,3 +1,4 @@
+use crate::utils;
 use http::{uri::Authority, Uri};
 use itertools::Itertools;
 use jsonrpsee_core::params::ObjectParams;
@@ -8,10 +9,11 @@ use soroban_env_host::{
     budget::Budget,
     events::HostEvent,
     xdr::{
-        self, AccountEntry, AccountId, DiagnosticEvent, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyAccount, PublicKey, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
-        Uint256, WriteXdr, FeeBumpTransactionInnerTx, VecM, OperationBody, HostFunction, TransactionExt,
-        ContractAuth, SorobanTransactionData, LedgerFootprint, Transaction, TransactionV1Envelope,
+        self, AccountEntry, AccountId, ContractAuth, DiagnosticEvent, Error as XdrError,
+        FeeBumpTransactionInnerTx, HostFunction, LedgerEntryData, LedgerFootprint, LedgerKey,
+        LedgerKeyAccount, OperationBody, PublicKey, ReadXdr, SorobanTransactionData, Transaction,
+        TransactionEnvelope, TransactionExt, TransactionMeta, TransactionResult,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
 use std::{
@@ -22,11 +24,15 @@ use std::{
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
-use crate::utils;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
-pub type LogEvents = fn(footprint: &LedgerFootprint, auth: &Vec<VecM<ContractAuth>>, events: &[HostEvent], budget: Option<&Budget>) -> ();
+pub type LogEvents = fn(
+    footprint: &LedgerFootprint,
+    auth: &Vec<VecM<ContractAuth>>,
+    events: &[HostEvent],
+    budget: Option<&Budget>,
+) -> ();
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -142,12 +148,12 @@ pub struct GetNetworkResponse {
 pub struct Cost {
     #[serde(
         rename = "cpuInsns",
-        deserialize_with = "deserialize_number_from_string",
+        deserialize_with = "deserialize_number_from_string"
     )]
     pub cpu_insns: String,
     #[serde(
         rename = "memBytes",
-        deserialize_with = "deserialize_number_from_string",
+        deserialize_with = "deserialize_number_from_string"
     )]
     pub mem_bytes: String,
 }
@@ -399,10 +405,7 @@ impl Client {
 
     pub async fn get_network(&self) -> Result<GetNetworkResponse, Error> {
         tracing::trace!("Getting network");
-        Ok(self
-            .client()?
-            .request("getNetwork", rpc_params![])
-            .await?)
+        Ok(self.client()?.request("getNetwork", rpc_params![]).await?)
     }
 
     pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
@@ -508,13 +511,15 @@ impl Client {
     pub async fn prepare_transaction(
         &self,
         tx: &Transaction,
-        log_events: Option<LogEvents>
+        log_events: Option<LogEvents>,
     ) -> Result<Transaction, Error> {
         tracing::trace!(?tx);
-        let sim_response = self.simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
-            tx: tx.clone(),
-            signatures: VecM::default(),
-        })).await?;
+        let sim_response = self
+            .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
+                tx: tx.clone(),
+                signatures: VecM::default(),
+            }))
+            .await?;
         assemble_transaction(tx, &sim_response, log_events)
     }
 
@@ -523,9 +528,11 @@ impl Client {
         tx_without_preflight: &Transaction,
         key: &ed25519_dalek::Keypair,
         network_passphrase: &str,
-        log_events: Option<LogEvents>
+        log_events: Option<LogEvents>,
     ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
-        let unsigned_tx = self.prepare_transaction(&tx_without_preflight, log_events).await?;
+        let unsigned_tx = self
+            .prepare_transaction(&tx_without_preflight, log_events)
+            .await?;
         let tx = utils::sign_transaction(key, &unsigned_tx, network_passphrase)?;
         self.send_transaction(&tx).await
     }
@@ -627,7 +634,11 @@ pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
 // submission to the network.
-pub fn assemble_transaction(raw: &Transaction, simulation: &SimulateTransactionResponse, log_events: Option<LogEvents>) -> Result<Transaction, Error> {
+pub fn assemble_transaction(
+    raw: &Transaction,
+    simulation: &SimulateTransactionResponse,
+    log_events: Option<LogEvents>,
+) -> Result<Transaction, Error> {
     let mut tx = raw.clone();
 
     // Right now simulate.results is one-result-per-function, and assumes there is only one
@@ -667,15 +678,31 @@ pub fn assemble_transaction(raw: &Transaction, simulation: &SimulateTransactionR
             });
         }
 
-        let auths = simulation.results.iter().map(|r| VecM::try_from(
-            r.auth.iter().map(ContractAuth::from_xdr_base64).collect::<Result<Vec<_>, _>>()?
-        )).collect::<Result<Vec<_>, _>>()?;
+        let auths = simulation
+            .results
+            .iter()
+            .map(|r| {
+                VecM::try_from(
+                    r.auth
+                        .iter()
+                        .map(ContractAuth::from_xdr_base64)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         if let Some(log) = log_events {
             log(&transaction_data.resources.footprint, &auths, &[], None);
         }
-        body.functions = body.functions.iter().zip(auths).map(|(f, auth)| {
-            HostFunction{ args: f.args.clone(), auth: auth.clone() }
-        }).collect::<Vec<_>>().try_into()?;
+        body.functions = body
+            .functions
+            .iter()
+            .zip(auths)
+            .map(|(f, auth)| HostFunction {
+                args: f.args.clone(),
+                auth: auth.clone(),
+            })
+            .collect::<Vec<_>>()
+            .try_into()?;
     } else {
         if simulation.results.len() != 0 {
             return Err(Error::UnexpectedSimulateTransactionResultSize {

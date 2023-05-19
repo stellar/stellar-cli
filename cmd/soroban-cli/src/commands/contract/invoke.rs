@@ -23,7 +23,7 @@ use soroban_env_host::{
         PublicKey, ReadXdr, ScBytes, ScContractExecutable, ScHostStorageErrorCode, ScSpecEntry,
         ScSpecFunctionV0, ScSpecTypeDef, ScStatus, ScVal, ScVec, SequenceNumber, SorobanResources,
         SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
-        TransactionV1Envelope, TransactionResultResult, Uint256, VecM,
+        TransactionResultResult, TransactionV1Envelope, Uint256, VecM,
     },
     HostError,
 };
@@ -281,12 +281,9 @@ impl Cmd {
             &key,
         )?;
 
-        let (result, events) = client.prepare_and_send_transaction(
-            &tx,
-            &key,
-            &network.network_passphrase,
-            Some(log_events),
-        ).await?;
+        let (result, events) = client
+            .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, Some(log_events))
+            .await?;
 
         tracing::debug!(?result);
         if !events.is_empty() {
@@ -394,7 +391,12 @@ impl Cmd {
             ))
         })?;
         let footprint = &create_ledger_footprint(&storage.footprint);
-        log_events(footprint, &vec![contract_auth.try_into()?], &events.0, Some(&budget));
+        log_events(
+            footprint,
+            &vec![contract_auth.try_into()?],
+            &events.0,
+            Some(&budget),
+        );
 
         self.config.set_state(&mut state)?;
         if !events.0.is_empty() {

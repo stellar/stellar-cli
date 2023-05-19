@@ -6,11 +6,11 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, ExtensionPoint, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
-    LedgerFootprint, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, SequenceNumber, SorobanResources, Transaction,
-    TransactionEnvelope, TransactionExt, Uint256, UploadContractWasmArgs, VecM, ContractAuth,
-    DiagnosticEvent, SorobanTransactionData, ReadXdr,
+    ContractAuth, DiagnosticEvent, Error as XdrError, ExtensionPoint, Hash, HostFunction,
+    HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, ReadXdr, SequenceNumber, SorobanResources,
+    SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt, Uint256,
+    UploadContractWasmArgs, VecM,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -81,19 +81,17 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let (tx_without_preflight, hash) = build_install_contract_code_tx(
-            contract.clone(),
-            sequence + 1,
-            self.fee.fee,
-            &key,
-        )?;
+        let (tx_without_preflight, hash) =
+            build_install_contract_code_tx(contract.clone(), sequence + 1, self.fee.fee, &key)?;
 
-        client.prepare_and_send_transaction(
-            &tx_without_preflight,
-            &key,
-            &network.network_passphrase,
-            None,
-        ).await?;
+        client
+            .prepare_and_send_transaction(
+                &tx_without_preflight,
+                &key,
+                &network.network_passphrase,
+                None,
+            )
+            .await?;
 
         Ok(hash)
     }
