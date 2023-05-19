@@ -2,7 +2,10 @@ all: check build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
-REPOSITORY_COMMIT_HASH := "$(if $(shell git rev-parse HEAD),,$(error failed to retrieve git head commit hash))"
+REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
+ifeq (${REPOSITORY_COMMIT_HASH},"")
+	$(error failed to retrieve git head commit hash)
+endif
 # Want to treat empty assignment, `REPOSITORY_VERSION=` the same as absence or unset.
 # By default make `?=` operator will treat empty assignment as a set value and will not use the default value.
 # Both cases should fallback to default of getting the version from git tag.
