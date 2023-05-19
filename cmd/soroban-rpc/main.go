@@ -46,8 +46,8 @@ func main() {
 					branch = ""
 				}
 				fmt.Printf("soroban-rpc %s (%s) %s\n", config.Version, config.CommitHash, branch)
-				fmt.Printf("stellar-xdr %s\n", goxdr.CommitHash)
 			}
+			fmt.Printf("stellar-xdr %s\n", goxdr.CommitHash)
 		},
 	}
 
