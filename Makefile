@@ -2,13 +2,16 @@ all: check build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
+REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
+ifeq (${REPOSITORY_COMMIT_HASH},"")
+	$(error failed to retrieve git head commit hash)
+endif
 # Want to treat empty assignment, `REPOSITORY_VERSION=` the same as absence or unset.
 # By default make `?=` operator will treat empty assignment as a set value and will not use the default value.
 # Both cases should fallback to default of getting the version from git tag.
 ifeq ($(strip $(REPOSITORY_VERSION)),)
 	override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
 endif  
-REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
 REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
 BUILD_TIMESTAMP ?= $(shell date '+%Y-%m-%dT%H:%M:%S')
 GOLDFLAGS :=	-X 'github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config.Version=${REPOSITORY_VERSION}' \
