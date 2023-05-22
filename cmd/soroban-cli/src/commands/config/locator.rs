@@ -71,6 +71,43 @@ pub struct Args {
     pub config_dir: Option<PathBuf>,
 }
 
+pub enum Location {
+    Local(PathBuf),
+    Global(PathBuf),
+}
+
+impl Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {:?}",
+            match self {
+                Location::Local(_) => "Local",
+                Location::Global(_) => "Global",
+            },
+            self.as_ref().parent().unwrap().parent().unwrap()
+        )
+    }
+}
+
+impl AsRef<Path> for Location {
+    fn as_ref(&self) -> &Path {
+        match self {
+            Location::Local(p) | Location::Global(p) => p.as_path(),
+        }
+    }
+}
+
+impl Location {
+    #[must_use]
+    pub fn wrap(&self, p: PathBuf) -> Self {
+        match self {
+            Location::Local(_) => Location::Local(p),
+            Location::Global(_) => Location::Global(p),
+        }
+    }
+}
+
 impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         if self.global {
@@ -80,8 +117,11 @@ impl Args {
         }
     }
 
-    pub fn local_and_global(&self) -> Result<Vec<PathBuf>, Error> {
-        Ok(vec![self.local_config()?, global_config_path()?])
+    pub fn local_and_global(&self) -> Result<[Location; 2], Error> {
+        Ok([
+            Location::Local(self.local_config()?),
+            Location::Global(global_config_path()?),
+        ])
     }
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
@@ -121,13 +161,18 @@ impl Args {
             .collect())
     }
 
-    pub fn list_networks_long(&self) -> Result<Vec<String>, Error> {
+    pub fn list_networks_long(&self) -> Result<Vec<(String, Network, Location)>, Error> {
         Ok(KeyType::Network
             .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
-            .filter_map(|x| Some((x.0, KeyType::read_from_path::<Network>(&x.1).ok()?)))
-            .map(|(name, network)| format!("{name}: {network:#?}"))
+            .filter_map(|(name, location)| {
+                Some((
+                    name,
+                    KeyType::read_from_path::<Network>(location.as_ref()).ok()?,
+                    location,
+                ))
+            })
             .collect::<Vec<_>>())
     }
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
@@ -248,19 +293,23 @@ impl KeyType {
         path
     }
 
-    pub fn list_paths(&self, paths: &[PathBuf]) -> Result<Vec<(String, PathBuf)>, Error> {
+    pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
             .flat_map(|p| self.list(p).unwrap_or(vec![]))
             .collect())
     }
 
-    pub fn list(&self, pwd: &Path) -> Result<Vec<(String, PathBuf)>, Error> {
-        let path = self.root(pwd);
+    pub fn list(&self, pwd: &Location) -> Result<Vec<(String, Location)>, Error> {
+        let path = self.root(pwd.as_ref());
         if path.exists() {
             let mut files = read_dir(&path)?;
             files.sort();
-            Ok(files)
+
+            Ok(files
+                .into_iter()
+                .map(|(name, p)| (name, pwd.wrap(p)))
+                .collect())
         } else {
             Ok(vec![])
         }

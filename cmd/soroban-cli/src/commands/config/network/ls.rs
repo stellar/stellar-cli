@@ -1,5 +1,7 @@
 use clap::command;
 
+use crate::commands::config::locator::Location;
+
 use super::locator;
 
 #[derive(thiserror::Error, Debug)]
@@ -20,8 +22,8 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let res = if self.long { self.ls_l() } else { self.ls() }?;
-        println!("{}", res.join("\n"));
+        let res = if self.long { self.ls_l() } else { self.ls() }?.join("\n");
+        println!("{res}");
         Ok(())
     }
 
@@ -30,6 +32,14 @@ impl Cmd {
     }
 
     pub fn ls_l(&self) -> Result<Vec<String>, Error> {
-        Ok(self.config_locator.list_networks_long()?)
+        Ok(self
+            .config_locator
+            .list_networks_long()?
+            .iter()
+            .filter_map(|(name, network, location)| {
+                (!self.config_locator.global || matches!(location, Location::Global(_)))
+                    .then(|| Some(format!("{location}\nName: {name}\n{network:#?}\n")))?
+            })
+            .collect())
     }
 }
