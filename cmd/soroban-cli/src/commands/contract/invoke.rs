@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::convert::{Infallible, TryInto};
 use std::ffi::OsString;
 use std::num::ParseIntError;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
@@ -97,21 +97,15 @@ pub enum Error {
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
-    #[error("reading file {filepath}: {error}")]
-    CannotReadContractFile {
-        filepath: std::path::PathBuf,
-        error: io::Error,
-    },
+    #[error("reading file {0:?}: {1}")]
+    CannotReadContractFile(PathBuf, io::Error),
     #[error("committing file {filepath}: {error}")]
     CannotCommitEventsFile {
         filepath: std::path::PathBuf,
         error: events::Error,
     },
-    #[error("cannot parse contract ID {contract_id}: {error}")]
-    CannotParseContractId {
-        contract_id: String,
-        error: stellar_strkey::DecodeError,
-    },
+    #[error("cannot parse contract ID {0}: {1}")]
+    CannotParseContractId(String, FromHexError),
     #[error("function {0} was not found in the contract")]
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
@@ -123,7 +117,7 @@ pub enum Error {
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult { result: ScVal, error: strval::Error },
-    #[error("xdr processing error: {0}")]
+    #[error(transparent)]
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
@@ -424,10 +418,7 @@ impl Cmd {
 
     pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
         Ok(if let Some(wasm) = self.wasm.as_ref() {
-            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile {
-                filepath: wasm.clone(),
-                error: e,
-            })?)
+            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile(wasm.clone(), e))?)
         } else {
             None
         })

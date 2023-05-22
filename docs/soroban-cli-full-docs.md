@@ -8,6 +8,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract`↴](#soroban-contract)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract deploy`↴](#soroban-contract-deploy)
+* [`soroban contract fetch`↴](#soroban-contract-fetch)
 * [`soroban contract inspect`↴](#soroban-contract-inspect)
 * [`soroban contract install`↴](#soroban-contract-install)
 * [`soroban contract invoke`↴](#soroban-contract-invoke)
@@ -94,6 +95,7 @@ Tools for smart contract developers
 
 * `bindings` — Generate code client bindings for a contract
 * `deploy` — Deploy a contract
+* `fetch` — Fetch a contract's Wasm binary from a network or local sandbox
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
@@ -145,6 +147,28 @@ Deploy a contract
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+
+
+
+## `soroban contract fetch`
+
+Fetch a contract's Wasm binary from a network or local sandbox
+
+**Usage:** `soroban contract fetch [OPTIONS] --id <CONTRACT_ID>`
+
+###### **Options:**
+
+* `--id <CONTRACT_ID>` — Contract ID to invoke
+* `--wasm <WASM>` — WASM file of the contract to invoke (if using sandbox will deploy this file)
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `-o`, `--out-file <OUT_FILE>`
 
 
 
