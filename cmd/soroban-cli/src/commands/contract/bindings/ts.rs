@@ -42,7 +42,7 @@ impl Cmd {
         if self.root_dir.exists() {
             std::fs::remove_dir_all(&self.root_dir)?;
         }
-        std::fs::create_dir(&self.root_dir)?;
+        std::fs::create_dir_all(&self.root_dir)?;
         let p: ts::boilerplate::Project = self.root_dir.clone().try_into()?;
         p.init(&self.contract_name, &self.contract_id, &spec)?;
         Ok(())
