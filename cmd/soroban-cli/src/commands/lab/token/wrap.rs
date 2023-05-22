@@ -1,19 +1,16 @@
 use clap::{arg, command, Parser};
 use regex::Regex;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{
-    ExtensionPoint, HostFunctionArgs, SorobanResources, SorobanTransactionData,
-};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
         AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, ContractId,
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
-        HostFunction, InvokeHostFunctionOp, LedgerFootprint, LedgerKey::ContractData,
+        HostFunction, HostFunctionArgs, InvokeHostFunctionOp, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionEnvelope,
-        TransactionExt, Uint256, VecM, WriteXdr,
+        PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionExt,
+        Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -135,7 +132,9 @@ impl Cmd {
             &key,
         )?;
 
-        client.send_transaction(&tx).await?;
+        client
+            .prepare_and_send_transaction(&tx, &key, network_passphrase, None)
+            .await?;
 
         Ok(hex::encode(&contract_id))
     }
@@ -160,9 +159,9 @@ fn build_wrap_token_tx(
     contract_id: &Hash,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
+    _network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<TransactionEnvelope, Error> {
+) -> Result<Transaction, Error> {
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract_id: contract_id.clone(),
@@ -198,32 +197,15 @@ fn build_wrap_token_tx(
         }),
     };
 
-    let tx = Transaction {
+    Ok(Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(SorobanTransactionData {
-            resources: SorobanResources {
-                footprint: LedgerFootprint {
-                    read_only: VecM::default(),
-                    read_write: read_write.try_into()?,
-                },
-                // TODO: what values should be used here?
-                instructions: 0,
-                read_bytes: 0,
-                write_bytes: 0,
-                extended_meta_data_size_bytes: 0,
-            },
-            // TODO: what value to use here?
-            refundable_fee: 0,
-            ext: ExtensionPoint::V0,
-        }),
-    };
-
-    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
+        ext: TransactionExt::V0,
+    })
 }
 
 fn parse_asset(str: &str) -> Result<Asset, Error> {

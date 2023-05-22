@@ -9,25 +9,22 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::{arg, command, Parser};
 use heck::ToKebabCase;
 use hex::FromHexError;
-use soroban_env_host::events::HostEvent;
-
 use soroban_env_host::{
     budget::Budget,
+    events::HostEvent,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
-        DiagnosticEvent, Error as XdrError, ExtensionPoint, HostFunction, HostFunctionArgs,
-        InvokeHostFunctionOp, InvokeHostFunctionResult, LedgerEntryData, LedgerFootprint,
-        LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData, Memo,
-        MuxedAccount, Operation, OperationBody, OperationResult, OperationResultTr, Preconditions,
-        PublicKey, ReadXdr, ScBytes, ScContractExecutable, ScHostStorageErrorCode, ScSpecEntry,
-        ScSpecFunctionV0, ScSpecTypeDef, ScStatus, ScVal, ScVec, SequenceNumber, SorobanResources,
-        SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
+        Error as XdrError, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
+        InvokeHostFunctionResult, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
+        LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
+        OperationResult, OperationResultTr, Preconditions, PublicKey, ReadXdr, ScBytes,
+        ScContractExecutable, ScHostStorageErrorCode, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef,
+        ScStatus, ScVal, ScVec, SequenceNumber, Transaction, TransactionExt,
         TransactionResultResult, Uint256, VecM,
     },
-    HostError,
+    DiagnosticLevel, Host, HostError,
 };
-use soroban_env_host::{DiagnosticLevel, Host};
 use soroban_sdk::token;
 use soroban_spec::read::FromWasmError;
 
@@ -273,50 +270,17 @@ impl Cmd {
         // Get the ledger footprint
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
-        let tx_without_footprint = build_invoke_contract_tx(
-            host_function_params.clone(),
-            None,
-            None,
-            sequence + 1,
-            self.fee.fee,
-            &network.network_passphrase,
-            &key,
-        )?;
-        let simulation_response = client.simulate_transaction(&tx_without_footprint).await?;
-        if simulation_response.results.len() != 1 {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation_response.results.len(),
-            });
-        }
-        let result = &simulation_response.results[0];
-        let footprint = LedgerFootprint::from_xdr_base64(&result.footprint)?;
-        let auth = result
-            .auth
-            .iter()
-            .map(ContractAuth::from_xdr_base64)
-            .collect::<Result<Vec<_>, _>>()?;
-        let events = result
-            .events
-            .iter()
-            .map(DiagnosticEvent::from_xdr_base64)
-            .collect::<Result<Vec<_>, _>>()?;
-        if !events.is_empty() {
-            tracing::debug!(simulation_events=?events);
-        }
-        log_events(&footprint, &auth, &[], None);
-
-        // Send the final transaction with the actual footprint
         let tx = build_invoke_contract_tx(
-            host_function_params,
-            Some(footprint),
-            Some(auth),
+            host_function_params.clone(),
             sequence + 1,
             self.fee.fee,
-            &network.network_passphrase,
             &key,
         )?;
 
-        let (result, events) = client.send_transaction(&tx).await?;
+        let (result, events) = client
+            .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, Some(log_events))
+            .await?;
+
         tracing::debug!(?result);
         if !events.is_empty() {
             tracing::debug!(?events);
@@ -423,7 +387,12 @@ impl Cmd {
             ))
         })?;
         let footprint = &create_ledger_footprint(&storage.footprint);
-        log_events(footprint, &contract_auth, &events.0, Some(&budget));
+        log_events(
+            footprint,
+            &vec![contract_auth.try_into()?],
+            &events.0,
+            Some(&budget),
+        );
 
         self.config.set_state(&mut state)?;
         if !events.0.is_empty() {
@@ -483,7 +452,7 @@ impl Cmd {
 
 fn log_events(
     footprint: &LedgerFootprint,
-    auth: &[ContractAuth],
+    auth: &Vec<VecM<ContractAuth>>,
     events: &[HostEvent],
     budget: Option<&Budget>,
 ) {
@@ -511,52 +480,29 @@ pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<Stri
 
 fn build_invoke_contract_tx(
     parameters: ScVec,
-    footprint: Option<LedgerFootprint>,
-    auth: Option<Vec<ContractAuth>>,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<TransactionEnvelope, Error> {
-    // Use a default footprint if none provided
-    let final_footprint = footprint.unwrap_or(LedgerFootprint {
-        read_only: VecM::default(),
-        read_write: VecM::default(),
-    });
-    let final_auth = auth.unwrap_or(Vec::default());
+) -> Result<Transaction, Error> {
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             functions: vec![HostFunction {
                 args: HostFunctionArgs::InvokeContract(parameters),
-                auth: final_auth.try_into()?,
+                auth: VecM::default(),
             }]
             .try_into()?,
         }),
     };
-    let tx = Transaction {
+    Ok(Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(SorobanTransactionData {
-            resources: SorobanResources {
-                footprint: final_footprint,
-                // TODO: what values should be filled?
-                instructions: 0,
-                read_bytes: 0,
-                write_bytes: 0,
-                extended_meta_data_size_bytes: 0,
-            },
-            // TODO: what value should be filled?
-            refundable_fee: 0,
-            ext: ExtensionPoint::V0,
-        }),
-    };
-
-    Ok(utils::sign_transaction(key, &tx, network_passphrase)?)
+        ext: TransactionExt::V0,
+    })
 }
 
 async fn get_remote_contract_spec_entries(
