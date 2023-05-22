@@ -116,6 +116,7 @@ pub struct GetTransactionResponse {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct LedgerEntryResult {
+    pub key: String,
     pub xdr: String,
     #[serde(rename = "lastModifiedLedgerSeq")]
     pub last_modified_ledger: String,
