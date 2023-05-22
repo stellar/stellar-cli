@@ -6,10 +6,9 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, ExtensionPoint, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
-    LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions, SequenceNumber,
-    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, Uint256,
-    UploadContractWasmArgs, VecM,
+    Error as XdrError, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, Memo,
+    MuxedAccount, Operation, OperationBody, Preconditions, SequenceNumber, Transaction,
+    TransactionExt, Uint256, UploadContractWasmArgs, VecM,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -116,21 +115,6 @@ pub(crate) fn build_install_contract_code_tx(
         }),
     };
 
-    let transaction_data = SorobanTransactionData {
-        resources: SorobanResources {
-            footprint: LedgerFootprint {
-                read_only: VecM::default(),
-                read_write: VecM::default(),
-            },
-            instructions: 0,
-            read_bytes: 0,
-            write_bytes: 0,
-            extended_meta_data_size_bytes: 0,
-        },
-        refundable_fee: 0,
-        ext: ExtensionPoint::V0,
-    };
-
     let tx = Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
         fee,
@@ -138,7 +122,7 @@ pub(crate) fn build_install_contract_code_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(transaction_data),
+        ext: TransactionExt::V0,
     };
 
     Ok((tx, hash))

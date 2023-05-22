@@ -9,24 +9,22 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::{arg, command, Parser};
 use heck::ToKebabCase;
 use hex::FromHexError;
-use soroban_env_host::events::HostEvent;
-
 use soroban_env_host::{
     budget::Budget,
+    events::HostEvent,
     storage::Storage,
     xdr::{
         self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
-        Error as XdrError, ExtensionPoint, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
+        Error as XdrError, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
         InvokeHostFunctionResult, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
         LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
         OperationResult, OperationResultTr, Preconditions, PublicKey, ReadXdr, ScBytes,
         ScContractExecutable, ScHostStorageErrorCode, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef,
-        ScStatus, ScVal, ScVec, SequenceNumber, SorobanResources, SorobanTransactionData,
-        Transaction, TransactionExt, TransactionResultResult, Uint256, VecM,
+        ScStatus, ScVal, ScVec, SequenceNumber, Transaction, TransactionExt,
+        TransactionResultResult, Uint256, VecM,
     },
-    HostError,
+    DiagnosticLevel, Host, HostError,
 };
-use soroban_env_host::{DiagnosticLevel, Host};
 use soroban_sdk::token;
 use soroban_spec::read::FromWasmError;
 
@@ -486,21 +484,6 @@ fn build_invoke_contract_tx(
     fee: u32,
     key: &ed25519_dalek::Keypair,
 ) -> Result<Transaction, Error> {
-    let transaction_data = SorobanTransactionData {
-        resources: SorobanResources {
-            footprint: LedgerFootprint {
-                read_only: VecM::default(),
-                read_write: VecM::default(),
-            },
-            instructions: 0,
-            read_bytes: 0,
-            write_bytes: 0,
-            extended_meta_data_size_bytes: 0,
-        },
-        refundable_fee: 0,
-        ext: ExtensionPoint::V0,
-    };
-
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
@@ -518,7 +501,7 @@ fn build_invoke_contract_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(transaction_data),
+        ext: TransactionExt::V0,
     })
 }
 
