@@ -10,10 +10,9 @@ use soroban_env_host::{
     events::HostEvent,
     xdr::{
         self, AccountEntry, AccountId, ContractAuth, DiagnosticEvent, Error as XdrError,
-        HostFunction, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, OperationBody,
-        PublicKey, ReadXdr, SorobanTransactionData, Transaction, TransactionEnvelope,
-        TransactionExt, TransactionMeta, TransactionResult, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
+        Transaction, TransactionEnvelope, TransactionMeta, TransactionResult,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
 use std::{
@@ -24,6 +23,9 @@ use std::{
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
+
+mod transaction;
+use transaction::assemble;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -70,6 +72,10 @@ pub enum Error {
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error("unexpected ({count}) number of operations")]
     UnexpectedOperationCount { count: usize },
+    #[error(
+        "unsupported operation type, must be only one InvokeHostFunctionOp in the transaction."
+    )]
+    UnsupportedOperationType,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -527,7 +533,7 @@ impl Client {
                 signatures: VecM::default(),
             }))
             .await?;
-        assemble_transaction(tx, &sim_response, log_events)
+        assemble(tx, &sim_response, log_events)
     }
 
     pub async fn prepare_and_send_transaction(
@@ -637,89 +643,6 @@ pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
     let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
     let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
     Ok((toid_part, start_index))
-}
-
-// Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
-// submission to the network.
-pub fn assemble_transaction(
-    raw: &Transaction,
-    simulation: &SimulateTransactionResponse,
-    log_events: Option<LogEvents>,
-) -> Result<Transaction, Error> {
-    let mut tx = raw.clone();
-
-    // Right now simulate.results is one-result-per-function, and assumes there is only one
-    // operation in the txn, so we need to enforce that here. I (Paul) think that is a bug
-    // in soroban-rpc.simulateTransaction design, and we should fix it there.
-    // TODO: We should to better handling so non-soroban txns can be a passthrough here.
-    if tx.operations.len() != 1 {
-        return Err(Error::UnexpectedOperationCount {
-            count: tx.operations.len(),
-        });
-    }
-
-    // TODO: Should we keep this?
-    let events = simulation
-        .events
-        .iter()
-        .map(DiagnosticEvent::from_xdr_base64)
-        .collect::<Result<Vec<_>, _>>()?;
-    if !events.is_empty() {
-        tracing::debug!(simulation_events=?events);
-    }
-
-    // update the fees of the actual transaction to meet the minimum resource fees.
-    let mut fee = tx.fee;
-    let classic_transaction_fees = crate::fee::Args::default().fee;
-    if fee < classic_transaction_fees + simulation.min_resource_fee {
-        fee = classic_transaction_fees + simulation.min_resource_fee;
-    }
-
-    let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
-
-    let mut op = tx.operations[0].clone();
-    if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
-        if simulation.results.len() != body.functions.len() {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation.results.len(),
-            });
-        }
-
-        let auths = simulation
-            .results
-            .iter()
-            .map(|r| {
-                VecM::try_from(
-                    r.auth
-                        .iter()
-                        .map(ContractAuth::from_xdr_base64)
-                        .collect::<Result<Vec<_>, _>>()?,
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        if let Some(log) = log_events {
-            log(&transaction_data.resources.footprint, &auths, &[], None);
-        }
-        body.functions = body
-            .functions
-            .iter()
-            .zip(auths)
-            .map(|(f, auth)| HostFunction {
-                args: f.args.clone(),
-                auth,
-            })
-            .collect::<Vec<_>>()
-            .try_into()?;
-    } else if simulation.results.is_empty() {
-        return Err(Error::UnexpectedSimulateTransactionResultSize {
-            length: simulation.results.len(),
-        });
-    }
-
-    tx.fee = fee;
-    tx.operations = vec![op].try_into()?;
-    tx.ext = TransactionExt::V1(transaction_data);
-    Ok(tx)
 }
 
 #[cfg(test)]
