@@ -249,7 +249,6 @@ impl Cmd {
     }
 
     pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
-        println!("contract/invoke run_against_rpc_server...");
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
@@ -507,7 +506,7 @@ fn build_invoke_contract_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             functions: vec![HostFunction {
                 args: HostFunctionArgs::InvokeContract(parameters),
-                auth: Vec::default().try_into()?,
+                auth: VecM::default(),
             }]
             .try_into()?,
         }),

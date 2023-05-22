@@ -70,7 +70,6 @@ impl Cmd {
     }
 
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<Hash, Error> {
-        println!("contract/install run_against_rpc_server...");
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
@@ -111,7 +110,7 @@ pub(crate) fn build_install_contract_code_tx(
                 args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {
                     code: contract.try_into()?,
                 }),
-                auth: Vec::default().try_into()?,
+                auth: VecM::default(),
             }]
             .try_into()?,
         }),
