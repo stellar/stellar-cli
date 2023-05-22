@@ -1,13 +1,19 @@
+use crate::utils;
 use http::{uri::Authority, Uri};
 use itertools::Itertools;
 use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use soroban_env_host::xdr::{
-    self, AccountEntry, AccountId, DiagnosticEvent, Error as XdrError, LedgerEntryData, LedgerKey,
-    LedgerKeyAccount, PublicKey, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
-    Uint256, WriteXdr,
+use soroban_env_host::{
+    budget::Budget,
+    events::HostEvent,
+    xdr::{
+        self, AccountEntry, AccountId, ContractAuth, DiagnosticEvent, Error as XdrError,
+        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
+        Transaction, TransactionEnvelope, TransactionMeta, TransactionResult,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    },
 };
 use std::{
     fmt::Display,
@@ -18,7 +24,17 @@ use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
 
+mod transaction;
+use transaction::assemble;
+
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
+
+pub type LogEvents = fn(
+    footprint: &LedgerFootprint,
+    auth: &Vec<VecM<ContractAuth>>,
+    events: &[HostEvent],
+    budget: Option<&Budget>,
+) -> ();
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -52,6 +68,14 @@ pub enum Error {
     MissingError,
     #[error("cursor is not valid")]
     InvalidCursor,
+    #[error("unexpected ({length}) simulate transaction result length")]
+    UnexpectedSimulateTransactionResultSize { length: usize },
+    #[error("unexpected ({count}) number of operations")]
+    UnexpectedOperationCount { count: usize },
+    #[error(
+        "unsupported operation type, must be only one InvokeHostFunctionOp in the transaction."
+    )]
+    UnsupportedOperationType,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -98,8 +122,9 @@ pub struct GetTransactionResponse {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct LedgerEntryResult {
+    pub key: String,
     pub xdr: String,
-    #[serde(rename = "lastModifiedLedger")]
+    #[serde(rename = "lastModifiedLedgerSeq")]
     pub last_modified_ledger: String,
 }
 
@@ -111,30 +136,58 @@ pub struct GetLedgerEntriesResponse {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetNetworkResponse {
+    #[serde(
+        rename = "friendbotUrl",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub friendbot_url: Option<String>,
+    pub passphrase: String,
+    #[serde(
+        rename = "protocolVersion",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub protocol_version: u32,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Cost {
-    #[serde(rename = "cpuInsns")]
+    #[serde(
+        rename = "cpuInsns",
+        deserialize_with = "deserialize_number_from_string"
+    )]
     pub cpu_insns: String,
-    #[serde(rename = "memBytes")]
+    #[serde(
+        rename = "memBytes",
+        deserialize_with = "deserialize_number_from_string"
+    )]
     pub mem_bytes: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct SimulateTransactionResult {
-    pub footprint: String,
+pub struct SimulateHostFunctionResult {
     #[serde(deserialize_with = "deserialize_default_from_null")]
     pub auth: Vec<String>,
-    #[serde(deserialize_with = "deserialize_default_from_null")]
-    pub events: Vec<String>,
     pub xdr: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SimulateTransactionResponse {
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub results: Vec<SimulateTransactionResult>,
-    pub cost: Cost,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
+    #[serde(rename = "transactionData")]
+    pub transaction_data: String,
+    #[serde(deserialize_with = "deserialize_default_from_null")]
+    pub events: Vec<String>,
+    #[serde(
+        rename = "minResourceFee",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub min_resource_fee: u32,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub results: Vec<SimulateHostFunctionResult>,
+    pub cost: Cost,
     #[serde(
         rename = "latestLedger",
         deserialize_with = "deserialize_number_from_string"
@@ -357,6 +410,11 @@ impl Client {
             .build(url)?)
     }
 
+    pub async fn get_network(&self) -> Result<GetNetworkResponse, Error> {
+        tracing::trace!("Getting network");
+        Ok(self.client()?.request("getNetwork", rpc_params![]).await?)
+    }
+
     pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
         tracing::trace!("Getting address {}", address);
         let key = LedgerKey::Account(LedgerKeyAccount {
@@ -397,7 +455,13 @@ impl Client {
             .map_err(|err| Error::TransactionSubmissionFailed(format!("{err:#?}")))?;
 
         if status == "ERROR" {
-            let error = error_result_xdr.ok_or(Error::MissingError);
+            let error = error_result_xdr
+                .ok_or(Error::MissingError)
+                .and_then(|x| {
+                    TransactionResult::read_xdr_base64(&mut x.as_bytes())
+                        .map_err(|_| Error::InvalidResponse)
+                })
+                .map(|r| r.result);
             tracing::error!(?error);
             return Err(Error::TransactionSubmissionFailed(format!("{:#?}", error?)));
         }
@@ -453,6 +517,37 @@ impl Client {
             None => Ok(response),
             Some(e) => Err(Error::TransactionSimulationFailed(e)),
         }
+    }
+
+    // Simulate a transaction, then assemble the result of the simulation into the envelope, so it
+    // is ready for sending to the network.
+    pub async fn prepare_transaction(
+        &self,
+        tx: &Transaction,
+        log_events: Option<LogEvents>,
+    ) -> Result<Transaction, Error> {
+        tracing::trace!(?tx);
+        let sim_response = self
+            .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
+                tx: tx.clone(),
+                signatures: VecM::default(),
+            }))
+            .await?;
+        assemble(tx, &sim_response, log_events)
+    }
+
+    pub async fn prepare_and_send_transaction(
+        &self,
+        tx_without_preflight: &Transaction,
+        key: &ed25519_dalek::Keypair,
+        network_passphrase: &str,
+        log_events: Option<LogEvents>,
+    ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
+        let unsigned_tx = self
+            .prepare_transaction(tx_without_preflight, log_events)
+            .await?;
+        let tx = utils::sign_transaction(key, &unsigned_tx, network_passphrase)?;
+        self.send_transaction(&tx).await
     }
 
     pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponse, Error> {

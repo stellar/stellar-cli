@@ -6,12 +6,10 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, ExtensionPoint, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
-    LedgerFootprint, LedgerKey::ContractCode, LedgerKeyContractCode, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, SequenceNumber, SorobanResources, Transaction,
-    TransactionEnvelope, TransactionExt, Uint256, UploadContractWasmArgs, VecM,
+    Error as XdrError, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, Memo,
+    MuxedAccount, Operation, OperationBody, Preconditions, SequenceNumber, Transaction,
+    TransactionExt, Uint256, UploadContractWasmArgs, VecM,
 };
-use soroban_sdk::xdr::SorobanTransactionData;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -40,6 +38,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[error("unexpected ({length}) simulate transaction result length")]
+    UnexpectedSimulateTransactionResultSize { length: usize },
 }
 
 impl Cmd {
@@ -78,14 +78,17 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let (tx, hash) = build_install_contract_code_tx(
-            contract,
-            sequence + 1,
-            self.fee.fee,
-            &network.network_passphrase,
-            &key,
-        )?;
-        client.send_transaction(&tx).await?;
+        let (tx_without_preflight, hash) =
+            build_install_contract_code_tx(contract.clone(), sequence + 1, self.fee.fee, &key)?;
+
+        client
+            .prepare_and_send_transaction(
+                &tx_without_preflight,
+                &key,
+                &network.network_passphrase,
+                None,
+            )
+            .await?;
 
         Ok(hash)
     }
@@ -95,13 +98,12 @@ pub(crate) fn build_install_contract_code_tx(
     contract: Vec<u8>,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
-) -> Result<(TransactionEnvelope, Hash), XdrError> {
+) -> Result<(Transaction, Hash), XdrError> {
     let hash = utils::contract_hash(&contract)?;
 
     let op = Operation {
-        source_account: None,
+        source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             functions: vec![HostFunction {
                 args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {
@@ -120,28 +122,10 @@ pub(crate) fn build_install_contract_code_tx(
         cond: Preconditions::None,
         memo: Memo::None,
         operations: vec![op].try_into()?,
-        ext: TransactionExt::V1(SorobanTransactionData {
-            resources: SorobanResources {
-                footprint: LedgerFootprint {
-                    read_only: VecM::default(),
-                    read_write: vec![ContractCode(LedgerKeyContractCode { hash: hash.clone() })]
-                        .try_into()?,
-                },
-                // TODO: what values should be used here?
-                instructions: 0,
-                read_bytes: 0,
-                write_bytes: 0,
-                extended_meta_data_size_bytes: 0,
-            },
-            // TODO: what value to use here?
-            refundable_fee: 0,
-            ext: ExtensionPoint::V0,
-        }),
+        ext: TransactionExt::V0,
     };
 
-    let envelope = utils::sign_transaction(key, &tx, network_passphrase)?;
-
-    Ok((envelope, hash))
+    Ok((tx, hash))
 }
 
 #[cfg(test)]
@@ -154,7 +138,6 @@ mod tests {
             b"foo".to_vec(),
             300,
             1,
-            "Public Global Stellar Network ; September 2015",
             &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap(),
         );
