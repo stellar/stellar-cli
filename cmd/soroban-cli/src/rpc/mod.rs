@@ -448,7 +448,13 @@ impl Client {
             .map_err(|err| Error::TransactionSubmissionFailed(format!("{err:#?}")))?;
 
         if status == "ERROR" {
-            let error = error_result_xdr.ok_or(Error::MissingError);
+            let error = error_result_xdr
+                .ok_or(Error::MissingError)
+                .and_then(|x| {
+                    TransactionResult::read_xdr_base64(&mut x.as_bytes())
+                        .map_err(|_| Error::InvalidResponse)
+                })
+                .map(|r| r.result);
             tracing::error!(?error);
             return Err(Error::TransactionSubmissionFailed(format!("{:#?}", error?)));
         }
