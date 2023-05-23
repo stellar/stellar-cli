@@ -1,7 +1,10 @@
 package config
 
 import (
+	"fmt"
+	"go/types"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -97,10 +100,70 @@ func (cfg *Config) loadDefaults() error {
 func (cfg *Config) loadFlags() error {
 	cfg.Bind()
 	for _, option := range cfg.options() {
-		if viper.IsSet(option.Name) {
-			if err := option.setValue(viper.Get(option.Name)); err != nil {
-				return err
+		// the viper package is not overly developed, so we're going to do some work-arounds to figure out
+		// if a key was truely set or not so that we would read it only if it was truely set by the command
+		// line. ( i.e. the viper package internally sets the "defaults" whenever a pflag is attached. )
+		flag := option.flag()
+		switch flag.OptType {
+		case types.Bool:
+			if setValue, ok := viper.Get(option.Name).(bool); ok {
+				if (option.DefaultValue == nil && setValue == false) || setValue == option.DefaultValue.(bool) {
+					// we need to determine if we received the default value or the actual user-set value.
+					viper.SetDefault(option.Name, !setValue)
+					if viper.Get(option.Name).(bool) == setValue {
+						// the user truely specified a value
+						option.setValue(setValue)
+					}
+					// restore the viper default value.
+					viper.SetDefault(option.Name, option.DefaultValue)
+				} else {
+					// the value is differ then the default, therefore, it must be a user-specified value
+					option.setValue(setValue)
+				}
 			}
+		case types.Uint32:
+		case types.Uint:
+			if stringSetValue, ok := viper.Get(option.Name).(string); ok {
+				setValue, err := strconv.ParseUint(stringSetValue, 10, 64)
+				if err != nil {
+					return err
+				}
+				if (option.DefaultValue == nil && setValue == 0) || uint(setValue) == option.DefaultValue.(uint) {
+					// we need to determine if we received the default value or the actual user-set value.
+					viper.SetDefault(option.Name, ^setValue)
+					if viper.Get(option.Name).(uint64) == uint64(setValue) {
+						// the user truely specified a value
+						option.setValue(setValue)
+					}
+					// restore the viper default value.
+					viper.SetDefault(option.Name, option.DefaultValue)
+				} else {
+					// the value is differ then the default, therefore, it must be a user-specified value
+					option.setValue(setValue)
+				}
+			}
+		case types.String:
+			val := viper.Get(option.Name)
+			if setValue, ok := val.(string); ok {
+				if (option.DefaultValue == nil && setValue == "") || setValue == fmt.Sprintf("%s", option.DefaultValue) {
+					// we need to determine if we received the default value or the actual user-set value.
+					viper.SetDefault(option.Name, setValue+"!")
+					if viper.Get(option.Name).(string) == setValue {
+						// the user truely specified a value
+						option.setValue(setValue)
+					}
+					// restore the viper default value.
+					viper.SetDefault(option.Name, option.DefaultValue)
+				} else {
+					// the value is differ then the default, therefore, it must be a user-specified value
+					option.setValue(setValue)
+				}
+			} else {
+				// this could be some custom data type.
+				option.setValue(setValue)
+			}
+		default:
+			return fmt.Errorf("unsupported option type %v in loadFlags", flag.OptType)
 		}
 	}
 	return nil

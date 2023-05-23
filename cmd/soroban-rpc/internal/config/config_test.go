@@ -46,13 +46,11 @@ func TestConfigLoadFlagsDefaultValuesOverrideExisting(t *testing.T) {
 		Endpoint:          "localhost:8000",
 	}
 
-	// Set up a flag set with the default value
 	viper.Set("network-passphrase", "")
 	viper.Set("log-level", logrus.PanicLevel)
 	defer viper.Reset()
 
 	// Load the flags
-	cfg.Bind()
 	require.NoError(t, cfg.loadFlags())
 
 	// Check that the flag value is set
