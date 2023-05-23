@@ -15,14 +15,17 @@ func TestLoadConfigPath(t *testing.T) {
 	var cfg Config
 
 	viper.Set("config-path", "./test.soroban.rpc.config")
-	viper.Set("stellar-core-binary-path", "/usr/overriden/stellar-core")
+	viper.Set("stellar-core-binary-path", "/usr/overridden/stellar-core")
+	viper.Set("network-passphrase", "CLI test passphrase")
 	defer viper.Reset()
 
 	require.NoError(t, cfg.SetValues())
 	require.NoError(t, cfg.Validate())
 
-	assert.Equal(t, cfg.CaptiveCoreConfigPath, "/opt/stellar/soroban-rpc/etc/stellar-captive-core.cfg")
-	assert.Equal(t, cfg.StellarCoreBinaryPath, "/usr/bin/stellar-core", "env or cli flags should override --config-path values")
+	assert.Equal(t, "/opt/stellar/soroban-rpc/etc/stellar-captive-core.cfg", cfg.CaptiveCoreConfigPath)
+	assert.Equal(t, "/usr/overridden/stellar-core", cfg.StellarCoreBinaryPath, "env or cli flags should override --config-path values")
+	assert.Equal(t, "CLI test passphrase", cfg.NetworkPassphrase, "env or cli flags should override --config-path values")
+	assert.Equal(t, "/opt/stellar/soroban-rpc/rpc_db.sqlite", cfg.SQLiteDBPath, "config file should fill in if not set on the cli or env")
 }
 
 func TestConfigLoadDefaults(t *testing.T) {
@@ -49,6 +52,7 @@ func TestConfigLoadFlagsDefaultValuesOverrideExisting(t *testing.T) {
 	defer viper.Reset()
 
 	// Load the flags
+	cfg.Bind()
 	require.NoError(t, cfg.loadFlags())
 
 	// Check that the flag value is set

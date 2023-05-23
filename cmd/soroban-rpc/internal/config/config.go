@@ -52,20 +52,27 @@ func (cfg *Config) Init(cmd *cobra.Command) error {
 	return cfg.flags().Init(cmd)
 }
 
-// Values applied as defaults -> flags/env -> config file
+// We start with the defaults
 func (cfg *Config) SetValues() error {
 	if err := cfg.loadDefaults(); err != nil {
 		return err
 	}
 
-	cfg.Bind()
+	// Then we load from the cli flags and environment variables
 	if err := cfg.loadFlags(); err != nil {
 		return err
 	}
 
+	// If we specified a config file, we load that
 	if cfg.ConfigPath != "" {
 		// Merge in the config file flags
 		if err := cfg.loadConfigPath(); err != nil {
+			return err
+		}
+
+		// Load from cli flags and environment variables again, to overwrite what we
+		// got from the config file
+		if err := cfg.loadFlags(); err != nil {
 			return err
 		}
 	}
@@ -88,6 +95,7 @@ func (cfg *Config) loadDefaults() error {
 // loadFlags populates the config with values from the cli flags and
 // environment variables
 func (cfg *Config) loadFlags() error {
+	cfg.Bind()
 	for _, option := range cfg.options() {
 		if viper.IsSet(option.Name) {
 			if err := option.setValue(viper.Get(option.Name)); err != nil {
