@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"go/types"
+	"reflect"
 
 	"github.com/spf13/viper"
 	support "github.com/stellar/go/support/config"
@@ -30,19 +31,45 @@ func (cfg *Config) flags() support.ConfigOptions {
 	return flags
 }
 
+var optTypes = map[reflect.Kind]types.BasicKind{
+	reflect.Bool:    types.Bool,
+	reflect.Int:     types.Int,
+	reflect.Int8:    types.Int8,
+	reflect.Int16:   types.Int16,
+	reflect.Int32:   types.Int32,
+	reflect.Int64:   types.Int64,
+	reflect.Uint:    types.Uint,
+	reflect.Uint8:   types.Uint8,
+	reflect.Uint16:  types.Uint16,
+	reflect.Uint32:  types.Uint32,
+	reflect.Uint64:  types.Uint64,
+	reflect.Float32: types.Float32,
+	reflect.Float64: types.Float64,
+	reflect.String:  types.String,
+}
+
 // Convert our configOption into a CLI flag, if it should be one.
 func (o *ConfigOption) flag() *support.ConfigOption {
-	flagDefault := o.DefaultValue
-	if flagDefault != nil {
-		switch o.OptType {
-		case types.String:
-			flagDefault = fmt.Sprint(flagDefault)
+	optType := o.OptType
+	if optType == types.Invalid {
+		// If there was no OptType explicitly set, guess the type based on the
+		// target field's type.
+		t, found := optTypes[reflect.ValueOf(o.ConfigKey).Elem().Kind()]
+		if !found {
+			t = types.String
 		}
+		optType = t
 	}
+
+	flagDefault := o.DefaultValue
+	if flagDefault != nil && optType == types.String {
+		flagDefault = fmt.Sprint(o.DefaultValue)
+	}
+
 	f := &support.ConfigOption{
 		Name:        o.Name,
 		EnvVar:      o.EnvVar,
-		OptType:     o.OptType,
+		OptType:     optType,
 		FlagDefault: flagDefault,
 		Required:    false,
 		Usage:       o.Usage,

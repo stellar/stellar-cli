@@ -55,7 +55,7 @@ func (o ConfigOption) getTomlKey() (string, bool) {
 	return strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_")), true
 }
 
-// TODO: See if we can combine OptType and CustomSetValue into just SetValue/ParseValue
+// TODO: See if we can remove CustomSetValue into just SetValue/ParseValue
 func (o *ConfigOption) setValue(i interface{}) (err error) {
 	if o.CustomSetValue != nil {
 		return o.CustomSetValue(o, i)

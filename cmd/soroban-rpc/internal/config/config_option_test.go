@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"go/types"
 	"math"
 	"testing"
 
@@ -46,7 +45,6 @@ func TestValidateRequired(t *testing.T) {
 	var strVal string
 	o := &ConfigOption{
 		Name:      "required-option",
-		OptType:   types.String,
 		ConfigKey: &strVal,
 		Validate:  required,
 	}
@@ -67,7 +65,6 @@ func TestValidatePositiveUint32(t *testing.T) {
 	var val uint32
 	o := &ConfigOption{
 		Name:      "positive-option",
-		OptType:   types.Uint32,
 		ConfigKey: &val,
 		Validate:  positive,
 	}
@@ -88,7 +85,6 @@ func TestValidatePositiveInt(t *testing.T) {
 	var val int
 	o := &ConfigOption{
 		Name:      "positive-option",
-		OptType:   types.Uint32,
 		ConfigKey: &val,
 		Validate:  positive,
 	}
