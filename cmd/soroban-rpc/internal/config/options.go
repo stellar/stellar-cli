@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"go/types"
 	"os"
 	"os/exec"
 	"reflect"
@@ -64,6 +65,7 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:           "stellar-core-timeout",
 			Usage:          "Timeout used when submitting requests to stellar-core",
+			OptType:        types.String,
 			ConfigKey:      &cfg.CoreRequestTimeout,
 			DefaultValue:   2 * time.Second,
 			CustomSetValue: parseDuration,
@@ -78,6 +80,7 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "log-level",
 			Usage:        "minimum log severity (debug, info, warn, error) to log",
+			OptType:      types.String,
 			ConfigKey:    &cfg.LogLevel,
 			DefaultValue: logrus.InfoLevel,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
@@ -106,6 +109,7 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "log-format",
 			Usage:        "format used for output logs (json or text)",
+			OptType:      types.String,
 			ConfigKey:    &cfg.LogFormat,
 			DefaultValue: LogFormatText,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
@@ -181,6 +185,7 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:           "history-archive-urls",
 			Usage:          "comma-separated list of stellar history archives to connect with",
+			OptType:        types.String,
 			ConfigKey:      &cfg.HistoryArchiveURLs,
 			CustomSetValue: parseStringArray,
 			Validate:       required,
@@ -206,35 +211,33 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:           "ingestion-timeout",
 			Usage:          "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
+			OptType:        types.String,
 			ConfigKey:      &cfg.IngestionTimeout,
 			DefaultValue:   30 * time.Minute,
 			CustomSetValue: parseDuration,
 			MarshalTOML:    marshalDuration,
 		},
 		{
-			Name:           "checkpoint-frequency",
-			Usage:          "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
-			ConfigKey:      &cfg.CheckpointFrequency,
-			DefaultValue:   uint32(64),
-			CustomSetValue: parseUint32,
+			Name:         "checkpoint-frequency",
+			Usage:        "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
+			ConfigKey:    &cfg.CheckpointFrequency,
+			DefaultValue: uint32(64),
 		},
 		{
 			Name: "event-retention-window",
 			Usage: fmt.Sprintf("configures the event retention window expressed in number of ledgers,"+
 				" the default value is %d which corresponds to about 24 hours of history", ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			ConfigKey:      &cfg.EventLedgerRetentionWindow,
-			DefaultValue:   uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			Validate:       positive,
-			CustomSetValue: parseUint32,
+			ConfigKey:    &cfg.EventLedgerRetentionWindow,
+			DefaultValue: uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
+			Validate:     positive,
 		},
 		{
 			Name: "transaction-retention-window",
 			Usage: "configures the transaction retention window expressed in number of ledgers," +
 				" the default value is 1440 which corresponds to about 2 hours of history",
-			ConfigKey:      &cfg.TransactionLedgerRetentionWindow,
-			DefaultValue:   uint32(1440),
-			Validate:       positive,
-			CustomSetValue: parseUint32,
+			ConfigKey:    &cfg.TransactionLedgerRetentionWindow,
+			DefaultValue: uint32(1440),
+			Validate:     positive,
 		},
 		{
 			Name:         "max-events-limit",
@@ -262,6 +265,7 @@ func (cfg *Config) options() ConfigOptions {
 			Name: "max-healthy-ledger-latency",
 			Usage: "maximum ledger latency (i.e. time elapsed since the last known ledger closing time) considered to be healthy" +
 				" (used for the /health endpoint)",
+			OptType:        types.String,
 			ConfigKey:      &cfg.MaxHealthyLedgerLatency,
 			DefaultValue:   30 * time.Second,
 			CustomSetValue: parseDuration,
