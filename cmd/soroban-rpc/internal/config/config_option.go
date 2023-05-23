@@ -72,8 +72,25 @@ func (o *ConfigOption) setValue(i interface{}) (err error) {
 			err = errors.Errorf("config option setting error ('%s') %v", o.Name, recoverRes)
 		}
 	}()
-	reflect.ValueOf(o.ConfigKey).Elem().Set(reflect.ValueOf(i))
-	return nil
+	parser := func(option *ConfigOption, i interface{}) error {
+		panic(fmt.Sprintf("no parser for flag %s", o.Name))
+	}
+	switch reflect.ValueOf(o.ConfigKey).Elem().Kind() {
+	case reflect.Bool:
+		parser = parseBool
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		parser = parseInt
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+		parser = parseUint32
+	case reflect.Uint64:
+		parser = parseUint
+	case reflect.Float32, reflect.Float64:
+		parser = parseFloat
+	case reflect.String:
+		parser = parseString
+	}
+
+	return parser(o, i)
 }
 
 func (o *ConfigOption) marshalTOML() (interface{}, error) {
