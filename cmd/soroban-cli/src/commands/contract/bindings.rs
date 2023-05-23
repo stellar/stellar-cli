@@ -9,7 +9,7 @@ pub enum Cmd {
 
     /// Generate Rust bindings
     Rust(rust::Cmd),
-    // /Generate Ts project
+    /// Generate Ts project
     Ts(ts::Cmd),
 }
 

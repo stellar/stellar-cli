@@ -115,7 +115,7 @@ Generate code client bindings for a contract
 
 * `json` — Generate Json Bindings
 * `rust` — Generate Rust bindings
-* `ts` — 
+* `ts` — Generate Ts project
 
 
 
@@ -144,6 +144,8 @@ Generate Rust bindings
 
 
 ## `soroban contract bindings ts`
+
+Generate Ts project
 
 **Usage:** `soroban contract bindings ts --wasm <WASM> --root-dir <ROOT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
 
