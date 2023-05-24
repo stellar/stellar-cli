@@ -45,7 +45,7 @@ type Config struct {
 	flagset      *pflag.FlagSet
 }
 
-func (cfg *Config) SetValues() error {
+func (cfg *Config) SetValues(lookupEnv func(string) (string, bool)) error {
 	// We start with the defaults
 	if err := cfg.loadDefaults(); err != nil {
 		return err
@@ -53,7 +53,7 @@ func (cfg *Config) SetValues() error {
 
 	// Then we load from the environment variables and cli flags, to try to find
 	// the config file path
-	if err := cfg.loadEnv(); err != nil {
+	if err := cfg.loadEnv(lookupEnv); err != nil {
 		return err
 	}
 	if err := cfg.loadFlags(); err != nil {
@@ -69,7 +69,7 @@ func (cfg *Config) SetValues() error {
 
 		// Load from cli flags and environment variables again, to overwrite what we
 		// got from the config file
-		if err := cfg.loadEnv(); err != nil {
+		if err := cfg.loadEnv(lookupEnv); err != nil {
 			return err
 		}
 		if err := cfg.loadFlags(); err != nil {
@@ -93,13 +93,13 @@ func (cfg *Config) loadDefaults() error {
 }
 
 // loadEnv populates the config with values from the environment variables
-func (cfg *Config) loadEnv() error {
+func (cfg *Config) loadEnv(lookupEnv func(string) (string, bool)) error {
 	for _, option := range cfg.options() {
 		key, ok := option.getEnvKey()
 		if !ok {
 			continue
 		}
-		value, ok := os.LookupEnv(key)
+		value, ok := lookupEnv(key)
 		if !ok {
 			continue
 		}

@@ -3,6 +3,7 @@ package config
 import (
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadConfigPath(t *testing.T) {
+func TestLoadConfigPathPrecedence(t *testing.T) {
 	var cfg Config
 
 	cmd := &cobra.Command{}
@@ -22,13 +23,23 @@ func TestLoadConfigPath(t *testing.T) {
 		"--network-passphrase", "CLI test passphrase",
 	}))
 
-	require.NoError(t, cfg.SetValues())
+	require.NoError(t, cfg.SetValues(func(key string) (string, bool) {
+		switch key {
+		case "STELLAR_CORE_BINARY_PATH":
+			return "/env/stellar-core", true
+		case "DB_PATH":
+			return "/env/overridden/db", true
+		default:
+			return "", false
+		}
+	}))
 	require.NoError(t, cfg.Validate())
 
-	assert.Equal(t, "/opt/stellar/soroban-rpc/etc/stellar-captive-core.cfg", cfg.CaptiveCoreConfigPath)
-	assert.Equal(t, "/usr/overridden/stellar-core", cfg.StellarCoreBinaryPath, "env or cli flags should override --config-path values")
-	assert.Equal(t, "CLI test passphrase", cfg.NetworkPassphrase, "env or cli flags should override --config-path values")
-	assert.Equal(t, "/opt/stellar/soroban-rpc/rpc_db.sqlite", cfg.SQLiteDBPath, "config file should fill in if not set on the cli or env")
+	assert.Equal(t, "/opt/stellar/soroban-rpc/etc/stellar-captive-core.cfg", cfg.CaptiveCoreConfigPath, "should read values from the config path file")
+	assert.Equal(t, "CLI test passphrase", cfg.NetworkPassphrase, "cli flags should override --config-path values")
+	assert.Equal(t, "/usr/overridden/stellar-core", cfg.StellarCoreBinaryPath, "cli flags should override --config-path values and env vars")
+	assert.Equal(t, "/env/overridden/db", cfg.SQLiteDBPath, "env var should override config file")
+	assert.Equal(t, 2*time.Second, cfg.CoreRequestTimeout, "default value should be used, if not set anywhere else")
 }
 
 func TestConfigLoadDefaults(t *testing.T) {
