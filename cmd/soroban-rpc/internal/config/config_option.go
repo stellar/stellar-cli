@@ -5,9 +5,10 @@ import (
 	"go/types"
 	"reflect"
 	"strconv"
-	"strings"
 
+	"github.com/spf13/pflag"
 	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/support/strutils"
 )
 
 // ConfigOptions is a group of ConfigOptions that can be for convenience
@@ -39,6 +40,8 @@ type ConfigOption struct {
 	CustomSetValue func(*ConfigOption, interface{}) error // Optional function for custom validation/transformation
 	Validate       func(*ConfigOption) error              // Function called after loading all options, to validate the configuration
 	MarshalTOML    func(*ConfigOption) (interface{}, error)
+
+	flag *pflag.Flag // The persistent flag that the config option is attached to
 }
 
 // Returns false if this option is omitted in the toml
@@ -49,10 +52,21 @@ func (o ConfigOption) getTomlKey() (string, bool) {
 	if o.TomlKey != "" {
 		return o.TomlKey, true
 	}
-	if o.EnvVar != "" && o.EnvVar != "-" {
+	if envVar, ok := o.getEnvKey(); ok {
+		return envVar, true
+	}
+	return strutils.KebabToConstantCase(o.Name), true
+}
+
+// Returns false if this option is omitted in the env
+func (o ConfigOption) getEnvKey() (string, bool) {
+	if o.EnvVar == "-" || o.EnvVar == "_" {
+		return "", false
+	}
+	if o.EnvVar != "" {
 		return o.EnvVar, true
 	}
-	return strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_")), true
+	return strutils.KebabToConstantCase(o.Name), true
 }
 
 // TODO: See if we can remove CustomSetValue into just SetValue/ParseValue

@@ -7,14 +7,9 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml"
-	"github.com/spf13/viper"
 )
 
 func parseToml(r io.Reader, strict bool, cfg *Config) error {
-	if cfg.viper == nil {
-		cfg.viper = viper.New()
-	}
-
 	tree, err := toml.LoadReader(r)
 	if err != nil {
 		return err
@@ -35,9 +30,6 @@ func parseToml(r io.Reader, strict bool, cfg *Config) error {
 		if err := option.setValue(value); err != nil {
 			return err
 		}
-		// Set the default so that when we load the config from CLI flags, that
-		// will override this value
-		cfg.viper.SetDefault(option.Name, value)
 	}
 
 	if cfg.Strict || strict {

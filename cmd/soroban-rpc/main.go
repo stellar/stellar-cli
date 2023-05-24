@@ -73,7 +73,7 @@ func main() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(genConfigFileCmd)
 
-	if err := cfg.Init(rootCmd); err != nil {
+	if err := cfg.AddFlags(rootCmd); err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
 		os.Exit(1)
 	}

@@ -2,86 +2,100 @@ package config
 
 import (
 	"fmt"
-	"go/types"
-	"reflect"
+	"net"
+	"time"
 
-	"github.com/spf13/viper"
-	support "github.com/stellar/go/support/config"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
-// Bind binds the config options to viper.
-func (cfg *Config) Bind() {
-	if cfg.viper == nil {
-		cfg.viper = viper.New()
-	}
-	for _, flag := range cfg.flags() {
-		flag.Bind(cfg.viper)
-	}
-}
-
-func (cfg *Config) flags() support.ConfigOptions {
-	if cfg.flagsCache != nil {
-		return *cfg.flagsCache
-	}
-	options := cfg.options()
-	flags := make(support.ConfigOptions, 0, len(options))
-	for _, option := range options {
-		if f := option.flag(cfg); f != nil {
-			flags = append(flags, f)
+// Init adds the CLI flags to the command. This lets the command output the
+// flags as part of the --help output.
+func (cfg *Config) AddFlags(cmd *cobra.Command) error {
+	flagset := cmd.PersistentFlags()
+	for _, option := range cfg.options() {
+		if err := option.AddFlag(flagset); err != nil {
+			return err
 		}
 	}
-	cfg.flagsCache = &flags
-	return flags
+	return nil
 }
 
-var optTypes = map[reflect.Kind]types.BasicKind{
-	reflect.Bool:    types.Bool,
-	reflect.Int:     types.Int,
-	reflect.Int8:    types.Int,
-	reflect.Int16:   types.Int,
-	reflect.Int32:   types.Int,
-	reflect.Int64:   types.Int,
-	reflect.Uint:    types.Uint,
-	reflect.Uint8:   types.Uint,
-	reflect.Uint16:  types.Uint,
-	reflect.Uint64:  types.Uint,
-	reflect.Uint32:  types.Uint32,
-	reflect.Float32: types.Float64,
-	reflect.Float64: types.Float64,
-	reflect.String:  types.String,
+// AddFlag adds a CLI flag for this option to the given flagset.
+func (co *ConfigOption) AddFlag(flagset *pflag.FlagSet) error {
+	// Treat any option with a custom parser as a string option.
+	if co.CustomSetValue != nil {
+		if co.DefaultValue == nil {
+			co.DefaultValue = ""
+		}
+		flagset.String(co.Name, fmt.Sprint(co.DefaultValue), co.UsageText())
+		co.flag = flagset.Lookup(co.Name)
+		return nil
+	}
+
+	// Infer the type of the flag based on the type of the ConfigKey
+	switch co.ConfigKey.(type) {
+	case *bool:
+		flagset.Bool(co.Name, co.DefaultValue.(bool), co.UsageText())
+	case *time.Duration:
+		flagset.Duration(co.Name, co.DefaultValue.(time.Duration), co.UsageText())
+	case *float32:
+		flagset.Float32(co.Name, co.DefaultValue.(float32), co.UsageText())
+	case *float64:
+		flagset.Float64(co.Name, co.DefaultValue.(float64), co.UsageText())
+	case *net.IP:
+		flagset.IP(co.Name, co.DefaultValue.(net.IP), co.UsageText())
+	case *net.IPMask:
+		flagset.IPMask(co.Name, co.DefaultValue.(net.IPMask), co.UsageText())
+	case *net.IPNet:
+		flagset.IPNet(co.Name, co.DefaultValue.(net.IPNet), co.UsageText())
+	case *int:
+		flagset.Int(co.Name, co.DefaultValue.(int), co.UsageText())
+	case *int8:
+		flagset.Int8(co.Name, co.DefaultValue.(int8), co.UsageText())
+	case *int16:
+		flagset.Int16(co.Name, co.DefaultValue.(int16), co.UsageText())
+	case *int32:
+		flagset.Int32(co.Name, co.DefaultValue.(int32), co.UsageText())
+	case *int64:
+		flagset.Int64(co.Name, co.DefaultValue.(int64), co.UsageText())
+	case *[]int:
+		flagset.IntSlice(co.Name, co.DefaultValue.([]int), co.UsageText())
+	case *[]int32:
+		flagset.Int32Slice(co.Name, co.DefaultValue.([]int32), co.UsageText())
+	case *[]int64:
+		flagset.Int64Slice(co.Name, co.DefaultValue.([]int64), co.UsageText())
+	case *string:
+		// Set an empty string if no default was provided, since some value is always required for pflags
+		if co.DefaultValue == nil {
+			co.DefaultValue = ""
+		}
+		flagset.String(co.Name, co.DefaultValue.(string), co.UsageText())
+	case *[]string:
+		flagset.StringSlice(co.Name, co.DefaultValue.([]string), co.UsageText())
+	case *uint:
+		flagset.Uint(co.Name, co.DefaultValue.(uint), co.UsageText())
+	case *uint8:
+		flagset.Uint8(co.Name, co.DefaultValue.(uint8), co.UsageText())
+	case *uint16:
+		flagset.Uint16(co.Name, co.DefaultValue.(uint16), co.UsageText())
+	case *uint32:
+		flagset.Uint32(co.Name, co.DefaultValue.(uint32), co.UsageText())
+	case *uint64:
+		flagset.Uint64(co.Name, co.DefaultValue.(uint64), co.UsageText())
+	case *[]uint:
+		flagset.UintSlice(co.Name, co.DefaultValue.([]uint), co.UsageText())
+	default:
+		return fmt.Errorf("unexpected option type: %T", co.ConfigKey)
+	}
+
+	co.flag = flagset.Lookup(co.Name)
+	return nil
 }
 
-// Convert our configOption into a CLI flag, if it should be one.
-func (o *ConfigOption) flag(cfg *Config) *support.ConfigOption {
-	optType := o.OptType
-	if optType == types.Invalid {
-		// If there was no OptType explicitly set, guess the type based on the
-		// target field's type.
-		t, found := optTypes[reflect.ValueOf(o.ConfigKey).Elem().Kind()]
-		if !found {
-			t = types.String
-		}
-		optType = t
-	}
-
-	flagDefault := o.DefaultValue
-	if flagDefault != nil && optType == types.String {
-		flagDefault = fmt.Sprint(o.DefaultValue)
-	}
-
-	f := &support.ConfigOption{
-		Name:        o.Name,
-		EnvVar:      o.EnvVar,
-		OptType:     optType,
-		FlagDefault: flagDefault,
-		Required:    false,
-		Usage:       o.Usage,
-		ConfigKey:   o.ConfigKey,
-	}
-	if o.CustomSetValue != nil {
-		f.CustomSetValue = func(co *support.ConfigOption) error {
-			return o.CustomSetValue(o, cfg.viper.Get(o.Name))
-		}
-	}
-	return f
+// UsageText returns the string to use for the usage text of the option. The
+// string returned will be the Usage defined on the ConfigOption, along with
+// the environment variable.
+func (co *ConfigOption) UsageText() string {
+	return fmt.Sprintf("%s (%s)", co.Usage, co.EnvVar)
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"github.com/stellar/go/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,10 +14,13 @@ import (
 func TestLoadConfigPath(t *testing.T) {
 	var cfg Config
 
-	cfg.Bind()
-	cfg.viper.Set("config-path", "./test.soroban.rpc.config")
-	cfg.viper.Set("stellar-core-binary-path", "/usr/overridden/stellar-core")
-	cfg.viper.Set("network-passphrase", "CLI test passphrase")
+	cmd := &cobra.Command{}
+	require.NoError(t, cfg.AddFlags(cmd))
+	require.NoError(t, cmd.ParseFlags([]string{
+		"--config-path", "./test.soroban.rpc.config",
+		"--stellar-core-binary-path", "/usr/overridden/stellar-core",
+		"--network-passphrase", "CLI test passphrase",
+	}))
 
 	require.NoError(t, cfg.SetValues())
 	require.NoError(t, cfg.Validate())
@@ -44,11 +48,14 @@ func TestConfigLoadFlagsDefaultValuesOverrideExisting(t *testing.T) {
 		LogLevel:          logrus.InfoLevel,
 		Endpoint:          "localhost:8000",
 	}
-	cfg.Bind()
 
+	cmd := &cobra.Command{}
+	require.NoError(t, cfg.AddFlags(cmd))
 	// Set up a flag set with the default value
-	cfg.viper.Set("network-passphrase", "")
-	cfg.viper.Set("log-level", logrus.PanicLevel)
+	require.NoError(t, cmd.ParseFlags([]string{
+		"--network-passphrase", "",
+		"--log-level", logrus.PanicLevel.String(),
+	}))
 
 	// Load the flags
 	require.NoError(t, cfg.loadFlags())
