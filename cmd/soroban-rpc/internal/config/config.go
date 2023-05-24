@@ -46,6 +46,7 @@ type Config struct {
 	// We memoize these, so they bind to viper flags correctly
 	optionsCache *ConfigOptions
 	flagsCache   *support.ConfigOptions
+	viper        *viper.Viper
 }
 
 func (cfg *Config) Init(cmd *cobra.Command) error {
@@ -97,8 +98,8 @@ func (cfg *Config) loadDefaults() error {
 func (cfg *Config) loadFlags() error {
 	cfg.Bind()
 	for _, option := range cfg.options() {
-		if viper.IsSet(option.Name) {
-			if err := option.setValue(viper.Get(option.Name)); err != nil {
+		if cfg.viper.IsSet(option.Name) {
+			if err := option.setValue(cfg.viper.Get(option.Name)); err != nil {
 				return err
 			}
 		}

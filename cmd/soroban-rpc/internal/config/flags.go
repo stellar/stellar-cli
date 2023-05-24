@@ -11,8 +11,11 @@ import (
 
 // Bind binds the config options to viper.
 func (cfg *Config) Bind() {
+	if cfg.viper == nil {
+		cfg.viper = viper.New()
+	}
 	for _, flag := range cfg.flags() {
-		flag.Bind()
+		flag.Bind(cfg.viper)
 	}
 }
 
@@ -23,7 +26,7 @@ func (cfg *Config) flags() support.ConfigOptions {
 	options := cfg.options()
 	flags := make(support.ConfigOptions, 0, len(options))
 	for _, option := range options {
-		if f := option.flag(); f != nil {
+		if f := option.flag(cfg); f != nil {
 			flags = append(flags, f)
 		}
 	}
@@ -49,7 +52,7 @@ var optTypes = map[reflect.Kind]types.BasicKind{
 }
 
 // Convert our configOption into a CLI flag, if it should be one.
-func (o *ConfigOption) flag() *support.ConfigOption {
+func (o *ConfigOption) flag(cfg *Config) *support.ConfigOption {
 	optType := o.OptType
 	if optType == types.Invalid {
 		// If there was no OptType explicitly set, guess the type based on the
@@ -77,7 +80,7 @@ func (o *ConfigOption) flag() *support.ConfigOption {
 	}
 	if o.CustomSetValue != nil {
 		f.CustomSetValue = func(co *support.ConfigOption) error {
-			return o.CustomSetValue(o, viper.Get(o.Name))
+			return o.CustomSetValue(o, cfg.viper.Get(o.Name))
 		}
 	}
 	return f

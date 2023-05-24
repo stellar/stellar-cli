@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/stellar/go/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,10 +13,10 @@ import (
 func TestLoadConfigPath(t *testing.T) {
 	var cfg Config
 
-	viper.Set("config-path", "./test.soroban.rpc.config")
-	viper.Set("stellar-core-binary-path", "/usr/overridden/stellar-core")
-	viper.Set("network-passphrase", "CLI test passphrase")
-	defer viper.Reset()
+	cfg.Bind()
+	cfg.viper.Set("config-path", "./test.soroban.rpc.config")
+	cfg.viper.Set("stellar-core-binary-path", "/usr/overridden/stellar-core")
+	cfg.viper.Set("network-passphrase", "CLI test passphrase")
 
 	require.NoError(t, cfg.SetValues())
 	require.NoError(t, cfg.Validate())
@@ -45,14 +44,13 @@ func TestConfigLoadFlagsDefaultValuesOverrideExisting(t *testing.T) {
 		LogLevel:          logrus.InfoLevel,
 		Endpoint:          "localhost:8000",
 	}
+	cfg.Bind()
 
 	// Set up a flag set with the default value
-	viper.Set("network-passphrase", "")
-	viper.Set("log-level", logrus.PanicLevel)
-	defer viper.Reset()
+	cfg.viper.Set("network-passphrase", "")
+	cfg.viper.Set("log-level", logrus.PanicLevel)
 
 	// Load the flags
-	cfg.Bind()
 	require.NoError(t, cfg.loadFlags())
 
 	// Check that the flag value is set
