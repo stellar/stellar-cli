@@ -33,7 +33,8 @@ func (co *ConfigOption) AddFlag(flagset *pflag.FlagSet) error {
 		return nil
 	}
 
-	// Infer the type of the flag based on the type of the ConfigKey
+	// Infer the type of the flag based on the type of the ConfigKey. This list
+	// of options is based on the available flag types from pflags
 	switch co.ConfigKey.(type) {
 	case *bool:
 		flagset.Bool(co.Name, co.DefaultValue.(bool), co.UsageText())
@@ -101,7 +102,9 @@ func (co *ConfigOption) GetFlag(flagset *pflag.FlagSet) (interface{}, error) {
 		return flagset.GetString(co.Name)
 	}
 
-	// Infer the type of the flag based on the type of the ConfigKey
+	// Infer the type of the flag based on the type of the ConfigKey. This list
+	// of options is based on the available flag types from pflags, and must
+	// match the above in `AddFlag`.
 	switch co.ConfigKey.(type) {
 	case *bool:
 		return flagset.GetBool(co.Name)
