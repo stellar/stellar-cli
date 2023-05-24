@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"go/types"
 	"os"
 	"os/exec"
 	"reflect"
@@ -63,13 +62,10 @@ func (cfg *Config) options() ConfigOptions {
 			},
 		},
 		{
-			Name:           "stellar-core-timeout",
-			Usage:          "Timeout used when submitting requests to stellar-core",
-			OptType:        types.String,
-			ConfigKey:      &cfg.CoreRequestTimeout,
-			DefaultValue:   2 * time.Second,
-			CustomSetValue: parseDuration,
-			MarshalTOML:    marshalDuration,
+			Name:         "stellar-core-timeout",
+			Usage:        "Timeout used when submitting requests to stellar-core",
+			ConfigKey:    &cfg.CoreRequestTimeout,
+			DefaultValue: 2 * time.Second,
 		},
 		{
 			Name:         "stellar-captive-core-http-port",
@@ -80,7 +76,6 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "log-level",
 			Usage:        "minimum log severity (debug, info, warn, error) to log",
-			OptType:      types.String,
 			ConfigKey:    &cfg.LogLevel,
 			DefaultValue: logrus.InfoLevel,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
@@ -109,7 +104,6 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "log-format",
 			Usage:        "format used for output logs (json or text)",
-			OptType:      types.String,
 			ConfigKey:    &cfg.LogFormat,
 			DefaultValue: LogFormatText,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
@@ -183,12 +177,10 @@ func (cfg *Config) options() ConfigOptions {
 			DefaultValue: false,
 		},
 		{
-			Name:           "history-archive-urls",
-			Usage:          "comma-separated list of stellar history archives to connect with",
-			OptType:        types.String,
-			ConfigKey:      &cfg.HistoryArchiveURLs,
-			CustomSetValue: parseStringArray,
-			Validate:       required,
+			Name:      "history-archive-urls",
+			Usage:     "comma-separated list of stellar history archives to connect with",
+			ConfigKey: &cfg.HistoryArchiveURLs,
+			Validate:  required,
 		},
 		{
 			Name:      "friendbot-url",
@@ -209,13 +201,10 @@ func (cfg *Config) options() ConfigOptions {
 			DefaultValue: "soroban_rpc.sqlite",
 		},
 		{
-			Name:           "ingestion-timeout",
-			Usage:          "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
-			OptType:        types.String,
-			ConfigKey:      &cfg.IngestionTimeout,
-			DefaultValue:   30 * time.Minute,
-			CustomSetValue: parseDuration,
-			MarshalTOML:    marshalDuration,
+			Name:         "ingestion-timeout",
+			Usage:        "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
+			ConfigKey:    &cfg.IngestionTimeout,
+			DefaultValue: 30 * time.Minute,
 		},
 		{
 			Name:         "checkpoint-frequency",
@@ -265,11 +254,8 @@ func (cfg *Config) options() ConfigOptions {
 			Name: "max-healthy-ledger-latency",
 			Usage: "maximum ledger latency (i.e. time elapsed since the last known ledger closing time) considered to be healthy" +
 				" (used for the /health endpoint)",
-			OptType:        types.String,
-			ConfigKey:      &cfg.MaxHealthyLedgerLatency,
-			DefaultValue:   30 * time.Second,
-			CustomSetValue: parseDuration,
-			MarshalTOML:    marshalDuration,
+			ConfigKey:    &cfg.MaxHealthyLedgerLatency,
+			DefaultValue: 30 * time.Second,
 		},
 		{
 			Name:         "preflight-worker-count",
@@ -333,11 +319,4 @@ func positive(option *ConfigOption) error {
 		return fmt.Errorf("%s is not a positive integer", option.Name)
 	}
 	return nil
-}
-
-func marshalDuration(option *ConfigOption) (interface{}, error) {
-	if option.ConfigKey == nil {
-		return nil, nil
-	}
-	return option.ConfigKey.(*time.Duration).String(), nil
 }

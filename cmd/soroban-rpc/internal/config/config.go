@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
 // Config represents the configuration of a soroban-rpc server
@@ -41,6 +42,7 @@ type Config struct {
 
 	// We memoize these, so they bind to pflags correctly
 	optionsCache *ConfigOptions
+	flagset      *pflag.FlagSet
 }
 
 func (cfg *Config) SetValues() error {
@@ -114,7 +116,11 @@ func (cfg *Config) loadFlags() error {
 		if !option.flag.Changed {
 			continue
 		}
-		if err := option.setValue(option.flag.Value.String()); err != nil {
+		val, err := option.GetFlag(cfg.flagset)
+		if err != nil {
+			return err
+		}
+		if err := option.setValue(val); err != nil {
 			return err
 		}
 	}

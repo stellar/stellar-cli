@@ -12,9 +12,9 @@ import (
 // Init adds the CLI flags to the command. This lets the command output the
 // flags as part of the --help output.
 func (cfg *Config) AddFlags(cmd *cobra.Command) error {
-	flagset := cmd.PersistentFlags()
+	cfg.flagset = cmd.PersistentFlags()
 	for _, option := range cfg.options() {
-		if err := option.AddFlag(flagset); err != nil {
+		if err := option.AddFlag(cfg.flagset); err != nil {
 			return err
 		}
 	}
@@ -45,8 +45,6 @@ func (co *ConfigOption) AddFlag(flagset *pflag.FlagSet) error {
 		flagset.Float64(co.Name, co.DefaultValue.(float64), co.UsageText())
 	case *net.IP:
 		flagset.IP(co.Name, co.DefaultValue.(net.IP), co.UsageText())
-	case *net.IPMask:
-		flagset.IPMask(co.Name, co.DefaultValue.(net.IPMask), co.UsageText())
 	case *net.IPNet:
 		flagset.IPNet(co.Name, co.DefaultValue.(net.IPNet), co.UsageText())
 	case *int:
@@ -72,6 +70,10 @@ func (co *ConfigOption) AddFlag(flagset *pflag.FlagSet) error {
 		}
 		flagset.String(co.Name, co.DefaultValue.(string), co.UsageText())
 	case *[]string:
+		// Set an empty string if no default was provided, since some value is always required for pflags
+		if co.DefaultValue == nil {
+			co.DefaultValue = []string{}
+		}
 		flagset.StringSlice(co.Name, co.DefaultValue.([]string), co.UsageText())
 	case *uint:
 		flagset.Uint(co.Name, co.DefaultValue.(uint), co.UsageText())
@@ -91,6 +93,63 @@ func (co *ConfigOption) AddFlag(flagset *pflag.FlagSet) error {
 
 	co.flag = flagset.Lookup(co.Name)
 	return nil
+}
+
+func (co *ConfigOption) GetFlag(flagset *pflag.FlagSet) (interface{}, error) {
+	// Treat any option with a custom parser as a string option.
+	if co.CustomSetValue != nil {
+		return flagset.GetString(co.Name)
+	}
+
+	// Infer the type of the flag based on the type of the ConfigKey
+	switch co.ConfigKey.(type) {
+	case *bool:
+		return flagset.GetBool(co.Name)
+	case *time.Duration:
+		return flagset.GetDuration(co.Name)
+	case *float32:
+		return flagset.GetFloat32(co.Name)
+	case *float64:
+		return flagset.GetFloat64(co.Name)
+	case *net.IP:
+		return flagset.GetIP(co.Name)
+	case *net.IPNet:
+		return flagset.GetIPNet(co.Name)
+	case *int:
+		return flagset.GetInt(co.Name)
+	case *int8:
+		return flagset.GetInt8(co.Name)
+	case *int16:
+		return flagset.GetInt16(co.Name)
+	case *int32:
+		return flagset.GetInt32(co.Name)
+	case *int64:
+		return flagset.GetInt64(co.Name)
+	case *[]int:
+		return flagset.GetIntSlice(co.Name)
+	case *[]int32:
+		return flagset.GetInt32Slice(co.Name)
+	case *[]int64:
+		return flagset.GetInt64Slice(co.Name)
+	case *string:
+		return flagset.GetString(co.Name)
+	case *[]string:
+		return flagset.GetStringSlice(co.Name)
+	case *uint:
+		return flagset.GetUint(co.Name)
+	case *uint8:
+		return flagset.GetUint8(co.Name)
+	case *uint16:
+		return flagset.GetUint16(co.Name)
+	case *uint32:
+		return flagset.GetUint32(co.Name)
+	case *uint64:
+		return flagset.GetUint64(co.Name)
+	case *[]uint:
+		return flagset.GetUintSlice(co.Name)
+	default:
+		return nil, fmt.Errorf("unexpected option type: %T", co.ConfigKey)
+	}
 }
 
 // UsageText returns the string to use for the usage text of the option. The

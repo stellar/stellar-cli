@@ -177,7 +177,7 @@ func parseDuration(option *ConfigOption, i interface{}) error {
 	return nil
 }
 
-func parseStringArray(option *ConfigOption, i interface{}) error {
+func parseStringSlice(option *ConfigOption, i interface{}) error {
 	switch v := i.(type) {
 	case nil:
 		return nil

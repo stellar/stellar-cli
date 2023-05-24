@@ -2,9 +2,9 @@ package config
 
 import (
 	"fmt"
-	"go/types"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/stellar/go/support/errors"
@@ -34,7 +34,6 @@ type ConfigOption struct {
 	EnvVar         string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name
 	TomlKey        string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name. - to omit from toml
 	Usage          string                                 // Help text
-	OptType        types.BasicKind                        // The type of this option, e.g. types.Bool
 	DefaultValue   interface{}                            // A default if no option is provided. Omit or set to `nil` if no default
 	ConfigKey      interface{}                            // Pointer to the final key in the linked Config struct
 	CustomSetValue func(*ConfigOption, interface{}) error // Optional function for custom validation/transformation
@@ -89,19 +88,23 @@ func (o *ConfigOption) setValue(i interface{}) (err error) {
 	parser := func(option *ConfigOption, i interface{}) error {
 		panic(fmt.Sprintf("no parser for flag %s", o.Name))
 	}
-	switch reflect.ValueOf(o.ConfigKey).Elem().Kind() {
-	case reflect.Bool:
+	switch o.ConfigKey.(type) {
+	case *bool:
 		parser = parseBool
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case *int, *int8, *int16, *int32, *int64:
 		parser = parseInt
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+	case *uint, *uint8, *uint16, *uint32:
 		parser = parseUint32
-	case reflect.Uint64:
+	case *uint64:
 		parser = parseUint
-	case reflect.Float32, reflect.Float64:
+	case *float32, *float64:
 		parser = parseFloat
-	case reflect.String:
+	case *string:
 		parser = parseString
+	case *[]string:
+		parser = parseStringSlice
+	case *time.Duration:
+		parser = parseDuration
 	}
 
 	return parser(o, i)
@@ -117,6 +120,8 @@ func (o *ConfigOption) marshalTOML() (interface{}, error) {
 		return []byte(strconv.FormatInt(reflect.ValueOf(v).Elem().Int(), 10)), nil
 	case *uint, *uint8, *uint16, *uint32, *uint64:
 		return []byte(strconv.FormatUint(reflect.ValueOf(v).Elem().Uint(), 10)), nil
+	case *time.Duration:
+		return v.String(), nil
 	default:
 		// Unknown, hopefully go-toml knows what to do with it! :crossed_fingers:
 		return reflect.ValueOf(o.ConfigKey).Elem().Interface(), nil
