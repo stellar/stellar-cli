@@ -97,5 +97,10 @@ func (co *ConfigOption) AddFlag(flagset *pflag.FlagSet) error {
 // string returned will be the Usage defined on the ConfigOption, along with
 // the environment variable.
 func (co *ConfigOption) UsageText() string {
-	return fmt.Sprintf("%s (%s)", co.Usage, co.EnvVar)
+	envVar, hasEnvVar := co.getEnvKey()
+	if hasEnvVar {
+		return fmt.Sprintf("%s (%s)", co.Usage, envVar)
+	} else {
+		return co.Usage
+	}
 }
