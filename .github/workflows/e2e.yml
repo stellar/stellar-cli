@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run 
-      SYSTEM_TEST_GIT_REF: system-test-v1.0.13
+      SYSTEM_TEST_GIT_REF: v1.0.14
 
       # the soroban tools source code to compile and run from system test
       # refers to checked out source of current git hub ref context 
@@ -22,7 +22,7 @@ jobs:
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci, 
-      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#patch-soroban-preview-9
+      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#soroban-preview-9-May22
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
       # or can use option to pull a pre-compiled image instead
       # SYSTEM_TEST_CORE_IMAGE: 
@@ -32,11 +32,11 @@ jobs:
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
 
       # sets the version of soroban-js-client used by tests
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: https://github.com/stellar/js-soroban-client.git#main
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: "0.7.0"
      
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
-      SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart.git#refs/pull/444/head
+      SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart.git#7153d3fb02e26a63b767b1f544f918febc63ca69
       
       # triggers system test to log out details from quickstart's logs and test steps
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
