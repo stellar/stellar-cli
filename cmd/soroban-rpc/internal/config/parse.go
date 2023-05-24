@@ -60,7 +60,12 @@ func parseUint(option *ConfigOption, i interface{}) error {
 			return err
 		}
 		reflect.ValueOf(option.ConfigKey).Elem().SetUint(parsed)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int, int8, int16, int32, int64:
+		if reflect.ValueOf(v).Int() < 0 {
+			return fmt.Errorf("%s cannot be negative", option.Name)
+		}
+		return parseUint(option, fmt.Sprint(v))
+	case uint, uint8, uint16, uint32, uint64:
 		return parseUint(option, fmt.Sprint(v))
 	default:
 		return fmt.Errorf("could not parse uint %s: %v", option.Name, i)
@@ -78,7 +83,7 @@ func parseFloat(option *ConfigOption, i interface{}) error {
 			return err
 		}
 		reflect.ValueOf(option.ConfigKey).Elem().SetFloat(parsed)
-	case uint, uint8, uint16, uint32, uint64, int, int8, int16, int32, int64:
+	case uint, uint8, uint16, uint32, uint64, int, int8, int16, int32, int64, float32, float64:
 		return parseFloat(option, fmt.Sprint(v))
 	default:
 		return fmt.Errorf("could not parse float %s: %v", option.Name, i)
@@ -111,7 +116,12 @@ func parseUint32(option *ConfigOption, i interface{}) error {
 			return fmt.Errorf("%s overflows uint32", option.Name)
 		}
 		reflect.ValueOf(option.ConfigKey).Elem().SetUint(parsed)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int, int8, int16, int32, int64:
+		if reflect.ValueOf(v).Int() < 0 {
+			return fmt.Errorf("%s cannot be negative", option.Name)
+		}
+		return parseUint32(option, fmt.Sprint(v))
+	case uint, uint8, uint16, uint32, uint64:
 		return parseUint32(option, fmt.Sprint(v))
 	default:
 		return fmt.Errorf("could not parse uint32 %s: %v", option.Name, i)
