@@ -5,10 +5,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
-	support "github.com/stellar/go/support/config"
+	"github.com/spf13/pflag"
 )
 
 // Config represents the configuration of a soroban-rpc server
@@ -43,29 +40,39 @@ type Config struct {
 	SQLiteDBPath                     string
 	TransactionLedgerRetentionWindow uint32
 
-	// We memoize these, so they bind to viper flags correctly
+	// We memoize these, so they bind to pflags correctly
 	optionsCache *ConfigOptions
-	flagsCache   *support.ConfigOptions
+	flagset      *pflag.FlagSet
 }
 
-func (cfg *Config) Init(cmd *cobra.Command) error {
-	return cfg.flags().Init(cmd)
-}
-
-// Values applied as defaults -> flags/env -> config file
-func (cfg *Config) SetValues() error {
+func (cfg *Config) SetValues(lookupEnv func(string) (string, bool)) error {
+	// We start with the defaults
 	if err := cfg.loadDefaults(); err != nil {
 		return err
 	}
 
-	cfg.Bind()
+	// Then we load from the environment variables and cli flags, to try to find
+	// the config file path
+	if err := cfg.loadEnv(lookupEnv); err != nil {
+		return err
+	}
 	if err := cfg.loadFlags(); err != nil {
 		return err
 	}
 
+	// If we specified a config file, we load that
 	if cfg.ConfigPath != "" {
 		// Merge in the config file flags
 		if err := cfg.loadConfigPath(); err != nil {
+			return err
+		}
+
+		// Load from cli flags and environment variables again, to overwrite what we
+		// got from the config file
+		if err := cfg.loadEnv(lookupEnv); err != nil {
+			return err
+		}
+		if err := cfg.loadFlags(); err != nil {
 			return err
 		}
 	}
@@ -85,14 +92,36 @@ func (cfg *Config) loadDefaults() error {
 	return nil
 }
 
-// loadFlags populates the config with values from the cli flags and
-// environment variables
+// loadEnv populates the config with values from the environment variables
+func (cfg *Config) loadEnv(lookupEnv func(string) (string, bool)) error {
+	for _, option := range cfg.options() {
+		key, ok := option.getEnvKey()
+		if !ok {
+			continue
+		}
+		value, ok := lookupEnv(key)
+		if !ok {
+			continue
+		}
+		if err := option.setValue(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// loadFlags populates the config with values from the cli flags
 func (cfg *Config) loadFlags() error {
 	for _, option := range cfg.options() {
-		if viper.IsSet(option.Name) {
-			if err := option.setValue(viper.Get(option.Name)); err != nil {
-				return err
-			}
+		if !option.flag.Changed {
+			continue
+		}
+		val, err := option.GetFlag(cfg.flagset)
+		if err != nil {
+			return err
+		}
+		if err := option.setValue(val); err != nil {
+			return err
 		}
 	}
 	return nil
