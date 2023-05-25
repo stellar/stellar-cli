@@ -152,6 +152,8 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error("Contract Error\n{0}: {1}")]
     ContractInvoke(String, String),
+    #[error(transparent)]
+    StrKey(#[from] stellar_strkey::DecodeError),
 }
 
 impl From<Infallible> for Error {
@@ -443,10 +445,15 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
-            contract_id: self.contract_id.clone(),
-            error: e,
-        })
+        utils::id_from_str(&self.contract_id)
+            .map_err(|e| Error::CannotParseContractId {
+                contract_id: self.contract_id.clone(),
+                error: e,
+            })
+            .or_else(|_| {
+                stellar_strkey::Contract::from_str(&self.contract_id).map(|strkey| strkey.0)
+            })
+            .map_err(Into::into)
     }
 }
 
