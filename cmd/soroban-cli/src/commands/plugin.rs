@@ -74,6 +74,6 @@ pub fn list() -> Result<Vec<String>, Error> {
         .collect())
 }
 
-fn is_hex_string(s: &str) -> bool {
+pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
 }

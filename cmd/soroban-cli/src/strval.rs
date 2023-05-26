@@ -13,7 +13,7 @@ use soroban_env_host::xdr::{
     ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
-use crate::utils;
+use crate::{commands::plugin::is_hex_string, utils};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -981,6 +981,12 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
 }
 
 fn sc_address_from_json(s: &str, t: &ScType) -> Result<ScVal, Error> {
+    let s = &if is_hex_string(s) {
+        String::from_utf8(hex::decode(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?)
+            .unwrap()
+    } else {
+        s.to_string()
+    };
     stellar_strkey::Strkey::from_string(s)
         .map_err(|_| Error::InvalidValue(Some(t.clone())))
         .map(|parsed| match parsed {
