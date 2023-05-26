@@ -262,3 +262,19 @@ fn handles_kebab_case() {
         ])
         .is_ok());
 }
+
+#[tokio::test]
+async fn fetch() {
+    let e = TestEnv::default();
+    let f = e.dir().join("contract.wasm");
+    let res = e.cmd_arr::<soroban_cli::commands::contract::fetch::Cmd>(&[
+        "--id",
+        "bc074f0f03934d0189653bc15af9a83170411e103b4c48a63888306cfba41ac8",
+        "--network",
+        "futurenet",
+        "--out-file",
+        &format!("{f:?}"),
+    ]);
+    res.run_against_rpc_server().await.unwrap();
+    assert!(f.exists());
+}
