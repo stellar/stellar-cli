@@ -18,7 +18,7 @@ func main() {
 		Use:   "soroban-rpc",
 		Short: "Start the remote soroban-rpc server",
 		Run: func(_ *cobra.Command, _ []string) {
-			if err := cfg.SetValues(); err != nil {
+			if err := cfg.SetValues(os.LookupEnv); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
@@ -57,7 +57,7 @@ func main() {
 		Run: func(_ *cobra.Command, _ []string) {
 			// We can't call 'Validate' here because the config file we are
 			// generating might not be complete. e.g. It might not include a network passphrase.
-			if err := cfg.SetValues(); err != nil {
+			if err := cfg.SetValues(os.LookupEnv); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
@@ -73,7 +73,7 @@ func main() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(genConfigFileCmd)
 
-	if err := cfg.Init(rootCmd); err != nil {
+	if err := cfg.AddFlags(rootCmd); err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
 		os.Exit(1)
 	}

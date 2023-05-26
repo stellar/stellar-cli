@@ -2,12 +2,13 @@ package config
 
 import (
 	"fmt"
-	"go/types"
 	"reflect"
 	"strconv"
-	"strings"
+	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/support/strutils"
 )
 
 // ConfigOptions is a group of ConfigOptions that can be for convenience
@@ -33,12 +34,13 @@ type ConfigOption struct {
 	EnvVar         string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name
 	TomlKey        string                                 // e.g. "DATABASE_URL". Defaults to uppercase/underscore representation of name. - to omit from toml
 	Usage          string                                 // Help text
-	OptType        types.BasicKind                        // The type of this option, e.g. types.Bool
 	DefaultValue   interface{}                            // A default if no option is provided. Omit or set to `nil` if no default
 	ConfigKey      interface{}                            // Pointer to the final key in the linked Config struct
 	CustomSetValue func(*ConfigOption, interface{}) error // Optional function for custom validation/transformation
 	Validate       func(*ConfigOption) error              // Function called after loading all options, to validate the configuration
 	MarshalTOML    func(*ConfigOption) (interface{}, error)
+
+	flag *pflag.Flag // The persistent flag that the config option is attached to
 }
 
 // Returns false if this option is omitted in the toml
@@ -49,13 +51,24 @@ func (o ConfigOption) getTomlKey() (string, bool) {
 	if o.TomlKey != "" {
 		return o.TomlKey, true
 	}
-	if o.EnvVar != "" && o.EnvVar != "-" {
-		return o.EnvVar, true
+	if envVar, ok := o.getEnvKey(); ok {
+		return envVar, true
 	}
-	return strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_")), true
+	return strutils.KebabToConstantCase(o.Name), true
 }
 
-// TODO: See if we can combine OptType and CustomSetValue into just SetValue/ParseValue
+// Returns false if this option is omitted in the env
+func (o ConfigOption) getEnvKey() (string, bool) {
+	if o.EnvVar == "-" || o.EnvVar == "_" {
+		return "", false
+	}
+	if o.EnvVar != "" {
+		return o.EnvVar, true
+	}
+	return strutils.KebabToConstantCase(o.Name), true
+}
+
+// TODO: See if we can remove CustomSetValue into just SetValue/ParseValue
 func (o *ConfigOption) setValue(i interface{}) (err error) {
 	if o.CustomSetValue != nil {
 		return o.CustomSetValue(o, i)
@@ -72,8 +85,29 @@ func (o *ConfigOption) setValue(i interface{}) (err error) {
 			err = errors.Errorf("config option setting error ('%s') %v", o.Name, recoverRes)
 		}
 	}()
-	reflect.ValueOf(o.ConfigKey).Elem().Set(reflect.ValueOf(i))
-	return nil
+	parser := func(option *ConfigOption, i interface{}) error {
+		panic(fmt.Sprintf("no parser for flag %s", o.Name))
+	}
+	switch o.ConfigKey.(type) {
+	case *bool:
+		parser = parseBool
+	case *int, *int8, *int16, *int32, *int64:
+		parser = parseInt
+	case *uint, *uint8, *uint16, *uint32:
+		parser = parseUint32
+	case *uint64:
+		parser = parseUint
+	case *float32, *float64:
+		parser = parseFloat
+	case *string:
+		parser = parseString
+	case *[]string:
+		parser = parseStringSlice
+	case *time.Duration:
+		parser = parseDuration
+	}
+
+	return parser(o, i)
 }
 
 func (o *ConfigOption) marshalTOML() (interface{}, error) {
@@ -86,6 +120,8 @@ func (o *ConfigOption) marshalTOML() (interface{}, error) {
 		return []byte(strconv.FormatInt(reflect.ValueOf(v).Elem().Int(), 10)), nil
 	case *uint, *uint8, *uint16, *uint32, *uint64:
 		return []byte(strconv.FormatUint(reflect.ValueOf(v).Elem().Uint(), 10)), nil
+	case *time.Duration:
+		return v.String(), nil
 	default:
 		// Unknown, hopefully go-toml knows what to do with it! :crossed_fingers:
 		return reflect.ValueOf(o.ConfigKey).Elem().Interface(), nil
