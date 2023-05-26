@@ -1,3 +1,5 @@
+use std::println;
+
 use soroban_cli::commands::{config::identity, contract};
 use soroban_test::TestEnv;
 
@@ -55,6 +57,7 @@ fn invoke_hello_world_with_deploy_first() {
         .success();
     let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
     let id = stdout.trim_end();
+    println!("{id}");
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")

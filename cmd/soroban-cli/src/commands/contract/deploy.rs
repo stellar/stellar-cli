@@ -91,6 +91,8 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    StrKey(#[from] stellar_strkey::DecodeError),
 }
 
 impl Cmd {
@@ -145,7 +147,7 @@ impl Cmd {
         let mut state = self.config.get_state()?;
         utils::add_contract_to_ledger_entries(&mut state.ledger_entries, contract_id, wasm_hash.0);
         self.config.set_state(&mut state)?;
-        Ok(hex::encode(contract_id))
+        Ok(stellar_strkey::Contract(contract_id).to_string())
     }
 
     async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {
@@ -177,8 +179,7 @@ impl Cmd {
         client
             .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
             .await?;
-
-        Ok(hex::encode(contract_id.0))
+        Ok(stellar_strkey::Contract(contract_id.0).to_string())
     }
 }
 
