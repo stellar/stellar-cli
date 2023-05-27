@@ -111,7 +111,7 @@ func logResponse(logger *log.Entry, reqID string, duration time.Duration, status
 
 	if status == "ok" {
 		responseBytes, err := json.Marshal(response)
-		if err != nil {
+		if err == nil {
 			// the result is useful but can be really verbose, let's only print it with debug level
 			logger = logger.WithField("result", string(responseBytes))
 			logger.Debug("finished JSONRPC request result")
