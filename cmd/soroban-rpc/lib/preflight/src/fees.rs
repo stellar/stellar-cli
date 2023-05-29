@@ -6,10 +6,11 @@ use soroban_env_host::fees::{
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
 use soroban_env_host::xdr;
 use soroban_env_host::xdr::{
-    DecoratedSignature, DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint,
-    LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    SequenceNumber, Signature, SignatureHint, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
+    ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
+    InvokeHostFunctionOp, LedgerEntry, LedgerEntryData, LedgerFootprint, LedgerKey,
+    LedgerKeyConfigSetting, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody,
+    Preconditions, SequenceNumber, Signature, SignatureHint, SorobanResources,
+    SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
@@ -23,7 +24,7 @@ pub(crate) fn compute_transaction_data_and_min_fee(
     events: &Vec<DiagnosticEvent>,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let soroban_resources = calculate_soroban_resources(snapshot_source, storage, budget, events)?;
-    let fee_configuration = get_fee_configuration(snapshot_source);
+    let fee_configuration = get_fee_configuration(snapshot_source)?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
 
@@ -140,23 +141,74 @@ fn calculate_soroban_resources(
     })
 }
 
-fn get_fee_configuration(_snapshot_source: &ledger_storage::LedgerStorage) -> FeeConfiguration {
-    // TODO: (at least part of) these values should be obtained from the network's ConfigSetting LedgerEntries
-    //       (instead of hardcoding them to the initial values in the network)
-    //       Specifically, we need to derive it from ConfigSettingContractComputeV0 which can
-    //       be retrieved using the ConfigSetting/CONFIG_SETTING_CONTRACT_COMPUTE_V0.
+fn get_configuration_setting(
+    ledger_storage: &ledger_storage::LedgerStorage,
+    setting_id: ConfigSettingId,
+) -> Result<ConfigSettingEntry, Box<dyn error::Error>> {
+    let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
+        config_setting_id: setting_id,
+    });
+    match ledger_storage.get(&key)? {
+        LedgerEntry {
+            data: LedgerEntryData::ConfigSetting(cs),
+            ..
+        } => Ok(cs),
+        _ => Err(format!(
+            "get_configuration_setting(): unexpected ledger entry for {} key",
+            setting_id.name()
+        )
+        .into()),
+    }
+}
+
+fn get_fee_configuration(
+    ledger_storage: &ledger_storage::LedgerStorage,
+) -> Result<FeeConfiguration, Box<dyn error::Error>> {
+    // TODO: consider caching these entries. In theory, they can change at any given ledger
+    //       (making caching ineffective) but we can maybe relax that requirement?
+
+    let ConfigSettingEntry::ComputeV0(compute) = get_configuration_setting(ledger_storage, ConfigSettingId::ComputeV0)? else {
+            return Err(
+                "get_fee_configuration(): unexpected config setting entry for ComputeV0 key".into(),
+            );
+        };
+
+    let ConfigSettingEntry::LedgerCostV0(ledger_cost) = get_configuration_setting(ledger_storage, ConfigSettingId::LedgerCostV0)? else {
+        return Err(
+            "get_fee_configuration(): unexpected config setting entry for LedgerCostV0 key".into(),
+        );
+    };
+
+    let ConfigSettingEntry::HistoricalDataV0(historical_data) = get_configuration_setting(ledger_storage, ConfigSettingId::HistoricalDataV0)? else {
+        return Err(
+            "get_fee_configuration(): unexpected config setting entry for HistoricalDataV0 key".into(),
+        );
+    };
+
+    let ConfigSettingEntry::MetaDataV0(metadata) = get_configuration_setting(ledger_storage, ConfigSettingId::MetaDataV0)? else {
+        return Err(
+            "get_fee_configuration(): unexpected config setting entry for MetaDataV0 key".into(),
+        );
+    };
+
+    let ConfigSettingEntry::BandwidthV0(bandwidth) = get_configuration_setting(ledger_storage, ConfigSettingId::BandwidthV0)? else {
+        return Err(
+            "get_fee_configuration(): unexpected config setting entry for BandwidthV0 key".into(),
+        );
+    };
 
     // Taken from Stellar Core's InitialSorobanNetworkConfig in NetworkConfig.h
-    FeeConfiguration {
-        fee_per_instruction_increment: 100,
-        fee_per_read_entry: 5000,
-        fee_per_write_entry: 20000,
-        fee_per_read_1kb: 1000,
-        fee_per_write_1kb: 4000,
-        fee_per_historical_1kb: 100,
-        fee_per_metadata_1kb: 200,
-        fee_per_propagate_1kb: 2000,
-    }
+    let fee_configuration = FeeConfiguration {
+        fee_per_instruction_increment: compute.fee_rate_per_instructions_increment,
+        fee_per_read_entry: ledger_cost.fee_read_ledger_entry,
+        fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
+        fee_per_read_1kb: ledger_cost.fee_read1_kb,
+        fee_per_write_1kb: ledger_cost.fee_write1_kb,
+        fee_per_historical_1kb: historical_data.fee_historical1_kb,
+        fee_per_metadata_1kb: metadata.fee_extended_meta_data1_kb,
+        fee_per_propagate_1kb: bandwidth.fee_propagate_data1_kb,
+    };
+    Ok(fee_configuration)
 }
 
 fn calculate_modified_read_write_ledger_entry_bytes(
