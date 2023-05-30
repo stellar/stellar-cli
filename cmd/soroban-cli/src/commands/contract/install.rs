@@ -44,7 +44,7 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = stellar_strkey::Contract(self.run_and_get_hash().await?.0).to_string();
+        let res_str = hex::encode(self.run_and_get_hash().await?);
         println!("{res_str}");
         Ok(())
     }
