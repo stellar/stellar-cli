@@ -3,7 +3,6 @@ use std::fmt::Debug;
 use std::num::ParseIntError;
 
 use clap::{arg, command, Parser};
-use hex::FromHexError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
@@ -78,12 +77,12 @@ pub enum Error {
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
-        error: FromHexError,
+        error: stellar_strkey::DecodeError,
     },
     #[error("cannot parse WASM hash {wasm_hash}: {error}")]
     CannotParseWasmHash {
         wasm_hash: String,
-        error: FromHexError,
+        error: stellar_strkey::DecodeError,
     },
     #[error("Must provide either --wasm or --wash-hash")]
     WasmNotProvided,
@@ -119,13 +118,12 @@ impl Cmd {
                 .to_string()
         };
 
-        let hash =
-            Hash(
-                utils::id_from_str(&wasm_hash).map_err(|e| Error::CannotParseWasmHash {
-                    wasm_hash: wasm_hash.clone(),
-                    error: e,
-                })?,
-            );
+        let hash = Hash(utils::contract_id_from_str(&wasm_hash).map_err(|e| {
+            Error::CannotParseWasmHash {
+                wasm_hash: wasm_hash.clone(),
+                error: e,
+            }
+        })?);
 
         if self.config.is_no_network() {
             self.run_in_sandbox(hash)
@@ -137,10 +135,12 @@ impl Cmd {
     #[allow(clippy::needless_pass_by_value)]
     pub fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
         let contract_id: [u8; 32] = match &self.contract_id {
-            Some(id) => utils::id_from_str(id).map_err(|e| Error::CannotParseContractId {
-                contract_id: self.contract_id.as_ref().unwrap().clone(),
-                error: e,
-            })?,
+            Some(id) => {
+                utils::contract_id_from_str(id).map_err(|e| Error::CannotParseContractId {
+                    contract_id: self.contract_id.as_ref().unwrap().clone(),
+                    error: e,
+                })?
+            }
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
@@ -153,10 +153,10 @@ impl Cmd {
     async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {
         let network = self.config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
-            // Hack: re-use contract_id_from_str to parse the 32-byte salt hex.
-            Some(h) => {
-                utils::id_from_str(h).map_err(|_| Error::CannotParseSalt { salt: h.clone() })?
-            }
+            Some(h) => utils::padded_hex_from_str(h, 32)
+                .map_err(|_| Error::CannotParseSalt { salt: h.clone() })?
+                .try_into()
+                .map_err(|_| Error::CannotParseSalt { salt: h.clone() })?,
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 

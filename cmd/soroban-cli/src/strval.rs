@@ -13,7 +13,7 @@ use soroban_env_host::xdr::{
     ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
-use crate::{commands::plugin::is_hex_string, utils};
+use crate::utils;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -793,20 +793,23 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         )),
 
-        (ScType::Address, Value::String(s)) => sc_address_from_json(s, t)?,
+        (ScType::Address, Value::String(s)) => sc_address_from_json(s)?,
 
         // Bytes parsing
         (ScType::BytesN(bytes), Value::String(s)) => ScVal::Bytes(ScBytes({
-            if let Ok(key) = stellar_strkey::ed25519::PublicKey::from_string(s) {
-                key.0
-                    .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
-            } else {
-                utils::padded_hex_from_str(s, bytes.n as usize)
-                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
-                    .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+            if bytes.n == 32 {
+                // Bytes might be a strkey, try parsing it as one. Contract devs should use the new
+                // proper Address type, but for backwards compatibility some contracts might use a
+                // BytesN<32> to represent an Address.
+                if let Ok(key) = sc_address_from_json(s) {
+                    return Ok(key);
+                }
             }
+            // Bytes are not an address, just parse as a hex string
+            utils::padded_hex_from_str(s, bytes.n as usize)
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+                .try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
         })),
         (ScType::Bytes, Value::String(s)) => ScVal::Bytes(
             hex::decode(s)
@@ -980,15 +983,9 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
     }
 }
 
-fn sc_address_from_json(s: &str, t: &ScType) -> Result<ScVal, Error> {
-    let s = &if is_hex_string(s) {
-        String::from_utf8(hex::decode(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?)
-            .unwrap()
-    } else {
-        s.to_string()
-    };
+fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
     stellar_strkey::Strkey::from_string(s)
-        .map_err(|_| Error::InvalidValue(Some(t.clone())))
+        .map_err(|_| Error::InvalidValue(Some(ScType::Address)))
         .map(|parsed| match parsed {
             stellar_strkey::Strkey::PublicKeyEd25519(p) => Some(ScVal::Address(
                 ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(p.0)))),
@@ -998,7 +995,7 @@ fn sc_address_from_json(s: &str, t: &ScType) -> Result<ScVal, Error> {
             }
             _ => None,
         })?
-        .ok_or(Error::InvalidValue(Some(t.clone())))
+        .ok_or(Error::InvalidValue(Some(ScType::Address)))
 }
 
 fn to_lower_hex(bytes: &[u8]) -> String {
@@ -1264,5 +1261,66 @@ impl Spec {
             }
         };
         Some(res)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sc_address_from_json_strkey() {
+        // All zero contract address
+        match sc_address_from_json("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4") {
+            Ok(addr) => assert_eq!(addr, ScVal::Address(ScAddress::Contract(Hash([0; 32])))),
+            Err(e) => panic!("Unexpected error: {}", e),
+        }
+
+        // Real contract address
+        match sc_address_from_json("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE") {
+            Ok(addr) => assert_eq!(
+                addr,
+                ScVal::Address(ScAddress::Contract(
+                    [
+                        0x36, 0x3e, 0xaa, 0x38, 0x67, 0x84, 0x1f, 0xba, 0xd0, 0xf4, 0xed, 0x88,
+                        0xc7, 0x79, 0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0,
+                        0xec, 0x9c, 0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
+                    ]
+                    .try_into()
+                    .unwrap()
+                ))
+            ),
+            Err(e) => panic!("Unexpected error: {}", e),
+        }
+
+        // All zero user account address
+        match sc_address_from_json("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF") {
+            Ok(addr) => assert_eq!(
+                addr,
+                ScVal::Address(ScAddress::Account(AccountId(
+                    PublicKey::PublicKeyTypeEd25519([0; 32].try_into().unwrap())
+                )))
+            ),
+            Err(e) => panic!("Unexpected error: {}", e),
+        }
+
+        // Real user account address
+        match sc_address_from_json("GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5") {
+            Ok(addr) => assert_eq!(
+                addr,
+                ScVal::Address(ScAddress::Account(AccountId(
+                    PublicKey::PublicKeyTypeEd25519(
+                        [
+                            0x36, 0x3e, 0xaa, 0x38, 0x67, 0x84, 0x1f, 0xba, 0xd0, 0xf4, 0xed, 0x88,
+                            0xc7, 0x79, 0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0,
+                            0xec, 0x9c, 0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
+                        ]
+                        .try_into()
+                        .unwrap()
+                    )
+                )))
+            ),
+            Err(e) => panic!("Unexpected error: {}", e),
+        }
     }
 }

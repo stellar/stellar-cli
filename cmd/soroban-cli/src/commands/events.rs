@@ -112,7 +112,7 @@ pub enum Error {
     #[error("cannot parse contract ID {contract_id}: {error}")]
     InvalidContractId {
         contract_id: String,
-        error: hex::FromHexError,
+        error: stellar_strkey::DecodeError,
     },
 
     #[error("invalid JSON string: {error} ({debug})")]
@@ -226,7 +226,7 @@ impl Cmd {
             // We parse the contract IDs to ensure they're the correct format,
             // but since we'll be passing them as-is to the RPC server anyway,
             // we disregard the return value.
-            utils::id_from_str::<32>(raw_contract_id).map_err(|e| Error::InvalidContractId {
+            utils::contract_id_from_str(raw_contract_id).map_err(|e| Error::InvalidContractId {
                 contract_id: raw_contract_id.clone(),
                 error: e,
             })?;
