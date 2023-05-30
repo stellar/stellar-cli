@@ -1273,7 +1273,7 @@ mod tests {
         // All zero contract address
         match sc_address_from_json("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4") {
             Ok(addr) => assert_eq!(addr, ScVal::Address(ScAddress::Contract(Hash([0; 32])))),
-            Err(e) => panic!("Unexpected error: {}", e),
+            Err(e) => panic!("Unexpected error: {e}"),
         }
 
         // Real contract address
@@ -1290,7 +1290,7 @@ mod tests {
                     .unwrap()
                 ))
             ),
-            Err(e) => panic!("Unexpected error: {}", e),
+            Err(e) => panic!("Unexpected error: {e}"),
         }
 
         // All zero user account address
@@ -1301,7 +1301,7 @@ mod tests {
                     PublicKey::PublicKeyTypeEd25519([0; 32].try_into().unwrap())
                 )))
             ),
-            Err(e) => panic!("Unexpected error: {}", e),
+            Err(e) => panic!("Unexpected error: {e}"),
         }
 
         // Real user account address
@@ -1320,7 +1320,7 @@ mod tests {
                     )
                 )))
             ),
-            Err(e) => panic!("Unexpected error: {}", e),
+            Err(e) => panic!("Unexpected error: {e}"),
         }
     }
 }

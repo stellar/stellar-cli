@@ -195,11 +195,11 @@ impl Cmd {
             // TODO: Once soroban-rpc supports passing these as a strkey, we should change to
             // formatting these as C-strkeys.
             *id = utils::contract_id_from_str(id)
-                .map(|key| hex::encode(key))
+                .map(hex::encode)
                 .map_err(|e| Error::InvalidContractId {
                     contract_id: id.clone(),
                     error: e,
-                })?
+                })?;
         }
 
         let response = if self.network.is_no_network() {

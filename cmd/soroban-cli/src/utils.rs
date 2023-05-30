@@ -160,7 +160,7 @@ pub fn sign_transaction(
 ///
 /// Might return an error
 pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strkey::DecodeError> {
-    stellar_strkey::Contract::from_string(&contract_id)
+    stellar_strkey::Contract::from_string(contract_id)
         .map(|strkey| strkey.0)
         .or_else(|_| {
             // strkey failed, try to parse it as a hex string, for backwards compatibility.
@@ -335,7 +335,7 @@ mod tests {
                     0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
                 ]
             ),
-            Err(err) => panic!("Failed to parse contract id: {}", err),
+            Err(err) => panic!("Failed to parse contract id: {err}"),
         }
 
         // hex
@@ -350,7 +350,7 @@ mod tests {
                     0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
                 ]
             ),
-            Err(err) => panic!("Failed to parse contract id: {}", err),
+            Err(err) => panic!("Failed to parse contract id: {err}"),
         }
 
         // unpadded-hex
@@ -363,7 +363,7 @@ mod tests {
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
                 ]
             ),
-            Err(err) => panic!("Failed to parse contract id: {}", err),
+            Err(err) => panic!("Failed to parse contract id: {err}"),
         }
 
         // invalid hex
