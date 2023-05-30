@@ -221,21 +221,6 @@ pub fn get_contract_spec_from_storage(
     }
 }
 
-/// # Errors
-///
-/// Might return an error
-pub fn vec_to_hash(res: &ScVal) -> Result<String, XdrError> {
-    if let ScVal::Bytes(res_hash) = &res {
-        let mut hash_bytes: [u8; 32] = [0; 32];
-        for (i, b) in res_hash.iter().enumerate() {
-            hash_bytes[i] = *b;
-        }
-        Ok(hex::encode(hash_bytes))
-    } else {
-        Err(XdrError::Invalid)
-    }
-}
-
 /// # Panics
 ///
 /// May panic
