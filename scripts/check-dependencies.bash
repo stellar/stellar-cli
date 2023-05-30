@@ -26,7 +26,7 @@ RS_STELLAR_XDR_REVISION=""
 # revision of https://github.com/stellar/stellar-xdr/ used by the Rust code
 STELLAR_XDR_REVISION_FROM_RUST=""
 
-if CARGO_OUTPUT=$(cargo tree --depth 1 -p stellar-xdr 2>&1); then
+if CARGO_OUTPUT=$(cargo tree --depth 0 -p stellar-xdr 2>&1); then
   RS_STELLAR_XDR_REVISION=$(echo $CARGO_OUTPUT | head -n 1 | sed "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
   STELLAR_XDR_REVISION_FROM_RUST=$($CURL https://raw.githubusercontent.com/stellar/rs-stellar-xdr/${RS_STELLAR_XDR_REVISION}/xdr/next-version)
 else
