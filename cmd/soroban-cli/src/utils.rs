@@ -315,6 +315,10 @@ pub(crate) fn parse_secret_key(
     into_key_pair(&PrivateKey::from_string(s).unwrap())
 }
 
+pub fn is_hex_string(s: &str) -> bool {
+    s.chars().all(|s| s.is_ascii_hexdigit())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
