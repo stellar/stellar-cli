@@ -27,7 +27,7 @@ fn install_wasm_then_deploy_contract() {
         .arg("--id=1")
         .assert()
         .success()
-        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
+        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn deploy_contract_with_wasm_file() {
         .arg("--id=1")
         .assert()
         .success()
-        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
+        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
 }
 
 #[test]
