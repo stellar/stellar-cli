@@ -1,5 +1,4 @@
-use std::println;
-
+use std::{panic, println};
 use soroban_cli::commands::{config::identity, contract};
 use soroban_test::TestEnv;
 
@@ -265,16 +264,31 @@ fn handles_kebab_case() {
 
 #[tokio::test]
 async fn fetch() {
+    use std::fs::{remove_dir_all, remove_file};
+    let pwd = std::env::current_dir().unwrap();
+    let r = pwd.join("../../../target");
+    let f = r.join("contract.wasm");
+    if f.exists() {
+        if f.is_dir() {
+            remove_dir_all(&f).unwrap();
+        } else if f.is_file() {
+            remove_file(&f).unwrap();
+        } else {
+            panic!("Should only be either file or direcotry");
+        }
+    }
+    println!("{f:?}");
     let e = TestEnv::default();
-    let f = e.dir().join("contract.wasm");
-    let res = e.cmd_arr::<soroban_cli::commands::contract::fetch::Cmd>(&[
-        "--id",
-        "bc074f0f03934d0189653bc15af9a83170411e103b4c48a63888306cfba41ac8",
-        "--network",
-        "futurenet",
-        "--out-file",
-        &format!("{f:?}"),
-    ]);
-    res.run_against_rpc_server().await.unwrap();
+    e.new_assert_cmd("contract")
+        .arg("fetch")
+        .arg("--id")
+        .arg("bc074f0f03934d0189653bc15af9a83170411e103b4c48a63888306cfba41ac8")
+        .arg("--network")
+        .arg("futurenet")
+        .arg("--out-file")
+        .arg(&format!("{f:?}"))
+        .assert()
+        .success();
+
     assert!(f.exists());
 }
