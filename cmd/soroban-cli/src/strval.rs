@@ -798,7 +798,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         // Bytes parsing
         (bytes @ ScType::BytesN(_), Value::Number(n)) => from_json_primitives(
             &Value::String(format!("{n}")),
-            &ScType::BytesN(bytes.clone()),
+            &bytes,
         )?,
         (ScType::BytesN(bytes), Value::String(s)) => ScVal::Bytes(ScBytes({
             if let Ok(key) = stellar_strkey::ed25519::PublicKey::from_string(s) {
