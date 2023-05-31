@@ -435,11 +435,8 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId {
-                contract_id: self.contract_id.clone(),
-                error: e,
-            })
+        utils::id_from_str(&self.contract_id)
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
             .or_else(|_| {
                 stellar_strkey::Contract::from_str(&self.contract_id).map(|strkey| strkey.0)
             })
