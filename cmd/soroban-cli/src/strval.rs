@@ -796,10 +796,9 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         (ScType::Address, Value::String(s)) => sc_address_from_json(s, t)?,
 
         // Bytes parsing
-        (bytes @ ScType::BytesN(_), Value::Number(n)) => from_json_primitives(
-            &Value::String(format!("{n}")),
-            &bytes,
-        )?,
+        (bytes @ ScType::BytesN(_), Value::Number(n)) => {
+            from_json_primitives(&Value::String(format!("{n}")), bytes)?
+        }
         (ScType::BytesN(bytes), Value::String(s)) => ScVal::Bytes(ScBytes({
             if let Ok(key) = stellar_strkey::ed25519::PublicKey::from_string(s) {
                 key.0
