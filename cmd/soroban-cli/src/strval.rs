@@ -796,6 +796,9 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         (ScType::Address, Value::String(s)) => sc_address_from_json(s)?,
 
         // Bytes parsing
+        (bytes @ ScType::BytesN(_), Value::Number(n)) => {
+            from_json_primitives(&Value::String(format!("{n}")), bytes)?
+        }
         (ScType::BytesN(bytes), Value::String(s)) => ScVal::Bytes(ScBytes({
             if bytes.n == 32 {
                 // Bytes might be a strkey, try parsing it as one. Contract devs should use the new
@@ -811,6 +814,9 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?
         })),
+        (ScType::Bytes, Value::Number(n)) => {
+            from_json_primitives(&Value::String(format!("{n}")), &ScType::Bytes)?
+        }
         (ScType::Bytes, Value::String(s)) => ScVal::Bytes(
             hex::decode(s)
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?
@@ -1267,6 +1273,55 @@ impl Spec {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use soroban_env_host::xdr::ScSpecTypeBytesN;
+
+    #[test]
+    fn from_json_primitives_bytesn() {
+        // TODO: Add test for parsing addresses
+
+        // Check it parses hex-encoded bytes
+        let b = from_json_primitives(
+            &Value::String("beefface".to_string()),
+            &ScType::BytesN(ScSpecTypeBytesN { n: 4 }),
+        )
+        .unwrap();
+        assert_eq!(
+            b,
+            ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
+        );
+
+        // Check it parses hex-encoded bytes when they are all numbers. Normally the json would
+        // interpret the CLI arg as a number, so we need a special case there.
+        let b = from_json_primitives(
+            &Value::Number(4554.into()),
+            &ScType::BytesN(ScSpecTypeBytesN { n: 2 }),
+        )
+        .unwrap();
+        assert_eq!(
+            b,
+            ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
+        );
+    }
+
+    #[test]
+    fn from_json_primitives_bytes() {
+        // Check it parses hex-encoded bytes
+        let b =
+            from_json_primitives(&Value::String("beefface".to_string()), &ScType::Bytes).unwrap();
+        assert_eq!(
+            b,
+            ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
+        );
+
+        // Check it parses hex-encoded bytes when they are all numbers. Normally the json would
+        // interpret the CLI arg as a number, so we need a special case there.
+        let b = from_json_primitives(&Value::Number(4554.into()), &ScType::Bytes).unwrap();
+        assert_eq!(
+            b,
+            ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
+        );
+    }
 
     #[test]
     fn test_sc_address_from_json_strkey() {
