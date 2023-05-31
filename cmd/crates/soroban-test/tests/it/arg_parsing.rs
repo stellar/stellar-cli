@@ -1,7 +1,9 @@
 use crate::util::CUSTOM_TYPES;
 use serde_json::json;
 use soroban_cli::strval::{self, Spec};
-use soroban_env_host::xdr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScVal};
+use soroban_env_host::xdr::{
+    ScBytes, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScVal,
+};
 
 #[test]
 fn parse_bool() {
@@ -84,6 +86,52 @@ fn parse_i256() {
         "{:#?}",
         strval::from_string_primitive(res, &ScSpecTypeDef::I256,).unwrap()
     );
+}
+
+#[test]
+fn parse_bytes() {
+    let b = strval::from_string_primitive(r#"beefface"#, &ScSpecTypeDef::Bytes).unwrap();
+    assert_eq!(
+        b,
+        ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
+    );
+    println!("{b:#?}");
+}
+
+#[test]
+fn parse_bytes_when_hex_is_all_numbers() {
+    let b = strval::from_string_primitive(r#"4554"#, &ScSpecTypeDef::Bytes).unwrap();
+    assert_eq!(
+        b,
+        ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
+    );
+    println!("{b:#?}");
+}
+
+#[test]
+fn parse_bytesn() {
+    let b = strval::from_string_primitive(
+        r#"beefface"#,
+        &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 4 }),
+    )
+    .unwrap();
+    assert_eq!(
+        b,
+        ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
+    );
+    println!("{b:#?}");
+}
+
+#[test]
+fn parse_bytesn_when_hex_is_all_numbers() {
+    let b =
+        strval::from_string_primitive(r#"4554"#, &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 2 }))
+            .unwrap();
+    assert_eq!(
+        b,
+        ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
+    );
+    println!("{b:#?}",);
 }
 
 #[test]
