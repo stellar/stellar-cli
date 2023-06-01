@@ -64,7 +64,7 @@ impl Cmd {
             rpc_url,
             network_passphrase,
         } = self.network.get(&self.locator).unwrap_or(Network {
-            rpc_url: "https://horizon-testnet.stellar.org".to_string(),
+            rpc_url: "https://rpc-futurenet.stellar.org:443/soroban/rpc".to_string(),
             network_passphrase: "Test SDF Future Network ; October 2022".to_string(),
         });
         p.init(
