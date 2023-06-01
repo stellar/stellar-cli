@@ -69,6 +69,12 @@ impl LedgerStorage {
         Ok(str)
     }
 
+    pub fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, Error> {
+        let base64_str = self.get_xdr_base64(key)?;
+        let entry = LedgerEntry::from_xdr_base64(base64_str)?;
+        Ok(entry)
+    }
+
     pub fn get_xdr(&self, key: &LedgerKey) -> Result<Vec<u8>, Error> {
         let base64_str = self.get_xdr_base64(key)?;
         Ok(base64::decode(base64_str)?)
@@ -77,11 +83,7 @@ impl LedgerStorage {
 
 impl SnapshotSource for LedgerStorage {
     fn get(&self, key: &Rc<LedgerKey>) -> Result<Rc<LedgerEntry>, HostError> {
-        let base64_str = self
-            .get_xdr_base64(key)
-            .map_err(|e| Error::to_host_error(&e))?;
-        let entry =
-            LedgerEntry::from_xdr_base64(base64_str).map_err(|_| ScStatus::UnknownError(Xdr))?;
+        let entry = self.get(key).map_err(|e| Error::to_host_error(&e))?;
         Ok(entry.into())
     }
 

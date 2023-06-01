@@ -2,14 +2,10 @@ package config
 
 import (
 	"fmt"
-	"go/types"
-	"math"
 	"os"
 	"os/exec"
 	"reflect"
 	"runtime"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -30,7 +26,6 @@ func (cfg *Config) options() ConfigOptions {
 			EnvVar:    "SOROBAN_RPC_CONFIG_PATH",
 			TomlKey:   "-",
 			Usage:     "File path to the toml configuration file",
-			OptType:   types.String,
 			ConfigKey: &cfg.ConfigPath,
 		},
 		{
@@ -38,27 +33,23 @@ func (cfg *Config) options() ConfigOptions {
 			EnvVar:       "SOROBAN_RPC_CONFIG_STRICT",
 			TomlKey:      "STRICT",
 			Usage:        "Enable strict toml configuration file parsing. This will prevent unknown fields in the config toml from being parsed.",
-			OptType:      types.Bool,
 			ConfigKey:    &cfg.Strict,
 			DefaultValue: false,
 		},
 		{
 			Name:         "endpoint",
 			Usage:        "Endpoint to listen and serve on",
-			OptType:      types.String,
 			ConfigKey:    &cfg.Endpoint,
 			DefaultValue: "localhost:8000",
 		},
 		{
 			Name:      "admin-endpoint",
 			Usage:     "Admin endpoint to listen and serve on. WARNING: this should not be accessible from the Internet and does not use TLS. \"\" (default) disables the admin server",
-			OptType:   types.String,
 			ConfigKey: &cfg.AdminEndpoint,
 		},
 		{
 			Name:      "stellar-core-url",
 			Usage:     "URL used to query Stellar Core (local captive core by default)",
-			OptType:   types.String,
 			ConfigKey: &cfg.StellarCoreURL,
 			Validate: func(co *ConfigOption) error {
 				// This is a bit awkward. We're actually setting a default, but we
@@ -71,26 +62,20 @@ func (cfg *Config) options() ConfigOptions {
 			},
 		},
 		{
-			Name:           "stellar-core-timeout",
-			Usage:          "Timeout used when submitting requests to stellar-core",
-			OptType:        types.String,
-			ConfigKey:      &cfg.CoreRequestTimeout,
-			DefaultValue:   2 * time.Second,
-			CustomSetValue: parseDuration,
-			MarshalTOML:    marshalDuration,
+			Name:         "stellar-core-timeout",
+			Usage:        "Timeout used when submitting requests to stellar-core",
+			ConfigKey:    &cfg.CoreRequestTimeout,
+			DefaultValue: 2 * time.Second,
 		},
 		{
-			Name:           "stellar-captive-core-http-port",
-			Usage:          "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
-			OptType:        types.Uint,
-			ConfigKey:      &cfg.CaptiveCoreHTTPPort,
-			DefaultValue:   uint(11626),
-			CustomSetValue: parseUint,
+			Name:         "stellar-captive-core-http-port",
+			Usage:        "HTTP port for Captive Core to listen on (0 disables the HTTP server)",
+			ConfigKey:    &cfg.CaptiveCoreHTTPPort,
+			DefaultValue: uint(11626),
 		},
 		{
 			Name:         "log-level",
 			Usage:        "minimum log severity (debug, info, warn, error) to log",
-			OptType:      types.String,
 			ConfigKey:    &cfg.LogLevel,
 			DefaultValue: logrus.InfoLevel,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
@@ -119,7 +104,6 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "log-format",
 			Usage:        "format used for output logs (json or text)",
-			OptType:      types.String,
 			ConfigKey:    &cfg.LogFormat,
 			DefaultValue: LogFormatText,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
@@ -148,7 +132,6 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "stellar-core-binary-path",
 			Usage:        "path to stellar core binary",
-			OptType:      types.String,
 			ConfigKey:    &cfg.StellarCoreBinaryPath,
 			DefaultValue: defaultStellarCoreBinaryPath,
 			Validate:     required,
@@ -156,14 +139,12 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:      "captive-core-config-path",
 			Usage:     "path to additional configuration for the Stellar Core configuration file used by captive core. It must, at least, include enough details to define a quorum set",
-			OptType:   types.String,
 			ConfigKey: &cfg.CaptiveCoreConfigPath,
 			Validate:  required,
 		},
 		{
 			Name:      "captive-core-storage-path",
 			Usage:     "Storage location for Captive Core bucket data",
-			OptType:   types.String,
 			ConfigKey: &cfg.CaptiveCoreStoragePath,
 			CustomSetValue: func(option *ConfigOption, i interface{}) error {
 				switch v := i.(type) {
@@ -192,28 +173,23 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "captive-core-use-db",
 			Usage:        "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
-			OptType:      types.Bool,
 			ConfigKey:    &cfg.CaptiveCoreUseDB,
 			DefaultValue: false,
 		},
 		{
-			Name:           "history-archive-urls",
-			Usage:          "comma-separated list of stellar history archives to connect with",
-			OptType:        types.String,
-			ConfigKey:      &cfg.HistoryArchiveURLs,
-			CustomSetValue: parseStringArray,
-			Validate:       required,
+			Name:      "history-archive-urls",
+			Usage:     "comma-separated list of stellar history archives to connect with",
+			ConfigKey: &cfg.HistoryArchiveURLs,
+			Validate:  required,
 		},
 		{
 			Name:      "friendbot-url",
 			Usage:     "The friendbot URL to be returned by getNetwork endpoint",
-			OptType:   types.String,
 			ConfigKey: &cfg.FriendbotURL,
 		},
 		{
 			Name:         "network-passphrase",
 			Usage:        "Network passphrase of the Stellar network transactions should be signed for",
-			OptType:      types.String,
 			ConfigKey:    &cfg.NetworkPassphrase,
 			DefaultValue: network.FutureNetworkPassphrase,
 			Validate:     required,
@@ -221,62 +197,48 @@ func (cfg *Config) options() ConfigOptions {
 		{
 			Name:         "db-path",
 			Usage:        "SQLite DB path",
-			OptType:      types.String,
 			ConfigKey:    &cfg.SQLiteDBPath,
 			DefaultValue: "soroban_rpc.sqlite",
 		},
 		{
-			Name:           "ingestion-timeout",
-			Usage:          "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
-			OptType:        types.String,
-			ConfigKey:      &cfg.IngestionTimeout,
-			DefaultValue:   30 * time.Minute,
-			CustomSetValue: parseDuration,
-			MarshalTOML:    marshalDuration,
+			Name:         "ingestion-timeout",
+			Usage:        "Ingestion Timeout when bootstrapping data (checkpoint and in-memory initialization) and preparing ledger reads",
+			ConfigKey:    &cfg.IngestionTimeout,
+			DefaultValue: 30 * time.Minute,
 		},
 		{
-			Name:           "checkpoint-frequency",
-			Usage:          "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
-			OptType:        types.Uint32,
-			ConfigKey:      &cfg.CheckpointFrequency,
-			DefaultValue:   uint32(64),
-			CustomSetValue: parseUint32,
+			Name:         "checkpoint-frequency",
+			Usage:        "establishes how many ledgers exist between checkpoints, do NOT change this unless you really know what you are doing",
+			ConfigKey:    &cfg.CheckpointFrequency,
+			DefaultValue: uint32(64),
 		},
 		{
 			Name: "event-retention-window",
 			Usage: fmt.Sprintf("configures the event retention window expressed in number of ledgers,"+
 				" the default value is %d which corresponds to about 24 hours of history", ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			OptType:        types.Uint32,
-			ConfigKey:      &cfg.EventLedgerRetentionWindow,
-			DefaultValue:   uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
-			Validate:       positive,
-			CustomSetValue: parseUint32,
+			ConfigKey:    &cfg.EventLedgerRetentionWindow,
+			DefaultValue: uint32(ledgerbucketwindow.DefaultEventLedgerRetentionWindow),
+			Validate:     positive,
 		},
 		{
 			Name: "transaction-retention-window",
 			Usage: "configures the transaction retention window expressed in number of ledgers," +
 				" the default value is 1440 which corresponds to about 2 hours of history",
-			OptType:        types.Uint32,
-			ConfigKey:      &cfg.TransactionLedgerRetentionWindow,
-			DefaultValue:   uint32(1440),
-			Validate:       positive,
-			CustomSetValue: parseUint32,
+			ConfigKey:    &cfg.TransactionLedgerRetentionWindow,
+			DefaultValue: uint32(1440),
+			Validate:     positive,
 		},
 		{
-			Name:           "max-events-limit",
-			Usage:          "Maximum amount of events allowed in a single getEvents response",
-			OptType:        types.Uint,
-			ConfigKey:      &cfg.MaxEventsLimit,
-			DefaultValue:   uint(10000),
-			CustomSetValue: parseUint,
+			Name:         "max-events-limit",
+			Usage:        "Maximum amount of events allowed in a single getEvents response",
+			ConfigKey:    &cfg.MaxEventsLimit,
+			DefaultValue: uint(10000),
 		},
 		{
-			Name:           "default-events-limit",
-			Usage:          "Default cap on the amount of events included in a single getEvents response",
-			OptType:        types.Uint,
-			ConfigKey:      &cfg.DefaultEventsLimit,
-			DefaultValue:   uint(100),
-			CustomSetValue: parseUint,
+			Name:         "default-events-limit",
+			Usage:        "Default cap on the amount of events included in a single getEvents response",
+			ConfigKey:    &cfg.DefaultEventsLimit,
+			DefaultValue: uint(100),
 			Validate: func(co *ConfigOption) error {
 				if cfg.DefaultEventsLimit > cfg.MaxEventsLimit {
 					return fmt.Errorf(
@@ -292,29 +254,22 @@ func (cfg *Config) options() ConfigOptions {
 			Name: "max-healthy-ledger-latency",
 			Usage: "maximum ledger latency (i.e. time elapsed since the last known ledger closing time) considered to be healthy" +
 				" (used for the /health endpoint)",
-			OptType:        types.String,
-			ConfigKey:      &cfg.MaxHealthyLedgerLatency,
-			DefaultValue:   30 * time.Second,
-			CustomSetValue: parseDuration,
-			MarshalTOML:    marshalDuration,
+			ConfigKey:    &cfg.MaxHealthyLedgerLatency,
+			DefaultValue: 30 * time.Second,
 		},
 		{
-			Name:           "preflight-worker-count",
-			Usage:          "Number of workers (read goroutines) used to compute preflights for the simulateTransaction endpoint. Defaults to the number of CPUs.",
-			OptType:        types.Uint,
-			ConfigKey:      &cfg.PreflightWorkerCount,
-			DefaultValue:   uint(runtime.NumCPU()),
-			CustomSetValue: parseUint,
-			Validate:       positive,
+			Name:         "preflight-worker-count",
+			Usage:        "Number of workers (read goroutines) used to compute preflights for the simulateTransaction endpoint. Defaults to the number of CPUs.",
+			ConfigKey:    &cfg.PreflightWorkerCount,
+			DefaultValue: uint(runtime.NumCPU()),
+			Validate:     positive,
 		},
 		{
-			Name:           "preflight-worker-queue-size",
-			Usage:          "Maximum number of outstanding preflight requests for the simulateTransaction endpoint. Defaults to the number of CPUs.",
-			OptType:        types.Uint,
-			ConfigKey:      &cfg.PreflightWorkerQueueSize,
-			DefaultValue:   uint(runtime.NumCPU()),
-			CustomSetValue: parseUint,
-			Validate:       positive,
+			Name:         "preflight-worker-queue-size",
+			Usage:        "Maximum number of outstanding preflight requests for the simulateTransaction endpoint. Defaults to the number of CPUs.",
+			ConfigKey:    &cfg.PreflightWorkerQueueSize,
+			DefaultValue: uint(runtime.NumCPU()),
+			Validate:     positive,
 		},
 	}
 	return *cfg.optionsCache
@@ -364,125 +319,4 @@ func positive(option *ConfigOption) error {
 		return fmt.Errorf("%s is not a positive integer", option.Name)
 	}
 	return nil
-}
-
-func parseUint(option *ConfigOption, i interface{}) error {
-	switch v := i.(type) {
-	case nil:
-		return nil
-	case string:
-		parsed, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			return err
-		}
-		*option.ConfigKey.(*uint) = uint(parsed)
-	case int, int8, int16, int32, int64:
-		i64 := reflect.ValueOf(i).Int()
-		if i64 < 0 {
-			return fmt.Errorf("%s cannot be negative", option.Name)
-		}
-		*option.ConfigKey.(*uint) = uint(i64)
-	case uint, uint8, uint16, uint32, uint64:
-		u64 := reflect.ValueOf(v).Uint()
-		if u64 > math.MaxUint {
-			return fmt.Errorf("%s overflows uint", option.Name)
-		}
-		*option.ConfigKey.(*uint) = uint(u64)
-	default:
-		fmt.Printf("%T\n", v)
-		return fmt.Errorf("could not parse uint %s: %v", option.Name, i)
-	}
-	return nil
-}
-
-func parseUint32(option *ConfigOption, i interface{}) error {
-	switch v := i.(type) {
-	case nil:
-		return nil
-	case string:
-		parsed, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			return err
-		}
-		if parsed > math.MaxUint32 {
-			return fmt.Errorf("%s overflows uint32", option.Name)
-		}
-		*option.ConfigKey.(*uint32) = uint32(parsed)
-	case int, int8, int16, int32, int64:
-		i64 := reflect.ValueOf(v).Int()
-		if i64 < 0 {
-			return fmt.Errorf("%s cannot be negative", option.Name)
-		}
-		if i64 > math.MaxUint32 {
-			return fmt.Errorf("%s overflows uint32", option.Name)
-		}
-		*option.ConfigKey.(*uint32) = uint32(i64)
-	case uint, uint8, uint16, uint32, uint64:
-		u64 := reflect.ValueOf(v).Uint()
-		if u64 > math.MaxUint32 {
-			return fmt.Errorf("%s overflows uint32", option.Name)
-		}
-		*option.ConfigKey.(*uint32) = uint32(u64)
-	default:
-		return fmt.Errorf("could not parse uint32 %s: %v", option.Name, i)
-	}
-	return nil
-}
-
-// TODO: Handle more duration formats, like int for seconds?
-func parseDuration(option *ConfigOption, i interface{}) error {
-	switch v := i.(type) {
-	case nil:
-		return nil
-	case string:
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return errors.Wrapf(err, "could not parse duration: %q", v)
-		}
-		*option.ConfigKey.(*time.Duration) = d
-	case time.Duration:
-		*option.ConfigKey.(*time.Duration) = v
-	case *time.Duration:
-		*option.ConfigKey.(*time.Duration) = *v
-	default:
-		return fmt.Errorf("%s is not a duration", option.Name)
-	}
-	return nil
-}
-
-func parseStringArray(option *ConfigOption, i interface{}) error {
-	switch v := i.(type) {
-	case nil:
-		return nil
-	case string:
-		if v == "" {
-			*option.ConfigKey.(*[]string) = nil
-		} else {
-			*option.ConfigKey.(*[]string) = strings.Split(v, ",")
-		}
-		return nil
-	case []string:
-		*option.ConfigKey.(*[]string) = v
-		return nil
-	case []interface{}:
-		*option.ConfigKey.(*[]string) = make([]string, len(v))
-		for i, s := range v {
-			switch s := s.(type) {
-			case string:
-				(*option.ConfigKey.(*[]string))[i] = s
-			default:
-				return fmt.Errorf("could not parse %s: %v", option.Name, v)
-			}
-		}
-		return nil
-	default:
-		return fmt.Errorf("could not parse %s: %v", option.Name, v)
-	}
-}
-
-func marshalDuration(option *ConfigOption) (interface{}, error) {
-	if option.ConfigKey == nil {
-		return nil, nil
-	}
-	return option.ConfigKey.(*time.Duration).String(), nil
 }

@@ -1,0 +1,21 @@
+name: Dependency sanity checker
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  dependency-sanity-checker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: rustup update
+    - uses: actions/setup-go@v3
+      with:
+        go-version: 1.20.1
+    - run: scripts/check-dependencies.bash

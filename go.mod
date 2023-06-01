@@ -14,7 +14,7 @@ require (
 	github.com/rubenv/sql-migrate v0.0.0-20190717103323-87ce952f7079
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
-	github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189
+	github.com/spf13/pflag v1.0.5
 	github.com/stellar/go v0.0.0-20230522211546-7393068042a7
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/mod v0.6.0
@@ -61,7 +61,7 @@ require (
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/cast v0.0.0-20150508191742-4d07383ffe94 // indirect
 	github.com/spf13/jwalterweatherman v0.0.0-20141219030609-3d60171a6431 // indirect
-	github.com/spf13/pflag v0.0.0-20161005214240-4bd69631f475 // indirect
+	github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189 // indirect
 	github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee // indirect
 	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect

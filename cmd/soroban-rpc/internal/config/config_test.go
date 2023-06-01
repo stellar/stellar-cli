@@ -3,26 +3,43 @@ package config
 import (
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+	"github.com/spf13/cobra"
 	"github.com/stellar/go/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadConfigPath(t *testing.T) {
+func TestLoadConfigPathPrecedence(t *testing.T) {
 	var cfg Config
 
-	viper.Set("config-path", "./test.soroban.rpc.config")
-	viper.Set("stellar-core-binary-path", "/usr/overriden/stellar-core")
-	defer viper.Reset()
+	cmd := &cobra.Command{}
+	require.NoError(t, cfg.AddFlags(cmd))
+	require.NoError(t, cmd.ParseFlags([]string{
+		"--config-path", "./test.soroban.rpc.config",
+		"--stellar-core-binary-path", "/usr/overridden/stellar-core",
+		"--network-passphrase", "CLI test passphrase",
+	}))
 
-	require.NoError(t, cfg.SetValues())
+	require.NoError(t, cfg.SetValues(func(key string) (string, bool) {
+		switch key {
+		case "STELLAR_CORE_BINARY_PATH":
+			return "/env/stellar-core", true
+		case "DB_PATH":
+			return "/env/overridden/db", true
+		default:
+			return "", false
+		}
+	}))
 	require.NoError(t, cfg.Validate())
 
-	assert.Equal(t, cfg.CaptiveCoreConfigPath, "/opt/stellar/soroban-rpc/etc/stellar-captive-core.cfg")
-	assert.Equal(t, cfg.StellarCoreBinaryPath, "/usr/bin/stellar-core", "env or cli flags should override --config-path values")
+	assert.Equal(t, "/opt/stellar/soroban-rpc/etc/stellar-captive-core.cfg", cfg.CaptiveCoreConfigPath, "should read values from the config path file")
+	assert.Equal(t, "CLI test passphrase", cfg.NetworkPassphrase, "cli flags should override --config-path values")
+	assert.Equal(t, "/usr/overridden/stellar-core", cfg.StellarCoreBinaryPath, "cli flags should override --config-path values and env vars")
+	assert.Equal(t, "/env/overridden/db", cfg.SQLiteDBPath, "env var should override config file")
+	assert.Equal(t, 2*time.Second, cfg.CoreRequestTimeout, "default value should be used, if not set anywhere else")
 }
 
 func TestConfigLoadDefaults(t *testing.T) {
@@ -43,10 +60,13 @@ func TestConfigLoadFlagsDefaultValuesOverrideExisting(t *testing.T) {
 		Endpoint:          "localhost:8000",
 	}
 
+	cmd := &cobra.Command{}
+	require.NoError(t, cfg.AddFlags(cmd))
 	// Set up a flag set with the default value
-	viper.Set("network-passphrase", "")
-	viper.Set("log-level", logrus.PanicLevel)
-	defer viper.Reset()
+	require.NoError(t, cmd.ParseFlags([]string{
+		"--network-passphrase", "",
+		"--log-level", logrus.PanicLevel.String(),
+	}))
 
 	// Load the flags
 	require.NoError(t, cfg.loadFlags())
