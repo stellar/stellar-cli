@@ -159,16 +159,13 @@ Fetch a contract's Wasm binary from a network or local sandbox
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--wasm <WASM>` — WASM file of the contract to invoke (if using sandbox will deploy this file)
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
 * `-o`, `--out-file <OUT_FILE>`
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 
 
 
@@ -176,11 +173,13 @@ Fetch a contract's Wasm binary from a network or local sandbox
 
 Inspect a WASM file listing contract functions, meta, etc
 
-**Usage:** `soroban contract inspect --wasm <WASM>`
+**Usage:** `soroban contract inspect [OPTIONS] --wasm <WASM>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — Path to wasm binary
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
 
 
 
