@@ -28,7 +28,7 @@ doctest = false
 
 [features]
 default = []
-opt = ["wasm-opt"]
+opt = ["dep:wasm-opt"]
 
 [dependencies]
 soroban-env-host = { workspace = true, features = [
