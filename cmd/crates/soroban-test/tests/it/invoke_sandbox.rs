@@ -1,5 +1,5 @@
 use std::{panic, println};
-use soroban_cli::commands::{config::identity, contract};
+use soroban_cli::commands::{self, config::identity, contract};
 use soroban_test::TestEnv;
 
 use crate::util::{
@@ -28,7 +28,7 @@ fn install_wasm_then_deploy_contract() {
         .arg("--id=1")
         .assert()
         .success()
-        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn deploy_contract_with_wasm_file() {
         .arg("--id=1")
         .assert()
         .success()
-        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
 }
 
 #[test]
@@ -264,31 +264,17 @@ fn handles_kebab_case() {
 
 #[tokio::test]
 async fn fetch() {
-    use std::fs::{remove_dir_all, remove_file};
-    let pwd = std::env::current_dir().unwrap();
-    let r = pwd.join("../../../target");
-    let f = r.join("contract.wasm");
-    if f.exists() {
-        if f.is_dir() {
-            remove_dir_all(&f).unwrap();
-        } else if f.is_file() {
-            remove_file(&f).unwrap();
-        } else {
-            panic!("Should only be either file or direcotry");
-        }
-    }
-    println!("{f:?}");
     let e = TestEnv::default();
-    e.new_assert_cmd("contract")
-        .arg("fetch")
-        .arg("--id")
-        .arg("bc074f0f03934d0189653bc15af9a83170411e103b4c48a63888306cfba41ac8")
-        .arg("--network")
-        .arg("futurenet")
-        .arg("--out-file")
-        .arg(&format!("{f:?}"))
-        .assert()
-        .success();
+    let f = e.dir().join("contract.wasm");
+    let cmd = e.cmd_arr::<commands::contract::fetch::Cmd>(&[
+        "--id",
+        "bc074f0f03934d0189653bc15af9a83170411e103b4c48a63888306cfba41ac8",
+        "--network",
+        "futurenet",
+        "--out-file",
+        f.to_str().unwrap(),
+    ]);
+    cmd.run().await.unwrap();
 
     assert!(f.exists());
 }

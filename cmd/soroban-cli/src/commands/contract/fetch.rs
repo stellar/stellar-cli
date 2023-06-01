@@ -2,6 +2,7 @@ use std::convert::Infallible;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::println;
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
@@ -15,15 +16,13 @@ use soroban_env_host::{
         LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData, PublicKey,
         ReadXdr, ScContractExecutable, ScVal, Uint256,
     },
-    HostError,
 };
 
 use soroban_spec::read::FromWasmError;
 
-use super::super::config::{self, events_file, locator};
+use super::super::config::{self, locator};
 use crate::{
     rpc::{self, Client},
-    strval::{self},
     utils::{self, default_account_ledger_entry},
     Pwd,
 };
@@ -62,20 +61,9 @@ impl Pwd for Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
-    // },
-    #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
-    StrVal(#[from] strval::Error),
-    #[error(transparent)]
     Config(#[from] config::Error),
-    #[error(transparent)]
-    Clap(#[from] clap::Error),
-    #[error(transparent)]
-    Events(#[from] events_file::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
@@ -84,7 +72,6 @@ pub enum Error {
     Spec(#[from] soroban_spec::read::FromWasmError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
-
     #[error("missing result")]
     MissingResult,
     #[error("unexpected contract code data type: {0:?}")]
@@ -109,8 +96,8 @@ impl Cmd {
             self.run_against_rpc_server().await
         }?;
         if let Some(out_file) = &self.out_file {
-            fs::write(out_file, bytes)?;
-            Ok(())
+            fs::write(out_file, bytes)
+                .map_err(|io| Error::CannotReadContractFile(out_file.clone(), io))
         } else {
             let stdout = std::io::stdout();
             let mut handle = stdout.lock();
