@@ -22,12 +22,15 @@ pub enum Error {
     #[cfg(feature = "opt")]
     #[error("optimization error: {0}")]
     OptimizationError(OptimizationError),
+    #[cfg(not(feature = "opt"))]
+    #[error("Must install with \"opt\" feature, e.g. `cargo install soroban-cli --features opt")]
+    Install,
 }
 
 impl Cmd {
     #[cfg(not(feature = "opt"))]
     pub fn run(&self) -> Result<(), Error> {
-        todo!("Must install with \"opt\" feature");
+        Err(Error::Install)
     }
 
     #[cfg(feature = "opt")]
