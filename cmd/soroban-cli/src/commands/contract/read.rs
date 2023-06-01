@@ -4,7 +4,6 @@ use std::{
 };
 
 use clap::{command, Parser, ValueEnum};
-use hex::FromHexError;
 use soroban_env_host::{
     xdr::{
         self, ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey,
@@ -62,7 +61,7 @@ pub enum Error {
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
-        error: FromHexError,
+        error: stellar_strkey::DecodeError,
     },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult { result: ScVal, error: strval::Error },
@@ -89,9 +88,11 @@ impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] =
-            utils::id_from_str(&self.contract_id).map_err(|e| Error::CannotParseContractId {
-                contract_id: self.contract_id.clone(),
-                error: e,
+            utils::contract_id_from_str(&self.contract_id).map_err(|e| {
+                Error::CannotParseContractId {
+                    contract_id: self.contract_id.clone(),
+                    error: e,
+                }
             })?;
         let key = if let Some(key) = &self.key {
             Some(

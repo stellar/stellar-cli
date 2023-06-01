@@ -1,3 +1,5 @@
+use std::println;
+
 use soroban_cli::commands::{config::identity, contract};
 use soroban_test::TestEnv;
 
@@ -27,7 +29,7 @@ fn install_wasm_then_deploy_contract() {
         .arg("--id=1")
         .assert()
         .success()
-        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
+        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
 }
 
 #[test]
@@ -40,7 +42,7 @@ fn deploy_contract_with_wasm_file() {
         .arg("--id=1")
         .assert()
         .success()
-        .stdout("0000000000000000000000000000000000000000000000000000000000000001\n");
+        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
 }
 
 #[test]
@@ -55,6 +57,7 @@ fn invoke_hello_world_with_deploy_first() {
         .success();
     let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
     let id = stdout.trim_end();
+    println!("{id}");
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
