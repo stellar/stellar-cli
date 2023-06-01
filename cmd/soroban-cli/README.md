@@ -10,6 +10,12 @@ Soroban: https://soroban.stellar.org
 cargo install --locked soroban-cli
 ```
 
+To install with the `opt` feature, which includes a WASM optimization feature and wasm-opt built in:
+
+```
+cargo install --locked soroban-cli --features opt
+```
+
 ## Usage
 
 All values passed to `--arg` are the JSON representation of SCVals.
