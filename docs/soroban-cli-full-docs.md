@@ -147,7 +147,7 @@ Generate Rust bindings
 
 Generate Ts project
 
-**Usage:** `soroban contract bindings ts --wasm <WASM> --root-dir <ROOT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
+**Usage:** `soroban contract bindings ts [OPTIONS] --wasm <WASM> --root-dir <ROOT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
 
 ###### **Options:**
 
@@ -155,6 +155,11 @@ Generate Ts project
 * `--root-dir <ROOT_DIR>` — where to place generated project
 * `--contract-name <CONTRACT_NAME>`
 * `--contract-id <CONTRACT_ID>`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
 
 
 

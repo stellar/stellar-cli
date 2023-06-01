@@ -3,6 +3,10 @@ use std::{fmt::Debug, path::PathBuf};
 use clap::{command, Parser};
 use soroban_spec::gen::ts;
 
+use crate::commands::config::{
+    locator,
+    network::{self, Network},
+};
 use crate::wasm;
 
 #[derive(Parser, Debug, Clone)]
@@ -20,6 +24,12 @@ pub struct Cmd {
 
     #[arg(long, alias = "id")]
     contract_id: String,
+
+    #[command(flatten)]
+    locator: locator::Args,
+
+    #[command(flatten)]
+    network: network::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -31,6 +41,12 @@ pub enum Error {
 
     #[error("--root-dir cannot be a file: {0:?}")]
     IsFile(PathBuf),
+
+    #[error(transparent)]
+    Network(#[from] network::Error),
+
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -44,7 +60,20 @@ impl Cmd {
         }
         std::fs::create_dir_all(&self.root_dir)?;
         let p: ts::boilerplate::Project = self.root_dir.clone().try_into()?;
-        p.init(&self.contract_name, &self.contract_id, &spec)?;
+        let Network {
+            rpc_url,
+            network_passphrase,
+        } = self.network.get(&self.locator).unwrap_or(Network {
+            rpc_url: "https://horizon-testnet.stellar.org".to_string(),
+            network_passphrase: "Test SDF Future Network ; October 2022".to_string(),
+        });
+        p.init(
+            &self.contract_name,
+            &self.contract_id,
+            &rpc_url,
+            &network_passphrase,
+            &spec,
+        )?;
         Ok(())
     }
 }
