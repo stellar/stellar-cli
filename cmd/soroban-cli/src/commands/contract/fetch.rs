@@ -2,7 +2,6 @@ use std::convert::Infallible;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::println;
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
@@ -12,19 +11,20 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        self, AccountId, ContractCodeEntry, ContractDataEntry, Error as XdrError, LedgerEntryData,
-        LedgerKey, LedgerKeyAccount, LedgerKeyContractCode, LedgerKeyContractData, PublicKey,
-        ReadXdr, ScContractExecutable, ScVal, Uint256,
+        self, ContractCodeEntry, ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey,
+        LedgerKeyContractCode, LedgerKeyContractData, ReadXdr, ScContractExecutable, ScVal,
     },
 };
 
+use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
 
 use super::super::config::{self, locator};
+use crate::commands::config::ledger_file;
+use crate::commands::config::network::{self, Network};
 use crate::{
     rpc::{self, Client},
-    utils::{self, default_account_ledger_entry},
-    Pwd,
+    utils, Pwd,
 };
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -34,13 +34,14 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
     pub contract_id: String,
-    /// WASM file of the contract to invoke (if using sandbox will deploy this file)
-    #[arg(long)]
-    pub wasm: Option<std::path::PathBuf>,
     #[command(flatten)]
-    pub config: config::Args,
+    pub locator: locator::Args,
+    #[command(flatten)]
+    pub network: network::Args,
     #[arg(long, short = 'o')]
     pub out_file: Option<std::path::PathBuf>,
+    #[command(flatten)]
+    pub ledger_file: ledger_file::Args,
 }
 
 impl FromStr for Cmd {
@@ -54,7 +55,7 @@ impl FromStr for Cmd {
 
 impl Pwd for Cmd {
     fn set_pwd(&mut self, pwd: &Path) {
-        self.config.set_pwd(pwd);
+        self.locator.set_pwd(pwd);
     }
 }
 
@@ -80,6 +81,12 @@ pub enum Error {
     CannotReadContractFile(PathBuf, io::Error),
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, FromHexError),
+    #[error("network details not provided")]
+    NetworkNotProvided,
+    #[error(transparent)]
+    Network(#[from] network::Error),
+    #[error(transparent)]
+    Ledger(#[from] ledger_file::Error),
 }
 
 impl From<Infallible> for Error {
@@ -90,11 +97,7 @@ impl From<Infallible> for Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let bytes = if self.config.is_no_network() {
-            self.run_in_sandbox()
-        } else {
-            self.run_against_rpc_server().await
-        }?;
+        let bytes = self.get_bytes().await?;
         if let Some(out_file) = &self.out_file {
             fs::write(out_file, bytes)
                 .map_err(|io| Error::CannotReadContractFile(out_file.clone(), io))
@@ -107,52 +110,37 @@ impl Cmd {
         }
     }
 
+    pub async fn get_bytes(&self) -> Result<Vec<u8>, Error> {
+        if self.network.is_no_network() {
+            self.run_in_sandbox()
+        } else {
+            self.run_against_rpc_server().await
+        }
+    }
+
+    pub fn network(&self) -> Result<Network, Error> {
+        Ok(self.network.get(&self.locator)?)
+    }
+
     pub async fn run_against_rpc_server(&self) -> Result<Vec<u8>, Error> {
-        let network = self.config.get_network()?;
+        let network = self.network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
-        let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
-
         // async closures are not yet stable
         get_remote_wasm(&client, &contract_id).await
+    }
+
+    pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {
+        Ok(self.ledger_file.read(&self.locator.config_dir()?)?)
     }
 
     pub fn run_in_sandbox(&self) -> Result<Vec<u8>, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
-        // TODO: allow option to separate input and output file
-        let mut state = self.config.get_state()?;
-
-        // Create source account, adding it to the ledger if not already present.
-        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
-            self.config.key_pair()?.public.to_bytes(),
-        )));
-        let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
-            account_id: source_account.clone(),
-        });
-        if !state
-            .ledger_entries
-            .iter()
-            .any(|(k, _)| **k == source_account_ledger_key)
-        {
-            state.ledger_entries.push((
-                Box::new(source_account_ledger_key),
-                Box::new(default_account_ledger_entry(source_account)),
-            ));
-        }
-
-        let snap = Rc::new(state.clone());
+        let snap = Rc::new(self.get_state()?);
         let mut storage = Storage::with_recording_footprint(snap);
         Ok(get_contract_wasm_from_storage(&mut storage, contract_id)?)
-    }
-
-    pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
-        Ok(if let Some(wasm) = self.wasm.as_ref() {
-            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile(wasm.clone(), e))?)
-        } else {
-            None
-        })
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {

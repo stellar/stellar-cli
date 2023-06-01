@@ -1,4 +1,3 @@
-use std::{panic, println};
 use soroban_cli::commands::{self, config::identity, contract};
 use soroban_test::TestEnv;
 
