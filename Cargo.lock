@@ -2212,7 +2212,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "0.8.4"
-source = "git+https://github.com/ahalabs/rs-soroban-sdk?rev=b983d06ba03f4066886735f7840c9c38d2d71ca9#b983d06ba03f4066886735f7840c9c38d2d71ca9"
+source = "git+https://github.com/ahalabs/rs-soroban-sdk?rev=bdd5230b37f7744e9282f4fbd91a1b5299886706#bdd5230b37f7744e9282f4fbd91a1b5299886706"
 dependencies = [
  "base64 0.13.1",
  "darling",
