@@ -6,7 +6,6 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
-use hex::FromHexError;
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
@@ -18,6 +17,7 @@ use soroban_env_host::{
 
 use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
+use stellar_strkey::DecodeError;
 
 use super::super::config::{self, locator};
 use crate::commands::config::ledger_file;
@@ -31,15 +31,16 @@ use crate::{
 #[allow(clippy::struct_excessive_bools)]
 #[group(skip)]
 pub struct Cmd {
-    /// Contract ID to invoke
+    /// Contract ID to fetch
     #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
     pub contract_id: String,
+    /// Where to write output otherwise stdout is used
+    #[arg(long, short = 'o')]
+    pub out_file: Option<std::path::PathBuf>,
     #[command(flatten)]
     pub locator: locator::Args,
     #[command(flatten)]
     pub network: network::Args,
-    #[arg(long, short = 'o')]
-    pub out_file: Option<std::path::PathBuf>,
     #[command(flatten)]
     pub ledger_file: ledger_file::Args,
 }
@@ -78,15 +79,17 @@ pub enum Error {
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("reading file {0:?}: {1}")]
-    CannotReadContractFile(PathBuf, io::Error),
+    CannotWriteContractFile(PathBuf, io::Error),
     #[error("cannot parse contract ID {0}: {1}")]
-    CannotParseContractId(String, FromHexError),
+    CannotParseContractId(String, DecodeError),
     #[error("network details not provided")]
     NetworkNotProvided,
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
     Ledger(#[from] ledger_file::Error),
+    #[error("cannot create contract directory for {0:?}")]
+    CannotCreateContractDir(PathBuf),
 }
 
 impl From<Infallible> for Error {
@@ -99,8 +102,14 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let bytes = self.get_bytes().await?;
         if let Some(out_file) = &self.out_file {
+            if let Some(parent) = out_file.parent() {
+                if !parent.exists() {
+                    fs::create_dir_all(parent)
+                        .map_err(|_| Error::CannotCreateContractDir(out_file.clone()))?;
+                }
+            }
             fs::write(out_file, bytes)
-                .map_err(|io| Error::CannotReadContractFile(out_file.clone(), io))
+                .map_err(|io| Error::CannotWriteContractFile(out_file.clone(), io))
         } else {
             let stdout = std::io::stdout();
             let mut handle = stdout.lock();
@@ -144,7 +153,7 @@ impl Cmd {
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::id_from_str(&self.contract_id)
+        utils::contract_id_from_str(&self.contract_id)
             .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
     }
 }

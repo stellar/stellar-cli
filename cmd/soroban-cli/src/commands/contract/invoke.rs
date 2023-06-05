@@ -26,6 +26,7 @@ use soroban_env_host::{
 };
 use soroban_sdk::token;
 use soroban_spec::read::FromWasmError;
+use stellar_strkey::DecodeError;
 
 use super::super::{
     config::{self, events_file, locator},
@@ -105,7 +106,7 @@ pub enum Error {
         error: events::Error,
     },
     #[error("cannot parse contract ID {0}: {1}")]
-    CannotParseContractId(String, FromHexError),
+    CannotParseContractId(String, DecodeError),
     #[error("function {0} was not found in the contract")]
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
@@ -435,12 +436,8 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::id_from_str(&self.contract_id)
+        utils::contract_id_from_str(&self.contract_id)
             .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
-            .or_else(|_| {
-                stellar_strkey::Contract::from_str(&self.contract_id).map(|strkey| strkey.0)
-            })
-            .map_err(Into::into)
     }
 }
 
