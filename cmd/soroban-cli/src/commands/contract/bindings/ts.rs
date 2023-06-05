@@ -74,6 +74,17 @@ impl Cmd {
             &network_passphrase,
             &spec,
         )?;
+        std::process::Command::new("npm")
+            .arg("install")
+            .current_dir(&self.root_dir)
+            .spawn()?
+            .wait()?;
+        std::process::Command::new("npm")
+            .arg("run")
+            .arg("build")
+            .current_dir(&self.root_dir)
+            .spawn()?
+            .wait()?;
         Ok(())
     }
 }
