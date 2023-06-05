@@ -2054,7 +2054,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 0.8.4",
+ "soroban-spec 0.8.5",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "strsim",
  "termcolor",
@@ -2211,8 +2211,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "0.8.4"
-source = "git+https://github.com/ahalabs/rs-soroban-sdk?rev=bdd5230b37f7744e9282f4fbd91a1b5299886706#bdd5230b37f7744e9282f4fbd91a1b5299886706"
+version = "0.8.5"
+source = "git+https://github.com/ahalabs/rs-soroban-sdk?rev=1c55528ea131302ccd44525af7de4e38f231e791#1c55528ea131302ccd44525af7de4e38f231e791"
 dependencies = [
  "base64 0.13.1",
  "darling",
@@ -2247,7 +2247,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 0.8.4",
+ "soroban-spec 0.8.5",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "which",
