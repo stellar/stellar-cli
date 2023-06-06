@@ -1,7 +1,7 @@
 use std::{fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec::gen::ts;
+use soroban_spec::gen::typescript::{self, boilerplate::Project};
 
 use crate::commands::config::{
     locator,
@@ -35,7 +35,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("failed generate TS from file: {0}")]
-    GenerateTSFromFile(ts::GenerateFromFileError),
+    GenerateTSFromFile(typescript::GenerateFromFileError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
@@ -59,7 +59,7 @@ impl Cmd {
             std::fs::remove_dir_all(&self.root_dir)?;
         }
         std::fs::create_dir_all(&self.root_dir)?;
-        let p: ts::boilerplate::Project = self.root_dir.clone().try_into()?;
+        let p: Project = self.root_dir.clone().try_into()?;
         let Network {
             rpc_url,
             network_passphrase,

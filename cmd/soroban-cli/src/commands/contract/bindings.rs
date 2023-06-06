@@ -1,6 +1,6 @@
 pub mod json;
 pub mod rust;
-pub mod ts;
+pub mod typescript;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -22,7 +22,7 @@ pub enum Error {
     Rust(#[from] rust::Error),
 
     #[error(transparent)]
-    Ts(#[from] ts::Error),
+    Ts(#[from] typescript::Error),
 }
 
 impl Cmd {
@@ -30,7 +30,7 @@ impl Cmd {
         match &self {
             Cmd::Json(json) => json.run()?,
             Cmd::Rust(rust) => rust.run()?,
-            Cmd::Ts(ts) => ts.run()?,
+            Cmd::Typescript(ts) => ts.run()?,
         }
         Ok(())
     }

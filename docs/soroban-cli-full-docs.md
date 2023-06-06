@@ -9,7 +9,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
 * [`soroban contract bindings rust`↴](#soroban-contract-bindings-rust)
-* [`soroban contract bindings ts`↴](#soroban-contract-bindings-ts)
+* [`soroban contract bindings typescript`↴](#soroban-contract-bindings-typescript)
 * [`soroban contract deploy`↴](#soroban-contract-deploy)
 * [`soroban contract inspect`↴](#soroban-contract-inspect)
 * [`soroban contract install`↴](#soroban-contract-install)
@@ -115,7 +115,7 @@ Generate code client bindings for a contract
 
 * `json` — Generate Json Bindings
 * `rust` — Generate Rust bindings
-* `ts` — Generate Ts project
+* `typescript` — Generate Ts project
 
 
 
@@ -143,11 +143,11 @@ Generate Rust bindings
 
 
 
-## `soroban contract bindings ts`
+## `soroban contract bindings typescript`
 
 Generate Ts project
 
-**Usage:** `soroban contract bindings ts [OPTIONS] --wasm <WASM> --root-dir <ROOT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
+**Usage:** `soroban contract bindings typescript [OPTIONS] --wasm <WASM> --root-dir <ROOT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
 
 ###### **Options:**
 
