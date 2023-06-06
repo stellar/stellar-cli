@@ -1,4 +1,7 @@
-use soroban_cli::commands::{self, config::identity, contract};
+use soroban_cli::commands::{
+    config::identity,
+    contract::{self, fetch},
+};
 use soroban_test::TestEnv;
 
 use crate::util::{
@@ -265,7 +268,7 @@ fn handles_kebab_case() {
 async fn fetch() {
     let e = TestEnv::default();
     let f = e.dir().join("contract.wasm");
-    let cmd = e.cmd_arr::<commands::contract::fetch::Cmd>(&[
+    let cmd = e.cmd_arr::<fetch::Cmd>(&[
         "--id",
         "bc074f0f03934d0189653bc15af9a83170411e103b4c48a63888306cfba41ac8",
         "--network",
@@ -274,6 +277,5 @@ async fn fetch() {
         f.to_str().unwrap(),
     ]);
     cmd.run().await.unwrap();
-
     assert!(f.exists());
 }

@@ -158,13 +158,13 @@ Fetch a contract's Wasm binary from a network or local sandbox
 
 ###### **Options:**
 
-* `--id <CONTRACT_ID>` — Contract ID to invoke
+* `--id <CONTRACT_ID>` — Contract ID to fetch
+* `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `-o`, `--out-file <OUT_FILE>`
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 
 
