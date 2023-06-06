@@ -10,7 +10,7 @@ pub enum Cmd {
     /// Generate Rust bindings
     Rust(rust::Cmd),
     /// Generate Ts project
-    Ts(ts::Cmd),
+    Typescript(typescript::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
