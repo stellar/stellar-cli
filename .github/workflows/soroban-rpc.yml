@@ -72,6 +72,13 @@ jobs:
           sudo apt-get install -y gcc-10-aarch64-linux-gnu
           echo 'CC=aarch64-linux-gnu-gcc-10' >> $GITHUB_ENV
 
+      - if: matrix.os == 'windows-2019'
+        name: Update MinGW version
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+          version: 12.2.0.03042023
+
       - name: Build libpreflight
         run: CARGO_BUILD_TARGET=${{ matrix.rust_target }} make build-libpreflight
 
