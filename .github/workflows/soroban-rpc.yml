@@ -49,10 +49,10 @@ jobs:
           - os: macos-latest
             rust_target: aarch64-apple-darwin
             go_arch: arm64
-          - image-tag: [win22/20230508.3]
+          - os: windows-2019
             rust_target: x86_64-pc-windows-gnu
             go_arch: amd64
-    runs-on: ${{ matrix.os || matrix.image-tag }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       # we cannot use our own ./.github/actions/setup-go action
