@@ -5,7 +5,7 @@ use soroban_cli::{commands::plugin, Root};
 
 #[tokio::main]
 async fn main() {
-    let root = Root::try_parse().unwrap_or_else(|e| {
+    let mut root = Root::try_parse().unwrap_or_else(|e| {
         use clap::error::ErrorKind;
         match e.kind() {
             ErrorKind::InvalidSubcommand => {
