@@ -52,9 +52,7 @@ jobs:
           - image-tag: [win22/20230508.3]
             rust_target: x86_64-pc-windows-gnu
             go_arch: amd64
-    container:
-      image: ${{ matrix.image-tag }}
-    runs-on: container
+    runs-on: ${{ matrix.os || matrix.image-tag }}
     steps:
       - uses: actions/checkout@v3
       # we cannot use our own ./.github/actions/setup-go action
