@@ -9,7 +9,8 @@ pub enum Cmd {
 
     /// Generate Rust bindings
     Rust(rust::Cmd),
-    /// Generate Ts project
+
+    /// Generate a TypeScript / JavaScript package
     Typescript(typescript::Cmd),
 }
 
