@@ -18,10 +18,11 @@ cargo install --locked soroban-cli --features opt
 
 ## Usage
 
-All values passed to `--arg` are the JSON representation of SCVals.
+Can invoke a contract method as a subcommand with different arguments. Anything after the slop (`--`) is passed to the contract's CLI. You can use `--help` to learn about which methods are available and what their arguments are including an example of the type of the input.
 
 ## Example
 
 ```
-soroban invoke --id <HEX_CONTRACTID> --wasm <WASMFILE> -- <FUNCNAME> --<contract fn argument name> <value>
+soroban invoke --id <CONTRACT_ID> --wasm <WASMFILE> -- --help
+soroban invoke --id <CONTRACT_ID> --network futurenet -- --help
 ```
