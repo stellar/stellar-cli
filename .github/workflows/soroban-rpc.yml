@@ -74,7 +74,7 @@ jobs:
         name: Configure preflight library to use explicit rust version
         run: |
           cd cmd/soroban-rpc/lib/preflight
-          rustup override set $PREFLIGHT_RUST_VERSION
+          rustup override set $PREFLIGHT_RUST_VERSION-${{ matrix.rust_target }}
           cd ../../../..
 
       # Use cross-compiler for linux aarch64
