@@ -61,8 +61,14 @@ jobs:
         with:
           go-version: 1.20.1
 
-      - run: |
-          RUST_VERSION=$(sed -n 's/.*rust-version = "\(.*\)"/\1/p' cmd/soroban-cli/Cargo.toml) rustup update 1.69.0
+      - if: matrix.os == 'windows-latest'
+        name: Find the minimal supported rust version on windows
+        run: |
+          preflight_rust_version=$(sed -n 's/.*rust-version = "\(.*\)"/\1/p' cmd/soroban-rpc/lib/preflight/Cargo.toml)
+          echo "PREFLIGHT_RUST_VERSION=$preflight_rust_version" >> $GITHUB_ENV
+      - name: Update rust toolchain as needed
+        run: |
+          rustup update $PREFLIGHT_RUST_VERSION
       - run: rustup target add ${{ matrix.rust_target }}
 
       # Use cross-compiler for linux aarch64
