@@ -18,7 +18,7 @@ import (
 #include <stdlib.h>
 // This assumes that the Rust compiler should be using a -gnu target (i.e. MinGW compiler) in Windows
 // (I (fons) am not even sure if CGo supports MSVC, see https://github.com/golang/go/issues/20982)
-#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/../../../../target/x86_64-pc-windows-gnu/release-with-panic-unwind/ -lpreflight -ldl -lm -static -lws2_32 -lbcrypt -luserenv
+#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/../../../../target/x86_64-pc-windows-gnu/release-with-panic-unwind/ -lpreflight -lm -static -lws2_32 -lbcrypt -luserenv
 // You cannot compile with -static in macOS (and it's not worth it in Linux, at least with glibc)
 #cgo darwin,amd64 LDFLAGS: -L${SRCDIR}/../../../../target/x86_64-apple-darwin/release-with-panic-unwind/ -lpreflight -ldl -lm
 #cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/../../../../target/aarch64-apple-darwin/release-with-panic-unwind/ -lpreflight -ldl -lm

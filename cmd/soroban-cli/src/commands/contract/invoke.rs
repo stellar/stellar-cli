@@ -8,7 +8,6 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
 use heck::ToKebabCase;
-use hex::FromHexError;
 use soroban_env_host::{
     budget::Budget,
     events::HostEvent,
@@ -111,7 +110,7 @@ pub enum Error {
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
-        error: FromHexError,
+        error: stellar_strkey::DecodeError,
     },
     #[error("function {0} was not found in the contract")]
     FunctionNotFoundInContractSpec(String),
@@ -445,7 +444,7 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::id_from_str(&self.contract_id)
+        utils::contract_id_from_str(&self.contract_id)
             .map_err(|e| Error::CannotParseContractId {
                 contract_id: self.contract_id.clone(),
                 error: e,

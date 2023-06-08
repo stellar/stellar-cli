@@ -20,7 +20,6 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 use crate::{
     commands::config,
     rpc::{Client, Error as SorobanRpcError},
-    utils,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -104,11 +103,11 @@ impl Cmd {
             auth: VecM::default(),
         }])?;
 
-        let res_str = utils::vec_to_hash(&res[0])?;
+        let contract_id = vec_to_hash(&res[0])?;
 
         state.update(&h);
         self.config.set_state(&mut state)?;
-        Ok(res_str)
+        Ok(stellar_strkey::Contract(contract_id.0).to_string())
     }
 
     async fn run_against_rpc_server(&self, asset: Asset) -> Result<String, Error> {
@@ -136,7 +135,22 @@ impl Cmd {
             .prepare_and_send_transaction(&tx, &key, network_passphrase, None)
             .await?;
 
-        Ok(hex::encode(&contract_id))
+        Ok(stellar_strkey::Contract(contract_id.0).to_string())
+    }
+}
+
+/// # Errors
+///
+/// Might return an error
+pub fn vec_to_hash(res: &ScVal) -> Result<Hash, XdrError> {
+    if let ScVal::Bytes(res_hash) = &res {
+        let mut hash_bytes: [u8; 32] = [0; 32];
+        for (i, b) in res_hash.iter().enumerate() {
+            hash_bytes[i] = *b;
+        }
+        Ok(Hash(hash_bytes))
+    } else {
+        Err(XdrError::Invalid)
     }
 }
 

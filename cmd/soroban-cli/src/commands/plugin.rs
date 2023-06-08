@@ -1,6 +1,8 @@
 use std::process::Command;
 use which::which;
 
+use crate::utils;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Plugin not provided. Should be `soroban plugin` for a binary `soroban-plugin`")]
@@ -69,11 +71,7 @@ pub fn list() -> Result<Vec<String>, Error> {
             let s = b.file_name()?.to_str()?;
             Some(s.strip_suffix(".exe").unwrap_or(s).to_string())
         })
-        .filter(|s| !(is_hex_string(s) && s.len() > MAX_HEX_LENGTH))
+        .filter(|s| !(utils::is_hex_string(s) && s.len() > MAX_HEX_LENGTH))
         .map(|s| s.replace("soroban-", ""))
         .collect())
-}
-
-fn is_hex_string(s: &str) -> bool {
-    s.chars().all(|s| s.is_ascii_hexdigit())
 }

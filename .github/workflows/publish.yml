@@ -49,7 +49,7 @@ jobs:
         cd target/package
         tar xvfz soroban-cli-$VERSION.crate
         cd soroban-cli-$VERSION
-        cargo build --target-dir=../.. --release --target ${{ matrix.target }}
+        cargo build --target-dir=../.. --features opt --release --target ${{ matrix.target }}
     - uses: actions/upload-artifact@v3
       with:
         name: ${{ env.NAME }}

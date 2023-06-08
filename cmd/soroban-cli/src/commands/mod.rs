@@ -71,8 +71,8 @@ impl Root {
     {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
-    pub async fn run(&self) -> Result<(), Error> {
-        match &self.cmd {
+    pub async fn run(&mut self) -> Result<(), Error> {
+        match &mut self.cmd {
             Cmd::Contract(contract) => contract.run().await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Lab(lab) => lab.run().await?,

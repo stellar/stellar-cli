@@ -112,7 +112,7 @@ pub enum Error {
     #[error("cannot parse contract ID {contract_id}: {error}")]
     InvalidContractId {
         contract_id: String,
-        error: hex::FromHexError,
+        error: stellar_strkey::DecodeError,
     },
 
     #[error("invalid JSON string: {error} ({debug})")]
@@ -165,7 +165,7 @@ pub enum OutputFormat {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&mut self) -> Result<(), Error> {
         // Validate that topics are made up of segments.
         for topic in &self.topic_filters {
             for (i, segment) in topic.split(',').enumerate() {
@@ -185,6 +185,21 @@ impl Cmd {
                     }
                 }
             }
+        }
+
+        // Validate and normalize contract_ids
+        for id in &mut self.contract_ids {
+            // We parse the contract IDs to ensure they're the correct format, and padded out
+            // correctly.
+            //
+            // TODO: Once soroban-rpc supports passing these as a strkey, we should change to
+            // formatting these as C-strkeys.
+            *id = utils::contract_id_from_str(id)
+                .map(hex::encode)
+                .map_err(|e| Error::InvalidContractId {
+                    contract_id: id.clone(),
+                    error: e,
+                })?;
         }
 
         let response = if self.network.is_no_network() {
@@ -221,16 +236,6 @@ impl Cmd {
     async fn run_against_rpc_server(&self) -> Result<rpc::GetEventsResponse, Error> {
         let start = self.start()?;
         let Network { rpc_url, .. } = self.network.get(&self.locator)?;
-
-        for raw_contract_id in &self.contract_ids {
-            // We parse the contract IDs to ensure they're the correct format,
-            // but since we'll be passing them as-is to the RPC server anyway,
-            // we disregard the return value.
-            utils::id_from_str::<32>(raw_contract_id).map_err(|e| Error::InvalidContractId {
-                contract_id: raw_contract_id.clone(),
-                error: e,
-            })?;
-        }
 
         let client = rpc::Client::new(&rpc_url)?;
         client
