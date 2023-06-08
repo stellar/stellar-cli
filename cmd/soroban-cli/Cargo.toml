@@ -17,7 +17,7 @@ name = "soroban"
 path = "src/bin/main.rs"
 
 [package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }{ archive-suffix }"
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.{ archive-suffix }"
 bin-dir = "{ bin }{ binary-ext }"
 
 [[bin]]
