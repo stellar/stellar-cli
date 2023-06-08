@@ -71,6 +71,43 @@ pub struct Args {
     pub config_dir: Option<PathBuf>,
 }
 
+pub enum Location {
+    Local(PathBuf),
+    Global(PathBuf),
+}
+
+impl Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {:?}",
+            match self {
+                Location::Local(_) => "Local",
+                Location::Global(_) => "Global",
+            },
+            self.as_ref().parent().unwrap().parent().unwrap()
+        )
+    }
+}
+
+impl AsRef<Path> for Location {
+    fn as_ref(&self) -> &Path {
+        match self {
+            Location::Local(p) | Location::Global(p) => p.as_path(),
+        }
+    }
+}
+
+impl Location {
+    #[must_use]
+    pub fn wrap(&self, p: PathBuf) -> Self {
+        match self {
+            Location::Local(_) => Location::Local(p),
+            Location::Global(_) => Location::Global(p),
+        }
+    }
+}
+
 impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         if self.global {
@@ -78,6 +115,13 @@ impl Args {
         } else {
             self.local_config()
         }
+    }
+
+    pub fn local_and_global(&self) -> Result<[Location; 2], Error> {
+        Ok([
+            Location::Local(self.local_config()?),
+            Location::Global(global_config_path()?),
+        ])
     }
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
@@ -101,19 +145,53 @@ impl Args {
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
-        let dir = self.config_dir()?;
-        KeyType::Identity.list(&dir)
+        Ok(KeyType::Identity
+            .list_paths(&self.local_and_global()?)?
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect())
     }
 
     pub fn list_networks(&self) -> Result<Vec<String>, Error> {
-        KeyType::Network.list(&self.config_dir()?)
+        Ok(KeyType::Network
+            .list_paths(&self.local_and_global()?)
+            .into_iter()
+            .flatten()
+            .map(|x| x.0)
+            .collect())
+    }
+
+    pub fn list_networks_long(&self) -> Result<Vec<(String, Network, Location)>, Error> {
+        Ok(KeyType::Network
+            .list_paths(&self.local_and_global()?)
+            .into_iter()
+            .flatten()
+            .filter_map(|(name, location)| {
+                Some((
+                    name,
+                    KeyType::read_from_path::<Network>(location.as_ref()).ok()?,
+                    location,
+                ))
+            })
+            .collect::<Vec<_>>())
     }
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
-        KeyType::Network.read_with_global(name, &self.local_config()?)
+        let res = KeyType::Network.read_with_global(name, &self.local_config()?);
+        if let Err(Error::ConfigMissing(_, _)) = &res {
+            if name == "futurenet" {
+                let network = Network {
+                    rpc_url: "https://rpc-futurenet.stellar.org/soroban/rpc".to_string(),
+                    network_passphrase: "Test SDF Future Network ; October 2022".to_string(),
+                };
+                self.write_network(name, &network)?;
+                return Ok(network);
+            }
+        }
+        res
     }
 
     pub fn remove_identity(&self, name: &str) -> Result<(), Error> {
@@ -137,14 +215,14 @@ fn dir_creation_failed(p: &Path) -> Error {
     }
 }
 
-fn read_dir(dir: &Path) -> Result<Vec<String>, Error> {
+fn read_dir(dir: &Path) -> Result<Vec<(String, PathBuf)>, Error> {
     let contents = std::fs::read_dir(dir)?;
     let mut res = vec![];
     for entry in contents.filter_map(Result::ok) {
         let path = entry.path();
         if let Some("toml") = path.extension().and_then(OsStr::to_str) {
             if let Some(os_str) = path.file_stem() {
-                res.push(os_str.to_string_lossy().trim().to_string());
+                res.push((os_str.to_string_lossy().trim().to_string(), path));
             }
         }
     }
@@ -173,7 +251,13 @@ impl Display for KeyType {
 impl KeyType {
     pub fn read<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
         let path = self.path(pwd, key);
-        let data = fs::read(&path).map_err(|_| Error::NetworkFileRead { path })?;
+        Self::read_from_path(&path)
+    }
+
+    pub fn read_from_path<T: DeserializeOwned>(path: &Path) -> Result<T, Error> {
+        let data = fs::read(path).map_err(|_| Error::NetworkFileRead {
+            path: path.to_path_buf(),
+        })?;
         let res = toml::from_slice(data.as_slice());
         Ok(res?)
     }
@@ -209,10 +293,23 @@ impl KeyType {
         path
     }
 
-    pub fn list(&self, pwd: &Path) -> Result<Vec<String>, Error> {
-        let path = self.root(pwd);
+    pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
+        Ok(paths
+            .iter()
+            .flat_map(|p| self.list(p).unwrap_or(vec![]))
+            .collect())
+    }
+
+    pub fn list(&self, pwd: &Location) -> Result<Vec<(String, Location)>, Error> {
+        let path = self.root(pwd.as_ref());
         if path.exists() {
-            Ok(read_dir(&path)?)
+            let mut files = read_dir(&path)?;
+            files.sort();
+
+            Ok(files
+                .into_iter()
+                .map(|(name, p)| (name, pwd.wrap(p)))
+                .collect())
         } else {
             Ok(vec![])
         }
