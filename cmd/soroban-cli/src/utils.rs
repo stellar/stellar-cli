@@ -23,6 +23,8 @@ use stellar_strkey::ed25519::PrivateKey;
 
 use crate::network::sandbox_network_id;
 
+pub mod contract_spec;
+
 /// # Errors
 ///
 /// Might return an error
