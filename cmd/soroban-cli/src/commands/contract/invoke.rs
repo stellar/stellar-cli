@@ -34,11 +34,7 @@ use crate::{
     commands::HEADING_SANDBOX,
     rpc::{self, Client},
     strval::{self, Spec},
-    utils::{
-        self,
-        contract_spec::{self, ContractSpec},
-        create_ledger_footprint, default_account_ledger_entry,
-    },
+    utils::{self, contract_spec, create_ledger_footprint, default_account_ledger_entry},
     Pwd,
 };
 
@@ -263,11 +259,7 @@ impl Cmd {
         let spec_entries = if let Some(spec) = self.spec_entries()? {
             spec
         } else {
-            // async closures are not yet stable
-            match ContractSpec::new(&client.get_remote_wasm(&contract_id).await?) {
-                Ok(ContractSpec { spec, .. }) => spec,
-                Err(_) => client.get_remote_token_spec(&contract_id).await?,
-            }
+            client.get_remote_contract_spec(&contract_id).await?
         };
 
         // Get the ledger footprint

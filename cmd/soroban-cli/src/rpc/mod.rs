@@ -1,4 +1,3 @@
-use crate::utils;
 use http::{uri::Authority, Uri};
 use itertools::Itertools;
 use jsonrpsee_core::params::ObjectParams;
@@ -24,6 +23,8 @@ use std::{
 use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
+
+use crate::utils::{self, contract_spec};
 
 mod transaction;
 use transaction::assemble;
@@ -79,8 +80,8 @@ pub enum Error {
     UnsupportedOperationType,
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
-    #[error("expected token found contract code: {0:?}")]
-    UnexpectedNonToken(ContractDataEntry),
+    #[error(transparent)]
+    CouldNotParseContractSpec(#[from] contract_spec::Error),
     #[error("unexpected contract code got token")]
     UnexpectedToken(ContractDataEntry),
     #[error(transparent)]
@@ -668,17 +669,21 @@ impl Client {
         }
     }
 
-    pub async fn get_remote_token_spec(
+    pub async fn get_remote_contract_spec(
         &self,
-        token_contract_id: &[u8; 32],
+        contract_id: &[u8; 32],
     ) -> Result<Vec<xdr::ScSpecEntry>, Error> {
-        let contract_data = self.get_contract_data(token_contract_id).await?;
-        match contract_data {
-            ContractDataEntry {
-                val: xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::Token),
-                ..
-            } => Ok(soroban_spec::read::parse_raw(&token::Spec::spec_xdr())?),
-            scval => Err(Error::UnexpectedNonToken(scval)),
+        let contract_data = self.get_contract_data(contract_id).await?;
+        match contract_data.val {
+            xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::WasmRef(hash)) => Ok(
+                contract_spec::ContractSpec::new(&self.get_remote_wasm_from_hash(hash).await?)
+                    .map_err(Error::CouldNotParseContractSpec)?
+                    .spec,
+            ),
+            xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::Token) => {
+                Ok(soroban_spec::read::parse_raw(&token::Spec::spec_xdr())?)
+            }
+            _ => Err(Error::Xdr(XdrError::Invalid)),
         }
     }
 }
