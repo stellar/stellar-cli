@@ -1,5 +1,6 @@
 use clap::{arg, command, Parser};
 use std::fmt::Debug;
+#[cfg(feature = "opt")]
 use wasm_opt::{OptimizationError, OptimizationOptions};
 
 use crate::wasm;
@@ -18,11 +19,21 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[cfg(feature = "opt")]
     #[error("optimization error: {0}")]
     OptimizationError(OptimizationError),
+    #[cfg(not(feature = "opt"))]
+    #[error("Must install with \"opt\" feature, e.g. `cargo install soroban-cli --features opt")]
+    Install,
 }
 
 impl Cmd {
+    #[cfg(not(feature = "opt"))]
+    pub fn run(&self) -> Result<(), Error> {
+        Err(Error::Install)
+    }
+
+    #[cfg(feature = "opt")]
     pub fn run(&self) -> Result<(), Error> {
         let wasm_size = self.wasm.len()?;
 
