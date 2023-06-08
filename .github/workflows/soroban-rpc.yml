@@ -49,7 +49,7 @@ jobs:
           - os: macos-latest
             rust_target: aarch64-apple-darwin
             go_arch: arm64
-          - os: windows-2019
+          - os: windows-latest
             rust_target: x86_64-pc-windows-gnu
             go_arch: amd64
     runs-on: ${{ matrix.os }}
@@ -71,6 +71,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-10-aarch64-linux-gnu
           echo 'CC=aarch64-linux-gnu-gcc-10' >> $GITHUB_ENV
+
+      - if: matrix.os == 'windows-latest'
+        name: Rollback Microsoft Visual C++ Redistributable for Visual Studio 2015-2022 to v14.34.31938
+        run: |
+          choco install vcredist140 --version=14.34.31938
 
       - name: Build libpreflight
         run: CARGO_BUILD_TARGET=${{ matrix.rust_target }} make build-libpreflight
