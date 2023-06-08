@@ -11,7 +11,7 @@ use soroban_env_host::{
     storage::Storage,
     xdr::{
         self, ContractCodeEntry, ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyContractCode, LedgerKeyContractData, ReadXdr, ScContractExecutable, ScVal,
+        LedgerKeyContractCode, LedgerKeyContractData, ScContractExecutable, ScVal,
     },
 };
 
@@ -137,7 +137,7 @@ impl Cmd {
         let contract_id = self.contract_id()?;
         let client = Client::new(&network.rpc_url)?;
         // async closures are not yet stable
-        get_remote_wasm(&client, &contract_id).await
+        Ok(client.get_remote_wasm(&contract_id).await?)
     }
 
     pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {
@@ -156,39 +156,6 @@ impl Cmd {
         utils::contract_id_from_str(&self.contract_id)
             .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
     }
-}
-
-async fn get_remote_wasm(client: &Client, contract_id: &[u8; 32]) -> Result<Vec<u8>, Error> {
-    // Get the contract from the network
-    let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: xdr::Hash(*contract_id),
-        key: ScVal::LedgerKeyContractExecutable,
-    });
-    let contract_ref = client.get_ledger_entries(Vec::from([contract_key])).await?;
-    if contract_ref.entries.is_empty() {
-        return Err(Error::MissingResult);
-    }
-    let contract_ref_entry = &contract_ref.entries[0];
-    Ok(
-        match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
-            LedgerEntryData::ContractData(ContractDataEntry {
-                val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
-                ..
-            }) => {
-                let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
-                let contract_data = client.get_ledger_entries(Vec::from([code_key])).await?;
-                if contract_data.entries.is_empty() {
-                    return Err(Error::MissingResult);
-                }
-                let contract_data_entry = &contract_data.entries[0];
-                match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
-                    LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => code.into(),
-                    scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
-                }
-            }
-            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
-        },
-    )
 }
 
 pub fn get_contract_wasm_from_storage(
