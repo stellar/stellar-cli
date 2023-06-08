@@ -50,10 +50,14 @@ jobs:
         tar xvfz soroban-cli-$VERSION.crate
         cd soroban-cli-$VERSION
         cargo build --target-dir=../.. --features opt --release --target ${{ matrix.target }}
+    - name: Compress 
+      run: |
+          cd target/${{ matrix.target }}/release
+          tar czvf $NAME.tar.gz soroban${{ matrix.ext }}
     - uses: actions/upload-artifact@v3
       with:
         name: ${{ env.NAME }}
-        path: 'target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'
+        path: 'target/${{ matrix.target }}/release/${{ env.NAME }}.tar.gz'
     - name: Upload
       uses: actions/github-script@v6
       with:
@@ -63,6 +67,6 @@ jobs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             release_id: ${{ github.event.release.id }},
-            name: '${{ env.NAME }}${{ matrix.ext }}',
-            data: fs.readFileSync('target/${{ matrix.target }}/release/soroban${{ matrix.ext }}'),
+            name: '${{ env.NAME }}.tar.gz',
+            data: fs.readFileSync('target/${{ matrix.target }}/release/${{ env.NAME }}.tar.gz'),
           });
