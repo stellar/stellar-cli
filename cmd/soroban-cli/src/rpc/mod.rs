@@ -9,12 +9,13 @@ use soroban_env_host::{
     budget::Budget,
     events::HostEvent,
     xdr::{
-        self, AccountEntry, AccountId, ContractAuth, DiagnosticEvent, Error as XdrError,
-        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
-        Transaction, TransactionEnvelope, TransactionMeta, TransactionResult,
+        self, AccountEntry, AccountId, ContractAuth, ContractDataEntry, DiagnosticEvent,
+        Error as XdrError, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
+        PublicKey, ReadXdr, Transaction, TransactionEnvelope, TransactionMeta, TransactionResult,
         TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
+use soroban_sdk::token;
 use std::{
     fmt::Display,
     str::FromStr,
@@ -76,6 +77,16 @@ pub enum Error {
         "unsupported operation type, must be only one InvokeHostFunctionOp in the transaction."
     )]
     UnsupportedOperationType,
+    #[error("unexpected contract code data type: {0:?}")]
+    UnexpectedContractCodeDataType(LedgerEntryData),
+    #[error("expected token found contract code: {0:?}")]
+    UnexpectedNonToken(ContractDataEntry),
+    #[error("unexpected contract code got token")]
+    UnexpectedToken(ContractDataEntry),
+    #[error(transparent)]
+    Spec(#[from] soroban_spec::read::FromWasmError),
+    #[error(transparent)]
+    SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -612,6 +623,63 @@ impl Client {
         oparams.insert("pagination", pagination)?;
 
         Ok(self.client()?.request("getEvents", oparams).await?)
+    }
+
+    pub async fn get_contract_data(
+        &self,
+        contract_id: &[u8; 32],
+    ) -> Result<ContractDataEntry, Error> {
+        // Get the contract from the network
+        let contract_key = LedgerKey::ContractData(xdr::LedgerKeyContractData {
+            contract_id: xdr::Hash(*contract_id),
+            key: xdr::ScVal::LedgerKeyContractExecutable,
+        });
+        let contract_ref = self.get_ledger_entries(Vec::from([contract_key])).await?;
+        if contract_ref.entries.is_empty() {
+            return Err(Error::MissingResult);
+        }
+        let contract_ref_entry = &contract_ref.entries[0];
+        match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
+            LedgerEntryData::ContractData(contract_data) => Ok(contract_data),
+            scval => Err(Error::UnexpectedContractCodeDataType(scval)),
+        }
+    }
+
+    pub async fn get_remote_wasm(&self, contract_id: &[u8; 32]) -> Result<Vec<u8>, Error> {
+        match self.get_contract_data(contract_id).await? {
+            xdr::ContractDataEntry {
+                val: xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::WasmRef(hash)),
+                ..
+            } => self.get_remote_wasm_from_hash(hash).await,
+            scval => Err(Error::UnexpectedToken(scval)),
+        }
+    }
+
+    pub async fn get_remote_wasm_from_hash(&self, hash: xdr::Hash) -> Result<Vec<u8>, Error> {
+        let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash });
+        let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
+        if contract_data.entries.is_empty() {
+            return Err(Error::MissingResult);
+        }
+        let contract_data_entry = &contract_data.entries[0];
+        match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
+            LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Ok(code.into()),
+            scval => Err(Error::UnexpectedContractCodeDataType(scval)),
+        }
+    }
+
+    pub async fn get_remote_token_spec(
+        &self,
+        token_contract_id: &[u8; 32],
+    ) -> Result<Vec<xdr::ScSpecEntry>, Error> {
+        let contract_data = self.get_contract_data(token_contract_id).await?;
+        match contract_data {
+            ContractDataEntry {
+                val: xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::Token),
+                ..
+            } => Ok(soroban_spec::read::parse_raw(&token::Spec::spec_xdr())?),
+            scval => Err(Error::UnexpectedNonToken(scval)),
+        }
     }
 }
 

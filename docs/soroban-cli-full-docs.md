@@ -8,6 +8,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract`↴](#soroban-contract)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract deploy`↴](#soroban-contract-deploy)
+* [`soroban contract fetch`↴](#soroban-contract-fetch)
 * [`soroban contract inspect`↴](#soroban-contract-inspect)
 * [`soroban contract install`↴](#soroban-contract-install)
 * [`soroban contract invoke`↴](#soroban-contract-invoke)
@@ -94,6 +95,7 @@ Tools for smart contract developers
 
 * `bindings` — Generate code client bindings for a contract
 * `deploy` — Deploy a contract
+* `fetch` — Fetch a contract's Wasm binary from a network or local sandbox
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
@@ -148,15 +150,36 @@ Deploy a contract
 
 
 
+## `soroban contract fetch`
+
+Fetch a contract's Wasm binary from a network or local sandbox
+
+**Usage:** `soroban contract fetch [OPTIONS] --id <CONTRACT_ID>`
+
+###### **Options:**
+
+* `--id <CONTRACT_ID>` — Contract ID to fetch
+* `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+
+
+
 ## `soroban contract inspect`
 
 Inspect a WASM file listing contract functions, meta, etc
 
-**Usage:** `soroban contract inspect --wasm <WASM>`
+**Usage:** `soroban contract inspect [OPTIONS] --wasm <WASM>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — Path to wasm binary
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -456,6 +479,7 @@ List networks
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
+* `-l`, `--long` — Get more info about the networks
 
 
 

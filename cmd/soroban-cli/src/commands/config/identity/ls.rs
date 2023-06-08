@@ -16,8 +16,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let res = self.config_locator.list_identities()?;
-        println!("{}", res.join("\n"));
+        println!("{}", self.config_locator.list_identities()?.join("\n"));
         Ok(())
     }
 }
