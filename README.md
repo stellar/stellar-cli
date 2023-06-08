@@ -7,7 +7,7 @@ This repo is home to the suite of Soroban development tools.
 Soroban: https://soroban.stellar.org
 
 # linting
- 
+
 Before submitting a PR for review, please run
 
 ```
