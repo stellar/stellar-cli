@@ -62,7 +62,7 @@ jobs:
           go-version: 1.20.1
 
       - run: |
-          RUST_VERSION=$(sed -n 's/.*rust-version = "\(.*\)"/\1/p' cmd/soroban-cli/Cargo.toml) rustup update ${RUST_VERSION}
+          RUST_VERSION=$(sed -n 's/.*rust-version = "\(.*\)"/\1/p' cmd/soroban-cli/Cargo.toml) rustup update 1.69.0
       - run: rustup target add ${{ matrix.rust_target }}
 
       # Use cross-compiler for linux aarch64
