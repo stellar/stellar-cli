@@ -8,13 +8,17 @@ license = "Apache-2.0"
 readme = "README.md"
 version = "0.8.0"
 edition = "2021"
-rust-version = "1.69"
+rust-version = "1.70"
 autobins = false
 default-run = "soroban"
 
 [[bin]]
 name = "soroban"
 path = "src/bin/main.rs"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
 
 [[bin]]
 name = "doc-gen"

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::convert::{Infallible, TryInto};
 use std::ffi::OsString;
 use std::num::ParseIntError;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
@@ -13,19 +13,18 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, AddressWithNonce, ContractAuth, ContractCodeEntry, ContractDataEntry,
-        Error as XdrError, HostFunction, HostFunctionArgs, InvokeHostFunctionOp,
-        InvokeHostFunctionResult, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
-        LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
-        OperationResult, OperationResultTr, Preconditions, PublicKey, ReadXdr, ScBytes,
-        ScContractExecutable, ScHostStorageErrorCode, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef,
-        ScStatus, ScVal, ScVec, SequenceNumber, Transaction, TransactionExt,
-        TransactionResultResult, Uint256, VecM,
+        self, AccountId, AddressWithNonce, ContractAuth, Error as XdrError, HostFunction,
+        HostFunctionArgs, InvokeHostFunctionOp, InvokeHostFunctionResult, LedgerEntryData,
+        LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount, Operation, OperationBody,
+        OperationResult, OperationResultTr, Preconditions, PublicKey, ScBytes,
+        ScHostStorageErrorCode, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScStatus, ScVal,
+        ScVec, SequenceNumber, Transaction, TransactionExt, TransactionResultResult, Uint256, VecM,
     },
     DiagnosticLevel, Host, HostError,
 };
-use soroban_sdk::token;
+
 use soroban_spec::read::FromWasmError;
+use stellar_strkey::DecodeError;
 
 use super::super::{
     config::{self, events_file, locator},
@@ -35,7 +34,7 @@ use crate::{
     commands::HEADING_SANDBOX,
     rpc::{self, Client},
     strval::{self, Spec},
-    utils::{self, create_ledger_footprint, default_account_ledger_entry},
+    utils::{self, contract_spec, create_ledger_footprint, default_account_ledger_entry},
     Pwd,
 };
 
@@ -97,21 +96,15 @@ pub enum Error {
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
-    #[error("reading file {filepath}: {error}")]
-    CannotReadContractFile {
-        filepath: std::path::PathBuf,
-        error: io::Error,
-    },
+    #[error("reading file {0:?}: {1}")]
+    CannotReadContractFile(PathBuf, io::Error),
     #[error("committing file {filepath}: {error}")]
     CannotCommitEventsFile {
         filepath: std::path::PathBuf,
         error: events::Error,
     },
-    #[error("cannot parse contract ID {contract_id}: {error}")]
-    CannotParseContractId {
-        contract_id: String,
-        error: stellar_strkey::DecodeError,
-    },
+    #[error("cannot parse contract ID {0}: {1}")]
+    CannotParseContractId(String, DecodeError),
     #[error("function {0} was not found in the contract")]
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
@@ -123,7 +116,7 @@ pub enum Error {
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult { result: ScVal, error: strval::Error },
-    #[error("xdr processing error: {0}")]
+    #[error(transparent)]
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
@@ -153,6 +146,8 @@ pub enum Error {
     ContractInvoke(String, String),
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
+    ContractSpec(#[from] contract_spec::Error),
 }
 
 impl From<Infallible> for Error {
@@ -264,8 +259,7 @@ impl Cmd {
         let spec_entries = if let Some(spec) = self.spec_entries()? {
             spec
         } else {
-            // async closures are not yet stable
-            get_remote_contract_spec_entries(&client, &contract_id).await?
+            client.get_remote_contract_spec(&contract_id).await?
         };
 
         // Get the ledger footprint
@@ -424,10 +418,7 @@ impl Cmd {
 
     pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
         Ok(if let Some(wasm) = self.wasm.as_ref() {
-            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile {
-                filepath: wasm.clone(),
-                error: e,
-            })?)
+            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile(wasm.clone(), e))?)
         } else {
             None
         })
@@ -445,14 +436,7 @@ impl Cmd {
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
         utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId {
-                contract_id: self.contract_id.clone(),
-                error: e,
-            })
-            .or_else(|_| {
-                stellar_strkey::Contract::from_str(&self.contract_id).map(|strkey| strkey.0)
-            })
-            .map_err(Into::into)
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
     }
 }
 
@@ -509,52 +493,6 @@ fn build_invoke_contract_tx(
         operations: vec![op].try_into()?,
         ext: TransactionExt::V0,
     })
-}
-
-async fn get_remote_contract_spec_entries(
-    client: &Client,
-    contract_id: &[u8; 32],
-) -> Result<Vec<ScSpecEntry>, Error> {
-    // Get the contract from the network
-    let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: xdr::Hash(*contract_id),
-        key: ScVal::LedgerKeyContractExecutable,
-    });
-    let contract_ref = client.get_ledger_entries(Vec::from([contract_key])).await?;
-    if contract_ref.entries.is_empty() {
-        return Err(Error::MissingResult);
-    }
-    let contract_ref_entry = &contract_ref.entries[0];
-    Ok(
-        match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
-            LedgerEntryData::ContractData(ContractDataEntry {
-                val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)),
-                ..
-            }) => {
-                let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
-                let contract_data = client.get_ledger_entries(Vec::from([code_key])).await?;
-                if contract_data.entries.is_empty() {
-                    return Err(Error::MissingResult);
-                }
-                let contract_data_entry = &contract_data.entries[0];
-                match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
-                    LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }) => {
-                        let code_vec: Vec<u8> = code.into();
-                        soroban_spec::read::from_wasm(&code_vec)
-                            .map_err(Error::CannotParseContractSpec)?
-                    }
-                    scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
-                }
-            }
-            LedgerEntryData::ContractData(ContractDataEntry {
-                val: ScVal::ContractExecutable(ScContractExecutable::Token),
-                ..
-            }) => soroban_spec::read::parse_raw(&token::Spec::spec_xdr())
-                .map_err(FromWasmError::Parse)
-                .map_err(Error::CannotParseContractSpec)?,
-            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
-        },
-    )
 }
 
 fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {

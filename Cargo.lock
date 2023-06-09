@@ -2250,6 +2250,7 @@ dependencies = [
  "soroban-spec 0.8.5",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
+ "tokio",
  "which",
 ]
 
@@ -2986,7 +2987,7 @@ version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e686886bc078bc1b0b600cac0147aadb815089b6e4da64016cbd754b6342700f"
 dependencies = [
- "windows-targets 0.48.0",
+ "windows-targets 0.42.2",
 ]
 
 [[package]]

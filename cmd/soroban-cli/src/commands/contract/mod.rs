@@ -1,5 +1,6 @@
 pub mod bindings;
 pub mod deploy;
+pub mod fetch;
 pub mod inspect;
 pub mod install;
 pub mod invoke;
@@ -14,6 +15,9 @@ pub enum Cmd {
 
     /// Deploy a contract
     Deploy(deploy::Cmd),
+
+    /// Fetch a contract's Wasm binary from a network or local sandbox
+    Fetch(fetch::Cmd),
 
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
@@ -47,6 +51,9 @@ pub enum Error {
     Deploy(#[from] deploy::Error),
 
     #[error(transparent)]
+    Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
     Inspect(#[from] inspect::Error),
 
     #[error(transparent)]
@@ -72,6 +79,7 @@ impl Cmd {
             Cmd::Invoke(invoke) => invoke.run().await?,
             Cmd::Optimize(optimize) => optimize.run()?,
             Cmd::Read(read) => read.run()?,
+            Cmd::Fetch(fetch) => fetch.run().await?,
         }
         Ok(())
     }

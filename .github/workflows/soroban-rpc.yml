@@ -70,6 +70,12 @@ jobs:
         run: |
           rustup update $PREFLIGHT_RUST_VERSION
       - run: rustup target add ${{ matrix.rust_target }}
+      - if: matrix.os == 'windows-latest'
+        name: Configure preflight library to use explicit rust version
+        run: |
+          cd cmd/soroban-rpc/lib/preflight
+          rustup override set $PREFLIGHT_RUST_VERSION-${{ matrix.rust_target }}
+          cd ../../../..
 
       # Use cross-compiler for linux aarch64
       - if: matrix.rust_target == 'aarch64-unknown-linux-gnu'
