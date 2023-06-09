@@ -23,7 +23,7 @@ pub enum Error {
     Rust(#[from] rust::Error),
 
     #[error(transparent)]
-    Ts(#[from] typescript::Error),
+    Typescript(#[from] typescript::Error),
 }
 
 impl Cmd {
