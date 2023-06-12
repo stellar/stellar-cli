@@ -18,7 +18,7 @@ rev = "0c0cae6fa22b751e7fd95d7ce7556ac6d7b7010e"
 [workspace.dependencies.soroban-spec]
 version = "0.8.0"
 git = "https://github.com/ahalabs/rs-soroban-sdk"
-rev = "516638aab7254fcf87a8f183ab321a8204e5ba03"
+rev = "969b1dc3ac0785b8f56a514c283b245c3ff8afbb"
 # path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-sdk]
