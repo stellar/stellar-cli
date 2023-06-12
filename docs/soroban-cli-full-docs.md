@@ -30,6 +30,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban lab`↴](#soroban-lab)
 * [`soroban lab token`↴](#soroban-lab-token)
 * [`soroban lab token wrap`↴](#soroban-lab-token-wrap)
+* [`soroban lab token id`↴](#soroban-lab-token-id)
 * [`soroban lab xdr`↴](#soroban-lab-xdr)
 * [`soroban lab xdr dec`↴](#soroban-lab-xdr-dec)
 * [`soroban version`↴](#soroban-version)
@@ -547,6 +548,7 @@ Wrap, create, and manage token contracts
 ###### **Subcommands:**
 
 * `wrap` — Deploy a token contract to wrap an existing Stellar classic asset for smart contract usage
+* `id` — Compute the expected contract id for the given asset
 
 
 
@@ -570,6 +572,26 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+
+
+
+## `soroban lab token id`
+
+Compute the expected contract id for the given asset
+
+**Usage:** `soroban lab token id [OPTIONS] --asset <ASSET>`
+
+###### **Options:**
+
+* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
 
 
 

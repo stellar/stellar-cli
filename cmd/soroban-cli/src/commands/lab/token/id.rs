@@ -1,10 +1,8 @@
 use clap::{arg, command, Parser};
 
+use crate::commands::config;
 use crate::commands::lab;
-use crate::commands::lab::token::wrap::{parse_asset, get_contract_id};
-use crate::{
-    commands::config,
-};
+use crate::commands::lab::token::wrap::{get_contract_id, parse_asset};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -18,7 +16,7 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), lab::token::wrap::Error> {
+    pub fn run(&self) -> Result<(), lab::token::wrap::Error> {
         let asset = parse_asset(&self.asset)?;
         let network = self.config.get_network()?;
         let contract_id = get_contract_id(&asset, &network.network_passphrase)?;
