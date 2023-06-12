@@ -154,7 +154,7 @@ pub fn vec_to_hash(res: &ScVal) -> Result<Hash, XdrError> {
     }
 }
 
-fn get_contract_id(asset: &Asset, network_passphrase: &str) -> Result<Hash, Error> {
+pub fn get_contract_id(asset: &Asset, network_passphrase: &str) -> Result<Hash, Error> {
     let network_id = Hash(
         Sha256::digest(network_passphrase.as_bytes())
             .try_into()
@@ -222,7 +222,7 @@ fn build_wrap_token_tx(
     })
 }
 
-fn parse_asset(str: &str) -> Result<Asset, Error> {
+pub fn parse_asset(str: &str) -> Result<Asset, Error> {
     if str == "native" {
         return Ok(Asset::Native);
     }
