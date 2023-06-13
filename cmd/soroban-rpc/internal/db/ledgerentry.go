@@ -28,6 +28,7 @@ type LedgerEntryReadTx interface {
 }
 
 type LedgerEntryWriter interface {
+	ExtendLedgerEntry(key xdr.LedgerKey, expirationLedgerSeq xdr.Uint32) error
 	UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error
 	DeleteLedgerEntry(key xdr.LedgerKey) error
 }
@@ -38,6 +39,14 @@ type ledgerEntryWriter struct {
 	// nil entries imply deletion
 	keyToEntryBatch map[string]*string
 	maxBatchSize    int
+}
+
+func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedgerSeq xdr.Uint32) error {
+	// TODO: How do we figure out the current expiration? We might need to read
+	// from the DB, but in the case of creating a new entry and immediately
+	// extending it, or extending multiple times in the same ledger, the
+	// expirationLedgerSeq might be buffered but not flushed yet.
+	panic("ledgerEntryWriter: not implemented")
 }
 
 func (l ledgerEntryWriter) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
