@@ -14,6 +14,120 @@ import (
 
 var mockContractID = xdr.Hash{0xa, 0xb, 0xc}
 var mockContractHash = xdr.Hash{0xd, 0xe, 0xf}
+
+var mockLedgerEntries = []xdr.LedgerEntry{
+	{
+		LastModifiedLedgerSeq: 1,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeContractData,
+			ContractData: &xdr.ContractDataEntry{
+				ContractId: mockContractID,
+				Key: xdr.ScVal{
+					Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+				},
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvContractExecutable,
+					Exec: &xdr.ScContractExecutable{
+						Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
+						WasmId: &mockContractHash,
+					},
+				},
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeContractCode,
+			ContractCode: &xdr.ContractCodeEntry{
+				Hash: mockContractHash,
+				Code: helloWorldContract,
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractComputeV0,
+				ContractCompute: &xdr.ConfigSettingContractComputeV0{
+					LedgerMaxInstructions:           100,
+					TxMaxInstructions:               100,
+					FeeRatePerInstructionsIncrement: 100,
+					TxMemoryLimit:                   100,
+				},
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractLedgerCostV0,
+				ContractLedgerCost: &xdr.ConfigSettingContractLedgerCostV0{
+					LedgerMaxReadLedgerEntries:  100,
+					LedgerMaxReadBytes:          100,
+					LedgerMaxWriteLedgerEntries: 100,
+					LedgerMaxWriteBytes:         100,
+					TxMaxReadLedgerEntries:      100,
+					TxMaxReadBytes:              100,
+					TxMaxWriteLedgerEntries:     100,
+					TxMaxWriteBytes:             100,
+					FeeReadLedgerEntry:          100,
+					FeeWriteLedgerEntry:         100,
+					FeeRead1Kb:                  100,
+					FeeWrite1Kb:                 100,
+					BucketListSizeBytes:         100,
+					BucketListFeeRateLow:        100,
+					BucketListFeeRateHigh:       100,
+					BucketListGrowthFactor:      100,
+				},
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractHistoricalDataV0,
+				ContractHistoricalData: &xdr.ConfigSettingContractHistoricalDataV0{
+					FeeHistorical1Kb: 100,
+				},
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractMetaDataV0,
+				ContractMetaData: &xdr.ConfigSettingContractMetaDataV0{
+					TxMaxExtendedMetaDataSizeBytes: 100,
+					FeeExtendedMetaData1Kb:         100,
+				},
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractBandwidthV0,
+				ContractBandwidth: &xdr.ConfigSettingContractBandwidthV0{
+					LedgerMaxPropagateSizeBytes: 100,
+					TxMaxSizeBytes:              100,
+					FeePropagateData1Kb:         100,
+				},
+			},
+		},
+	},
+}
+
 var helloWorldContract = func() []byte {
 	_, filename, _, _ := runtime.Caller(0)
 	testDirName := path.Dir(filename)
@@ -25,154 +139,44 @@ var helloWorldContract = func() []byte {
 	return ret
 }()
 
-type mockEntryReadTx struct{}
+type inMemoryLedgerEntryReadTx map[string]xdr.LedgerEntry
 
-func (m mockEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
+func newInMemoryLedgerEntryReadTx(entries []xdr.LedgerEntry) (inMemoryLedgerEntryReadTx, error) {
+	result := make(map[string]xdr.LedgerEntry, len(entries))
+	for _, entry := range entries {
+		key := entry.LedgerKey()
+		serialized, err := key.MarshalBinaryBase64()
+		if err != nil {
+			return inMemoryLedgerEntryReadTx{}, err
+		}
+		result[serialized] = entry
+	}
+	return result, nil
+}
+
+func (m inMemoryLedgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
 	return 2, nil
 }
 
-func (m mockEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
-	switch key.Type {
-	case xdr.LedgerEntryTypeContractData:
-		if key.ContractData.Key.Type == xdr.ScValTypeScvLedgerKeyContractExecutable {
-			entry := xdr.LedgerEntry{
-				LastModifiedLedgerSeq: 1,
-				Data: xdr.LedgerEntryData{
-					Type: xdr.LedgerEntryTypeContractData,
-					ContractData: &xdr.ContractDataEntry{
-						ContractId: mockContractID,
-						Key: xdr.ScVal{
-							Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
-						},
-						Val: xdr.ScVal{
-							Type: xdr.ScValTypeScvContractExecutable,
-							Exec: &xdr.ScContractExecutable{
-								Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-								WasmId: &mockContractHash,
-							},
-						},
-					},
-				},
-			}
-			return true, entry, nil
-		}
-
-	case xdr.LedgerEntryTypeContractCode:
-		entry := xdr.LedgerEntry{
-			LastModifiedLedgerSeq: 2,
-			Data: xdr.LedgerEntryData{
-				Type: xdr.LedgerEntryTypeContractCode,
-				ContractCode: &xdr.ContractCodeEntry{
-					Hash: mockContractHash,
-					Code: helloWorldContract,
-				},
-			},
-		}
-		return true, entry, nil
-	case xdr.LedgerEntryTypeConfigSetting:
-		switch key.ConfigSetting.ConfigSettingId {
-		case xdr.ConfigSettingIdConfigSettingContractComputeV0:
-			entry := xdr.LedgerEntry{
-				LastModifiedLedgerSeq: 2,
-				Data: xdr.LedgerEntryData{
-					Type: xdr.LedgerEntryTypeConfigSetting,
-					ConfigSetting: &xdr.ConfigSettingEntry{
-						ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractComputeV0,
-						ContractCompute: &xdr.ConfigSettingContractComputeV0{
-							LedgerMaxInstructions:           100,
-							TxMaxInstructions:               100,
-							FeeRatePerInstructionsIncrement: 100,
-							TxMemoryLimit:                   100,
-						},
-					},
-				},
-			}
-			return true, entry, nil
-		case xdr.ConfigSettingIdConfigSettingContractLedgerCostV0:
-			entry := xdr.LedgerEntry{
-				LastModifiedLedgerSeq: 2,
-				Data: xdr.LedgerEntryData{
-					Type: xdr.LedgerEntryTypeConfigSetting,
-					ConfigSetting: &xdr.ConfigSettingEntry{
-						ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractLedgerCostV0,
-						ContractLedgerCost: &xdr.ConfigSettingContractLedgerCostV0{
-							LedgerMaxReadLedgerEntries:  100,
-							LedgerMaxReadBytes:          100,
-							LedgerMaxWriteLedgerEntries: 100,
-							LedgerMaxWriteBytes:         100,
-							TxMaxReadLedgerEntries:      100,
-							TxMaxReadBytes:              100,
-							TxMaxWriteLedgerEntries:     100,
-							TxMaxWriteBytes:             100,
-							FeeReadLedgerEntry:          100,
-							FeeWriteLedgerEntry:         100,
-							FeeRead1Kb:                  100,
-							FeeWrite1Kb:                 100,
-							BucketListSizeBytes:         100,
-							BucketListFeeRateLow:        100,
-							BucketListFeeRateHigh:       100,
-							BucketListGrowthFactor:      100,
-						},
-					},
-				},
-			}
-			return true, entry, nil
-		case xdr.ConfigSettingIdConfigSettingContractHistoricalDataV0:
-			entry := xdr.LedgerEntry{
-				LastModifiedLedgerSeq: 2,
-				Data: xdr.LedgerEntryData{
-					Type: xdr.LedgerEntryTypeConfigSetting,
-					ConfigSetting: &xdr.ConfigSettingEntry{
-						ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractHistoricalDataV0,
-						ContractHistoricalData: &xdr.ConfigSettingContractHistoricalDataV0{
-							FeeHistorical1Kb: 100,
-						},
-					},
-				},
-			}
-			return true, entry, nil
-		case xdr.ConfigSettingIdConfigSettingContractMetaDataV0:
-			entry := xdr.LedgerEntry{
-				LastModifiedLedgerSeq: 2,
-				Data: xdr.LedgerEntryData{
-					Type: xdr.LedgerEntryTypeConfigSetting,
-					ConfigSetting: &xdr.ConfigSettingEntry{
-						ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractMetaDataV0,
-						ContractMetaData: &xdr.ConfigSettingContractMetaDataV0{
-							TxMaxExtendedMetaDataSizeBytes: 100,
-							FeeExtendedMetaData1Kb:         100,
-						},
-					},
-				},
-			}
-			return true, entry, nil
-		case xdr.ConfigSettingIdConfigSettingContractBandwidthV0:
-			entry := xdr.LedgerEntry{
-				LastModifiedLedgerSeq: 2,
-				Data: xdr.LedgerEntryData{
-					Type: xdr.LedgerEntryTypeConfigSetting,
-					ConfigSetting: &xdr.ConfigSettingEntry{
-						ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractBandwidthV0,
-						ContractBandwidth: &xdr.ConfigSettingContractBandwidthV0{
-							LedgerMaxPropagateSizeBytes: 100,
-							TxMaxSizeBytes:              100,
-							FeePropagateData1Kb:         100,
-						},
-					},
-				},
-			}
-			return true, entry, nil
-		}
-
+func (m inMemoryLedgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+	serializedKey, err := key.MarshalBinaryBase64()
+	if err != nil {
+		return false, xdr.LedgerEntry{}, err
 	}
-	return false, xdr.LedgerEntry{}, nil
+	entry, ok := m[serializedKey]
+	if !ok {
+		return false, xdr.LedgerEntry{}, nil
+	}
+	return true, entry, nil
 }
 
-func (m mockEntryReadTx) Done() error {
+func (m inMemoryLedgerEntryReadTx) Done() error {
 	return nil
 }
 
 func BenchmarkGetPreflight(b *testing.B) {
+	ledgerEntryReadTx, err := newInMemoryLedgerEntryReadTx(mockLedgerEntries)
+	require.NoError(b, err)
 	methodSymbol := xdr.ScSymbol("hello")
 	argSymbol := xdr.ScSymbol("world")
 	contractIDBytes := xdr.ScBytes(mockContractID[:])
@@ -204,7 +208,7 @@ func BenchmarkGetPreflight(b *testing.B) {
 			},
 		},
 		NetworkPassphrase: "foo",
-		LedgerEntryReadTx: mockEntryReadTx{},
+		LedgerEntryReadTx: ledgerEntryReadTx,
 	}
 	b.ResetTimer()
 
