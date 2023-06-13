@@ -46,7 +46,41 @@ func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedger
 	// from the DB, but in the case of creating a new entry and immediately
 	// extending it, or extending multiple times in the same ledger, the
 	// expirationLedgerSeq might be buffered but not flushed yet.
-	panic("ledgerEntryWriter: not implemented")
+	if key.Type != xdr.LedgerEntryTypeContractCode && key.Type != xdr.LedgerEntryTypeContractData {
+		panic("ExtendLedgerEntry can only be used for contract code and data")
+	}
+
+	encodedKey, err := encodeLedgerKey(l.buffer, key)
+	if err != nil {
+		return err
+	}
+
+	var entry xdr.LedgerEntry
+	// See if we have a pending (unflushed) update for this key
+	existing := l.keyToEntryBatch[encodedKey]
+	if existing == nil || *existing == "" {
+		// Nothing in the flush buffer. Load the entry from the db
+		err = sq.StatementBuilder.RunWith(l.stmtCache).Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).QueryRow().Scan(existing)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Unmarshal the existing entry
+	if err := xdr.SafeUnmarshal([]byte(*existing), &entry); err != nil {
+		return err
+	}
+
+	// Update the expiration
+	switch entry.Data.Type {
+	case xdr.LedgerEntryTypeContractData:
+		entry.Data.ContractData.ExpirationLedgerSeq = expirationLedgerSeq
+	case xdr.LedgerEntryTypeContractCode:
+		entry.Data.ContractCode.ExpirationLedgerSeq = expirationLedgerSeq
+	}
+
+	// Marshal the entry back and stage it
+	return l.UpsertLedgerEntry(key, entry)
 }
 
 func (l ledgerEntryWriter) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
