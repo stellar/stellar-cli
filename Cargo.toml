@@ -16,9 +16,10 @@ git = "https://github.com/stellar/rs-soroban-env"
 rev = "0c0cae6fa22b751e7fd95d7ce7556ac6d7b7010e"
 
 [workspace.dependencies.soroban-spec]
-version = "0.8.0"
+version = "0.8.5"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "090f5c88e8f8b67f4d02010665aedfea6ee43db3"
+rev = "7d143e425b690f2981ae804ce249462d98a68b0d"
+# path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-sdk]
 version = "0.8.0"
