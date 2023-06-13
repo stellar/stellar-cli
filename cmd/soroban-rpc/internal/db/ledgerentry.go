@@ -191,6 +191,20 @@ func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerE
 	if err = xdr.SafeUnmarshal([]byte(ledgerEntryBin), &result); err != nil {
 		return false, xdr.LedgerEntry{}, err
 	}
+
+	// Disallow access to entries that have expired
+	// TODO: Support allowing access, but recording for simulateTransaction
+	switch result.Data.Type {
+	case xdr.LedgerEntryTypeContractData:
+		if result.Data.ContractData.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq) {
+			return false, xdr.LedgerEntry{}, nil
+		}
+	case xdr.LedgerEntryTypeContractCode:
+		if result.Data.ContractCode.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq) {
+			return false, xdr.LedgerEntry{}, nil
+		}
+	}
+
 	return true, result, nil
 }
 
