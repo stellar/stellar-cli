@@ -83,7 +83,7 @@ jobs:
       - name: Build libpreflight
         run: make build-libpreflight
         env:
-          CARGO_BUILD_TARGET=${{ matrix.rust_target }}
+          CARGO_BUILD_TARGET: ${{ matrix.rust_target }}
 
       - name: Build Soroban RPC reproducible build
         run: |
@@ -91,8 +91,8 @@ jobs:
           ls -lh soroban-rpc
           file soroban-rpc
         env:
-          CGO_ENABLED=1
-          GOARCH=${{ matrix.go_arch }}
+          CGO_ENABLED: 1
+          GOARCH: ${{ matrix.go_arch }}
 
   integration:
     name: Integration tests
