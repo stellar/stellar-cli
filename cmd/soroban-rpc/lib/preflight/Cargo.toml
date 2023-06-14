@@ -13,4 +13,4 @@ base64 = "0.13.0"
 thiserror = "1.0.31"
 libc = "0.2.2"
 sha2 = "0.10.6"
-soroban-env-host = { workspace = true, features = ["vm"] }
+soroban-env-host = { workspace = true }

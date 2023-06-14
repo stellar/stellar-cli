@@ -35,11 +35,7 @@ default = []
 opt = ["dep:wasm-opt"]
 
 [dependencies]
-soroban-env-host = { workspace = true, features = [
-    "vm",
-    "serde",
-    "hostfn_log_fmt_values",
-] }
+soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-spec-typescript = { workspace = true }

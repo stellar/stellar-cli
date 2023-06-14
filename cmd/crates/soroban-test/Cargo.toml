@@ -17,11 +17,7 @@ crate-type = ["rlib", "cdylib"]
 
 
 [dependencies]
-soroban-env-host = { workspace = true, features = [
-    "vm",
-    "serde",
-    "hostfn_log_fmt_values",
-] }
+soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
