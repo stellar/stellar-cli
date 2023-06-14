@@ -192,15 +192,16 @@ func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerE
 		return false, xdr.LedgerEntry{}, err
 	}
 
-	// Disallow access to entries that have expired
+	// Disallow access to entries that have expired. Expiration includes the
+	// "current" ledger, which we are building.
 	// TODO: Support allowing access, but recording for simulateTransaction
 	switch result.Data.Type {
 	case xdr.LedgerEntryTypeContractData:
-		if result.Data.ContractData.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq) {
+		if result.Data.ContractData.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq+1) {
 			return false, xdr.LedgerEntry{}, nil
 		}
 	case xdr.LedgerEntryTypeContractCode:
-		if result.Data.ContractCode.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq) {
+		if result.Data.ContractCode.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq+1) {
 			return false, xdr.LedgerEntry{}, nil
 		}
 	}
