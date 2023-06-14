@@ -56,18 +56,21 @@ func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedger
 	}
 
 	var entry xdr.LedgerEntry
+	var existing string
 	// See if we have a pending (unflushed) update for this key
-	existing := l.keyToEntryBatch[encodedKey]
-	if existing == nil || *existing == "" {
+	queued := l.keyToEntryBatch[encodedKey]
+	if queued != nil && *queued != "" {
+		existing = *queued
+	} else {
 		// Nothing in the flush buffer. Load the entry from the db
-		err = sq.StatementBuilder.RunWith(l.stmtCache).Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).QueryRow().Scan(existing)
+		err = sq.StatementBuilder.RunWith(l.stmtCache).Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).QueryRow().Scan(&existing)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Unmarshal the existing entry
-	if err := xdr.SafeUnmarshal([]byte(*existing), &entry); err != nil {
+	if err := xdr.SafeUnmarshal([]byte(existing), &entry); err != nil {
 		return err
 	}
 

@@ -173,6 +173,58 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
 
+func TestExtendEntry(t *testing.T) {
+	db := NewTestDB(t)
+
+	// Simulate a ledger which creates a ledger entry, then extends it.
+	tx, err := NewReadWriter(db, 150, 15).NewTx(context.Background())
+	assert.NoError(t, err)
+	writer := tx.LedgerEntryWriter()
+
+	four := xdr.Uint32(4)
+	six := xdr.Uint32(6)
+	data := xdr.ContractDataEntry{
+		ContractId: xdr.Hash{0xca, 0xfe},
+		Key: xdr.ScVal{
+			Type: xdr.ScValTypeScvU32,
+			U32:  &four,
+		},
+		Type: xdr.ContractDataTypeMergeable,
+		Body: xdr.ContractDataEntryBody{
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &six,
+				},
+			},
+		},
+		ExpirationLedgerSeq: 24,
+	}
+	key, entry := getContractDataLedgerEntry(data)
+	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
+	assert.NoError(t, tx.Commit(uint32(23)))
+
+	// Extend the entry's expiration
+	tx, err = NewReadWriter(db, 150, 15).NewTx(context.Background())
+	assert.NoError(t, err)
+	writer = tx.LedgerEntryWriter()
+	assert.NoError(t, writer.ExtendLedgerEntry(key, 32))
+	ledgerSequence := uint32(24)
+	assert.NoError(t, tx.Commit(ledgerSequence))
+
+	// Make sure that the ledger number was submitted
+	obtainedLedgerSequence, err := NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
+
+	// And that the entry was updated
+	present, resultEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+	assert.True(t, present)
+	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
+	assert.Equal(t, xdr.Uint32(32), resultEntry.Data.ContractData.ExpirationLedgerSeq)
+}
+
 func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
 	entry := xdr.LedgerEntry{
 		LastModifiedLedgerSeq: 1,
