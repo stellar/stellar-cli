@@ -63,11 +63,11 @@ jobs:
 
       - run: rustup target add ${{ matrix.rust_target }}
       - if: matrix.os == 'windows-latest'
-        name: Configure preflight library to use explicit rust version
+        name: Install the same mingw used by rust
         run: |
-          cd cmd/soroban-rpc/lib/preflight
-          rustup default stable-${{ matrix.rust_target }}
-          cd ../../../..
+          #cd cmd/soroban-rpc/lib/preflight
+          #rustup default stable-${{ matrix.rust_target }}
+          #cd ../../../..
           C:\\msys64\\usr\\bin\\pacman.exe -S mingw-w64-x86_64-gcc --noconfirm
           echo "CC=C:\\msys64\\mingw64\\bin\\gcc.exe" >> $GITHUB_ENV
           echo "C:\\msys64\\mingw64\\bin" >> $GITHUB_PATH
@@ -85,7 +85,7 @@ jobs:
 
       - name: Build Soroban RPC reproducible build
         run: |
-          CGO_ENABLED=1 GOARCH=${{ matrix.go_arch }} go build -x -trimpath -buildvcs=false ./cmd/soroban-rpc
+          CGO_ENABLED=1 GOARCH=${{ matrix.go_arch }} go build -trimpath -buildvcs=false ./cmd/soroban-rpc
           ls -lh soroban-rpc
           file soroban-rpc
 
