@@ -2,7 +2,6 @@
 name = "preflight"
 version = "0.8.0"
 publish = false
-rust-version = "1.70"
 
 [lib]
 crate-type = ["staticlib"]
