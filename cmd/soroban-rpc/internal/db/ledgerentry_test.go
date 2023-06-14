@@ -65,10 +65,17 @@ func TestGoldenPath(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Val: xdr.ScVal{
-			Type: xdr.ScValTypeScvU32,
-			U32:  &six,
+		Type: xdr.ContractDataTypeMergeable,
+		Body: xdr.ContractDataEntryBody{
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &six,
+				},
+			},
 		},
+		ExpirationLedgerSeq: 100,
 	}
 	key, entry := getContractDataLedgerEntry(data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
@@ -80,7 +87,7 @@ func TestGoldenPath(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, obtainedEntry.Data.Type, xdr.LedgerEntryTypeContractData)
 	assert.Equal(t, xdr.Hash{0xca, 0xfe}, obtainedEntry.Data.ContractData.ContractId)
-	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
+	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
 
 	obtainedLedgerSequence, err = NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
 	assert.NoError(t, err)
@@ -91,7 +98,7 @@ func TestGoldenPath(t *testing.T) {
 	assert.NoError(t, err)
 	writer = tx.LedgerEntryWriter()
 	eight := xdr.Uint32(8)
-	entry.Data.ContractData.Val.U32 = &eight
+	entry.Data.ContractData.Body.Data.Val.U32 = &eight
 
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 
@@ -101,7 +108,7 @@ func TestGoldenPath(t *testing.T) {
 	present, obtainedEntry, obtainedLedgerSequence = getLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
-	assert.Equal(t, eight, *obtainedEntry.Data.ContractData.Val.U32)
+	assert.Equal(t, eight, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
 
 	// Do another round, deleting the ledger entry
 	tx, err = NewReadWriter(db, 150, 15).NewTx(context.Background())
@@ -139,10 +146,16 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Val: xdr.ScVal{
-			Type: xdr.ScValTypeScvU32,
-			U32:  &six,
+		Type: xdr.ContractDataTypeMergeable,
+		Body: xdr.ContractDataEntryBody{
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &six,
+				},
+			},
 		},
+		ExpirationLedgerSeq: 100,
 	}
 	key, _ := getContractDataLedgerEntry(data)
 	assert.NoError(t, writer.DeleteLedgerEntry(key))
@@ -199,10 +212,17 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Val: xdr.ScVal{
-			Type: xdr.ScValTypeScvU32,
-			U32:  &six,
+		Type: xdr.ContractDataTypeMergeable,
+		Body: xdr.ContractDataEntryBody{
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &six,
+				},
+			},
 		},
+		ExpirationLedgerSeq: 100,
 	}
 	key, entry := getContractDataLedgerEntry(data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
@@ -238,7 +258,7 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
-	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
+	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
 }
 
 // Make sure that a write transaction can happen while multiple read transactions are ongoing,
@@ -273,10 +293,17 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Val: xdr.ScVal{
-			Type: xdr.ScValTypeScvU32,
-			U32:  &six,
+		Type: xdr.ContractDataTypeMergeable,
+		Body: xdr.ContractDataEntryBody{
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &six,
+				},
+			},
 		},
+		ExpirationLedgerSeq: 100,
 	}
 	key, entry := getContractDataLedgerEntry(data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
@@ -315,7 +342,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
-	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
+	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
 
 	for _, readTx := range []LedgerEntryReadTx{readTx1, readTx2, readTx3} {
 		assert.NoError(t, readTx.Done())
@@ -338,10 +365,17 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 				Type: xdr.ScValTypeScvU32,
 				U32:  &val,
 			},
-			Val: xdr.ScVal{
-				Type: xdr.ScValTypeScvU32,
-				U32:  &val,
+			Type: xdr.ContractDataTypeMergeable,
+			Body: xdr.ContractDataEntryBody{
+				LeType: xdr.ContractLedgerEntryTypeDataEntry,
+				Data: &xdr.ContractDataEntryData{
+					Val: xdr.ScVal{
+						Type: xdr.ScValTypeScvU32,
+						U32:  &val,
+					},
+				},
 			},
+			ExpirationLedgerSeq: 100,
 		}
 		rw := NewReadWriter(db, 10, 15)
 		for ledgerSequence := uint32(0); ledgerSequence < 1000; ledgerSequence++ {
@@ -387,7 +421,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 				// All entries should be found once the first write commit is done
 				assert.True(t, found)
 				fmt.Printf("reader %d: for ledger %d\n", keyVal, ledger)
-				assert.Equal(t, xdr.Uint32(keyVal), *ledgerEntry.Data.ContractData.Val.U32)
+				assert.Equal(t, xdr.Uint32(keyVal), *ledgerEntry.Data.ContractData.Body.Data.Val.U32)
 			}
 			time.Sleep(time.Duration(rand.Int31n(30)) * time.Millisecond)
 		}
@@ -414,10 +448,17 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &keyUint32,
 		},
-		Val: xdr.ScVal{
-			Type: xdr.ScValTypeScvU32,
-			U32:  &keyUint32,
+		Type: xdr.ContractDataTypeMergeable,
+		Body: xdr.ContractDataEntryBody{
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &keyUint32,
+				},
+			},
 		},
+		ExpirationLedgerSeq: 100,
 	}
 	key, entry := getContractDataLedgerEntry(data)
 	const numEntriesPerOp = 3500
