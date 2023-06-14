@@ -17,6 +17,7 @@ jobs:
 
   upload:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
