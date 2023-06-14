@@ -45,7 +45,7 @@ func getHelloWorldContract(t *testing.T) []byte {
 	return ret
 }
 
-func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunctions {
+func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
 	var contractIDBytes = xdr.ScBytes(contractID[:])
 	methodSymbol := xdr.ScSymbol(method)
 	parameters := xdr.ScVec{
@@ -59,77 +59,71 @@ func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, con
 		},
 	}
 	parameters = append(parameters, args...)
-	return &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			{
-				Args: xdr.HostFunctionArgs{
-					Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-					InvokeContract: &parameters,
-				},
-			},
+	return &txnbuild.InvokeHostFunction{
+		HostFunction: xdr.HostFunction{
+			Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeContract: &parameters,
 		},
+		Auth:          nil,
+		SourceAccount: sourceAccount,
 		Ext:           ext,
-		SourceAccount: sourceAccount,
 	}
 }
 
-func createInstallContractCodeOperation(sourceAccount string, contractCode []byte) *txnbuild.InvokeHostFunctions {
-	return &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			{
-				Args: xdr.HostFunctionArgs{
-					Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
-					UploadContractWasm: &xdr.UploadContractWasmArgs{
-						Code: contractCode,
-					},
-				},
-			},
+func createInstallContractCodeOperation(sourceAccount string, contractCode []byte) *txnbuild.InvokeHostFunction {
+	return &txnbuild.InvokeHostFunction{
+		HostFunction: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
+			Wasm: &contractCode,
 		},
 		SourceAccount: sourceAccount,
 	}
 }
 
-func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string) *txnbuild.InvokeHostFunctions {
+func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string) *txnbuild.InvokeHostFunction {
 	saltParam := xdr.Uint256(testSalt)
+	// TODO: is this correct?
 	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
 	assert.NoError(t, err)
 	contractHash := xdr.Hash(sha256.Sum256(uploadContractCodeArgs))
 
-	return &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			{
-				Args: xdr.HostFunctionArgs{
-					Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
-					CreateContract: &xdr.CreateContractArgs{
-						ContractId: xdr.ContractId{
-							Type: xdr.ContractIdTypeContractIdFromSourceAccount,
-							Salt: &saltParam,
+	sourceAccountID := xdr.MustAddress(sourceAccount)
+	return &txnbuild.InvokeHostFunction{
+		HostFunction: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+			CreateContract: &xdr.CreateContractArgs{
+				ContractIdPreimage: xdr.ContractIdPreimage{
+					Type: xdr.ContractIdPreimageTypeContractIdPreimageFromAddress,
+					FromAddress: &xdr.ContractIdPreimageFromAddress{
+						Address: xdr.ScAddress{
+							Type:      xdr.ScAddressTypeScAddressTypeAccount,
+							AccountId: &sourceAccountID,
 						},
-						Executable: xdr.ScContractExecutable{
-							Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-							WasmId: &contractHash,
-						},
+						Salt: saltParam,
 					},
 				},
-				Auth: []xdr.ContractAuth{},
+				Executable: xdr.ScContractExecutable{
+					Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
+					WasmId: &contractHash,
+				},
 			},
 		},
+		Auth:          []xdr.SorobanAuthorizationEntry{},
 		SourceAccount: sourceAccount,
 	}
 }
 
 func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPassphrase string) [32]byte {
-	networkID := xdr.Hash(sha256.Sum256([]byte(networkPassphrase)))
-	preImage := xdr.HashIdPreimage{
-		Type: xdr.EnvelopeTypeEnvelopeTypeContractIdFromSourceAccount,
-		SourceAccountContractId: &xdr.HashIdPreimageSourceAccountContractId{
-			NetworkId: networkID,
-			Salt:      salt,
+	sourceAccountID := xdr.MustAddress(sourceAccount)
+	preImage := xdr.ContractIdPreimage{
+		Type: xdr.ContractIdPreimageTypeContractIdPreimageFromAddress,
+		FromAddress: &xdr.ContractIdPreimageFromAddress{
+			Address: xdr.ScAddress{
+				Type:      xdr.ScAddressTypeScAddressTypeAccount,
+				AccountId: &sourceAccountID,
+			},
+			Salt: salt,
 		},
-	}
-	if err := preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount); err != nil {
-		t.Errorf("failed to set address : %v", err)
-		t.FailNow()
 	}
 	xdrPreImageBytes, err := preImage.MarshalBinary()
 	require.NoError(t, err)
@@ -144,7 +138,7 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	params.IncrementSequenceNum = savedAutoIncrement
 	assert.NoError(t, err)
 	assert.Len(t, params.Operations, 1)
-	op, ok := params.Operations[0].(*txnbuild.InvokeHostFunctions)
+	op, ok := params.Operations[0].(*txnbuild.InvokeHostFunction)
 	assert.True(t, ok)
 	txB64, err := tx.Base64()
 	assert.NoError(t, err)
