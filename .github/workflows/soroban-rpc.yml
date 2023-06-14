@@ -62,12 +62,12 @@ jobs:
           go-version: 1.20.1
 
       - run: rustup target add ${{ matrix.rust_target }}
+
+      # On windows, make sure we have the same compiler (linker) used by rust.
+      # This is important since the symbols names won't match otherwise.
       - if: matrix.os == 'windows-latest'
-        name: Install the same mingw used by rust
+        name: Install the same mingw gcc compiler used by rust
         run: |
-          #cd cmd/soroban-rpc/lib/preflight
-          #rustup default stable-${{ matrix.rust_target }}
-          #cd ../../../..
           C:\\msys64\\usr\\bin\\pacman.exe -S mingw-w64-x86_64-gcc --noconfirm
           echo "CC=C:\\msys64\\mingw64\\bin\\gcc.exe" >> $GITHUB_ENV
           echo "C:\\msys64\\mingw64\\bin" >> $GITHUB_PATH
