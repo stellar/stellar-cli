@@ -64,7 +64,9 @@ func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedger
 	} else {
 		// Nothing in the flush buffer. Load the entry from the db
 		err = sq.StatementBuilder.RunWith(l.stmtCache).Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).QueryRow().Scan(&existing)
-		if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("no entry for key %q in table %q", hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName)
+		} else if err != nil {
 			return err
 		}
 	}

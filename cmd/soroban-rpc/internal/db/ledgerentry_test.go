@@ -225,6 +225,31 @@ func TestExtendEntry(t *testing.T) {
 	assert.Equal(t, xdr.Uint32(32), resultEntry.Data.ContractData.ExpirationLedgerSeq)
 }
 
+func TestExtendNonExistentLedgerEntry(t *testing.T) {
+	db := NewTestDB(t)
+
+	four := xdr.Uint32(4)
+	key := xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeContractData,
+		ContractData: &xdr.LedgerKeyContractData{
+			ContractId: xdr.Hash{0xca, 0xfe},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvU32,
+				U32:  &four,
+			},
+			Type:   xdr.ContractDataTypeMergeable,
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+		},
+	}
+
+	// Try to extend the entry's expiration
+	tx, err := NewReadWriter(db, 150, 15).NewTx(context.Background())
+	assert.NoError(t, err)
+	writer := tx.LedgerEntryWriter()
+	err = writer.ExtendLedgerEntry(key, 32)
+	assert.EqualError(t, err, "no entry for key \"06cafe0000000000000000000000000000000000000000000000000000000000000000000300000004\" in table \"ledger_entries\"")
+}
+
 func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
 	entry := xdr.LedgerEntry{
 		LastModifiedLedgerSeq: 1,
