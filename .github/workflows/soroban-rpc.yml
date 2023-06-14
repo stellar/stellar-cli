@@ -66,6 +66,7 @@ jobs:
         run: |
           preflight_rust_version=$(sed -n 's/.*rust-version = "\(.*\)"/\1/p' cmd/soroban-rpc/lib/preflight/Cargo.toml)
           echo "PREFLIGHT_RUST_VERSION=$preflight_rust_version" >> $GITHUB_ENV
+          echo "CC=c:\\msys2\\mingw64\\bin\\gcc.exe"
       - name: Update rust toolchain as needed
         run: |
           rustup update $PREFLIGHT_RUST_VERSION
