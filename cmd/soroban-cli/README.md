@@ -10,10 +10,10 @@ Soroban: https://soroban.stellar.org
 cargo install --locked soroban-cli
 ```
 
-To install with the `opt` feature, which includes a WASM optimization feature and wasm-opt built in:
+The `opt` feature, which includes a WASM optimization feature and wasm-opt built in is the default; to to build without it:
 
 ```
-cargo install --locked soroban-cli --features opt
+cargo install --locked soroban-cli --no-default-features
 ```
 
 ## Usage

@@ -31,7 +31,7 @@ path = "src/lib.rs"
 doctest = false
 
 [features]
-default = []
+default = ["opt"]
 opt = ["dep:wasm-opt"]
 
 [dependencies]
