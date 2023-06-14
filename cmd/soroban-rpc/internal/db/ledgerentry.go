@@ -202,11 +202,19 @@ func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerE
 	// TODO: Support allowing access, but recording for simulateTransaction
 	switch result.Data.Type {
 	case xdr.LedgerEntryTypeContractData:
-		if result.Data.ContractData.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq+1) {
+		latestLedger, err := l.GetLatestLedgerSequence()
+		if err != nil {
+			return false, xdr.LedgerEntry{}, err
+		}
+		if result.Data.ContractData.ExpirationLedgerSeq <= xdr.Uint32(latestLedger+1) {
 			return false, xdr.LedgerEntry{}, nil
 		}
 	case xdr.LedgerEntryTypeContractCode:
-		if result.Data.ContractCode.ExpirationLedgerSeq <= xdr.Uint32(l.cachedLatestLedgerSeq+1) {
+		latestLedger, err := l.GetLatestLedgerSequence()
+		if err != nil {
+			return false, xdr.LedgerEntry{}, err
+		}
+		if result.Data.ContractCode.ExpirationLedgerSeq <= xdr.Uint32(latestLedger+1) {
 			return false, xdr.LedgerEntry{}, nil
 		}
 	}
