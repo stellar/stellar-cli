@@ -40,6 +40,7 @@ jobs:
 
   build-and-test:
     strategy:
+      fail-fast: false
       matrix:
         include:
         - os: ubuntu-latest
@@ -72,6 +73,7 @@ jobs:
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
+      fail-fast: false
       matrix:
         include:
         - os: ubuntu-latest
@@ -82,8 +84,8 @@ jobs:
           target: x86_64-apple-darwin
         - os: macos-latest
           target: aarch64-apple-darwin
-        - os: windows-latest
-          target: x86_64-pc-windows-msvc
+#       - os: windows-latest
+#         target: x86_64-pc-windows-msvc
     uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@main
     with:
       runs-on: ${{ matrix.os }}

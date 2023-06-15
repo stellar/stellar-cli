@@ -1,8 +1,7 @@
 [package]
 name = "preflight"
-version = "0.8.0"
+version = "0.8.5"
 publish = false
-rust-version = "1.69"
 
 [lib]
 crate-type = ["staticlib"]
