@@ -242,7 +242,10 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 			events = append(events, event{
 				contents: e,
 				txIndex:  tx.Index,
-				// TODO: we cannot index by operation anymore :(
+				// NOTE: we cannot really index by operation since all events
+				//       are provided as part of the transaction. However,
+				//       that shouldn't matter in practice since a transaction
+				//       can only contain a single Host Function Invocation.
 				opIndex:    0,
 				eventIndex: uint32(index),
 			})
