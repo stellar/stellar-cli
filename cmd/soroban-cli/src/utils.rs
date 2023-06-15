@@ -3,7 +3,9 @@ use std::{io::ErrorKind, path::Path};
 use ed25519_dalek::Signer;
 use hex::FromHexError;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::UploadContractWasmArgs;
+use soroban_env_host::xdr::{
+    Asset, HashIdPreimage, HashIdPreimageFromAsset, UploadContractWasmArgs,
+};
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
@@ -304,6 +306,89 @@ pub(crate) fn parse_secret_key(
 
 pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
+}
+
+pub fn contract_id_hash_from_asset(
+    asset: &Asset,
+    network_passphrase: &str,
+) -> Result<Hash, XdrError> {
+    let network_id = Hash(
+        Sha256::digest(network_passphrase.as_bytes())
+            .try_into()
+            .unwrap(),
+    );
+    let preimage = HashIdPreimage::ContractIdFromAsset(HashIdPreimageFromAsset {
+        network_id,
+        asset: asset.clone(),
+    });
+    let preimage_xdr = preimage.to_xdr()?;
+    Ok(Hash(Sha256::digest(preimage_xdr).into()))
+}
+
+pub mod parsing {
+
+    use regex::Regex;
+    use soroban_env_host::xdr::{
+        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, PublicKey,
+    };
+
+    #[derive(thiserror::Error, Debug)]
+    pub enum Error {
+        #[error("invalid asset code: {asset}")]
+        InvalidAssetCode { asset: String },
+        #[error("cannot parse account id: {account_id}")]
+        CannotParseAccountId { account_id: String },
+        #[error("cannot parse asset: {asset}")]
+        CannotParseAsset { asset: String },
+    }
+
+    pub fn parse_asset(str: &str) -> Result<Asset, Error> {
+        if str == "native" {
+            return Ok(Asset::Native);
+        }
+        let split: Vec<&str> = str.splitn(2, ':').collect();
+        if split.len() != 2 {
+            return Err(Error::CannotParseAsset {
+                asset: str.to_string(),
+            });
+        }
+        let code = split[0];
+        let issuer = split[1];
+        let re = Regex::new("^[[:alnum:]]{1,12}$").unwrap();
+        if !re.is_match(code) {
+            return Err(Error::InvalidAssetCode {
+                asset: str.to_string(),
+            });
+        }
+        if code.len() <= 4 {
+            let mut asset_code: [u8; 4] = [0; 4];
+            for (i, b) in code.as_bytes().iter().enumerate() {
+                asset_code[i] = *b;
+            }
+            Ok(Asset::CreditAlphanum4(AlphaNum4 {
+                asset_code: AssetCode4(asset_code),
+                issuer: parse_account_id(issuer)?,
+            }))
+        } else {
+            let mut asset_code: [u8; 12] = [0; 12];
+            for (i, b) in code.as_bytes().iter().enumerate() {
+                asset_code[i] = *b;
+            }
+            Ok(Asset::CreditAlphanum12(AlphaNum12 {
+                asset_code: AssetCode12(asset_code),
+                issuer: parse_account_id(issuer)?,
+            }))
+        }
+    }
+
+    pub fn parse_account_id(str: &str) -> Result<AccountId, Error> {
+        let pk_bytes = stellar_strkey::ed25519::PublicKey::from_string(str)
+            .map_err(|_| Error::CannotParseAccountId {
+                account_id: str.to_string(),
+            })?
+            .0;
+        Ok(AccountId(PublicKey::PublicKeyTypeEd25519(pk_bytes.into())))
+    }
 }
 
 #[cfg(test)]

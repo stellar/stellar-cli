@@ -23,6 +23,8 @@ enum Cmd {
 pub enum Error {
     #[error(transparent)]
     Wrap(#[from] wrap::Error),
+    #[error(transparent)]
+    Id(#[from] id::Error),
 }
 
 impl Root {
