@@ -2,6 +2,7 @@
 
 [alias] # command aliases
 md-gen = "run --bin doc-gen --features clap-markdown"
+f = "fmt"
 # b = "build"
 # c = "check"
 # t = "test"

@@ -8,7 +8,6 @@ pub mod fee;
 pub mod log;
 pub mod network;
 pub mod rpc;
-pub mod strval;
 pub mod toid;
 pub mod utils;
 pub mod wasm;

@@ -13,7 +13,9 @@ use soroban_env_host::xdr::{
     ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
-use crate::utils;
+pub mod utils;
+
+// use crate::utils;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -56,10 +58,39 @@ pub enum Error {
     Infallible(#[from] std::convert::Infallible),
     #[error("Missing Error case {0}")]
     MissingErrorCase(u32),
+    #[error(transparent)]
+    Spec(#[from] soroban_spec::read::FromWasmError),
+    #[error(transparent)]
+    Base64Spec(#[from] soroban_spec::read::ParseSpecBase64Error),
 }
 
 #[derive(Default, Clone)]
 pub struct Spec(pub Option<Vec<ScSpecEntry>>);
+
+impl TryInto<Spec> for &[u8] {
+    type Error = soroban_spec::read::FromWasmError;
+
+    fn try_into(self) -> Result<Spec, Self::Error> {
+        let spec = soroban_spec::read::from_wasm(self)?;
+        Ok(Spec::new(spec))
+    }
+}
+
+impl Spec {
+    pub fn new(entries: Vec<ScSpecEntry>) -> Self {
+        Self(Some(entries))
+    }
+
+    pub fn from_wasm(wasm: &[u8]) -> Result<Spec, Error> {
+        let spec = soroban_spec::read::from_wasm(wasm)?;
+        Ok(Spec::new(spec))
+    }
+
+    pub fn parse_base64(base64: &str) -> Result<Spec, Error> {
+        let spec = soroban_spec::read::parse_base64(base64.as_bytes())?;
+        Ok(Spec::new(spec))
+    }
+}
 
 impl Spec {
     /// # Errors

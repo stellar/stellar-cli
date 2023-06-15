@@ -14,7 +14,7 @@ use soroban_env_host::{
 
 use crate::{
     commands::config::{ledger_file, locator},
-    strval, utils,
+    utils,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -55,7 +55,10 @@ pub enum Error {
     #[error(transparent)]
     Ledger(#[from] ledger_file::Error),
     #[error("parsing key {key}: {error}")]
-    CannotParseKey { key: String, error: strval::Error },
+    CannotParseKey {
+        key: String,
+        error: soroban_spec_tools::Error,
+    },
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
     #[error("cannot parse contract ID {contract_id}: {error}")]
@@ -64,7 +67,10 @@ pub enum Error {
         error: stellar_strkey::DecodeError,
     },
     #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: strval::Error },
+    CannotPrintResult {
+        result: ScVal,
+        error: soroban_spec_tools::Error,
+    },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintJsonResult {
         result: ScVal,
@@ -96,12 +102,12 @@ impl Cmd {
             })?;
         let key = if let Some(key) = &self.key {
             Some(
-                strval::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(|e| {
-                    Error::CannotParseKey {
+                soroban_spec_tools::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(
+                    |e| Error::CannotParseKey {
                         key: key.clone(),
                         error: e,
-                    }
-                })?,
+                    },
+                )?,
             )
         } else if let Some(key) = &self.key_xdr {
             Some(
@@ -161,13 +167,17 @@ impl Cmd {
         for data in entries {
             let output = match self.output {
                 Output::String => [
-                    strval::to_string(&data.key).map_err(|e| Error::CannotPrintResult {
-                        result: data.key.clone(),
-                        error: e,
+                    soroban_spec_tools::to_string(&data.key).map_err(|e| {
+                        Error::CannotPrintResult {
+                            result: data.key.clone(),
+                            error: e,
+                        }
                     })?,
-                    strval::to_string(&data.val).map_err(|e| Error::CannotPrintResult {
-                        result: data.val.clone(),
-                        error: e,
+                    soroban_spec_tools::to_string(&data.val).map_err(|e| {
+                        Error::CannotPrintResult {
+                            result: data.val.clone(),
+                            error: e,
+                        }
                     })?,
                 ],
                 Output::Json => [

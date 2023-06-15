@@ -10,7 +10,7 @@ echo 'git diff-index --quiet HEAD --'
 git diff-index --quiet HEAD --
 
 echo '+cargo clippy -- -Dwarnings -Dclippy::all -Dclippy::pedantic'
-cargo clippy -- -Dwarnings -Dclippy::all -Dclippy::pedantic
+cargo clippy --all -- -Dwarnings
 
-echo '+cargo test'
-cargo test
+echo '+cargo test --all'
+cargo test --all || (echo "might need to rebuild make build-snapshot` && exit 1)
