@@ -115,16 +115,23 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 
 func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPassphrase string) [32]byte {
 	sourceAccountID := xdr.MustAddress(sourceAccount)
-	preImage := xdr.ContractIdPreimage{
-		Type: xdr.ContractIdPreimageTypeContractIdPreimageFromAddress,
-		FromAddress: &xdr.ContractIdPreimageFromAddress{
-			Address: xdr.ScAddress{
-				Type:      xdr.ScAddressTypeScAddressTypeAccount,
-				AccountId: &sourceAccountID,
+	preImage := xdr.HashIdPreimage{
+		Type: xdr.EnvelopeTypeEnvelopeTypeContractId,
+		ContractId: &xdr.HashIdPreimageContractId{
+			NetworkId: xdr.Hash{},
+			ContractIdPreimage: xdr.ContractIdPreimage{
+				Type: xdr.ContractIdPreimageTypeContractIdPreimageFromAddress,
+				FromAddress: &xdr.ContractIdPreimageFromAddress{
+					Address: xdr.ScAddress{
+						Type:      xdr.ScAddressTypeScAddressTypeAccount,
+						AccountId: &sourceAccountID,
+					},
+					Salt: salt,
+				},
 			},
-			Salt: salt,
 		},
 	}
+
 	xdrPreImageBytes, err := preImage.MarshalBinary()
 	require.NoError(t, err)
 	hashedContractID := sha256.Sum256(xdrPreImageBytes)
