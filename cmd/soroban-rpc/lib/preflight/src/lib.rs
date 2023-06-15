@@ -9,13 +9,12 @@ extern crate soroban_env_host;
 use sha2::{Digest, Sha256};
 use soroban_env_host::auth::RecordedAuthPayload;
 use soroban_env_host::budget::Budget;
-use soroban_env_host::events::{Event, Events};
+use soroban_env_host::events::Events;
 use soroban_env_host::storage::Storage;
-use soroban_env_host::xdr::TypeVariant::SorobanCredentials;
 use soroban_env_host::xdr::{
-    AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, InvokeHostFunctionOp,
-    ReadXdr, ScAddress, ScVal, ScVec, SorobanAuthorizationEntry, SorobanAuthorizedInvocation,
-    WriteXdr,
+    AccountId, DiagnosticEvent, HostFunction, InvokeHostFunctionOp, ReadXdr, ScAddress, ScVal,
+    ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedInvocation,
+    SorobanCredentials, WriteXdr,
 };
 use soroban_env_host::{Host, LedgerInfo};
 use std::convert::TryInto;
@@ -128,7 +127,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
-    let auths = host.get_authenticated_authorizations()?;
+    let auths = host.get_recorded_auth_payloads()?;
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, events) = host.try_finish().unwrap();
@@ -169,48 +168,37 @@ fn recorded_auth_payloads_to_c(
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
 
-fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
-    let address_with_nonce = match (payload.address.clone(), payload.nonce) {
-        (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
-        (None, None) => None,
+fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthorizationEntry {
+    match (payload.address.clone(), payload.nonce) {
+        (Some(address), Some(nonce)) =>
+        SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                                                         address: address,
+                                                         nonce: nonce,
+                                                         // signature_args is left empty. This is where the client will put their signatures when
+                                                         // submitting the transaction.
+                                                         signature_args: ScVec::default(),
+                                                     }),
+            root_invocation: payload.invocation.clone(),
+        },
+        (None, None) =>         SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::SourceAccount,
+            root_invocation: payload.invocation.clone(),
+        },
         // the address and the nonce can't be present independently
         (a,n) =>
             panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
-    };
-    ContractAuth {
-        address_with_nonce,
-        root_invocation: payload.invocation.clone(),
-        // signature_args is left empty. This is where the client will put their signatures when
-        // submitting the transaction.
-        signature_args: ScVec::default(),
     }
-}
-
-fn address_and_auth_invocation_to_entry(
-    addr: ScAddress,
-    inv: SorobanAuthorizedInvocation,
-) -> SorobanAuthorizationEntry {
-    return SorobanAuthorizationEntry {
-        credentials: SorobanCredentials::Address(SorobanAddressCredentials),
-        root_invocation: inv,
-    };
 }
 
 fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
     let mut res: Vec<DiagnosticEvent> = Vec::new();
     for e in &events.0 {
-        let maybe_contract_event = match &e.event {
-            Event::Contract(e) | Event::StructuredDebug(e) => Some(e),
-            // Debug events can't be translated to diagnostic events
-            Event::Debug(_) => None,
+        let diagnostic_event = DiagnosticEvent {
+            in_successful_contract_call: !e.failed_call,
+            event: e.event.clone(),
         };
-        if let Some(contract_event) = maybe_contract_event {
-            let diagnostic_event = DiagnosticEvent {
-                in_successful_contract_call: !e.failed_call,
-                event: contract_event.clone(),
-            };
-            res.push(diagnostic_event);
-        }
+        res.push(diagnostic_event);
     }
     res
 }

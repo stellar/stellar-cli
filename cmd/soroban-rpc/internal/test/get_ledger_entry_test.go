@@ -99,9 +99,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	txStatusResponse := getTransaction(t, client, sendTxResponse.Hash)
 	assert.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
 
-	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: testContract}.MarshalBinary()
-	assert.NoError(t, err)
-	contractHash := sha256.Sum256(uploadContractCodeArgs)
+	contractHash := sha256.Sum256(testContract)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractCode,
 		ContractCode: &xdr.LedgerKeyContractCode{
