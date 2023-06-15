@@ -32,7 +32,7 @@ git = "https://github.com/stellar/rs-soroban-sdk"
 rev = "090f5c88e8f8b67f4d02010665aedfea6ee43db3"
 
 [workspace.dependencies.soroban-cli]
-version = "0.8.0"
+version = "0.8.5"
 path = "cmd/soroban-cli"
 
 
