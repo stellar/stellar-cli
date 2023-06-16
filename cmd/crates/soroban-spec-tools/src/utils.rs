@@ -32,7 +32,7 @@ pub enum Error {
         error: wasmparser::BinaryReaderError,
     },
     #[error("xdr processing error: {0}")]
-    Xdr(#[from] stelar_xdr::Error),
+    Xdr(#[from] stellar_xdr::Error),
 
     #[error(transparent)]
     Parser(#[from] wasmparser::BinaryReaderError),
@@ -61,7 +61,7 @@ impl ContractSpec {
             env_meta_base64 = Some(base64::encode(env_meta));
             let mut cursor = Cursor::new(env_meta);
             ScEnvMetaEntry::read_xdr_iter(&mut cursor)
-                .collect::<Result<Vec<_>, stelar_xdr::Error>>()?
+                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
         };
@@ -71,7 +71,7 @@ impl ContractSpec {
             meta_base64 = Some(base64::encode(meta));
             let mut cursor = Cursor::new(meta);
             ScMetaEntry::read_xdr_iter(&mut cursor)
-                .collect::<Result<Vec<_>, stelar_xdr::Error>>()?
+                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
         };
@@ -81,7 +81,7 @@ impl ContractSpec {
             spec_base64 = Some(base64::encode(spec));
             let mut cursor = Cursor::new(spec);
             ScSpecEntry::read_xdr_iter(&mut cursor)
-                .collect::<Result<Vec<_>, stelar_xdr::Error>>()?
+                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
         };

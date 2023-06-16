@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
 use std::str::FromStr;
 
 use itertools::Itertools;
@@ -13,8 +14,6 @@ use stellar_xdr::{
 };
 
 pub mod utils;
-
-// use crate::utils;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -1307,7 +1306,7 @@ impl Spec {
 mod tests {
     use super::*;
 
-    use soroban_env_host::stellar_xdr::ScSpecTypeBytesN;
+    use stellar_xdr::ScSpecTypeBytesN;
 
     #[test]
     fn from_json_primitives_bytesn() {
