@@ -78,12 +78,16 @@ jobs:
         include:
         - os: ubuntu-latest
           target: x86_64-unknown-linux-gnu
+          cargo-hack-feature-options: --feature-powerset
         - os: ubuntu-latest
           target: aarch64-unknown-linux-gnu
+          cargo-hack-feature-options: --feature-powerset
         - os: macos-latest
           target: x86_64-apple-darwin
+          cargo-hack-feature-options: --feature-powerset
         - os: macos-latest
           target: aarch64-apple-darwin
+          cargo-hack-feature-options: --feature-powerset
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: --features default
@@ -94,4 +98,4 @@ jobs:
     with:
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
-      cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options | '--feature-powerset' }}
+      cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options }}
