@@ -17,7 +17,6 @@ crate-type = ["rlib"]
 
 
 [dependencies]
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 stellar-strkey = { workspace = true }
 serde_json = { workspace = true }
@@ -26,12 +25,16 @@ ethnum = { workspace = true }
 hex = { workspace = true }
 wasmparser = { workspace = true }
 base64 = { workspace = true }
+thiserror = "1.0.31"
 # soroban-ledger-snapshot = { workspace = true }
 # soroban-sdk = { workspace = true }
 # sep5 = { workspace = true }
 
+[dependencies.stellar-xdr]
+workspace = true
+features = ["next", "std", "serde"]
 
-thiserror = "1.0.31"
+
 
 
 [dev-dependencies]

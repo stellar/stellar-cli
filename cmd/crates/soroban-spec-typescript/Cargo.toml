@@ -11,7 +11,6 @@ edition = "2021"
 rust-version = "1.70"
 
 [dependencies]
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 thiserror = "1.0.32"
 serde = "1.0.82"
@@ -23,6 +22,10 @@ include_dir = { version = "0.7.3", features = ["glob"] }
 heck = "0.4.1"
 itertools = { workspace = true }
 base64 = { workspace = true }
+
+[dependencies.stellar-xdr]
+workspace = true
+features = ["next", "std", "serde"]
 
 [dev_dependencies]
 temp-dir = "0.1.11"

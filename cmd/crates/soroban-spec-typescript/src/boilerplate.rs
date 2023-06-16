@@ -1,12 +1,12 @@
 #![allow(non_snake_case)]
 use heck::{ToLowerCamelCase, ToShoutySnakeCase};
 use include_dir::{include_dir, Dir};
-use soroban_env_host::xdr::ScSpecEntry;
 use std::{
     fs,
     io::Write,
     path::{Path, PathBuf},
 };
+use stellar_xdr::ScSpecEntry;
 
 use super::generate;
 

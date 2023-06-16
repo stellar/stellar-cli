@@ -5,9 +5,9 @@ use std::{
     io::{self, Cursor},
 };
 
-use soroban_env_host::xdr::{
-    self, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0,
-    ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM,
+use stellar_xdr::{
+    ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0, ScSpecUdtEnumV0,
+    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM,
 };
 
 pub struct ContractSpec {
@@ -32,7 +32,7 @@ pub enum Error {
         error: wasmparser::BinaryReaderError,
     },
     #[error("xdr processing error: {0}")]
-    Xdr(#[from] xdr::Error),
+    Xdr(#[from] stelar_xdr::Error),
 
     #[error(transparent)]
     Parser(#[from] wasmparser::BinaryReaderError),
@@ -60,7 +60,8 @@ impl ContractSpec {
         let env_meta = if let Some(env_meta) = env_meta {
             env_meta_base64 = Some(base64::encode(env_meta));
             let mut cursor = Cursor::new(env_meta);
-            ScEnvMetaEntry::read_xdr_iter(&mut cursor).collect::<Result<Vec<_>, xdr::Error>>()?
+            ScEnvMetaEntry::read_xdr_iter(&mut cursor)
+                .collect::<Result<Vec<_>, stelar_xdr::Error>>()?
         } else {
             vec![]
         };
@@ -69,7 +70,8 @@ impl ContractSpec {
         let meta = if let Some(meta) = meta {
             meta_base64 = Some(base64::encode(meta));
             let mut cursor = Cursor::new(meta);
-            ScMetaEntry::read_xdr_iter(&mut cursor).collect::<Result<Vec<_>, xdr::Error>>()?
+            ScMetaEntry::read_xdr_iter(&mut cursor)
+                .collect::<Result<Vec<_>, stelar_xdr::Error>>()?
         } else {
             vec![]
         };
@@ -78,7 +80,8 @@ impl ContractSpec {
         let spec = if let Some(spec) = spec {
             spec_base64 = Some(base64::encode(spec));
             let mut cursor = Cursor::new(spec);
-            ScSpecEntry::read_xdr_iter(&mut cursor).collect::<Result<Vec<_>, xdr::Error>>()?
+            ScSpecEntry::read_xdr_iter(&mut cursor)
+                .collect::<Result<Vec<_>, stelar_xdr::Error>>()?
         } else {
             vec![]
         };

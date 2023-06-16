@@ -4,7 +4,7 @@ use crate::types::{StructField, Type, UnionCase};
 use heck::ToLowerCamelCase;
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{self, ScSpecEntry};
+use stellar_xdr::ScSpecEntry;
 
 use types::Entry;
 
@@ -22,7 +22,7 @@ pub enum GenerateFromFileError {
     #[error("sha256 does not match, expected: {expected}")]
     VerifySha256 { expected: String },
     #[error("parsing contract spec: {0}")]
-    Parse(xdr::Error),
+    Parse(stellar_xdr::Error),
     #[error("getting contract spec: {0}")]
     GetSpec(FromWasmError),
 }
