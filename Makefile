@@ -99,5 +99,4 @@ lint:
 	golangci-lint run ./...
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes
-
+.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes build-snapshot
