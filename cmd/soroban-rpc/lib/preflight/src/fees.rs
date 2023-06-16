@@ -129,8 +129,8 @@ fn calculate_soroban_resources(
 
     // Add a 15% leeway with a minimum of 50k instructions
     let instructions = max(
-        budget.get_cpu_insns_count() + 50000,
-        budget.get_cpu_insns_count() * 115 / 100,
+        budget.get_cpu_insns_consumed() + 50000,
+        budget.get_cpu_insns_consumed() * 115 / 100,
     );
     Ok(SorobanResources {
         footprint: fp,

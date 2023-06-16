@@ -12,12 +12,10 @@ use soroban_env_host::budget::Budget;
 use soroban_env_host::events::Events;
 use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
-    AccountId, DiagnosticEvent, HostFunction, InvokeHostFunctionOp, ReadXdr, ScAddress, ScVal,
-    ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedInvocation,
-    SorobanCredentials, WriteXdr,
+    AccountId, DiagnosticEvent, InvokeHostFunctionOp, ReadXdr, ScVec, SorobanAddressCredentials,
+    SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
 };
 use soroban_env_host::{Host, LedgerInfo};
-use std::convert::TryInto;
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
