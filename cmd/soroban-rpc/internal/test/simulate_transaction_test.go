@@ -43,7 +43,7 @@ func getHelloWorldContract(t *testing.T) []byte {
 	return ret
 }
 
-func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
+func createInvokeHostOperation(sourceAccount string, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
 	var contractIDBytes = xdr.ScBytes(contractID[:])
 	methodSymbol := xdr.ScSymbol(method)
 	parameters := xdr.ScVec{
@@ -64,7 +64,6 @@ func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, con
 		},
 		Auth:          nil,
 		SourceAccount: sourceAccount,
-		Ext:           ext,
 	}
 }
 
@@ -355,7 +354,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInvokeHostOperation(
 				address,
-				xdr.TransactionExt{},
 				contractID,
 				"auth",
 				xdr.ScVal{
@@ -474,7 +472,7 @@ func TestSimulateTransactionError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.TransactionExt{}, xdr.Hash{}, "noMethod")
+	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.Hash{}, "noMethod")
 	invokeHostOp.HostFunction = xdr.HostFunction{
 		Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 		InvokeContract: &xdr.ScVec{},
