@@ -434,10 +434,13 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
 	assert.Equal(t, authAddrArg, obtainedAuth.Credentials.Address.Address.AccountId.Address())
 
-	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.RootInvocation.ContractId)
-	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.FunctionName)
-	assert.Len(t, obtainedAuth.RootInvocation.Args, 2)
-	world := obtainedAuth.RootInvocation.Args[1]
+	assert.Equal(t, xdr.SorobanCredentialsTypeSorobanCredentialsAddress, obtainedAuth.Credentials.Type)
+	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
+	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.Credentials.Address.Address.ContractId)
+	assert.Equal(t, xdr.SorobanAuthorizedFunctionTypeSorobanAuthorizedFunctionTypeContractFn, obtainedAuth.RootInvocation.Function.Type)
+	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.Function.ContractFn.FunctionName)
+	assert.Len(t, obtainedAuth.RootInvocation.Function.ContractFn.Args, 2)
+	world := obtainedAuth.RootInvocation.Function.ContractFn.Args[1]
 	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
@@ -472,7 +475,10 @@ func TestSimulateTransactionError(t *testing.T) {
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.TransactionExt{}, xdr.Hash{}, "noMethod")
-	invokeHostOp.Functions[0].Args.InvokeContract = &xdr.ScVec{}
+	invokeHostOp.HostFunction = xdr.HostFunction{
+		Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+		InvokeContract: &xdr.ScVec{},
+	}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
@@ -494,7 +500,6 @@ func TestSimulateTransactionError(t *testing.T) {
 	var result methods.SimulateTransactionResponse
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
 	assert.NoError(t, err)
-	assert.Empty(t, result.Results)
 	assert.Greater(t, result.LatestLedger, int64(0))
 	assert.Contains(t, result.Error, "InputArgsWrongLength")
 }

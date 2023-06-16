@@ -78,15 +78,13 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	invokeHostFunctionResult, ok := opResults[0].MustTr().GetInvokeHostFunctionResult()
 	assert.True(t, ok)
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
-	assert.NotNil(t, invokeHostFunctionResult.Success)
-	resultVal := *invokeHostFunctionResult.Success
 	expectedContractID, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
 	assert.NoError(t, err)
 	contractIDBytes := xdr.ScBytes(expectedContractID)
-	expectedScVal := []xdr.ScVal{{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}}
-	assert.Equal(t, len(expectedScVal), len(resultVal))
-	assert.Equal(t, len(expectedScVal), int(1))
-	assert.True(t, expectedScVal[0].Equals(resultVal[0]))
+	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
+	var transactionMeta xdr.TransactionMeta
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &transactionMeta))
+	assert.True(t, expectedScVal.Equals(transactionMeta.V3.ReturnValue))
 
 	expectedResult := xdr.TransactionResult{
 		FeeCharged: 100,
@@ -98,8 +96,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 					Tr: &xdr.OperationResultTr{
 						Type: xdr.OperationTypeInvokeHostFunction,
 						InvokeHostFunctionResult: &xdr.InvokeHostFunctionResult{
-							Code:    xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess,
-							Success: &expectedScVal,
+							Code: xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess,
 						},
 					},
 				},
