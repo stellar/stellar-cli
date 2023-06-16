@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -78,9 +77,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	invokeHostFunctionResult, ok := opResults[0].MustTr().GetInvokeHostFunctionResult()
 	assert.True(t, ok)
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
-	expectedContractID, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
-	assert.NoError(t, err)
-	contractIDBytes := xdr.ScBytes(expectedContractID)
+	contractIDBytes := xdr.ScBytes(testContractId)
 	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
 	var transactionMeta xdr.TransactionMeta
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &transactionMeta))

@@ -501,7 +501,7 @@ func TestSimulateTransactionError(t *testing.T) {
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
 	assert.NoError(t, err)
 	assert.Greater(t, result.LatestLedger, int64(0))
-	assert.Contains(t, result.Error, "InputArgsWrongLength")
+	assert.Contains(t, result.Error, "UnexpectedSize")
 }
 
 func TestSimulateTransactionMultipleOperations(t *testing.T) {
