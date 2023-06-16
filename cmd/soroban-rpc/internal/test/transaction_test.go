@@ -82,9 +82,10 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	var transactionMeta xdr.TransactionMeta
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &transactionMeta))
 	assert.True(t, expectedScVal.Equals(transactionMeta.V3.ReturnValue))
-
+	var resultXdr xdr.TransactionResult
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
 	expectedResult := xdr.TransactionResult{
-		FeeCharged: 100,
+		FeeCharged: resultXdr.FeeCharged,
 		Result: xdr.TransactionResultResult{
 			Code: xdr.TransactionResultCodeTxSuccess,
 			Results: &[]xdr.OperationResult{
@@ -100,8 +101,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 			},
 		},
 	}
-	var resultXdr xdr.TransactionResult
-	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
+
 	// We cannot really predict the charged fee
 	expectedResult.FeeCharged = resultXdr.FeeCharged
 	assert.Equal(t, expectedResult, resultXdr)
