@@ -44,12 +44,14 @@ func getHelloWorldContract(t *testing.T) []byte {
 }
 
 func createInvokeHostOperation(sourceAccount string, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
-	var contractIDBytes = xdr.ScBytes(contractID[:])
 	methodSymbol := xdr.ScSymbol(method)
 	parameters := xdr.ScVec{
 		xdr.ScVal{
-			Type:  xdr.ScValTypeScvBytes,
-			Bytes: &contractIDBytes,
+			Type: xdr.ScValTypeScvAddress,
+			Address: &xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractID,
+			},
 		},
 		xdr.ScVal{
 			Type: xdr.ScValTypeScvSymbol,
@@ -434,7 +436,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	assert.Equal(t, xdr.SorobanCredentialsTypeSorobanCredentialsAddress, obtainedAuth.Credentials.Type)
 	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
-	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.Credentials.Address.Address.ContractId)
+	assert.Equal(t, authAddrArg, obtainedAuth.Credentials.Address.Address.AccountId.Address())
 	assert.Equal(t, xdr.SorobanAuthorizedFunctionTypeSorobanAuthorizedFunctionTypeContractFn, obtainedAuth.RootInvocation.Function.Type)
 	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.Function.ContractFn.FunctionName)
 	assert.Len(t, obtainedAuth.RootInvocation.Function.ContractFn.Args, 2)
@@ -444,7 +446,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 
 	// check the events
-	assert.Len(t, response.Events, 2)
+	assert.Len(t, response.Events, 1)
 	var event xdr.DiagnosticEvent
 	err = xdr.SafeUnmarshalBase64(response.Events[0], &event)
 	assert.NoError(t, err)
