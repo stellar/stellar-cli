@@ -90,4 +90,4 @@ jobs:
     with:
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
-      cargo-hack-feature-options: --feature-powerset --clean-per-run
+      cargo-hack-feature-options: --clean-per-run
