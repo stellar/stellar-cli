@@ -25,10 +25,10 @@ var (
 	testContract   = []byte("a contract")
 	testSalt       = sha256.Sum256([]byte("a1"))
 	testContractId = []byte{
-		234, 159, 203, 129, 174, 84, 162, 159,
-		107, 59, 242, 147, 132, 125, 63, 215,
-		233, 163, 105, 253, 28, 128, 172, 175,
-		236, 106, 189, 87, 19, 23, 224, 194,
+		16, 98, 83, 23, 8, 235, 211, 5,
+		62, 173, 70, 33, 7, 31, 219, 59,
+		180, 75, 106, 249, 139, 196, 156, 192,
+		113, 17, 184, 51, 142, 142, 94, 40,
 	}
 )
 
@@ -221,7 +221,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				CPUInstructions: result.Cost.CPUInstructions,
 				MemoryBytes:     result.Cost.MemoryBytes,
 			},
-			TransactionData: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MIAARueAAAAJAAAAGQAAACIAAAAAAAAABsAAAAA",
+			TransactionData: "AAAAAAAAAAEAAAAHEGJTFwjr0wU+rUYhBx/bO7RLavmLxJzAcRG4M46OXigAAQ/dAAAAJAAAAGQAAACIAAAAAAAAABsAAAAA",
 			MinResourceFee:  result.MinResourceFee,
 			XDR:             expectedXdr,
 			LatestLedger:    result.LatestLedger,
