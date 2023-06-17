@@ -1,7 +1,7 @@
 use std::{fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec::gen::typescript::{self, boilerplate::Project};
+use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 
 use crate::commands::config::{
     locator,

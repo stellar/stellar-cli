@@ -153,7 +153,7 @@ impl Cmd {
     async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {
         let network = self.config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
-            Some(h) => utils::padded_hex_from_str(h, 32)
+            Some(h) => soroban_spec_tools::utils::padded_hex_from_str(h, 32)
                 .map_err(|_| Error::CannotParseSalt { salt: h.clone() })?
                 .try_into()
                 .map_err(|_| Error::CannotParseSalt { salt: h.clone() })?,

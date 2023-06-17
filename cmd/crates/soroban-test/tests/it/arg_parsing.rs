@@ -1,21 +1,21 @@
 use crate::util::CUSTOM_TYPES;
 use serde_json::json;
-use soroban_cli::strval::{self, Spec};
 use soroban_env_host::xdr::{
     ScBytes, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScVal,
 };
+use soroban_spec_tools::{from_string_primitive, Spec};
 
 #[test]
 fn parse_bool() {
     println!(
         "{:#?}",
-        strval::from_string_primitive("true", &ScSpecTypeDef::Bool,).unwrap()
+        from_string_primitive("true", &ScSpecTypeDef::Bool,).unwrap()
     );
 }
 
 #[test]
 fn parse_null() {
-    let parsed = strval::from_string_primitive(
+    let parsed = from_string_primitive(
         "null",
         &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
             value_type: Box::new(ScSpecTypeDef::Bool),
@@ -32,7 +32,7 @@ fn parse_u32() {
     let res = &format!("{u32_}");
     println!(
         "{:#?}",
-        strval::from_string_primitive(res, &ScSpecTypeDef::U32,).unwrap()
+        from_string_primitive(res, &ScSpecTypeDef::U32,).unwrap()
     );
 }
 
@@ -42,7 +42,7 @@ fn parse_i32() {
     let res = &format!("{i32_}");
     println!(
         "{:#?}",
-        strval::from_string_primitive(res, &ScSpecTypeDef::I32,).unwrap()
+        from_string_primitive(res, &ScSpecTypeDef::I32,).unwrap()
     );
 }
 
@@ -52,7 +52,7 @@ fn parse_u64() {
     let res = &format!("{b}");
     println!(
         "{:#?}",
-        strval::from_string_primitive(res, &ScSpecTypeDef::U64,).unwrap()
+        from_string_primitive(res, &ScSpecTypeDef::U64,).unwrap()
     );
 }
 
@@ -62,7 +62,7 @@ fn parse_u128() {
     let res = &format!("{b}");
     println!(
         "{:#?}",
-        strval::from_string_primitive(res, &ScSpecTypeDef::U128,).unwrap()
+        from_string_primitive(res, &ScSpecTypeDef::U128,).unwrap()
     );
 }
 
@@ -72,7 +72,7 @@ fn parse_i128() {
     let res = &format!("{b}");
     println!(
         "{:#?}",
-        strval::from_string_primitive(res, &ScSpecTypeDef::I128,).unwrap()
+        from_string_primitive(res, &ScSpecTypeDef::I128,).unwrap()
     );
 }
 
@@ -84,13 +84,13 @@ fn parse_i256() {
     entries.from_string(res, &ScSpecTypeDef::I256).unwrap();
     println!(
         "{:#?}",
-        strval::from_string_primitive(res, &ScSpecTypeDef::I256,).unwrap()
+        from_string_primitive(res, &ScSpecTypeDef::I256,).unwrap()
     );
 }
 
 #[test]
 fn parse_bytes() {
-    let b = strval::from_string_primitive(r#"beefface"#, &ScSpecTypeDef::Bytes).unwrap();
+    let b = from_string_primitive(r#"beefface"#, &ScSpecTypeDef::Bytes).unwrap();
     assert_eq!(
         b,
         ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
@@ -100,7 +100,7 @@ fn parse_bytes() {
 
 #[test]
 fn parse_bytes_when_hex_is_all_numbers() {
-    let b = strval::from_string_primitive(r#"4554"#, &ScSpecTypeDef::Bytes).unwrap();
+    let b = from_string_primitive(r#"4554"#, &ScSpecTypeDef::Bytes).unwrap();
     assert_eq!(
         b,
         ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
@@ -110,7 +110,7 @@ fn parse_bytes_when_hex_is_all_numbers() {
 
 #[test]
 fn parse_bytesn() {
-    let b = strval::from_string_primitive(
+    let b = from_string_primitive(
         r#"beefface"#,
         &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 4 }),
     )
@@ -124,9 +124,8 @@ fn parse_bytesn() {
 
 #[test]
 fn parse_bytesn_when_hex_is_all_numbers() {
-    let b =
-        strval::from_string_primitive(r#"4554"#, &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 2 }))
-            .unwrap();
+    let b = from_string_primitive(r#"4554"#, &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 2 }))
+        .unwrap();
     assert_eq!(
         b,
         ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
@@ -141,7 +140,7 @@ fn parse_symbol() {
     // println!("{res}");
     println!(
         "{:#?}",
-        strval::from_string_primitive(r#""hello""#, &ScSpecTypeDef::Symbol).unwrap()
+        from_string_primitive(r#""hello""#, &ScSpecTypeDef::Symbol).unwrap()
     );
 }
 
@@ -152,13 +151,13 @@ fn parse_symbol_with_no_quotation_marks() {
     // println!("{res}");
     println!(
         "{:#?}",
-        strval::from_string_primitive("hello", &ScSpecTypeDef::Symbol).unwrap()
+        from_string_primitive("hello", &ScSpecTypeDef::Symbol).unwrap()
     );
 }
 
 #[test]
 fn parse_optional_symbol_with_no_quotation_marks() {
-    let parsed = strval::from_string_primitive(
+    let parsed = from_string_primitive(
         "hello",
         &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
             value_type: Box::new(ScSpecTypeDef::Symbol),
@@ -171,7 +170,7 @@ fn parse_optional_symbol_with_no_quotation_marks() {
 
 #[test]
 fn parse_optional_bool_with_no_quotation_marks() {
-    let parsed = strval::from_string_primitive(
+    let parsed = from_string_primitive(
         "true",
         &ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
             value_type: Box::new(ScSpecTypeDef::Bool),
