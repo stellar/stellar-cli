@@ -86,7 +86,7 @@ jobs:
           target: aarch64-apple-darwin
 #       - os: windows-latest
 #         target: x86_64-pc-windows-msvc
-    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@autosuggestible-semitechnical
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@60d8b0c0df22dab9563c4c9716b2e2ddd14324b5
     with:
       crates: soroban-spec-tools soroban-spec-json soroban-spec-typescript soroban-test soroban-cli
       runs-on: ${{ matrix.os }}
