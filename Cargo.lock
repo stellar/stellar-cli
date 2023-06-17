@@ -2287,7 +2287,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "0.8.0"
+version = "0.8.5"
 dependencies = [
  "base64 0.13.1",
  "ethnum",
