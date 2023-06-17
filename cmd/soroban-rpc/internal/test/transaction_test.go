@@ -94,7 +94,8 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 					Tr: &xdr.OperationResultTr{
 						Type: xdr.OperationTypeInvokeHostFunction,
 						InvokeHostFunctionResult: &xdr.InvokeHostFunctionResult{
-							Code: xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess,
+							Code:    xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess,
+							Success: (*resultXdr.Result.Results)[0].Tr.InvokeHostFunctionResult.Success,
 						},
 					},
 				},
@@ -102,8 +103,6 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 		},
 	}
 
-	// We cannot really predict the charged fee
-	expectedResult.FeeCharged = resultXdr.FeeCharged
 	assert.Equal(t, expectedResult, resultXdr)
 }
 
