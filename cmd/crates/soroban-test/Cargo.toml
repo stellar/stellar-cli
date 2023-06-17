@@ -23,6 +23,7 @@ soroban-env-host = { workspace = true, features = [
     "hostfn_log_fmt_values",
 ] }
 soroban-spec = { workspace = true }
+soroban-spec-tools = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }

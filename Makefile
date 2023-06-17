@@ -50,6 +50,9 @@ install: install_rust build-libpreflight
 build_rust: Cargo.lock
 	cargo build
 
+build-snapshot:
+	cargo test --package soroban-spec-typescript --lib -- boilerplate::test::build_package --exact --nocapture --ignored
+
 build: build_rust build-libpreflight
 	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
 
@@ -96,4 +99,4 @@ lint:
 	golangci-lint run ./...
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes
+.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes build-snapshot
