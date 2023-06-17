@@ -90,25 +90,15 @@ jobs:
           cargo-hack-feature-options: --feature-powerset
         # Windows builds notes:
         #
-        # Recently the publish-dry-run for windows started failing. This has
-        # actually been a long running issue
-        # https://github.com/brson/wasm-opt-rs/issues/116 where repeated builds
-        # can't remove a file on windows between each build.
+        # The different features that need testing are split over unique
+        # isolated builds for Windows, because there's a bug in Cargo [1] that
+        # causes builds of wasm-opt [2] to fail when run one after the other and
+        # attempting to clean up artifacts in between. The bug has been fixed,
+        # but will not make it into a stable release of Cargo until ~August
+        # 2023.
         #
-        # This only recently became an issue for us because in
-        # https://github.com/stellar/soroban-tools/pull/672 we made wasm-opt
-        # part of an optional feature, and that was the first time we ever had a
-        # windows build (the publish-dry-run job) where multiple builds occurred
-        # on the same instance. It was our first feature in soroban-cli leading
-        # to the first multi-build run.
-        #
-        # A fix has been merged to cargo in
-        # https://github.com/rust-lang/cargo/pull/11442.
-        #
-        # In 2-3 months a version of cargo should ship that has the fix.
-        #
-        # Until then we can simply run our windows builds with each feature set
-        # getting its own isolated and fresh instance.
+        # [1]: https://github.com/rust-lang/cargo/pull/11442
+        # [2]: https://github.com/brson/wasm-opt-rs/issues/116
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: ''
