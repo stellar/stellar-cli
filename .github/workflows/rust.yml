@@ -71,7 +71,7 @@ jobs:
           cargo test --target ${{ matrix.target }} --manifest-path $I/Cargo.toml
         done
   publish-dry-run:
-    # if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
