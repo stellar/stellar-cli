@@ -25,9 +25,11 @@ rev = "7d143e425b690f2981ae804ce249462d98a68b0d"
 # path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-spec-typescript]
+version = "0.8.5"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
+version = "0.8.5"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
