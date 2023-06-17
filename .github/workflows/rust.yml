@@ -90,7 +90,7 @@ jobs:
           cargo-hack-feature-options: --feature-powerset
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
-          cargo-hack-feature-options:
+          cargo-hack-feature-options: ''
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: --features opt --ignore-unknown-features
