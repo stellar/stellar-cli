@@ -2,11 +2,10 @@
     "version": "0.0.0",
     "name": "INSERT_CONTRACT_NAME_HERE",
     "dependencies": {
-        "@stellar/freighter-api": "1.4.0",
+        "@stellar/freighter-api": "1.5.0",
         "buffer": "6.0.3",
-        "soroban-client": "0.8.0",
-        "bigint-conversion": "2.4.1",
-        "stellar-base": "9.0.0-soroban.3"
+        "soroban-client": "0.8.1",
+        "bigint-conversion": "2.4.1"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
