@@ -2,7 +2,8 @@ import freighter from "@stellar/freighter-api";
 // working around ESM compatibility issues
 const {
   isConnected,
-  getPublicKey,
+  isAllowed,
+  getUserInfo,
   signTransaction,
 } = freighter;
 import * as SorobanClient from 'soroban-client'
@@ -25,17 +26,15 @@ export type InvokeArgs = {
 
 /**
  * Get account details from the Soroban network for the publicKey currently
- * selected in Freighter. If not connected to Freighter, throws errors. Will
- * pop up Freighter's modal to request user permissions, if this hasn't been
- * done already.
+ * selected in Freighter. If not connected to Freighter, return null.
  */
-export async function getAccount(): Promise<Account> {
-  if (!await isConnected()) {
-    throw new Error('Freighter not connected')
+async function getAccount(): Promise<Account | null> {
+  if (!await isConnected() || !await isAllowed()) {
+    return null
   }
-  const publicKey = await getPublicKey()
+  const { publicKey } = await getUserInfo()
   if (!publicKey) {
-    throw new Error('Freighter not initialized')
+    return null
   }
   return await Server.getAccount(publicKey)
 }
@@ -54,7 +53,10 @@ export class NotImplementedError extends Error { }
  * @returns The transaction response, or the simulation result if signing isn't required.
  */
 export async function invoke({ method, args = [], fee = 100, signAndSend = false }: InvokeArgs): Promise<(TxResponse & { xdr: string }) | Simulation> {
-  const account = await getAccount()
+  const freighterAccount = await getAccount()
+
+  // use a placeholder account if not yet connected to Freighter so that view calls can still work
+  const account = freighterAccount ?? new SorobanClient.Account('GBZXP4PWQLOTBL3P6OE6DQ7QXNYDAZMWQG27V7ATM7P3TKSRDLQS4V7Q', '0')
 
   const contract = new SorobanClient.Contract(CONTRACT_ID)
 
@@ -77,6 +79,10 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
       throw new Error(`Invalid response from simulateTransaction:\n{simulated}`)
     }
     return results[0]
+  }
+
+  if (!freighterAccount) {
+    throw new Error('Not connected to Freighter')
   }
 
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.

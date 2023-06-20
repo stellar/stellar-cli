@@ -50,6 +50,7 @@ install: install_rust build-libpreflight
 build_rust: Cargo.lock
 	cargo build
 
+# regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
 build-snapshot:
 	cargo test --package soroban-spec-typescript --lib -- boilerplate::test::build_package --exact --nocapture --ignored
 
