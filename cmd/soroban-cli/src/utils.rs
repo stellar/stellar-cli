@@ -1,7 +1,6 @@
 use std::{io::ErrorKind, path::Path};
 
 use ed25519_dalek::Signer;
-use hex::FromHexError;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::UploadContractWasmArgs;
 use soroban_env_host::{
@@ -115,19 +114,6 @@ pub fn add_contract_to_ledger_entries(
 /// # Errors
 ///
 /// Might return an error
-pub fn padded_hex_from_str(s: &str, n: usize) -> Result<Vec<u8>, FromHexError> {
-    if s.len() > n * 2 {
-        return Err(FromHexError::InvalidStringLength);
-    }
-    let mut decoded = vec![0u8; n];
-    let padded = format!("{s:0>width$}", width = n * 2);
-    hex::decode_to_slice(padded, &mut decoded)?;
-    Ok(decoded)
-}
-
-/// # Errors
-///
-/// Might return an error
 pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u8; 32], XdrError> {
     let signature_payload = TransactionSignaturePayload {
         network_id: Hash(Sha256::digest(network_passphrase).into()),
@@ -166,7 +152,7 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
         .map(|strkey| strkey.0)
         .or_else(|_| {
             // strkey failed, try to parse it as a hex string, for backwards compatibility.
-            padded_hex_from_str(contract_id, 32)
+            soroban_spec_tools::utils::padded_hex_from_str(contract_id, 32)
                 .map_err(|_| stellar_strkey::DecodeError::Invalid)?
                 .try_into()
                 .map_err(|_| stellar_strkey::DecodeError::Invalid)

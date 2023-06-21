@@ -33,10 +33,10 @@ use super::super::{
 use crate::{
     commands::HEADING_SANDBOX,
     rpc::{self, Client},
-    strval::{self, Spec},
     utils::{self, contract_spec, create_ledger_footprint, default_account_ledger_entry},
     Pwd,
 };
+use soroban_spec_tools::Spec;
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -89,7 +89,10 @@ impl Pwd for Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("parsing argument {arg}: {error}")]
-    CannotParseArg { arg: String, error: strval::Error },
+    CannotParseArg {
+        arg: String,
+        error: soroban_spec_tools::Error,
+    },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(XdrError),
     #[error(transparent)]
@@ -115,7 +118,10 @@ pub enum Error {
     #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult { result: ScVal, error: strval::Error },
+    CannotPrintResult {
+        result: ScVal,
+        error: soroban_spec_tools::Error,
+    },
     #[error(transparent)]
     Xdr(#[from] XdrError),
     #[error("error parsing int: {0}")]
@@ -129,7 +135,7 @@ pub enum Error {
     #[error("missing result")]
     MissingResult,
     #[error(transparent)]
-    StrVal(#[from] strval::Error),
+    StrVal(#[from] soroban_spec_tools::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error("unexpected ({length}) simulate transaction result length")]

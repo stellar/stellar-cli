@@ -1,19 +1,19 @@
+#![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
 use std::str::FromStr;
 
 use itertools::Itertools;
 use serde_json::{json, Value};
-
-use soroban_env_host::xdr::{
-    self, AccountId, BytesM, Error as XdrError, Hash, Int128Parts, Int256Parts, PublicKey,
-    ScAddress, ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
-    ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
-    ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
-    ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
-    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
+use stellar_xdr::{
+    AccountId, BytesM, Error as XdrError, Hash, Int128Parts, Int256Parts, PublicKey, ScAddress,
+    ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0,
+    ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet,
+    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
+    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
+    UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
-use crate::utils;
+pub mod utils;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -56,10 +56,39 @@ pub enum Error {
     Infallible(#[from] std::convert::Infallible),
     #[error("Missing Error case {0}")]
     MissingErrorCase(u32),
+    #[error(transparent)]
+    Spec(#[from] soroban_spec::read::FromWasmError),
+    #[error(transparent)]
+    Base64Spec(#[from] soroban_spec::read::ParseSpecBase64Error),
 }
 
 #[derive(Default, Clone)]
 pub struct Spec(pub Option<Vec<ScSpecEntry>>);
+
+impl TryInto<Spec> for &[u8] {
+    type Error = soroban_spec::read::FromWasmError;
+
+    fn try_into(self) -> Result<Spec, Self::Error> {
+        let spec = soroban_spec::read::from_wasm(self)?;
+        Ok(Spec::new(spec))
+    }
+}
+
+impl Spec {
+    pub fn new(entries: Vec<ScSpecEntry>) -> Self {
+        Self(Some(entries))
+    }
+
+    pub fn from_wasm(wasm: &[u8]) -> Result<Spec, Error> {
+        let spec = soroban_spec::read::from_wasm(wasm)?;
+        Ok(Spec::new(spec))
+    }
+
+    pub fn parse_base64(base64: &str) -> Result<Spec, Error> {
+        let spec = soroban_spec::read::parse_base64(base64.as_bytes())?;
+        Ok(Spec::new(spec))
+    }
+}
 
 impl Spec {
     /// # Errors
@@ -1111,10 +1140,11 @@ impl Spec {
             .iter()
             .map(|f| {
                 Some(match f {
-                    xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
-                        name, ..
+                    stellar_xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                        name,
+                        ..
                     }) => name.to_string_lossy(),
-                    xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                    stellar_xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                         name,
                         type_,
                         ..
@@ -1252,11 +1282,13 @@ impl Spec {
     fn example_union(&self, union: &ScSpecUdtUnionV0) -> Option<String> {
         let case = union.cases.iter().next()?;
         let res = match case {
-            xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 { name, .. }) => {
-                name.to_string_lossy()
-            }
-            xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
-                name, type_, ..
+            stellar_xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                name, ..
+            }) => name.to_string_lossy(),
+            stellar_xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                name,
+                type_,
+                ..
             }) => {
                 let names = type_
                     .iter()
@@ -1274,7 +1306,7 @@ impl Spec {
 mod tests {
     use super::*;
 
-    use soroban_env_host::xdr::ScSpecTypeBytesN;
+    use stellar_xdr::ScSpecTypeBytesN;
 
     #[test]
     fn from_json_primitives_bytesn() {
