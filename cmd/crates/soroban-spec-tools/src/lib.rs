@@ -109,7 +109,7 @@ impl Spec {
             | ScType::Tuple(_)
             | ScType::BytesN(_)
             | ScType::Symbol
-            | ScType::Status
+            | ScType::Error
             | ScType::Bytes
             | ScType::Void
             | ScType::Timepoint
@@ -517,7 +517,7 @@ impl Spec {
                 self.sc_object_to_json(val, type_)?
             }
 
-            (ScVal::Status(_), ScType::Status) => todo!(),
+            (ScVal::Error(_), ScType::Error) => todo!(),
             (v, typed) => todo!("{v:#?} doesn't have a matching {typed:#?}"),
         })
     }
@@ -1004,7 +1004,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
         ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
         ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => Value::Number(serde_json::Number::from(*nonce)),
-        ScVal::Status(s) => serde_json::to_value(s)?,
+        ScVal::Error(e) => serde_json::to_value(e)?,
         ScVal::StorageType(ContractDataType::Temporary) => Value::String("temporary".to_string()),
         ScVal::StorageType(ContractDataType::Persistent) => Value::String("persistent".to_string()),
     };
@@ -1055,7 +1055,7 @@ impl Spec {
             ScType::I32 => Some("i32".to_string()),
             ScType::Bool => Some("bool".to_string()),
             ScType::Symbol => Some("Symbol".to_string()),
-            ScType::Status => Some("Status".to_string()),
+            ScType::Error => Some("Error".to_string()),
             ScType::Bytes => Some("hex_bytes".to_string()),
             ScType::Address => Some("Address".to_string()),
             ScType::Void => Some("Null".to_string()),
@@ -1187,7 +1187,7 @@ impl Spec {
             ScType::I32 => Some("-1".to_string()),
             ScType::Bool => Some("true".to_string()),
             ScType::Symbol => Some("\"hello\"".to_string()),
-            ScType::Status => Some("Status".to_string()),
+            ScType::Error => Some("Error".to_string()),
             ScType::Bytes => Some("\"beefface123\"".to_string()),
             ScType::Address => {
                 Some("\"GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4\"".to_string())
