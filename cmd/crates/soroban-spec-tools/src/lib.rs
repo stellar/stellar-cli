@@ -9,7 +9,7 @@ use stellar_xdr::{
     ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet,
     ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
     ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
-    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
+    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, ContractDataType,
     UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
@@ -1005,6 +1005,8 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
         ScVal::LedgerKeyNonce(ScNonceKey { nonce_address }) => sc_address_to_json(nonce_address),
         ScVal::Status(s) => serde_json::to_value(s)?,
+        ScVal::StorageType(ContractDataType::Temporary) => Value::String("temporary".to_string()),
+        ScVal::StorageType(ContractDataType::Persistent) => Value::String("persistent".to_string()),
     };
     Ok(val)
 }
