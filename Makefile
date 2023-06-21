@@ -50,12 +50,14 @@ install: install_rust build-libpreflight
 build_rust: Cargo.lock
 	cargo build
 
+build_go: build-libpreflight
+	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
+
 # regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
 build-snapshot:
 	cargo test --package soroban-spec-typescript --lib -- boilerplate::test::build_package --exact --nocapture --ignored
 
-build: build_rust build-libpreflight
-	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
+build: build_rust build_go
 
 build-libpreflight: Cargo.lock
 	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind

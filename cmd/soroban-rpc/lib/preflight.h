@@ -9,6 +9,8 @@ typedef struct CLedgerInfo {
   uint64_t timestamp;
   const char *network_passphrase;
   uint32_t base_reserve;
+  uint32_t min_temp_entry_expiration;
+  uint32_t min_persistent_entry_expiration;
 } CLedgerInfo;
 
 typedef struct CPreflightResult {

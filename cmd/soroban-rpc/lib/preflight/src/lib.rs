@@ -29,6 +29,8 @@ pub struct CLedgerInfo {
     pub timestamp: u64,
     pub network_passphrase: *const libc::c_char,
     pub base_reserve: u32,
+    pub min_temp_entry_expiration: u32,
+    pub min_persistent_entry_expiration: u32,
 }
 
 impl From<CLedgerInfo> for LedgerInfo {
@@ -40,6 +42,8 @@ impl From<CLedgerInfo> for LedgerInfo {
             timestamp: c.timestamp,
             network_id: Sha256::digest(network_passphrase_cstr.to_str().unwrap().as_bytes()).into(),
             base_reserve: c.base_reserve,
+            min_temp_entry_expiration: c.min_temp_entry_expiration,
+            min_persistent_entry_expiration: c.min_persistent_entry_expiration,
         }
     }
 }
@@ -128,7 +132,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let auths = host.get_recorded_auth_payloads()?;
 
     // Recover, convert and return the storage footprint and other values to C.
-    let (storage, budget, events) = host.try_finish().unwrap();
+    let (storage, budget, events, _expiration_ledger_bumps) = host.try_finish().unwrap();
 
     let diagnostic_events = host_events_to_diagnostic_events(&events);
     let (transaction_data, min_fee) = fees::compute_transaction_data_and_min_fee(
@@ -170,13 +174,16 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthori
     match (payload.address.clone(), payload.nonce) {
         (Some(address), Some(nonce)) =>
         SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
-                                                         address: address,
-                                                         nonce: nonce,
-                                                         // signature_args is left empty. This is where the client will put their signatures when
-                                                         // submitting the transaction.
-                                                         signature_args: ScVec::default(),
-                                                     }),
+            credentials: SorobanCredentials::Address(
+                SorobanAddressCredentials {
+                    address,
+                    nonce,
+                    // signature_args is left empty. This is where the client will put their signatures when
+                    // submitting the transaction.
+                    signature_expiration_ledger: 0,
+                    signature_args: ScVec::default(),
+                }
+            ),
             root_invocation: payload.invocation.clone(),
         },
         (None, None) =>         SorobanAuthorizationEntry {

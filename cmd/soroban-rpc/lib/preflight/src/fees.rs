@@ -170,31 +170,31 @@ fn get_fee_configuration(
     //          same time as the DB, ensuring they are always in memory).
     //
 
-    let ConfigSettingEntry::ComputeV0(compute) = get_configuration_setting(ledger_storage, ConfigSettingId::ComputeV0)? else {
+    let ConfigSettingEntry::ContractComputeV0(compute) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractComputeV0)? else {
             return Err(
                 "get_fee_configuration(): unexpected config setting entry for ComputeV0 key".into(),
             );
         };
 
-    let ConfigSettingEntry::LedgerCostV0(ledger_cost) = get_configuration_setting(ledger_storage, ConfigSettingId::LedgerCostV0)? else {
+    let ConfigSettingEntry::ContractLedgerCostV0(ledger_cost) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractLedgerCostV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for LedgerCostV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::HistoricalDataV0(historical_data) = get_configuration_setting(ledger_storage, ConfigSettingId::HistoricalDataV0)? else {
+    let ConfigSettingEntry::ContractHistoricalDataV0(historical_data) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractHistoricalDataV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for HistoricalDataV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::MetaDataV0(metadata) = get_configuration_setting(ledger_storage, ConfigSettingId::MetaDataV0)? else {
+    let ConfigSettingEntry::ContractMetaDataV0(metadata) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractMetaDataV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for MetaDataV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::BandwidthV0(bandwidth) = get_configuration_setting(ledger_storage, ConfigSettingId::BandwidthV0)? else {
+    let ConfigSettingEntry::ContractBandwidthV0(bandwidth) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractBandwidthV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for BandwidthV0 key".into(),
         );

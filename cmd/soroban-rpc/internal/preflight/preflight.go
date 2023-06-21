@@ -144,6 +144,9 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
 		base_reserve: 5_000_000,
+		// TODO: Populate these from the ConfigSettings we have
+		min_temp_entry_expiration:       0,
+		min_persistent_entry_expiration: 0,
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)
