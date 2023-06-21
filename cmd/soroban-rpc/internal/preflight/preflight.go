@@ -137,16 +137,33 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	if err != nil {
 		return Preflight{}, err
 	}
+
+	hasConfig, stateExpirationConfig, err := params.LedgerEntryReadTx.GetLedgerEntry(xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeConfigSetting,
+		ConfigSetting: &xdr.LedgerKeyConfigSetting{
+			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
+		},
+	})
+	if err != nil {
+		return Preflight{}, err
+	}
+	minTempEntryExpiration := uint32(0)
+	minPersistentEntryExpiration := uint32(0)
+	if hasConfig {
+		setting := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
+		minTempEntryExpiration = uint32(setting.MinTempEntryExpiration)
+		minPersistentEntryExpiration = uint32(setting.MinRestorableEntryExpiration)
+	}
+
 	li := C.CLedgerInfo{
 		network_passphrase: C.CString(params.NetworkPassphrase),
 		sequence_number:    C.uint(latestLedger),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
-		base_reserve: 5_000_000,
-		// TODO: Populate these from the ConfigSettings we have
-		min_temp_entry_expiration:       0,
-		min_persistent_entry_expiration: 0,
+		base_reserve:                    5_000_000,
+		min_temp_entry_expiration:       C.uint(minTempEntryExpiration),
+		min_persistent_entry_expiration: C.uint(minPersistentEntryExpiration),
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)
