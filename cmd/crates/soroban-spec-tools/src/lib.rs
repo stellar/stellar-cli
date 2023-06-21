@@ -1003,7 +1003,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         }
         ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
         ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
-        ScVal::LedgerKeyNonce(ScNonceKey { nonce_address }) => sc_address_to_json(nonce_address),
+        ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => Value::Number(serde_json::Number::from(*nonce)),
         ScVal::Status(s) => serde_json::to_value(s)?,
         ScVal::StorageType(ContractDataType::Temporary) => Value::String("temporary".to_string()),
         ScVal::StorageType(ContractDataType::Persistent) => Value::String("persistent".to_string()),
