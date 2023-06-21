@@ -2,15 +2,14 @@ use std::{io::ErrorKind, path::Path};
 
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::UploadContractWasmArgs;
 use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
     xdr::{
-        AccountEntry, AccountEntryExt, AccountId, ContractCodeEntry, ContractDataEntry,
+        AccountEntry, AccountEntryExt, AccountId, BytesM, ContractCodeEntry, ContractDataEntry,ContractLedgerEntryType,ContractDataType, ContractDataEntryBody, ContractDataEntryData,ContractCodeEntryBody,
         DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryData,
         LedgerEntryExt, LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData,
-        ScContractExecutable, ScSpecEntry, ScVal, SequenceNumber, Signature, SignatureHint,
+        ScAddress, ScContractExecutable, ScSpecEntry, ScVal, SequenceNumber, Signature, SignatureHint,
         String32, Thresholds, Transaction, TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
@@ -28,10 +27,8 @@ pub mod contract_spec;
 ///
 /// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
-    let args_xdr = UploadContractWasmArgs {
-        code: contract.try_into()?,
-    }
-    .to_xdr()?;
+    let args_bytes: BytesM = contract.try_into()?;
+    let args_xdr = args_bytes.to_xdr()?;
     Ok(Hash(Sha256::digest(args_xdr).into()))
 }
 
@@ -62,13 +59,18 @@ pub fn add_contract_code_to_ledger_entries(
 ) -> Result<Hash, XdrError> {
     // Install the code
     let hash = contract_hash(contract.as_slice())?;
-    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() });
+    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode {
+        hash: hash.clone(),
+        le_type: ContractLedgerEntryType::DataEntry,
+    });
     let code_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractCode(ContractCodeEntry {
-            code: contract.try_into()?,
             ext: ExtensionPoint::V0,
             hash: hash.clone(),
+            body: ContractCodeEntryBody::DataEntry(contract.try_into()?),
+            // TODO: Figure this out
+            expiration_ledger_seq: 0,
         }),
         ext: LedgerEntryExt::V0,
     };
@@ -89,16 +91,26 @@ pub fn add_contract_to_ledger_entries(
 ) {
     // Create the contract
     let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: contract_id.into(),
+        contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::LedgerKeyContractExecutable,
+        type_: ContractDataType::Persistent,
+        le_type: ContractLedgerEntryType::DataEntry,
     });
 
     let contract_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractData(ContractDataEntry {
-            contract_id: contract_id.into(),
+            contract: ScAddress::Contract(contract_id.into()),
             key: ScVal::LedgerKeyContractExecutable,
-            val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(Hash(wasm_hash))),
+            type_: ContractDataType::Persistent,
+            body: ContractDataEntryBody::DataEntry(
+                    ContractDataEntryData{
+                        flags: 0,
+                        val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(Hash(wasm_hash))),
+                    }
+            ),
+            // TODO: Figure out what this should be.
+            expiration_ledger_seq: 0,
         }),
         ext: LedgerEntryExt::V0,
     };
@@ -168,15 +180,23 @@ pub fn get_contract_spec_from_storage(
     contract_id: [u8; 32],
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: contract_id.into(),
+        contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::LedgerKeyContractExecutable,
+        le_type: ContractLedgerEntryType::DataEntry,
+        type_: ContractDataType::Persistent,
     });
     match storage.get(&key.into(), &Budget::default()) {
         Ok(rc) => match rc.as_ref() {
+            // TODO: Handle expired ledger entries here.
             LedgerEntry {
                 data:
                     LedgerEntryData::ContractData(ContractDataEntry {
-                        val: ScVal::ContractExecutable(c),
+                        body: ContractDataEntryBody::DataEntry(
+                            ContractDataEntryData{
+                                val: ScVal::ContractExecutable(c),
+                                ..
+                            }
+                        ),
                         ..
                     }),
                 ..
@@ -187,13 +207,19 @@ pub fn get_contract_spec_from_storage(
                 }
                 ScContractExecutable::WasmRef(hash) => {
                     if let Ok(rc) = storage.get(
-                        &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() })
-                            .into(),
+                        &LedgerKey::ContractCode(LedgerKeyContractCode {
+                                hash: hash.clone(),
+                                le_type: ContractLedgerEntryType::DataEntry,
+                            }).into(),
                         &Budget::default(),
                     ) {
+                        // TODO: Handle expired ledger entries here.
                         match rc.as_ref() {
                             LedgerEntry {
-                                data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
+                                data: LedgerEntryData::ContractCode(ContractCodeEntry {
+                                    body: ContractCodeEntryBody::DataEntry(code),
+                                    ..
+                                }),
                                 ..
                             } => soroban_spec::read::from_wasm(code.as_vec()),
                             _ => Err(FromWasmError::NotFound),
