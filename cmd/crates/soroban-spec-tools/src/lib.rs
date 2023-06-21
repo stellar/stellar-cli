@@ -525,9 +525,9 @@ impl Spec {
     /// # Errors
     ///
     /// Might return an error
-    pub fn vec_m_to_json(
+    pub fn vec_m_to_json<const MAX: u32>(
         &self,
-        vec_m: &VecM<ScVal, 256_000>,
+        vec_m: &VecM<ScVal, MAX>,
         type_: &ScType,
     ) -> Result<Value, Error> {
         Ok(Value::Array(
@@ -862,7 +862,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                         .map_err(|_| Error::InvalidValue(Some(t.clone())))
                 })
                 .collect();
-            let converted: BytesM<256_000_u32> = b?.try_into().map_err(Error::Xdr)?;
+            let converted: BytesM<{ u32::MAX }> = b?.try_into().map_err(Error::Xdr)?;
             ScVal::Bytes(ScBytes(converted))
         }
 
