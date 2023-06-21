@@ -15,9 +15,7 @@ func expectedTransaction(ledger uint32, feeBump bool) Transaction {
 		Meta: xdr.TransactionMeta{
 			V:          3,
 			Operations: &[]xdr.OperationMeta{},
-			V3: &xdr.TransactionMetaV3{
-				TxResult: transactionResult(ledger, feeBump),
-			},
+			V3:         &xdr.TransactionMetaV3{},
 		},
 		Envelope:         txEnvelope(ledger, feeBump),
 		FeeBump:          feeBump,
@@ -83,17 +81,16 @@ func transactionResult(ledgerSequence uint32, feeBump bool) xdr.TransactionResul
 func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
 	envelope := txEnvelope(ledgerSequence, feeBump)
 
-	txProcessing := []xdr.TransactionResultMetaV2{
+	txProcessing := []xdr.TransactionResultMeta{
 		{
 			TxApplyProcessing: xdr.TransactionMeta{
 				V:          3,
 				Operations: &[]xdr.OperationMeta{},
-				V3: &xdr.TransactionMetaV3{
-					TxResult: transactionResult(ledgerSequence, feeBump),
-				},
+				V3:         &xdr.TransactionMetaV3{},
 			},
-			Result: xdr.TransactionResultPairV2{
+			Result: xdr.TransactionResultPair{
 				TransactionHash: txHash(ledgerSequence, feeBump),
+				Result:          transactionResult(ledgerSequence, feeBump),
 			},
 		},
 	}
