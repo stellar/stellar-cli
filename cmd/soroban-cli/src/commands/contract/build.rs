@@ -4,6 +4,8 @@ use std::{
     collections::HashSet,
     ffi::OsStr,
     fmt::Debug,
+    fs, io,
+    path::Path,
     process::{Command, ExitStatus, Stdio},
 };
 
@@ -25,7 +27,7 @@ pub struct Cmd {
     pub manifest_path: std::path::PathBuf,
     /// Package to build
     ///
-    /// If omitted, all packages that build for crate-type cdylib are built
+    /// If omitted, all packages that build for crate-type cdylib are built.
     #[arg(long)]
     pub package: Option<String>,
     /// Build with the specified profile
@@ -44,6 +46,14 @@ pub struct Cmd {
     /// Build with the default feature not activated
     #[arg(long)]
     pub no_default_features: bool,
+    /// Directory to copy wasm files to
+    ///
+    /// If provided, wasm files can be found in the cargo target directory, and
+    /// the specified directory.
+    ///
+    /// If ommitted, wasm files are written only to the cargo target directory.
+    #[arg(long)]
+    pub out_dir: Option<std::path::PathBuf>,
     /// Print commands to build without executing them
     #[arg(long)]
     pub print_commands_only: bool,
@@ -54,16 +64,24 @@ pub enum Error {
     #[error(transparent)]
     Metadata(#[from] cargo_metadata::Error),
     #[error(transparent)]
-    CargoCmd(std::io::Error),
+    CargoCmd(io::Error),
     #[error("exit status {0}")]
     Exit(ExitStatus),
     #[error("package {package} not found")]
     PackageNotFound { package: String },
+    #[error("creating out directory: {0}")]
+    CreatingOutDir(io::Error),
+    #[error("copying wasm file: {0}")]
+    CopyingWasmFile(io::Error),
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let packages = self.packages()?;
+        let metadata = self.metadata()?;
+        let packages = self.packages(&metadata);
+
+        let workspace_dir = &metadata.workspace_root;
+        let target_dir = &metadata.target_directory;
 
         if let Some(package) = &self.package {
             if packages.is_empty() {
@@ -84,7 +102,6 @@ impl Cmd {
             cmd.arg("--crate-type=cdylib");
             cmd.arg("--target=wasm32-unknown-unknown");
             cmd.arg(format!("--package={}", p.name));
-            cmd.arg(format!("-o={}.wasm", p.name));
             if self.profile == "release" {
                 cmd.arg("--release");
             } else {
@@ -104,6 +121,8 @@ impl Cmd {
                     cmd.arg(format!("--features={activate}"));
                 }
             }
+            // cmd.arg("--");
+            // cmd.arg(format!("-o={}.wasm", p.name));
             let cmd_str = format!(
                 "cargo {}",
                 cmd.get_args().map(OsStr::to_string_lossy).join(" ")
@@ -117,6 +136,17 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
             }
+            if let Some(out_dir) = &self.out_dir {
+                fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+
+                let file = format!("{}.wasm", p.name.replace('-', "_"));
+                let target_file_path = Path::new(target_dir)
+                    .join("wasm32-unknown-unknown")
+                    .join(&self.profile)
+                    .join(&file);
+                let out_file_path = Path::new(out_dir).join(&file);
+                fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
+            }
         }
 
         Ok(())
@@ -128,9 +158,8 @@ impl Cmd {
             .map(|f| f.split(&[',', ' ']).map(String::from).collect())
     }
 
-    fn packages(&self) -> Result<Vec<Package>, cargo_metadata::Error> {
-        let metadata = self.metadata()?;
-        let iter = metadata
+    fn packages(&self, metadata: &Metadata) -> Vec<Package> {
+        metadata
             .packages
             .iter()
             .filter(|p|
@@ -144,8 +173,8 @@ impl Cmd {
                         .iter()
                         .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
             })
-            .cloned();
-        Ok(iter.collect())
+            .cloned()
+            .collect()
     }
 
     fn metadata(&self) -> Result<Metadata, cargo_metadata::Error> {
