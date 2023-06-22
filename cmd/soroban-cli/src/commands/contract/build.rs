@@ -35,17 +35,18 @@ pub struct Cmd {
     #[arg(long, default_value = "release")]
     pub profile: String,
     /// Build with the list of features activated, space or comma separated
-    #[arg(long)]
+    #[arg(long, help_heading = "Features")]
     pub features: Option<String>,
     /// Build with the all features activated
     #[arg(
         long,
         conflicts_with = "features",
-        conflicts_with = "no_default_features"
+        conflicts_with = "no_default_features",
+        help_heading = "Features"
     )]
     pub all_features: bool,
     /// Build with the default feature not activated
-    #[arg(long)]
+    #[arg(long, help_heading = "Features")]
     pub no_default_features: bool,
     /// Directory to copy wasm files to
     ///
@@ -56,7 +57,7 @@ pub struct Cmd {
     #[arg(long)]
     pub out_dir: Option<std::path::PathBuf>,
     /// Print commands to build without executing them
-    #[arg(long, conflicts_with = "out_dir")]
+    #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 }
 
