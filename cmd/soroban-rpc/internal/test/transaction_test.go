@@ -81,7 +81,7 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
 	var transactionMeta xdr.TransactionMeta
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &transactionMeta))
-	assert.True(t, expectedScVal.Equals(transactionMeta.V3.ReturnValue))
+	assert.True(t, expectedScVal.Equals(transactionMeta.V3.SorobanMeta.ReturnValue))
 	var resultXdr xdr.TransactionResult
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
 	expectedResult := xdr.TransactionResult{

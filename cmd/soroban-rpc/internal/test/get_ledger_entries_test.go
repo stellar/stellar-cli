@@ -27,13 +27,19 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractIDHash := xdr.Hash(contractID)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
-			ContractId: contractID,
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
 			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+			},
+			Type:   xdr.ContractDataTypePersistent,
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -118,13 +124,19 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	// Doesn't exist.
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractIDHash := xdr.Hash(contractID)
 	notFoundKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
-			ContractId: contractID,
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
 			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+			},
+			Type:   xdr.ContractDataTypePersistent,
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -144,6 +156,6 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 
 	var firstEntry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
-	assert.Equal(t, testContract, firstEntry.MustContractCode().Code)
+	assert.Equal(t, testContract, firstEntry.MustContractCode().Body.Code)
 	assert.Equal(t, contractKeyB64, result.Entries[0].Key)
 }

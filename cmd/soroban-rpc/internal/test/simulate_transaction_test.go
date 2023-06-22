@@ -98,9 +98,9 @@ func createCreateContractOperation(t *testing.T, sourceAccount string, contractC
 						Salt: saltParam,
 					},
 				},
-				Executable: xdr.ScContractExecutable{
-					Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-					WasmId: &contractHash,
+				Executable: xdr.ContractExecutable{
+					Type:     xdr.ContractExecutableTypeContractExecutableWasm,
+					WasmHash: &contractHash,
 				},
 			},
 		},
@@ -408,8 +408,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, authAddrArg, ro0.Account.AccountId.Address())
 	ro1 := obtainedFootprint.ReadOnly[1]
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
-	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.ContractId)
-	assert.Equal(t, xdr.ScValTypeScvLedgerKeyContractExecutable, ro1.ContractData.Key.Type)
+	assert.Equal(t, xdr.ScAddressTypeScAddressTypeContract, ro1.ContractData.Contract.Type)
+	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.Contract.ContractId)
+	assert.Equal(t, xdr.ScValTypeScvLedgerKeyContractInstance, ro1.ContractData.Key.Type)
 	ro2 := obtainedFootprint.ReadOnly[2]
 	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
 	contractHash := sha256.Sum256(helloWorldContract)

@@ -27,13 +27,19 @@ func TestGetLedgerEntryNotFound(t *testing.T) {
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractIDHash := xdr.Hash(contractID)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
-			ContractId: contractID,
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
 			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+			},
+			Type:   xdr.ContractDataTypePersistent,
+			LeType: xdr.ContractLedgerEntryTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -118,5 +124,5 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
-	assert.Equal(t, testContract, entry.MustContractCode().Code)
+	assert.Equal(t, testContract, entry.MustContractCode().Body.Code)
 }
