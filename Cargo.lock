@@ -2254,7 +2254,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 0.8.4 (git+https://github.com/stellar/rs-soroban-sdk?rev=56bf97576eb045e34655a30277bcbfd480df62d2)",
+ "soroban-spec",
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2391,7 +2391,7 @@ dependencies = [
  "quote",
  "sha2 0.9.9",
  "soroban-env-common",
- "soroban-spec 0.8.4 (git+https://github.com/stellar/rs-soroban-sdk?rev=4c9bdc23d89913a6ab4c10b2bbe45f4d3a1939d2)",
+ "soroban-spec",
  "soroban-spec-rust",
  "stellar-xdr",
  "syn 2.0.18",
@@ -2409,17 +2409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soroban-spec"
-version = "0.8.4"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=56bf97576eb045e34655a30277bcbfd480df62d2#56bf97576eb045e34655a30277bcbfd480df62d2"
-dependencies = [
- "base64 0.13.1",
- "stellar-xdr",
- "thiserror",
- "wasmparser 0.88.0",
-]
-
-[[package]]
 name = "soroban-spec-json"
 version = "0.8.5"
 dependencies = [
@@ -2428,7 +2417,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 0.8.4 (git+https://github.com/stellar/rs-soroban-sdk?rev=56bf97576eb045e34655a30277bcbfd480df62d2)",
+ "soroban-spec",
  "stellar-xdr",
  "thiserror",
 ]
@@ -2442,7 +2431,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.9.9",
- "soroban-spec 0.8.4 (git+https://github.com/stellar/rs-soroban-sdk?rev=4c9bdc23d89913a6ab4c10b2bbe45f4d3a1939d2)",
+ "soroban-spec",
  "stellar-xdr",
  "syn 2.0.18",
  "thiserror",
@@ -2457,7 +2446,7 @@ dependencies = [
  "hex",
  "itertools",
  "serde_json",
- "soroban-spec 0.8.4 (git+https://github.com/stellar/rs-soroban-sdk?rev=56bf97576eb045e34655a30277bcbfd480df62d2)",
+ "soroban-spec",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "stellar-xdr",
  "thiserror",
@@ -2480,7 +2469,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 0.8.4 (git+https://github.com/stellar/rs-soroban-sdk?rev=56bf97576eb045e34655a30277bcbfd480df62d2)",
+ "soroban-spec",
  "stellar-xdr",
  "temp-dir",
  "thiserror",
@@ -2502,7 +2491,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 0.8.4 (git+https://github.com/stellar/rs-soroban-sdk?rev=56bf97576eb045e34655a30277bcbfd480df62d2)",
+ "soroban-spec",
  "soroban-spec-tools",
  "stellar-strkey 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",

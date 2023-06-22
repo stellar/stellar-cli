@@ -21,7 +21,7 @@ rev = "c43bbd47959dde2e39eeeb5b7207868a44e96c7d"
 [workspace.dependencies.soroban-spec]
 version = "0.8.4"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "56bf97576eb045e34655a30277bcbfd480df62d2"
+rev = "4c9bdc23d89913a6ab4c10b2bbe45f4d3a1939d2"
 # path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-spec-typescript]
