@@ -10,7 +10,6 @@ pub mod read;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Build a contract from source
     Build(build::Cmd),
 
     /// Generate code client bindings for a contract

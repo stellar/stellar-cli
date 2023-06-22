@@ -4,29 +4,35 @@ use std::{
     collections::HashSet,
     ffi::OsStr,
     fmt::Debug,
-    process::{Command, Stdio},
+    process::{Command, ExitStatus, Stdio},
 };
 
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 
+/// Build a contract from source
+///
+/// Builds all crates that are referenced by the cargo manifest (Cargo.toml)
+/// that have cdylib as their crate-type. Crates are built for the wasm32
+/// target. Unless configured otherwise, crates are built with their default
+/// features and with their release profile.
+///
+/// To view the commands that will be executed, without executing them, use the
+/// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
-#[group(skip)]
 pub struct Cmd {
     /// Path to Cargo.toml
-    #[arg(long)]
-    pub manifest_path: Option<std::path::PathBuf>,
+    #[arg(long, default_value = "Cargo.toml")]
+    pub manifest_path: std::path::PathBuf,
     /// Package to build
+    ///
+    /// If omitted, all packages that build for crate-type cdylib are built
     #[arg(long)]
     pub package: Option<String>,
     /// Build with the specified profile
     #[arg(long, default_value = "release")]
     pub profile: String,
     /// Build with the list of features activated, space or comma separated
-    #[arg(
-        long,
-        conflicts_with = "all_features",
-        conflicts_with = "no_default_features"
-    )]
+    #[arg(long)]
     pub features: Option<String>,
     /// Build with the all features activated
     #[arg(
@@ -36,14 +42,21 @@ pub struct Cmd {
     )]
     pub all_features: bool,
     /// Build with the default feature not activated
-    #[arg(long, conflicts_with = "features", conflicts_with = "all_features")]
+    #[arg(long)]
     pub no_default_features: bool,
+    /// Print commands to build without executing them.
+    #[arg(long)]
+    pub print_commands_only: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Metadata(#[from] cargo_metadata::Error),
+    #[error(transparent)]
+    CargoCmd(std::io::Error),
+    #[error("exit status {0}")]
+    Exit(ExitStatus),
 }
 
 impl Cmd {
@@ -79,12 +92,19 @@ impl Cmd {
                     cmd.arg(format!("--features={activate}"));
                 }
             }
-            eprintln!(
+            let cmd_str = format!(
                 "cargo {}",
                 cmd.get_args().map(OsStr::to_string_lossy).join(" ")
             );
-            // TODO: Pass-through non-zero exit status and break.
-            let _ = cmd.status();
+            if self.print_commands_only {
+                println!("{cmd_str}");
+            } else {
+                eprintln!("{cmd_str}");
+                let status = cmd.status().map_err(Error::CargoCmd)?;
+                if !status.success() {
+                    return Err(Error::Exit(status));
+                }
+            }
         }
 
         Ok(())
@@ -114,9 +134,7 @@ impl Cmd {
     fn metadata(&self) -> Result<Metadata, cargo_metadata::Error> {
         let mut cmd = MetadataCommand::new();
         cmd.no_deps();
-        if let Some(manifest_path) = &self.manifest_path {
-            cmd.manifest_path(manifest_path);
-        }
+        cmd.manifest_path(&self.manifest_path);
         // Do not configure features on the metadata command, because we are
         // only collecting non-dependency metadata, features have no impact on
         // the output.
