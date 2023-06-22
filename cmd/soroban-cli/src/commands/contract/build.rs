@@ -79,6 +79,7 @@ impl Cmd {
             cmd.arg("rustc");
             // TODO: Convert the manifest path into a relative path if possible,
             // to improve the console output.
+            cmd.arg("--locked");
             cmd.arg(format!("--manifest-path={}", p.manifest_path));
             cmd.arg("--crate-type=cdylib");
             cmd.arg("--target=wasm32-unknown-unknown");
