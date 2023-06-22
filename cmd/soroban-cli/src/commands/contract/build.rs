@@ -2,6 +2,7 @@ use clap::Parser;
 use itertools::Itertools;
 use std::{
     collections::HashSet,
+    env,
     ffi::OsStr,
     fmt::Debug,
     fs, io,
@@ -55,7 +56,7 @@ pub struct Cmd {
     #[arg(long)]
     pub out_dir: Option<std::path::PathBuf>,
     /// Print commands to build without executing them
-    #[arg(long)]
+    #[arg(long, conflicts_with = "out_dir")]
     pub print_commands_only: bool,
 }
 
@@ -73,14 +74,16 @@ pub enum Error {
     CreatingOutDir(io::Error),
     #[error("copying wasm file: {0}")]
     CopyingWasmFile(io::Error),
+    #[error("getting the current directory: {0}")]
+    GettingCurrentDir(io::Error),
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
+        let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
+
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata);
-
-        let workspace_dir = &metadata.workspace_root;
         let target_dir = &metadata.target_directory;
 
         if let Some(package) = &self.package {
@@ -95,13 +98,16 @@ impl Cmd {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
             cmd.arg("rustc");
-            // TODO: Convert the manifest path into a relative path if possible,
-            // to improve the console output.
+            let manifest_path = pathdiff::diff_paths(&p.manifest_path, &working_dir)
+                .unwrap_or(p.manifest_path.clone().into());
             cmd.arg("--locked");
-            cmd.arg(format!("--manifest-path={}", p.manifest_path));
+            cmd.arg(format!(
+                "--manifest-path={}",
+                manifest_path.to_string_lossy()
+            ));
             cmd.arg("--crate-type=cdylib");
             cmd.arg("--target=wasm32-unknown-unknown");
-            cmd.arg(format!("--package={}", p.name));
+            cmd.arg(format!("--package={}", p.name)); // TODO: Is this line necessary? I think not.
             if self.profile == "release" {
                 cmd.arg("--release");
             } else {
@@ -127,6 +133,7 @@ impl Cmd {
                 "cargo {}",
                 cmd.get_args().map(OsStr::to_string_lossy).join(" ")
             );
+
             if self.print_commands_only {
                 println!("{cmd_str}");
             } else {
@@ -135,17 +142,18 @@ impl Cmd {
                 if !status.success() {
                     return Err(Error::Exit(status));
                 }
-            }
-            if let Some(out_dir) = &self.out_dir {
-                fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
 
-                let file = format!("{}.wasm", p.name.replace('-', "_"));
-                let target_file_path = Path::new(target_dir)
-                    .join("wasm32-unknown-unknown")
-                    .join(&self.profile)
-                    .join(&file);
-                let out_file_path = Path::new(out_dir).join(&file);
-                fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
+                if let Some(out_dir) = &self.out_dir {
+                    fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+
+                    let file = format!("{}.wasm", p.name.replace('-', "_"));
+                    let target_file_path = Path::new(target_dir)
+                        .join("wasm32-unknown-unknown")
+                        .join(&self.profile)
+                        .join(&file);
+                    let out_file_path = Path::new(out_dir).join(&file);
+                    fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
+                }
             }
         }
 
