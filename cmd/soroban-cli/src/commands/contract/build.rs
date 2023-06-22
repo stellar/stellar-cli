@@ -83,6 +83,7 @@ impl Cmd {
                 "cargo {}",
                 cmd.get_args().map(OsStr::to_string_lossy).join(" ")
             );
+            // TODO: Pass-through non-zero exit status and break.
             let _ = cmd.status();
         }
 
