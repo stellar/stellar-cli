@@ -28,7 +28,7 @@ pub struct Cmd {
         conflicts_with = "no_default_features"
     )]
     pub features: Option<String>,
-    /// Build with the all features activated, space or comma separated
+    /// Build with the all features activated
     #[arg(
         long,
         conflicts_with = "features",
@@ -60,7 +60,11 @@ impl Cmd {
             cmd.arg("--crate-type=cdylib");
             cmd.arg("--target=wasm32-unknown-unknown");
             cmd.arg(format!("--package={}", p.name));
-            cmd.arg(format!("--profile={}", self.profile));
+            if self.profile == "release" {
+                cmd.arg("--release");
+            } else {
+                cmd.arg(format!("--profile={}", self.profile));
+            }
             if self.all_features {
                 cmd.arg("--all-features");
             }
