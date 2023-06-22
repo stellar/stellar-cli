@@ -84,6 +84,7 @@ impl Cmd {
             cmd.arg("--crate-type=cdylib");
             cmd.arg("--target=wasm32-unknown-unknown");
             cmd.arg(format!("--package={}", p.name));
+            cmd.arg(format!("-o={}.wasm", p.name));
             if self.profile == "release" {
                 cmd.arg("--release");
             } else {
