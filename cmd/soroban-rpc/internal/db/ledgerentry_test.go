@@ -89,7 +89,7 @@ func TestGoldenPath(t *testing.T) {
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, obtainedEntry.Data.Type, xdr.LedgerEntryTypeContractData)
-	assert.Equal(t, xdr.Hash{0xca, 0xfe}, obtainedEntry.Data.ContractData.Contract.ContractId)
+	assert.Equal(t, xdr.Hash{0xca, 0xfe}, *obtainedEntry.Data.ContractData.Contract.ContractId)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
 
 	obtainedLedgerSequence, err = NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
