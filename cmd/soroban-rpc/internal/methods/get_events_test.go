@@ -960,8 +960,8 @@ func TestGetEvents(t *testing.T) {
 			// ledger/transaction/operation/event
 			xdr.ScSymbol("5/1/0/0"),
 			xdr.ScSymbol("5/1/0/1"),
-			xdr.ScSymbol("5/1/1/0"),
-			xdr.ScSymbol("5/1/1/1"),
+			xdr.ScSymbol("5/2/0/0"),
+			xdr.ScSymbol("5/2/0/1"),
 		}
 		txMeta := []xdr.TransactionMeta{
 			transactionMetaWithEvents(
@@ -979,6 +979,8 @@ func TestGetEvents(t *testing.T) {
 					},
 					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[1]},
 				),
+			),
+			transactionMetaWithEvents(
 				contractEvent(
 					contractID,
 					xdr.ScVec{
@@ -1014,7 +1016,7 @@ func TestGetEvents(t *testing.T) {
 		var expected []EventInfo
 		expectedIDs := []string{
 			events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 1}.String(),
-			events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 0}.String(),
+			events.Cursor{Ledger: 5, Tx: 2, Op: 0, Event: 0}.String(),
 		}
 		symbols := datas[1:3]
 		for i, id := range expectedIDs {
@@ -1036,7 +1038,7 @@ func TestGetEvents(t *testing.T) {
 
 		results, err = handler.getEvents(GetEventsRequest{
 			Pagination: &PaginationOptions{
-				Cursor: &events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 1},
+				Cursor: &events.Cursor{Ledger: 5, Tx: 2, Op: 0, Event: 1},
 				Limit:  2,
 			},
 		})
