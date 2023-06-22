@@ -6,6 +6,7 @@ This document contains the help content for the `soroban` command-line program.
 
 * [`soroban`↴](#soroban)
 * [`soroban contract`↴](#soroban-contract)
+* [`soroban contract build`↴](#soroban-contract-build)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
 * [`soroban contract bindings rust`↴](#soroban-contract-bindings-rust)
@@ -96,6 +97,7 @@ Tools for smart contract developers
 
 ###### **Subcommands:**
 
+* `build` — Build a contract from source
 * `bindings` — Generate code client bindings for a contract
 * `deploy` — Deploy a contract
 * `fetch` — Fetch a contract's Wasm binary from a network or local sandbox
@@ -104,6 +106,25 @@ Tools for smart contract developers
 * `invoke` — Invoke a contract function
 * `optimize` — Optimize a WASM file
 * `read` — Print the current value of a contract-data ledger entry
+
+
+
+## `soroban contract build`
+
+Build a contract from source
+
+**Usage:** `soroban contract build [OPTIONS]`
+
+###### **Options:**
+
+* `--manifest-path <MANIFEST_PATH>` — Path to Cargo.toml
+* `--package <PACKAGE>` — Package to build
+* `--profile <PROFILE>` — Build with the specified profile
+
+  Default value: `release`
+* `--features <FEATURES>` — Build with the list of features activated, space or comma separated
+* `--all-features` — Build with the all features activated, space or comma separated
+* `--no-default-features` — Build with the default feature not activated
 
 
 
