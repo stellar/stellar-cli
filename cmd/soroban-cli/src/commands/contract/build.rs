@@ -57,11 +57,21 @@ pub enum Error {
     CargoCmd(std::io::Error),
     #[error("exit status {0}")]
     Exit(ExitStatus),
+    #[error("package {package} not found")]
+    PackageNotFound { package: String },
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let packages = self.packages()?;
+
+        if let Some(package) = &self.package {
+            if packages.is_empty() {
+                return Err(Error::PackageNotFound {
+                    package: package.clone(),
+                });
+            }
+        }
 
         for p in packages {
             let mut cmd = Command::new("cargo");
@@ -121,11 +131,16 @@ impl Cmd {
         let iter = metadata
             .packages
             .iter()
-            .filter(|p| self.package.is_none() || Some(&p.name) == self.package.as_ref())
+            .filter(|p|
+                // Filter by the package name if one is provided.
+                self.package.is_none() || Some(&p.name) == self.package.as_ref())
             .filter(|p| {
-                p.targets
-                    .iter()
-                    .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
+                // Filter crates by those that build to cdylib (wasm), unless a
+                // package is provided.
+                self.package.is_some()
+                    || p.targets
+                        .iter()
+                        .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
             })
             .cloned();
         Ok(iter.collect())
