@@ -1,4 +1,5 @@
 pub mod bindings;
+pub mod build;
 pub mod deploy;
 pub mod fetch;
 pub mod inspect;
@@ -9,6 +10,9 @@ pub mod read;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
+    /// Build a contract from source
+    Build(build::Cmd),
+
     /// Generate code client bindings for a contract
     #[command(subcommand)]
     Bindings(bindings::Cmd),
@@ -45,6 +49,9 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Build(#[from] build::Error),
+
+    #[error(transparent)]
     Bindings(#[from] bindings::Error),
 
     #[error(transparent)]
@@ -72,6 +79,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match &self {
+            Cmd::Build(build) => build.run()?,
             Cmd::Bindings(bindings) => bindings.run()?,
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::Inspect(inspect) => inspect.run()?,

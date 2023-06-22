@@ -89,6 +89,7 @@ heck = "0.4.1"
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+cargo_metadata = "0.15.4"
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
