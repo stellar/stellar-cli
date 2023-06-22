@@ -44,7 +44,7 @@ pub struct Cmd {
     /// Build with the default feature not activated
     #[arg(long)]
     pub no_default_features: bool,
-    /// Print commands to build without executing them.
+    /// Print commands to build without executing them
     #[arg(long)]
     pub print_commands_only: bool,
 }
