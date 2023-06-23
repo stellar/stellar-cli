@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -78,18 +77,15 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	invokeHostFunctionResult, ok := opResults[0].MustTr().GetInvokeHostFunctionResult()
 	assert.True(t, ok)
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
-	assert.NotNil(t, invokeHostFunctionResult.Success)
-	resultVal := *invokeHostFunctionResult.Success
-	expectedContractID, err := hex.DecodeString("ea9fcb81ae54a29f6b3bf293847d3fd7e9a369fd1c80acafec6abd571317e0c2")
-	assert.NoError(t, err)
-	contractIDBytes := xdr.ScBytes(expectedContractID)
-	expectedScVal := []xdr.ScVal{{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}}
-	assert.Equal(t, len(expectedScVal), len(resultVal))
-	assert.Equal(t, len(expectedScVal), int(1))
-	assert.True(t, expectedScVal[0].Equals(resultVal[0]))
-
+	contractIDBytes := xdr.ScBytes(testContractId)
+	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
+	var transactionMeta xdr.TransactionMeta
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &transactionMeta))
+	assert.True(t, expectedScVal.Equals(transactionMeta.V3.SorobanMeta.ReturnValue))
+	var resultXdr xdr.TransactionResult
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
 	expectedResult := xdr.TransactionResult{
-		FeeCharged: 100,
+		FeeCharged: resultXdr.FeeCharged,
 		Result: xdr.TransactionResultResult{
 			Code: xdr.TransactionResultCodeTxSuccess,
 			Results: &[]xdr.OperationResult{
@@ -99,17 +95,14 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 						Type: xdr.OperationTypeInvokeHostFunction,
 						InvokeHostFunctionResult: &xdr.InvokeHostFunctionResult{
 							Code:    xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess,
-							Success: &expectedScVal,
+							Success: (*resultXdr.Result.Results)[0].Tr.InvokeHostFunctionResult.Success,
 						},
 					},
 				},
 			},
 		},
 	}
-	var resultXdr xdr.TransactionResult
-	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultXdr, &resultXdr))
-	// We cannot really predict the charged fee
-	expectedResult.FeeCharged = resultXdr.FeeCharged
+
 	assert.Equal(t, expectedResult, resultXdr)
 }
 

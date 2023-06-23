@@ -28,8 +28,7 @@ type SimulateHostFunctionResult struct {
 }
 
 type SimulateTransactionResponse struct {
-	Error string `json:"error,omitempty"`
-	// TODO: update documentation and review field names
+	Error           string                       `json:"error,omitempty"`
 	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
 	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
 	MinResourceFee  int64                        `json:"minResourceFee,string"`
@@ -98,16 +97,13 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
-		hostFunctionResults := make([]SimulateHostFunctionResult, len(result.Results))
-		for i := 0; i < len(hostFunctionResults); i++ {
-			hostFunctionResults[i] = SimulateHostFunctionResult{
-				Auth: result.Results[i].Auth,
-				XDR:  result.Results[i].Result,
-			}
-		}
-
 		return SimulateTransactionResponse{
-			Results:         hostFunctionResults,
+			Results: []SimulateHostFunctionResult{
+				{
+					XDR:  result.Result,
+					Auth: result.Auth,
+				},
+			},
 			Events:          result.Events,
 			TransactionData: result.TransactionData,
 			MinResourceFee:  result.MinFee,

@@ -234,21 +234,21 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 		if !tx.Result.Successful() {
 			continue
 		}
-		for i := range tx.Envelope.Operations() {
-			opIndex := uint32(i)
-			var opEvents []xdr.DiagnosticEvent
-			opEvents, err = tx.GetOperationEvents(opIndex)
-			if err != nil {
-				return
-			}
-			for eventIndex, opEvent := range opEvents {
-				events = append(events, event{
-					contents:   opEvent,
-					txIndex:    tx.Index,
-					opIndex:    opIndex,
-					eventIndex: uint32(eventIndex),
-				})
-			}
+		txEvents, err := tx.GetDiagnosticEvents()
+		if err != nil {
+			return nil, err
+		}
+		for index, e := range txEvents {
+			events = append(events, event{
+				contents: e,
+				txIndex:  tx.Index,
+				// NOTE: we cannot really index by operation since all events
+				//       are provided as part of the transaction. However,
+				//       that shouldn't matter in practice since a transaction
+				//       can only contain a single Host Function Invocation.
+				opIndex:    0,
+				eventIndex: uint32(index),
+			})
 		}
 	}
 	return events, err

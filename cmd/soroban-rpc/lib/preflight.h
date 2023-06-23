@@ -9,17 +9,14 @@ typedef struct CLedgerInfo {
   uint64_t timestamp;
   const char *network_passphrase;
   uint32_t base_reserve;
+  uint32_t min_temp_entry_expiration;
+  uint32_t min_persistent_entry_expiration;
 } CLedgerInfo;
-
-typedef struct CHostFunctionPreflight {
-    char **auth; // NULL terminated array of XDR ContractAuths in base64
-    char *result; // XDR SCVal in base64
-} CHostFunctionPreflight;
 
 typedef struct CPreflightResult {
     char *error; // Error string in case of error, otherwise null
-    CHostFunctionPreflight *results; // array of CHostFunctionPreflight
-    size_t results_size;
+    char **auth; // NULL terminated array of XDR SorobanAuthorizationEntrys in base64
+    char *result; // XDR SCVal in base64
     char *transaction_data; // SorobanTransactionData XDR in base64
     int64_t min_fee; // Minimum recommended resource fee
     char **events; // NULL terminated array of XDR DiagnosticEvents in base64

@@ -92,7 +92,7 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
   if (auth_len > 1) {
     throw new NotImplementedError("Multiple auths not yet supported")
   } else if (auth_len == 1) {
-    const auth = SorobanClient.xdr.ContractAuth.fromXDR(auths![0]!, 'base64')
+    const auth = SorobanClient.xdr.SorobanAuthorizationEntry.fromXDR(auths![0]!, 'base64')
     if (auth.addressWithNonce() !== undefined) {
       throw new NotImplementedError(
         `This transaction needs to be signed by ${auth.addressWithNonce()
