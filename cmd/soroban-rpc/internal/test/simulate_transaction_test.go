@@ -161,8 +161,9 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 		SorobanData: &transactionData,
 	}
 
+	assert.Len(t, response.Results, 1)
 	var auth []xdr.SorobanAuthorizationEntry
-	for _, b64 := range response.Auth {
+	for _, b64 := range response.Results[0].Auth {
 		var a xdr.SorobanAuthorizationEntry
 		err := xdr.SafeUnmarshalBase64(b64, &a)
 		assert.NoError(t, err)
