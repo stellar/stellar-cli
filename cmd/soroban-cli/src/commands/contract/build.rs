@@ -101,14 +101,12 @@ impl Cmd {
             cmd.arg("rustc");
             let manifest_path = pathdiff::diff_paths(&p.manifest_path, &working_dir)
                 .unwrap_or(p.manifest_path.clone().into());
-            cmd.arg("--locked");
             cmd.arg(format!(
                 "--manifest-path={}",
                 manifest_path.to_string_lossy()
             ));
             cmd.arg("--crate-type=cdylib");
             cmd.arg("--target=wasm32-unknown-unknown");
-            cmd.arg(format!("--package={}", p.name)); // TODO: Is this line necessary? I think not.
             if self.profile == "release" {
                 cmd.arg("--release");
             } else {
@@ -128,8 +126,6 @@ impl Cmd {
                     cmd.arg(format!("--features={activate}"));
                 }
             }
-            // cmd.arg("--");
-            // cmd.arg(format!("-o={}.wasm", p.name));
             let cmd_str = format!(
                 "cargo {}",
                 cmd.get_args().map(OsStr::to_string_lossy).join(" ")

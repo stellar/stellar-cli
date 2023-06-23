@@ -11,7 +11,7 @@ default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.package]
-version = "0.8.5"
+version = "0.8.6"
 
 [workspace.dependencies.soroban-env-host]
 version = "0.0.16"
@@ -25,11 +25,11 @@ rev = "7d143e425b690f2981ae804ce249462d98a68b0d"
 # path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "0.8.5"
+version = "0.8.6"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "0.8.5"
+version = "0.8.6"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
@@ -43,7 +43,7 @@ git = "https://github.com/stellar/rs-soroban-sdk"
 rev = "090f5c88e8f8b67f4d02010665aedfea6ee43db3"
 
 [workspace.dependencies.soroban-cli]
-version = "0.8.5"
+version = "0.8.6"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.stellar-xdr]
