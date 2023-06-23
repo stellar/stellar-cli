@@ -251,8 +251,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, expectedTransactionData, transactionData)
 
 	// Then decode and check the result xdr, separately so we get a decent diff if it fails.
+	assert.Len(t, result.Results, 1)
 	var resultXdr xdr.ScVal
-	err = xdr.SafeUnmarshalBase64(result.XDR, &resultXdr)
+	err = xdr.SafeUnmarshalBase64(result.Results[0].XDR, &resultXdr)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedXdr, resultXdr)
 
@@ -415,8 +416,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Empty(t, response.Error)
 
 	// check the result
+	assert.Len(t, response.Results, 1)
 	var obtainedResult xdr.ScVal
-	err = xdr.SafeUnmarshalBase64(response.XDR, &obtainedResult)
+	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
 	assert.NoError(t, err)
 	assert.Equal(t, xdr.ScValTypeScvAddress, obtainedResult.Type)
 	assert.NotNil(t, obtainedResult.Address)
@@ -450,9 +452,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NotZero(t, obtainedTransactionData.Resources.WriteBytes)
 
 	// check the auth
-	assert.Len(t, response.Auth, 1)
+	assert.Len(t, response.Results[0].Auth, 1)
 	var obtainedAuth xdr.SorobanAuthorizationEntry
-	err = xdr.SafeUnmarshalBase64(response.Auth[0], &obtainedAuth)
+	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
 	assert.NoError(t, err)
 	assert.Equal(t, obtainedAuth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsAddress)
 	assert.Nil(t, obtainedAuth.Credentials.Address.SignatureArgs)

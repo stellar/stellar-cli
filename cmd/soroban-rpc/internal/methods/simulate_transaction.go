@@ -21,15 +21,20 @@ type SimulateTransactionCost struct {
 	MemoryBytes     uint64 `json:"memBytes,string"`
 }
 
+// SimulateHostFunctionResult contains the simulation result of each HostFunction within the single InvokeHostFunctionOp allowed in a Transaction
+type SimulateHostFunctionResult struct {
+	Auth []string `json:"auth"`
+	XDR  string   `json:"xdr"`
+}
+
 type SimulateTransactionResponse struct {
-	Error           string                  `json:"error,omitempty"`
-	TransactionData string                  `json:"transactionData"` // SorobanTransactionData XDR in base64
-	Events          []string                `json:"events"`          // DiagnosticEvent XDR in base64
-	MinResourceFee  int64                   `json:"minResourceFee,string"`
-	Auth            []string                `json:"auth"` // SorobanAuthorizationEntrys XDR in base64
-	XDR             string                  `json:"xdr"`  // SCVal XDR in base64
-	Cost            SimulateTransactionCost `json:"cost"` // the effective cpu and memory cost of the invoked transaction execution.
-	LatestLedger    int64                   `json:"latestLedger,string"`
+	Error           string                       `json:"error,omitempty"`
+	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
+	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
+	MinResourceFee  int64                        `json:"minResourceFee,string"`
+	Results         []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
+	Cost            SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
+	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
 type PreflightGetter interface {
@@ -93,8 +98,12 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		}
 
 		return SimulateTransactionResponse{
-			XDR:             result.Result,
-			Auth:            result.Auth,
+			Results: []SimulateHostFunctionResult{
+				{
+					XDR:  result.Result,
+					Auth: result.Auth,
+				},
+			},
 			Events:          result.Events,
 			TransactionData: result.TransactionData,
 			MinResourceFee:  result.MinFee,
