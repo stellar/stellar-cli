@@ -12,7 +12,7 @@ use soroban_env_host::{
         PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionExt,
         Uint256, VecM, WriteXdr,
     },
-    Host, HostError,
+    DiagnosticLevel, Host, HostError,
 };
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
@@ -89,6 +89,8 @@ impl Cmd {
             Storage::with_recording_footprint(snap),
             Budget::default(),
         );
+
+        h.set_diagnostic_level(DiagnosticLevel::Debug);
 
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
