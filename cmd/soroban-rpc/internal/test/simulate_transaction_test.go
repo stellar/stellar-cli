@@ -203,11 +203,10 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	request := methods.SimulateTransactionRequest{Transaction: txB64}
 
 	testContractIdBytes := xdr.ScBytes(testContractId)
-	expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{
+	expectedXdr := xdr.ScVal{
 		Type:  xdr.ScValTypeScvBytes,
 		Bytes: &testContractIdBytes,
-	})
-	require.NoError(t, err)
+	}
 
 	var result methods.SimulateTransactionResponse
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
@@ -215,20 +214,47 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Greater(t, result.LatestLedger, int64(0))
 	assert.Greater(t, result.Cost.CPUInstructions, uint64(0))
 	assert.Greater(t, result.Cost.MemoryBytes, uint64(0))
-	assert.Equal(
-		t,
-		methods.SimulateTransactionResponse{
-			Cost: methods.SimulateTransactionCost{
-				CPUInstructions: result.Cost.CPUInstructions,
-				MemoryBytes:     result.Cost.MemoryBytes,
+
+	testContractIdHash := xdr.Hash(testContractId)
+	expectedTransactionData := xdr.SorobanTransactionData{
+		Resources: xdr.SorobanResources{
+			Footprint: xdr.LedgerFootprint{
+				ReadWrite: []xdr.LedgerKey{
+					{
+						Type: xdr.LedgerEntryTypeContractData,
+						ContractData: &xdr.LedgerKeyContractData{
+							Contract: xdr.ScAddress{
+								Type:       xdr.ScAddressTypeScAddressTypeContract,
+								ContractId: &testContractIdHash,
+							},
+							Key: xdr.ScVal{
+								Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+							},
+							Type:   xdr.ContractDataTypePersistent,
+							LeType: xdr.ContractLedgerEntryTypeDataEntry,
+						},
+					},
+				},
 			},
-			TransactionData: "AAAAAAAAAAEAAAAHEGJTFwjr0wU+rUYhBx/bO7RLavmLxJzAcRG4M46OXigAAQ/dAAAAJAAAAGQAAACIAAAAAAAAABsAAAAA",
-			MinResourceFee:  result.MinResourceFee,
-			XDR:             expectedXdr,
-			LatestLedger:    result.LatestLedger,
+			Instructions:              69597,
+			ReadBytes:                 36,
+			WriteBytes:                100,
+			ExtendedMetaDataSizeBytes: 136,
 		},
-		result,
-	)
+		RefundableFee: 27,
+	}
+
+	// First, decode and compare the transaction data so we get a decent diff if it fails.
+	var transactionData xdr.SorobanTransactionData
+	err = xdr.SafeUnmarshalBase64(result.TransactionData, &transactionData)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedTransactionData, transactionData)
+
+	// Then decode and check the result xdr, separately so we get a decent diff if it fails.
+	var resultXdr xdr.ScVal
+	err = xdr.SafeUnmarshalBase64(result.XDR, &resultXdr)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedXdr, resultXdr)
 
 	// test operation which does not have a source account
 	withoutSourceAccountOp := createInstallContractCodeOperation("", testContract)
