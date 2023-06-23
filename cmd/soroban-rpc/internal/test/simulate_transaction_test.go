@@ -215,33 +215,25 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Greater(t, result.Cost.CPUInstructions, uint64(0))
 	assert.Greater(t, result.Cost.MemoryBytes, uint64(0))
 
-	testContractIdHash := xdr.Hash(testContractId)
 	expectedTransactionData := xdr.SorobanTransactionData{
 		Resources: xdr.SorobanResources{
 			Footprint: xdr.LedgerFootprint{
 				ReadWrite: []xdr.LedgerKey{
 					{
-						Type: xdr.LedgerEntryTypeContractData,
-						ContractData: &xdr.LedgerKeyContractData{
-							Contract: xdr.ScAddress{
-								Type:       xdr.ScAddressTypeScAddressTypeContract,
-								ContractId: &testContractIdHash,
-							},
-							Key: xdr.ScVal{
-								Type: xdr.ScValTypeScvLedgerKeyContractInstance,
-							},
-							Type:   xdr.ContractDataTypePersistent,
+						Type: xdr.LedgerEntryTypeContractCode,
+						ContractCode: &xdr.LedgerKeyContractCode{
+							Hash:   xdr.Hash(testContractId),
 							LeType: xdr.ContractLedgerEntryTypeDataEntry,
 						},
 					},
 				},
 			},
-			Instructions:              69597,
-			ReadBytes:                 36,
-			WriteBytes:                100,
-			ExtendedMetaDataSizeBytes: 136,
+			Instructions:              73801,
+			ReadBytes:                 40,
+			WriteBytes:                112,
+			ExtendedMetaDataSizeBytes: 152,
 		},
-		RefundableFee: 27,
+		RefundableFee: 30,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
