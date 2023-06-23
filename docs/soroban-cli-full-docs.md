@@ -6,6 +6,7 @@ This document contains the help content for the `soroban` command-line program.
 
 * [`soroban`↴](#soroban)
 * [`soroban contract`↴](#soroban-contract)
+* [`soroban contract build`↴](#soroban-contract-build)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
 * [`soroban contract bindings rust`↴](#soroban-contract-bindings-rust)
@@ -96,6 +97,7 @@ Tools for smart contract developers
 
 ###### **Subcommands:**
 
+* `build` — Build a contract from source
 * `bindings` — Generate code client bindings for a contract
 * `deploy` — Deploy a contract
 * `fetch` — Fetch a contract's Wasm binary from a network or local sandbox
@@ -104,6 +106,33 @@ Tools for smart contract developers
 * `invoke` — Invoke a contract function
 * `optimize` — Optimize a WASM file
 * `read` — Print the current value of a contract-data ledger entry
+
+
+
+## `soroban contract build`
+
+Build a contract from source
+
+Builds all crates that are referenced by the cargo manifest (Cargo.toml) that have cdylib as their crate-type. Crates are built for the wasm32 target. Unless configured otherwise, crates are built with their default features and with their release profile.
+
+To view the commands that will be executed, without executing them, use the --print-commands-only option.
+
+**Usage:** `soroban contract build [OPTIONS]`
+
+###### **Options:**
+
+* `--manifest-path <MANIFEST_PATH>` — Path to Cargo.toml
+
+  Default value: `Cargo.toml`
+* `--package <PACKAGE>` — Package to build
+* `--profile <PROFILE>` — Build with the specified profile
+
+  Default value: `release`
+* `--features <FEATURES>` — Build with the list of features activated, space or comma separated
+* `--all-features` — Build with the all features activated
+* `--no-default-features` — Build with the default feature not activated
+* `--out-dir <OUT_DIR>` — Directory to copy wasm files to
+* `--print-commands-only` — Print commands to build without executing them
 
 
 
