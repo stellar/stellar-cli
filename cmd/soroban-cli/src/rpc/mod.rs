@@ -743,7 +743,7 @@ fn extract_events(tx_meta: TransactionMeta) -> Vec<DiagnosticEvent> {
         }) => {
             // NOTE: we assume there can only be one operation, since we only send one
             if meta.diagnostic_events.len() == 1 {
-                meta.diagnostic_events.clone().into()
+                meta.diagnostic_events.into()
             } else if meta.events.len() == 1 {
                 meta.events
                     .iter()

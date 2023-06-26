@@ -21,6 +21,9 @@ pub enum GenerateFromFileError {
     GetSpec(FromWasmError),
 }
 
+/// # Errors
+///
+/// Will return an error if the file cannot be read, or the wasm cannot be parsed.
 pub fn generate_from_file(
     file: &str,
     verify_sha256: Option<&str>,
@@ -43,6 +46,9 @@ pub fn generate_from_file(
     Ok(json)
 }
 
+/// # Errors
+///
+/// Will return an error if the wasm cannot be parsed.
 pub fn generate_from_wasm(wasm: &[u8]) -> Result<String, FromWasmError> {
     let spec = from_wasm(wasm)?;
     let json = generate(&spec);

@@ -192,7 +192,7 @@ fn build_wrap_token_tx(
     ];
     if asset != &Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
-            contract: contract.clone(),
+            contract,
             key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
             )),

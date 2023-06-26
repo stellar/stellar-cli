@@ -57,7 +57,7 @@ pub fn assemble(
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
-        if auths.len() > 0 {
+        if !auths.is_empty() {
             body.auth = auths[0].clone();
         }
         if let Some(log) = log_events {
@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(1, op.auth.len());
         let auth = &op.auth[0];
 
-        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::SorobanAuthorizedContractFunction{ function_name, .. }) = auth.root_invocation.function else {
+        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::SorobanAuthorizedContractFunction{ ref function_name, .. }) = auth.root_invocation.function else {
             panic!("unexpected function type");
         };
         assert_eq!("fn".to_string(), format!("{}", function_name.0));
@@ -208,10 +208,12 @@ mod tests {
             address:
                 xdr::ScAddress::Account(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(address))),
             ..
-        }) = auth.credentials;
+        }) = &auth.credentials else {
+            panic!("unexpected credentials type");
+        };
         assert_eq!(
             SOURCE.to_string(),
-            stellar_strkey::ed25519::PublicKey(address.try_into().unwrap()).to_string()
+            stellar_strkey::ed25519::PublicKey(address.0).to_string()
         );
     }
 
@@ -330,7 +332,7 @@ mod tests {
         match result {
             Ok(Transaction { operations, .. }) => {
                 assert_eq!(1, operations.len());
-                match operations[0].body {
+                match &operations[0].body {
                     OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
                         host_function: HostFunction::InvokeContract(args),
                         ..

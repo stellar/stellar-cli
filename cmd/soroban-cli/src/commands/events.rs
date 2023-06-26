@@ -313,7 +313,7 @@ mod tests {
 
         let events: Vec<events::HostEvent> = vec![
             events::HostEvent {
-                event: events::Event::Contract(xdr::ContractEvent {
+                event: xdr::ContractEvent {
                     ext: xdr::ExtensionPoint::V0,
                     contract_id: Some(xdr::Hash([0; 32])),
                     type_: xdr::ContractEventType::Contract,
@@ -321,11 +321,11 @@ mod tests {
                         topics: xdr::ScVec(vec![].try_into().unwrap()),
                         data: xdr::ScVal::U32(12345),
                     }),
-                }),
+                },
                 failed_call: false,
             },
             events::HostEvent {
-                event: events::Event::Contract(xdr::ContractEvent {
+                event: xdr::ContractEvent {
                     ext: xdr::ExtensionPoint::V0,
                     contract_id: Some(xdr::Hash([0x1; 32])),
                     type_: xdr::ContractEventType::Contract,
@@ -333,7 +333,7 @@ mod tests {
                         topics: xdr::ScVec(vec![].try_into().unwrap()),
                         data: xdr::ScVal::I32(67890),
                     }),
-                }),
+                },
                 failed_call: false,
             },
         ];
@@ -345,6 +345,9 @@ mod tests {
             network_id: [0x1; 32],
             base_reserve: 5,
             ledger_entries: vec![],
+            max_entry_expiration: 6,
+            min_persistent_entry_expiration: 7,
+            min_temp_entry_expiration: 8,
         };
 
         events_file.commit(&events, &ledger_info, &temp).unwrap();
