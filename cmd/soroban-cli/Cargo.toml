@@ -37,6 +37,8 @@ opt = ["dep:wasm-opt"]
 [dependencies]
 soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
+soroban-spec-json = { workspace = true }
+soroban-spec-rust = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-spec-typescript = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
