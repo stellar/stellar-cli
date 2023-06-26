@@ -287,23 +287,11 @@ impl Cmd {
             tracing::debug!(?events);
         }
 
-        // TODO: Figure out how to get the transaction result now
-        match result.result {
-            TransactionResultResult::TxSuccess(ops) => {
-                if ops.is_empty() {
-                    return Err(Error::MissingOperationResult);
-                }
-                match &ops[0] {
-                    OperationResult::OpInner(OperationResultTr::InvokeHostFunction(
-                        InvokeHostFunctionResult::Success(r),
-                    )) => r.clone(),
-                    _ => return Err(Error::MissingOperationResult),
-                }
-            }
-            _ => return Err(Error::MissingOperationResult),
+        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3{soroban_meta: Some(xdr::SorobanTransactionMeta{return_value, ..}), ..}) = meta.tx_apply_processing else {
+            return Err(Error::MissingOperationResult);
         };
 
-        output_to_string(&spec, &res, &function)
+        output_to_string(&spec, &return_value, &function)
     }
 
     pub fn run_in_sandbox(&self) -> Result<String, Error> {
