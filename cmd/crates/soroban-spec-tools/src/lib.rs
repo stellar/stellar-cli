@@ -4,13 +4,13 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::{
-    AccountId, BytesM, ContractDataType, Error as XdrError, Hash, Int128Parts, Int256Parts,
-    PublicKey, ScAddress, ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey,
-    ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
-    ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec,
-    ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
-    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0,
-    ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
+    AccountId, BytesM, ContractExecutable, Error as XdrError, Hash, Int128Parts, Int256Parts,
+    PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
+    ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
+    ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
+    ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
+    ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
+    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod utils;
@@ -502,8 +502,8 @@ impl Spec {
             | (ScVal::Duration(_), ScType::Duration)
             | (ScVal::Timepoint(_), ScType::Timepoint)
             | (
-                ScVal::ContractExecutable(_)
-                | ScVal::LedgerKeyContractExecutable
+                ScVal::ContractInstance(_)
+                | ScVal::LedgerKeyContractInstance
                 | ScVal::LedgerKeyNonce(_),
                 _,
             )
@@ -697,7 +697,7 @@ impl Spec {
 
             (ScVal::Bytes(_), ScType::Udt(_)) => todo!(),
 
-            (ScVal::ContractExecutable(_), _) => todo!(),
+            (ScVal::ContractInstance(_), _) => todo!(),
 
             (ScVal::Address(v), ScType::Address) => sc_address_to_json(v),
 
@@ -900,7 +900,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
     let val: Value = match v {
         ScVal::Bool(b) => Value::Bool(*b),
         ScVal::Void => Value::Null,
-        ScVal::LedgerKeyContractExecutable => return Err(Error::InvalidValue(None)),
+        ScVal::LedgerKeyContractInstance => return Err(Error::InvalidValue(None)),
         ScVal::U64(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::Timepoint(tp) => Value::Number(serde_json::Number::from(tp.0)),
         ScVal::Duration(d) => Value::Number(serde_json::Number::from(d.0)),
@@ -1001,14 +1001,18 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             );
             Value::String(i256.to_string())
         }
-        ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
-        ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
+        ScVal::ContractInstance(ScContractInstance {
+            executable: ContractExecutable::Wasm(hash),
+            ..
+        }) => json!({ "hash": hash }),
+        ScVal::ContractInstance(ScContractInstance {
+            executable: ContractExecutable::Token,
+            ..
+        }) => json!({"token": true}),
         ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => {
             Value::Number(serde_json::Number::from(*nonce))
         }
         ScVal::Error(e) => serde_json::to_value(e)?,
-        ScVal::StorageType(ContractDataType::Temporary) => Value::String("temporary".to_string()),
-        ScVal::StorageType(ContractDataType::Persistent) => Value::String("persistent".to_string()),
     };
     Ok(val)
 }

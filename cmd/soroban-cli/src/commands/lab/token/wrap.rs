@@ -5,12 +5,12 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, ContractDataType,
-        ContractIdPreimage, ContractLedgerEntryType, CreateContractArgs, Error as XdrError, Hash,
-        HashIdPreimage, HashIdPreimageContractId, HostFunction, InvokeHostFunctionOp,
-        LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScAddress, ScContractExecutable, ScVal,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, ContractDataDurability,
+        ContractEntryBodyType, ContractExecutable, ContractIdPreimage, CreateContractArgs,
+        Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId, HostFunction,
+        InvokeHostFunctionOp, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount,
+        Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScVal, SequenceNumber,
+        Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Host, HostError,
 };
@@ -97,7 +97,7 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
             contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
-            executable: ScContractExecutable::Token,
+            executable: ContractExecutable::Token,
         }))?;
 
         let contract_id = vec_to_hash(&res)?;
@@ -177,17 +177,17 @@ fn build_wrap_token_tx(
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),
-            key: ScVal::LedgerKeyContractExecutable,
-            type_: ContractDataType::Persistent,
-            le_type: ContractLedgerEntryType::DataEntry,
+            key: ScVal::LedgerKeyContractInstance,
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }),
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),
             key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
             )),
-            type_: ContractDataType::Persistent,
-            le_type: ContractLedgerEntryType::DataEntry,
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }),
     ];
     if asset != &Asset::Native {
@@ -196,8 +196,8 @@ fn build_wrap_token_tx(
             key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
             )),
-            type_: ContractDataType::Persistent,
-            le_type: ContractLedgerEntryType::DataEntry,
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }));
     }
 
@@ -206,7 +206,7 @@ fn build_wrap_token_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
-                executable: ScContractExecutable::Token,
+                executable: ContractExecutable::Token,
             }),
             auth: VecM::default(),
         }),

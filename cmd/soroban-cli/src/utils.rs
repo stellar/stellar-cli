@@ -7,12 +7,12 @@ use soroban_env_host::{
     storage::{AccessType, Footprint, Storage},
     xdr::{
         AccountEntry, AccountEntryExt, AccountId, BytesM, ContractCodeEntry, ContractCodeEntryBody,
-        ContractDataEntry, ContractDataEntryBody, ContractDataEntryData, ContractDataType,
-        ContractLedgerEntryType, DecoratedSignature, Error as XdrError, ExtensionPoint, Hash,
-        LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
-        LedgerKeyContractCode, LedgerKeyContractData, ScAddress, ScContractExecutable, ScSpecEntry,
-        ScVal, SequenceNumber, Signature, SignatureHint, String32, Thresholds, Transaction,
-        TransactionEnvelope, TransactionSignaturePayload,
+        ContractDataDurability, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData,
+        ContractEntryBodyType, ContractExecutable, DecoratedSignature, Error as XdrError,
+        ExtensionPoint, Hash, LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint,
+        LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, ScAddress, ScContractInstance,
+        ScSpecEntry, ScVal, SequenceNumber, Signature, SignatureHint, String32, Thresholds,
+        Transaction, TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
 };
@@ -63,7 +63,7 @@ pub fn add_contract_code_to_ledger_entries(
     let hash = contract_hash(contract.as_slice())?;
     let code_key = LedgerKey::ContractCode(LedgerKeyContractCode {
         hash: hash.clone(),
-        le_type: ContractLedgerEntryType::DataEntry,
+        body_type: ContractEntryBodyType::DataEntry,
     });
     let code_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
@@ -92,22 +92,26 @@ pub fn add_contract_to_ledger_entries(
     wasm_hash: [u8; 32],
 ) {
     // Create the contract
+    // TODO: Check this key/and entry are right
     let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
         contract: ScAddress::Contract(contract_id.into()),
-        key: ScVal::LedgerKeyContractExecutable,
-        type_: ContractDataType::Persistent,
-        le_type: ContractLedgerEntryType::DataEntry,
+        key: ScVal::LedgerKeyContractInstance,
+        durability: ContractDataDurability::Persistent,
+        body_type: ContractEntryBodyType::DataEntry,
     });
 
     let contract_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractData(ContractDataEntry {
             contract: ScAddress::Contract(contract_id.into()),
-            key: ScVal::LedgerKeyContractExecutable,
-            type_: ContractDataType::Persistent,
+            key: ScVal::LedgerKeyContractInstance,
+            durability: ContractDataDurability::Persistent,
             body: ContractDataEntryBody::DataEntry(ContractDataEntryData {
                 flags: 0,
-                val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(Hash(wasm_hash))),
+                val: ScVal::ContractInstance(ScContractInstance {
+                    executable: ContractExecutable::Wasm(Hash(wasm_hash)),
+                    storage: None,
+                }),
             }),
             // TODO: Figure out what this should be.
             expiration_ledger_seq: 0,
@@ -181,9 +185,9 @@ pub fn get_contract_spec_from_storage(
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
         contract: ScAddress::Contract(contract_id.into()),
-        key: ScVal::LedgerKeyContractExecutable,
-        le_type: ContractLedgerEntryType::DataEntry,
-        type_: ContractDataType::Persistent,
+        key: ScVal::LedgerKeyContractInstance,
+        body_type: ContractEntryBodyType::DataEntry,
+        durability: ContractDataDurability::Persistent,
     });
     match storage.get(&key.into(), &Budget::default()) {
         Ok(rc) => match rc.as_ref() {
@@ -193,22 +197,22 @@ pub fn get_contract_spec_from_storage(
                     LedgerEntryData::ContractData(ContractDataEntry {
                         body:
                             ContractDataEntryBody::DataEntry(ContractDataEntryData {
-                                val: ScVal::ContractExecutable(c),
+                                val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
                                 ..
                             }),
                         ..
                     }),
                 ..
-            } => match c {
-                ScContractExecutable::Token => {
+            } => match executable {
+                ContractExecutable::Token => {
                     let res = soroban_spec::read::parse_raw(&Spec::spec_xdr());
                     res.map_err(FromWasmError::Parse)
                 }
-                ScContractExecutable::WasmRef(hash) => {
+                ContractExecutable::Wasm(hash) => {
                     if let Ok(rc) = storage.get(
                         &LedgerKey::ContractCode(LedgerKeyContractCode {
                             hash: hash.clone(),
-                            le_type: ContractLedgerEntryType::DataEntry,
+                            body_type: ContractEntryBodyType::DataEntry,
                         })
                         .into(),
                         &Budget::default(),

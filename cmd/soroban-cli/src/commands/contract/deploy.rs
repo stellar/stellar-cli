@@ -7,11 +7,11 @@ use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     xdr::{
-        AccountId, ContractIdPreimage, ContractIdPreimageFromAddress, CreateContractArgs,
-        Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId, HostFunction,
-        InvokeHostFunctionOp, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScAddress, ScContractExecutable, SequenceNumber, Transaction, TransactionExt,
-        Uint256, VecM, WriteXdr,
+        AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+        CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
+        HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation, OperationBody,
+        Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
+        VecM, WriteXdr,
     },
     HostError,
 };
@@ -206,7 +206,7 @@ fn build_create_contract_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id_preimage,
-                executable: ScContractExecutable::WasmRef(hash),
+                executable: ContractExecutable::Wasm(hash),
             }),
             auth: VecM::default(),
         }),

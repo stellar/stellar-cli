@@ -288,6 +288,7 @@ impl Cmd {
         }
 
         // TODO: Figure out how to get the transaction result now
+        match result.result {
             TransactionResultResult::TxSuccess(ops) => {
                 if ops.is_empty() {
                     return Err(Error::MissingOperationResult);

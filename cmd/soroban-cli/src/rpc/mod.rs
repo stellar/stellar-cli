@@ -499,7 +499,10 @@ impl Client {
                         response.result_xdr.clone().ok_or(Error::MissingResult)?,
                     )?;
                     let meta = TransactionResultMeta::from_xdr_base64(
-                        response.result_meta_xdr.clone().ok_or(Error::MissingResult)?,
+                        response
+                            .result_meta_xdr
+                            .clone()
+                            .ok_or(Error::MissingResult)?,
                     )?;
                     let events = match response.result_meta_xdr {
                         None => Vec::new(),
@@ -652,9 +655,9 @@ impl Client {
         // Get the contract from the network
         let contract_key = LedgerKey::ContractData(xdr::LedgerKeyContractData {
             contract: xdr::ScAddress::Contract(xdr::Hash(*contract_id)),
-            key: xdr::ScVal::LedgerKeyContractExecutable,
-            type_: xdr::ContractDataType::Persistent,
-            le_type: xdr::ContractLedgerEntryType::DataEntry,
+            key: xdr::ScVal::LedgerKeyContractInstance,
+            durability: xdr::ContractDataDurability::Persistent,
+            body_type: xdr::ContractEntryBodyType::DataEntry,
         });
         let contract_ref = self.get_ledger_entries(Vec::from([contract_key])).await?;
         if contract_ref.entries.is_empty() {
@@ -673,7 +676,10 @@ impl Client {
                 body:
                     xdr::ContractDataEntryBody::DataEntry(xdr::ContractDataEntryData {
                         val:
-                            xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::WasmRef(hash)),
+                            xdr::ScVal::ContractInstance(xdr::ScContractInstance {
+                                executable: xdr::ContractExecutable::Wasm(hash),
+                                ..
+                            }),
                         ..
                     }),
                 ..
@@ -685,7 +691,7 @@ impl Client {
     pub async fn get_remote_wasm_from_hash(&self, hash: xdr::Hash) -> Result<Vec<u8>, Error> {
         let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode {
             hash,
-            le_type: xdr::ContractLedgerEntryType::DataEntry,
+            body_type: xdr::ContractEntryBodyType::DataEntry,
         });
         let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
         if contract_data.entries.is_empty() {
@@ -710,14 +716,18 @@ impl Client {
             return Err(Error::Xdr(XdrError::Invalid));
         };
         match data.val {
-            xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::WasmRef(hash)) => Ok(
-                contract_spec::ContractSpec::new(&self.get_remote_wasm_from_hash(hash).await?)
-                    .map_err(Error::CouldNotParseContractSpec)?
-                    .spec,
-            ),
-            xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::Token) => {
-                Ok(soroban_spec::read::parse_raw(&token::Spec::spec_xdr())?)
-            }
+            xdr::ScVal::ContractInstance(xdr::ScContractInstance {
+                executable: xdr::ContractExecutable::Wasm(hash),
+                ..
+            }) => Ok(contract_spec::ContractSpec::new(
+                &self.get_remote_wasm_from_hash(hash).await?,
+            )
+            .map_err(Error::CouldNotParseContractSpec)?
+            .spec),
+            xdr::ScVal::ContractInstance(xdr::ScContractInstance {
+                executable: xdr::ContractExecutable::Token,
+                ..
+            }) => Ok(soroban_spec::read::parse_raw(&token::Spec::spec_xdr())?),
             _ => Err(Error::Xdr(XdrError::Invalid)),
         }
     }

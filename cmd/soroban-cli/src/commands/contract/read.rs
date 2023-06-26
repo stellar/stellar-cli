@@ -6,9 +6,10 @@ use std::{
 use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
-        self, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData, ContractDataType,
-        ContractLedgerEntryType, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
+        self, ContractDataDurability, ContractDataEntry, ContractDataEntryBody,
+        ContractDataEntryData, ContractDataType, ContractEntryBodyType, ContractLedgerEntryType,
+        Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr, ScAddress,
+        ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
 };
@@ -133,8 +134,8 @@ impl Cmd {
                         == &LedgerKey::ContractData(LedgerKeyContractData {
                             contract: contract.clone(),
                             key: key.clone(),
-                            type_: ContractDataType::Persistent,
-                            le_type: ContractLedgerEntryType::DataEntry,
+                            durability: ContractDataDurability::Persistent,
+                            body_type: ContractEntryBodyType::DataEntry,
                         })
                 })
                 .iter()
@@ -153,7 +154,8 @@ impl Cmd {
                 .iter()
                 .filter_map(|(k, v)| {
                     if let LedgerKey::ContractData(kd) = *k.clone() {
-                        if kd.contract == contract && kd.key != ScVal::LedgerKeyContractExecutable {
+                        // TODO: Is this right?
+                        if kd.contract == contract && kd.key != ScVal::LedgerKeyContractInstance {
                             if let LedgerEntryData::ContractData(vd) = &v.data {
                                 return Some(vd.clone());
                             }
