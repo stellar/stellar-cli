@@ -727,7 +727,9 @@ impl Client {
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
                 executable: xdr::ContractExecutable::Token,
                 ..
-            }) => Ok(soroban_spec::read::parse_raw(&token::Spec::spec_xdr())?),
+            }) => Ok(soroban_spec::read::parse_raw(
+                &token::StellarAssetSpec::spec_xdr(),
+            )?),
             _ => Err(Error::Xdr(XdrError::Invalid)),
         }
     }

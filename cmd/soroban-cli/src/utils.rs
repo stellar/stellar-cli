@@ -17,7 +17,7 @@ use soroban_env_host::{
     },
 };
 use soroban_ledger_snapshot::LedgerSnapshot;
-use soroban_sdk::token::Spec;
+use soroban_sdk::token;
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::ed25519::PrivateKey;
 
@@ -205,7 +205,7 @@ pub fn get_contract_spec_from_storage(
                 ..
             } => match executable {
                 ContractExecutable::Token => {
-                    let res = soroban_spec::read::parse_raw(&Spec::spec_xdr());
+                    let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
                     res.map_err(FromWasmError::Parse)
                 }
                 ContractExecutable::Wasm(hash) => {
