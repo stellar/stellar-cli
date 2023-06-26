@@ -1,0 +1,3 @@
+# Involve the contract committer team when making changes to the soroban
+# contract build command.
+/cmd/soroban-cli/src/commands/contract/build.rs         @stellar/contract-committers

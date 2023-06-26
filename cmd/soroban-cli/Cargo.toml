@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.8.5"
+version = "0.8.7"
 edition = "2021"
 rust-version = "1.70"
 autobins = false
@@ -87,6 +87,8 @@ heck = "0.4.1"
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+cargo_metadata = "0.15.4"
+pathdiff = "0.2.1"
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
