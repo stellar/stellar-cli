@@ -58,7 +58,7 @@ pub fn assemble(
             })
             .collect::<Result<Vec<_>, _>>()?;
         if auths.len() > 0 {
-            body.auth = auths[0];
+            body.auth = auths[0].clone();
         }
         if let Some(log) = log_events {
             log(&transaction_data.resources.footprint, &auths, &[], None);

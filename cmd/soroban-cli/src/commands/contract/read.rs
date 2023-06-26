@@ -167,7 +167,13 @@ impl Cmd {
 
         let mut out = csv::Writer::from_writer(stdout());
         for data in entries {
-            let ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }) = data.body;
+            let ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }) = data.body else {
+                // TODO: Figure out a better error here
+                return Err(Error::CannotPrintResult {
+                    result: ScVal::Void,
+                    error: soroban_spec_tools::Error::Unknown,
+                });
+            };
             let output = match self.output {
                 Output::String => [
                     soroban_spec_tools::to_string(&data.key).map_err(|e| {

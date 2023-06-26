@@ -13,12 +13,11 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, Error as XdrError, HostFunction, InvokeHostFunctionOp,
-        InvokeHostFunctionResult, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
-        Memo, MuxedAccount, Operation, OperationBody, OperationResult, OperationResultTr,
+        self, AccountId, Error as XdrError, HostFunction, InvokeHostFunctionOp, LedgerEntryData,
+        LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount, Operation, OperationBody,
         Preconditions, PublicKey, ScBytes, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
         ScVec, SequenceNumber, SorobanAddressCredentials, SorobanAuthorizationEntry,
-        SorobanCredentials, Transaction, TransactionExt, TransactionResultResult, Uint256, VecM,
+        SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
     },
     DiagnosticLevel, Host, HostError,
 };
