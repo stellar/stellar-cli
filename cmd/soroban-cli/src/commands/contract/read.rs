@@ -7,9 +7,8 @@ use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
         self, ContractDataDurability, ContractDataEntry, ContractDataEntryBody,
-        ContractDataEntryData, ContractDataType, ContractEntryBodyType, ContractLedgerEntryType,
-        Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData, ReadXdr, ScAddress,
-        ScSpecTypeDef, ScVal, WriteXdr,
+        ContractDataEntryData, ContractEntryBodyType, Error as XdrError, LedgerEntryData,
+        LedgerKey, LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
 };
