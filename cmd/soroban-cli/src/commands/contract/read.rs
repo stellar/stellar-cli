@@ -6,8 +6,9 @@ use std::{
 use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
-        self, ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyContractData, ReadXdr, ScSpecTypeDef, ScVal, WriteXdr,
+        self, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData, ContractDataType,
+        ContractLedgerEntryType, Error as XdrError, LedgerEntryData, LedgerKey,
+        LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
 };
@@ -123,15 +124,17 @@ impl Cmd {
         let state = self.ledger.read(&self.locator.config_dir()?)?;
         let ledger_entries = &state.ledger_entries;
 
-        let contract_id = xdr::Hash(contract_id);
+        let contract = ScAddress::Contract(xdr::Hash(contract_id));
         let entries: Vec<ContractDataEntry> = if let Some(key) = key {
             ledger_entries
                 .iter()
                 .find(|(k, _)| {
                     k.as_ref()
                         == &LedgerKey::ContractData(LedgerKeyContractData {
-                            contract_id: contract_id.clone(),
+                            contract: contract.clone(),
                             key: key.clone(),
+                            type_: ContractDataType::Persistent,
+                            le_type: ContractLedgerEntryType::DataEntry,
                         })
                 })
                 .iter()
@@ -150,9 +153,7 @@ impl Cmd {
                 .iter()
                 .filter_map(|(k, v)| {
                     if let LedgerKey::ContractData(kd) = *k.clone() {
-                        if kd.contract_id == contract_id
-                            && kd.key != ScVal::LedgerKeyContractExecutable
-                        {
+                        if kd.contract == contract && kd.key != ScVal::LedgerKeyContractExecutable {
                             if let LedgerEntryData::ContractData(vd) = &v.data {
                                 return Some(vd.clone());
                             }
@@ -165,6 +166,7 @@ impl Cmd {
 
         let mut out = csv::Writer::from_writer(stdout());
         for data in entries {
+            let ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }) = data.body;
             let output = match self.output {
                 Output::String => [
                     soroban_spec_tools::to_string(&data.key).map_err(|e| {
@@ -173,11 +175,9 @@ impl Cmd {
                             error: e,
                         }
                     })?,
-                    soroban_spec_tools::to_string(&data.val).map_err(|e| {
-                        Error::CannotPrintResult {
-                            result: data.val.clone(),
-                            error: e,
-                        }
+                    soroban_spec_tools::to_string(&val).map_err(|e| Error::CannotPrintResult {
+                        result: val.clone(),
+                        error: e,
                     })?,
                 ],
                 Output::Json => [
@@ -187,14 +187,14 @@ impl Cmd {
                             error: e,
                         }
                     })?,
-                    serde_json::to_string_pretty(&data.val).map_err(|e| {
+                    serde_json::to_string_pretty(&val).map_err(|e| {
                         Error::CannotPrintJsonResult {
-                            result: data.val.clone(),
+                            result: val.clone(),
                             error: e,
                         }
                     })?,
                 ],
-                Output::Xdr => [data.key.to_xdr_base64()?, data.val.to_xdr_base64()?],
+                Output::Xdr => [data.key.to_xdr_base64()?, val.to_xdr_base64()?],
             };
             out.write_record(output)
                 .map_err(|e| Error::CannotPrintAsCsv { error: e })?;

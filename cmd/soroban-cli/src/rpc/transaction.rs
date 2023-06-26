@@ -1,5 +1,5 @@
 use soroban_env_host::xdr::{
-    ContractAuth, DiagnosticEvent, HostFunction, OperationBody, ReadXdr, SorobanTransactionData,
+    DiagnosticEvent, OperationBody, ReadXdr, SorobanAuthorizationEntry, SorobanTransactionData,
     Transaction, TransactionExt, VecM,
 };
 
@@ -45,12 +45,6 @@ pub fn assemble(
 
     let mut op = tx.operations[0].clone();
     if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
-        if simulation.results.len() != body.functions.len() {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation.results.len(),
-            });
-        }
-
         let auths = simulation
             .results
             .iter()
@@ -58,24 +52,17 @@ pub fn assemble(
                 VecM::try_from(
                     r.auth
                         .iter()
-                        .map(ContractAuth::from_xdr_base64)
+                        .map(SorobanAuthorizationEntry::from_xdr_base64)
                         .collect::<Result<Vec<_>, _>>()?,
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
+        if auths.len() > 0 {
+            body.auth = auths[0];
+        }
         if let Some(log) = log_events {
             log(&transaction_data.resources.footprint, &auths, &[], None);
         }
-        body.functions = body
-            .functions
-            .iter()
-            .zip(auths)
-            .map(|(f, auth)| HostFunction {
-                args: f.args.clone(),
-                auth,
-            })
-            .collect::<Vec<_>>()
-            .try_into()?;
     } else {
         return Err(Error::UnsupportedOperationType);
     }
@@ -92,10 +79,11 @@ mod tests {
 
     use super::super::{Cost, SimulateHostFunctionResult};
     use soroban_env_host::xdr::{
-        AccountId, AddressWithNonce, AuthorizedInvocation, ChangeTrustAsset, ChangeTrustOp,
-        ExtensionPoint, Hash, HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint, Memo,
-        MuxedAccount, Operation, Preconditions, PublicKey, ScAddress, ScSymbol, ScVal, ScVec,
-        SequenceNumber, SorobanResources, SorobanTransactionData, Uint256, WriteXdr,
+        self, AccountId, ChangeTrustAsset, ChangeTrustOp, ExtensionPoint, Hash, HostFunction,
+        InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, Preconditions,
+        PublicKey, ScAddress, ScSymbol, ScVal, ScVec, SequenceNumber,
+        SorobanAuthorizedContractFunction, SorobanAuthorizedFunction, SorobanAuthorizedInvocation,
+        SorobanResources, SorobanTransactionData, Uint256, WriteXdr,
     };
     use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 
@@ -120,20 +108,25 @@ mod tests {
 
     fn simulation_response() -> SimulateTransactionResponse {
         let source_bytes = Ed25519PublicKey::from_string(SOURCE).unwrap().0;
-        let fn_auth = &ContractAuth {
-            address_with_nonce: Some(AddressWithNonce {
+        let fn_auth = &SorobanAuthorizationEntry {
+            credentials: xdr::SorobanCredentials::Address(xdr::SorobanAddressCredentials {
                 address: ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
                     source_bytes,
                 )))),
                 nonce: 0,
+                signature_expiration_ledger: 0,
+                signature_args: ScVec(VecM::default()),
             }),
-            root_invocation: AuthorizedInvocation {
-                contract_id: Hash([0; 32]),
-                function_name: ScSymbol("fn".try_into().unwrap()),
-                args: ScVec(VecM::default()),
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::ContractFn(
+                    SorobanAuthorizedContractFunction {
+                        contract_address: ScAddress::Contract(Hash([0; 32])),
+                        function_name: ScSymbol("fn".try_into().unwrap()),
+                        args: ScVec(VecM::default()),
+                    },
+                ),
                 sub_invocations: VecM::default(),
             },
-            signature_args: ScVec(VecM::default()),
         };
 
         SimulateTransactionResponse {
@@ -164,12 +157,8 @@ mod tests {
             operations: vec![Operation {
                 source_account: None,
                 body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                    functions: vec![HostFunction {
-                        args: HostFunctionArgs::InvokeContract(ScVec(VecM::default())),
-                        auth: VecM::default(),
-                    }]
-                    .try_into()
-                    .unwrap(),
+                    host_function: HostFunction::InvokeContract(ScVec(VecM::default())),
+                    auth: VecM::default(),
                 }),
             }]
             .try_into()
@@ -207,26 +196,22 @@ mod tests {
             panic!("unexpected operation type: {:#?}", result.operations[0]);
         };
 
-        assert_eq!(1, op.functions.len());
-        assert_eq!(1, op.functions[0].auth.len());
-        let auth = &op.functions[0].auth[0];
+        assert_eq!(1, op.auth.len());
+        let auth = &op.auth[0];
 
-        assert_eq!(
-            "fn".to_string(),
-            format!("{}", auth.root_invocation.function_name.0),
-        );
+        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::SorobanAuthorizedContractFunction{ function_name, .. }) = auth.root_invocation.function else {
+            panic!("unexpected function type");
+        };
+        assert_eq!("fn".to_string(), format!("{}", function_name.0));
 
+        let xdr::SorobanCredentials::Address(xdr::SorobanAddressCredentials {
+            address:
+                xdr::ScAddress::Account(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(address))),
+            ..
+        }) = auth.credentials;
         assert_eq!(
-            Some(SOURCE.to_string()),
-            auth.address_with_nonce
-                .clone()
-                .map(|a| a.address)
-                .map(|a| match a {
-                    ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(u))) => u,
-                    _ => panic!("unexpected address type"),
-                })
-                .map(|k| stellar_strkey::ed25519::PublicKey(k.try_into().unwrap()))
-                .map(|p| p.to_string())
+            SOURCE.to_string(),
+            stellar_strkey::ed25519::PublicKey(address.try_into().unwrap()).to_string()
         );
     }
 
@@ -316,7 +301,8 @@ mod tests {
                 source_account: None,
                 body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
                     // This is empty
-                    functions: vec![].try_into().unwrap(),
+                    host_function: xdr::HostFunction::InvokeContract(vec![].try_into().unwrap()),
+                    auth: vec![].try_into().unwrap(),
                 }),
             }]
             .try_into()
@@ -345,8 +331,11 @@ mod tests {
             Ok(Transaction { operations, .. }) => {
                 assert_eq!(1, operations.len());
                 match operations[0].body {
-                    OperationBody::InvokeHostFunction(ref op) => {
-                        assert_eq!(0, op.functions.len());
+                    OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+                        host_function: HostFunction::InvokeContract(args),
+                        ..
+                    }) => {
+                        assert_eq!(0, args.len());
                     }
                     _ => panic!("unexpected operation type: {:#?}", operations[0]),
                 }

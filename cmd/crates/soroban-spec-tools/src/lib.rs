@@ -4,13 +4,13 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::{
-    AccountId, BytesM, Error as XdrError, Hash, Int128Parts, Int256Parts, PublicKey, ScAddress,
-    ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0,
-    ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
-    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
-    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, ContractDataType,
-    UInt128Parts, UInt256Parts, Uint256, VecM,
+    AccountId, BytesM, ContractDataType, Error as XdrError, Hash, Int128Parts, Int256Parts,
+    PublicKey, ScAddress, ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey,
+    ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
+    ScSpecTypeResult, ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec,
+    ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
+    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0,
+    ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod utils;
@@ -1003,7 +1003,9 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
         }
         ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
         ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
-        ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => Value::Number(serde_json::Number::from(*nonce)),
+        ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => {
+            Value::Number(serde_json::Number::from(*nonce))
+        }
         ScVal::Error(e) => serde_json::to_value(e)?,
         ScVal::StorageType(ContractDataType::Temporary) => Value::String("temporary".to_string()),
         ScVal::StorageType(ContractDataType::Persistent) => Value::String("persistent".to_string()),

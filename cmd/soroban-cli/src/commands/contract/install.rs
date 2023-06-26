@@ -6,9 +6,8 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, Memo,
-    MuxedAccount, Operation, OperationBody, Preconditions, SequenceNumber, Transaction,
-    TransactionExt, Uint256, UploadContractWasmArgs, VecM,
+    Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -95,23 +94,18 @@ impl Cmd {
 }
 
 pub(crate) fn build_install_contract_code_tx(
-    contract: Vec<u8>,
+    source_code: Vec<u8>,
     sequence: i64,
     fee: u32,
     key: &ed25519_dalek::Keypair,
 ) -> Result<(Transaction, Hash), XdrError> {
-    let hash = utils::contract_hash(&contract)?;
+    let hash = utils::contract_hash(&source_code)?;
 
     let op = Operation {
         source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            functions: vec![HostFunction {
-                args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {
-                    code: contract.try_into()?,
-                }),
-                auth: VecM::default(),
-            }]
-            .try_into()?,
+            host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
+            auth: VecM::default(),
         }),
     };
 

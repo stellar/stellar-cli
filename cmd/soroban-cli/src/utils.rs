@@ -6,11 +6,13 @@ use soroban_env_host::{
     budget::Budget,
     storage::{AccessType, Footprint, Storage},
     xdr::{
-        AccountEntry, AccountEntryExt, AccountId, BytesM, ContractCodeEntry, ContractDataEntry,ContractLedgerEntryType,ContractDataType, ContractDataEntryBody, ContractDataEntryData,ContractCodeEntryBody,
-        DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryData,
-        LedgerEntryExt, LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData,
-        ScAddress, ScContractExecutable, ScSpecEntry, ScVal, SequenceNumber, Signature, SignatureHint,
-        String32, Thresholds, Transaction, TransactionEnvelope, TransactionSignaturePayload,
+        AccountEntry, AccountEntryExt, AccountId, BytesM, ContractCodeEntry, ContractCodeEntryBody,
+        ContractDataEntry, ContractDataEntryBody, ContractDataEntryData, ContractDataType,
+        ContractLedgerEntryType, DecoratedSignature, Error as XdrError, ExtensionPoint, Hash,
+        LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
+        LedgerKeyContractCode, LedgerKeyContractData, ScAddress, ScContractExecutable, ScSpecEntry,
+        ScVal, SequenceNumber, Signature, SignatureHint, String32, Thresholds, Transaction,
+        TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
 };
@@ -103,12 +105,10 @@ pub fn add_contract_to_ledger_entries(
             contract: ScAddress::Contract(contract_id.into()),
             key: ScVal::LedgerKeyContractExecutable,
             type_: ContractDataType::Persistent,
-            body: ContractDataEntryBody::DataEntry(
-                    ContractDataEntryData{
-                        flags: 0,
-                        val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(Hash(wasm_hash))),
-                    }
-            ),
+            body: ContractDataEntryBody::DataEntry(ContractDataEntryData {
+                flags: 0,
+                val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(Hash(wasm_hash))),
+            }),
             // TODO: Figure out what this should be.
             expiration_ledger_seq: 0,
         }),
@@ -191,12 +191,11 @@ pub fn get_contract_spec_from_storage(
             LedgerEntry {
                 data:
                     LedgerEntryData::ContractData(ContractDataEntry {
-                        body: ContractDataEntryBody::DataEntry(
-                            ContractDataEntryData{
+                        body:
+                            ContractDataEntryBody::DataEntry(ContractDataEntryData {
                                 val: ScVal::ContractExecutable(c),
                                 ..
-                            }
-                        ),
+                            }),
                         ..
                     }),
                 ..
@@ -208,18 +207,20 @@ pub fn get_contract_spec_from_storage(
                 ScContractExecutable::WasmRef(hash) => {
                     if let Ok(rc) = storage.get(
                         &LedgerKey::ContractCode(LedgerKeyContractCode {
-                                hash: hash.clone(),
-                                le_type: ContractLedgerEntryType::DataEntry,
-                            }).into(),
+                            hash: hash.clone(),
+                            le_type: ContractLedgerEntryType::DataEntry,
+                        })
+                        .into(),
                         &Budget::default(),
                     ) {
                         // TODO: Handle expired ledger entries here.
                         match rc.as_ref() {
                             LedgerEntry {
-                                data: LedgerEntryData::ContractCode(ContractCodeEntry {
-                                    body: ContractCodeEntryBody::DataEntry(code),
-                                    ..
-                                }),
+                                data:
+                                    LedgerEntryData::ContractCode(ContractCodeEntry {
+                                        body: ContractCodeEntryBody::DataEntry(code),
+                                        ..
+                                    }),
                                 ..
                             } => soroban_spec::read::from_wasm(code.as_vec()),
                             _ => Err(FromWasmError::NotFound),
