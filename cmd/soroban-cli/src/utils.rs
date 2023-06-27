@@ -1,9 +1,10 @@
-use std::{io::ErrorKind, path::Path};
+use std::{collections::HashMap, io::ErrorKind, path::Path};
 
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
+    expiration_ledger_bumps::ExpirationLedgerBumps,
     storage::{AccessType, Footprint, Storage},
     xdr::{
         AccountEntry, AccountEntryExt, AccountId, BytesM, ContractCodeEntry, ContractCodeEntryBody,
@@ -124,6 +125,24 @@ pub fn add_contract_to_ledger_entries(
         }
     }
     entries.push((Box::new(contract_key), Box::new(contract_entry)));
+}
+
+pub fn bump_ledger_entry_expirations(
+    entries: &mut [(Box<LedgerKey>, Box<LedgerEntry>)],
+    bumps: &ExpirationLedgerBumps,
+) {
+    // let lookup: HashMap<LedgerKey, u32> = bumps
+    let lookup = bumps
+        .iter()
+        .map(|b| (b.key.as_ref().clone(), b.min_expiration))
+        .collect::<HashMap<_, _>>();
+    for (k, e) in entries.iter_mut() {
+        if let Some(min_expiration) = lookup.get(k.as_ref()) {
+            if let LedgerEntryData::ContractData(entry) = &mut e.data {
+                entry.expiration_ledger_seq = *min_expiration;
+            }
+        }
+    }
 }
 
 /// # Errors

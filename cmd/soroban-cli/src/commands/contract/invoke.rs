@@ -376,10 +376,7 @@ impl Cmd {
                 root_invocation: payload.invocation,
             })
             .collect();
-        // TODO: Check if we need special handling for the expiration_ledger_bumps here. it should
-        // be automatic when we call `state.update` above.
-        let (storage, budget, events, _expiration_ledger_bumps) =
-            h.try_finish().map_err(|h| h.1)?;
+        let (storage, budget, events, expiration_ledger_bumps) = h.try_finish().map_err(|h| h.1)?;
         let footprint = &create_ledger_footprint(&storage.footprint);
         log_events(
             footprint,
@@ -387,6 +384,8 @@ impl Cmd {
             &events.0,
             Some(&budget),
         );
+
+        utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
         self.config.set_state(&mut state)?;
         if !events.0.is_empty() {
