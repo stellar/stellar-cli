@@ -306,7 +306,6 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 }
 
 func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
-
 	test := NewTest(t)
 
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
@@ -430,7 +429,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	ro1 := obtainedFootprint.ReadOnly[1]
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
 	assert.Equal(t, xdr.ScAddressTypeScAddressTypeContract, ro1.ContractData.Contract.Type)
-	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.Contract.ContractId)
+	assert.Equal(t, xdr.Hash(contractID), *ro1.ContractData.Contract.ContractId)
 	assert.Equal(t, xdr.ScValTypeScvLedgerKeyContractInstance, ro1.ContractData.Key.Type)
 	ro2 := obtainedFootprint.ReadOnly[2]
 	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
@@ -452,7 +451,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, obtainedAuth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsAddress)
 	assert.Nil(t, obtainedAuth.Credentials.Address.SignatureArgs)
 
-	assert.Equal(t, xdr.Uint64(0), obtainedAuth.Credentials.Address.Nonce)
+	assert.NotZero(t, obtainedAuth.Credentials.Address.Nonce)
 	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
 	assert.Equal(t, authAddrArg, obtainedAuth.Credentials.Address.Address.AccountId.Address())
 
@@ -468,9 +467,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 
 	// check the events
-	assert.Len(t, response.Events, 1)
+	assert.Len(t, response.Events, 3)
 	var event xdr.DiagnosticEvent
-	err = xdr.SafeUnmarshalBase64(response.Events[0], &event)
+	err = xdr.SafeUnmarshalBase64(response.Events[1], &event)
 	assert.NoError(t, err)
 	assert.True(t, event.InSuccessfulContractCall)
 	assert.Equal(t, xdr.Hash(contractID), *event.Event.ContractId)
@@ -486,7 +485,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
-	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 29")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 33")
 }
 
 func TestSimulateTransactionError(t *testing.T) {
