@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contractimpl, contracttype, Vec};
+use soroban_sdk::{contract, contracttype, Vec};
 
 #[contracttype]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -29,9 +29,9 @@ pub struct UdtStruct {
     pub c: Vec<i64>,
 }
 
+#[contract]
 pub struct Contract;
 
-#[contractimpl]
 impl Contract {
     pub fn add(a: UdtEnum, b: UdtEnum) -> i64 {
         let a = match a {
