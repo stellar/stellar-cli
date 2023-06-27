@@ -180,6 +180,7 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
 /// Might return an error
 pub fn get_contract_spec_from_storage(
     storage: &mut Storage,
+    current_ledger_seq: &u32,
     contract_id: [u8; 32],
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
@@ -190,7 +191,6 @@ pub fn get_contract_spec_from_storage(
     });
     match storage.get(&key.into(), &Budget::default()) {
         Ok(rc) => match rc.as_ref() {
-            // TODO: Handle expired ledger entries here.
             LedgerEntry {
                 data:
                     LedgerEntryData::ContractData(ContractDataEntry {
@@ -199,15 +199,22 @@ pub fn get_contract_spec_from_storage(
                                 val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
                                 ..
                             }),
+                        expiration_ledger_seq,
                         ..
                     }),
                 ..
             } => match executable {
                 ContractExecutable::Token => {
+                    if expiration_ledger_seq <= current_ledger_seq {
+                        return Err(FromWasmError::NotFound);
+                    }
                     let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
                     res.map_err(FromWasmError::Parse)
                 }
                 ContractExecutable::Wasm(hash) => {
+                    if expiration_ledger_seq <= current_ledger_seq {
+                        return Err(FromWasmError::NotFound);
+                    }
                     if let Ok(rc) = storage.get(
                         &LedgerKey::ContractCode(LedgerKeyContractCode {
                             hash: hash.clone(),
@@ -216,16 +223,21 @@ pub fn get_contract_spec_from_storage(
                         .into(),
                         &Budget::default(),
                     ) {
-                        // TODO: Handle expired ledger entries here.
                         match rc.as_ref() {
                             LedgerEntry {
                                 data:
                                     LedgerEntryData::ContractCode(ContractCodeEntry {
                                         body: ContractCodeEntryBody::DataEntry(code),
+                                        expiration_ledger_seq,
                                         ..
                                     }),
                                 ..
-                            } => soroban_spec::read::from_wasm(code.as_vec()),
+                            } => {
+                                if expiration_ledger_seq <= current_ledger_seq {
+                                    return Err(FromWasmError::NotFound);
+                                }
+                                soroban_spec::read::from_wasm(code.as_vec())
+                            }
                             _ => Err(FromWasmError::NotFound),
                         }
                     } else {
