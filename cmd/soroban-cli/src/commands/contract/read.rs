@@ -6,9 +6,9 @@ use std::{
 use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
-        self, ContractDataDurability, ContractDataEntry, ContractDataEntryBody,
-        ContractDataEntryData, ContractEntryBodyType, Error as XdrError, LedgerEntryData,
-        LedgerKey, LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
+        self, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData,
+        ContractEntryBodyType, Error as XdrError, LedgerEntryData, LedgerKey,
+        LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
 };
@@ -128,25 +128,27 @@ impl Cmd {
         let entries: Vec<(ScVal, ScVal)> = if let Some(key) = key {
             ledger_entries
                 .iter()
-                .find(|(k, _)| {
-                    // TODO: Figure out how to allow looking up temporary entries for this command.
-                    k.as_ref()
-                        == &LedgerKey::ContractData(LedgerKeyContractData {
-                            contract: contract.clone(),
-                            key: key.clone(),
-                            durability: ContractDataDurability::Persistent,
-                            body_type: ContractEntryBodyType::DataEntry,
-                        })
+                .filter_map(|(k, v)| {
+                    let LedgerKey::ContractData(LedgerKeyContractData {
+                        contract: c,
+                        key: k,
+                        body_type,
+                        ..
+                    }) = k.as_ref() else {
+                        return None;
+                    };
+                    if c == &contract && k == &key && body_type == &ContractEntryBodyType::DataEntry
+                    {
+                        return Some(v.as_ref().clone());
+                    }
+                    None
                 })
-                .iter()
-                .copied()
-                .cloned()
                 .filter_map(|val| {
                     if let LedgerEntryData::ContractData(ContractDataEntry {
                         key,
                         body: ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }),
                         ..
-                    }) = val.1.data
+                    }) = val.data
                     {
                         Some((key, val))
                     } else {
