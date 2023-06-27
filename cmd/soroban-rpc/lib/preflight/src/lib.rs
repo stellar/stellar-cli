@@ -15,7 +15,7 @@ use soroban_env_host::xdr::{
     AccountId, DiagnosticEvent, InvokeHostFunctionOp, ReadXdr, ScVec, SorobanAddressCredentials,
     SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
 };
-use soroban_env_host::{Host, LedgerInfo};
+use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
@@ -126,6 +126,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let host = Host::with_storage_and_budget(storage, budget);
 
     host.switch_to_recording_auth();
+    host.set_diagnostic_level(DiagnosticLevel::Debug);
     host.set_source_account(source_account);
     host.set_ledger_info(ledger_info.into());
 
