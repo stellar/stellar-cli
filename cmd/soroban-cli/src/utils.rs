@@ -58,6 +58,7 @@ pub fn ledger_snapshot_read_or_default(
 pub fn add_contract_code_to_ledger_entries(
     entries: &mut Vec<(Box<LedgerKey>, Box<LedgerEntry>)>,
     contract: Vec<u8>,
+    min_persistent_entry_expiration: u32,
 ) -> Result<Hash, XdrError> {
     // Install the code
     let hash = contract_hash(contract.as_slice())?;
@@ -71,8 +72,7 @@ pub fn add_contract_code_to_ledger_entries(
             ext: ExtensionPoint::V0,
             hash: hash.clone(),
             body: ContractCodeEntryBody::DataEntry(contract.try_into()?),
-            // TODO: Figure this out
-            expiration_ledger_seq: 0,
+            expiration_ledger_seq: min_persistent_entry_expiration,
         }),
         ext: LedgerEntryExt::V0,
     };

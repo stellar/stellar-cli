@@ -59,8 +59,11 @@ impl Cmd {
 
     pub fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<Hash, Error> {
         let mut state = self.config.get_state()?;
-        let wasm_hash =
-            utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)?;
+        let wasm_hash = utils::add_contract_code_to_ledger_entries(
+            &mut state.ledger_entries,
+            contract,
+            state.min_persistent_entry_expiration,
+        )?;
 
         self.config.set_state(&mut state)?;
 

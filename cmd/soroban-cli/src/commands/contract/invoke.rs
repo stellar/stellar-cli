@@ -398,10 +398,13 @@ impl Cmd {
         contract_id: &[u8; 32],
     ) -> Result<(), Error> {
         if let Some(contract) = self.read_wasm()? {
-            let wasm_hash =
-                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
-                    .map_err(Error::CannotAddContractToLedgerEntries)?
-                    .0;
+            let wasm_hash = utils::add_contract_code_to_ledger_entries(
+                &mut state.ledger_entries,
+                contract,
+                state.min_persistent_entry_expiration,
+            )
+            .map_err(Error::CannotAddContractToLedgerEntries)?
+            .0;
             utils::add_contract_to_ledger_entries(
                 &mut state.ledger_entries,
                 *contract_id,
