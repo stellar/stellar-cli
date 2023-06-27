@@ -11,6 +11,7 @@ typedef struct CLedgerInfo {
   uint32_t base_reserve;
   uint32_t min_temp_entry_expiration;
   uint32_t min_persistent_entry_expiration;
+  uint32_t max_entry_expiration;
 } CLedgerInfo;
 
 typedef struct CPreflightResult {

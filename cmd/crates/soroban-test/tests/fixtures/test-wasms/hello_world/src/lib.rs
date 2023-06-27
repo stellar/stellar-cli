@@ -1,9 +1,9 @@
 #![no_std]
-use soroban_sdk::{contractimpl, log, symbol_short, vec, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contract, log, symbol_short, vec, Address, Env, String, Symbol, Vec};
 
+#[contract]
 pub struct Contract;
 
-#[contractimpl]
 impl Contract {
     pub fn hello(env: Env, world: Symbol) -> Vec<Symbol> {
         vec![&env, symbol_short!("Hello"), world]

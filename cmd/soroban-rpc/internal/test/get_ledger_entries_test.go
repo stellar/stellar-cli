@@ -38,8 +38,8 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 			Key: xdr.ScVal{
 				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 			},
-			Type:   xdr.ContractDataTypePersistent,
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Durability: xdr.ContractDataDurabilityPersistent,
+			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -135,8 +135,8 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 			Key: xdr.ScVal{
 				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 			},
-			Type:   xdr.ContractDataTypePersistent,
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Durability: xdr.ContractDataDurabilityPersistent,
+			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
