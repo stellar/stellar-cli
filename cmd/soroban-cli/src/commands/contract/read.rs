@@ -125,10 +125,11 @@ impl Cmd {
         let ledger_entries = &state.ledger_entries;
 
         let contract = ScAddress::Contract(xdr::Hash(contract_id));
-        let entries: Vec<ContractDataEntry> = if let Some(key) = key {
+        let entries: Vec<(ScVal, ScVal)> = if let Some(key) = key {
             ledger_entries
                 .iter()
                 .find(|(k, _)| {
+                    // TODO: Figure out how to allow looking up temporary entries for this command.
                     k.as_ref()
                         == &LedgerKey::ContractData(LedgerKeyContractData {
                             contract: contract.clone(),
@@ -141,8 +142,13 @@ impl Cmd {
                 .copied()
                 .cloned()
                 .filter_map(|val| {
-                    if let LedgerEntryData::ContractData(d) = val.1.data {
-                        Some(d)
+                    if let LedgerEntryData::ContractData(ContractDataEntry {
+                        key,
+                        body: ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }),
+                        ..
+                    }) = val.1.data
+                    {
+                        Some((key, val))
                     } else {
                         None
                     }
@@ -153,10 +159,16 @@ impl Cmd {
                 .iter()
                 .filter_map(|(k, v)| {
                     if let LedgerKey::ContractData(kd) = *k.clone() {
-                        // TODO: Is this right?
                         if kd.contract == contract && kd.key != ScVal::LedgerKeyContractInstance {
-                            if let LedgerEntryData::ContractData(vd) = &v.data {
-                                return Some(vd.clone());
+                            if let LedgerEntryData::ContractData(ContractDataEntry {
+                                body:
+                                    ContractDataEntryBody::DataEntry(ContractDataEntryData {
+                                        val, ..
+                                    }),
+                                ..
+                            }) = &v.data
+                            {
+                                return Some((kd.key, val.clone()));
                             }
                         }
                     }
@@ -166,21 +178,12 @@ impl Cmd {
         };
 
         let mut out = csv::Writer::from_writer(stdout());
-        for data in entries {
-            let ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }) = data.body else {
-                // TODO: Figure out a better error here
-                return Err(Error::CannotPrintResult {
-                    result: ScVal::Void,
-                    error: soroban_spec_tools::Error::Unknown,
-                });
-            };
+        for (key, val) in entries {
             let output = match self.output {
                 Output::String => [
-                    soroban_spec_tools::to_string(&data.key).map_err(|e| {
-                        Error::CannotPrintResult {
-                            result: data.key.clone(),
-                            error: e,
-                        }
+                    soroban_spec_tools::to_string(&key).map_err(|e| Error::CannotPrintResult {
+                        result: key.clone(),
+                        error: e,
                     })?,
                     soroban_spec_tools::to_string(&val).map_err(|e| Error::CannotPrintResult {
                         result: val.clone(),
@@ -188,9 +191,9 @@ impl Cmd {
                     })?,
                 ],
                 Output::Json => [
-                    serde_json::to_string_pretty(&data.key).map_err(|e| {
+                    serde_json::to_string_pretty(&key).map_err(|e| {
                         Error::CannotPrintJsonResult {
-                            result: data.key.clone(),
+                            result: key.clone(),
                             error: e,
                         }
                     })?,
@@ -201,7 +204,7 @@ impl Cmd {
                         }
                     })?,
                 ],
-                Output::Xdr => [data.key.to_xdr_base64()?, val.to_xdr_base64()?],
+                Output::Xdr => [key.to_xdr_base64()?, val.to_xdr_base64()?],
             };
             out.write_record(output)
                 .map_err(|e| Error::CannotPrintAsCsv { error: e })?;
