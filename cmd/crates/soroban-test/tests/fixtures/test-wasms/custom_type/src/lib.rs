@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contracterror, contractimpl, contracttype, vec, symbol_short, Address, Bytes, BytesN, Env, Map, String,
-    Symbol, Val, Vec, I256, U256,
+    contracterror, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN, Env, Map,
+    String, Symbol, Val, Vec, I256, U256,
 };
 
 pub struct Contract;
