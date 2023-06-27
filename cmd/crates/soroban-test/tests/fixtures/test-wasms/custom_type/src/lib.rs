@@ -1,9 +1,10 @@
 #![no_std]
 use soroban_sdk::{
-    contracterror, contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, String,
-    Symbol, Val, Vec, I256, U256,
+    contract, contracterror, contracttype, symbol_short, vec, Address, Bytes, BytesN, Env, Map,
+    String, Symbol, Val, Vec, I256, U256,
 };
 
+#[contract]
 pub struct Contract;
 
 /// This is from the rust doc above the struct Test
@@ -51,7 +52,6 @@ pub enum Error {
     OhNo = 1,
 }
 
-#[contractimpl]
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {
         hello
@@ -87,7 +87,7 @@ impl Contract {
 
     /// Example contract method which takes a struct
     pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
-        vec![&env, Symbol::short("Hello"), strukt.c]
+        vec![&env, symbol_short!("Hello"), strukt.c]
     }
 
     pub fn strukt(_env: Env, strukt: Test) -> Test {

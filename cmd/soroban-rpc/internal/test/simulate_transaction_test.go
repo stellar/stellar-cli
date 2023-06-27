@@ -223,13 +223,13 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					{
 						Type: xdr.LedgerEntryTypeContractCode,
 						ContractCode: &xdr.LedgerKeyContractCode{
-							Hash:   xdr.Hash(testContractId),
-							LeType: xdr.ContractLedgerEntryTypeDataEntry,
+							Hash:     xdr.Hash(testContractId),
+							BodyType: xdr.ContractEntryBodyTypeDataEntry,
 						},
 					},
 				},
 			},
-			Instructions:              73801,
+			Instructions:              74350,
 			ReadBytes:                 40,
 			WriteBytes:                112,
 			ExtendedMetaDataSizeBytes: 152,

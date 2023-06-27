@@ -149,10 +149,12 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	}
 	minTempEntryExpiration := uint32(0)
 	minPersistentEntryExpiration := uint32(0)
+	maxEntryExpiration := uint32(0)
 	if hasConfig {
 		setting := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
 		minTempEntryExpiration = uint32(setting.MinTempEntryExpiration)
-		minPersistentEntryExpiration = uint32(setting.MinRestorableEntryExpiration)
+		minPersistentEntryExpiration = uint32(setting.MinPersistentEntryExpiration)
+		maxEntryExpiration = uint32(setting.MaxEntryExpiration)
 	}
 
 	li := C.CLedgerInfo{
@@ -164,6 +166,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		base_reserve:                    5_000_000,
 		min_temp_entry_expiration:       C.uint(minTempEntryExpiration),
 		min_persistent_entry_expiration: C.uint(minPersistentEntryExpiration),
+		max_entry_expiration:            C.uint(maxEntryExpiration),
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)

@@ -31,6 +31,7 @@ pub struct CLedgerInfo {
     pub base_reserve: u32,
     pub min_temp_entry_expiration: u32,
     pub min_persistent_entry_expiration: u32,
+    pub max_entry_expiration: u32,
 }
 
 impl From<CLedgerInfo> for LedgerInfo {
@@ -44,6 +45,7 @@ impl From<CLedgerInfo> for LedgerInfo {
             base_reserve: c.base_reserve,
             min_temp_entry_expiration: c.min_temp_entry_expiration,
             min_persistent_entry_expiration: c.min_persistent_entry_expiration,
+            max_entry_expiration: c.max_entry_expiration,
         }
     }
 }
