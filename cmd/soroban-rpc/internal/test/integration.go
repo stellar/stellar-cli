@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -41,6 +42,7 @@ type Test struct {
 	t *testing.T
 
 	composePath string // docker compose yml file
+	coreImage   string // the core image that would be used for the test
 
 	daemon *daemon.Daemon
 
@@ -63,6 +65,7 @@ func NewTest(t *testing.T) *Test {
 		t:           t,
 		composePath: findDockerComposePath(),
 	}
+	i.initializeCoreImage()
 	i.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color")
 	i.prepareShutdownHandlers()
 	i.coreClient = &stellarcore.Client{URL: "http://localhost:" + strconv.Itoa(stellarCorePort)}
@@ -165,6 +168,7 @@ func (i *Test) runComposeCommand(args ...string) {
 
 	cmdline := append([]string{"-f", integrationYaml}, args...)
 	cmd := exec.Command("docker-compose", cmdline...)
+	cmd.Env = append(os.Environ(), "SOROBAN_RPC_INTEGRATION_TESTS_CORE_IMAGE="+i.coreImage)
 
 	i.t.Log("Running", cmd.Env, cmd.Args)
 	out, innerErr := cmd.Output()
@@ -334,4 +338,47 @@ func findDockerComposePath() string {
 
 	// Directly jump down to the folder that should contain the configs
 	return filepath.Join(current, "cmd", "soroban-rpc", "internal", "test")
+}
+
+// initializeCoreImage figures out the core image that would be used in the test
+// by either using the environment variable SOROBAN_RPC_INTEGRATION_TESTS_CORE_IMAGE or by
+// figuring this out from the repository dependency tree.
+func (i *Test) initializeCoreImage() {
+	coreImage := os.Getenv("SOROBAN_RPC_INTEGRATION_TESTS_CORE_IMAGE")
+	if len(coreImage) > 0 {
+		i.coreImage = coreImage
+		return
+	}
+
+	getCoreDockerImage := filepath.Join(i.composePath, "../../../../scripts/get_core_docker_image.sh")
+
+	cmd := exec.Command("/bin/sh", "-c", getCoreDockerImage)
+
+	i.t.Log("Running", cmd.Env, cmd.Args)
+	out, innerErr := cmd.Output()
+	if exitErr, ok := innerErr.(*exec.ExitError); ok {
+		fmt.Printf("stdout:\n%s\n", string(out))
+		fmt.Printf("stderr:\n%s\n", string(exitErr.Stderr))
+	}
+
+	if innerErr != nil {
+		i.t.Fatalf("Compose command failed: %v", innerErr)
+	}
+
+	cachedDockerImageFileName := filepath.Join(i.composePath, "../../../../scripts/.cached_core_docker_image.env")
+
+	cachedDockerImage, err := os.ReadFile(cachedDockerImageFileName)
+	if err != nil {
+		// unable to read file.
+		i.t.Logf("Unable to read cached docker file '%s'", cachedDockerImageFileName)
+		i.t.FailNow()
+	}
+	splitted := strings.Split(string(cachedDockerImage), "=")
+	if len(splitted) != 2 { // should be something like CORE_DOCKER_IMAGE=chowbao/stellar-core:19.11.1-1345.b5386da37.focal-soroban
+		i.t.Logf("number of elements in splitted array isn't 2 but %d", len(splitted))
+		i.t.FailNow()
+	}
+
+	i.coreImage = strings.TrimSpace(splitted[1])
+	return
 }
