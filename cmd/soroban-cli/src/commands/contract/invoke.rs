@@ -357,24 +357,23 @@ impl Cmd {
         let contract_auth: Vec<SorobanAuthorizationEntry> = h
             .get_recorded_auth_payloads()?
             .into_iter()
-            .map(|payload| {
-                SorobanAuthorizationEntry {
-                    credentials: match (payload.address, payload.nonce) {
-                        (Some(address), Some(nonce)) => {
-                            SorobanCredentials::Address(SorobanAddressCredentials {
-                                address,
-                                nonce,
-                                signature_expiration_ledger: ledger_info.sequence_number+1,
-                                signature_args: ScVec::default(),
-                            })
-                        }
-                        _ => SorobanCredentials::SourceAccount,
-                    },
-                    root_invocation: payload.invocation,
-                }
+            .map(|payload| SorobanAuthorizationEntry {
+                credentials: match (payload.address, payload.nonce) {
+                    (Some(address), Some(nonce)) => {
+                        SorobanCredentials::Address(SorobanAddressCredentials {
+                            address,
+                            nonce,
+                            signature_expiration_ledger: ledger_info.sequence_number + 1,
+                            signature_args: ScVec::default(),
+                        })
+                    }
+                    _ => SorobanCredentials::SourceAccount,
+                },
+                root_invocation: payload.invocation,
             })
             .collect();
-        // TODO: Handle the expiration_ledger_bumps here
+        // TODO: Check if we need special handling for the expiration_ledger_bumps here. it should
+        // be automatic when we call `state.update` above.
         let (storage, budget, events, _expiration_ledger_bumps) =
             h.try_finish().map_err(|h| h.1)?;
         let footprint = &create_ledger_footprint(&storage.footprint);
