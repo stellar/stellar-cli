@@ -68,9 +68,9 @@ jobs:
       - if: matrix.os == 'windows-latest'
         name: Install the same mingw gcc compiler used by rust
         run: |
-          C:\\msys64\\usr\\bin\\pacman.exe -S mingw-w64-x86_64-gcc --noconfirm
-          echo "CC=C:\\msys64\\mingw64\\bin\\gcc.exe" >> $GITHUB_ENV
-          echo "C:\\msys64\\mingw64\\bin" >> $GITHUB_PATH
+          C:/msys64/usr/bin/pacman.exe -S mingw-w64-x86_64-gcc --noconfirm
+          echo "CC=C:/msys64/mingw64/bin/gcc.exe" >> $GITHUB_ENV
+          echo "C:/msys64/mingw64/bin" >> $GITHUB_PATH
 
       # Use cross-compiler for linux aarch64
       - if: matrix.rust_target == 'aarch64-unknown-linux-gnu'

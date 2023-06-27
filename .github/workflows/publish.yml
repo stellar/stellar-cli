@@ -16,6 +16,7 @@ jobs:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   upload:
+    needs: publish
     strategy:
       fail-fast: false
       matrix:
@@ -28,9 +29,9 @@ jobs:
             target: x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
-#         - os: windows-latest
-#           target: x86_64-pc-windows-msvc
-#           ext: .exe
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: .exe
     runs-on: ${{ matrix.os }}
     env:
       VERSION: '${{ github.event.release.name }}'

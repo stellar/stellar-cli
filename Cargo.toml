@@ -10,6 +10,9 @@ members = [
 default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
+[workspace.package]
+version = "0.8.7"
+
 [workspace.dependencies.soroban-env-host]
 version = "0.0.16"
 git = "https://github.com/stellar/rs-soroban-env"
@@ -20,6 +23,14 @@ version = "0.8.5"
 git = "https://github.com/stellar/rs-soroban-sdk"
 rev = "7d143e425b690f2981ae804ce249462d98a68b0d"
 # path = "../rs-soroban-sdk/soroban-spec"
+
+[workspace.dependencies.soroban-spec-typescript]
+version = "0.8.7"
+path = "./cmd/crates/soroban-spec-typescript"
+
+[workspace.dependencies.soroban-spec-tools]
+version = "0.8.7"
+path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
 version = "0.8.0"
@@ -32,18 +43,29 @@ git = "https://github.com/stellar/rs-soroban-sdk"
 rev = "090f5c88e8f8b67f4d02010665aedfea6ee43db3"
 
 [workspace.dependencies.soroban-cli]
-version = "0.8.5"
+version = "0.8.7"
 path = "cmd/soroban-cli"
 
+[workspace.dependencies.stellar-xdr]
+version = "0.0.16"
+git = "https://github.com/stellar/rs-stellar-xdr"
+rev = "53e1a9cf2335aff29305c72deb6f075e78915dad"
+default-features = false
 
 [workspace.dependencies]
+base64 = "0.13.0"
 ethnum = "1.3.2"
+hex = "0.4.3"
+itertools = "0.10.0"
 sep5 = "0.0.2"
+serde_json = "1.0.82"
+serde = "1.0.82"
 stellar-strkey = "0.0.7"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 tracing-appender = "0.2.2"
 which = "4.4.0"
+wasmparser = "0.90.0"
 
 
 # [patch."https://github.com/stellar/rs-soroban-env"]
