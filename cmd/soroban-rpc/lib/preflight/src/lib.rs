@@ -174,27 +174,26 @@ fn recorded_auth_payloads_to_c(
 
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthorizationEntry {
     match (payload.address.clone(), payload.nonce) {
-        (Some(address), Some(nonce)) =>
-        SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(
-                SorobanAddressCredentials {
-                    address,
-                    nonce,
-                    // signature_args is left empty. This is where the client will put their signatures when
-                    // submitting the transaction.
-                    signature_expiration_ledger: 0,
-                    signature_args: ScVec::default(),
-                }
-            ),
+        (Some(address), Some(nonce)) => SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                address,
+                nonce,
+                // signature_args is left empty. This is where the client will put their signatures when
+                // submitting the transaction.
+                signature_expiration_ledger: 0,
+                signature_args: ScVec::default(),
+            }),
             root_invocation: payload.invocation.clone(),
         },
-        (None, None) =>         SorobanAuthorizationEntry {
+        _ => SorobanAuthorizationEntry {
             credentials: SorobanCredentials::SourceAccount,
             root_invocation: payload.invocation.clone(),
         },
+        // TODO: there is a bug in the host library which prevents us from
+        //       doing this check. It should be fixed in preview 11.
         // the address and the nonce can't be present independently
-        (a,n) =>
-            panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
+        // (a,n) =>
+        //    panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
     }
 }
 
