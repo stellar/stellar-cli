@@ -68,9 +68,9 @@ func TestGoldenPath(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypePersistent,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -152,9 +152,9 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypePersistent,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -189,7 +189,7 @@ func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.
 		Ext: xdr.LedgerEntryExt{},
 	}
 	var key xdr.LedgerKey
-	err := key.SetContractData(data.Contract, data.Key, data.Type, data.Body.LeType)
+	err := key.SetContractData(data.Contract, data.Key, data.Durability, data.Body.BodyType)
 	if err != nil {
 		panic(err)
 	}
@@ -221,9 +221,9 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypePersistent,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -305,9 +305,9 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypePersistent,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -380,9 +380,9 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 				Type: xdr.ScValTypeScvU32,
 				U32:  &val,
 			},
-			Type: xdr.ContractDataTypePersistent,
+			Durability: xdr.ContractDataDurabilityPersistent,
 			Body: xdr.ContractDataEntryBody{
-				LeType: xdr.ContractLedgerEntryTypeDataEntry,
+				BodyType: xdr.ContractEntryBodyTypeDataEntry,
 				Data: &xdr.ContractDataEntryData{
 					Val: xdr.ScVal{
 						Type: xdr.ScValTypeScvU32,
@@ -422,8 +422,8 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 					Type: xdr.ScValTypeScvU32,
 					U32:  &val,
 				},
-				Type:   xdr.ContractDataTypePersistent,
-				LeType: xdr.ContractLedgerEntryTypeDataEntry,
+				Durability: xdr.ContractDataDurabilityPersistent,
+				BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 			},
 		}
 		for {
@@ -471,9 +471,9 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 			Type: xdr.ScValTypeScvU32,
 			U32:  &keyUint32,
 		},
-		Type: xdr.ContractDataTypePersistent,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
