@@ -229,7 +229,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions:              73801,
+			Instructions:              74350,
 			ReadBytes:                 40,
 			WriteBytes:                112,
 			ExtendedMetaDataSizeBytes: 152,
