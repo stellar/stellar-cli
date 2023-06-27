@@ -335,7 +335,7 @@ impl Cmd {
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info);
+        h.set_ledger_info(ledger_info.clone());
 
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
@@ -364,8 +364,7 @@ impl Cmd {
                             SorobanCredentials::Address(SorobanAddressCredentials {
                                 address,
                                 nonce,
-                                // TODO: Figure out what this should be
-                                signature_expiration_ledger: 0,
+                                signature_expiration_ledger: ledger_info.sequence_number+1,
                                 signature_args: ScVec::default(),
                             })
                         }
