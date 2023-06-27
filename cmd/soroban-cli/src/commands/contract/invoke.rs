@@ -409,6 +409,7 @@ impl Cmd {
                 &mut state.ledger_entries,
                 *contract_id,
                 wasm_hash,
+                state.min_persistent_entry_expiration,
             );
         }
         Ok(())

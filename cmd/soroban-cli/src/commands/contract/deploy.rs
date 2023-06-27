@@ -145,7 +145,12 @@ impl Cmd {
         };
 
         let mut state = self.config.get_state()?;
-        utils::add_contract_to_ledger_entries(&mut state.ledger_entries, contract_id, wasm_hash.0);
+        utils::add_contract_to_ledger_entries(
+            &mut state.ledger_entries,
+            contract_id,
+            wasm_hash.0,
+            state.min_persistent_entry_expiration,
+        );
         self.config.set_state(&mut state)?;
         Ok(stellar_strkey::Contract(contract_id).to_string())
     }

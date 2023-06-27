@@ -90,9 +90,9 @@ pub fn add_contract_to_ledger_entries(
     entries: &mut Vec<(Box<LedgerKey>, Box<LedgerEntry>)>,
     contract_id: [u8; 32],
     wasm_hash: [u8; 32],
+    min_persistent_entry_expiration: u32,
 ) {
     // Create the contract
-    // TODO: Check this key/and entry are right
     let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
         contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::LedgerKeyContractInstance,
@@ -113,8 +113,7 @@ pub fn add_contract_to_ledger_entries(
                     storage: None,
                 }),
             }),
-            // TODO: Figure out what this should be.
-            expiration_ledger_seq: 0,
+            expiration_ledger_seq: min_persistent_entry_expiration,
         }),
         ext: LedgerEntryExt::V0,
     };
