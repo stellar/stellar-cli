@@ -152,7 +152,7 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	if hasConfig {
 		setting := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
 		minTempEntryExpiration = uint32(setting.MinTempEntryExpiration)
-		minPersistentEntryExpiration = uint32(setting.MinRestorableEntryExpiration)
+		minPersistentEntryExpiration = uint32(setting.MinPersistentEntryExpiration)
 	}
 
 	li := C.CLedgerInfo{
