@@ -45,6 +45,12 @@ pub fn assemble(
 
     let mut op = tx.operations[0].clone();
     if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
+        if simulation.results.len() != 1 {
+            return Err(Error::UnexpectedSimulateTransactionResultSize {
+                length: simulation.results.len(),
+            });
+        }
+
         let auths = simulation
             .results
             .iter()
@@ -287,62 +293,6 @@ mod tests {
                 assert_eq!(0, length);
             }
             r => panic!("expected UnexpectedSimulateTransactionResultSize error, got: {r:#?}"),
-        }
-    }
-
-    #[test]
-    fn test_assemble_transaction_handles_no_host_functions() {
-        let source_bytes = Ed25519PublicKey::from_string(SOURCE).unwrap().0;
-        let txn = Transaction {
-            source_account: MuxedAccount::Ed25519(Uint256(source_bytes)),
-            fee: 100,
-            seq_num: SequenceNumber(0),
-            cond: Preconditions::None,
-            memo: Memo::None,
-            operations: vec![Operation {
-                source_account: None,
-                body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                    // This is empty
-                    host_function: xdr::HostFunction::InvokeContract(vec![].try_into().unwrap()),
-                    auth: vec![].try_into().unwrap(),
-                }),
-            }]
-            .try_into()
-            .unwrap(),
-            ext: TransactionExt::V0,
-        };
-
-        let result = assemble(
-            &txn,
-            &SimulateTransactionResponse {
-                error: None,
-                transaction_data: transaction_data().to_xdr_base64().unwrap(),
-                events: Vec::default(),
-                min_resource_fee: 115,
-                results: vec![],
-                cost: Cost {
-                    cpu_insns: "0".to_string(),
-                    mem_bytes: "0".to_string(),
-                },
-                latest_ledger: 3,
-            },
-            None,
-        );
-
-        match result {
-            Ok(Transaction { operations, .. }) => {
-                assert_eq!(1, operations.len());
-                match &operations[0].body {
-                    OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                        host_function: HostFunction::InvokeContract(args),
-                        ..
-                    }) => {
-                        assert_eq!(0, args.len());
-                    }
-                    _ => panic!("unexpected operation type: {:#?}", operations[0]),
-                }
-            }
-            err => panic!("expected successful txn error, got: {err:#?}"),
         }
     }
 }
