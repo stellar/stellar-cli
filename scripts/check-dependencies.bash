@@ -57,7 +57,7 @@ fi
 # Now, lets make sure that the core and captive core version used in the tests use the same version and that they depend
 # on the same XDR revision
 
-if [ ! ./scripts/get_core_docker_image.sh ]; then
+if ! ./scripts/get_core_docker_image.sh; then
   echo "Unable to retrieve core docker image"
   exit 1
 fi
