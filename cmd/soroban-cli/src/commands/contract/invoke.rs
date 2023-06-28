@@ -13,12 +13,11 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, AddressWithNonce, ContractAuth, Error as XdrError, HostFunction,
-        HostFunctionArgs, InvokeHostFunctionOp, InvokeHostFunctionResult, LedgerEntryData,
+        self, AccountId, Error as XdrError, HostFunction, InvokeHostFunctionOp, LedgerEntryData,
         LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount, Operation, OperationBody,
-        OperationResult, OperationResultTr, Preconditions, PublicKey, ScBytes,
-        ScHostStorageErrorCode, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScStatus, ScVal,
-        ScVec, SequenceNumber, Transaction, TransactionExt, TransactionResultResult, Uint256, VecM,
+        Preconditions, PublicKey, ScBytes, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
+        ScVec, SequenceNumber, SorobanAddressCredentials, SorobanAuthorizationEntry,
+        SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
     },
     DiagnosticLevel, Host, HostError,
 };
@@ -278,7 +277,7 @@ impl Cmd {
             &key,
         )?;
 
-        let (result, events) = client
+        let (result, meta, events) = client
             .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, Some(log_events))
             .await?;
 
@@ -286,22 +285,12 @@ impl Cmd {
         if !events.is_empty() {
             tracing::debug!(?events);
         }
-        let res = match result.result {
-            TransactionResultResult::TxSuccess(ops) => {
-                if ops.is_empty() {
-                    return Err(Error::MissingOperationResult);
-                }
-                match &ops[0] {
-                    OperationResult::OpInner(OperationResultTr::InvokeHostFunction(
-                        InvokeHostFunctionResult::Success(r),
-                    )) => r[0].clone(),
-                    _ => return Err(Error::MissingOperationResult),
-                }
-            }
-            _ => return Err(Error::MissingOperationResult),
+
+        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3{soroban_meta: Some(xdr::SorobanTransactionMeta{return_value, ..}), ..}) = meta.tx_apply_processing else {
+            return Err(Error::MissingOperationResult);
         };
 
-        output_to_string(&spec, &res, &function)
+        output_to_string(&spec, &return_value, &function)
     }
 
     pub fn run_in_sandbox(&self) -> Result<String, Error> {
@@ -333,60 +322,61 @@ impl Cmd {
 
         let snap = Rc::new(state.clone());
         let mut storage = Storage::with_recording_footprint(snap);
-        let spec_entries = utils::get_contract_spec_from_storage(&mut storage, contract_id)
-            .map_err(Error::CannotParseContractSpec)?;
-        let h = Host::with_storage_and_budget(storage, Budget::default());
+        let spec_entries = utils::get_contract_spec_from_storage(
+            &mut storage,
+            &state.sequence_number,
+            contract_id,
+        )
+        .map_err(Error::CannotParseContractSpec)?;
+        let budget = Budget::default();
         if self.unlimited_budget {
-            h.with_budget(|b| b.reset_unlimited());
-        }
+            budget.reset_unlimited();
+        };
+        let h = Host::with_storage_and_budget(storage, budget);
         h.switch_to_recording_auth();
         h.set_source_account(source_account);
 
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info);
+        h.set_ledger_info(ledger_info.clone());
 
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
         h.set_diagnostic_level(DiagnosticLevel::Debug);
         let resv = h
-            .invoke_functions(vec![HostFunction {
-                args: HostFunctionArgs::InvokeContract(host_function_params),
-                auth: VecM::default(),
-            }])
+            .invoke_function(HostFunction::InvokeContract(host_function_params))
             .map_err(|host_error| {
-                if let Ok(error) = spec.find_error_type(host_error.status.get_code()) {
+                if let Ok(error) = spec.find_error_type(host_error.error.get_code()) {
                     Error::ContractInvoke(error.name.to_string_lossy(), error.doc.to_string_lossy())
                 } else {
                     host_error.into()
                 }
             })?;
 
-        let res_str = output_to_string(&spec, &resv[0], &function)?;
+        let res_str = output_to_string(&spec, &resv, &function)?;
 
         state.update(&h);
 
-        let contract_auth: Vec<ContractAuth> = h
+        let contract_auth: Vec<SorobanAuthorizationEntry> = h
             .get_recorded_auth_payloads()?
             .into_iter()
-            .map(|payload| {
-                let address_with_nonce = match (payload.address, payload.nonce) {
-                    (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
-                    _ => None,
-                };
-                ContractAuth {
-                    address_with_nonce,
-                    root_invocation: payload.invocation,
-                    signature_args: ScVec::default(),
-                }
+            .map(|payload| SorobanAuthorizationEntry {
+                credentials: match (payload.address, payload.nonce) {
+                    (Some(address), Some(nonce)) => {
+                        SorobanCredentials::Address(SorobanAddressCredentials {
+                            address,
+                            nonce,
+                            signature_expiration_ledger: ledger_info.sequence_number + 1,
+                            signature_args: ScVec::default(),
+                        })
+                    }
+                    _ => SorobanCredentials::SourceAccount,
+                },
+                root_invocation: payload.invocation,
             })
             .collect();
-        let (storage, budget, events) = h.try_finish().map_err(|_h| {
-            HostError::from(ScStatus::HostStorageError(
-                ScHostStorageErrorCode::UnknownError,
-            ))
-        })?;
+        let (storage, budget, events, expiration_ledger_bumps) = h.try_finish().map_err(|h| h.1)?;
         let footprint = &create_ledger_footprint(&storage.footprint);
         log_events(
             footprint,
@@ -394,6 +384,8 @@ impl Cmd {
             &events.0,
             Some(&budget),
         );
+
+        utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
         self.config.set_state(&mut state)?;
         if !events.0.is_empty() {
@@ -409,14 +401,18 @@ impl Cmd {
         contract_id: &[u8; 32],
     ) -> Result<(), Error> {
         if let Some(contract) = self.read_wasm()? {
-            let wasm_hash =
-                utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)
-                    .map_err(Error::CannotAddContractToLedgerEntries)?
-                    .0;
+            let wasm_hash = utils::add_contract_code_to_ledger_entries(
+                &mut state.ledger_entries,
+                contract,
+                state.min_persistent_entry_expiration,
+            )
+            .map_err(Error::CannotAddContractToLedgerEntries)?
+            .0;
             utils::add_contract_to_ledger_entries(
                 &mut state.ledger_entries,
                 *contract_id,
                 wasm_hash,
+                state.min_persistent_entry_expiration,
             );
         }
         Ok(())
@@ -448,7 +444,7 @@ impl Cmd {
 
 fn log_events(
     footprint: &LedgerFootprint,
-    auth: &Vec<VecM<ContractAuth>>,
+    auth: &Vec<VecM<SorobanAuthorizationEntry>>,
     events: &[HostEvent],
     budget: Option<&Budget>,
 ) {
@@ -483,11 +479,8 @@ fn build_invoke_contract_tx(
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            functions: vec![HostFunction {
-                args: HostFunctionArgs::InvokeContract(parameters),
-                auth: VecM::default(),
-            }]
-            .try_into()?,
+            host_function: HostFunction::InvokeContract(parameters),
+            auth: VecM::default(),
         }),
     };
     Ok(Transaction {

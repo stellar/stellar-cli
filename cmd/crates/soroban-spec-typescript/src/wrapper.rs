@@ -49,7 +49,7 @@ pub fn type_to_js_xdr(value: &types::Type) -> String {
         | types::Type::U256
         | types::Type::I256
         | types::Type::Timepoint
-        | types::Type::Status
+        | types::Type::Error
         | types::Type::Duration => "i".to_owned(),
         types::Type::String => "xdr.ScVal.scvString(i)".to_owned(),
     }

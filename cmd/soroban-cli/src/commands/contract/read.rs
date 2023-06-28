@@ -6,8 +6,9 @@ use std::{
 use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
-        self, ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyContractData, ReadXdr, ScSpecTypeDef, ScVal, WriteXdr,
+        self, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData,
+        ContractEntryBodyType, Error as XdrError, LedgerEntryData, LedgerKey,
+        LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
 };
@@ -123,23 +124,33 @@ impl Cmd {
         let state = self.ledger.read(&self.locator.config_dir()?)?;
         let ledger_entries = &state.ledger_entries;
 
-        let contract_id = xdr::Hash(contract_id);
-        let entries: Vec<ContractDataEntry> = if let Some(key) = key {
+        let contract = ScAddress::Contract(xdr::Hash(contract_id));
+        let entries: Vec<(ScVal, ScVal)> = if let Some(key) = key {
             ledger_entries
                 .iter()
-                .find(|(k, _)| {
-                    k.as_ref()
-                        == &LedgerKey::ContractData(LedgerKeyContractData {
-                            contract_id: contract_id.clone(),
-                            key: key.clone(),
-                        })
+                .filter_map(|(k, v)| {
+                    let LedgerKey::ContractData(LedgerKeyContractData {
+                        contract: c,
+                        key: k,
+                        body_type,
+                        ..
+                    }) = k.as_ref() else {
+                        return None;
+                    };
+                    if c == &contract && k == &key && body_type == &ContractEntryBodyType::DataEntry
+                    {
+                        return Some(v.as_ref().clone());
+                    }
+                    None
                 })
-                .iter()
-                .copied()
-                .cloned()
                 .filter_map(|val| {
-                    if let LedgerEntryData::ContractData(d) = val.1.data {
-                        Some(d)
+                    if let LedgerEntryData::ContractData(ContractDataEntry {
+                        key,
+                        body: ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }),
+                        ..
+                    }) = val.data
+                    {
+                        Some((key, val))
                     } else {
                         None
                     }
@@ -150,11 +161,16 @@ impl Cmd {
                 .iter()
                 .filter_map(|(k, v)| {
                     if let LedgerKey::ContractData(kd) = *k.clone() {
-                        if kd.contract_id == contract_id
-                            && kd.key != ScVal::LedgerKeyContractExecutable
-                        {
-                            if let LedgerEntryData::ContractData(vd) = &v.data {
-                                return Some(vd.clone());
+                        if kd.contract == contract && kd.key != ScVal::LedgerKeyContractInstance {
+                            if let LedgerEntryData::ContractData(ContractDataEntry {
+                                body:
+                                    ContractDataEntryBody::DataEntry(ContractDataEntryData {
+                                        val, ..
+                                    }),
+                                ..
+                            }) = &v.data
+                            {
+                                return Some((kd.key, val.clone()));
                             }
                         }
                     }
@@ -164,37 +180,33 @@ impl Cmd {
         };
 
         let mut out = csv::Writer::from_writer(stdout());
-        for data in entries {
+        for (key, val) in entries {
             let output = match self.output {
                 Output::String => [
-                    soroban_spec_tools::to_string(&data.key).map_err(|e| {
-                        Error::CannotPrintResult {
-                            result: data.key.clone(),
-                            error: e,
-                        }
+                    soroban_spec_tools::to_string(&key).map_err(|e| Error::CannotPrintResult {
+                        result: key.clone(),
+                        error: e,
                     })?,
-                    soroban_spec_tools::to_string(&data.val).map_err(|e| {
-                        Error::CannotPrintResult {
-                            result: data.val.clone(),
-                            error: e,
-                        }
+                    soroban_spec_tools::to_string(&val).map_err(|e| Error::CannotPrintResult {
+                        result: val.clone(),
+                        error: e,
                     })?,
                 ],
                 Output::Json => [
-                    serde_json::to_string_pretty(&data.key).map_err(|e| {
+                    serde_json::to_string_pretty(&key).map_err(|e| {
                         Error::CannotPrintJsonResult {
-                            result: data.key.clone(),
+                            result: key.clone(),
                             error: e,
                         }
                     })?,
-                    serde_json::to_string_pretty(&data.val).map_err(|e| {
+                    serde_json::to_string_pretty(&val).map_err(|e| {
                         Error::CannotPrintJsonResult {
-                            result: data.val.clone(),
+                            result: val.clone(),
                             error: e,
                         }
                     })?,
                 ],
-                Output::Xdr => [data.key.to_xdr_base64()?, data.val.to_xdr_base64()?],
+                Output::Xdr => [key.to_xdr_base64()?, val.to_xdr_base64()?],
             };
             out.write_record(output)
                 .map_err(|e| Error::CannotPrintAsCsv { error: e })?;

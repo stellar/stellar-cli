@@ -8,10 +8,11 @@ use soroban_env_host::{
     budget::Budget,
     events::HostEvent,
     xdr::{
-        self, AccountEntry, AccountId, ContractAuth, ContractDataEntry, DiagnosticEvent,
-        Error as XdrError, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
-        PublicKey, ReadXdr, Transaction, TransactionEnvelope, TransactionMeta, TransactionResult,
-        TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
+        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
+        SorobanAuthorizationEntry, Transaction, TransactionEnvelope, TransactionMeta,
+        TransactionMetaV3, TransactionResult, TransactionResultMeta, TransactionV1Envelope,
+        Uint256, VecM, WriteXdr,
     },
 };
 use soroban_sdk::token;
@@ -33,7 +34,7 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 pub type LogEvents = fn(
     footprint: &LedgerFootprint,
-    auth: &Vec<VecM<ContractAuth>>,
+    auth: &Vec<VecM<SorobanAuthorizationEntry>>,
     events: &[HostEvent],
     budget: Option<&Budget>,
 ) -> ();
@@ -453,7 +454,14 @@ impl Client {
     pub async fn send_transaction(
         &self,
         tx: &TransactionEnvelope,
-    ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
+    ) -> Result<
+        (
+            TransactionResult,
+            TransactionResultMeta,
+            Vec<DiagnosticEvent>,
+        ),
+        Error,
+    > {
         let client = self.client()?;
         tracing::trace!(?tx);
         let SendTransactionResponse {
@@ -487,13 +495,20 @@ impl Client {
                 "SUCCESS" => {
                     // TODO: the caller should probably be printing this
                     tracing::trace!(?response);
-                    let result_xdr_b64 = response.result_xdr.ok_or(Error::MissingResult)?;
-                    let result = TransactionResult::from_xdr_base64(result_xdr_b64)?;
+                    let result = TransactionResult::from_xdr_base64(
+                        response.result_xdr.clone().ok_or(Error::MissingResult)?,
+                    )?;
+                    let meta = TransactionResultMeta::from_xdr_base64(
+                        response
+                            .result_meta_xdr
+                            .clone()
+                            .ok_or(Error::MissingResult)?,
+                    )?;
                     let events = match response.result_meta_xdr {
                         None => Vec::new(),
                         Some(m) => extract_events(TransactionMeta::from_xdr_base64(m)?),
                     };
-                    return Ok((result, events));
+                    return Ok((result, meta, events));
                 }
                 "FAILED" => {
                     tracing::error!(?response);
@@ -554,7 +569,14 @@ impl Client {
         key: &ed25519_dalek::Keypair,
         network_passphrase: &str,
         log_events: Option<LogEvents>,
-    ) -> Result<(TransactionResult, Vec<DiagnosticEvent>), Error> {
+    ) -> Result<
+        (
+            TransactionResult,
+            TransactionResultMeta,
+            Vec<DiagnosticEvent>,
+        ),
+        Error,
+    > {
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
@@ -632,8 +654,10 @@ impl Client {
     ) -> Result<ContractDataEntry, Error> {
         // Get the contract from the network
         let contract_key = LedgerKey::ContractData(xdr::LedgerKeyContractData {
-            contract_id: xdr::Hash(*contract_id),
-            key: xdr::ScVal::LedgerKeyContractExecutable,
+            contract: xdr::ScAddress::Contract(xdr::Hash(*contract_id)),
+            key: xdr::ScVal::LedgerKeyContractInstance,
+            durability: xdr::ContractDataDurability::Persistent,
+            body_type: xdr::ContractEntryBodyType::DataEntry,
         });
         let contract_ref = self.get_ledger_entries(Vec::from([contract_key])).await?;
         if contract_ref.entries.is_empty() {
@@ -649,7 +673,15 @@ impl Client {
     pub async fn get_remote_wasm(&self, contract_id: &[u8; 32]) -> Result<Vec<u8>, Error> {
         match self.get_contract_data(contract_id).await? {
             xdr::ContractDataEntry {
-                val: xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::WasmRef(hash)),
+                body:
+                    xdr::ContractDataEntryBody::DataEntry(xdr::ContractDataEntryData {
+                        val:
+                            xdr::ScVal::ContractInstance(xdr::ScContractInstance {
+                                executable: xdr::ContractExecutable::Wasm(hash),
+                                ..
+                            }),
+                        ..
+                    }),
                 ..
             } => self.get_remote_wasm_from_hash(hash).await,
             scval => Err(Error::UnexpectedToken(scval)),
@@ -657,14 +689,20 @@ impl Client {
     }
 
     pub async fn get_remote_wasm_from_hash(&self, hash: xdr::Hash) -> Result<Vec<u8>, Error> {
-        let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash });
+        let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode {
+            hash,
+            body_type: xdr::ContractEntryBodyType::DataEntry,
+        });
         let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
         if contract_data.entries.is_empty() {
             return Err(Error::MissingResult);
         }
         let contract_data_entry = &contract_data.entries[0];
         match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
-            LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Ok(code.into()),
+            LedgerEntryData::ContractCode(xdr::ContractCodeEntry {
+                body: xdr::ContractCodeEntryBody::DataEntry(code),
+                ..
+            }) => Ok(code.into()),
             scval => Err(Error::UnexpectedContractCodeDataType(scval)),
         }
     }
@@ -674,15 +712,24 @@ impl Client {
         contract_id: &[u8; 32],
     ) -> Result<Vec<xdr::ScSpecEntry>, Error> {
         let contract_data = self.get_contract_data(contract_id).await?;
-        match contract_data.val {
-            xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::WasmRef(hash)) => Ok(
-                contract_spec::ContractSpec::new(&self.get_remote_wasm_from_hash(hash).await?)
-                    .map_err(Error::CouldNotParseContractSpec)?
-                    .spec,
-            ),
-            xdr::ScVal::ContractExecutable(xdr::ScContractExecutable::Token) => {
-                Ok(soroban_spec::read::parse_raw(&token::Spec::spec_xdr())?)
-            }
+        let xdr::ContractDataEntryBody::DataEntry(data) = contract_data.body else {
+            return Err(Error::Xdr(XdrError::Invalid));
+        };
+        match data.val {
+            xdr::ScVal::ContractInstance(xdr::ScContractInstance {
+                executable: xdr::ContractExecutable::Wasm(hash),
+                ..
+            }) => Ok(contract_spec::ContractSpec::new(
+                &self.get_remote_wasm_from_hash(hash).await?,
+            )
+            .map_err(Error::CouldNotParseContractSpec)?
+            .spec),
+            xdr::ScVal::ContractInstance(xdr::ScContractInstance {
+                executable: xdr::ContractExecutable::Token,
+                ..
+            }) => Ok(soroban_spec::read::parse_raw(
+                &token::StellarAssetSpec::spec_xdr(),
+            )?),
             _ => Err(Error::Xdr(XdrError::Invalid)),
         }
     }
@@ -690,13 +737,15 @@ impl Client {
 
 fn extract_events(tx_meta: TransactionMeta) -> Vec<DiagnosticEvent> {
     match tx_meta {
-        TransactionMeta::V3(v3) => {
+        TransactionMeta::V3(TransactionMetaV3 {
+            soroban_meta: Some(meta),
+            ..
+        }) => {
             // NOTE: we assume there can only be one operation, since we only send one
-            if v3.diagnostic_events.len() == 1 {
-                v3.diagnostic_events[0].events.clone().into()
-            } else if v3.events.len() == 1 {
-                v3.events[0]
-                    .events
+            if meta.diagnostic_events.len() == 1 {
+                meta.diagnostic_events.into()
+            } else if meta.events.len() == 1 {
+                meta.events
                     .iter()
                     .map(|e| DiagnosticEvent {
                         in_successful_contract_call: true,

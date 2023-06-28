@@ -24,6 +24,16 @@ git = "https://github.com/stellar/rs-soroban-sdk"
 rev = "e90db9f8009280516375df6b3ee43a65ff524577"
 # path = "../rs-soroban-sdk/soroban-spec"
 
+[workspace.dependencies.soroban-spec-rust]
+version = "0.8.4"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "e90db9f8009280516375df6b3ee43a65ff524577"
+# path = "../rs-soroban-sdk/soroban-spec-rust"
+
+[workspace.dependencies.soroban-spec-json]
+version = "0.8.5"
+path = "./cmd/crates/soroban-spec-json"
+
 [workspace.dependencies.soroban-spec-typescript]
 version = "0.8.7"
 path = "./cmd/crates/soroban-spec-typescript"

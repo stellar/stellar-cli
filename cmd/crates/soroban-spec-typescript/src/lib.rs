@@ -364,7 +364,9 @@ pub fn type_to_ts(value: &types::Type) -> String {
             }
         }
         types::Type::Custom { name } => name.clone(),
-        types::Type::Status | types::Type::Val => "any".to_owned(),
+        // TODO: Figure out what js type to map this to. There is already an `Error_` one that
+        // ahalabs have added in the bindings, so.. maybe rename that?
+        types::Type::Error | types::Type::Val => "any".to_owned(),
         types::Type::Address => "Address".to_string(),
         types::Type::Bytes | types::Type::BytesN { .. } => "Buffer".to_string(),
         types::Type::Void => "void".to_owned(),

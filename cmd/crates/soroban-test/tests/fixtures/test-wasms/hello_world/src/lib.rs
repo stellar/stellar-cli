@@ -48,8 +48,8 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Contract);
         let client = ContractClient::new(&env, &contract_id);
-        let world = Symbol::short("world");
+        let world = symbol_short!("world");
         let res = client.hello(&world);
-        assert_eq!(res, vec![&env, Symbol::short("Hello"), world]);
+        assert_eq!(res, vec![&env, symbol_short!("Hello"), world]);
     }
 }
