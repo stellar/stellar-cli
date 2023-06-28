@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use clap::{command, Parser};
-use soroban_spec::gen::json;
+use soroban_spec_json;
 
 use crate::wasm;
 
@@ -15,14 +15,14 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("generate json from file: {0}")]
-    GenerateJsonFromFile(json::GenerateFromFileError),
+    GenerateJsonFromFile(soroban_spec_json::GenerateFromFileError),
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let wasm_path_str = self.wasm.wasm.to_string_lossy();
-        let json =
-            json::generate_from_file(&wasm_path_str, None).map_err(Error::GenerateJsonFromFile)?;
+        let json = soroban_spec_json::generate_from_file(&wasm_path_str, None)
+            .map_err(Error::GenerateJsonFromFile)?;
         println!("{json}");
         Ok(())
     }

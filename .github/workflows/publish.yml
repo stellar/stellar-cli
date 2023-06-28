@@ -16,7 +16,9 @@ jobs:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   upload:
+    needs: publish
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat

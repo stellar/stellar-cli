@@ -18,7 +18,7 @@ import (
 #include <stdlib.h>
 // This assumes that the Rust compiler should be using a -gnu target (i.e. MinGW compiler) in Windows
 // (I (fons) am not even sure if CGo supports MSVC, see https://github.com/golang/go/issues/20982)
-#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/../../../../target/x86_64-pc-windows-gnu/release-with-panic-unwind/ -lpreflight -lm -static -lws2_32 -lbcrypt -luserenv
+#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/../../../../target/x86_64-pc-windows-gnu/release-with-panic-unwind/ -lpreflight -lntdll -static -lws2_32 -lbcrypt -luserenv
 // You cannot compile with -static in macOS (and it's not worth it in Linux, at least with glibc)
 #cgo darwin,amd64 LDFLAGS: -L${SRCDIR}/../../../../target/x86_64-apple-darwin/release-with-panic-unwind/ -lpreflight -ldl -lm
 #cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/../../../../target/aarch64-apple-darwin/release-with-panic-unwind/ -lpreflight -ldl -lm
@@ -95,16 +95,12 @@ type PreflightParameters struct {
 	LedgerEntryReadTx  db.LedgerEntryReadTx
 }
 
-type HostFunctionPreflight struct {
-	Result string   // XDR SCVal in base64
-	Auth   []string // ContractAuths XDR in base64
-}
-
 type Preflight struct {
 	Events          []string // DiagnosticEvents XDR in base64
 	TransactionData string   // SorobanTransactionData XDR in base64
 	MinFee          int64
-	Results         []HostFunctionPreflight
+	Result          string   // XDR SCVal in base64
+	Auth            []string // SorobanAuthorizationEntrys XDR in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
 }
@@ -141,13 +137,36 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	if err != nil {
 		return Preflight{}, err
 	}
+
+	hasConfig, stateExpirationConfig, err := params.LedgerEntryReadTx.GetLedgerEntry(xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeConfigSetting,
+		ConfigSetting: &xdr.LedgerKeyConfigSetting{
+			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
+		},
+	})
+	if err != nil {
+		return Preflight{}, err
+	}
+	minTempEntryExpiration := uint32(0)
+	minPersistentEntryExpiration := uint32(0)
+	maxEntryExpiration := uint32(0)
+	if hasConfig {
+		setting := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
+		minTempEntryExpiration = uint32(setting.MinTempEntryExpiration)
+		minPersistentEntryExpiration = uint32(setting.MinPersistentEntryExpiration)
+		maxEntryExpiration = uint32(setting.MaxEntryExpiration)
+	}
+
 	li := C.CLedgerInfo{
 		network_passphrase: C.CString(params.NetworkPassphrase),
 		sequence_number:    C.uint(latestLedger),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
-		base_reserve: 5_000_000,
+		base_reserve:                    5_000_000,
+		min_temp_entry_expiration:       C.uint(minTempEntryExpiration),
+		min_persistent_entry_expiration: C.uint(minPersistentEntryExpiration),
+		max_entry_expiration:            C.uint(maxEntryExpiration),
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)
@@ -167,20 +186,12 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 		return Preflight{}, errors.New(C.GoString(res.error))
 	}
 
-	cHostFunctionPreflights := (*[1 << 20]C.CHostFunctionPreflight)(unsafe.Pointer(res.results))[:res.results_size:res.results_size]
-	hostFunctionPreflights := make([]HostFunctionPreflight, len(cHostFunctionPreflights))
-	for i, cHostFunctionPreflight := range cHostFunctionPreflights {
-		hostFunctionPreflights[i] = HostFunctionPreflight{
-			Result: C.GoString(cHostFunctionPreflight.result),
-			Auth:   GoNullTerminatedStringSlice(cHostFunctionPreflight.auth),
-		}
-	}
-
 	preflight := Preflight{
 		Events:          GoNullTerminatedStringSlice(res.events),
 		TransactionData: C.GoString(res.transaction_data),
 		MinFee:          int64(res.min_fee),
-		Results:         hostFunctionPreflights,
+		Result:          C.GoString(res.result),
+		Auth:            GoNullTerminatedStringSlice(res.auth),
 		CPUInstructions: uint64(res.cpu_instructions),
 		MemoryBytes:     uint64(res.memory_bytes),
 	}

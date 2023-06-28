@@ -1,4 +1,4 @@
-FROM golang:1.20 as build
+FROM golang:1.20-bullseye as build
 ARG RUST_TOOLCHAIN_VERSION=stable
 ARG REPOSITORY_VERSION
 

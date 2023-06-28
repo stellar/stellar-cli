@@ -1,0 +1,33 @@
+[package]
+name = "soroban-spec-typescript"
+description = "Soroban contract spec utilities for generating JSON."
+homepage = "https://github.com/stellar/soroban-tools"
+repository = "https://github.com/stellar/soroban-tools"
+authors = ["Stellar Development Foundation <info@stellar.org>"]
+readme = "README.md"
+license = "Apache-2.0"
+version.workspace = true
+edition = "2021"
+rust-version = "1.70"
+
+[dependencies]
+soroban-spec = { workspace = true }
+thiserror = "1.0.32"
+serde = "1.0.82"
+serde_derive = "1.0.82"
+serde_json = "1.0.82"
+sha2 = "0.9.9"
+prettyplease = "0.2.4"
+include_dir = { version = "0.7.3", features = ["glob"] }
+heck = "0.4.1"
+itertools = { workspace = true }
+base64 = { workspace = true }
+
+[dependencies.stellar-xdr]
+workspace = true
+features = ["next", "std", "serde"]
+
+[dev_dependencies]
+temp-dir = "0.1.11"
+pretty_assertions = "1.2.1"
+walkdir = "2.3.3"

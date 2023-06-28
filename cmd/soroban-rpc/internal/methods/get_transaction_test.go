@@ -44,17 +44,16 @@ func transactionResult(successful bool) xdr.TransactionResult {
 func txMeta(acctSeq uint32, successful bool) xdr.LedgerCloseMeta {
 	envelope := txEnvelope(acctSeq)
 
-	txProcessing := []xdr.TransactionResultMetaV2{
+	txProcessing := []xdr.TransactionResultMeta{
 		{
 			TxApplyProcessing: xdr.TransactionMeta{
 				V:          3,
 				Operations: &[]xdr.OperationMeta{},
-				V3: &xdr.TransactionMetaV3{
-					TxResult: transactionResult(successful),
-				},
+				V3:         &xdr.TransactionMetaV3{},
 			},
-			Result: xdr.TransactionResultPairV2{
+			Result: xdr.TransactionResultPair{
 				TransactionHash: txHash(acctSeq),
+				Result:          transactionResult(successful),
 			},
 		},
 	}
@@ -135,7 +134,7 @@ func TestGetTransaction(t *testing.T) {
 	tx, err = GetTransaction(store, GetTransactionRequest{hash})
 	assert.NoError(t, err)
 
-	expectedTxResult, err := xdr.MarshalBase64(meta.V2.TxProcessing[0].TxApplyProcessing.V3.TxResult)
+	expectedTxResult, err := xdr.MarshalBase64(meta.V2.TxProcessing[0].Result.Result)
 	assert.NoError(t, err)
 	expectedEnvelope, err := xdr.MarshalBase64(txEnvelope(1))
 	assert.NoError(t, err)
@@ -183,7 +182,7 @@ func TestGetTransaction(t *testing.T) {
 	xdrHash = txHash(2)
 	hash = hex.EncodeToString(xdrHash[:])
 
-	expectedTxResult, err = xdr.MarshalBase64(meta.V2.TxProcessing[0].TxApplyProcessing.V3.TxResult)
+	expectedTxResult, err = xdr.MarshalBase64(meta.V2.TxProcessing[0].Result.Result)
 	assert.NoError(t, err)
 	expectedEnvelope, err = xdr.MarshalBase64(txEnvelope(2))
 	assert.NoError(t, err)

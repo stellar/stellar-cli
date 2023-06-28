@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-test"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.8.0"
+version = "0.8.7"
 edition = "2021"
 rust-version = "1.70"
 autobins = false
@@ -17,12 +17,9 @@ crate-type = ["rlib", "cdylib"]
 
 
 [dependencies]
-soroban-env-host = { workspace = true, features = [
-    "vm",
-    "serde",
-    "hostfn_log_fmt_values",
-] }
+soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
+soroban-spec-tools = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }

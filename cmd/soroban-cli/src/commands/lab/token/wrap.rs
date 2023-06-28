@@ -1,16 +1,13 @@
 use clap::{arg, command, Parser};
-use regex::Regex;
-use sha2::{Digest, Sha256};
 use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, ContractId,
-        CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageFromAsset,
-        HostFunction, HostFunctionArgs, InvokeHostFunctionOp, LedgerKey::ContractData,
-        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractExecutable, ScVal, SequenceNumber, Transaction, TransactionExt,
-        Uint256, VecM, WriteXdr,
+        Asset, ContractDataDurability, ContractEntryBodyType, ContractExecutable,
+        ContractIdPreimage, CreateContractArgs, Error as XdrError, Hash, HostFunction,
+        InvokeHostFunctionOp, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount,
+        Operation, OperationBody, Preconditions, ScAddress, ScVal, SequenceNumber, Transaction,
+        TransactionExt, Uint256, VecM,
     },
     Host, HostError,
 };
@@ -20,20 +17,15 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
 use crate::{
     commands::config,
     rpc::{Client, Error as SorobanRpcError},
+    utils::{contract_id_hash_from_asset, parsing::parse_asset},
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("cannot parse account id: {account_id}")]
-    CannotParseAccountId { account_id: String },
-    #[error("cannot parse asset: {asset}")]
-    CannotParseAsset { asset: String },
     #[error(transparent)]
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
-    #[error("invalid asset code: {asset}")]
-    InvalidAssetCode { asset: String },
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
@@ -44,6 +36,8 @@ pub enum Error {
     Xdr(#[from] XdrError),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    ParseAssetError(#[from] crate::utils::parsing::Error),
 }
 
 impl From<Infallible> for Error {
@@ -95,15 +89,12 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info);
 
-        let res = h.invoke_functions(vec![HostFunction {
-            args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                contract_id: ContractId::Asset(asset.clone()),
-                executable: ScContractExecutable::Token,
-            }),
-            auth: VecM::default(),
-        }])?;
+        let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
+            contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+            executable: ContractExecutable::Token,
+        }))?;
 
-        let contract_id = vec_to_hash(&res[0])?;
+        let contract_id = vec_to_hash(&res)?;
 
         state.update(&h);
         self.config.set_state(&mut state)?;
@@ -121,7 +112,7 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = get_contract_id(&asset, network_passphrase)?;
+        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase)?;
         let tx = build_wrap_token_tx(
             &asset,
             &contract_id,
@@ -154,20 +145,6 @@ pub fn vec_to_hash(res: &ScVal) -> Result<Hash, XdrError> {
     }
 }
 
-fn get_contract_id(asset: &Asset, network_passphrase: &str) -> Result<Hash, Error> {
-    let network_id = Hash(
-        Sha256::digest(network_passphrase.as_bytes())
-            .try_into()
-            .unwrap(),
-    );
-    let preimage = HashIdPreimage::ContractIdFromAsset(HashIdPreimageFromAsset {
-        network_id,
-        asset: asset.clone(),
-    });
-    let preimage_xdr = preimage.to_xdr()?;
-    Ok(Hash(Sha256::digest(preimage_xdr).into()))
-}
-
 fn build_wrap_token_tx(
     asset: &Asset,
     contract_id: &Hash,
@@ -176,38 +153,42 @@ fn build_wrap_token_tx(
     _network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
 ) -> Result<Transaction, Error> {
+    let contract = ScAddress::Contract(contract_id.clone());
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
-            contract_id: contract_id.clone(),
-            key: ScVal::LedgerKeyContractExecutable,
+            contract: contract.clone(),
+            key: ScVal::LedgerKeyContractInstance,
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }),
         ContractData(LedgerKeyContractData {
-            contract_id: contract_id.clone(),
+            contract: contract.clone(),
             key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
             )),
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }),
     ];
     if asset != &Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
-            contract_id: contract_id.clone(),
+            contract,
             key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
             )),
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }));
     }
 
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            functions: vec![HostFunction {
-                args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                    contract_id: ContractId::Asset(asset.clone()),
-                    executable: ScContractExecutable::Token,
-                }),
-                auth: VecM::default(),
-            }]
-            .try_into()?,
+            host_function: HostFunction::CreateContract(CreateContractArgs {
+                contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+                executable: ContractExecutable::Token,
+            }),
+            auth: VecM::default(),
         }),
     };
 
@@ -220,52 +201,4 @@ fn build_wrap_token_tx(
         operations: vec![op].try_into()?,
         ext: TransactionExt::V0,
     })
-}
-
-fn parse_asset(str: &str) -> Result<Asset, Error> {
-    if str == "native" {
-        return Ok(Asset::Native);
-    }
-    let split: Vec<&str> = str.splitn(2, ':').collect();
-    if split.len() != 2 {
-        return Err(Error::CannotParseAsset {
-            asset: str.to_string(),
-        });
-    }
-    let code = split[0];
-    let issuer = split[1];
-    let re = Regex::new("^[[:alnum:]]{1,12}$").unwrap();
-    if !re.is_match(code) {
-        return Err(Error::InvalidAssetCode {
-            asset: str.to_string(),
-        });
-    }
-    if code.len() <= 4 {
-        let mut asset_code: [u8; 4] = [0; 4];
-        for (i, b) in code.as_bytes().iter().enumerate() {
-            asset_code[i] = *b;
-        }
-        Ok(Asset::CreditAlphanum4(AlphaNum4 {
-            asset_code: AssetCode4(asset_code),
-            issuer: parse_account_id(issuer)?,
-        }))
-    } else {
-        let mut asset_code: [u8; 12] = [0; 12];
-        for (i, b) in code.as_bytes().iter().enumerate() {
-            asset_code[i] = *b;
-        }
-        Ok(Asset::CreditAlphanum12(AlphaNum12 {
-            asset_code: AssetCode12(asset_code),
-            issuer: parse_account_id(issuer)?,
-        }))
-    }
-}
-
-fn parse_account_id(str: &str) -> Result<AccountId, Error> {
-    let pk_bytes = stellar_strkey::ed25519::PublicKey::from_string(str)
-        .map_err(|_| Error::CannotParseAccountId {
-            account_id: str.to_string(),
-        })?
-        .0;
-    Ok(AccountId(PublicKey::PublicKeyTypeEd25519(pk_bytes.into())))
 }

@@ -61,21 +61,16 @@ jobs:
         with:
           go-version: 1.20.1
 
-      - if: matrix.os == 'windows-latest'
-        name: Find the minimal supported rust version on windows
-        run: |
-          preflight_rust_version=$(sed -n 's/.*rust-version = "\(.*\)"/\1/p' cmd/soroban-rpc/lib/preflight/Cargo.toml)
-          echo "PREFLIGHT_RUST_VERSION=$preflight_rust_version" >> $GITHUB_ENV
-      - name: Update rust toolchain as needed
-        run: |
-          rustup update $PREFLIGHT_RUST_VERSION
       - run: rustup target add ${{ matrix.rust_target }}
+
+      # On windows, make sure we have the same compiler (linker) used by rust.
+      # This is important since the symbols names won't match otherwise.
       - if: matrix.os == 'windows-latest'
-        name: Configure preflight library to use explicit rust version
+        name: Install the same mingw gcc compiler used by rust
         run: |
-          cd cmd/soroban-rpc/lib/preflight
-          rustup override set $PREFLIGHT_RUST_VERSION-${{ matrix.rust_target }}
-          cd ../../../..
+          C:/msys64/usr/bin/pacman.exe -S mingw-w64-x86_64-gcc --noconfirm
+          echo "CC=C:/msys64/mingw64/bin/gcc.exe" >> $GITHUB_ENV
+          echo "C:/msys64/mingw64/bin" >> $GITHUB_PATH
 
       # Use cross-compiler for linux aarch64
       - if: matrix.rust_target == 'aarch64-unknown-linux-gnu'
@@ -86,13 +81,18 @@ jobs:
           echo 'CC=aarch64-linux-gnu-gcc-10' >> $GITHUB_ENV
 
       - name: Build libpreflight
-        run: CARGO_BUILD_TARGET=${{ matrix.rust_target }} make build-libpreflight
+        run: make build-libpreflight
+        env:
+          CARGO_BUILD_TARGET: ${{ matrix.rust_target }}
 
       - name: Build Soroban RPC reproducible build
         run: |
-          CGO_ENABLED=1 GOARCH=${{ matrix.go_arch }} go build -trimpath -buildvcs=false ./cmd/soroban-rpc
+          go build -trimpath -buildvcs=false ./cmd/soroban-rpc
           ls -lh soroban-rpc
           file soroban-rpc
+        env:
+          CGO_ENABLED: 1
+          GOARCH: ${{ matrix.go_arch }}
 
   integration:
     name: Integration tests
@@ -103,7 +103,7 @@ jobs:
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.10.1-1310.6649f5173.focal~soroban
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.11.1-1353.cbac8d399.focal~soroban
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3

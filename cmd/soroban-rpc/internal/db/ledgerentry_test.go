@@ -60,14 +60,17 @@ func TestGoldenPath(t *testing.T) {
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
 	data := xdr.ContractDataEntry{
-		ContractId: xdr.Hash{0xca, 0xfe},
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypeMergeable,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -86,7 +89,7 @@ func TestGoldenPath(t *testing.T) {
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, obtainedEntry.Data.Type, xdr.LedgerEntryTypeContractData)
-	assert.Equal(t, xdr.Hash{0xca, 0xfe}, obtainedEntry.Data.ContractData.ContractId)
+	assert.Equal(t, xdr.Hash{0xca, 0xfe}, *obtainedEntry.Data.ContractData.Contract.ContractId)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
 
 	obtainedLedgerSequence, err = NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
@@ -141,13 +144,17 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
 	data := xdr.ContractDataEntry{
-		ContractId: xdr.Hash{0xca, 0xfe},
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypeMergeable,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -184,14 +191,17 @@ func TestExtendEntry(t *testing.T) {
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
 	data := xdr.ContractDataEntry{
-		ContractId: xdr.Hash{0xca, 0xfe},
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypeMergeable,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -236,14 +246,17 @@ func TestCreateAndImmediatelyExtendEntry(t *testing.T) {
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
 	data := xdr.ContractDataEntry{
-		ContractId: xdr.Hash{0xca, 0xfe},
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypeMergeable,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -279,13 +292,16 @@ func TestExtendNonExistentLedgerEntry(t *testing.T) {
 	key := xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
-			ContractId: xdr.Hash{0xca, 0xfe},
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &xdr.Hash{0xca, 0xfe},
+			},
 			Key: xdr.ScVal{
 				Type: xdr.ScValTypeScvU32,
 				U32:  &four,
 			},
-			Type:   xdr.ContractDataTypeMergeable,
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			Durability: xdr.ContractDataDurabilityPersistent,
+			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	}
 
@@ -294,7 +310,7 @@ func TestExtendNonExistentLedgerEntry(t *testing.T) {
 	assert.NoError(t, err)
 	writer := tx.LedgerEntryWriter()
 	err = writer.ExtendLedgerEntry(key, 32)
-	assert.EqualError(t, err, "no entry for key \"06cafe0000000000000000000000000000000000000000000000000000000000000000000300000004\" in table \"ledger_entries\"")
+	assert.ErrorContains(t, err, "no entry for key")
 }
 
 func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
@@ -307,7 +323,7 @@ func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.
 		Ext: xdr.LedgerEntryExt{},
 	}
 	var key xdr.LedgerKey
-	err := key.SetContractData(data.ContractId, data.Key)
+	err := key.SetContractData(data.Contract, data.Key, data.Durability, data.Body.BodyType)
 	if err != nil {
 		panic(err)
 	}
@@ -348,14 +364,17 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
 	data := xdr.ContractDataEntry{
-		ContractId: xdr.Hash{0xca, 0xfe},
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypeMergeable,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -363,7 +382,7 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 				},
 			},
 		},
-		ExpirationLedgerSeq: 100,
+		ExpirationLedgerSeq: 1,
 	}
 	key, entry := getContractDataLedgerEntry(data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
@@ -429,14 +448,17 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	four := xdr.Uint32(4)
 	six := xdr.Uint32(6)
 	data := xdr.ContractDataEntry{
-		ContractId: xdr.Hash{0xca, 0xfe},
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvU32,
 			U32:  &four,
 		},
-		Type: xdr.ContractDataTypeMergeable,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -444,7 +466,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 				},
 			},
 		},
-		ExpirationLedgerSeq: 100,
+		ExpirationLedgerSeq: 1,
 	}
 	key, entry := getContractDataLedgerEntry(data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
@@ -501,14 +523,17 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 		defer wg.Done()
 		val := xdr.Uint32(0)
 		data := xdr.ContractDataEntry{
-			ContractId: contractID,
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractID,
+			},
 			Key: xdr.ScVal{
 				Type: xdr.ScValTypeScvU32,
 				U32:  &val,
 			},
-			Type: xdr.ContractDataTypeMergeable,
+			Durability: xdr.ContractDataDurabilityPersistent,
 			Body: xdr.ContractDataEntryBody{
-				LeType: xdr.ContractLedgerEntryTypeDataEntry,
+				BodyType: xdr.ContractEntryBodyTypeDataEntry,
 				Data: &xdr.ContractDataEntryData{
 					Val: xdr.ScVal{
 						Type: xdr.ScValTypeScvU32,
@@ -516,7 +541,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 					},
 				},
 			},
-			ExpirationLedgerSeq: 100,
+			ExpirationLedgerSeq: 1,
 		}
 		rw := NewReadWriter(db, 10, 15)
 		for ledgerSequence := uint32(0); ledgerSequence < 1000; ledgerSequence++ {
@@ -540,11 +565,16 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 		key := xdr.LedgerKey{
 			Type: xdr.LedgerEntryTypeContractData,
 			ContractData: &xdr.LedgerKeyContractData{
-				ContractId: contractID,
+				Contract: xdr.ScAddress{
+					Type:       xdr.ScAddressTypeScAddressTypeContract,
+					ContractId: &contractID,
+				},
 				Key: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
 					U32:  &val,
 				},
+				Durability: xdr.ContractDataDurabilityPersistent,
+				BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 			},
 		}
 		for {
@@ -584,14 +614,17 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 	db := NewTestDB(b)
 	keyUint32 := xdr.Uint32(0)
 	data := xdr.ContractDataEntry{
-		ContractId: xdr.Hash{0xca, 0xfe},
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvU32,
 			U32:  &keyUint32,
 		},
-		Type: xdr.ContractDataTypeMergeable,
+		Durability: xdr.ContractDataDurabilityPersistent,
 		Body: xdr.ContractDataEntryBody{
-			LeType: xdr.ContractLedgerEntryTypeDataEntry,
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
 			Data: &xdr.ContractDataEntryData{
 				Val: xdr.ScVal{
 					Type: xdr.ScValTypeScvU32,
@@ -599,7 +632,7 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 				},
 			},
 		},
-		ExpirationLedgerSeq: 100,
+		ExpirationLedgerSeq: 1,
 	}
 	key, entry := getContractDataLedgerEntry(data)
 	const numEntriesPerOp = 3500

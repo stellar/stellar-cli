@@ -1,10 +1,8 @@
 package test
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path"
@@ -27,10 +25,10 @@ var (
 	testContract   = []byte("a contract")
 	testSalt       = sha256.Sum256([]byte("a1"))
 	testContractId = []byte{
-		234, 159, 203, 129, 174, 84, 162, 159,
-		107, 59, 242, 147, 132, 125, 63, 215,
-		233, 163, 105, 253, 28, 128, 172, 175,
-		236, 106, 189, 87, 19, 23, 224, 194,
+		16, 98, 83, 23, 8, 235, 211, 5,
+		62, 173, 70, 33, 7, 31, 219, 59,
+		180, 75, 106, 249, 139, 196, 156, 192,
+		113, 17, 184, 51, 142, 142, 94, 40,
 	}
 )
 
@@ -45,13 +43,15 @@ func getHelloWorldContract(t *testing.T) []byte {
 	return ret
 }
 
-func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunctions {
-	var contractIDBytes = xdr.ScBytes(contractID[:])
+func createInvokeHostOperation(sourceAccount string, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
 	methodSymbol := xdr.ScSymbol(method)
 	parameters := xdr.ScVec{
 		xdr.ScVal{
-			Type:  xdr.ScValTypeScvBytes,
-			Bytes: &contractIDBytes,
+			Type: xdr.ScValTypeScvAddress,
+			Address: &xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractID,
+			},
 		},
 		xdr.ScVal{
 			Type: xdr.ScValTypeScvSymbol,
@@ -59,78 +59,75 @@ func createInvokeHostOperation(sourceAccount string, ext xdr.TransactionExt, con
 		},
 	}
 	parameters = append(parameters, args...)
-	return &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			{
-				Args: xdr.HostFunctionArgs{
-					Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-					InvokeContract: &parameters,
-				},
-			},
+	return &txnbuild.InvokeHostFunction{
+		HostFunction: xdr.HostFunction{
+			Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeContract: &parameters,
 		},
-		Ext:           ext,
+		Auth:          nil,
 		SourceAccount: sourceAccount,
 	}
 }
 
-func createInstallContractCodeOperation(sourceAccount string, contractCode []byte) *txnbuild.InvokeHostFunctions {
-	return &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			{
-				Args: xdr.HostFunctionArgs{
-					Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
-					UploadContractWasm: &xdr.UploadContractWasmArgs{
-						Code: contractCode,
-					},
-				},
-			},
+func createInstallContractCodeOperation(sourceAccount string, contractCode []byte) *txnbuild.InvokeHostFunction {
+	return &txnbuild.InvokeHostFunction{
+		HostFunction: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
+			Wasm: &contractCode,
 		},
 		SourceAccount: sourceAccount,
 	}
 }
 
-func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string) *txnbuild.InvokeHostFunctions {
+func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string) *txnbuild.InvokeHostFunction {
 	saltParam := xdr.Uint256(testSalt)
-	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: contractCode}.MarshalBinary()
-	assert.NoError(t, err)
-	contractHash := xdr.Hash(sha256.Sum256(uploadContractCodeArgs))
+	contractHash := xdr.Hash(sha256.Sum256(contractCode))
 
-	return &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			{
-				Args: xdr.HostFunctionArgs{
-					Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
-					CreateContract: &xdr.CreateContractArgs{
-						ContractId: xdr.ContractId{
-							Type: xdr.ContractIdTypeContractIdFromSourceAccount,
-							Salt: &saltParam,
+	sourceAccountID := xdr.MustAddress(sourceAccount)
+	return &txnbuild.InvokeHostFunction{
+		HostFunction: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+			CreateContract: &xdr.CreateContractArgs{
+				ContractIdPreimage: xdr.ContractIdPreimage{
+					Type: xdr.ContractIdPreimageTypeContractIdPreimageFromAddress,
+					FromAddress: &xdr.ContractIdPreimageFromAddress{
+						Address: xdr.ScAddress{
+							Type:      xdr.ScAddressTypeScAddressTypeAccount,
+							AccountId: &sourceAccountID,
 						},
-						Executable: xdr.ScContractExecutable{
-							Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-							WasmId: &contractHash,
-						},
+						Salt: saltParam,
 					},
 				},
-				Auth: []xdr.ContractAuth{},
+				Executable: xdr.ContractExecutable{
+					Type:     xdr.ContractExecutableTypeContractExecutableWasm,
+					WasmHash: &contractHash,
+				},
 			},
 		},
+		Auth:          []xdr.SorobanAuthorizationEntry{},
 		SourceAccount: sourceAccount,
 	}
 }
 
 func getContractID(t *testing.T, sourceAccount string, salt [32]byte, networkPassphrase string) [32]byte {
-	networkID := xdr.Hash(sha256.Sum256([]byte(networkPassphrase)))
+	sourceAccountID := xdr.MustAddress(sourceAccount)
 	preImage := xdr.HashIdPreimage{
-		Type: xdr.EnvelopeTypeEnvelopeTypeContractIdFromSourceAccount,
-		SourceAccountContractId: &xdr.HashIdPreimageSourceAccountContractId{
-			NetworkId: networkID,
-			Salt:      salt,
+		Type: xdr.EnvelopeTypeEnvelopeTypeContractId,
+		ContractId: &xdr.HashIdPreimageContractId{
+			NetworkId: sha256.Sum256([]byte(networkPassphrase)),
+			ContractIdPreimage: xdr.ContractIdPreimage{
+				Type: xdr.ContractIdPreimageTypeContractIdPreimageFromAddress,
+				FromAddress: &xdr.ContractIdPreimageFromAddress{
+					Address: xdr.ScAddress{
+						Type:      xdr.ScAddressTypeScAddressTypeAccount,
+						AccountId: &sourceAccountID,
+					},
+					Salt: salt,
+				},
+			},
 		},
 	}
-	if err := preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount); err != nil {
-		t.Errorf("failed to set address : %v", err)
-		t.FailNow()
-	}
+
 	xdrPreImageBytes, err := preImage.MarshalBinary()
 	require.NoError(t, err)
 	hashedContractID := sha256.Sum256(xdrPreImageBytes)
@@ -144,7 +141,7 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	params.IncrementSequenceNum = savedAutoIncrement
 	assert.NoError(t, err)
 	assert.Len(t, params.Operations, 1)
-	op, ok := params.Operations[0].(*txnbuild.InvokeHostFunctions)
+	op, ok := params.Operations[0].(*txnbuild.InvokeHostFunction)
 	assert.True(t, ok)
 	txB64, err := tx.Base64()
 	assert.NoError(t, err)
@@ -163,16 +160,16 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 		V:           1,
 		SorobanData: &transactionData,
 	}
-	for i, res := range response.Results {
-		var auth []xdr.ContractAuth
-		for _, b64 := range res.Auth {
-			var a xdr.ContractAuth
-			err := xdr.SafeUnmarshalBase64(b64, &a)
-			assert.NoError(t, err)
-			auth = append(auth, a)
-		}
-		op.Functions[i].Auth = auth
+
+	assert.Len(t, response.Results, 1)
+	var auth []xdr.SorobanAuthorizationEntry
+	for _, b64 := range response.Results[0].Auth {
+		var a xdr.SorobanAuthorizationEntry
+		err := xdr.SafeUnmarshalBase64(b64, &a)
+		assert.NoError(t, err)
+		auth = append(auth, a)
 	}
+	op.Auth = auth
 
 	params.Operations = []txnbuild.Operation{op}
 	params.BaseFee += response.MinResourceFee
@@ -207,11 +204,10 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	request := methods.SimulateTransactionRequest{Transaction: txB64}
 
 	testContractIdBytes := xdr.ScBytes(testContractId)
-	expectedXdr, err := xdr.MarshalBase64(xdr.ScVal{
+	expectedXdr := xdr.ScVal{
 		Type:  xdr.ScValTypeScvBytes,
 		Bytes: &testContractIdBytes,
-	})
-	require.NoError(t, err)
+	}
 
 	var result methods.SimulateTransactionResponse
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
@@ -219,24 +215,40 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Greater(t, result.LatestLedger, int64(0))
 	assert.Greater(t, result.Cost.CPUInstructions, uint64(0))
 	assert.Greater(t, result.Cost.MemoryBytes, uint64(0))
-	assert.Equal(
-		t,
-		methods.SimulateTransactionResponse{
-			Cost: methods.SimulateTransactionCost{
-				CPUInstructions: result.Cost.CPUInstructions,
-				MemoryBytes:     result.Cost.MemoryBytes,
-			},
-			TransactionData: "AAAAAAAAAAEAAAAH6p/Lga5Uop9rO/KThH0/1+mjaf0cgKyv7Gq9VxMX4MIAARueAAAAJAAAAGQAAACIAAAAAAAAABsAAAAA",
-			MinResourceFee:  result.MinResourceFee,
-			Results: []methods.SimulateHostFunctionResult{
-				{
-					XDR: expectedXdr,
+
+	expectedTransactionData := xdr.SorobanTransactionData{
+		Resources: xdr.SorobanResources{
+			Footprint: xdr.LedgerFootprint{
+				ReadWrite: []xdr.LedgerKey{
+					{
+						Type: xdr.LedgerEntryTypeContractCode,
+						ContractCode: &xdr.LedgerKeyContractCode{
+							Hash:     xdr.Hash(testContractId),
+							BodyType: xdr.ContractEntryBodyTypeDataEntry,
+						},
+					},
 				},
 			},
-			LatestLedger: result.LatestLedger,
+			Instructions:              74350,
+			ReadBytes:                 40,
+			WriteBytes:                112,
+			ExtendedMetaDataSizeBytes: 152,
 		},
-		result,
-	)
+		RefundableFee: 30,
+	}
+
+	// First, decode and compare the transaction data so we get a decent diff if it fails.
+	var transactionData xdr.SorobanTransactionData
+	err = xdr.SafeUnmarshalBase64(result.TransactionData, &transactionData)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedTransactionData, transactionData)
+
+	// Then decode and check the result xdr, separately so we get a decent diff if it fails.
+	assert.Len(t, result.Results, 1)
+	var resultXdr xdr.ScVal
+	err = xdr.SafeUnmarshalBase64(result.Results[0].XDR, &resultXdr)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedXdr, resultXdr)
 
 	// test operation which does not have a source account
 	withoutSourceAccountOp := createInstallContractCodeOperation("", testContract)
@@ -364,7 +376,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Operations: []txnbuild.Operation{
 			createInvokeHostOperation(
 				address,
-				xdr.TransactionExt{},
 				contractID,
 				"auth",
 				xdr.ScVal{
@@ -388,14 +399,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	// modify the above transaction by doubling the invoked host call.
-	txXDR := tx.ToXDR()
-	txXDR.V1.Tx.Operations[0].Body.InvokeHostFunctionOp.Functions = append(txXDR.V1.Tx.Operations[0].Body.InvokeHostFunctionOp.Functions, txXDR.V1.Tx.Operations[0].Body.InvokeHostFunctionOp.Functions[0])
-	txXDR.V1.Signatures = tx.Signatures()
-	var txBytes bytes.Buffer
-	_, err = xdr.Marshal(&txBytes, txXDR)
-	require.NoError(t, err)
-	txB64 := base64.StdEncoding.EncodeToString(txBytes.Bytes())
+	txB64, err := tx.Base64()
+	assert.NoError(t, err)
 
 	request := methods.SimulateTransactionRequest{Transaction: txB64}
 	var response methods.SimulateTransactionResponse
@@ -404,7 +409,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Empty(t, response.Error)
 
 	// check the result
-	assert.Len(t, response.Results, 2)
+	assert.Len(t, response.Results, 1)
 	var obtainedResult xdr.ScVal
 	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
 	assert.NoError(t, err)
@@ -424,13 +429,12 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, authAddrArg, ro0.Account.AccountId.Address())
 	ro1 := obtainedFootprint.ReadOnly[1]
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, ro1.Type)
-	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.ContractId)
-	assert.Equal(t, xdr.ScValTypeScvLedgerKeyContractExecutable, ro1.ContractData.Key.Type)
+	assert.Equal(t, xdr.ScAddressTypeScAddressTypeContract, ro1.ContractData.Contract.Type)
+	assert.Equal(t, xdr.Hash(contractID), ro1.ContractData.Contract.ContractId)
+	assert.Equal(t, xdr.ScValTypeScvLedgerKeyContractInstance, ro1.ContractData.Key.Type)
 	ro2 := obtainedFootprint.ReadOnly[2]
 	assert.Equal(t, xdr.LedgerEntryTypeContractCode, ro2.Type)
-	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: helloWorldContract}.MarshalBinary()
-	assert.NoError(t, err)
-	contractHash := sha256.Sum256(uploadContractCodeArgs)
+	contractHash := sha256.Sum256(helloWorldContract)
 	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
 	assert.NoError(t, err)
 
@@ -442,25 +446,29 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 
 	// check the auth
 	assert.Len(t, response.Results[0].Auth, 1)
-	var obtainedAuth xdr.ContractAuth
+	var obtainedAuth xdr.SorobanAuthorizationEntry
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
 	assert.NoError(t, err)
-	assert.Nil(t, obtainedAuth.SignatureArgs)
+	assert.Equal(t, obtainedAuth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsAddress)
+	assert.Nil(t, obtainedAuth.Credentials.Address.SignatureArgs)
 
-	assert.Equal(t, xdr.Uint64(0), obtainedAuth.AddressWithNonce.Nonce)
-	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.AddressWithNonce.Address.Type)
-	assert.Equal(t, authAddrArg, obtainedAuth.AddressWithNonce.Address.AccountId.Address())
+	assert.Equal(t, xdr.Uint64(0), obtainedAuth.Credentials.Address.Nonce)
+	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
+	assert.Equal(t, authAddrArg, obtainedAuth.Credentials.Address.Address.AccountId.Address())
 
-	assert.Equal(t, xdr.Hash(contractID), obtainedAuth.RootInvocation.ContractId)
-	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.FunctionName)
-	assert.Len(t, obtainedAuth.RootInvocation.Args, 2)
-	world := obtainedAuth.RootInvocation.Args[1]
+	assert.Equal(t, xdr.SorobanCredentialsTypeSorobanCredentialsAddress, obtainedAuth.Credentials.Type)
+	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
+	assert.Equal(t, authAddrArg, obtainedAuth.Credentials.Address.Address.AccountId.Address())
+	assert.Equal(t, xdr.SorobanAuthorizedFunctionTypeSorobanAuthorizedFunctionTypeContractFn, obtainedAuth.RootInvocation.Function.Type)
+	assert.Equal(t, xdr.ScSymbol("auth"), obtainedAuth.RootInvocation.Function.ContractFn.FunctionName)
+	assert.Len(t, obtainedAuth.RootInvocation.Function.ContractFn.Args, 2)
+	world := obtainedAuth.RootInvocation.Function.ContractFn.Args[1]
 	assert.Equal(t, xdr.ScValTypeScvSymbol, world.Type)
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 
 	// check the events
-	assert.Len(t, response.Events, 2)
+	assert.Len(t, response.Events, 1)
 	var event xdr.DiagnosticEvent
 	err = xdr.SafeUnmarshalBase64(response.Events[0], &event)
 	assert.NoError(t, err)
@@ -488,8 +496,11 @@ func TestSimulateTransactionError(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.TransactionExt{}, xdr.Hash{}, "noMethod")
-	invokeHostOp.Functions[0].Args.InvokeContract = &xdr.ScVec{}
+	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.Hash{}, "noMethod")
+	invokeHostOp.HostFunction = xdr.HostFunction{
+		Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+		InvokeContract: &xdr.ScVec{},
+	}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
@@ -511,9 +522,8 @@ func TestSimulateTransactionError(t *testing.T) {
 	var result methods.SimulateTransactionResponse
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
 	assert.NoError(t, err)
-	assert.Empty(t, result.Results)
 	assert.Greater(t, result.LatestLedger, int64(0))
-	assert.Contains(t, result.Error, "InputArgsWrongLength")
+	assert.Contains(t, result.Error, "UnexpectedSize")
 }
 
 func TestSimulateTransactionMultipleOperations(t *testing.T) {

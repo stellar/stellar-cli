@@ -1,16 +1,16 @@
 #![no_std]
-use soroban_sdk::{contractimpl, log, vec, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contract, log, symbol_short, vec, Address, Env, String, Symbol, Vec};
 
+#[contract]
 pub struct Contract;
 
-#[contractimpl]
 impl Contract {
     pub fn hello(env: Env, world: Symbol) -> Vec<Symbol> {
-        vec![&env, Symbol::short("Hello"), world]
+        vec![&env, symbol_short!("Hello"), world]
     }
 
     pub fn world(env: Env, hello: Symbol) -> Vec<Symbol> {
-        vec![&env, Symbol::short("Hello"), hello]
+        vec![&env, symbol_short!("Hello"), hello]
     }
 
     pub fn not(env: Env, boolean: bool) -> Vec<bool> {
@@ -48,8 +48,8 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Contract);
         let client = ContractClient::new(&env, &contract_id);
-        let world = Symbol::short("world");
+        let world = symbol_short!("world");
         let res = client.hello(&world);
-        assert_eq!(res, vec![&env, Symbol::short("Hello"), world]);
+        assert_eq!(res, vec![&env, symbol_short!("Hello"), world]);
     }
 }

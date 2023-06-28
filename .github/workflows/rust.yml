@@ -36,10 +36,11 @@ jobs:
     - run: rustup update
     - run: rustup +nightly component add rust-analyzer
     - name: Check if rust-analyzer encounters any errors parsing project
-      run: rustup run nightly rust-analyzer analysis-stats . 2>&1 | (! grep ERROR)
+      run: rustup run nightly rust-analyzer analysis-stats . 2>&1 | (! grep '^\[ERROR')
 
   build-and-test:
     strategy:
+      fail-fast: false
       matrix:
         include:
         - os: ubuntu-latest
@@ -66,25 +67,47 @@ jobs:
     - if: startsWith(matrix.target, 'x86_64')
       # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
       run: |
-        for I in cmd/soroban-cli cmd/crates/soroban-test cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
+        for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
           cargo test --target ${{ matrix.target }} --manifest-path $I/Cargo.toml
         done
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
+      fail-fast: false
       matrix:
         include:
         - os: ubuntu-latest
           target: x86_64-unknown-linux-gnu
+          cargo-hack-feature-options: --feature-powerset
         - os: ubuntu-latest
           target: aarch64-unknown-linux-gnu
+          cargo-hack-feature-options: --feature-powerset
         - os: macos-latest
           target: x86_64-apple-darwin
+          cargo-hack-feature-options: --feature-powerset
         - os: macos-latest
           target: aarch64-apple-darwin
-        - os: windows-latest
+          cargo-hack-feature-options: --feature-powerset
+        # Windows builds notes:
+        #
+        # The different features that need testing are split over unique
+        # isolated builds for Windows, because there's a bug in Cargo [1] that
+        # causes builds of wasm-opt [2] to fail when run one after the other and
+        # attempting to clean up artifacts in between. The bug has been fixed,
+        # but will not make it into a stable release of Cargo until ~August
+        # 2023.
+        #
+        # [1]: https://github.com/rust-lang/cargo/pull/11442
+        # [2]: https://github.com/brson/wasm-opt-rs/issues/116
+        - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
-    uses: stellar/actions/.github/workflows/rust-publish-dry-run.yml@main
+          cargo-hack-feature-options: ''
+        - os: windows-latest-8-cores
+          target: x86_64-pc-windows-msvc
+          cargo-hack-feature-options: --features opt --ignore-unknown-features
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
     with:
+      crates: soroban-spec-tools soroban-spec-json soroban-spec-typescript soroban-test soroban-cli
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
+      cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options }}
