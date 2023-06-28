@@ -466,12 +466,14 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 
-	// check the events
+	// check the events. There will be 2 debug events and the event emitted by the "auth" function
+	// which is the one we are going to check.
 	assert.Len(t, response.Events, 3)
 	var event xdr.DiagnosticEvent
 	err = xdr.SafeUnmarshalBase64(response.Events[1], &event)
 	assert.NoError(t, err)
 	assert.True(t, event.InSuccessfulContractCall)
+	assert.NotNil(t, event.Event.ContractId)
 	assert.Equal(t, xdr.Hash(contractID), *event.Event.ContractId)
 	assert.Equal(t, xdr.ContractEventTypeContract, event.Event.Type)
 	assert.Equal(t, int32(0), event.Event.Body.V)
