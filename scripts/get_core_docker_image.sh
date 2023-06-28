@@ -36,6 +36,7 @@ if ! curl -s ${HORIZON_TEST_FILE} -o ${TEMP_HORIZON_YML_FILE}; then
 fi
 
 CORE_DOCKER_IMAGE=$(cat ${TEMP_HORIZON_YML_FILE} | grep -E ".*PROTOCOL_20_CORE_DOCKER_IMG:.*" | sed -E 's/.*PROTOCOL_20_CORE_DOCKER_IMG:(.*)/\1/' | sed 's/ //g')
+CORE_DEBIAN_PKG=$(cat ${TEMP_HORIZON_YML_FILE} | grep -E ".*PROTOCOL_20_CORE_DEBIAN_PKG_VERSION:.*" | sed -E 's/.*PROTOCOL_20_CORE_DEBIAN_PKG_VERSION:(.*)/\1/' | sed 's/ //g')
 rm -f ${TEMP_HORIZON_YML_FILE}
 echo "CORE_DOCKER_IMAGE=${CORE_DOCKER_IMAGE}" > ${SCRIPTPATH}/.cached_core_docker_image.env
-
+echo "CORE_DEBIAN_PKG=${CORE_DEBIAN_PKG}" >> ${SCRIPTPATH}/.cached_core_docker_image.env

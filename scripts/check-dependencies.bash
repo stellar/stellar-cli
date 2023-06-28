@@ -57,9 +57,16 @@ fi
 # Now, lets make sure that the core and captive core version used in the tests use the same version and that they depend
 # on the same XDR revision
 
+if [ ! ./scripts/get_core_docker_image.sh ]; then
+  echo "Unable to retrieve core docker image"
+  exit 1
+fi
+
+source ./scripts/.cached_core_docker_image.env
+
 # TODO: The sed extractions below won't work when the commit is not included in the Core image tag/debian packages version
-CORE_CONTAINER_REVISION=$(sed -n 's/.*\/stellar-core:.*\..*-[^\.]*\.\(.*\)\..*/\1/p' < cmd/soroban-rpc/internal/test/docker-compose.yml)
-CAPTIVE_CORE_PKG_REVISION=$(sed -n 's/.*DEBIAN_PKG_VERSION:.*\..*-[^\.]*\.\(.*\)\..*/\1/p' < .github/workflows/soroban-rpc.yml)
+CORE_CONTAINER_REVISION=$(echo ${CORE_DOCKER_IMAGE} | sed -n 's/.*\/stellar-core:.*\..*-[^\.]*\.\(.*\)\..*/\1/p')
+CAPTIVE_CORE_PKG_REVISION=$(echo ${CORE_DEBIAN_PKG} | sed -n 's/.*\..*-[^\.]*\.\(.*\)\..*/\1/p')
 
 if [ "$CORE_CONTAINER_REVISION" != "$CAPTIVE_CORE_PKG_REVISION" ]; then
   echo "Soroban RPC integration tests are using different versions of the Core container and Captive Core Debian package."

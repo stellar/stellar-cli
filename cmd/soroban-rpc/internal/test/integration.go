@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -367,18 +368,35 @@ func (i *Test) initializeCoreImage() {
 
 	cachedDockerImageFileName := filepath.Join(i.composePath, "../../../../scripts/.cached_core_docker_image.env")
 
-	cachedDockerImage, err := os.ReadFile(cachedDockerImageFileName)
+	dockerFileReader, err := os.Open(cachedDockerImageFileName)
 	if err != nil {
 		// unable to read file.
 		i.t.Logf("Unable to read cached docker file '%s'", cachedDockerImageFileName)
 		i.t.FailNow()
 	}
-	splitted := strings.Split(string(cachedDockerImage), "=")
-	if len(splitted) != 2 { // should be something like CORE_DOCKER_IMAGE=chowbao/stellar-core:19.11.1-1345.b5386da37.focal-soroban
-		i.t.Logf("number of elements in splitted array isn't 2 but %d", len(splitted))
-		i.t.FailNow()
+	defer func() {
+		err = dockerFileReader.Close()
+		if err != nil {
+			i.t.Fatal("Unable to close cached docker file")
+		}
+	}()
+
+	dockerFileScanner := bufio.NewScanner(dockerFileReader)
+
+	dockerFileScanner.Split(bufio.ScanLines)
+
+	for dockerFileScanner.Scan() {
+
+		splitted := strings.Split(dockerFileScanner.Text(), "=")
+		if len(splitted) != 2 { // should be something like CORE_DOCKER_IMAGE=chowbao/stellar-core:19.11.1-1345.b5386da37.focal-soroban
+			i.t.Logf("number of elements in splitted array isn't 2 but %d", len(splitted))
+			i.t.FailNow()
+		}
+		if splitted[0] == "CORE_DOCKER_IMAGE" {
+			i.coreImage = strings.TrimSpace(splitted[1])
+			break
+		}
 	}
 
-	i.coreImage = strings.TrimSpace(splitted[1])
 	return
 }
