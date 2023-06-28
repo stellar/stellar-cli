@@ -15,7 +15,7 @@ use soroban_env_host::xdr::{
     AccountId, DiagnosticEvent, InvokeHostFunctionOp, ReadXdr, ScVec, SorobanAddressCredentials,
     SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
 };
-use soroban_env_host::{Host, LedgerInfo};
+use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
@@ -126,6 +126,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let host = Host::with_storage_and_budget(storage, budget);
 
     host.switch_to_recording_auth();
+    host.set_diagnostic_level(DiagnosticLevel::Debug);
     host.set_source_account(source_account);
     host.set_ledger_info(ledger_info.into());
 
@@ -174,27 +175,26 @@ fn recorded_auth_payloads_to_c(
 
 fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthorizationEntry {
     match (payload.address.clone(), payload.nonce) {
-        (Some(address), Some(nonce)) =>
-        SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(
-                SorobanAddressCredentials {
-                    address,
-                    nonce,
-                    // signature_args is left empty. This is where the client will put their signatures when
-                    // submitting the transaction.
-                    signature_expiration_ledger: 0,
-                    signature_args: ScVec::default(),
-                }
-            ),
+        (Some(address), Some(nonce)) => SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                address,
+                nonce,
+                // signature_args is left empty. This is where the client will put their signatures when
+                // submitting the transaction.
+                signature_expiration_ledger: 0,
+                signature_args: ScVec::default(),
+            }),
             root_invocation: payload.invocation.clone(),
         },
-        (None, None) =>         SorobanAuthorizationEntry {
+        _ => SorobanAuthorizationEntry {
             credentials: SorobanCredentials::SourceAccount,
             root_invocation: payload.invocation.clone(),
         },
+        // TODO: there is a bug in the host library which prevents us from
+        //       doing this check. It should be fixed in preview 11.
         // the address and the nonce can't be present independently
-        (a,n) =>
-            panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
+        // (a,n) =>
+        //    panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
     }
 }
 
