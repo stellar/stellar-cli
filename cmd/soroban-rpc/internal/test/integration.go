@@ -384,9 +384,7 @@ func (i *Test) initializeCoreImage() {
 	dockerFileScanner := bufio.NewScanner(dockerFileReader)
 
 	dockerFileScanner.Split(bufio.ScanLines)
-
 	for dockerFileScanner.Scan() {
-
 		splitted := strings.Split(dockerFileScanner.Text(), "=")
 		if len(splitted) != 2 { // should be something like CORE_DOCKER_IMAGE=chowbao/stellar-core:19.11.1-1345.b5386da37.focal-soroban
 			i.t.Logf("number of elements in splitted array isn't 2 but %d", len(splitted))
@@ -397,6 +395,4 @@ func (i *Test) initializeCoreImage() {
 			break
 		}
 	}
-
-	return
 }
