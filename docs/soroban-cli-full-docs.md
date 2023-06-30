@@ -179,12 +179,12 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `soroban contract bindings typescript [OPTIONS] --wasm <WASM> --root-dir <ROOT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
+**Usage:** `soroban contract bindings typescript [OPTIONS] --wasm <WASM> --output-dir <OUTPUT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — Path to wasm binary
-* `--root-dir <ROOT_DIR>` — where to place generated project
+* `--output-dir <OUTPUT_DIR>` — where to place generated project
 * `--contract-name <CONTRACT_NAME>`
 * `--contract-id <CONTRACT_ID>`
 * `--global` — Use global config
