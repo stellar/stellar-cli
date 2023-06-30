@@ -51,6 +51,7 @@ pub enum Error {
     /// Unknown error has occured
     OhNo = 1,
 }
+
 #[contractimpl]
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {

@@ -49,8 +49,9 @@ STELLAR_XDR_REVISION_FROM_GO=$($CURL https://raw.githubusercontent.com/stellar/g
 if [ "$STELLAR_XDR_REVISION_FROM_GO" != "$STELLAR_XDR_REVISION_FROM_RUST" ]; then
   echo "Go and Rust dependencies are using different revisions of https://github.com/stellar/stellar-xdr"
   echo
-  echo "Rust dependencies are using commit $STELLAR_XDR_NEXT_REVISION_FROM_RUST"
+  echo "Rust dependencies are using commit $STELLAR_XDR_REVISION_FROM_RUST"
   echo "Go dependencies are using commit $STELLAR_XDR_REVISION_FROM_GO"
+  exit 1
 fi
 
 # Now, lets make sure that the core and captive core version used in the tests use the same version and that they depend
