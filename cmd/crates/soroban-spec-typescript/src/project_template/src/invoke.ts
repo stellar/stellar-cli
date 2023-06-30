@@ -108,7 +108,7 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
   const raw = await sendTx(tx);
   return {
     ...raw,
-    xdr: raw.resultXdr,
+    xdr: raw.resultXdr!,
   };
 
 }

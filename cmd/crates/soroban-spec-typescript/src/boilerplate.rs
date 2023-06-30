@@ -115,7 +115,7 @@ mod test {
         let spec = soroban_spec::read::from_wasm(EXAMPLE_WASM).unwrap();
         let p: Project = root.as_ref().to_path_buf().try_into()?;
         p.init(
-            "contract-data-example",
+            "test_custom_types",
             "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
             "https://rpc-futurenet.stellar.org:443/soroban/rpc",
             "Test SDF Future Network ; October 2022",

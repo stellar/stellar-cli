@@ -54,8 +54,7 @@ build_go: build-libpreflight
 	go build -ldflags="${GOLDFLAGS}" ${MACOS_MIN_VER} ./...
 
 # regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
-build-snapshot:
-	cargo test --package soroban-spec-typescript --lib -- boilerplate::test::build_package --exact --nocapture --ignored
+build-snapshot: typescript-bindings-fixtures
 
 build: build_rust build_go
 
@@ -101,7 +100,7 @@ lint-changes:
 lint:
 	golangci-lint run ./...
 
-temp-bindings:
+typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
 					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
 					--contract-name test_custom_types \
@@ -111,4 +110,4 @@ temp-bindings:
 
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes build-snapshot temp-bindings
+.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes build-snapshot typescript-bindings-fixtures
