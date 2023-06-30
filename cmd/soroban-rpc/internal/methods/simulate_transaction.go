@@ -73,7 +73,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		case xdr.OperationTypeBumpFootprintExpiration, xdr.OperationTypeRestoreFootprint:
 			if txEnvelope.Type != xdr.EnvelopeTypeEnvelopeTypeTx && txEnvelope.V1.Tx.Ext.V != 1 {
 				return SimulateTransactionResponse{
-					Error: "Footprint operation provided without SorobanTransactionData",
+					Error: "To perform a SimulateTransaction for BumpFootprintExpiration or RestoreFootprint operations, SorobanTransactionData must be provided",
 				}
 			}
 			footprint = txEnvelope.V1.Tx.Ext.SorobanData.Resources.Footprint

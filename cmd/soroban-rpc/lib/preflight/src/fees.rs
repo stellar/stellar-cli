@@ -4,7 +4,6 @@ use soroban_env_host::fees::{
     compute_transaction_resource_fee, FeeConfiguration, TransactionResources,
 };
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
-use soroban_env_host::xdr;
 use soroban_env_host::xdr::{
     ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
     InvokeHostFunctionOp, LedgerEntry, LedgerEntryData, LedgerFootprint, LedgerKey,
@@ -12,6 +11,7 @@ use soroban_env_host::xdr::{
     Preconditions, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
+use soroban_env_host::{xdr, Env};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 use std::error;
@@ -297,11 +297,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     let read_bytes =
         calculate_unmodified_ledger_entry_bytes(footprint.read_only.as_vec(), snapshot_source)?;
     let soroban_resources = SorobanResources {
-        // TODO: is this correct or should we use the footprint?
-        footprint: LedgerFootprint {
-            read_only: Default::default(),
-            read_write: Default::default(),
-        },
+        footprint,
         instructions: 0,
         read_bytes,
         write_bytes: 0,
@@ -309,7 +305,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     };
     let transaction_resources = TransactionResources {
         instructions: 0,
-        read_entries: 0,
+        read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?,
         write_entries: 0,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: 0,
@@ -334,11 +330,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let write_bytes =
         calculate_unmodified_ledger_entry_bytes(footprint.read_write.as_vec(), snapshot_source)?;
     let soroban_resources = SorobanResources {
-        // TODO: is this correct or should we use the footprint?
-        footprint: LedgerFootprint {
-            read_only: Default::default(),
-            read_write: Default::default(),
-        },
+        footprint,
         instructions: 0,
         read_bytes: 0,
         write_bytes,
@@ -347,7 +339,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let transaction_resources = TransactionResources {
         instructions: 0,
         read_entries: 0,
-        write_entries: 0,
+        write_entries: u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?,
         read_bytes: 0,
         write_bytes: soroban_resources.write_bytes,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
