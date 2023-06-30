@@ -42,7 +42,7 @@ async function getAccount(): Promise<Account | null> {
 export class NotImplementedError extends Error { }
 
 /**
- * Invoke a method on the contract-data-example contract.
+ * Invoke a method on the test_custom_types contract.
  *
  * Uses Freighter to determine the current user and if necessary sign the transaction.
  *
