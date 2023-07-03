@@ -14,9 +14,9 @@ exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 version = "0.8.7"
 
 [workspace.dependencies.soroban-env-host]
-version = "0.0.16"
+version = "0.0.17"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "422ce4110f26097e94835e0a70a4ed8c10b5bc16"
+rev = "400d806387140553e4e685d232deb3a807ec0e36"
 
 [workspace.dependencies.soroban-spec]
 version = "0.8.4"
@@ -45,7 +45,7 @@ path = "./cmd/crates/soroban-spec-tools"
 [workspace.dependencies.soroban-sdk]
 version = "0.9.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "v0.9.1"
+rev = "e48a3c435a1c1e1055f03f8e507c63f62a927ef9"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "0.8.4"
