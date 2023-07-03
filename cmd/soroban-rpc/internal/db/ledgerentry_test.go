@@ -132,6 +132,44 @@ func TestGoldenPath(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
 
+func TestUpsertingMismatchedKeyAndEntryShouldError(t *testing.T) {
+	db := NewTestDB(t)
+	// Check that we get an empty DB error
+	_, err := NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
+	assert.Equal(t, ErrEmptyDB, err)
+
+	tx, err := NewReadWriter(db, 150, 15).NewTx(context.Background())
+	assert.NoError(t, err)
+	writer := tx.LedgerEntryWriter()
+
+	four := xdr.Uint32(4)
+	six := xdr.Uint32(6)
+	data := xdr.ContractDataEntry{
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
+		Key: xdr.ScVal{
+			Type: xdr.ScValTypeScvU32,
+			U32:  &four,
+		},
+		Durability: xdr.ContractDataDurabilityPersistent,
+		Body: xdr.ContractDataEntryBody{
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &six,
+				},
+			},
+		},
+		ExpirationLedgerSeq: 100,
+	}
+	key, entry := getContractDataLedgerEntry(t, data)
+	key.ContractData.Key.U32 = &six
+	assert.ErrorContains(t, writer.UpsertLedgerEntry(key, entry), "does not match entry")
+}
+
 func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 	db := NewTestDB(t)
 

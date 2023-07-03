@@ -90,6 +90,16 @@ func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedger
 }
 
 func (l ledgerEntryWriter) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
+	// We can do a little extra validation to ensure the entry and key match,
+	// because the key can be derived from the entry.
+	entryKey, err := entry.LedgerKey()
+	if err != nil {
+		return errors.Wrap(err, "could not get ledger key from entry")
+	}
+	if !key.Equals(entryKey) {
+		return fmt.Errorf("ledger entry key %v does not match entry %v", key, entry)
+	}
+
 	encodedKey, err := encodeLedgerKey(l.buffer, key)
 	if err != nil {
 		return err
