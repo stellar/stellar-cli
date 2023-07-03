@@ -254,7 +254,7 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 		assert.NoError(t, err)
 		fmt.Printf("error: %#v\n", txResult)
 	}
-	assert.NotNil(t, response.ResultXdr)
+	require.NotNil(t, response.ResultXdr)
 	assert.Greater(t, response.Ledger, result.LatestLedger)
 	assert.Greater(t, response.LedgerCloseTime, result.LatestLedgerCloseTime)
 	assert.GreaterOrEqual(t, response.LatestLedger, response.Ledger)
