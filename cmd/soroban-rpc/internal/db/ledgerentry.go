@@ -202,11 +202,11 @@ func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerE
 	// "current" ledger, which we are building.
 	// TODO: Support allowing access, but recording for simulateTransaction
 	if expirationLedgerSeq, ok := result.Data.ExpirationLedgerSeq(); ok {
-		latestLedger, err := l.GetLatestLedgerSequence()
+		latestClosedLedger, err := l.GetLatestLedgerSequence()
 		if err != nil {
 			return false, xdr.LedgerEntry{}, err
 		}
-		if expirationLedgerSeq <= xdr.Uint32(latestLedger) {
+		if expirationLedgerSeq <= xdr.Uint32(latestClosedLedger) {
 			return false, xdr.LedgerEntry{}, nil
 		}
 	}
