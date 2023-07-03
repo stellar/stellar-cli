@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/xdr"
@@ -39,11 +40,9 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db db.SessionInterface, key xd
 	return present, entry, latestSeq, doneErr
 }
 
-func getLedgerEntryAndLatestLedgerSequence(db db.SessionInterface, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
+func getLedgerEntryAndLatestLedgerSequence(t require.TestingT, db db.SessionInterface, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
 	present, entry, latestSeq, err := getLedgerEntryAndLatestLedgerSequenceWithErr(db, key)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	return present, entry, latestSeq
 }
 
@@ -81,12 +80,12 @@ func TestGoldenPath(t *testing.T) {
 		},
 		ExpirationLedgerSeq: 100,
 	}
-	key, entry := getContractDataLedgerEntry(data)
+	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 	ledgerSequence := uint32(23)
 	assert.NoError(t, tx.Commit(ledgerSequence))
 
-	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, obtainedEntry.Data.Type, xdr.LedgerEntryTypeContractData)
@@ -109,7 +108,7 @@ func TestGoldenPath(t *testing.T) {
 	ledgerSequence = uint32(24)
 	assert.NoError(t, tx.Commit(ledgerSequence))
 
-	present, obtainedEntry, obtainedLedgerSequence = getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, obtainedEntry, obtainedLedgerSequence = getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, eight, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
@@ -124,7 +123,7 @@ func TestGoldenPath(t *testing.T) {
 	ledgerSequence = uint32(25)
 	assert.NoError(t, tx.Commit(ledgerSequence))
 
-	present, _, obtainedLedgerSequence = getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, _, obtainedLedgerSequence = getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.False(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
@@ -165,7 +164,7 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 		},
 		ExpirationLedgerSeq: 100,
 	}
-	key, _ := getContractDataLedgerEntry(data)
+	key, _ := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.DeleteLedgerEntry(key))
 	ledgerSequence := uint32(23)
 	assert.NoError(t, tx.Commit(ledgerSequence))
@@ -176,7 +175,7 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	// And that the entry doesn't exist
-	present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.False(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
@@ -212,7 +211,7 @@ func TestExtendEntry(t *testing.T) {
 		},
 		ExpirationLedgerSeq: 24,
 	}
-	key, entry := getContractDataLedgerEntry(data)
+	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 	assert.NoError(t, tx.Commit(uint32(23)))
 
@@ -230,7 +229,7 @@ func TestExtendEntry(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	// And that the entry was updated
-	present, resultEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, resultEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, xdr.Uint32(32), resultEntry.Data.ContractData.ExpirationLedgerSeq)
@@ -267,7 +266,7 @@ func TestCreateAndImmediatelyExtendEntry(t *testing.T) {
 		},
 		ExpirationLedgerSeq: 24,
 	}
-	key, entry := getContractDataLedgerEntry(data)
+	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 
 	// Immediately Extend the entry's expiration
@@ -278,7 +277,7 @@ func TestCreateAndImmediatelyExtendEntry(t *testing.T) {
 	assert.NoError(t, tx.Commit(ledgerSequence))
 
 	// Check that the entry was updated
-	present, resultEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, resultEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
@@ -349,7 +348,7 @@ func TestGetLedgerEntryHidesExpiredContractDataEntries(t *testing.T) {
 		},
 		ExpirationLedgerSeq: 23,
 	}
-	key, entry := getContractDataLedgerEntry(data)
+	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 	assert.NoError(t, tx.Commit(20))
 
@@ -368,7 +367,7 @@ func TestGetLedgerEntryHidesExpiredContractDataEntries(t *testing.T) {
 		assert.NoError(t, tx.Commit(c.ledgerSequence))
 
 		// Try to read the entry back, and check it disappears when expected
-		present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+		present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 		assert.Equal(t, c.ledgerSequence, obtainedLedgerSequence)
 		assert.Equal(t, c.expected, present, "ledger sequence %d", c.ledgerSequence)
 	}
@@ -395,7 +394,7 @@ func TestGetLedgerEntryHidesExpiredContractCodeEntries(t *testing.T) {
 		},
 		ExpirationLedgerSeq: 23,
 	}
-	key, entry := getContractCodeLedgerEntry(code)
+	key, entry := getContractCodeLedgerEntry(t, code)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 	assert.NoError(t, tx.Commit(20))
 
@@ -414,13 +413,13 @@ func TestGetLedgerEntryHidesExpiredContractCodeEntries(t *testing.T) {
 		assert.NoError(t, tx.Commit(c.ledgerSequence))
 
 		// Try to read the entry back, and check it disappears when expected
-		present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+		present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 		assert.Equal(t, c.ledgerSequence, obtainedLedgerSequence)
 		assert.Equal(t, c.expected, present, "ledger sequence %d", c.ledgerSequence)
 	}
 }
 
-func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
+func getContractDataLedgerEntry(t require.TestingT, data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
 	entry := xdr.LedgerEntry{
 		LastModifiedLedgerSeq: 1,
 		Data: xdr.LedgerEntryData{
@@ -431,13 +430,11 @@ func getContractDataLedgerEntry(data xdr.ContractDataEntry) (xdr.LedgerKey, xdr.
 	}
 	var key xdr.LedgerKey
 	err := key.SetContractData(data.Contract, data.Key, data.Durability, data.Body.BodyType)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	return key, entry
 }
 
-func getContractCodeLedgerEntry(code xdr.ContractCodeEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
+func getContractCodeLedgerEntry(t require.TestingT, code xdr.ContractCodeEntry) (xdr.LedgerKey, xdr.LedgerEntry) {
 	entry := xdr.LedgerEntry{
 		LastModifiedLedgerSeq: 1,
 		Data: xdr.LedgerEntryData{
@@ -448,9 +445,7 @@ func getContractCodeLedgerEntry(code xdr.ContractCodeEntry) (xdr.LedgerKey, xdr.
 	}
 	var key xdr.LedgerKey
 	err := key.SetContractCode(code.Hash)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	return key, entry
 }
 
@@ -491,7 +486,7 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 		},
 		ExpirationLedgerSeq: math.MaxUint32,
 	}
-	key, entry := getContractDataLedgerEntry(data)
+	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 
 	// Before committing the changes, make sure multiple concurrent transactions can query the DB
@@ -522,7 +517,7 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
-	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
@@ -575,7 +570,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 		},
 		ExpirationLedgerSeq: math.MaxUint32,
 	}
-	key, entry := getContractDataLedgerEntry(data)
+	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 
 	// Third read transaction, after the first insert has happened in the write transaction
@@ -609,7 +604,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
-	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(db, key)
+	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Body.Data.Val.U32)
@@ -657,7 +652,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 			writer := tx.LedgerEntryWriter()
 			for i := 0; i < 200; i++ {
 				val++
-				key, entry := getContractDataLedgerEntry(data)
+				key, entry := getContractDataLedgerEntry(t, data)
 				assert.NoError(t, writer.UpsertLedgerEntry(key, entry))
 			}
 			assert.NoError(t, tx.Commit(ledgerSequence))
@@ -741,7 +736,7 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 		},
 		ExpirationLedgerSeq: math.MaxUint32,
 	}
-	key, entry := getContractDataLedgerEntry(data)
+	key, entry := getContractDataLedgerEntry(b, data)
 	const numEntriesPerOp = 3500
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
