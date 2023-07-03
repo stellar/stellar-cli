@@ -35,7 +35,7 @@ pub fn type_to_js_xdr(value: &types::Type) -> String {
                 .enumerate()
                 .map(|(i, e)| format!("((i) => {})(i[{i}])", type_to_js_xdr(e)))
                 .join(",\n        ");
-            format!("[\n        {cases}\n    ]")
+            format!("xdr.ScVal.scvVec([{cases}])")
         }
 
         types::Type::Custom { name } => format!("{name}ToXdr(i)"),
