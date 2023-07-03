@@ -43,9 +43,9 @@ version = "0.8.7"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
-version = "0.8.4"
+version = "0.9.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "e90db9f8009280516375df6b3ee43a65ff524577"
+rev = "v0.9.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "0.8.4"
