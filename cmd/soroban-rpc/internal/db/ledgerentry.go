@@ -10,6 +10,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 
 	"github.com/stellar/go/support/db"
+	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 )
 
@@ -30,7 +31,7 @@ type LedgerEntryReadTx interface {
 
 type LedgerEntryWriter interface {
 	ExtendLedgerEntry(key xdr.LedgerKey, expirationLedgerSeq xdr.Uint32) error
-	UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error
+	UpsertLedgerEntry(entry xdr.LedgerEntry) error
 	DeleteLedgerEntry(key xdr.LedgerKey) error
 }
 
@@ -86,18 +87,15 @@ func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedger
 	}
 
 	// Marshal the entry back and stage it
-	return l.UpsertLedgerEntry(key, entry)
+	return l.UpsertLedgerEntry(entry)
 }
 
-func (l ledgerEntryWriter) UpsertLedgerEntry(key xdr.LedgerKey, entry xdr.LedgerEntry) error {
+func (l ledgerEntryWriter) UpsertLedgerEntry(entry xdr.LedgerEntry) error {
 	// We can do a little extra validation to ensure the entry and key match,
 	// because the key can be derived from the entry.
-	entryKey, err := entry.LedgerKey()
+	key, err := entry.LedgerKey()
 	if err != nil {
 		return errors.Wrap(err, "could not get ledger key from entry")
-	}
-	if !key.Equals(entryKey) {
-		return fmt.Errorf("ledger entry key %v does not match entry %v", key, entry)
 	}
 
 	encodedKey, err := encodeLedgerKey(l.buffer, key)

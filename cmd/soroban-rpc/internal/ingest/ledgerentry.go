@@ -61,7 +61,7 @@ func ingestLedgerEntryChange(writer db.LedgerEntryWriter, change ingest.Change) 
 		if isExtension, expirationLedgerSeq := ledgerEntryIsExtension(ledgerKey, change.Post); isExtension {
 			return writer.ExtendLedgerEntry(ledgerKey, expirationLedgerSeq)
 		} else {
-			return writer.UpsertLedgerEntry(ledgerKey, *change.Post)
+			return writer.UpsertLedgerEntry(*change.Post)
 		}
 	}
 }
