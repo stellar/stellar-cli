@@ -1,10 +1,9 @@
 import * as SorobanClient from 'soroban-client';
 import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
-import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal } from './convert.js';
+import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke, InvokeArgs } from './invoke.js';
 
-declare const Errors: { message: string }[]
 
 export * from './constants.js'
 export * from './server.js'
@@ -101,22 +100,22 @@ export interface Test {
   c: string;
 }
 
-function TestToXDR(test?: Test): xdr.ScVal {
+function TestToXdr(test?: Test): xdr.ScVal {
     if (!test) {
         return xdr.ScVal.scvVoid();
     }
     let arr = [
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("a"), val: ((i)=>xdr.ScVal.scvU32(i))(test.a)}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("b"), val: ((i)=>xdr.ScVal.scvBool(i))(test.b)}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("c"), val: ((i)=>xdr.ScVal.scvSymbol(i))(test.c)})
+        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("a"), val: ((i)=>xdr.ScVal.scvU32(i))(test["a"])}),
+        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("b"), val: ((i)=>xdr.ScVal.scvBool(i))(test["b"])}),
+        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("c"), val: ((i)=>xdr.ScVal.scvSymbol(i))(test["c"])})
         ];
     return xdr.ScVal.scvMap(arr);
 }
 
 
-function TestFromXDR(base64Xdr: string): Test {
-    let scVal = xdr.ScVal.fromXDR(Buffer.from(base64Xdr, 'base64'));
-    let obj: [string, any][] = scVal.map().map(e => [e.key().str() as string, e.val()]);
+function TestFromXdr(base64Xdr: string): Test {
+    let scVal = strToScVal(base64Xdr);
+    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
     let map = new Map<string, any>(obj);
     if (!obj) {
         throw new Error('Invalid XDR');
@@ -128,9 +127,9 @@ function TestFromXDR(base64Xdr: string): Test {
     };
 }
 
-export type SimpleEnum = {tag: "First"} | {tag: "Second"} | {tag: "Third"};
+export type SimpleEnum = {tag: "First", values: void} | {tag: "Second", values: void} | {tag: "Third", values: void};
 
-function SimpleEnumToXDR(simpleEnum?: SimpleEnum): xdr.ScVal {
+function SimpleEnumToXdr(simpleEnum?: SimpleEnum): xdr.ScVal {
     if (!simpleEnum) {
         return xdr.ScVal.scvVoid();
     }
@@ -149,33 +148,51 @@ function SimpleEnumToXDR(simpleEnum?: SimpleEnum): xdr.ScVal {
     return xdr.ScVal.scvVec(res);
 }
 
+function SimpleEnumFromXdr(base64Xdr: string): SimpleEnum {
+    type Tag = SimpleEnum["tag"];
+    type Value = SimpleEnum["values"];
+    let [tag, values] = strToScVal(base64Xdr).vec()!.map(scValToJs) as [Tag, Value];
+    if (!tag) {
+        throw new Error('Missing enum tag when decoding SimpleEnum from XDR');
+    }
+    return { tag, values } as SimpleEnum;
+}
+
 export enum RoyalCard {
   Jack = 11,
   Queen = 12,
   King = 13,
 }
 
+function RoyalCardFromXdr(base64Xdr: string): RoyalCard {
+    return  scValStrToJs(base64Xdr) as RoyalCard;
+}
+
+
+function RoyalCardToXdr(val: RoyalCard): xdr.ScVal {
+    return  xdr.ScVal.scvI32(val);
+}
 
 export interface TupleStruct {
   0: Test;
   1: SimpleEnum;
 }
 
-function TupleStructToXDR(tupleStruct?: TupleStruct): xdr.ScVal {
+function TupleStructToXdr(tupleStruct?: TupleStruct): xdr.ScVal {
     if (!tupleStruct) {
         return xdr.ScVal.scvVoid();
     }
     let arr = [
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("0"), val: ((i)=>TestToXDR(i))(tupleStruct.0)}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("1"), val: ((i)=>SimpleEnumToXDR(i))(tupleStruct.1)})
+        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("0"), val: ((i)=>TestToXdr(i))(tupleStruct["0"])}),
+        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("1"), val: ((i)=>SimpleEnumToXdr(i))(tupleStruct["1"])})
         ];
     return xdr.ScVal.scvMap(arr);
 }
 
 
-function TupleStructFromXDR(base64Xdr: string): TupleStruct {
-    let scVal = xdr.ScVal.fromXDR(Buffer.from(base64Xdr, 'base64'));
-    let obj: [string, any][] = scVal.map().map(e => [e.key().str() as string, e.val()]);
+function TupleStructFromXdr(base64Xdr: string): TupleStruct {
+    let scVal = strToScVal(base64Xdr);
+    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
     let map = new Map<string, any>(obj);
     if (!obj) {
         throw new Error('Invalid XDR');
@@ -186,9 +203,9 @@ function TupleStructFromXDR(base64Xdr: string): TupleStruct {
     };
 }
 
-export type ComplexEnum = {tag: "Struct", values: [Test]} | {tag: "Tuple", values: [TupleStruct]} | {tag: "Enum", values: [SimpleEnum]} | {tag: "Void"};
+export type ComplexEnum = {tag: "Struct", values: [Test]} | {tag: "Tuple", values: [TupleStruct]} | {tag: "Enum", values: [SimpleEnum]} | {tag: "Void", values: void};
 
-function ComplexEnumToXDR(complexEnum?: ComplexEnum): xdr.ScVal {
+function ComplexEnumToXdr(complexEnum?: ComplexEnum): xdr.ScVal {
     if (!complexEnum) {
         return xdr.ScVal.scvVoid();
     }
@@ -197,19 +214,19 @@ function ComplexEnumToXDR(complexEnum?: ComplexEnum): xdr.ScVal {
         case "Struct":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Struct"));
             res.push(...((i) => [
-        ((i) => TestToXDR(i))(i[0])
+        ((i) => TestToXdr(i))(i[0])
     ])(complexEnum.values));
             break;
     case "Tuple":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Tuple"));
             res.push(...((i) => [
-        ((i) => TupleStructToXDR(i))(i[0])
+        ((i) => TupleStructToXdr(i))(i[0])
     ])(complexEnum.values));
             break;
     case "Enum":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Enum"));
             res.push(...((i) => [
-        ((i) => SimpleEnumToXDR(i))(i[0])
+        ((i) => SimpleEnumToXdr(i))(i[0])
     ])(complexEnum.values));
             break;
     case "Void":
@@ -219,8 +236,18 @@ function ComplexEnumToXDR(complexEnum?: ComplexEnum): xdr.ScVal {
     return xdr.ScVal.scvVec(res);
 }
 
+function ComplexEnumFromXdr(base64Xdr: string): ComplexEnum {
+    type Tag = ComplexEnum["tag"];
+    type Value = ComplexEnum["values"];
+    let [tag, values] = strToScVal(base64Xdr).vec()!.map(scValToJs) as [Tag, Value];
+    if (!tag) {
+        throw new Error('Missing enum tag when decoding ComplexEnum from XDR');
+    }
+    return { tag, values } as ComplexEnum;
+}
+
 const Errors = [ 
-  {message:"Unknown error has occured"}
+{message:"Unknown error has occured"}
 ]
 export async function hello({hello}: {hello: string}, {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<string> {
     let invokeArgs: InvokeArgs = {
@@ -235,11 +262,11 @@ export async function hello({hello}: {hello: string}, {signAndSend, fee}: {signA
     return scValStrToJs(response.xdr) as string;
 }
 
-export async function void( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<void> {
+export async function woid( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<void> {
     let invokeArgs: InvokeArgs = {
         signAndSend,
         fee,
-        method: 'void', 
+        method: 'woid', 
         
     };
     
@@ -248,11 +275,11 @@ export async function void( {signAndSend, fee}: {signAndSend?: boolean, fee?: nu
     return ;
 }
 
-export async function raw_val( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<any> {
+export async function val( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<any> {
     let invokeArgs: InvokeArgs = {
         signAndSend,
         fee,
-        method: 'raw_val', 
+        method: 'val', 
         
     };
     
@@ -332,7 +359,7 @@ export async function strukt_hel({strukt}: {strukt: Test}, {signAndSend, fee}: {
         signAndSend,
         fee,
         method: 'strukt_hel', 
-        args: [((i) => TestToXDR(i))(strukt)], 
+        args: [((i) => TestToXdr(i))(strukt)], 
     };
     
     // @ts-ignore Type does exist
@@ -345,7 +372,7 @@ export async function strukt({strukt}: {strukt: Test}, {signAndSend, fee}: {sign
         signAndSend,
         fee,
         method: 'strukt', 
-        args: [((i) => TestToXDR(i))(strukt)], 
+        args: [((i) => TestToXdr(i))(strukt)], 
     };
     
     // @ts-ignore Type does exist
@@ -358,7 +385,7 @@ export async function simple({simple}: {simple: SimpleEnum}, {signAndSend, fee}:
         signAndSend,
         fee,
         method: 'simple', 
-        args: [((i) => SimpleEnumToXDR(i))(simple)], 
+        args: [((i) => SimpleEnumToXdr(i))(simple)], 
     };
     
     // @ts-ignore Type does exist
@@ -371,7 +398,7 @@ export async function complex({complex}: {complex: ComplexEnum}, {signAndSend, f
         signAndSend,
         fee,
         method: 'complex', 
-        args: [((i) => ComplexEnumToXDR(i))(complex)], 
+        args: [((i) => ComplexEnumToXdr(i))(complex)], 
     };
     
     // @ts-ignore Type does exist
@@ -423,7 +450,7 @@ export async function card({card}: {card: RoyalCard}, {signAndSend, fee}: {signA
         signAndSend,
         fee,
         method: 'card', 
-        args: [((i) => RoyalCardToXDR(i))(card)], 
+        args: [((i) => RoyalCardToXdr(i))(card)], 
     };
     
     // @ts-ignore Type does exist
@@ -517,25 +544,12 @@ export async function map({map}: {map: Map<u32, boolean>}, {signAndSend, fee}: {
     return scValStrToJs(response.xdr) as Map<u32, boolean>;
 }
 
-export async function set({set}: {set: Set<u32>}, {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<Set<u32>> {
-    let invokeArgs: InvokeArgs = {
-        signAndSend,
-        fee,
-        method: 'set', 
-        args: [((i) => i)(set)], 
-    };
-    
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr) as Set<u32>;
-}
-
 export async function vec({vec}: {vec: Array<u32>}, {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<Array<u32>> {
     let invokeArgs: InvokeArgs = {
         signAndSend,
         fee,
         method: 'vec', 
-        args: [((i) => xdr.ScVal.scvVec(i.map(xdr.ScVal.scvU32(i))))(vec)], 
+        args: [((i) => xdr.ScVal.scvVec(i.map((i)=>xdr.ScVal.scvU32(i))))(vec)], 
     };
     
     // @ts-ignore Type does exist

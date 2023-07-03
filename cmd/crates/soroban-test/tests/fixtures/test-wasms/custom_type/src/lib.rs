@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contracterror, contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, RawVal, Set,
-    String, Symbol, Vec, I256, U256,
+    contract, contracterror, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN,
+    Env, Map, String, Symbol, Val, Vec, I256, U256,
 };
 
 pub struct Contract;
@@ -50,14 +50,13 @@ pub enum Error {
     /// Unknown error has occured
     OhNo = 1,
 }
-
 #[contractimpl]
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {
         hello
     }
 
-    pub fn void(_env: Env) {
+    pub fn woid(_env: Env) {
         // do nothing
     }
 

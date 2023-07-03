@@ -27,7 +27,7 @@ pub fn type_to_js_xdr(value: &types::Type) -> String {
         ),
         types::Type::Result { value, .. } => type_to_js_xdr(value),
         types::Type::Vec { element } => {
-            format!("xdr.ScVal.scvVec(i.map({}))", type_to_js_xdr(element))
+            format!("xdr.ScVal.scvVec(i.map((i)=>{}))", type_to_js_xdr(element))
         }
         types::Type::Tuple { elements } => {
             let cases = elements
@@ -38,7 +38,7 @@ pub fn type_to_js_xdr(value: &types::Type) -> String {
             format!("[\n        {cases}\n    ]")
         }
 
-        types::Type::Custom { name } => format!("{name}ToXDR(i)"),
+        types::Type::Custom { name } => format!("{name}ToXdr(i)"),
         types::Type::BytesN { .. } | types::Type::Bytes => "xdr.ScVal.scvBytes(i)".to_owned(),
         types::Type::Address => "addressToScVal(i)".to_owned(),
         types::Type::Void => "xdr.ScVal.scvVoid()".to_owned(),
@@ -49,8 +49,9 @@ pub fn type_to_js_xdr(value: &types::Type) -> String {
         | types::Type::U256
         | types::Type::I256
         | types::Type::Timepoint
-        | types::Type::Status
         | types::Type::Duration => "i".to_owned(),
+        // This is case shoudn't happen since we only go xdr -> js for errors
+        types::Type::Error { .. } => "N/A".to_owned(),
         types::Type::String => "xdr.ScVal.scvString(i)".to_owned(),
     }
 }

@@ -99,5 +99,14 @@ lint-changes:
 lint:
 	golangci-lint run ./...
 
+temp-bindings:
+	cargo run -- contract bindings typescript \
+					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
+					--contract-name test_custom_types \
+					--contract-id CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE \
+					--network futurenet \
+					--root-dir ./cmd/crates/soroban-spec-typescript/fixtures/ts
+
+
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes build-snapshot
+.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-soroban-rpc build-libpreflight lint lint-changes build-snapshot temp-bindings

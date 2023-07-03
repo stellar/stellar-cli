@@ -211,7 +211,7 @@ fn number_arg_return_err() {
 
 #[test]
 fn void() {
-    invoke(&TestEnv::default(), "void")
+    invoke(&TestEnv::default(), "voidd")
         .assert()
         .success()
         .stdout("\n")

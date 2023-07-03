@@ -1,6 +1,6 @@
 {
     "version": "0.0.0",
-    "name": "contract-data-example",
+    "name": "test_custom_types",
     "dependencies": {
         "@stellar/freighter-api": "1.5.0",
         "buffer": "6.0.3",
