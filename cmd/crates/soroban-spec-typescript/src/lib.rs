@@ -318,12 +318,12 @@ fn js_to_xdr_union_cases(arg_name: &str, f: &[UnionCase]) -> String {
                 type_to_js_xdr(&Type::Symbol)
             );
             if !values.is_empty() {
-                rhs = format!(
-                    "{rhs};\n            res.push(...((i) => {})({arg_name}.values))",
-                    type_to_js_xdr(&Type::Tuple {
-                        elements: values.clone()
-                    })
-                );
+                for (i, value) in values.iter().enumerate() {
+                    rhs = format!(
+                        "{rhs};\n            res.push(((i)=>{})({arg_name}.values[{i}]))",
+                        type_to_js_xdr(value)
+                    );
+                }
             };
             format!("case \"{name}\":\n            {rhs};\n            break;")
         })
