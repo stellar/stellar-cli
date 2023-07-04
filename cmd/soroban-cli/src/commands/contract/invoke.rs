@@ -13,11 +13,11 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, Error as XdrError, HostFunction, InvokeHostFunctionOp, LedgerEntryData,
-        LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount, Operation, OperationBody,
-        Preconditions, PublicKey, ScBytes, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
-        ScVec, SequenceNumber, SorobanAddressCredentials, SorobanAuthorizationEntry,
-        SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
+        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
+        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount,
+        Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
+        ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber, SorobanAddressCredentials,
+        SorobanAuthorizationEntry, SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
     },
     DiagnosticLevel, Host, HostError,
 };
@@ -211,7 +211,7 @@ impl Cmd {
 
         // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
-            ScVal::Bytes(ScBytes(contract_id.try_into().unwrap())),
+            ScVal::Address(ScAddress::Contract(Hash(contract_id))),
             ScVal::Symbol(
                 function
                     .try_into()
