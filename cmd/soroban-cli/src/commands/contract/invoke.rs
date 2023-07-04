@@ -325,11 +325,8 @@ impl Cmd {
         let spec_entries = if let Some(spec) = self.spec_entries()? {
             spec
         } else {
-            utils::get_contract_spec_from_storage(
-                &mut storage,
-                &state.sequence_number,
-                contract_id,
-            ).map_err(Error::CannotParseContractSpec)?
+            utils::get_contract_spec_from_storage(&mut storage, &state.sequence_number, contract_id)
+                .map_err(Error::CannotParseContractSpec)?
         };
         let budget = Budget::default();
         if self.unlimited_budget {
