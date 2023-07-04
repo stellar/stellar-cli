@@ -599,7 +599,7 @@ func TestSimulateTransactionWithoutInvokeHostFunction(t *testing.T) {
 	assert.Equal(
 		t,
 		methods.SimulateTransactionResponse{
-			Error: "Transaction does not contain invoke host function operation",
+			Error: "Transaction contains unsupported operation type: OperationTypeBumpSequenc",
 		},
 		result,
 	)
