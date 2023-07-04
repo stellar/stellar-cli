@@ -10,6 +10,7 @@ import (
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/go/keypair"
 	proto "github.com/stellar/go/protocols/stellarcore"
@@ -254,7 +255,7 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 		assert.NoError(t, err)
 		fmt.Printf("error: %#v\n", txResult)
 	}
-	assert.NotNil(t, response.ResultXdr)
+	require.NotNil(t, response.ResultXdr)
 	assert.Greater(t, response.Ledger, result.LatestLedger)
 	assert.Greater(t, response.LedgerCloseTime, result.LatestLedgerCloseTime)
 	assert.GreaterOrEqual(t, response.LatestLedger, response.Ledger)

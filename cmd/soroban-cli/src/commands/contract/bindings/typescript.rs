@@ -17,7 +17,7 @@ pub struct Cmd {
 
     /// where to place generated project
     #[arg(long)]
-    root_dir: PathBuf,
+    output_dir: PathBuf,
 
     #[arg(long)]
     contract_name: String,
@@ -52,14 +52,16 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let spec = self.wasm.parse().unwrap().spec;
-        if self.root_dir.is_file() {
-            return Err(Error::IsFile(self.root_dir.clone()));
+        if self.output_dir.is_file() {
+            return Err(Error::IsFile(self.output_dir.clone()));
         }
-        if self.root_dir.exists() {
-            std::fs::remove_dir_all(&self.root_dir)?;
-        }
-        std::fs::create_dir_all(&self.root_dir)?;
-        let p: Project = self.root_dir.clone().try_into()?;
+        let output_dir = if self.output_dir.exists() {
+            self.output_dir.join(&self.contract_name)
+        } else {
+            self.output_dir.clone()
+        };
+        std::fs::create_dir_all(&output_dir)?;
+        let p: Project = output_dir.clone().try_into()?;
         let Network {
             rpc_url,
             network_passphrase,
@@ -76,13 +78,13 @@ impl Cmd {
         )?;
         std::process::Command::new("npm")
             .arg("install")
-            .current_dir(&self.root_dir)
+            .current_dir(&output_dir)
             .spawn()?
             .wait()?;
         std::process::Command::new("npm")
             .arg("run")
             .arg("build")
-            .current_dir(&self.root_dir)
+            .current_dir(&output_dir)
             .spawn()?
             .wait()?;
         Ok(())

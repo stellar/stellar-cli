@@ -4,9 +4,8 @@ use soroban_env_host::fees::{
     compute_transaction_resource_fee, FeeConfiguration, TransactionResources,
 };
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
-use soroban_env_host::xdr;
 use soroban_env_host::xdr::{
-    ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
+    self, ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
     InvokeHostFunctionOp, LedgerEntry, LedgerEntryData, LedgerFootprint, LedgerKey,
     LedgerKeyConfigSetting, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody,
     Preconditions, SequenceNumber, Signature, SignatureHint, SorobanResources,
@@ -16,14 +15,15 @@ use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 use std::error;
 
-pub(crate) fn compute_transaction_data_and_min_fee(
-    invoke_hf_op: &InvokeHostFunctionOp,
+pub(crate) fn compute_host_function_transaction_data_and_min_fee(
+    op: &InvokeHostFunctionOp,
     snapshot_source: &ledger_storage::LedgerStorage,
     storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    let soroban_resources = calculate_soroban_resources(snapshot_source, storage, budget, events)?;
+    let soroban_resources =
+        calculate_host_function_soroban_resources(snapshot_source, storage, budget, events)?;
     let fee_configuration = get_fee_configuration(snapshot_source)?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
@@ -37,8 +37,8 @@ pub(crate) fn compute_transaction_data_and_min_fee(
         write_bytes: soroban_resources.write_bytes,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
         // Note: we could get a better transaction size if the full transaction was passed down to libpreflight
-        transaction_size_bytes: estimate_max_transaction_size(
-            invoke_hf_op,
+        transaction_size_bytes: estimate_host_function_max_transaction_size(
+            op,
             &soroban_resources.footprint,
         )?,
     };
@@ -52,8 +52,8 @@ pub(crate) fn compute_transaction_data_and_min_fee(
     Ok((transaction_data, min_fee))
 }
 
-fn estimate_max_transaction_size(
-    invoke_hf_op: &InvokeHostFunctionOp,
+fn estimate_host_function_max_transaction_size(
+    op: &InvokeHostFunctionOp,
     fp: &LedgerFootprint,
 ) -> Result<u32, Box<dyn error::Error>> {
     let source = MuxedAccount::MuxedEd25519(MuxedAccountMed25519 {
@@ -79,7 +79,7 @@ fn estimate_max_transaction_size(
             memo: Memo::Text(memo_text.try_into()?),
             operations: vec![Operation {
                 source_account: Some(source),
-                body: OperationBody::InvokeHostFunction(invoke_hf_op.clone()),
+                body: OperationBody::InvokeHostFunction(op.clone()),
             }]
             .try_into()?,
             ext: TransactionExt::V1(SorobanTransactionData {
@@ -105,7 +105,7 @@ fn estimate_max_transaction_size(
     Ok(u32::try_from(envelope_size)?)
 }
 
-fn calculate_soroban_resources(
+fn calculate_host_function_soroban_resources(
     snapshot_source: &ledger_storage::LedgerStorage,
     storage: &Storage,
     budget: &Budget,
@@ -286,4 +286,71 @@ fn storage_footprint_to_ledger_footprint(foot: &Footprint) -> Result<LedgerFootp
         read_only: read_only.try_into()?,
         read_write: read_write.try_into()?,
     })
+}
+
+pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
+    footprint: LedgerFootprint,
+    _ledgers_to_expire: u32,
+    snapshot_source: &ledger_storage::LedgerStorage,
+) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+    let read_bytes =
+        calculate_unmodified_ledger_entry_bytes(footprint.read_only.as_vec(), snapshot_source)?;
+    let soroban_resources = SorobanResources {
+        footprint,
+        instructions: 0,
+        read_bytes,
+        write_bytes: 0,
+        extended_meta_data_size_bytes: 2 * read_bytes,
+    };
+    let transaction_resources = TransactionResources {
+        instructions: 0,
+        read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?,
+        write_entries: 0,
+        read_bytes: soroban_resources.read_bytes,
+        write_bytes: 0,
+        metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
+        transaction_size_bytes: 0,
+    };
+    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let (min_fee, ref_fee) =
+        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+    let transaction_data = SorobanTransactionData {
+        resources: soroban_resources,
+        refundable_fee: ref_fee,
+        ext: ExtensionPoint::V0,
+    };
+    Ok((transaction_data, min_fee))
+}
+
+pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
+    footprint: LedgerFootprint,
+    snapshot_source: &ledger_storage::LedgerStorage,
+) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+    let write_bytes =
+        calculate_unmodified_ledger_entry_bytes(footprint.read_write.as_vec(), snapshot_source)?;
+    let soroban_resources = SorobanResources {
+        footprint,
+        instructions: 0,
+        read_bytes: 0,
+        write_bytes,
+        extended_meta_data_size_bytes: 2 * write_bytes,
+    };
+    let transaction_resources = TransactionResources {
+        instructions: 0,
+        read_entries: 0,
+        write_entries: u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?,
+        read_bytes: 0,
+        write_bytes: soroban_resources.write_bytes,
+        metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
+        transaction_size_bytes: 0,
+    };
+    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let (min_fee, ref_fee) =
+        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+    let transaction_data = SorobanTransactionData {
+        resources: soroban_resources,
+        refundable_fee: ref_fee,
+        ext: ExtensionPoint::V0,
+    };
+    Ok((transaction_data, min_fee))
 }

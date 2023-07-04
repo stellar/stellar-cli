@@ -13,11 +13,11 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, Error as XdrError, HostFunction, InvokeHostFunctionOp, LedgerEntryData,
-        LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount, Operation, OperationBody,
-        Preconditions, PublicKey, ScBytes, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
-        ScVec, SequenceNumber, SorobanAddressCredentials, SorobanAuthorizationEntry,
-        SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
+        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
+        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount,
+        Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
+        ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber, SorobanAddressCredentials,
+        SorobanAuthorizationEntry, SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
     },
     DiagnosticLevel, Host, HostError,
 };
@@ -187,8 +187,8 @@ impl Cmd {
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
-                if let Some(mut raw_val) = matches_.get_raw(&name) {
-                    let mut s = raw_val.next().unwrap().to_string_lossy().to_string();
+                if let Some(mut val) = matches_.get_raw(&name) {
+                    let mut s = val.next().unwrap().to_string_lossy().to_string();
                     if matches!(i.type_, ScSpecTypeDef::Address) {
                         let cmd = crate::commands::config::identity::address::Cmd {
                             name: Some(s.clone()),
@@ -211,7 +211,7 @@ impl Cmd {
 
         // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
-            ScVal::Bytes(ScBytes(contract_id.try_into().unwrap())),
+            ScVal::Address(ScAddress::Contract(Hash(contract_id))),
             ScVal::Symbol(
                 function
                     .try_into()
@@ -322,12 +322,12 @@ impl Cmd {
 
         let snap = Rc::new(state.clone());
         let mut storage = Storage::with_recording_footprint(snap);
-        let spec_entries = utils::get_contract_spec_from_storage(
-            &mut storage,
-            &state.sequence_number,
-            contract_id,
-        )
-        .map_err(Error::CannotParseContractSpec)?;
+        let spec_entries = if let Some(spec) = self.spec_entries()? {
+            spec
+        } else {
+            utils::get_contract_spec_from_storage(&mut storage, &state.sequence_number, contract_id)
+                .map_err(Error::CannotParseContractSpec)?
+        };
         let budget = Budget::default();
         if self.unlimited_budget {
             budget.reset_unlimited();

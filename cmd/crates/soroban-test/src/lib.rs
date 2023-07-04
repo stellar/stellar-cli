@@ -90,6 +90,7 @@ impl TestEnv {
     /// to be the internal `temp_dir`.
     pub fn new_assert_cmd(&self, subcommand: &str) -> Command {
         let mut this = Command::cargo_bin("soroban").unwrap_or_else(|_| Command::new("soroban"));
+        this.arg("-q");
         this.arg(subcommand);
         this.current_dir(&self.temp_dir);
         this
