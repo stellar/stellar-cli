@@ -12,11 +12,23 @@ pub enum Error {
 pub struct Cmd {
     #[command(flatten)]
     pub config_locator: locator::Args,
+    /// Get more info about the identities
+    #[arg(long, short = 'l')]
+    pub long: bool,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!("{}", self.config_locator.list_identities()?.join("\n"));
+        let res = if self.long { self.ls_l() } else { self.ls() }?.join("\n");
+        println!("{res}");
         Ok(())
+    }
+
+    pub fn ls(&self) -> Result<Vec<String>, Error> {
+        Ok(self.config_locator.list_identities()?)
+    }
+
+    pub fn ls_l(&self) -> Result<Vec<String>, Error> {
+        Ok(self.config_locator.list_identities_long()?)
     }
 }
