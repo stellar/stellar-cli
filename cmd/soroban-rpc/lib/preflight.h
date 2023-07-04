@@ -26,9 +26,13 @@ typedef struct CPreflightResult {
 } CPreflightResult;
 
 CPreflightResult *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
-                                         char *invoke_hf_op, // InvokeHostFunctionOp XDR in base64
+                                         const char *invoke_hf_op, // InvokeHostFunctionOp XDR in base64
                                          const char *source_account, // AccountId XDR in base64
                                          const struct CLedgerInfo ledger_info);
+
+CPreflightResult *preflight_footprint_expiration_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+                                                    const char *op_body, // OperationBody XDR in base64
+                                                    const char *footprint); // LedgerFootprint XDR in base64
 
 // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
 extern char *SnapshotSourceGet(uintptr_t handle, char *ledger_key);
