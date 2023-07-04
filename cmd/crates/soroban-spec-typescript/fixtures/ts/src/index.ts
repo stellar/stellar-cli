@@ -248,11 +248,11 @@ export async function void( {signAndSend, fee}: {signAndSend?: boolean, fee?: nu
     return ;
 }
 
-export async function raw_val( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<any> {
+export async function val( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<any> {
     let invokeArgs: InvokeArgs = {
         signAndSend,
         fee,
-        method: 'raw_val', 
+        method: 'val', 
         
     };
     

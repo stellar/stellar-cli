@@ -219,8 +219,8 @@ fn void() {
 }
 
 #[test]
-fn raw_val() {
-    invoke(&TestEnv::default(), "raw_val")
+fn val() {
+    invoke(&TestEnv::default(), "val")
         .assert()
         .success()
         .stdout("null\n")
