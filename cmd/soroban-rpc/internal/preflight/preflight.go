@@ -3,6 +3,7 @@ package preflight
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime/cgo"
 	"time"
 	"unsafe"
@@ -88,11 +89,12 @@ func FreeGoCString(str *C.char) {
 }
 
 type PreflightParameters struct {
-	Logger             *log.Entry
-	SourceAccount      xdr.AccountId
-	InvokeHostFunction xdr.InvokeHostFunctionOp
-	NetworkPassphrase  string
-	LedgerEntryReadTx  db.LedgerEntryReadTx
+	Logger            *log.Entry
+	SourceAccount     xdr.AccountId
+	OpBody            xdr.OperationBody
+	Footprint         xdr.LedgerFootprint
+	NetworkPassphrase string
+	LedgerEntryReadTx db.LedgerEntryReadTx
 }
 
 type Preflight struct {
@@ -124,7 +126,46 @@ func GoNullTerminatedStringSlice(str **C.char) []string {
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
-	invokeHostFunctionB64, err := xdr.MarshalBase64(params.InvokeHostFunction)
+	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
+	defer handle.Delete()
+	switch params.OpBody.Type {
+	case xdr.OperationTypeInvokeHostFunction:
+		return getInvokeHostFunctionPreflight(params)
+	case xdr.OperationTypeBumpFootprintExpiration, xdr.OperationTypeRestoreFootprint:
+		return getFootprintExpirationPreflight(params)
+	default:
+		return Preflight{}, fmt.Errorf("unsupported operation type: %s", params.OpBody.Type.String())
+	}
+}
+
+func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, error) {
+	opBodyB64, err := xdr.MarshalBase64(params.OpBody)
+	if err != nil {
+		return Preflight{}, err
+	}
+	opBodyCString := C.CString(opBodyB64)
+	footprintB64, err := xdr.MarshalBase64(params.Footprint)
+	if err != nil {
+		return Preflight{}, err
+	}
+	footprintCString := C.CString(footprintB64)
+	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
+	defer handle.Delete()
+
+	res := C.preflight_footprint_expiration_op(
+		C.uintptr_t(handle),
+		opBodyCString,
+		footprintCString,
+	)
+
+	C.free(unsafe.Pointer(opBodyCString))
+	C.free(unsafe.Pointer(footprintCString))
+
+	return GoPreflight(res)
+}
+
+func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, error) {
+	invokeHostFunctionB64, err := xdr.MarshalBase64(params.OpBody.MustInvokeHostFunctionOp())
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -180,20 +221,25 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	)
 	C.free(unsafe.Pointer(invokeHostFunctionCString))
 	C.free(unsafe.Pointer(sourceAccountCString))
-	defer C.free_preflight_result(res)
 
-	if res.error != nil {
-		return Preflight{}, errors.New(C.GoString(res.error))
+	return GoPreflight(res)
+}
+
+func GoPreflight(result *C.CPreflightResult) (Preflight, error) {
+	defer C.free_preflight_result(result)
+
+	if result.error != nil {
+		return Preflight{}, errors.New(C.GoString(result.error))
 	}
 
 	preflight := Preflight{
-		Events:          GoNullTerminatedStringSlice(res.events),
-		TransactionData: C.GoString(res.transaction_data),
-		MinFee:          int64(res.min_fee),
-		Result:          C.GoString(res.result),
-		Auth:            GoNullTerminatedStringSlice(res.auth),
-		CPUInstructions: uint64(res.cpu_instructions),
-		MemoryBytes:     uint64(res.memory_bytes),
+		Events:          GoNullTerminatedStringSlice(result.events),
+		TransactionData: C.GoString(result.transaction_data),
+		MinFee:          int64(result.min_fee),
+		Result:          C.GoString(result.result),
+		Auth:            GoNullTerminatedStringSlice(result.auth),
+		CPUInstructions: uint64(result.cpu_instructions),
+		MemoryBytes:     uint64(result.memory_bytes),
 	}
 	return preflight, nil
 }
