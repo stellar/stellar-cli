@@ -1261,29 +1261,46 @@ impl Spec {
                 };
                 Some(format!("\"{res}\""))
             }
-            ScType::Udt(ScSpecTypeUdt { name }) => match self.find(&name.to_string_lossy()).ok() {
-                Some(ScSpecEntry::UdtStructV0(strukt)) => {
-                    let inner = strukt
-                        .fields
-                        .iter()
-                        .map(|f| (f.name.to_string_lossy(), &f.type_))
-                        .map(|(name, type_)| {
-                            let type_ = self.example(type_)?;
-                            let name = format!(r#""{name}""#);
-                            Some(format!("{name}: {type_}"))
-                        })
-                        .collect::<Option<Vec<_>>>()?
-                        .join(", ");
-                    Some(format!(r#"{{ {inner} }}"#))
-                }
-                Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
-                Some(ScSpecEntry::UdtEnumV0(enum_)) => {
-                    enum_.cases.iter().next().map(|c| c.value.to_string())
-                }
-                Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
-            },
+            ScType::Udt(ScSpecTypeUdt { name }) => {
+                self.example_udts(name.to_string_lossy().as_ref())
+            }
             // No specific value name for these yet.
             ScType::Val => None,
+        }
+    }
+
+    fn example_udts(&self, name: &str) -> Option<String> {
+        match self.find(name).ok() {
+            Some(ScSpecEntry::UdtStructV0(strukt)) => {
+                // Check if a tuple strukt
+                if !strukt.fields.is_empty() && strukt.fields[0].name.to_string_lossy() == "0" {
+                    let value_types = strukt
+                        .fields
+                        .iter()
+                        .map(|f| f.type_.clone())
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .ok()?;
+                    return self.example(&ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })));
+                }
+                let inner = strukt
+                    .fields
+                    .iter()
+                    .map(|f| (f.name.to_string_lossy(), &f.type_))
+                    .map(|(name, type_)| {
+                        let type_ = self.example(type_)?;
+                        let name = format!(r#""{name}""#);
+                        Some(format!("{name}: {type_}"))
+                    })
+                    .collect::<Option<Vec<_>>>()?
+                    .join(", ");
+                Some(format!(r#"{{ {inner} }}"#))
+            }
+            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
+            Some(ScSpecEntry::UdtEnumV0(enum_)) => {
+                enum_.cases.iter().next().map(|c| c.value.to_string())
+            }
+            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
         }
     }
 
