@@ -413,7 +413,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
 	assert.NoError(t, err)
 	assert.Equal(t, xdr.ScValTypeScvAddress, obtainedResult.Type)
-	assert.NotNil(t, obtainedResult.Address)
+	require.NotNil(t, obtainedResult.Address)
 	assert.Equal(t, authAccountIDArg, obtainedResult.Address.MustAccountId())
 
 	// check the footprint
