@@ -452,6 +452,7 @@ List identities
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
+* `-l`, `--long` — Get more info about the identities
 
 
 
