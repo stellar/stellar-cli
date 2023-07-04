@@ -42,7 +42,7 @@ impl Contract {
 #[cfg(test)]
 mod test {
 
-    use soroban_sdk::{vec, Env, Symbol};
+    use soroban_sdk::{vec, Env, symbol_short};
 
     use crate::{Contract, ContractClient};
 
