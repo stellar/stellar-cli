@@ -5,13 +5,12 @@ use soroban_env_host::fees::{
 };
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
 use soroban_env_host::xdr::{
-    ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
+    self, ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
     InvokeHostFunctionOp, LedgerEntry, LedgerEntryData, LedgerFootprint, LedgerKey,
     LedgerKeyConfigSetting, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody,
     Preconditions, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
-use soroban_env_host::{xdr, Env};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 use std::error;
