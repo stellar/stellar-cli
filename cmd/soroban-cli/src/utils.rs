@@ -47,6 +47,13 @@ pub fn ledger_snapshot_read_or_default(
         Err(soroban_ledger_snapshot::Error::Io(e)) if e.kind() == ErrorKind::NotFound => {
             Ok(LedgerSnapshot {
                 network_id: sandbox_network_id(),
+                // These three "defaults" are not part of the actual default definition in
+                // rs-soroban-sdk, but if we don't have them the sandbox doesn't work right.
+                // Oof.
+                // TODO: Remove this hacky workaround.
+                min_persistent_entry_expiration: 4096,
+                min_temp_entry_expiration: 16,
+                max_entry_expiration: 6_312_000,
                 ..Default::default()
             })
         }
