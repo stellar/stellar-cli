@@ -187,8 +187,8 @@ impl Cmd {
             .iter()
             .map(|i| {
                 let name = i.name.to_string().unwrap();
-                if let Some(mut raw_val) = matches_.get_raw(&name) {
-                    let mut s = raw_val.next().unwrap().to_string_lossy().to_string();
+                if let Some(mut val) = matches_.get_raw(&name) {
+                    let mut s = val.next().unwrap().to_string_lossy().to_string();
                     if matches!(i.type_, ScSpecTypeDef::Address) {
                         let cmd = crate::commands::config::identity::address::Cmd {
                             name: Some(s.clone()),

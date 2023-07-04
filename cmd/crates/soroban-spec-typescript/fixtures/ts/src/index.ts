@@ -248,11 +248,11 @@ export async function void( {signAndSend, fee}: {signAndSend?: boolean, fee?: nu
     return ;
 }
 
-export async function raw_val( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<any> {
+export async function val( {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<any> {
     let invokeArgs: InvokeArgs = {
         signAndSend,
         fee,
-        method: 'raw_val', 
+        method: 'val', 
         
     };
     
@@ -515,19 +515,6 @@ export async function map({map}: {map: Map<u32, boolean>}, {signAndSend, fee}: {
     // @ts-ignore Type does exist
     const response = await invoke(invokeArgs);
     return scValStrToJs(response.xdr) as Map<u32, boolean>;
-}
-
-export async function set({set}: {set: Set<u32>}, {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<Set<u32>> {
-    let invokeArgs: InvokeArgs = {
-        signAndSend,
-        fee,
-        method: 'set', 
-        args: [((i) => i)(set)], 
-    };
-    
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr) as Set<u32>;
 }
 
 export async function vec({vec}: {vec: Array<u32>}, {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<Array<u32>> {
