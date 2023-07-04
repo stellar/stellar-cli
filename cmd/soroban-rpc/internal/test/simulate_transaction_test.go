@@ -369,9 +369,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
+	params = txnbuild.TransactionParams{
 		SourceAccount:        &account,
-		IncrementSequenceNum: true,
+		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
 			createInvokeHostOperation(
 				address,
@@ -394,7 +394,8 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
-	})
+	}
+	tx, err = txnbuild.NewTransaction(params)
 
 	assert.NoError(t, err)
 
@@ -421,7 +422,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &obtainedTransactionData)
 	obtainedFootprint := obtainedTransactionData.Resources.Footprint
 	assert.NoError(t, err)
-	assert.Len(t, obtainedFootprint.ReadWrite, 1)
+	assert.Len(t, obtainedFootprint.ReadWrite, 2)
 	assert.Len(t, obtainedFootprint.ReadOnly, 3)
 	ro0 := obtainedFootprint.ReadOnly[0]
 	assert.Equal(t, xdr.LedgerEntryTypeAccount, ro0.Type)
@@ -466,9 +467,9 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.ScSymbol("world"), *world.Sym)
 	assert.Nil(t, obtainedAuth.RootInvocation.SubInvocations)
 
-	// check the events. There will be 2 debug events and the event emitted by the "auth" function
+	// check the events. There will be 3 debug events and the event emitted by the "auth" function
 	// which is the one we are going to check.
-	assert.Len(t, response.Events, 3)
+	assert.Len(t, response.Events, 4)
 	var event xdr.DiagnosticEvent
 	err = xdr.SafeUnmarshalBase64(response.Events[1], &event)
 	assert.NoError(t, err)
@@ -487,7 +488,44 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
-	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 33")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 36")
+
+	// submit the transaction and test bumping the counter contract data ledger entry
+	params.IncrementSequenceNum = true
+	// preflight them again for simplicity
+	params = preflightTransactionParams(t, client, params)
+	tx, err = txnbuild.NewTransaction(params)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	// get the counter ledger entry
+	contractIDHash := xdr.Hash(contractID)
+	counterSym := xdr.ScSymbol("COUNTER")
+	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeContractData,
+		ContractData: &xdr.LedgerKeyContractData{
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
+			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvSymbol,
+				Sym:  &counterSym,
+			},
+			Durability: xdr.ContractDataDurabilityTemporary,
+			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
+		},
+	})
+	require.NoError(t, err)
+	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
+		Key: keyB64,
+	}
+	var result methods.GetLedgerEntryResponse
+	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &result)
+	assert.NoError(t, err)
+	var entry xdr.LedgerEntryData
+	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
+
 }
 
 func TestSimulateTransactionError(t *testing.T) {

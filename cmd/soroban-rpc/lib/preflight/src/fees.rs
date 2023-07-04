@@ -4,6 +4,7 @@ use soroban_env_host::fees::{
     compute_transaction_resource_fee, FeeConfiguration, TransactionResources,
 };
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
+use soroban_env_host::xdr;
 use soroban_env_host::xdr::{
     self, ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
     InvokeHostFunctionOp, LedgerEntry, LedgerEntryData, LedgerFootprint, LedgerKey,
