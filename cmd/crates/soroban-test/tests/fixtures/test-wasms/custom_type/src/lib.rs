@@ -51,14 +51,13 @@ pub enum Error {
     /// Unknown error has occured
     OhNo = 1,
 }
-
 #[contractimpl]
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {
         hello
     }
 
-    pub fn void(_env: Env) {
+    pub fn woid(_env: Env) {
         // do nothing
     }
 
@@ -171,6 +170,10 @@ impl Contract {
 
     pub fn string(_env: Env, string: String) -> String {
         string
+    }
+
+    pub fn tuple_strukt(_env: Env, tuple_strukt: TupleStruct) -> TupleStruct {
+        tuple_strukt
     }
 
     // pub fn timepoint(_env: Env, timepoint: TimePoint) -> TimePoint {

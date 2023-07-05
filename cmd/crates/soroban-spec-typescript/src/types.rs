@@ -1,7 +1,7 @@
 use serde::Serialize;
 use stellar_xdr::{
     ScSpecEntry, ScSpecFunctionInputV0, ScSpecTypeDef, ScSpecUdtEnumCaseV0,
-    ScSpecUdtErrorEnumCaseV0, ScSpecUdtStructFieldV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtErrorEnumCaseV0, ScSpecUdtStructFieldV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0,
 };
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -90,9 +90,9 @@ pub struct ErrorEnumCase {
     pub value: u32,
 }
 
-impl From<&ScSpecUdtErrorEnumCaseV0> for EnumCase {
+impl From<&ScSpecUdtErrorEnumCaseV0> for ErrorEnumCase {
     fn from(c: &ScSpecUdtErrorEnumCaseV0) -> Self {
-        EnumCase {
+        ErrorEnumCase {
             doc: c.doc.to_string_lossy(),
             name: c.name.to_string_lossy(),
             value: c.value,
@@ -116,7 +116,6 @@ pub enum Type {
     I256,
     Bool,
     Symbol,
-    Error,
     Bytes,
     String,
     Address,
@@ -129,6 +128,7 @@ pub enum Type {
     Vec { element: Box<Type> },
     BytesN { n: u32 },
     Tuple { elements: Vec<Type> },
+    Error { message: Option<String> },
     Custom { name: String },
 }
 
@@ -146,6 +146,11 @@ pub enum Entry {
         doc: String,
         name: String,
         fields: Vec<StructField>,
+    },
+    TupleStruct {
+        doc: String,
+        name: String,
+        fields: Vec<Type>,
     },
     Union {
         doc: String,
@@ -202,7 +207,7 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::I256 => Type::I256,
             ScSpecTypeDef::Bool => Type::Bool,
             ScSpecTypeDef::Symbol => Type::Symbol,
-            ScSpecTypeDef::Error => Type::Error,
+            ScSpecTypeDef::Error => Type::Error { message: None },
             ScSpecTypeDef::Bytes => Type::Bytes,
             ScSpecTypeDef::String => Type::String,
             ScSpecTypeDef::Address => Type::Address,
@@ -219,29 +224,38 @@ impl From<&ScSpecEntry> for Entry {
             ScSpecEntry::FunctionV0(f) => Entry::Function {
                 doc: f.doc.to_string_lossy(),
                 name: f.name.to_string_lossy(),
-                inputs: f.inputs.iter().map(FunctionInput::from).collect(),
-                outputs: f.outputs.iter().map(Type::from).collect(),
+                inputs: f.inputs.iter().map(Into::into).collect(),
+                outputs: f.outputs.iter().map(Into::into).collect(),
+            },
+            ScSpecEntry::UdtStructV0(s) if is_tuple_strukt(s) => Entry::TupleStruct {
+                doc: s.doc.to_string_lossy(),
+                name: s.name.to_string_lossy(),
+                fields: s.fields.iter().map(|f| &f.type_).map(Into::into).collect(),
             },
             ScSpecEntry::UdtStructV0(s) => Entry::Struct {
                 doc: s.doc.to_string_lossy(),
                 name: s.name.to_string_lossy(),
-                fields: s.fields.iter().map(StructField::from).collect(),
+                fields: s.fields.iter().map(Into::into).collect(),
             },
             ScSpecEntry::UdtUnionV0(u) => Entry::Union {
                 doc: u.doc.to_string_lossy(),
                 name: u.name.to_string_lossy(),
-                cases: u.cases.iter().map(UnionCase::from).collect(),
+                cases: u.cases.iter().map(Into::into).collect(),
             },
             ScSpecEntry::UdtEnumV0(e) => Entry::Enum {
                 doc: e.doc.to_string_lossy(),
                 name: e.name.to_string_lossy(),
-                cases: e.cases.iter().map(EnumCase::from).collect(),
+                cases: e.cases.iter().map(Into::into).collect(),
             },
-            ScSpecEntry::UdtErrorEnumV0(e) => Entry::Enum {
+            ScSpecEntry::UdtErrorEnumV0(e) => Entry::ErrorEnum {
                 doc: e.doc.to_string_lossy(),
                 name: e.name.to_string_lossy(),
-                cases: e.cases.iter().map(EnumCase::from).collect(),
+                cases: e.cases.iter().map(Into::into).collect(),
             },
         }
     }
+}
+
+fn is_tuple_strukt(s: &ScSpecUdtStructV0) -> bool {
+    !s.fields.is_empty() && s.fields[0].name.to_string_lossy() == "0"
 }

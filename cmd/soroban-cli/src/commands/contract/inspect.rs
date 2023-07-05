@@ -7,7 +7,7 @@ use crate::{commands::config::locator, wasm};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    wasm: Option<wasm::Args>,
+    wasm: wasm::Args,
     #[clap(flatten)]
     locator: locator::Args,
 }
@@ -20,11 +20,8 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        if let Some(wasm) = &self.wasm {
-            println!("File: {}", wasm.wasm.to_string_lossy());
-            println!("{}", wasm.parse()?);
-        } else {
-        }
+        println!("File: {}", self.wasm.wasm.to_string_lossy());
+        println!("{}", self.wasm.parse()?);
         Ok(())
     }
 }

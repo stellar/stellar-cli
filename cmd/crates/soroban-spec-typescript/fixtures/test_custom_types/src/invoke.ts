@@ -42,7 +42,7 @@ async function getAccount(): Promise<Account | null> {
 export class NotImplementedError extends Error { }
 
 /**
- * Invoke a method on the contract-data-example contract.
+ * Invoke a method on the test_custom_types contract.
  *
  * Uses Freighter to determine the current user and if necessary sign the transaction.
  *
@@ -92,13 +92,14 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
   if (auth_len > 1) {
     throw new NotImplementedError("Multiple auths not yet supported")
   } else if (auth_len == 1) {
-    const auth = SorobanClient.xdr.SorobanAuthorizationEntry.fromXDR(auths![0]!, 'base64')
-    if (auth.addressWithNonce() !== undefined) {
-      throw new NotImplementedError(
-        `This transaction needs to be signed by ${auth.addressWithNonce()
-        }; Not yet supported`
-      )
-    }
+    // TODO: figure out how to fix with new SorobanClient
+    // const auth = SorobanClient.xdr.SorobanAuthorizationEntry.fromXDR(auths![0]!, 'base64')
+    // if (auth.addressWithNonce() !== undefined) {
+    //   throw new NotImplementedError(
+    //     `This transaction needs to be signed by ${auth.addressWithNonce()
+    //     }; Not yet supported`
+    //   )
+    // }
   }
 
   tx = await signTx(
@@ -108,7 +109,7 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
   const raw = await sendTx(tx);
   return {
     ...raw,
-    xdr: raw.resultXdr,
+    xdr: raw.resultXdr!,
   };
 
 }
