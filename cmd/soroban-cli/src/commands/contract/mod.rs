@@ -8,6 +8,7 @@ pub mod install;
 pub mod invoke;
 pub mod optimize;
 pub mod read;
+pub mod restore;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -47,6 +48,9 @@ pub enum Cmd {
 
     /// Print the current value of a contract-data ledger entry
     Read(read::Cmd),
+
+    /// Restore an evicted value for a contract-data legder entry
+    Restore(restore::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -80,6 +84,9 @@ pub enum Error {
 
     #[error(transparent)]
     Read(#[from] read::Error),
+
+    #[error(transparent)]
+    Restore(#[from] restore::Error),
 }
 
 impl Cmd {
@@ -93,8 +100,9 @@ impl Cmd {
             Cmd::Install(install) => install.run().await?,
             Cmd::Invoke(invoke) => invoke.run().await?,
             Cmd::Optimize(optimize) => optimize.run()?,
-            Cmd::Read(read) => read.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
+            Cmd::Read(read) => read.run()?,
+            Cmd::Restore(restore) => restore.run().await?,
         }
         Ok(())
     }
