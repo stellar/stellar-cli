@@ -264,6 +264,7 @@ fn handles_kebab_case() {
         .is_ok());
 }
 
+#[ignore]
 #[tokio::test]
 async fn fetch() {
     // TODO: Currently this test fetches a live contract from futurenet. This obviously depends on
