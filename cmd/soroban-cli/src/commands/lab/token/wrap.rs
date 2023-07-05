@@ -8,7 +8,6 @@ use soroban_env_host::{
         InvokeHostFunctionOp, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount,
         Operation, OperationBody, Preconditions, ScAddress, ScVal, SequenceNumber, Transaction,
         TransactionExt, Uint256, VecM,
-
     },
     Host, HostError,
 };
