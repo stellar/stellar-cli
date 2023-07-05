@@ -107,6 +107,14 @@ fn strukt() {
 }
 
 #[test]
+fn tuple_strukt() {
+    invoke_with_roundtrip(
+        "tuple_strukt",
+        json!([{"a": 42, "b": true, "c": "world"}, "First"]),
+    );
+}
+
+#[test]
 fn strukt_help() {
     invoke(&TestEnv::default(), "strukt")
         .arg("--help")

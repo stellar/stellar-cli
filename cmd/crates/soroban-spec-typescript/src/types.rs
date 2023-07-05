@@ -1,7 +1,7 @@
 use serde::Serialize;
 use stellar_xdr::{
     ScSpecEntry, ScSpecFunctionInputV0, ScSpecTypeDef, ScSpecUdtEnumCaseV0,
-    ScSpecUdtErrorEnumCaseV0, ScSpecUdtStructFieldV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtErrorEnumCaseV0, ScSpecUdtStructFieldV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0,
 };
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -147,6 +147,11 @@ pub enum Entry {
         name: String,
         fields: Vec<StructField>,
     },
+    TupleStruct {
+        doc: String,
+        name: String,
+        fields: Vec<Type>,
+    },
     Union {
         doc: String,
         name: String,
@@ -222,6 +227,11 @@ impl From<&ScSpecEntry> for Entry {
                 inputs: f.inputs.iter().map(Into::into).collect(),
                 outputs: f.outputs.iter().map(Into::into).collect(),
             },
+            ScSpecEntry::UdtStructV0(s) if is_tuple_strukt(s) => Entry::TupleStruct {
+                doc: s.doc.to_string_lossy(),
+                name: s.name.to_string_lossy(),
+                fields: s.fields.iter().map(|f| &f.type_).map(Into::into).collect(),
+            },
             ScSpecEntry::UdtStructV0(s) => Entry::Struct {
                 doc: s.doc.to_string_lossy(),
                 name: s.name.to_string_lossy(),
@@ -244,4 +254,8 @@ impl From<&ScSpecEntry> for Entry {
             },
         }
     }
+}
+
+fn is_tuple_strukt(s: &ScSpecUdtStructV0) -> bool {
+    !s.fields.is_empty() && s.fields[0].name.to_string_lossy() == "0"
 }

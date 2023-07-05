@@ -228,6 +228,37 @@ function {name}FromXdr(base64Xdr: string): {name} {{
             )
         }
 
+        Entry::TupleStruct { doc, name, fields } => {
+            let docs = doc_to_ts_doc(doc);
+            let arg_name = name.to_lower_camel_case();
+            let encoded_fields = fields
+                .iter()
+                .enumerate()
+                .map(|(i, t)| format!("(i => {})({arg_name}[{i}])", type_to_js_xdr(t),))
+                .join(",\n        ");
+            let fields = fields.iter().map(type_to_ts).join(",  ");
+            let void = type_to_js_xdr(&Type::Void);
+            format!(
+                r#"{docs}export type {name} = [{fields}];
+
+function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
+    if (!{arg_name}) {{
+        return {void};
+    }}
+    let arr = [
+        {encoded_fields}
+        ];
+    return xdr.ScVal.scvVec(arr);
+}}
+
+
+function {name}FromXdr(base64Xdr: string): {name} {{
+    return scValStrToJs(base64Xdr) as {name};
+}}
+"#
+            )
+        }
+
         Entry::Union { name, doc, cases } => {
             let doc = doc_to_ts_doc(doc);
             let arg_name = name.to_lower_camel_case();

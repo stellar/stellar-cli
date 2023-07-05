@@ -172,6 +172,10 @@ impl Contract {
         string
     }
 
+    pub fn tuple_strukt(_env: Env, tuple_strukt: TupleStruct) -> TupleStruct {
+        tuple_strukt
+    }
+
     // pub fn timepoint(_env: Env, timepoint: TimePoint) -> TimePoint {
     //     timepoint
     // }
