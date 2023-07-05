@@ -2,16 +2,15 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractEntryBodyType, Error as XdrError, ExtensionPoint, Hash, LedgerFootprint, LedgerKey,
-    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
-    RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionExt, Uint256,
+    ContractDataDurability, ContractEntryBodyType, Error as XdrError, ExtensionPoint, Hash,
+    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal,
+    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt, Uint256,
 };
 use stellar_strkey::DecodeError;
 
 use crate::{
     commands::config::{self, locator},
-    commands::contract::Durability,
     rpc::{self, Client},
     utils, Pwd,
 };
@@ -23,14 +22,11 @@ pub struct Cmd {
     #[arg(long = "id")]
     contract_id: String,
     /// Storage key (symbols only)
-    #[arg(long = "key", conflicts_with = "key_xdr")]
-    key: Option<String>,
+    #[arg(long = "key", required_unless_present = "key_xdr")]
+    key: Vec<String>,
     /// Storage key (base64-encoded XDR)
-    #[arg(long = "key-xdr", conflicts_with = "key")]
-    key_xdr: Option<String>,
-    /// Storage entry durability
-    #[arg(long, value_enum, default_value("persistent"))]
-    durability: Durability,
+    #[arg(long = "key-xdr", required_unless_present = "key")]
+    key_xdr: Vec<String>,
 
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
@@ -96,7 +92,7 @@ impl Cmd {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
-        let needle = self.parse_key(contract_id)?;
+        let entry_keys = self.parse_keys(contract_id)?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
@@ -124,7 +120,7 @@ impl Cmd {
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
                         read_only: vec![].try_into()?,
-                        read_write: vec![needle].try_into()?,
+                        read_write: entry_keys.try_into()?,
                     },
                     instructions: 0,
                     read_bytes: 0,
@@ -158,28 +154,41 @@ impl Cmd {
             .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
     }
 
-    fn parse_key(&self, contract_id: [u8; 32]) -> Result<LedgerKey, Error> {
-        let key = if let Some(key) = &self.key {
-            soroban_spec_tools::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(|e| {
-                Error::CannotParseKey {
+    fn parse_keys(&self, contract_id: [u8; 32]) -> Result<Vec<LedgerKey>, Error> {
+        let mut keys: Vec<ScVal> = vec![];
+        for key in &self.key {
+            keys.push(
+                soroban_spec_tools::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(
+                    |e| Error::CannotParseKey {
+                        key: key.clone(),
+                        error: e,
+                    },
+                )?,
+            );
+        }
+        for key in &self.key_xdr {
+            keys.push(
+                ScVal::from_xdr_base64(key).map_err(|e| Error::CannotParseXdrKey {
                     key: key.clone(),
                     error: e,
-                }
-            })?
-        } else if let Some(key) = &self.key_xdr {
-            ScVal::from_xdr_base64(key).map_err(|e| Error::CannotParseXdrKey {
-                key: key.clone(),
-                error: e,
-            })?
-        } else {
+                })?,
+            );
+        }
+
+        if keys.is_empty() {
             return Err(Error::KeyIsRequired);
         };
 
-        Ok(LedgerKey::ContractData(LedgerKeyContractData {
-            contract: ScAddress::Contract(Hash(contract_id)),
-            durability: self.durability.into(),
-            body_type: ContractEntryBodyType::DataEntry,
-            key,
-        }))
+        Ok(keys
+            .iter()
+            .map(|key| {
+                LedgerKey::ContractData(LedgerKeyContractData {
+                    contract: ScAddress::Contract(Hash(contract_id)),
+                    durability: ContractDataDurability::Persistent,
+                    body_type: ContractEntryBodyType::DataEntry,
+                    key: key.clone(),
+                })
+            })
+            .collect())
     }
 }
