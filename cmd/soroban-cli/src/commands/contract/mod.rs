@@ -91,3 +91,20 @@ impl Cmd {
         Ok(())
     }
 }
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
+pub enum Durability {
+    /// Persistent
+    Persistent,
+    /// Temporary
+    Temporary,
+}
+
+impl From<Durability> for soroban_env_host::xdr::ContractDataDurability {
+    fn from(d: Durability) -> Self {
+        match d {
+            Durability::Persistent => soroban_env_host::xdr::ContractDataDurability::Persistent,
+            Durability::Temporary => soroban_env_host::xdr::ContractDataDurability::Temporary,
+        }
+    }
+}
