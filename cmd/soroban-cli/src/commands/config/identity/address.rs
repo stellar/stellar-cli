@@ -35,15 +35,18 @@ impl Cmd {
         Ok(())
     }
 
-    pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+    pub fn private_key(&self) -> Result<ed25519_dalek::Keypair, Error> {
         let res = if let Some(name) = &self.name {
             self.locator.read_identity(name)?
         } else {
             Secret::test_seed_phrase()?
         };
-        let key = res.key_pair(self.hd_path)?;
+        Ok(res.key_pair(self.hd_path)?)
+    }
+
+    pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-            key.public.as_bytes(),
+            self.private_key()?.public.as_bytes(),
         )?)
     }
 }

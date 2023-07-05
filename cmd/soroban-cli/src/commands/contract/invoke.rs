@@ -7,6 +7,7 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, Parser};
+use ed25519_dalek::Keypair;
 use heck::ToKebabCase;
 use soroban_env_host::{
     budget::Budget,
@@ -135,6 +136,8 @@ pub enum Error {
     MissingResult,
     #[error(transparent)]
     StrVal(#[from] soroban_spec_tools::Error),
+    #[error("error loading signing key: {0}")]
+    SignatureError(#[from] ed25519_dalek::SignatureError),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error("unexpected ({length}) simulate transaction result length")]
@@ -166,7 +169,7 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-    ) -> Result<(String, Spec, ScVec), Error> {
+    ) -> Result<(String, Spec, ScVec, Vec<Keypair>), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
         let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
@@ -182,32 +185,39 @@ impl Cmd {
 
         let func = spec.find_function(function)?;
         // create parsed_args in same order as the inputs to func
-        let parsed_args = func
-            .inputs
-            .iter()
-            .map(|i| {
-                let name = i.name.to_string().unwrap();
-                if let Some(mut val) = matches_.get_raw(&name) {
-                    let mut s = val.next().unwrap().to_string_lossy().to_string();
-                    if matches!(i.type_, ScSpecTypeDef::Address) {
-                        let cmd = crate::commands::config::identity::address::Cmd {
-                            name: Some(s.clone()),
-                            hd_path: Some(0),
-                            locator: self.config.locator.clone(),
-                        };
-                        if let Ok(address) = cmd.public_key() {
-                            s = address.to_string();
-                        }
+        let mut signers: Vec<Keypair> = vec![];
+        let mut parsed_args: Vec<ScVal> = vec![];
+        for i in func.inputs.iter() {
+            let name = i.name.to_string().unwrap();
+            if let Some(mut val) = matches_.get_raw(&name) {
+                let mut s = val.next().unwrap().to_string_lossy().to_string();
+                if matches!(i.type_, ScSpecTypeDef::Address) {
+                    let cmd = crate::commands::config::identity::address::Cmd {
+                        name: Some(s.clone()),
+                        hd_path: Some(0),
+                        locator: self.config.locator.clone(),
+                    };
+                    if let Ok(key) = cmd.private_key() {
+                        // TODO: Once we upgrade to ed25519_dalek@2.0.0, switch this to
+                        // `key.clone()`
+                        let signer = Keypair::from_bytes(&key.to_bytes())?;
+                        signers.push(signer);
+                        s = stellar_strkey::ed25519::PublicKey::from_payload(
+                            key.public.as_bytes(),
+                        )?
+                        .to_string();
                     }
-                    spec.from_string(&s, &i.type_)
-                        .map_err(|error| Error::CannotParseArg { arg: name, error })
-                } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
-                    Ok(ScVal::Void)
-                } else {
-                    Err(Error::MissingArgument(name))
                 }
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
+                let arg = spec
+                    .from_string(&s, &i.type_)
+                    .map_err(|error| Error::CannotParseArg { arg: name, error })?;
+                parsed_args.push(arg);
+            } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
+                parsed_args.push(ScVal::Void);
+            } else {
+                return Err(Error::MissingArgument(name));
+            }
+        }
 
         // Add the contract ID and the function name to the arguments
         let mut complete_args = vec![
@@ -230,6 +240,7 @@ impl Cmd {
                     current: complete_args_len,
                     maximum: ScVec::default().max_len(),
                 })?,
+            signers,
         ))
     }
 
@@ -270,7 +281,7 @@ impl Cmd {
         };
 
         // Get the ledger footprint
-        let (function, spec, host_function_params) =
+        let (function, spec, host_function_params, signers) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
@@ -280,7 +291,13 @@ impl Cmd {
         )?;
 
         let (result, meta, events) = client
-            .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, Some(log_events))
+            .prepare_and_send_transaction(
+                &tx,
+                &key,
+                &signers,
+                &network.network_passphrase,
+                Some(log_events),
+            )
             .await?;
 
         tracing::debug!(?result);
@@ -343,7 +360,7 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info.clone());
 
-        let (function, spec, host_function_params) =
+        let (function, spec, host_function_params, _signers) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
         h.set_diagnostic_level(DiagnosticLevel::Debug);
         let resv = h
@@ -476,7 +493,7 @@ fn build_invoke_contract_tx(
     parameters: ScVec,
     sequence: i64,
     fee: u32,
-    key: &ed25519_dalek::Keypair,
+    key: &Keypair,
 ) -> Result<Transaction, Error> {
     let op = Operation {
         source_account: None,

@@ -128,7 +128,7 @@ impl Cmd {
         };
 
         let (result, _meta, events) = client
-            .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
+            .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None)
             .await?;
 
         tracing::debug!(?result);

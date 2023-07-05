@@ -27,7 +27,7 @@ use tokio::time::sleep;
 use crate::utils::{self, contract_spec};
 
 mod transaction;
-use transaction::assemble;
+use transaction::{assemble, sign_soroban_authorizations};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -70,6 +70,8 @@ pub enum Error {
     MissingResult,
     #[error("Failed to read Error response from server")]
     MissingError,
+    #[error("Missing signing key for account {address}")]
+    MissingSignerForAddress { address: String },
     #[error("cursor is not valid")]
     InvalidCursor,
     #[error("unexpected ({length}) simulate transaction result length")]
@@ -567,14 +569,17 @@ impl Client {
     pub async fn prepare_and_send_transaction(
         &self,
         tx_without_preflight: &Transaction,
-        key: &ed25519_dalek::Keypair,
+        source_key: &ed25519_dalek::Keypair,
+        signers: &[ed25519_dalek::Keypair],
         network_passphrase: &str,
         log_events: Option<LogEvents>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
-        let tx = utils::sign_transaction(key, &unsigned_tx, network_passphrase)?;
+        let part_signed_tx =
+            sign_soroban_authorizations(&unsigned_tx, source_key, signers, network_passphrase)?;
+        let tx = utils::sign_transaction(source_key, &part_signed_tx, network_passphrase)?;
         self.send_transaction(&tx).await
     }
 

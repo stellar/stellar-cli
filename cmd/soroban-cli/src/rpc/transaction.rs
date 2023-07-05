@@ -1,6 +1,10 @@
+use ed25519_dalek::Signer;
+use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    DiagnosticEvent, OperationBody, ReadXdr, SorobanAuthorizationEntry, SorobanTransactionData,
-    Transaction, TransactionExt, VecM,
+    AccountId, DiagnosticEvent, Hash, HashIdPreimageSorobanAuthorization, OperationBody, PublicKey,
+    ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, SorobanAddressCredentials,
+    SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, Transaction,
+    TransactionExt, Uint256, VecM, WriteXdr,
 };
 
 use crate::rpc::{Error, LogEvents, SimulateTransactionResponse};
@@ -81,6 +85,124 @@ pub fn assemble(
     tx.fee = fee;
     tx.operations = vec![op].try_into()?;
     tx.ext = TransactionExt::V1(transaction_data);
+    Ok(tx)
+}
+
+// Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
+// transaction. If unable to sign, return an error.
+pub fn sign_soroban_authorizations(
+    raw: &Transaction,
+    source_key: &ed25519_dalek::Keypair,
+    signers: &[ed25519_dalek::Keypair],
+    network_passphrase: &str,
+) -> Result<Transaction, Error> {
+    let mut tx = raw.clone();
+
+    if tx.operations.len() != 1 {
+        // This must not be an invokeHostFunction operation, so nothing to do
+        return Ok(tx);
+    }
+
+    let mut op = tx.operations[0].clone();
+    let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body else {
+        return Ok(tx);
+    };
+
+    let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
+    // TODO: Pass this in from the caller? Or where do we get this from? Can we just use the one
+    // already in the auth?
+    // let ledger_validity_count = 5;
+
+    let source_address = source_key.public.as_bytes();
+
+    let signed_auths = body
+        .auth
+        .iter()
+        .map(|raw_auth| {
+            let mut auth = raw_auth.clone();
+            let SorobanAuthorizationEntry {
+                credentials: SorobanCredentials::Address(ref mut credentials),
+                ..
+            } = auth else {
+                // Doesn't need special signing
+                return Ok(auth);
+            };
+            let SorobanAddressCredentials {
+                ref address,
+                nonce,
+                signature_expiration_ledger,
+                ..
+            } = credentials;
+
+            // See if we have a signer for this authorizationEntry
+            // If not, then we Error
+            let needle = match address {
+                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
+                ScAddress::Contract(Hash(c)) => {
+                    // This address is for a contract. There's no way to sign it because it is malformed.
+                    return Err(Error::MissingSignerForAddress {
+                        address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
+                            .to_string(),
+                    });
+                }
+            };
+            let signer = if let Some(s) = signers.iter().find(|s| needle == s.public.as_bytes()) {
+                s
+            } else if needle == source_address {
+                // This is the source address, so we can sign it
+                source_key
+            } else {
+                // We don't have a signer for this address
+                return Err(Error::MissingSignerForAddress {
+                    address: stellar_strkey::Strkey::PublicKeyEd25519(
+                        stellar_strkey::ed25519::PublicKey(*needle),
+                    )
+                    .to_string(),
+                });
+            };
+
+            let preimage = HashIdPreimageSorobanAuthorization {
+                network_id: network_id.clone(),
+                invocation: auth.root_invocation.clone(),
+                nonce: *nonce,
+                signature_expiration_ledger: *signature_expiration_ledger,
+            }
+            .to_xdr()?;
+
+            let signature = signer.sign(&preimage);
+
+            let entries = vec![
+                (
+                    // TODO: Not sure if these should be symbols or strings
+                    ScVal::Symbol(ScSymbol("public_key".try_into()?)),
+                    ScVal::Bytes(
+                        signer
+                            .public
+                            .to_bytes()
+                            .to_vec()
+                            .try_into()
+                            .map_err(Error::Xdr)?,
+                    ),
+                ),
+                (
+                    ScVal::Symbol(ScSymbol("signature".try_into()?)),
+                    ScVal::Bytes(
+                        signature
+                            .to_bytes()
+                            .to_vec()
+                            .try_into()
+                            .map_err(Error::Xdr)?,
+                    ),
+                ),
+            ];
+            let map = ScMap::sorted_from(entries).map_err(Error::Xdr)?;
+            credentials.signature_args = vec![ScVal::Map(Some(map))].try_into()?;
+            Ok(auth)
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    body.auth = signed_auths.try_into()?;
+    tx.operations = vec![op].try_into()?;
     Ok(tx)
 }
 
