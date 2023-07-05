@@ -109,8 +109,8 @@ export function scValToJs<T>(val: xdr.ScVal): T {
             });
             return res as unknown as T
         }
-        case xdr.ScValType.scvContractExecutable():
-            return val.exec() as unknown as T;
+        case xdr.ScValType.scvContractInstance():
+            return val.instance() as unknown as T;
         case xdr.ScValType.scvLedgerKeyNonce():
             return val.nonceKey() as unknown as T;
         case xdr.ScValType.scvTimepoint():

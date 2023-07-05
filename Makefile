@@ -106,7 +106,7 @@ typescript-bindings-fixtures: build-test-wasms
 					--contract-name test_custom_types \
 					--contract-id CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE \
 					--network futurenet \
-					--root-dir ./cmd/crates/soroban-spec-typescript/fixtures/ts
+					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures
 
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.

@@ -173,34 +173,22 @@ function RoyalCardToXdr(val: RoyalCard): xdr.ScVal {
     return  xdr.ScVal.scvI32(val);
 }
 
-export interface TupleStruct {
-  0: Test;
-  1: SimpleEnum;
-}
+export type TupleStruct = [Test,  SimpleEnum];
 
 function TupleStructToXdr(tupleStruct?: TupleStruct): xdr.ScVal {
     if (!tupleStruct) {
         return xdr.ScVal.scvVoid();
     }
     let arr = [
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("0"), val: ((i)=>TestToXdr(i))(tupleStruct["0"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("1"), val: ((i)=>SimpleEnumToXdr(i))(tupleStruct["1"])})
+        (i => TestToXdr(i))(tupleStruct[0]),
+        (i => SimpleEnumToXdr(i))(tupleStruct[1])
         ];
-    return xdr.ScVal.scvMap(arr);
+    return xdr.ScVal.scvVec(arr);
 }
 
 
 function TupleStructFromXdr(base64Xdr: string): TupleStruct {
-    let scVal = strToScVal(base64Xdr);
-    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
-    let map = new Map<string, any>(obj);
-    if (!obj) {
-        throw new Error('Invalid XDR');
-    }
-    return {
-        0: scValToJs(map.get("0")) as unknown as Test,
-        1: scValToJs(map.get("1")) as unknown as SimpleEnum
-    };
+    return scValStrToJs(base64Xdr) as TupleStruct;
 }
 
 export type ComplexEnum = {tag: "Struct", values: [Test]} | {tag: "Tuple", values: [TupleStruct]} | {tag: "Enum", values: [SimpleEnum]} | {tag: "Void", values: void};
@@ -213,21 +201,15 @@ function ComplexEnumToXdr(complexEnum?: ComplexEnum): xdr.ScVal {
     switch (complexEnum.tag) {
         case "Struct":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Struct"));
-            res.push(...((i) => [
-        ((i) => TestToXdr(i))(i[0])
-    ])(complexEnum.values));
+            res.push(((i)=>TestToXdr(i))(complexEnum.values[0]));
             break;
     case "Tuple":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Tuple"));
-            res.push(...((i) => [
-        ((i) => TupleStructToXdr(i))(i[0])
-    ])(complexEnum.values));
+            res.push(((i)=>TupleStructToXdr(i))(complexEnum.values[0]));
             break;
     case "Enum":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Enum"));
-            res.push(...((i) => [
-        ((i) => SimpleEnumToXdr(i))(i[0])
-    ])(complexEnum.values));
+            res.push(((i)=>SimpleEnumToXdr(i))(complexEnum.values[0]));
             break;
     case "Void":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Void"));
@@ -562,10 +544,8 @@ export async function tuple({tuple}: {tuple: [string, u32]}, {signAndSend, fee}:
         signAndSend,
         fee,
         method: 'tuple', 
-        args: [((i) => [
-        ((i) => xdr.ScVal.scvSymbol(i))(i[0]),
-        ((i) => xdr.ScVal.scvU32(i))(i[1])
-    ])(tuple)], 
+        args: [((i) => xdr.ScVal.scvVec([((i) => xdr.ScVal.scvSymbol(i))(i[0]),
+        ((i) => xdr.ScVal.scvU32(i))(i[1])]))(tuple)], 
     };
     
     // @ts-ignore Type does exist
@@ -626,4 +606,17 @@ export async function string({string}: {string: string}, {signAndSend, fee}: {si
     // @ts-ignore Type does exist
     const response = await invoke(invokeArgs);
     return scValStrToJs(response.xdr) as string;
+}
+
+export async function tuple_strukt({tuple_strukt}: {tuple_strukt: TupleStruct}, {signAndSend, fee}: {signAndSend?: boolean, fee?: number} = {signAndSend: false, fee: 100}): Promise<TupleStruct> {
+    let invokeArgs: InvokeArgs = {
+        signAndSend,
+        fee,
+        method: 'tuple_strukt', 
+        args: [((i) => TupleStructToXdr(i))(tuple_strukt)], 
+    };
+    
+    // @ts-ignore Type does exist
+    const response = await invoke(invokeArgs);
+    return TupleStructFromXdr(response.xdr);
 }

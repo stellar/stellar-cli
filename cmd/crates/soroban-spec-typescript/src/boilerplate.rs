@@ -127,12 +127,13 @@ mod test {
 
     #[test]
     fn test_project_dir_location() {
+        // TODO: Ensure windows support
         if cfg!(windows) {
             return;
         }
         let temp_dir = TempDir::new().unwrap();
         let _: Project = init(temp_dir.path()).unwrap();
-        let fixture = PathBuf::from("./fixtures/ts");
+        let fixture = PathBuf::from("./fixtures/test_custom_types");
         assert_dirs_equal(temp_dir.path(), &fixture);
     }
 
