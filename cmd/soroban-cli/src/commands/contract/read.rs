@@ -168,7 +168,10 @@ impl Cmd {
         })
         .collect::<Vec<_>>();
 
-        client.get_ledger_entries(keys).await?.entries
+        client
+            .get_ledger_entries(keys)
+            .await?
+            .entries
             .iter()
             .map(|result| {
                 let key = LedgerKey::from_xdr_base64(result.key.as_bytes());
@@ -239,7 +242,7 @@ impl Cmd {
             .collect::<Vec<_>>())
     }
 
-    fn output_entries(&self, raw_entries:&[(LedgerKey, LedgerEntryData)]) -> Result<(), Error> {
+    fn output_entries(&self, raw_entries: &[(LedgerKey, LedgerEntryData)]) -> Result<(), Error> {
         let entries = raw_entries
             .iter()
             .filter_map(|(_k, data)| {
