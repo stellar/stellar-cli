@@ -288,7 +288,7 @@ impl Cmd {
             tracing::debug!(?events);
         }
 
-        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3{soroban_meta: Some(xdr::SorobanTransactionMeta{return_value, ..}), ..}) = meta.tx_apply_processing else {
+        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3{soroban_meta: Some(xdr::SorobanTransactionMeta{return_value, ..}), ..}) = meta else {
             return Err(Error::MissingOperationResult);
         };
 

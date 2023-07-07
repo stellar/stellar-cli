@@ -8,14 +8,14 @@ use soroban_env_host::{
     expiration_ledger_bumps::ExpirationLedgerBumps,
     storage::{AccessType, Footprint, Storage},
     xdr::{
-        AccountEntry, AccountEntryExt, AccountId, Asset, BytesM, ContractCodeEntry,
-        ContractCodeEntryBody, ContractDataDurability, ContractDataEntry, ContractDataEntryBody,
-        ContractDataEntryData, ContractEntryBodyType, ContractExecutable, ContractIdPreimage,
-        DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, HashIdPreimage,
-        HashIdPreimageContractId, LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint,
-        LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, ScAddress, ScContractInstance,
-        ScSpecEntry, ScVal, SequenceNumber, Signature, SignatureHint, String32, Thresholds,
-        Transaction, TransactionEnvelope, TransactionSignaturePayload,
+        AccountEntry, AccountEntryExt, AccountId, Asset, ContractCodeEntry, ContractCodeEntryBody,
+        ContractDataDurability, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData,
+        ContractEntryBodyType, ContractExecutable, ContractIdPreimage, DecoratedSignature,
+        Error as XdrError, ExtensionPoint, Hash, HashIdPreimage, HashIdPreimageContractId,
+        LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
+        LedgerKeyContractCode, LedgerKeyContractData, ScAddress, ScContractInstance, ScSpecEntry,
+        ScVal, SequenceNumber, Signature, SignatureHint, String32, Thresholds, Transaction,
+        TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
 };
@@ -32,9 +32,7 @@ pub mod contract_spec;
 ///
 /// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
-    let args_bytes: BytesM = contract.try_into()?;
-    let args_xdr = args_bytes.to_xdr()?;
-    Ok(Hash(Sha256::digest(args_xdr).into()))
+    Ok(Hash(Sha256::digest(contract).into()))
 }
 
 /// # Errors

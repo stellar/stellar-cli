@@ -11,8 +11,7 @@ use soroban_env_host::{
         self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
         LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
         SorobanAuthorizationEntry, Transaction, TransactionEnvelope, TransactionMeta,
-        TransactionMetaV3, TransactionResult, TransactionResultMeta, TransactionV1Envelope,
-        Uint256, VecM, WriteXdr,
+        TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
 use soroban_sdk::token;
@@ -467,14 +466,7 @@ impl Client {
     pub async fn send_transaction(
         &self,
         tx: &TransactionEnvelope,
-    ) -> Result<
-        (
-            TransactionResult,
-            TransactionResultMeta,
-            Vec<DiagnosticEvent>,
-        ),
-        Error,
-    > {
+    ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let client = self.client()?;
         tracing::trace!(?tx);
         let SendTransactionResponse {
@@ -511,16 +503,13 @@ impl Client {
                     let result = TransactionResult::from_xdr_base64(
                         response.result_xdr.clone().ok_or(Error::MissingResult)?,
                     )?;
-                    let meta = TransactionResultMeta::from_xdr_base64(
+                    let meta = TransactionMeta::from_xdr_base64(
                         response
                             .result_meta_xdr
                             .clone()
                             .ok_or(Error::MissingResult)?,
                     )?;
-                    let events = match response.result_meta_xdr {
-                        None => Vec::new(),
-                        Some(m) => extract_events(TransactionMeta::from_xdr_base64(m)?),
-                    };
+                    let events = extract_events(&meta);
                     return Ok((result, meta, events));
                 }
                 "FAILED" => {
@@ -582,14 +571,7 @@ impl Client {
         key: &ed25519_dalek::Keypair,
         network_passphrase: &str,
         log_events: Option<LogEvents>,
-    ) -> Result<
-        (
-            TransactionResult,
-            TransactionResultMeta,
-            Vec<DiagnosticEvent>,
-        ),
-        Error,
-    > {
+    ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
@@ -748,7 +730,7 @@ impl Client {
     }
 }
 
-fn extract_events(tx_meta: TransactionMeta) -> Vec<DiagnosticEvent> {
+fn extract_events(tx_meta: &TransactionMeta) -> Vec<DiagnosticEvent> {
     match tx_meta {
         TransactionMeta::V3(TransactionMetaV3 {
             soroban_meta: Some(meta),
@@ -756,7 +738,7 @@ fn extract_events(tx_meta: TransactionMeta) -> Vec<DiagnosticEvent> {
         }) => {
             // NOTE: we assume there can only be one operation, since we only send one
             if meta.diagnostic_events.len() == 1 {
-                meta.diagnostic_events.into()
+                meta.diagnostic_events.clone().into()
             } else if meta.events.len() == 1 {
                 meta.events
                     .iter()
