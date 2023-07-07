@@ -138,6 +138,9 @@ impl Cmd {
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let client = Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         // async closures are not yet stable
         Ok(client.get_remote_wasm(&contract_id).await?)
     }

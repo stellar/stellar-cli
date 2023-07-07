@@ -45,6 +45,8 @@ pub enum Error {
     InvalidAddress(#[from] stellar_strkey::DecodeError),
     #[error("invalid response from server")]
     InvalidResponse,
+    #[error("provided network passphrase {expected:?} does not match the server: {server:?}")]
+    InvalidNetworkPassphrase { expected: String, server: String },
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("invalid rpc url: {0}")]
@@ -421,6 +423,17 @@ impl Client {
         Ok(HttpClientBuilder::default()
             .set_headers(headers)
             .build(url)?)
+    }
+
+    pub async fn verify_network_passphrase(&self, expected: Option<&str>) -> Result<String, Error> {
+        let server = self.get_network().await?.passphrase;
+        if expected.is_some() && expected != Some(&server) {
+            return Err(Error::InvalidNetworkPassphrase {
+                expected: expected.unwrap().to_string(),
+                server,
+            });
+        }
+        Ok(server)
     }
 
     pub async fn get_network(&self) -> Result<GetNetworkResponse, Error> {
