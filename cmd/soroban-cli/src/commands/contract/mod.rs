@@ -101,7 +101,7 @@ impl Cmd {
             Cmd::Invoke(invoke) => invoke.run().await?,
             Cmd::Optimize(optimize) => optimize.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
-            Cmd::Read(read) => read.run()?,
+            Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run().await?,
         }
         Ok(())

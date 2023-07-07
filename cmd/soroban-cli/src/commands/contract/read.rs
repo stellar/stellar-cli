@@ -7,16 +7,17 @@ use std::{
 use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
-        self, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData,
-        ContractEntryBodyType, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
+        self, ContractDataDurability, ContractDataEntry, ContractDataEntryBody,
+        ContractDataEntryData, ContractEntryBodyType, Error as XdrError, Hash, LedgerEntryData,
+        LedgerKey, LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
 };
 
 use crate::{
-    commands::config::{ledger_file, locator},
+    commands::config,
     commands::contract::Durability,
+    rpc::{self, Client},
     utils,
 };
 
@@ -41,10 +42,7 @@ pub struct Cmd {
     output: Output,
 
     #[command(flatten)]
-    ledger: ledger_file::Args,
-
-    #[command(flatten)]
-    locator: locator::Args,
+    config: config::Args,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -59,8 +57,6 @@ pub enum Output {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Ledger(#[from] ledger_file::Error),
     #[error("parsing key {key}: {error}")]
     CannotParseKey {
         key: String,
@@ -87,19 +83,22 @@ pub enum Error {
     CannotPrintAsCsv { error: csv::Error },
     #[error("cannot print: {error}")]
     CannotPrintFlush { error: io::Error },
+    #[error(transparent)]
+    Config(#[from] config::Error),
+    #[error("either `--key` or `--key-xdr` are required when querying a network")]
+    KeyIsRequired,
+    #[error(transparent)]
+    Rpc(#[from] rpc::Error),
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error(transparent)]
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
-    #[error(transparent)]
-    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
-    #[allow(clippy::too_many_lines)]
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         let contract_id: [u8; 32] =
             utils::contract_id_from_str(&self.contract_id).map_err(|e| {
                 Error::CannotParseContractId {
@@ -127,12 +126,75 @@ impl Cmd {
             None
         };
 
-        let state = self.ledger.read(&self.locator.config_dir()?)?;
+        let entries = if self.config.is_no_network() {
+            self.run_in_sandbox(contract_id, &key)?
+        } else {
+            self.run_against_rpc_server(contract_id, key).await?
+        };
+        self.output_entries(&entries)
+    }
+
+    async fn run_against_rpc_server(
+        &self,
+        contract_id: [u8; 32],
+        maybe_key: Option<ScVal>,
+    ) -> Result<Vec<(LedgerKey, LedgerEntryData)>, Error> {
+        let network = self.config.get_network()?;
+        tracing::trace!(?network);
+        let network = &self.config.get_network()?;
+        let client = Client::new(&network.rpc_url)?;
+
+        let key = maybe_key.ok_or(Error::KeyIsRequired)?;
+
+        let keys: Vec<LedgerKey> = match self.durability {
+            Some(Durability::Persistent) => {
+                vec![Durability::Persistent]
+            }
+            Some(Durability::Temporary) => {
+                vec![Durability::Temporary]
+            }
+            None => {
+                vec![Durability::Persistent, Durability::Temporary]
+            }
+        }
+        .iter()
+        .map(|durability| {
+            LedgerKey::ContractData(LedgerKeyContractData {
+                contract: ScAddress::Contract(Hash(contract_id)),
+                key: key.clone(),
+                durability: (*durability).into(),
+                body_type: ContractEntryBodyType::DataEntry,
+            })
+        })
+        .collect::<Vec<_>>();
+
+        client.get_ledger_entries(keys).await?.entries
+            .iter()
+            .map(|result| {
+                let key = LedgerKey::from_xdr_base64(result.key.as_bytes());
+                let entry = LedgerEntryData::from_xdr_base64(result.xdr.as_bytes());
+                match (key, entry) {
+                    (Ok(k), Ok(e)) => Ok((k, e)),
+                    (Err(e), _) | (_, Err(e)) => Err(e),
+                }
+            })
+            .collect::<Result<Vec<(LedgerKey, LedgerEntryData)>, _>>()
+            .map_err(Error::Xdr)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn run_in_sandbox(
+        &self,
+        contract_id: [u8; 32],
+        key: &Option<ScVal>,
+    ) -> Result<Vec<(LedgerKey, LedgerEntryData)>, Error> {
+        let state = self.config.get_state()?;
         let ledger_entries = &state.ledger_entries;
 
         let contract = ScAddress::Contract(xdr::Hash(contract_id));
-        let durability: Option<xdr::ContractDataDurability> = self.durability.map(Into::into);
-        let entries: Vec<(ScVal, ScVal)> = ledger_entries
+        let durability: Option<ContractDataDurability> = self.durability.map(Into::into);
+
+        Ok(ledger_entries
             .iter()
             .map(|(k, v)| (k.as_ref().clone(), v.as_ref().clone()))
             .filter(|(k, _v)| {
@@ -173,20 +235,26 @@ impl Cmd {
                 }
                 false
             })
-            .map(|(_k, v)| v)
-            .filter_map(|val| {
+            .map(|(k, v)| (k, v.data))
+            .collect::<Vec<_>>())
+    }
+
+    fn output_entries(&self, raw_entries:&[(LedgerKey, LedgerEntryData)]) -> Result<(), Error> {
+        let entries = raw_entries
+            .iter()
+            .filter_map(|(_k, data)| {
                 if let LedgerEntryData::ContractData(ContractDataEntry {
                     key,
                     body: ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }),
                     ..
-                }) = &val.data
+                }) = &data
                 {
                     Some((key.clone(), val.clone()))
                 } else {
                     None
                 }
             })
-            .collect();
+            .collect::<Vec<_>>();
 
         let mut out = csv::Writer::from_writer(stdout());
         for (key, val) in entries {
