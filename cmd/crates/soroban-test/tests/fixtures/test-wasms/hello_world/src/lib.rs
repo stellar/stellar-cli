@@ -26,7 +26,11 @@ impl Contract {
         addr.require_auth();
         // Emit test event
         env.events().publish(("auth",), world);
-        // Increment call count
+
+        addr
+    }
+
+    pub fn inc(env: Env) {
         let mut count: u32 = env.storage().temporary().get(&COUNTER).unwrap_or(0); // Panic if the value of COUNTER is not u32.
         log!(&env, "count: {}", count);
 
@@ -35,8 +39,6 @@ impl Contract {
 
         // Save the count.
         env.storage().temporary().set(&COUNTER, &count);
-
-        addr
     }
 
     #[allow(unused_variables)]
