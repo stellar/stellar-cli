@@ -6,11 +6,12 @@ use soroban_env_host::fees::{
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
 use soroban_env_host::xdr;
 use soroban_env_host::xdr::{
-    self, ConfigSettingEntry, ConfigSettingId, DecoratedSignature, DiagnosticEvent, ExtensionPoint,
-    InvokeHostFunctionOp, LedgerEntry, LedgerEntryData, LedgerFootprint, LedgerKey,
-    LedgerKeyConfigSetting, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody,
-    Preconditions, SequenceNumber, Signature, SignatureHint, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
+    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
+    DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntry, LedgerEntryData,
+    LedgerFootprint, LedgerKey, LedgerKeyConfigSetting, Memo, MuxedAccount, MuxedAccountMed25519,
+    Operation, OperationBody, Preconditions, RestoreFootprintOp, SequenceNumber, Signature,
+    SignatureHint, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
@@ -38,8 +39,8 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
         write_bytes: soroban_resources.write_bytes,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
         // Note: we could get a better transaction size if the full transaction was passed down to libpreflight
-        transaction_size_bytes: estimate_host_function_max_transaction_size(
-            op,
+        transaction_size_bytes: estimate_max_transaction_size_for_operation(
+            &OperationBody::InvokeHostFunction(op.clone()),
             &soroban_resources.footprint,
         )?,
     };
@@ -53,8 +54,8 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     Ok((transaction_data, min_fee))
 }
 
-fn estimate_host_function_max_transaction_size(
-    op: &InvokeHostFunctionOp,
+fn estimate_max_transaction_size_for_operation(
+    op: &OperationBody,
     fp: &LedgerFootprint,
 ) -> Result<u32, Box<dyn error::Error>> {
     let source = MuxedAccount::MuxedEd25519(MuxedAccountMed25519 {
@@ -80,7 +81,7 @@ fn estimate_host_function_max_transaction_size(
             memo: Memo::Text(memo_text.try_into()?),
             operations: vec![Operation {
                 source_account: Some(source),
-                body: OperationBody::InvokeHostFunction(op.clone()),
+                body: op.clone(),
             }]
             .try_into()?,
             ext: TransactionExt::V1(SorobanTransactionData {
@@ -291,7 +292,7 @@ fn storage_footprint_to_ledger_footprint(foot: &Footprint) -> Result<LedgerFootp
 
 pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
-    _ledgers_to_expire: u32,
+    ledgers_to_expire: u32,
     snapshot_source: &ledger_storage::LedgerStorage,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let read_bytes =
@@ -310,7 +311,13 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         read_bytes: soroban_resources.read_bytes,
         write_bytes: 0,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
-        transaction_size_bytes: 0,
+        transaction_size_bytes: estimate_max_transaction_size_for_operation(
+            &OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
+                ext: ExtensionPoint::V0,
+                ledgers_to_expire: ledgers_to_expire,
+            }),
+            &soroban_resources.footprint,
+        )?,
     };
     let fee_configuration = get_fee_configuration(snapshot_source)?;
     let (min_fee, ref_fee) =
@@ -343,7 +350,12 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         read_bytes: 0,
         write_bytes: soroban_resources.write_bytes,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
-        transaction_size_bytes: 0,
+        transaction_size_bytes: estimate_max_transaction_size_for_operation(
+            &OperationBody::RestoreFootprint(RestoreFootprintOp {
+                ext: ExtensionPoint::V0,
+            }),
+            &soroban_resources.footprint,
+        )?,
     };
     let fee_configuration = get_fee_configuration(snapshot_source)?;
     let (min_fee, ref_fee) =

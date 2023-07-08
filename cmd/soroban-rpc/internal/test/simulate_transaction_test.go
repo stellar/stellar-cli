@@ -754,8 +754,6 @@ func TestSimulateTransactionBumpFootprint(t *testing.T) {
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
-	// Hack, this should be resolved
-	params.BaseFee += 700
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
