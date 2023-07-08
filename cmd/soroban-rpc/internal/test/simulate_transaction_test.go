@@ -157,9 +157,9 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	assert.Len(t, response.Results, 1)
 
 	op := params.Operations[0]
-	switch op.(type) {
+	switch v := op.(type) {
 	case *txnbuild.InvokeHostFunction:
-		op.(*txnbuild.InvokeHostFunction).Ext = xdr.TransactionExt{
+		v.Ext = xdr.TransactionExt{
 			V:           1,
 			SorobanData: &transactionData,
 		}
@@ -170,14 +170,14 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 			assert.NoError(t, err)
 			auth = append(auth, a)
 		}
-		op.(*txnbuild.InvokeHostFunction).Auth = auth
+		v.Auth = auth
 	case *txnbuild.BumpFootprintExpiration:
-		op.(*txnbuild.BumpFootprintExpiration).Ext = xdr.TransactionExt{
+		v.Ext = xdr.TransactionExt{
 			V:           1,
 			SorobanData: &transactionData,
 		}
 	case *txnbuild.RestoreFootprint:
-		op.(*txnbuild.RestoreFootprint).Ext = xdr.TransactionExt{
+		v.Ext = xdr.TransactionExt{
 			V:           1,
 			SorobanData: &transactionData,
 		}
