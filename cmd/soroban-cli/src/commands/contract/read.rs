@@ -168,10 +168,13 @@ impl Cmd {
         })
         .collect::<Vec<_>>();
 
+        tracing::trace!(?keys);
+
         client
             .get_ledger_entries(keys)
             .await?
             .entries
+            .unwrap_or_default()
             .iter()
             .map(|result| {
                 let key = LedgerKey::from_xdr_base64(result.key.as_bytes());
