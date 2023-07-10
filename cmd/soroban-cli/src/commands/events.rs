@@ -4,7 +4,6 @@ use std::io;
 use soroban_env_host::xdr::{self, ReadXdr};
 
 use super::config::{events_file, locator, network};
-use crate::commands::config::network::Network;
 use crate::{rpc, toid, utils};
 
 #[derive(Parser, Debug, Clone)]
@@ -235,9 +234,12 @@ impl Cmd {
 
     async fn run_against_rpc_server(&self) -> Result<rpc::GetEventsResponse, Error> {
         let start = self.start()?;
-        let Network { rpc_url, .. } = self.network.get(&self.locator)?;
+        let network = self.network.get(&self.locator)?;
 
-        let client = rpc::Client::new(&rpc_url)?;
+        let client = rpc::Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         client
             .get_events(
                 start,
