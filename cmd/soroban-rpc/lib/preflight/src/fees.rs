@@ -350,10 +350,11 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         write_bytes,
         extended_meta_data_size_bytes: 2 * write_bytes,
     };
+    let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_resources = TransactionResources {
         instructions: 0,
-        read_entries: 0,
-        write_entries: u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?,
+        read_entries: entry_count,
+        write_entries: entry_count,
         read_bytes: 0,
         write_bytes: soroban_resources.write_bytes,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
