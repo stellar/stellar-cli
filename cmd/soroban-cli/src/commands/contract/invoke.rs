@@ -444,7 +444,7 @@ impl Cmd {
 
 fn log_events(
     footprint: &LedgerFootprint,
-    auth: &Vec<VecM<SorobanAuthorizationEntry>>,
+    auth: &[VecM<SorobanAuthorizationEntry>],
     events: &[HostEvent],
     budget: Option<&Budget>,
 ) {
