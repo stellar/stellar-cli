@@ -120,9 +120,9 @@ fn calculate_host_function_soroban_resources(
       metadataSize = readBytes(footprint.readWrite) + writeBytes + eventsSize
     */
     let original_write_ledger_entry_bytes =
-        calculate_unmodified_ledger_entry_bytes(fp.read_write.as_vec(), snapshot_source)?;
+        calculate_unmodified_ledger_entry_bytes(fp.read_write.as_vec(), snapshot_source, false)?;
     let read_bytes =
-        calculate_unmodified_ledger_entry_bytes(fp.read_only.as_vec(), snapshot_source)?
+        calculate_unmodified_ledger_entry_bytes(fp.read_only.as_vec(), snapshot_source, false)?
             + original_write_ledger_entry_bytes;
     let write_bytes =
         calculate_modified_read_write_ledger_entry_bytes(&storage.footprint, &storage.map, budget)?;
@@ -150,7 +150,7 @@ fn get_configuration_setting(
     let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
         config_setting_id: setting_id,
     });
-    match ledger_storage.get(&key)? {
+    match ledger_storage.get(&key, false)? {
         LedgerEntry {
             data: LedgerEntryData::ConfigSetting(cs),
             ..
@@ -241,11 +241,12 @@ fn calculate_modified_read_write_ledger_entry_bytes(
 fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &Vec<LedgerKey>,
     snapshot_source: &ledger_storage::LedgerStorage,
+    include_expired: bool,
 ) -> Result<u32, Box<dyn error::Error>> {
     let mut res: u32 = 0;
     for lk in ledger_entries {
         res += u32::try_from(lk.to_xdr()?.len())?;
-        match snapshot_source.get_xdr(lk) {
+        match snapshot_source.get_xdr(lk, include_expired) {
             Ok(entry_bytes) => {
                 res += u32::try_from(entry_bytes.len())?;
             }
@@ -295,8 +296,11 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     ledgers_to_expire: u32,
     snapshot_source: &ledger_storage::LedgerStorage,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    let read_bytes =
-        calculate_unmodified_ledger_entry_bytes(footprint.read_only.as_vec(), snapshot_source)?;
+    let read_bytes = calculate_unmodified_ledger_entry_bytes(
+        footprint.read_only.as_vec(),
+        snapshot_source,
+        false,
+    )?;
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
@@ -334,8 +338,11 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     snapshot_source: &ledger_storage::LedgerStorage,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    let write_bytes =
-        calculate_unmodified_ledger_entry_bytes(footprint.read_write.as_vec(), snapshot_source)?;
+    let write_bytes = calculate_unmodified_ledger_entry_bytes(
+        footprint.read_write.as_vec(),
+        snapshot_source,
+        true,
+    )?;
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,

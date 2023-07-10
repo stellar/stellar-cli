@@ -72,7 +72,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 
 		var ledgerEntryResults []LedgerEntryResult
 		for i, ledgerKey := range ledgerKeys {
-			present, ledgerEntry, err := tx.GetLedgerEntry(ledgerKey)
+			present, ledgerEntry, err := tx.GetLedgerEntry(ledgerKey, false)
 			if err != nil {
 				logger.WithError(err).WithField("request", request).
 					Infof("could not obtain ledger entry %v at index %d from storage", ledgerKey, i)

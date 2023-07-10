@@ -32,7 +32,7 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db db.SessionInterface, key xd
 		return false, xdr.LedgerEntry{}, 0, err
 	}
 
-	present, entry, err := tx.GetLedgerEntry(key)
+	present, entry, err := tx.GetLedgerEntry(key, false)
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
 	}
@@ -497,14 +497,14 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 
 	_, err = readTx1.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
-	present, _, err := readTx1.GetLedgerEntry(key)
+	present, _, err := readTx1.GetLedgerEntry(key, false)
 	assert.NoError(t, err)
 	assert.False(t, present)
 	assert.NoError(t, readTx1.Done())
 
 	_, err = readTx2.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
-	present, _, err = readTx2.GetLedgerEntry(key)
+	present, _, err = readTx2.GetLedgerEntry(key, false)
 	assert.NoError(t, err)
 	assert.False(t, present)
 	assert.NoError(t, readTx2.Done())
@@ -581,7 +581,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	for _, readTx := range []LedgerEntryReadTx{readTx1, readTx2, readTx3} {
 		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		present, _, err := readTx.GetLedgerEntry(key)
+		present, _, err := readTx.GetLedgerEntry(key, false)
 		assert.NoError(t, err)
 		assert.False(t, present)
 	}
@@ -593,7 +593,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	for _, readTx := range []LedgerEntryReadTx{readTx1, readTx2, readTx3} {
 		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		present, _, err := readTx.GetLedgerEntry(key)
+		present, _, err := readTx.GetLedgerEntry(key, false)
 		assert.NoError(t, err)
 		assert.False(t, present)
 	}

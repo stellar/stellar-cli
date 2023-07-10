@@ -35,7 +35,7 @@ CPreflightResult *preflight_footprint_expiration_op(uintptr_t handle, // Go Hand
                                                     const char *footprint); // LedgerFootprint XDR in base64
 
 // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
-extern char *SnapshotSourceGet(uintptr_t handle, char *ledger_key);
+extern char *SnapshotSourceGet(uintptr_t handle, char *ledger_key, int include_expired);
 
 // LedgerKey XDR in base64 string to bool
 extern int SnapshotSourceHas(uintptr_t handle, char *ledger_key);
