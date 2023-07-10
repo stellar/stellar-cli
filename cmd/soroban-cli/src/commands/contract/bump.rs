@@ -108,7 +108,7 @@ impl Cmd {
         let tx = Transaction {
             source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
             fee: self.fee.fee,
-            seq_num: SequenceNumber(sequence),
+            seq_num: SequenceNumber(sequence+1),
             cond: Preconditions::None,
             memo: Memo::None,
             operations: vec![Operation {
