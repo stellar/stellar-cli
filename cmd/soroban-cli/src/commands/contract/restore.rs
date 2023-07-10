@@ -28,10 +28,6 @@ pub struct Cmd {
     #[arg(long = "key-xdr", required_unless_present = "key")]
     key_xdr: Vec<String>,
 
-    /// Number of ledgers to extend the entries
-    #[arg(long, required = true)]
-    ledgers_to_expire: u32,
-
     #[command(flatten)]
     config: config::Args,
     #[command(flatten)]
