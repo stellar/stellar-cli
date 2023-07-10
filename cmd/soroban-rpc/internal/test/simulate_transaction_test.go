@@ -715,7 +715,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 				Type: xdr.ScValTypeScvSymbol,
 				Sym:  &counterSym,
 			},
-			Durability: xdr.ContractDataDurabilityTemporary,
+			Durability: xdr.ContractDataDurabilityPersistent,
 			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	}
@@ -737,7 +737,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
 			&txnbuild.BumpFootprintExpiration{
-				LedgersToExpire: 17,
+				LedgersToExpire: 4096,
 				Ext: xdr.TransactionExt{
 					V: 1,
 					SorobanData: &xdr.SorobanTransactionData{
@@ -768,7 +768,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 
 	// Wait until it expires
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 5000; i++ {
 		err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &result)
 		if err != nil {
 			break
