@@ -3,6 +3,7 @@ import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
 import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke, InvokeArgs } from './invoke.js';
+import { ResponseTypes, Options } from './method-options'
 
 
 export * from './constants.js'
@@ -91,3 +92,21 @@ function getError(err: string): Err<Error_> | undefined {
     return undefined;
 }
 
+export async function balance<R extends ResponseTypes = undefined>({user}: {user: Address}, options: Options<R> = {}) {
+  return await invoke({
+    method: 'balance', 
+    args: [((i) => addressToScVal(i))(user)], 
+    ...options,
+    parseResultXdr: (xdr): i128 => {
+      return scValStrToJs(xdr);
+    },
+  });
+}
+
+export async function main () {
+  let simulated = await balance({ user: 'GAAAAAAAAAA' }, { responseType: 'simulated' })
+  let rpc = await balance({ user: 'GAAAAAAAAAA' }, { responseType: 'full' })
+  let parsed = await balance({ user: 'GAAAAAAAAAA' }, { responseType: 'parsed' })
+  let simple = await balance({ user: 'GAAAAAAAAAA' })
+  console.log(simulated, rpc, parsed, simple)
+}

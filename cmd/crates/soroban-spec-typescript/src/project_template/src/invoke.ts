@@ -10,6 +10,7 @@ import * as SorobanClient from 'soroban-client'
 import type { Account, Memo, MemoType, Operation, Transaction } from 'soroban-client';
 import { NETWORK_PASSPHRASE, CONTRACT_ID } from './constants.js'
 import { Server } from './server.js'
+import { Options, ResponseTypes } from './method-options'
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>
 
@@ -34,42 +35,33 @@ type Simulation = SorobanClient.SorobanRpc.SimulateTransactionResponse
 type SendTx = SorobanClient.SorobanRpc.SendTransactionResponse
 type GetTx = SorobanClient.SorobanRpc.GetTransactionResponse
 
-export type InvokeArgs<T = any> = {
-  method: string
-  args?: any[]
-  fee?: number
-  simulateOnly?: boolean
-  fullRpcResponse?: boolean
-  secondsToWait?: number
-  parseResultXdr?: (xdr: string) => T
+// defined this way so typeahead shows full union, not named alias
+let someRpcResponse: Simulation | SendTx | GetTx
+type SomeRpcResponse = typeof someRpcResponse
+
+type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
+  method: string,
+  args?: any[],
+  parseResultXdr?: (xdr: string) => T,
 }
+
 
 /**
  * Invoke a method on the INSERT_CONTRACT_NAME_HERE contract.
  *
  * Uses Freighter to determine the current user and if necessary sign the transaction.
  *
- * @param {string} obj.method - The method to invoke.
- * @param {any[]} obj.args - The arguments to pass to the method.
- * @param {number} obj.fee - The fee to pay for the transaction.
- * @param {boolean} obj.simulateOnly – All invocations start with a simulation/preflight. If the simulation shows that the transaction requires auth/signing, then by default `invoke` will try to have the user sign the transaction with Freighter and send the signed transaction to the network. To prevent this signature step and inspect the results of the preflight, you can set `simulateOnly: true`. This implies `fullRpcResponse: true`, since it's assumed that you want to inspect the preflight data for a change method. That is, setting `simulateOnly: true` for a view method is not useful, since view methods do not require auth/signing and will return the simulation right away regardless.
- * @param {boolean} obj.fullRpcResponse – Whether to return the full RPC response. If false, will parse the returned XDR with `parseResultXdr` and return it.
- * @param {number} obj.secondsToWait – If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `fullRpcResponse`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger.
- * @param {function} obj.parseResultXdr – If `fullRpcResponse` and `simulateOnly` are both `false` (the default), this function will be used to parse the XDR returned by either the simulation or the sent transaction. If not provided, the raw XDR will be returned; this can be inspected manually at https://laboratory.stellar.org/#xdr-viewer?network=futurenet
  * @returns T, by default, the parsed XDR from either the simulation or the full transaction. If `simulateOnly` or `fullRpcResponse` are true, returns either the full simulation or the result of sending/getting the transaction to/from the ledger.
  */
-export async function invoke<T = any>(args: InvokeArgs & { fullRpcResponse?: undefined | false, simulateOnly?: undefined | false }): Promise<T>;
-export async function invoke<T = any>(args: InvokeArgs & { simulateOnly: true }): Promise<Simulation>;
-export async function invoke<T = any>(args: InvokeArgs & { fullRpcResponse: true }): Promise<Simulation | SendTx | GetTx>;
-export async function invoke<T = any>({
+export async function invoke<R extends ResponseTypes = undefined, T = string>(args: InvokeArgs<R, T>): Promise<R extends undefined ? T : R extends "simulated" ? Simulation : R extends "full" ? SomeRpcResponse : T>;
+export async function invoke<R extends ResponseTypes, T = string>({
   method,
-  args = [],
-  fee = 100,
-  fullRpcResponse = false,
-  simulateOnly = false,
-  parseResultXdr = xdr => xdr,
-  secondsToWait = 10,
-}: InvokeArgs): Promise<T | Simulation | SendTx | GetTx> {
+  args,
+  fee,
+  responseType,
+  parseResultXdr,
+  secondsToWait,
+}: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
   const freighterAccount = await getAccount()
 
   // use a placeholder account if not yet connected to Freighter so that view calls can still work
@@ -87,7 +79,7 @@ export async function invoke<T = any>({
 
   const simulated = await Server.simulateTransaction(tx)
 
-  if (simulateOnly) return simulated
+  if (responseType === 'simulated') return simulated
 
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
   const auths = simulated.results?.[0]?.auth
@@ -95,7 +87,7 @@ export async function invoke<T = any>({
 
   // if VIEW ˅˅˅˅
   if (authsCount === 0) {
-    if (fullRpcResponse) return simulated
+    if (responseType === 'full') return simulated
 
     const { results } = simulated
     if (!results || results[0] === undefined) {
@@ -131,14 +123,16 @@ export async function invoke<T = any>({
 
   const raw = await sendTx(tx, secondsToWait);
 
-  if (fullRpcResponse) return raw
+  if (responseType === 'full') return raw
+
+  const parse = parseResultXdr ?? (xdr => xdr)
 
   // if `sendTx` awaited the inclusion of the tx in the ledger, it used
   // `getTransaction`, which has a `resultXdr` field
-  if ('resultXdr' in raw) return parseResultXdr(raw.resultXdr)
+  if ('resultXdr' in raw) return parse(raw.resultXdr)
 
   // otherwise, it returned the result of `sendTransaction`
-  if ('errorResultXdr' in raw) return parseResultXdr(raw.errorResultXdr)
+  if ('errorResultXdr' in raw) return parse(raw.errorResultXdr)
 
   // if neither of these are present, something went wrong
   console.log("Don't know how to parse result! Returning fullRpcResponse")
