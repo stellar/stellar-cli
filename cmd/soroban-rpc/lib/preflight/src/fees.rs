@@ -346,7 +346,9 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        read_bytes: 0,
+        // FIXME(fons): this seems to be a workaround a bug in code (the fix is to also count bytes read but not written in readBytes).
+        //        we should review it in preview 11.
+        read_bytes: write_bytes,
         write_bytes,
         extended_meta_data_size_bytes: 2 * write_bytes,
     };
@@ -355,7 +357,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         instructions: 0,
         read_entries: entry_count,
         write_entries: entry_count,
-        read_bytes: 0,
+        read_bytes: soroban_resources.read_bytes,
         write_bytes: soroban_resources.write_bytes,
         metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
         transaction_size_bytes: estimate_max_transaction_size_for_operation(
