@@ -1,37 +1,5 @@
-import { Address, xdr } from 'soroban-client';
+import { Address, xdr, scValToBigInt, ScInt } from 'soroban-client';
 import { Buffer } from "buffer";
-import { bufToBigint } from 'bigint-conversion';
-export function scvalToBigInt(scval) {
-    switch (scval?.switch()) {
-        case undefined: {
-            return BigInt(0);
-        }
-        case xdr.ScValType.scvU64(): {
-            const { high, low } = scval.u64();
-            return bufToBigint(new Uint32Array([high, low]));
-        }
-        case xdr.ScValType.scvI64(): {
-            const { high, low } = scval.i64();
-            return bufToBigint(new Int32Array([high, low]));
-        }
-        case xdr.ScValType.scvU128(): {
-            const parts = scval.u128();
-            const a = parts.hi();
-            const b = parts.lo();
-            return bufToBigint(new Uint32Array([a.high, a.low, b.high, b.low]));
-        }
-        case xdr.ScValType.scvI128(): {
-            const parts = scval.i128();
-            const a = parts.hi();
-            const b = parts.lo();
-            return bufToBigint(new Int32Array([a.high, a.low, b.high, b.low]));
-        }
-        default: {
-            throw new Error(`Invalid type for scvalToBigInt: ${scval?.switch().name}`);
-        }
-    }
-    ;
-}
 export function strToScVal(base64Xdr) {
     return xdr.ScVal.fromXDR(Buffer.from(base64Xdr, 'base64'));
 }
@@ -59,7 +27,7 @@ export function scValToJs(val) {
         case xdr.ScValType.scvI128():
         case xdr.ScValType.scvU256():
         case xdr.ScValType.scvI256(): {
-            return scvalToBigInt(val);
+            return scValToBigInt(val);
         }
         case xdr.ScValType.scvAddress(): {
             return Address.fromScVal(val).toString();
@@ -124,14 +92,8 @@ export function addressToScVal(addr) {
     return addrObj.toScVal();
 }
 export function i128ToScVal(i) {
-    return xdr.ScVal.scvI128(new xdr.Int128Parts({
-        lo: xdr.Uint64.fromString((i & BigInt(0xffffffffffffffffn)).toString()),
-        hi: xdr.Int64.fromString(((i >> BigInt(64)) & BigInt(0xffffffffffffffffn)).toString()),
-    }));
+    return new ScInt(i).toI128();
 }
 export function u128ToScVal(i) {
-    return xdr.ScVal.scvU128(new xdr.UInt128Parts({
-        lo: xdr.Uint64.fromString((i & BigInt(0xffffffffffffffffn)).toString()),
-        hi: xdr.Int64.fromString(((i >> BigInt(64)) & BigInt(0xffffffffffffffffn)).toString()),
-    }));
+    return new ScInt(i).toU128();
 }

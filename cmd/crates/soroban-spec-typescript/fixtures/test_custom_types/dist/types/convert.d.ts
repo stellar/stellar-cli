@@ -1,5 +1,4 @@
 import { xdr } from 'soroban-client';
-export declare function scvalToBigInt(scval: xdr.ScVal | undefined): BigInt;
 export declare function strToScVal(base64Xdr: string): xdr.ScVal;
 export declare function scValStrToJs<T>(base64Xdr: string): T;
 export declare function scValToJs<T>(val: xdr.ScVal): T;

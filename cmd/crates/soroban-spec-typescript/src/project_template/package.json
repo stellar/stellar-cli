@@ -4,8 +4,7 @@
     "dependencies": {
         "@stellar/freighter-api": "1.5.0",
         "buffer": "6.0.3",
-        "soroban-client": "0.9.1",
-        "bigint-conversion": "2.4.1"
+        "soroban-client": "0.9.1"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
