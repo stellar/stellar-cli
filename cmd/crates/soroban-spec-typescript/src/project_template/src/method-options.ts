@@ -1,3 +1,4 @@
+// defined this way so typeahead shows full union, not named alias
 let responseTypes: 'parsed' | 'simulated' | 'full' | undefined
 export type ResponseTypes = typeof responseTypes
 
