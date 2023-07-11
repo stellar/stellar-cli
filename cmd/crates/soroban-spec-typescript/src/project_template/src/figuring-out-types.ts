@@ -1,4 +1,4 @@
-let responseTypes: 'parsed' | 'simulated' | 'full'
+let responseTypes: 'parsed' | 'simulated' | 'full' | undefined
 type ResponseTypes = typeof responseTypes
 
 type Options<R extends ResponseTypes> = {
@@ -13,8 +13,7 @@ type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
   parseResultXdr?: (xdr: string) => T,
 };
 
-function invoke<R extends ResponseTypes, T = string>(args: InvokeArgs<R, T>): R extends "simulated" ? "sim" : R extends "full" ? "rpc" : T;
-function invoke<undefined, T>(args: InvokeArgs<'parsed', T>): T;
+function invoke<R extends ResponseTypes = undefined, T = string>(args: InvokeArgs<R, T>): R extends undefined ? T : R extends "simulated" ? "sim" : R extends "full" ? "rpc" : T;
 function invoke<R extends ResponseTypes, T = string>(args: InvokeArgs<R, T>): T | string | "sim" | "rpc" {
   // stub implementation with correct return types
   switch(args.responseType) {
@@ -22,8 +21,6 @@ function invoke<R extends ResponseTypes, T = string>(args: InvokeArgs<R, T>): T 
       return 'sim';
     case 'full':
       return 'rpc';
-    case 'parsed':
-    case undefined:
     default:
       const parse = args.parseResultXdr ?? (xdr => xdr)
       return parse(JSON.stringify({ method: args.method, args: args.args }));
@@ -34,7 +31,7 @@ const invokeSimulate = invoke({ method: 'balance', args: ['GAAAA'], responseType
 const invokeRpc = invoke({ method: 'balance', args: ['GAAAA'], responseType: 'full' }) // typeof invokeRpc === "rpc"
 const invokeParsed = invoke({ method: 'balance', args: ['GAAAA'], responseType: 'parsed' }) // typeof invokeParsed === string
 const invokeSimple = invoke({ method: 'balance', args: ['GAAAA'] }) // typeof invokeSimple === string
-const invokeParsedXdr = invoke({ method: 'balance', args: ['GAAAA'], parseResultXdr: () => 1 }) // typeof invokeParsed === number | "sim" | "rpc"
+const invokeParsedXdr = invoke({ method: 'balance', args: ['GAAAA'], parseResultXdr: () => 1 }) // typeof invokeParsed === number
 
 /**
  * Smart contract author comments go here.
@@ -50,7 +47,7 @@ const invokeParsedXdr = invoke({ method: 'balance', args: ['GAAAA'], parseResult
  * 
  * @returns `{{i128}}`, by default, the parsed XDR from either the simulation or the full transaction. For `responseType` of `'simulated'`, returns the full preflight info. For `responseType` of `'full'`, returns either the simulation or the result of sending/getting the transaction to/from the ledger.
  */
-function balance<R extends ResponseTypes>({ address }: { address: string }, options: Options<R> = {}) {
+function balance<R extends ResponseTypes = undefined>({ address }: { address: string }, options: Options<R> = {}) {
   return invoke({
     method: 'balance',
     args: [address],
@@ -59,7 +56,7 @@ function balance<R extends ResponseTypes>({ address }: { address: string }, opti
   })
 }
 
-const balanceSimulate = balance({ address: "GAAAA" }, { responseType: 'simulated' })
-const balanceRpc = balance({ address: "GAAAA" }, { responseType: 'full' })
-const balanceParsed = balance({ address: "GAAAA" }, { responseType: 'parsed' })
-const balanceSimple = balance({ address: "GAAAA" })
+const balanceSimulate = balance({ address: "GAAAA" }, { responseType: 'simulated' }) // typeof balanceSimulate === "sim"
+const balanceRpc = balance({ address: "GAAAA" }, { responseType: 'full' }) // typeof balanceRpc === "rpc"
+const balanceParsed = balance({ address: "GAAAA" }, { responseType: 'parsed' }) // typeof balanceParsed === number
+const balanceSimple = balance({ address: "GAAAA" }) // typeof balanceSimple === number
