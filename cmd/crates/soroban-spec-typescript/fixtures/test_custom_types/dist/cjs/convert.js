@@ -1,41 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.u128ToScVal = exports.i128ToScVal = exports.addressToScVal = exports.scValToJs = exports.scValStrToJs = exports.strToScVal = exports.scvalToBigInt = void 0;
+exports.u128ToScVal = exports.i128ToScVal = exports.addressToScVal = exports.scValToJs = exports.scValStrToJs = exports.strToScVal = void 0;
 const soroban_client_1 = require("soroban-client");
 const buffer_1 = require("buffer");
-const bigint_conversion_1 = require("bigint-conversion");
-function scvalToBigInt(scval) {
-    switch (scval?.switch()) {
-        case undefined: {
-            return BigInt(0);
-        }
-        case soroban_client_1.xdr.ScValType.scvU64(): {
-            const { high, low } = scval.u64();
-            return (0, bigint_conversion_1.bufToBigint)(new Uint32Array([high, low]));
-        }
-        case soroban_client_1.xdr.ScValType.scvI64(): {
-            const { high, low } = scval.i64();
-            return (0, bigint_conversion_1.bufToBigint)(new Int32Array([high, low]));
-        }
-        case soroban_client_1.xdr.ScValType.scvU128(): {
-            const parts = scval.u128();
-            const a = parts.hi();
-            const b = parts.lo();
-            return (0, bigint_conversion_1.bufToBigint)(new Uint32Array([a.high, a.low, b.high, b.low]));
-        }
-        case soroban_client_1.xdr.ScValType.scvI128(): {
-            const parts = scval.i128();
-            const a = parts.hi();
-            const b = parts.lo();
-            return (0, bigint_conversion_1.bufToBigint)(new Int32Array([a.high, a.low, b.high, b.low]));
-        }
-        default: {
-            throw new Error(`Invalid type for scvalToBigInt: ${scval?.switch().name}`);
-        }
-    }
-    ;
-}
-exports.scvalToBigInt = scvalToBigInt;
 function strToScVal(base64Xdr) {
     return soroban_client_1.xdr.ScVal.fromXDR(buffer_1.Buffer.from(base64Xdr, 'base64'));
 }
@@ -65,7 +32,7 @@ function scValToJs(val) {
         case soroban_client_1.xdr.ScValType.scvI128():
         case soroban_client_1.xdr.ScValType.scvU256():
         case soroban_client_1.xdr.ScValType.scvI256(): {
-            return scvalToBigInt(val);
+            return scValToBigInt(val);
         }
         case soroban_client_1.xdr.ScValType.scvAddress(): {
             return soroban_client_1.Address.fromScVal(val).toString();
@@ -132,16 +99,10 @@ function addressToScVal(addr) {
 }
 exports.addressToScVal = addressToScVal;
 function i128ToScVal(i) {
-    return soroban_client_1.xdr.ScVal.scvI128(new soroban_client_1.xdr.Int128Parts({
-        lo: soroban_client_1.xdr.Uint64.fromString((i & BigInt(0xffffffffffffffffn)).toString()),
-        hi: soroban_client_1.xdr.Int64.fromString(((i >> BigInt(64)) & BigInt(0xffffffffffffffffn)).toString()),
-    }));
+    return new soroban_client_1.ScInt(i).toI128();
 }
 exports.i128ToScVal = i128ToScVal;
 function u128ToScVal(i) {
-    return soroban_client_1.xdr.ScVal.scvU128(new soroban_client_1.xdr.UInt128Parts({
-        lo: soroban_client_1.xdr.Uint64.fromString((i & BigInt(0xffffffffffffffffn)).toString()),
-        hi: soroban_client_1.xdr.Int64.fromString(((i >> BigInt(64)) & BigInt(0xffffffffffffffffn)).toString()),
-    }));
+    return new soroban_client_1.ScInt(i).toU128();
 }
 exports.u128ToScVal = u128ToScVal;
