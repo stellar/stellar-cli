@@ -30,7 +30,7 @@ pub struct Cmd {
     #[arg(long = "key-xdr", conflicts_with = "key")]
     key_xdr: Option<String>,
     /// Storage entry durability
-    #[arg(long, value_enum, default_value("persistent"))]
+    #[arg(long, value_enum, required = true)]
     durability: Durability,
 
     /// Number of ledgers to extend the entries
