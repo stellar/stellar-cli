@@ -406,14 +406,13 @@ Print the current value of a contract-data ledger entry
 
 Restore an evicted value for a contract-data legder entry
 
-**Usage:** `soroban contract restore [OPTIONS] --id <CONTRACT_ID> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
+**Usage:** `soroban contract restore [OPTIONS] --id <CONTRACT_ID>`
 
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
-* `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entries
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
