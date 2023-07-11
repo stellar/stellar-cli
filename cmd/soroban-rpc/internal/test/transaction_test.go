@@ -254,6 +254,10 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 		err := xdr.SafeUnmarshalBase64(response.ResultXdr, &txResult)
 		assert.NoError(t, err)
 		fmt.Printf("error: %#v\n", txResult)
+		var txMeta xdr.TransactionMeta
+		err = xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &txMeta)
+		assert.NoError(t, err)
+		fmt.Printf("meta: %#v\n", txMeta)
 	}
 	require.NotNil(t, response.ResultXdr)
 	assert.Greater(t, response.Ledger, result.LatestLedger)

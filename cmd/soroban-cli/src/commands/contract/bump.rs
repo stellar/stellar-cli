@@ -11,7 +11,7 @@ use soroban_env_host::xdr::{
 use stellar_strkey::DecodeError;
 
 use crate::{
-    commands::config::{self, locator},
+    commands::config,
     commands::contract::Durability,
     rpc::{self, Client},
     utils, Pwd,
@@ -75,8 +75,6 @@ pub enum Error {
     KeyIsRequired,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
-    #[error(transparent)]
-    Locator(#[from] locator::Error),
     #[error("missing operation result")]
     MissingOperationResult,
     #[error(transparent)]
@@ -110,7 +108,7 @@ impl Cmd {
         let tx = Transaction {
             source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
             fee: self.fee.fee,
-            seq_num: SequenceNumber(sequence),
+            seq_num: SequenceNumber(sequence+1),
             cond: Preconditions::None,
             memo: Memo::None,
             operations: vec![Operation {

@@ -33,7 +33,7 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 pub type LogEvents = fn(
     footprint: &LedgerFootprint,
-    auth: &Vec<VecM<SorobanAuthorizationEntry>>,
+    auth: &[VecM<SorobanAuthorizationEntry>],
     events: &[HostEvent],
     budget: Option<&Budget>,
 ) -> ();
@@ -76,9 +76,7 @@ pub enum Error {
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error("unexpected ({count}) number of operations")]
     UnexpectedOperationCount { count: usize },
-    #[error(
-        "unsupported operation type, must be only one InvokeHostFunctionOp in the transaction."
-    )]
+    #[error("Transaction contains unsupported operation type")]
     UnsupportedOperationType,
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),

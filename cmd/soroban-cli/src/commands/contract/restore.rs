@@ -28,10 +28,6 @@ pub struct Cmd {
     #[arg(long = "key-xdr", required_unless_present = "key")]
     key_xdr: Vec<String>,
 
-    /// Number of ledgers to extend the entries
-    #[arg(long, required = true)]
-    ledgers_to_expire: u32,
-
     #[command(flatten)]
     config: config::Args,
     #[command(flatten)]
@@ -105,7 +101,7 @@ impl Cmd {
         let tx = Transaction {
             source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
             fee: self.fee.fee,
-            seq_num: SequenceNumber(sequence),
+            seq_num: SequenceNumber(sequence+1),
             cond: Preconditions::None,
             memo: Memo::None,
             operations: vec![Operation {
