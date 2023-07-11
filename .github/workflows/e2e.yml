@@ -32,7 +32,7 @@ jobs:
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
 
       # sets the version of soroban-js-client used by tests
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: "0.8.1"
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: "0.9.0"
      
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
@@ -42,7 +42,7 @@ jobs:
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
       # the soroban test cases will compile various contracts from the examples repo
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "v0.8.1"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "0bb7e11db3ddf9ed88c56c05c22e14503f97824a"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v3
