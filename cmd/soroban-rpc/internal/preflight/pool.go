@@ -127,9 +127,9 @@ type metricsLedgerEntryWrapper struct {
 	ledgerEntriesFetched uint32
 }
 
-func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
 	startTime := time.Now()
-	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key)
+	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key, includeExpired)
 	atomic.AddUint64(&m.totalDurationMs, uint64(time.Since(startTime).Milliseconds()))
 	atomic.AddUint32(&m.ledgerEntriesFetched, 1)
 	return ok, entry, err
