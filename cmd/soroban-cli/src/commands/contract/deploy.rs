@@ -166,6 +166,9 @@ impl Cmd {
         };
 
         let client = Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         let key = self.config.key_pair()?;
 
         // Get the account sequence number

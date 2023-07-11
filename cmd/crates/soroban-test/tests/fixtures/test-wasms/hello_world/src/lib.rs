@@ -3,6 +3,8 @@ use soroban_sdk::{
     contract, contractimpl, log, symbol_short, vec, Address, Env, String, Symbol, Vec,
 };
 
+const COUNTER: Symbol = symbol_short!("COUNTER");
+
 #[contract]
 pub struct Contract;
 
@@ -24,7 +26,19 @@ impl Contract {
         addr.require_auth();
         // Emit test event
         env.events().publish(("auth",), world);
+
         addr
+    }
+
+    pub fn inc(env: Env) {
+        let mut count: u32 = env.storage().temporary().get(&COUNTER).unwrap_or(0); // Panic if the value of COUNTER is not u32.
+        log!(&env, "count: {}", count);
+
+        // Increment the count.
+        count += 1;
+
+        // Save the count.
+        env.storage().temporary().set(&COUNTER, &count);
     }
 
     #[allow(unused_variables)]

@@ -251,8 +251,10 @@ impl Cmd {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
-        let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
@@ -286,7 +288,7 @@ impl Cmd {
             tracing::debug!(?events);
         }
 
-        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3{soroban_meta: Some(xdr::SorobanTransactionMeta{return_value, ..}), ..}) = meta.tx_apply_processing else {
+        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3{soroban_meta: Some(xdr::SorobanTransactionMeta{return_value, ..}), ..}) = meta else {
             return Err(Error::MissingOperationResult);
         };
 
