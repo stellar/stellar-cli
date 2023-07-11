@@ -39,14 +39,14 @@ type snapshotSourceHandle struct {
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceGet
-func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char) *C.char {
+func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char, includeExpired C.int) *C.char {
 	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
 	ledgerKeyB64 := C.GoString(cLedgerKey)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey)
+	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey, includeExpired != 0)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
 		return nil
@@ -72,7 +72,7 @@ func SnapshotSourceHas(handle C.uintptr_t, cLedgerKey *C.char) C.int {
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, _, err := h.readTx.GetLedgerEntry(ledgerKey)
+	present, _, err := h.readTx.GetLedgerEntry(ledgerKey, false)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceHas(): GetLedgerEntry() failed")
 		return 0
@@ -184,7 +184,7 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		ConfigSetting: &xdr.LedgerKeyConfigSetting{
 			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
 		},
-	})
+	}, false)
 	if err != nil {
 		return Preflight{}, err
 	}
