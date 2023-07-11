@@ -203,7 +203,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 Extend the expiry ledger of a contract-data ledger entry
 
-**Usage:** `soroban contract bump [OPTIONS] --id <CONTRACT_ID> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
+**Usage:** `soroban contract bump [OPTIONS] --id <CONTRACT_ID> --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
 
 ###### **Options:**
 
@@ -211,8 +211,6 @@ Extend the expiry ledger of a contract-data ledger entry
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 * `--durability <DURABILITY>` — Storage entry durability
-
-  Default value: `persistent`
 
   Possible values:
   - `persistent`:
