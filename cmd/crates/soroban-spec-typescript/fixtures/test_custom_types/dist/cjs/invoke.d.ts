@@ -1,30 +1,27 @@
 import * as SorobanClient from 'soroban-client';
 import type { Memo, MemoType, Operation, Transaction } from 'soroban-client';
+import { Options, ResponseTypes } from './method-options';
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
-export type Simulation = NonNullable<SorobanClient.SorobanRpc.SimulateTransactionResponse['results']>[0];
-export type TxResponse = SorobanClient.SorobanRpc.GetTransactionResponse;
-export type InvokeArgs = {
-    method: string;
-    args?: any[];
-    signAndSend?: boolean;
-    fee?: number;
-};
 export declare class NotImplementedError extends Error {
 }
+type Simulation = SorobanClient.SorobanRpc.SimulateTransactionResponse;
+type SendTx = SorobanClient.SorobanRpc.SendTransactionResponse;
+type GetTx = SorobanClient.SorobanRpc.GetTransactionResponse;
+declare let someRpcResponse: Simulation | SendTx | GetTx;
+type SomeRpcResponse = typeof someRpcResponse;
+type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
+    method: string;
+    args?: any[];
+    parseResultXdr?: (xdr: string) => T;
+};
 /**
  * Invoke a method on the test_custom_types contract.
  *
  * Uses Freighter to determine the current user and if necessary sign the transaction.
  *
- * @param {string} obj.method - The method to invoke.
- * @param {any[]} obj.args - The arguments to pass to the method.
- * @param {boolean} obj.signAndSend - Whether to sign and send the transaction, or just simulate it. Unless the method requires authentication.
- * @param {number} obj.fee - The fee to pay for the transaction.
- * @returns The transaction response, or the simulation result if signing isn't required.
+ * @returns T, by default, the parsed XDR from either the simulation or the full transaction. If `simulateOnly` or `fullRpcResponse` are true, returns either the full simulation or the result of sending/getting the transaction to/from the ledger.
  */
-export declare function invoke({ method, args, fee, signAndSend }: InvokeArgs): Promise<(TxResponse & {
-    xdr: string;
-}) | Simulation>;
+export declare function invoke<R extends ResponseTypes = undefined, T = string>(args: InvokeArgs<R, T>): Promise<R extends undefined ? T : R extends "simulated" ? Simulation : R extends "full" ? SomeRpcResponse : T>;
 /**
  * Sign a transaction with Freighter and return the fully-reconstructed
  * transaction ready to send with {@link sendTx}.
@@ -44,4 +41,5 @@ export declare function signTx(tx: Tx): Promise<Tx>;
  * function for its timeout/`secondsToWait` logic, rather than implementing
  * your own.
  */
-export declare function sendTx(tx: Tx, secondsToWait?: number): Promise<TxResponse>;
+export declare function sendTx(tx: Tx, secondsToWait: number): Promise<SendTx | GetTx>;
+export {};

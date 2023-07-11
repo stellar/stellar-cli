@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.tuple_strukt = exports.string = exports.i256 = exports.u256 = exports.option = exports.tuple = exports.vec = exports.map = exports.multi_args = exports.u128 = exports.i128 = exports.not = exports.boolean = exports.card = exports.bytes_n = exports.bytes = exports.addresse = exports.complex = exports.simple = exports.strukt = exports.strukt_hel = exports.i64_ = exports.i32_ = exports.u32_ = exports.u32_fail_on_even = exports.val = exports.woid = exports.hello = exports.RoyalCard = exports.Err = exports.Ok = void 0;
+exports.tupleStrukt = exports.string = exports.i256 = exports.u256 = exports.option = exports.tuple = exports.vec = exports.map = exports.multiArgs = exports.u128 = exports.i128 = exports.not = exports.booleanMethod = exports.card = exports.bytesN = exports.bytes = exports.addresse = exports.complex = exports.simple = exports.strukt = exports.struktHel = exports.i64 = exports.i32 = exports.u32 = exports.u32FailOnEven = exports.val = exports.woid = exports.hello = exports.RoyalCard = exports.Err = exports.Ok = void 0;
 const soroban_client_1 = require("soroban-client");
 const buffer_1 = require("buffer");
 const convert_js_1 = require("./convert.js");
@@ -190,267 +190,243 @@ function ComplexEnumFromXdr(base64Xdr) {
 const Errors = [
     { message: "Unknown error has occured" }
 ];
-async function hello({ hello }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function hello({ hello }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'hello',
         args: [((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))(hello)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.hello = hello;
-async function woid({ signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function woid(options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'woid',
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return;
+        ...options,
+        parseResultXdr: () => { },
+    });
 }
 exports.woid = woid;
-async function val({ signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function val(options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'val',
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.val = val;
-async function u32_fail_on_even({ u32_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function u32FailOnEven({ u32_ }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'u32_fail_on_even',
         args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
-    };
-    try {
-        // @ts-ignore Type does exist
-        const response = await (0, invoke_js_1.invoke)(invokeArgs);
-        return new Ok((0, convert_js_1.scValStrToJs)(response.xdr));
-    }
-    catch (e) {
-        //@ts-ignore
-        let err = getError(e.message);
-        if (err) {
-            return err;
-        }
-        else {
-            throw e;
-        }
-    }
+        ...options,
+        parseResultXdr: (xdr) => {
+            try {
+                return new Ok((0, convert_js_1.scValStrToJs)(xdr));
+            }
+            catch (e) {
+                //@ts-ignore
+                let err = getError(e.message);
+                if (err) {
+                    return err;
+                }
+                else {
+                    throw e;
+                }
+            }
+        },
+    });
 }
-exports.u32_fail_on_even = u32_fail_on_even;
-async function u32_({ u32_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+exports.u32FailOnEven = u32FailOnEven;
+async function u32({ u32_ }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'u32_',
         args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
-exports.u32_ = u32_;
-async function i32_({ i32_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+exports.u32 = u32;
+async function i32({ i32_ }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'i32_',
         args: [((i) => soroban_client_1.xdr.ScVal.scvI32(i))(i32_)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
-exports.i32_ = i32_;
-async function i64_({ i64_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+exports.i32 = i32;
+async function i64({ i64_ }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'i64_',
         args: [((i) => soroban_client_1.xdr.ScVal.scvI64(soroban_client_1.xdr.Int64.fromString(i.toString())))(i64_)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
-exports.i64_ = i64_;
+exports.i64 = i64;
 /**
  * Example contract method which takes a struct
  */
-async function strukt_hel({ strukt }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function struktHel({ strukt }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'strukt_hel',
         args: [((i) => TestToXdr(i))(strukt)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
-exports.strukt_hel = strukt_hel;
-async function strukt({ strukt }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+exports.struktHel = struktHel;
+async function strukt({ strukt }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'strukt',
         args: [((i) => TestToXdr(i))(strukt)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return TestFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return TestFromXdr(xdr);
+        },
+    });
 }
 exports.strukt = strukt;
-async function simple({ simple }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function simple({ simple }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'simple',
         args: [((i) => SimpleEnumToXdr(i))(simple)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return SimpleEnumFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return SimpleEnumFromXdr(xdr);
+        },
+    });
 }
 exports.simple = simple;
-async function complex({ complex }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function complex({ complex }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'complex',
         args: [((i) => ComplexEnumToXdr(i))(complex)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return ComplexEnumFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return ComplexEnumFromXdr(xdr);
+        },
+    });
 }
 exports.complex = complex;
-async function addresse({ addresse }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function addresse({ addresse }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'addresse',
         args: [((i) => (0, convert_js_1.addressToScVal)(i))(addresse)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.addresse = addresse;
-async function bytes({ bytes }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function bytes({ bytes }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'bytes',
         args: [((i) => soroban_client_1.xdr.ScVal.scvBytes(i))(bytes)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.bytes = bytes;
-async function bytes_n({ bytes_n }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function bytesN({ bytes_n }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'bytes_n',
         args: [((i) => soroban_client_1.xdr.ScVal.scvBytes(i))(bytes_n)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
-exports.bytes_n = bytes_n;
-async function card({ card }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+exports.bytesN = bytesN;
+async function card({ card }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'card',
         args: [((i) => RoyalCardToXdr(i))(card)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return RoyalCardFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return RoyalCardFromXdr(xdr);
+        },
+    });
 }
 exports.card = card;
-async function boolean({ boolean }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function booleanMethod({ boolean }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'boolean',
         args: [((i) => soroban_client_1.xdr.ScVal.scvBool(i))(boolean)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
-exports.boolean = boolean;
+exports.booleanMethod = booleanMethod;
 /**
  * Negates a boolean value
  */
-async function not({ boolean }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function not({ boolean }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'not',
         args: [((i) => soroban_client_1.xdr.ScVal.scvBool(i))(boolean)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.not = not;
-async function i128({ i128 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function i128({ i128 }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'i128',
         args: [((i) => (0, convert_js_1.i128ToScVal)(i))(i128)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.i128 = i128;
-async function u128({ u128 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function u128({ u128 }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'u128',
         args: [((i) => (0, convert_js_1.u128ToScVal)(i))(u128)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.u128 = u128;
-async function multi_args({ a, b }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function multiArgs({ a, b }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'multi_args',
         args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(a),
             ((i) => soroban_client_1.xdr.ScVal.scvBool(i))(b)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
-exports.multi_args = multi_args;
-async function map({ map }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+exports.multiArgs = multiArgs;
+async function map({ map }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'map',
         args: [((i) => soroban_client_1.xdr.ScVal.scvMap(Array.from(i.entries()).map(([key, value]) => {
                 return new soroban_client_1.xdr.ScMapEntry({
@@ -458,97 +434,91 @@ async function map({ map }, { signAndSend, fee } = { signAndSend: false, fee: 10
                     val: ((i) => soroban_client_1.xdr.ScVal.scvBool(i))(value)
                 });
             })))(map)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.map = map;
-async function vec({ vec }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function vec({ vec }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'vec',
         args: [((i) => soroban_client_1.xdr.ScVal.scvVec(i.map((i) => soroban_client_1.xdr.ScVal.scvU32(i))))(vec)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.vec = vec;
-async function tuple({ tuple }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function tuple({ tuple }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'tuple',
         args: [((i) => soroban_client_1.xdr.ScVal.scvVec([((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))(i[0]),
                 ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.tuple = tuple;
 /**
  * Example of an optional argument
  */
-async function option({ option }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function option({ option }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'option',
         args: [((i) => (!i) ? soroban_client_1.xdr.ScVal.scvVoid() : soroban_client_1.xdr.ScVal.scvU32(i))(option)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.option = option;
-async function u256({ u256 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function u256({ u256 }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'u256',
         args: [((i) => i)(u256)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.u256 = u256;
-async function i256({ i256 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function i256({ i256 }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'i256',
         args: [((i) => i)(i256)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.i256 = i256;
-async function string({ string }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function string({ string }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'string',
         args: [((i) => soroban_client_1.xdr.ScVal.scvString(i))(string)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return (0, convert_js_1.scValStrToJs)(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return (0, convert_js_1.scValStrToJs)(xdr);
+        },
+    });
 }
 exports.string = string;
-async function tuple_strukt({ tuple_strukt }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+async function tupleStrukt({ tuple_strukt }, options = {}) {
+    return await (0, invoke_js_1.invoke)({
         method: 'tuple_strukt',
         args: [((i) => TupleStructToXdr(i))(tuple_strukt)],
-    };
-    // @ts-ignore Type does exist
-    const response = await (0, invoke_js_1.invoke)(invokeArgs);
-    return TupleStructFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return TupleStructFromXdr(xdr);
+        },
+    });
 }
-exports.tuple_strukt = tuple_strukt;
+exports.tupleStrukt = tupleStrukt;

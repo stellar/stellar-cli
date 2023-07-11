@@ -91,6 +91,44 @@ fn is_error_enum(entry: &ScSpecEntry) -> bool {
     matches!(entry, ScSpecEntry::UdtErrorEnumV0(_))
 }
 
+fn method_options(return_type: &String) -> String {
+    format!(
+        r#"{{
+  /**
+   * The fee to pay for the transaction. Default: 100.
+   */
+  fee?: number
+  /**
+   * What type of response to return.
+   *
+   *   - `undefined`, the default, parses the returned XDR as `{return_type}`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+   */
+  responseType?: R
+  /**
+   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {{@link SorobanClient.SorobanRpc.GetTransactionResponse}} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {{@link SorobanClient.SorobanRpc.SendTransactionResponse}} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+   */
+  secondsToWait?: number
+}}"#
+    )
+}
+
+fn jsify_name(name: &String) -> String {
+    match name.as_str() {
+        "abstract" | "arguments" | "await" | "boolean" | "break" | "byte" | "case" | "catch"
+        | "char" | "class" | "const" | "continue" | "debugger" | "default" | "delete" | "do"
+        | "double" | "else" | "enum" | "eval" | "export" | "extends" | "false" | "final"
+        | "finally" | "float" | "for" | "function" | "goto" | "if" | "implements" | "import"
+        | "in" | "instanceof" | "int" | "interface" | "let" | "long" | "native" | "new"
+        | "null" | "package" | "private" | "protected" | "public" | "return" | "short"
+        | "static" | "super" | "switch" | "synchronized" | "this" | "throw" | "throws"
+        | "transient" | "true" | "try" | "typeof" | "var" | "void" | "volatile" | "while"
+        | "with" | "yield" => format!("{name}Method"),
+        _ => name.to_lower_camel_case(),
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 pub fn entry_to_ts(entry: &Entry) -> String {
     match entry {
@@ -107,85 +145,86 @@ pub fn entry_to_ts(entry: &Entry) -> String {
             let input = (!inputs.is_empty())
                 .then(|| {
                     format!(
-                        "{{{}}}: {{{}}},",
+                        "{{{}}}: {{{}}}, ",
                         inputs.iter().map(func_input_to_arg_name).join(", "),
                         inputs.iter().map(func_input_to_ts).join(", ")
                     )
                 })
                 .unwrap_or_default();
             let mut is_result = false;
-            let mut inner_return_type = String::new();
-            let return_type = if outputs.is_empty() {
-                ": Promise<void>".to_owned()
+            let mut return_type: String;
+            if outputs.is_empty() {
+                return_type = "void".to_owned();
             } else if outputs.len() == 1 {
-                inner_return_type = type_to_ts(&outputs[0]);
-                is_result = inner_return_type.starts_with("Result<");
-                format!(": Promise<{inner_return_type}>")
+                return_type = type_to_ts(&outputs[0]);
+                is_result = return_type.starts_with("Result<");
             } else {
-                format!(
-                    ": Promise<[{}]>>",
-                    outputs.iter().map(type_to_ts).join(", ")
-                )
+                return_type = format!("[{}]", outputs.iter().map(type_to_ts).join(", "));
             };
             let ts_doc = doc_to_ts_doc(doc);
 
-            // let output_parser = outputs.get(0).map(scVal_to_type).unwrap_or_default();
             if is_result {
-                inner_return_type = inner_return_type
+                return_type = return_type
                     .strip_prefix("Result<")
                     .unwrap()
                     .strip_suffix('>')
                     .unwrap()
                     .to_owned();
+                return_type = format!("Ok<{return_type}> | Err<Error_> | undefined");
             }
 
             let mut output = outputs
                 .get(0)
                 .map(|type_| {
                     if let Type::Custom { name } = type_ {
-                        format!("{name}FromXdr(response.xdr)")
+                        format!("{name}FromXdr(xdr)")
                     } else {
-                        format!("scValStrToJs(response.xdr) as {inner_return_type}")
+                        format!("scValStrToJs(xdr)")
                     }
                 })
                 .unwrap_or_default();
             if is_result {
                 output = format!("new Ok({output})");
             }
-            let mut output = format!(
-                r#"
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return {output};"#
-            );
+            if return_type != "void" {
+                output = format!(r#"return {output};"#)
+            };
             if is_result {
                 output = format!(
-                    r#"
-    try {{
-        {output}
-    }} catch (e) {{
-        //@ts-ignore
-        let err = getError(e.message);
-        if (err) {{
-            return err;
-        }} else {{
-            throw e;
-        }}
-    }}"#
+                    r#"try {{
+                {output}
+            }} catch (e) {{
+                //@ts-ignore
+                let err = getError(e.message);
+                if (err) {{
+                    return err;
+                }} else {{
+                    throw e;
+                }}
+            }}"#
                 );
             }
+            let parse_result_xdr = if return_type == "void" {
+                r#"parseResultXdr: () => {}"#.to_owned()
+            } else {
+                format!(
+                    r#"parseResultXdr: (xdr): {return_type} => {{
+            {output}
+        }}"#
+                )
+            };
+            let js_name = jsify_name(name);
+            let options = method_options(&return_type);
             let args = (!inputs.is_empty())
-                .then(|| format!("args: [{args}], "))
+                .then(|| format!("args: [{args}],\n        "))
                 .unwrap_or_default();
             format!(
-                r#"{ts_doc}export async function {name}({input} {{signAndSend, fee}}: {{signAndSend?: boolean, fee?: number}} = {{signAndSend: false, fee: 100}}){return_type} {{
-    let invokeArgs: InvokeArgs = {{
-        signAndSend,
-        fee,
-        method: '{name}', 
-        {args}
-    }};
-    {output}
+                r#"{ts_doc}export async function {js_name}<R extends ResponseTypes = undefined>({input}options: {options} = {{}}) {{
+    return await invoke({{
+        method: '{name}',
+        {args}...options,
+        {parse_result_xdr},
+    }});
 }}
 "#
             )
