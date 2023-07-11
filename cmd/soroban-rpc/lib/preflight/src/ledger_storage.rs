@@ -16,6 +16,7 @@ extern "C" {
     fn SnapshotSourceGet(
         handle: libc::uintptr_t,
         ledger_key: *const libc::c_char,
+        include_expired: libc::c_int,
     ) -> *const libc::c_char;
     // TODO: this function is unnecessary, we can just look for null in SnapshotSourceGet
     // LedgerKey XDR in base64 string to bool
@@ -62,10 +63,16 @@ pub(crate) struct LedgerStorage {
 }
 
 impl LedgerStorage {
-    fn get_xdr_base64(&self, key: &LedgerKey) -> Result<String, Error> {
+    fn get_xdr_base64(&self, key: &LedgerKey, include_expired: bool) -> Result<String, Error> {
         let key_xdr = key.to_xdr_base64()?;
         let key_cstr = CString::new(key_xdr)?;
-        let res = unsafe { SnapshotSourceGet(self.golang_handle, key_cstr.as_ptr()) };
+        let res = unsafe {
+            SnapshotSourceGet(
+                self.golang_handle,
+                key_cstr.as_ptr(),
+                include_expired.into(),
+            )
+        };
         if res.is_null() {
             return Err(Error::NotFound);
         }
@@ -79,21 +86,21 @@ impl LedgerStorage {
         Ok(str)
     }
 
-    pub fn get(&self, key: &LedgerKey) -> Result<LedgerEntry, Error> {
-        let base64_str = self.get_xdr_base64(key)?;
+    pub fn get(&self, key: &LedgerKey, include_expired: bool) -> Result<LedgerEntry, Error> {
+        let base64_str = self.get_xdr_base64(key, include_expired)?;
         let entry = LedgerEntry::from_xdr_base64(base64_str)?;
         Ok(entry)
     }
 
-    pub fn get_xdr(&self, key: &LedgerKey) -> Result<Vec<u8>, Error> {
-        let base64_str = self.get_xdr_base64(key)?;
+    pub fn get_xdr(&self, key: &LedgerKey, include_expired: bool) -> Result<Vec<u8>, Error> {
+        let base64_str = self.get_xdr_base64(key, include_expired)?;
         Ok(base64::decode(base64_str)?)
     }
 }
 
 impl SnapshotSource for LedgerStorage {
     fn get(&self, key: &Rc<LedgerKey>) -> Result<Rc<LedgerEntry>, HostError> {
-        let entry = self.get(key).map_err(|e| Error::to_host_error(&e))?;
+        let entry = self.get(key, false).map_err(|e| Error::to_host_error(&e))?;
         Ok(entry.into())
     }
 

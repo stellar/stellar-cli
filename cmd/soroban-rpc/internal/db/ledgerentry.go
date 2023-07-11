@@ -25,7 +25,7 @@ type LedgerEntryReader interface {
 
 type LedgerEntryReadTx interface {
 	GetLatestLedgerSequence() (uint32, error)
-	GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error)
+	GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error)
 	Done() error
 }
 
@@ -181,7 +181,7 @@ func (l *ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
 	return latestLedgerSeq, err
 }
 
-func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
 	encodedKey, err := encodeLedgerKey(l.buffer, key)
 	if err != nil {
 		return false, xdr.LedgerEntry{}, err
@@ -208,14 +208,15 @@ func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerE
 
 	// Disallow access to entries that have expired. Expiration excludes the
 	// "current" ledger, which we are building.
-	// TODO: Support allowing access, but recording for simulateTransaction
-	if expirationLedgerSeq, ok := result.Data.ExpirationLedgerSeq(); ok {
-		latestClosedLedger, err := l.GetLatestLedgerSequence()
-		if err != nil {
-			return false, xdr.LedgerEntry{}, err
-		}
-		if expirationLedgerSeq <= xdr.Uint32(latestClosedLedger) {
-			return false, xdr.LedgerEntry{}, nil
+	if !includeExpired {
+		if expirationLedgerSeq, ok := result.Data.ExpirationLedgerSeq(); ok {
+			latestClosedLedger, err := l.GetLatestLedgerSequence()
+			if err != nil {
+				return false, xdr.LedgerEntry{}, err
+			}
+			if expirationLedgerSeq <= xdr.Uint32(latestClosedLedger) {
+				return false, xdr.LedgerEntry{}, nil
+			}
 		}
 	}
 
