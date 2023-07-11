@@ -5,7 +5,7 @@
         "@stellar/freighter-api": "1.5.0",
         "bigint-conversion": "2.4.1",
         "buffer": "6.0.3",
-        "soroban-client": "github:stellar/js-soroban-client#v0.9.0"
+        "soroban-client": "github:stellar/js-soroban-client#8554b7aff30c91beca7aa89393a81cac9e29894e"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
