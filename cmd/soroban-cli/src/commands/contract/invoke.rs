@@ -382,7 +382,7 @@ impl Cmd {
         let footprint = &create_ledger_footprint(&storage.footprint);
         log_events(
             footprint,
-            &vec![contract_auth.try_into()?],
+            &[contract_auth.try_into()?],
             &events.0,
             Some(&budget),
         );
