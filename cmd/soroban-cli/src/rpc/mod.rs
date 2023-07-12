@@ -142,7 +142,7 @@ pub struct LedgerEntryResult {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLedgerEntriesResponse {
-    pub entries: Vec<LedgerEntryResult>,
+    pub entries: Option<Vec<LedgerEntryResult>>,
     #[serde(rename = "latestLedger")]
     pub latest_ledger: String,
 }
@@ -447,10 +447,11 @@ impl Client {
         });
         let keys = Vec::from([key]);
         let response = self.get_ledger_entries(keys).await?;
-        if response.entries.is_empty() {
+        let entries = response.entries.unwrap_or_default();
+        if entries.is_empty() {
             return Err(Error::MissingResult);
         }
-        let ledger_entry = &response.entries[0];
+        let ledger_entry = &entries[0];
         if let LedgerEntryData::Account(entry) =
             LedgerEntryData::read_xdr_base64(&mut ledger_entry.xdr.as_bytes())?
         {
@@ -653,10 +654,11 @@ impl Client {
             body_type: xdr::ContractEntryBodyType::DataEntry,
         });
         let contract_ref = self.get_ledger_entries(Vec::from([contract_key])).await?;
-        if contract_ref.entries.is_empty() {
+        let entries = contract_ref.entries.unwrap_or_default();
+        if entries.is_empty() {
             return Err(Error::MissingResult);
         }
-        let contract_ref_entry = &contract_ref.entries[0];
+        let contract_ref_entry = &entries[0];
         match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
             LedgerEntryData::ContractData(contract_data) => Ok(contract_data),
             scval => Err(Error::UnexpectedContractCodeDataType(scval)),
@@ -687,10 +689,11 @@ impl Client {
             body_type: xdr::ContractEntryBodyType::DataEntry,
         });
         let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
-        if contract_data.entries.is_empty() {
+        let entries = contract_data.entries.unwrap_or_default();
+        if entries.is_empty() {
             return Err(Error::MissingResult);
         }
-        let contract_data_entry = &contract_data.entries[0];
+        let contract_data_entry = &entries[0];
         match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
             LedgerEntryData::ContractCode(xdr::ContractCodeEntry {
                 body: xdr::ContractCodeEntryBody::DataEntry(code),
