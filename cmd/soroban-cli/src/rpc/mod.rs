@@ -446,7 +446,7 @@ impl Client {
             ))),
         });
         let keys = Vec::from([key]);
-        let response = self.get_ledger_entries(keys).await?;
+        let response = self.get_ledger_entries(&keys).await?;
         let entries = response.entries.unwrap_or_default();
         if entries.is_empty() {
             return Err(Error::MissingResult);
@@ -587,10 +587,10 @@ impl Client {
 
     pub async fn get_ledger_entries(
         &self,
-        keys: Vec<LedgerKey>,
+        keys: &[LedgerKey],
     ) -> Result<GetLedgerEntriesResponse, Error> {
         let mut base64_keys: Vec<String> = vec![];
-        for k in &keys {
+        for k in keys {
             let base64_result = k.to_xdr_base64();
             if base64_result.is_err() {
                 return Err(Error::Xdr(XdrError::Invalid));
@@ -653,7 +653,7 @@ impl Client {
             durability: xdr::ContractDataDurability::Persistent,
             body_type: xdr::ContractEntryBodyType::DataEntry,
         });
-        let contract_ref = self.get_ledger_entries(Vec::from([contract_key])).await?;
+        let contract_ref = self.get_ledger_entries(&[contract_key]).await?;
         let entries = contract_ref.entries.unwrap_or_default();
         if entries.is_empty() {
             return Err(Error::MissingResult);
@@ -688,7 +688,7 @@ impl Client {
             hash,
             body_type: xdr::ContractEntryBodyType::DataEntry,
         });
-        let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
+        let contract_data = self.get_ledger_entries(&[code_key]).await?;
         let entries = contract_data.entries.unwrap_or_default();
         if entries.is_empty() {
             return Err(Error::MissingResult);
