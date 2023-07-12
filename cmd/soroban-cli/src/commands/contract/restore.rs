@@ -5,7 +5,8 @@ use soroban_env_host::xdr::{
     ContractDataDurability, ContractEntryBodyType, Error as XdrError, ExtensionPoint, Hash,
     LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
     OperationBody, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal,
-    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt, Uint256,
+    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionMeta, TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -66,6 +67,8 @@ pub enum Error {
     KeyIsRequired,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+    #[error("Ledger entry not found")]
+    LedgerEntryNotFound,
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error("missing operation result")]
@@ -127,7 +130,7 @@ impl Cmd {
             }),
         };
 
-        let (result, _meta, events) = client
+        let (result, meta, events) = client
             .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
             .await?;
 
@@ -135,6 +138,18 @@ impl Cmd {
         if !events.is_empty() {
             tracing::debug!(?events);
         }
+
+        // The transaction from core will succeed regardless of whether it actually found & bumped
+        // the entry, so we have to inspect the result meta to tell if it worked or not.
+        if let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta {
+            // Simply check if there is exactly one entry here. We only support bumping a single
+            // entry via this command (which we should fix separately, but).
+            if operations.len() == 0 {
+                return Err(Error::LedgerEntryNotFound);
+            }
+        } else {
+            return Err(Error::LedgerEntryNotFound);
+        };
 
         Ok(())
     }
