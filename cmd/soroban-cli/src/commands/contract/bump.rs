@@ -2,11 +2,12 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, ContractEntryBodyType, Error as XdrError, ExtensionPoint, Hash,
-    LedgerEntry, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo,
-    MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr, ScAddress, ScSpecTypeDef,
-    ScVal, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-    TransactionMeta, TransactionMetaV3, Uint256,
+    BumpFootprintExpirationOp, ContractDataEntry, ContractEntryBodyType, Error as XdrError,
+    ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
+    LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    ReadXdr, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources,
+    SorobanTransactionData, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
+    Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -86,14 +87,18 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        if self.config.is_no_network() {
-            self.run_in_sandbox()
+        let expiration_ledger_seq = if self.config.is_no_network() {
+            self.run_in_sandbox()?
         } else {
-            self.run_against_rpc_server().await
-        }
+            self.run_against_rpc_server().await?
+        };
+
+        println!("New expiration ledger: {expiration_ledger_seq}");
+
+        Ok(())
     }
 
-    async fn run_against_rpc_server(&self) -> Result<(), Error> {
+    async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
@@ -148,20 +153,28 @@ impl Cmd {
 
         // The transaction from core will succeed regardless of whether it actually found & bumped
         // the entry, so we have to inspect the result meta to tell if it worked or not.
-        if let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta {
-            // Simply check if there is exactly one entry here. We only support bumping a single
-            // entry via this command (which we should fix separately, but).
-            if operations.len() == 0 {
-                return Err(Error::LedgerEntryNotFound);
-            }
-        } else {
+        let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
             return Err(Error::LedgerEntryNotFound);
         };
 
-        Ok(())
+        // Simply check if there is exactly one entry here. We only support bumping a single
+        // entry via this command (which we should fix separately, but).
+        if operations.len() == 0 {
+            return Err(Error::LedgerEntryNotFound);
+        }
+
+        if operations[0].changes.len() != 2 {
+            return Err(Error::LedgerEntryNotFound);
+        }
+
+        let (LedgerEntryChange::State(_state), LedgerEntryChange::Updated(LedgerEntry{ data: LedgerEntryData::ContractData(ContractDataEntry{expiration_ledger_seq, ..}), ..})) = (&operations[0].changes[0], &operations[0].changes[1]) else {
+            return Err(Error::LedgerEntryNotFound);
+        };
+
+        Ok(*expiration_ledger_seq)
     }
 
-    fn run_in_sandbox(&self) -> Result<(), Error> {
+    fn run_in_sandbox(&self) -> Result<u32, Error> {
         let contract_id = self.contract_id()?;
         let needle = self.parse_key(contract_id)?;
 
@@ -170,6 +183,7 @@ impl Cmd {
         let mut state = self.config.get_state()?;
 
         // Update all matching entries
+        let mut expiration_ledger_seq = None;
         state.ledger_entries = state
             .ledger_entries
             .iter()
@@ -179,7 +193,9 @@ impl Cmd {
                 (
                     Box::new(new_k.clone()),
                     Box::new(if needle == new_k {
-                        bump_entry(&new_v, self.ledgers_to_expire)
+                        let (new_v, new_expiration) = bump_entry(&new_v, self.ledgers_to_expire);
+                        expiration_ledger_seq = Some(new_expiration);
+                        new_v
                     } else {
                         new_v
                     }),
@@ -189,7 +205,11 @@ impl Cmd {
 
         self.config.set_state(&mut state)?;
 
-        Ok(())
+        let Some(new_expiration_ledger_seq) = expiration_ledger_seq else {
+            return Err(Error::LedgerEntryNotFound);
+        };
+
+        Ok(new_expiration_ledger_seq)
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
@@ -223,12 +243,15 @@ impl Cmd {
     }
 }
 
-fn bump_entry(v: &LedgerEntry, ledgers_to_expire: u32) -> LedgerEntry {
+fn bump_entry(v: &LedgerEntry, ledgers_to_expire: u32) -> (LedgerEntry, u32) {
     let mut new_v = v.clone();
+    let mut new_expiration_ledger_seq = 0;
     if let LedgerEntryData::ContractData(ref mut data) = new_v.data {
         data.expiration_ledger_seq += ledgers_to_expire;
+        new_expiration_ledger_seq = data.expiration_ledger_seq;
     } else if let LedgerEntryData::ContractCode(ref mut code) = new_v.data {
         code.expiration_ledger_seq += ledgers_to_expire;
+        new_expiration_ledger_seq = code.expiration_ledger_seq;
     }
-    new_v
+    (new_v, new_expiration_ledger_seq)
 }
