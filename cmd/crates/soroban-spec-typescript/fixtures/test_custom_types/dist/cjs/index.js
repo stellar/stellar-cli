@@ -136,7 +136,7 @@ var RoyalCard;
     RoyalCard[RoyalCard["Jack"] = 11] = "Jack";
     RoyalCard[RoyalCard["Queen"] = 12] = "Queen";
     RoyalCard[RoyalCard["King"] = 13] = "King";
-})(RoyalCard = exports.RoyalCard || (exports.RoyalCard = {}));
+})(RoyalCard || (exports.RoyalCard = RoyalCard = {}));
 function RoyalCardFromXdr(base64Xdr) {
     return (0, convert_js_1.scValStrToJs)(base64Xdr);
 }
