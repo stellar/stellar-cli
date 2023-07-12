@@ -32,7 +32,7 @@ function scValToJs(val) {
         case soroban_client_1.xdr.ScValType.scvI128():
         case soroban_client_1.xdr.ScValType.scvU256():
         case soroban_client_1.xdr.ScValType.scvI256(): {
-            return scValToBigInt(val);
+            return (0, soroban_client_1.scValToBigInt)(val);
         }
         case soroban_client_1.xdr.ScValType.scvAddress(): {
             return soroban_client_1.Address.fromScVal(val).toString();
