@@ -1,24 +1,26 @@
-use std::{io::ErrorKind, path::Path};
+use std::{collections::HashMap, io::ErrorKind, path::Path};
 
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{
-    Asset, HashIdPreimage, HashIdPreimageFromAsset, UploadContractWasmArgs,
-};
+
 use soroban_env_host::{
     budget::Budget,
+    expiration_ledger_bumps::ExpirationLedgerBumps,
     storage::{AccessType, Footprint, Storage},
     xdr::{
-        AccountEntry, AccountEntryExt, AccountId, ContractCodeEntry, ContractDataEntry,
-        DecoratedSignature, Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryData,
-        LedgerEntryExt, LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData,
-        ScContractExecutable, ScSpecEntry, ScVal, SequenceNumber, Signature, SignatureHint,
-        String32, Thresholds, Transaction, TransactionEnvelope, TransactionSignaturePayload,
+        AccountEntry, AccountEntryExt, AccountId, Asset, ContractCodeEntry, ContractCodeEntryBody,
+        ContractDataDurability, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData,
+        ContractEntryBodyType, ContractExecutable, ContractIdPreimage, DecoratedSignature,
+        Error as XdrError, ExtensionPoint, Hash, HashIdPreimage, HashIdPreimageContractId,
+        LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
+        LedgerKeyContractCode, LedgerKeyContractData, ScAddress, ScContractInstance, ScSpecEntry,
+        ScVal, SequenceNumber, Signature, SignatureHint, String32, Thresholds, Transaction,
+        TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
     },
 };
 use soroban_ledger_snapshot::LedgerSnapshot;
-use soroban_sdk::token::Spec;
+use soroban_sdk::token;
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::ed25519::PrivateKey;
 
@@ -30,11 +32,7 @@ pub mod contract_spec;
 ///
 /// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
-    let args_xdr = UploadContractWasmArgs {
-        code: contract.try_into()?,
-    }
-    .to_xdr()?;
-    Ok(Hash(Sha256::digest(args_xdr).into()))
+    Ok(Hash(Sha256::digest(contract).into()))
 }
 
 /// # Errors
@@ -48,6 +46,13 @@ pub fn ledger_snapshot_read_or_default(
         Err(soroban_ledger_snapshot::Error::Io(e)) if e.kind() == ErrorKind::NotFound => {
             Ok(LedgerSnapshot {
                 network_id: sandbox_network_id(),
+                // These three "defaults" are not part of the actual default definition in
+                // rs-soroban-sdk, but if we don't have them the sandbox doesn't work right.
+                // Oof.
+                // TODO: Remove this hacky workaround.
+                min_persistent_entry_expiration: 4096,
+                min_temp_entry_expiration: 16,
+                max_entry_expiration: 6_312_000,
                 ..Default::default()
             })
         }
@@ -61,16 +66,21 @@ pub fn ledger_snapshot_read_or_default(
 pub fn add_contract_code_to_ledger_entries(
     entries: &mut Vec<(Box<LedgerKey>, Box<LedgerEntry>)>,
     contract: Vec<u8>,
+    min_persistent_entry_expiration: u32,
 ) -> Result<Hash, XdrError> {
     // Install the code
     let hash = contract_hash(contract.as_slice())?;
-    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() });
+    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode {
+        hash: hash.clone(),
+        body_type: ContractEntryBodyType::DataEntry,
+    });
     let code_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractCode(ContractCodeEntry {
-            code: contract.try_into()?,
             ext: ExtensionPoint::V0,
             hash: hash.clone(),
+            body: ContractCodeEntryBody::DataEntry(contract.try_into()?),
+            expiration_ledger_seq: min_persistent_entry_expiration,
         }),
         ext: LedgerEntryExt::V0,
     };
@@ -88,19 +98,30 @@ pub fn add_contract_to_ledger_entries(
     entries: &mut Vec<(Box<LedgerKey>, Box<LedgerEntry>)>,
     contract_id: [u8; 32],
     wasm_hash: [u8; 32],
+    min_persistent_entry_expiration: u32,
 ) {
     // Create the contract
     let contract_key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: contract_id.into(),
-        key: ScVal::LedgerKeyContractExecutable,
+        contract: ScAddress::Contract(contract_id.into()),
+        key: ScVal::LedgerKeyContractInstance,
+        durability: ContractDataDurability::Persistent,
+        body_type: ContractEntryBodyType::DataEntry,
     });
 
     let contract_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractData(ContractDataEntry {
-            contract_id: contract_id.into(),
-            key: ScVal::LedgerKeyContractExecutable,
-            val: ScVal::ContractExecutable(ScContractExecutable::WasmRef(Hash(wasm_hash))),
+            contract: ScAddress::Contract(contract_id.into()),
+            key: ScVal::LedgerKeyContractInstance,
+            durability: ContractDataDurability::Persistent,
+            body: ContractDataEntryBody::DataEntry(ContractDataEntryData {
+                flags: 0,
+                val: ScVal::ContractInstance(ScContractInstance {
+                    executable: ContractExecutable::Wasm(Hash(wasm_hash)),
+                    storage: None,
+                }),
+            }),
+            expiration_ledger_seq: min_persistent_entry_expiration,
         }),
         ext: LedgerEntryExt::V0,
     };
@@ -111,6 +132,24 @@ pub fn add_contract_to_ledger_entries(
         }
     }
     entries.push((Box::new(contract_key), Box::new(contract_entry)));
+}
+
+pub fn bump_ledger_entry_expirations(
+    entries: &mut [(Box<LedgerKey>, Box<LedgerEntry>)],
+    bumps: &ExpirationLedgerBumps,
+) {
+    // let lookup: HashMap<LedgerKey, u32> = bumps
+    let lookup = bumps
+        .iter()
+        .map(|b| (b.key.as_ref().clone(), b.min_expiration))
+        .collect::<HashMap<_, _>>();
+    for (k, e) in entries.iter_mut() {
+        if let Some(min_expiration) = lookup.get(k.as_ref()) {
+            if let LedgerEntryData::ContractData(entry) = &mut e.data {
+                entry.expiration_ledger_seq = *min_expiration;
+            }
+        }
+    }
 }
 
 /// # Errors
@@ -167,37 +206,64 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
 /// Might return an error
 pub fn get_contract_spec_from_storage(
     storage: &mut Storage,
+    current_ledger_seq: &u32,
     contract_id: [u8; 32],
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: contract_id.into(),
-        key: ScVal::LedgerKeyContractExecutable,
+        contract: ScAddress::Contract(contract_id.into()),
+        key: ScVal::LedgerKeyContractInstance,
+        body_type: ContractEntryBodyType::DataEntry,
+        durability: ContractDataDurability::Persistent,
     });
     match storage.get(&key.into(), &Budget::default()) {
         Ok(rc) => match rc.as_ref() {
             LedgerEntry {
                 data:
                     LedgerEntryData::ContractData(ContractDataEntry {
-                        val: ScVal::ContractExecutable(c),
+                        body:
+                            ContractDataEntryBody::DataEntry(ContractDataEntryData {
+                                val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
+                                ..
+                            }),
+                        expiration_ledger_seq,
                         ..
                     }),
                 ..
-            } => match c {
-                ScContractExecutable::Token => {
-                    let res = soroban_spec::read::parse_raw(&Spec::spec_xdr());
+            } => match executable {
+                ContractExecutable::Token => {
+                    if expiration_ledger_seq <= current_ledger_seq {
+                        return Err(FromWasmError::NotFound);
+                    }
+                    let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
                     res.map_err(FromWasmError::Parse)
                 }
-                ScContractExecutable::WasmRef(hash) => {
+                ContractExecutable::Wasm(hash) => {
+                    if expiration_ledger_seq <= current_ledger_seq {
+                        return Err(FromWasmError::NotFound);
+                    }
                     if let Ok(rc) = storage.get(
-                        &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() })
-                            .into(),
+                        &LedgerKey::ContractCode(LedgerKeyContractCode {
+                            hash: hash.clone(),
+                            body_type: ContractEntryBodyType::DataEntry,
+                        })
+                        .into(),
                         &Budget::default(),
                     ) {
                         match rc.as_ref() {
                             LedgerEntry {
-                                data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
+                                data:
+                                    LedgerEntryData::ContractCode(ContractCodeEntry {
+                                        body: ContractCodeEntryBody::DataEntry(code),
+                                        expiration_ledger_seq,
+                                        ..
+                                    }),
                                 ..
-                            } => soroban_spec::read::from_wasm(code.as_vec()),
+                            } => {
+                                if expiration_ledger_seq <= current_ledger_seq {
+                                    return Err(FromWasmError::NotFound);
+                                }
+                                soroban_spec::read::from_wasm(code.as_vec())
+                            }
                             _ => Err(FromWasmError::NotFound),
                         }
                     } else {
@@ -303,9 +369,9 @@ pub fn contract_id_hash_from_asset(
             .try_into()
             .unwrap(),
     );
-    let preimage = HashIdPreimage::ContractIdFromAsset(HashIdPreimageFromAsset {
+    let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
-        asset: asset.clone(),
+        contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
     });
     let preimage_xdr = preimage.to_xdr()?;
     Ok(Hash(Sha256::digest(preimage_xdr).into()))

@@ -3,6 +3,7 @@ package preflight
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime/cgo"
 	"time"
 	"unsafe"
@@ -38,14 +39,14 @@ type snapshotSourceHandle struct {
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceGet
-func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char) *C.char {
+func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char, includeExpired C.int) *C.char {
 	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
 	ledgerKeyB64 := C.GoString(cLedgerKey)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey)
+	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey, includeExpired != 0)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
 		return nil
@@ -71,7 +72,7 @@ func SnapshotSourceHas(handle C.uintptr_t, cLedgerKey *C.char) C.int {
 	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, _, err := h.readTx.GetLedgerEntry(ledgerKey)
+	present, _, err := h.readTx.GetLedgerEntry(ledgerKey, false)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceHas(): GetLedgerEntry() failed")
 		return 0
@@ -88,23 +89,20 @@ func FreeGoCString(str *C.char) {
 }
 
 type PreflightParameters struct {
-	Logger             *log.Entry
-	SourceAccount      xdr.AccountId
-	InvokeHostFunction xdr.InvokeHostFunctionOp
-	NetworkPassphrase  string
-	LedgerEntryReadTx  db.LedgerEntryReadTx
-}
-
-type HostFunctionPreflight struct {
-	Result string   // XDR SCVal in base64
-	Auth   []string // ContractAuths XDR in base64
+	Logger            *log.Entry
+	SourceAccount     xdr.AccountId
+	OpBody            xdr.OperationBody
+	Footprint         xdr.LedgerFootprint
+	NetworkPassphrase string
+	LedgerEntryReadTx db.LedgerEntryReadTx
 }
 
 type Preflight struct {
 	Events          []string // DiagnosticEvents XDR in base64
 	TransactionData string   // SorobanTransactionData XDR in base64
 	MinFee          int64
-	Results         []HostFunctionPreflight
+	Result          string   // XDR SCVal in base64
+	Auth            []string // SorobanAuthorizationEntrys XDR in base64
 	CPUInstructions uint64
 	MemoryBytes     uint64
 }
@@ -128,7 +126,46 @@ func GoNullTerminatedStringSlice(str **C.char) []string {
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
-	invokeHostFunctionB64, err := xdr.MarshalBase64(params.InvokeHostFunction)
+	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
+	defer handle.Delete()
+	switch params.OpBody.Type {
+	case xdr.OperationTypeInvokeHostFunction:
+		return getInvokeHostFunctionPreflight(params)
+	case xdr.OperationTypeBumpFootprintExpiration, xdr.OperationTypeRestoreFootprint:
+		return getFootprintExpirationPreflight(params)
+	default:
+		return Preflight{}, fmt.Errorf("unsupported operation type: %s", params.OpBody.Type.String())
+	}
+}
+
+func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, error) {
+	opBodyB64, err := xdr.MarshalBase64(params.OpBody)
+	if err != nil {
+		return Preflight{}, err
+	}
+	opBodyCString := C.CString(opBodyB64)
+	footprintB64, err := xdr.MarshalBase64(params.Footprint)
+	if err != nil {
+		return Preflight{}, err
+	}
+	footprintCString := C.CString(footprintB64)
+	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
+	defer handle.Delete()
+
+	res := C.preflight_footprint_expiration_op(
+		C.uintptr_t(handle),
+		opBodyCString,
+		footprintCString,
+	)
+
+	C.free(unsafe.Pointer(opBodyCString))
+	C.free(unsafe.Pointer(footprintCString))
+
+	return GoPreflight(res)
+}
+
+func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, error) {
+	invokeHostFunctionB64, err := xdr.MarshalBase64(params.OpBody.MustInvokeHostFunctionOp())
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -141,13 +178,36 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	if err != nil {
 		return Preflight{}, err
 	}
+
+	hasConfig, stateExpirationConfig, err := params.LedgerEntryReadTx.GetLedgerEntry(xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeConfigSetting,
+		ConfigSetting: &xdr.LedgerKeyConfigSetting{
+			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
+		},
+	}, false)
+	if err != nil {
+		return Preflight{}, err
+	}
+	minTempEntryExpiration := uint32(0)
+	minPersistentEntryExpiration := uint32(0)
+	maxEntryExpiration := uint32(0)
+	if hasConfig {
+		setting := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
+		minTempEntryExpiration = uint32(setting.MinTempEntryExpiration)
+		minPersistentEntryExpiration = uint32(setting.MinPersistentEntryExpiration)
+		maxEntryExpiration = uint32(setting.MaxEntryExpiration)
+	}
+
 	li := C.CLedgerInfo{
 		network_passphrase: C.CString(params.NetworkPassphrase),
 		sequence_number:    C.uint(latestLedger),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
-		base_reserve: 5_000_000,
+		base_reserve:                    5_000_000,
+		min_temp_entry_expiration:       C.uint(minTempEntryExpiration),
+		min_persistent_entry_expiration: C.uint(minPersistentEntryExpiration),
+		max_entry_expiration:            C.uint(maxEntryExpiration),
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)
@@ -161,28 +221,25 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	)
 	C.free(unsafe.Pointer(invokeHostFunctionCString))
 	C.free(unsafe.Pointer(sourceAccountCString))
-	defer C.free_preflight_result(res)
 
-	if res.error != nil {
-		return Preflight{}, errors.New(C.GoString(res.error))
-	}
+	return GoPreflight(res)
+}
 
-	cHostFunctionPreflights := (*[1 << 20]C.CHostFunctionPreflight)(unsafe.Pointer(res.results))[:res.results_size:res.results_size]
-	hostFunctionPreflights := make([]HostFunctionPreflight, len(cHostFunctionPreflights))
-	for i, cHostFunctionPreflight := range cHostFunctionPreflights {
-		hostFunctionPreflights[i] = HostFunctionPreflight{
-			Result: C.GoString(cHostFunctionPreflight.result),
-			Auth:   GoNullTerminatedStringSlice(cHostFunctionPreflight.auth),
-		}
+func GoPreflight(result *C.CPreflightResult) (Preflight, error) {
+	defer C.free_preflight_result(result)
+
+	if result.error != nil {
+		return Preflight{}, errors.New(C.GoString(result.error))
 	}
 
 	preflight := Preflight{
-		Events:          GoNullTerminatedStringSlice(res.events),
-		TransactionData: C.GoString(res.transaction_data),
-		MinFee:          int64(res.min_fee),
-		Results:         hostFunctionPreflights,
-		CPUInstructions: uint64(res.cpu_instructions),
-		MemoryBytes:     uint64(res.memory_bytes),
+		Events:          GoNullTerminatedStringSlice(result.events),
+		TransactionData: C.GoString(result.transaction_data),
+		MinFee:          int64(result.min_fee),
+		Result:          C.GoString(result.result),
+		Auth:            GoNullTerminatedStringSlice(result.auth),
+		CPUInstructions: uint64(result.cpu_instructions),
+		MemoryBytes:     uint64(result.memory_bytes),
 	}
 	return preflight, nil
 }

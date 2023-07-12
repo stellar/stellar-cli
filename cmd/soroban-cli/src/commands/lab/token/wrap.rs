@@ -3,10 +3,11 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        Asset, ContractId, CreateContractArgs, Error as XdrError, Hash, HostFunction,
-        HostFunctionArgs, InvokeHostFunctionOp, LedgerKey::ContractData, LedgerKeyContractData,
-        Memo, MuxedAccount, Operation, OperationBody, Preconditions, ScContractExecutable, ScVal,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
+        Asset, ContractDataDurability, ContractEntryBodyType, ContractExecutable,
+        ContractIdPreimage, CreateContractArgs, Error as XdrError, Hash, HostFunction,
+        InvokeHostFunctionOp, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount,
+        Operation, OperationBody, Preconditions, ScAddress, ScVal, SequenceNumber, Transaction,
+        TransactionExt, Uint256, VecM,
     },
     Host, HostError,
 };
@@ -88,15 +89,12 @@ impl Cmd {
         ledger_info.timestamp += 5;
         h.set_ledger_info(ledger_info);
 
-        let res = h.invoke_functions(vec![HostFunction {
-            args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                contract_id: ContractId::Asset(asset.clone()),
-                executable: ScContractExecutable::Token,
-            }),
-            auth: VecM::default(),
-        }])?;
+        let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
+            contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+            executable: ContractExecutable::Token,
+        }))?;
 
-        let contract_id = vec_to_hash(&res[0])?;
+        let contract_id = vec_to_hash(&res)?;
 
         state.update(&h);
         self.config.set_state(&mut state)?;
@@ -106,6 +104,9 @@ impl Cmd {
     async fn run_against_rpc_server(&self, asset: Asset) -> Result<String, Error> {
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
@@ -155,38 +156,42 @@ fn build_wrap_token_tx(
     _network_passphrase: &str,
     key: &ed25519_dalek::Keypair,
 ) -> Result<Transaction, Error> {
+    let contract = ScAddress::Contract(contract_id.clone());
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
-            contract_id: contract_id.clone(),
-            key: ScVal::LedgerKeyContractExecutable,
+            contract: contract.clone(),
+            key: ScVal::LedgerKeyContractInstance,
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }),
         ContractData(LedgerKeyContractData {
-            contract_id: contract_id.clone(),
+            contract: contract.clone(),
             key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
             )),
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }),
     ];
     if asset != &Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
-            contract_id: contract_id.clone(),
+            contract,
             key: ScVal::Vec(Some(
                 vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
             )),
+            durability: ContractDataDurability::Persistent,
+            body_type: ContractEntryBodyType::DataEntry,
         }));
     }
 
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            functions: vec![HostFunction {
-                args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                    contract_id: ContractId::Asset(asset.clone()),
-                    executable: ScContractExecutable::Token,
-                }),
-                auth: VecM::default(),
-            }]
-            .try_into()?,
+            host_function: HostFunction::CreateContract(CreateContractArgs {
+                contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+                executable: ContractExecutable::Token,
+            }),
+            auth: VecM::default(),
         }),
     };
 

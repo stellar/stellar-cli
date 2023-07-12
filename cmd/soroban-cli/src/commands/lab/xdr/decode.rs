@@ -1,11 +1,21 @@
-use clap::{arg, Parser, ValueEnum};
+use clap::{
+    arg,
+    builder::{PossibleValuesParser, TypedValueParser},
+    Parser, ValueEnum,
+};
+use core::str::FromStr;
 use soroban_env_host::xdr;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// XDR type to decode to
-    #[arg(long, value_parser(xdr::TypeVariant::VARIANTS_STR))]
+    #[arg(
+        long,
+        value_parser =
+            PossibleValuesParser::new(xdr::TypeVariant::VARIANTS_STR)
+                .try_map(|s| xdr::TypeVariant::from_str(&s))
+    )]
     r#type: xdr::TypeVariant,
     /// XDR (base64 encoded) to decode
     #[arg(long)]

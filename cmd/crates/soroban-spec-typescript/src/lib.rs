@@ -62,7 +62,14 @@ pub fn generate_from_wasm(wasm: &[u8]) -> Result<String, FromWasmError> {
 }
 
 pub fn generate(spec: &[ScSpecEntry]) -> String {
-    let collected: Vec<_> = spec.iter().map(Entry::from).collect();
+    let mut collected: Vec<_> = spec.iter().map(Entry::from).collect();
+    if !spec.iter().any(is_error_enum) {
+        collected.push(Entry::ErrorEnum {
+            doc: String::new(),
+            name: "Error".to_string(),
+            cases: vec![],
+        });
+    }
     collected.iter().map(entry_to_ts).join("\n")
 }
 
@@ -79,6 +86,11 @@ fn doc_to_ts_doc(doc: &str) -> String {
         )
     }
 }
+
+fn is_error_enum(entry: &ScSpecEntry) -> bool {
+    matches!(entry, ScSpecEntry::UdtErrorEnumV0(_))
+}
+
 #[allow(clippy::too_many_lines)]
 pub fn entry_to_ts(entry: &Entry) -> String {
     match entry {
@@ -190,7 +202,7 @@ pub fn entry_to_ts(entry: &Entry) -> String {
   {fields}
 }}
 
-function {name}ToXDR({arg_name}?: {name}): xdr.ScVal {{
+function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
     if (!{arg_name}) {{
         return {void};
     }}
@@ -201,9 +213,9 @@ function {name}ToXDR({arg_name}?: {name}): xdr.ScVal {{
 }}
 
 
-function {name}FromXDR(base64Xdr: string): {name} {{
-    let scVal = xdr.ScVal.fromXDR(Buffer.from(base64Xdr, 'base64'));
-    let obj: [string, any][] = scVal.map().map(e => [e.key().str() as string, e.val()]);
+function {name}FromXdr(base64Xdr: string): {name} {{
+    let scVal = strToScVal(base64Xdr);
+    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
     let map = new Map<string, any>(obj);
     if (!obj) {{
         throw new Error('Invalid XDR');
@@ -211,6 +223,37 @@ function {name}FromXDR(base64Xdr: string): {name} {{
     return {{
         {decoded_fields}
     }};
+}}
+"#
+            )
+        }
+
+        Entry::TupleStruct { doc, name, fields } => {
+            let docs = doc_to_ts_doc(doc);
+            let arg_name = name.to_lower_camel_case();
+            let encoded_fields = fields
+                .iter()
+                .enumerate()
+                .map(|(i, t)| format!("(i => {})({arg_name}[{i}])", type_to_js_xdr(t),))
+                .join(",\n        ");
+            let fields = fields.iter().map(type_to_ts).join(",  ");
+            let void = type_to_js_xdr(&Type::Void);
+            format!(
+                r#"{docs}export type {name} = [{fields}];
+
+function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
+    if (!{arg_name}) {{
+        return {void};
+    }}
+    let arr = [
+        {encoded_fields}
+        ];
+    return xdr.ScVal.scvVec(arr);
+}}
+
+
+function {name}FromXdr(base64Xdr: string): {name} {{
+    return scValStrToJs(base64Xdr) as {name};
 }}
 "#
             )
@@ -226,7 +269,7 @@ function {name}FromXDR(base64Xdr: string): {name} {{
             format!(
                 r#"{doc}export type {name} = {cases};
 
-function {name}ToXDR({arg_name}?: {name}): xdr.ScVal {{
+function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
     if (!{arg_name}) {{
         return {void};
     }}
@@ -236,21 +279,20 @@ function {name}ToXDR({arg_name}?: {name}): xdr.ScVal {{
     }}
     return xdr.ScVal.scvVec(res);
 }}
+
+function {name}FromXdr(base64Xdr: string): {name} {{
+    type Tag = {name}["tag"];
+    type Value = {name}["values"];
+    let [tag, values] = strToScVal(base64Xdr).vec()!.map(scValToJs) as [Tag, Value];
+    if (!tag) {{
+        throw new Error('Missing enum tag when decoding {name} from XDR');
+    }}
+    return {{ tag, values }} as {name};
+}}
 "#
             )
         }
         Entry::Enum { doc, name, cases } => {
-            if name == "Error" {
-                let cases = cases
-                    .iter()
-                    .map(|c| format!("{{message:\"{}\"}}", c.doc))
-                    .join(",\n  ");
-                return format!(
-                    r#"const Errors = [ 
-  {cases}
-]"#
-                );
-            }
             let doc = doc_to_ts_doc(doc);
             let cases = cases.iter().map(enum_case_to_ts).join("\n  ");
             let name = (name == "Error")
@@ -261,10 +303,29 @@ function {name}ToXDR({arg_name}?: {name}): xdr.ScVal {{
   {cases}
 }}
 
-"#
+function {name}FromXdr(base64Xdr: string): {name} {{
+    return  scValStrToJs(base64Xdr) as {name};
+}}
+
+
+function {name}ToXdr(val: {name}): xdr.ScVal {{
+    return  xdr.ScVal.scvI32(val);
+}}
+"#,
             )
         }
-        Entry::ErrorEnum { .. } => todo!(),
+        Entry::ErrorEnum { doc, cases, .. } => {
+            let doc = doc_to_ts_doc(doc);
+            let cases = cases
+                .iter()
+                .map(|c| format!("{{message:\"{}\"}}", c.doc))
+                .join(",\n  ");
+            format!(
+                r#"{doc}const Errors = [ 
+{cases}
+]"#
+            )
+        }
     }
 }
 
@@ -272,7 +333,7 @@ fn js_to_xdr_fields(struct_name: &str, f: &[StructField]) -> String {
     f.iter()
         .map(|StructField {  name, value , .. }| {
             format!(
-                r#"new xdr.ScMapEntry({{key: ((i)=>{})("{name}"), val: ((i)=>{})({struct_name}.{name})}})"#,
+                r#"new xdr.ScMapEntry({{key: ((i)=>{})("{name}"), val: ((i)=>{})({struct_name}["{name}"])}})"#,
                 type_to_js_xdr(&Type::Symbol),
                 type_to_js_xdr(value),
             )
@@ -288,12 +349,12 @@ fn js_to_xdr_union_cases(arg_name: &str, f: &[UnionCase]) -> String {
                 type_to_js_xdr(&Type::Symbol)
             );
             if !values.is_empty() {
-                rhs = format!(
-                    "{rhs};\n            res.push(...((i) => {})({arg_name}.values))",
-                    type_to_js_xdr(&Type::Tuple {
-                        elements: values.clone()
-                    })
-                );
+                for (i, value) in values.iter().enumerate() {
+                    rhs = format!(
+                        "{rhs};\n            res.push(((i)=>{})({arg_name}.values[{i}]))",
+                        type_to_js_xdr(value)
+                    );
+                }
             };
             format!("case \"{name}\":\n            {rhs};\n            break;")
         })
@@ -307,16 +368,12 @@ fn enum_case_to_ts(case: &types::EnumCase) -> String {
 
 fn case_to_ts(case: &types::UnionCase) -> String {
     let types::UnionCase { name, values, .. } = case;
-    let mut inner: String = format!("tag: \"{name}\"");
-    if !values.is_empty() {
-        inner = format!(
-            "{inner}, values: {}",
-            type_to_ts(&Type::Tuple {
-                elements: values.clone(),
-            })
-        );
-    };
-    format!("{{{inner}}}")
+    format!(
+        "{{tag: \"{name}\", values: {}}}",
+        type_to_ts(&Type::Tuple {
+            elements: values.clone(),
+        })
+    )
 }
 
 fn field_to_ts(field: &types::StructField) -> String {
@@ -364,7 +421,10 @@ pub fn type_to_ts(value: &types::Type) -> String {
             }
         }
         types::Type::Custom { name } => name.clone(),
-        types::Type::Status | types::Type::Val => "any".to_owned(),
+        // TODO: Figure out what js type to map this to. There is already an `Error_` one that
+        // ahalabs have added in the bindings, so.. maybe rename that?
+        types::Type::Val => "any".to_owned(),
+        types::Type::Error { .. } => "Error_".to_owned(),
         types::Type::Address => "Address".to_string(),
         types::Type::Bytes | types::Type::BytesN { .. } => "Buffer".to_string(),
         types::Type::Void => "void".to_owned(),

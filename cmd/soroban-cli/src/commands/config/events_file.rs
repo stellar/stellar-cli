@@ -81,18 +81,7 @@ impl Args {
         };
 
         for (i, event) in new_events.iter().enumerate() {
-            let contract_event = match &event.event {
-                events::Event::Contract(e) => e,
-                events::Event::Debug(e) => {
-                    tracing::trace!("debug events unsupported: {e:#?}");
-                    continue;
-                }
-                events::Event::StructuredDebug(e) => {
-                    tracing::trace!("structured debug events unsupported: {e:#?}");
-                    continue;
-                }
-            };
-
+            let contract_event = &event.event;
             let topic = match &contract_event.body {
                 xdr::ContractEventBody::V0(e) => &e.topics,
             }

@@ -27,13 +27,19 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractIDHash := xdr.Hash(contractID)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
-			ContractId: contractID,
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
 			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+			},
+			Durability: xdr.ContractDataDurabilityPersistent,
+			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -106,9 +112,7 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	txStatusResponse := getTransaction(t, client, sendTxResponse.Hash)
 	assert.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
 
-	uploadContractCodeArgs, err := xdr.UploadContractWasmArgs{Code: testContract}.MarshalBinary()
-	assert.NoError(t, err)
-	contractHash := sha256.Sum256(uploadContractCodeArgs)
+	contractHash := sha256.Sum256(testContract)
 	contractKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractCode,
 		ContractCode: &xdr.LedgerKeyContractCode{
@@ -120,13 +124,19 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	// Doesn't exist.
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	contractIDHash := xdr.Hash(contractID)
 	notFoundKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
-			ContractId: contractID,
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
 			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+			},
+			Durability: xdr.ContractDataDurabilityPersistent,
+			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -146,6 +156,6 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 
 	var firstEntry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
-	assert.Equal(t, testContract, firstEntry.MustContractCode().Code)
+	assert.Equal(t, testContract, *firstEntry.MustContractCode().Body.Code)
 	assert.Equal(t, contractKeyB64, result.Entries[0].Key)
 }

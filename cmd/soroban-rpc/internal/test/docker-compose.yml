@@ -15,7 +15,7 @@ services:
     # Note: Please keep the image pinned to an immutable tag matching the Captive Core version.
     #       This avoid implicit updates which break compatibility between
     #       the Core container and captive core.
-    image: ${CORE_IMAGE:-sreuland/stellar-core:19.10.1-1310.6649f5173.focal-soroban}
+    image: ${CORE_IMAGE:-2opremio/stellar-core:19.11.1-1373.875f47e24.focal-soroban}
     depends_on:
       - core-postgres
     restart: on-failure

@@ -1,9 +1,10 @@
 #![no_std]
 use soroban_sdk::{
-    contracterror, contractimpl, contracttype, vec, Address, Bytes, BytesN, Env, Map, RawVal, Set,
-    String, Symbol, Vec, I256, U256,
+    contract, contracterror, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN,
+    Env, Map, String, Symbol, Val, Vec, I256, U256,
 };
 
+#[contract]
 pub struct Contract;
 
 /// This is from the rust doc above the struct Test
@@ -50,19 +51,18 @@ pub enum Error {
     /// Unknown error has occured
     OhNo = 1,
 }
-
 #[contractimpl]
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {
         hello
     }
 
-    pub fn void(_env: Env) {
+    pub fn woid(_env: Env) {
         // do nothing
     }
 
-    pub fn raw_val(_env: Env) -> RawVal {
-        RawVal::default()
+    pub fn val(_env: Env) -> Val {
+        Val::default()
     }
 
     pub fn u32_fail_on_even(_env: Env, u32_: u32) -> Result<u32, Error> {
@@ -87,7 +87,7 @@ impl Contract {
 
     /// Example contract method which takes a struct
     pub fn strukt_hel(env: Env, strukt: Test) -> Vec<Symbol> {
-        vec![&env, Symbol::short("Hello"), strukt.c]
+        vec![&env, symbol_short!("Hello"), strukt.c]
     }
 
     pub fn strukt(_env: Env, strukt: Test) -> Test {
@@ -147,10 +147,6 @@ impl Contract {
         map
     }
 
-    pub fn set(_env: Env, set: Set<u32>) -> Set<u32> {
-        set
-    }
-
     pub fn vec(_env: Env, vec: Vec<u32>) -> Vec<u32> {
         vec
     }
@@ -174,6 +170,10 @@ impl Contract {
 
     pub fn string(_env: Env, string: String) -> String {
         string
+    }
+
+    pub fn tuple_strukt(_env: Env, tuple_strukt: TupleStruct) -> TupleStruct {
+        tuple_strukt
     }
 
     // pub fn timepoint(_env: Env, timepoint: TimePoint) -> TimePoint {

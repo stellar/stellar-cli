@@ -6,8 +6,9 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/stellar/go/xdr"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
 const (
@@ -37,7 +38,7 @@ func (entryReaderTx ConstantLedgerEntryReaderTx) GetLatestLedgerSequence() (uint
 	return expectedLatestLedgerSequence, nil
 }
 
-func (entryReaderTx ConstantLedgerEntryReaderTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func (entryReaderTx ConstantLedgerEntryReaderTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
 	return false, xdr.LedgerEntry{}, nil
 }
 

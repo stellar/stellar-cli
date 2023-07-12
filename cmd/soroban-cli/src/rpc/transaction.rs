@@ -1,5 +1,5 @@
 use soroban_env_host::xdr::{
-    ContractAuth, DiagnosticEvent, HostFunction, OperationBody, ReadXdr, SorobanTransactionData,
+    DiagnosticEvent, OperationBody, ReadXdr, SorobanAuthorizationEntry, SorobanTransactionData,
     Transaction, TransactionExt, VecM,
 };
 
@@ -44,40 +44,38 @@ pub fn assemble(
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
     let mut op = tx.operations[0].clone();
-    if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
-        if simulation.results.len() != body.functions.len() {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation.results.len(),
-            });
-        }
+    let auths = match &mut op.body {
+        OperationBody::InvokeHostFunction(ref mut body) => {
+            if simulation.results.len() != 1 {
+                return Err(Error::UnexpectedSimulateTransactionResultSize {
+                    length: simulation.results.len(),
+                });
+            }
 
-        let auths = simulation
-            .results
-            .iter()
-            .map(|r| {
-                VecM::try_from(
-                    r.auth
-                        .iter()
-                        .map(ContractAuth::from_xdr_base64)
-                        .collect::<Result<Vec<_>, _>>()?,
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        if let Some(log) = log_events {
-            log(&transaction_data.resources.footprint, &auths, &[], None);
+            let auths = simulation
+                .results
+                .iter()
+                .map(|r| {
+                    VecM::try_from(
+                        r.auth
+                            .iter()
+                            .map(SorobanAuthorizationEntry::from_xdr_base64)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if !auths.is_empty() {
+                body.auth = auths[0].clone();
+            }
+            auths
         }
-        body.functions = body
-            .functions
-            .iter()
-            .zip(auths)
-            .map(|(f, auth)| HostFunction {
-                args: f.args.clone(),
-                auth,
-            })
-            .collect::<Vec<_>>()
-            .try_into()?;
-    } else {
-        return Err(Error::UnsupportedOperationType);
+        OperationBody::BumpFootprintExpiration(_) | OperationBody::RestoreFootprint(_) => {
+            Vec::new()
+        }
+        _ => return Err(Error::UnsupportedOperationType),
+    };
+    if let Some(log) = log_events {
+        log(&transaction_data.resources.footprint, &auths, &[], None);
     }
 
     tx.fee = fee;
@@ -92,10 +90,11 @@ mod tests {
 
     use super::super::{Cost, SimulateHostFunctionResult};
     use soroban_env_host::xdr::{
-        AccountId, AddressWithNonce, AuthorizedInvocation, ChangeTrustAsset, ChangeTrustOp,
-        ExtensionPoint, Hash, HostFunctionArgs, InvokeHostFunctionOp, LedgerFootprint, Memo,
-        MuxedAccount, Operation, Preconditions, PublicKey, ScAddress, ScSymbol, ScVal, ScVec,
-        SequenceNumber, SorobanResources, SorobanTransactionData, Uint256, WriteXdr,
+        self, AccountId, ChangeTrustAsset, ChangeTrustOp, ExtensionPoint, Hash, HostFunction,
+        InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, Preconditions,
+        PublicKey, ScAddress, ScSymbol, ScVal, ScVec, SequenceNumber,
+        SorobanAuthorizedContractFunction, SorobanAuthorizedFunction, SorobanAuthorizedInvocation,
+        SorobanResources, SorobanTransactionData, Uint256, WriteXdr,
     };
     use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 
@@ -120,20 +119,25 @@ mod tests {
 
     fn simulation_response() -> SimulateTransactionResponse {
         let source_bytes = Ed25519PublicKey::from_string(SOURCE).unwrap().0;
-        let fn_auth = &ContractAuth {
-            address_with_nonce: Some(AddressWithNonce {
+        let fn_auth = &SorobanAuthorizationEntry {
+            credentials: xdr::SorobanCredentials::Address(xdr::SorobanAddressCredentials {
                 address: ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
                     source_bytes,
                 )))),
                 nonce: 0,
+                signature_expiration_ledger: 0,
+                signature_args: ScVec(VecM::default()),
             }),
-            root_invocation: AuthorizedInvocation {
-                contract_id: Hash([0; 32]),
-                function_name: ScSymbol("fn".try_into().unwrap()),
-                args: ScVec(VecM::default()),
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::ContractFn(
+                    SorobanAuthorizedContractFunction {
+                        contract_address: ScAddress::Contract(Hash([0; 32])),
+                        function_name: ScSymbol("fn".try_into().unwrap()),
+                        args: ScVec(VecM::default()),
+                    },
+                ),
                 sub_invocations: VecM::default(),
             },
-            signature_args: ScVec(VecM::default()),
         };
 
         SimulateTransactionResponse {
@@ -164,12 +168,8 @@ mod tests {
             operations: vec![Operation {
                 source_account: None,
                 body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                    functions: vec![HostFunction {
-                        args: HostFunctionArgs::InvokeContract(ScVec(VecM::default())),
-                        auth: VecM::default(),
-                    }]
-                    .try_into()
-                    .unwrap(),
+                    host_function: HostFunction::InvokeContract(ScVec(VecM::default())),
+                    auth: VecM::default(),
                 }),
             }]
             .try_into()
@@ -207,26 +207,24 @@ mod tests {
             panic!("unexpected operation type: {:#?}", result.operations[0]);
         };
 
-        assert_eq!(1, op.functions.len());
-        assert_eq!(1, op.functions[0].auth.len());
-        let auth = &op.functions[0].auth[0];
+        assert_eq!(1, op.auth.len());
+        let auth = &op.auth[0];
 
-        assert_eq!(
-            "fn".to_string(),
-            format!("{}", auth.root_invocation.function_name.0),
-        );
+        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::SorobanAuthorizedContractFunction{ ref function_name, .. }) = auth.root_invocation.function else {
+            panic!("unexpected function type");
+        };
+        assert_eq!("fn".to_string(), format!("{}", function_name.0));
 
+        let xdr::SorobanCredentials::Address(xdr::SorobanAddressCredentials {
+            address:
+                xdr::ScAddress::Account(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(address))),
+            ..
+        }) = &auth.credentials else {
+            panic!("unexpected credentials type");
+        };
         assert_eq!(
-            Some(SOURCE.to_string()),
-            auth.address_with_nonce
-                .clone()
-                .map(|a| a.address)
-                .map(|a| match a {
-                    ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(u))) => u,
-                    _ => panic!("unexpected address type"),
-                })
-                .map(|k| stellar_strkey::ed25519::PublicKey(k.try_into().unwrap()))
-                .map(|p| p.to_string())
+            SOURCE.to_string(),
+            stellar_strkey::ed25519::PublicKey(address.0).to_string()
         );
     }
 
@@ -300,58 +298,6 @@ mod tests {
                 assert_eq!(0, length);
             }
             r => panic!("expected UnexpectedSimulateTransactionResultSize error, got: {r:#?}"),
-        }
-    }
-
-    #[test]
-    fn test_assemble_transaction_handles_no_host_functions() {
-        let source_bytes = Ed25519PublicKey::from_string(SOURCE).unwrap().0;
-        let txn = Transaction {
-            source_account: MuxedAccount::Ed25519(Uint256(source_bytes)),
-            fee: 100,
-            seq_num: SequenceNumber(0),
-            cond: Preconditions::None,
-            memo: Memo::None,
-            operations: vec![Operation {
-                source_account: None,
-                body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                    // This is empty
-                    functions: vec![].try_into().unwrap(),
-                }),
-            }]
-            .try_into()
-            .unwrap(),
-            ext: TransactionExt::V0,
-        };
-
-        let result = assemble(
-            &txn,
-            &SimulateTransactionResponse {
-                error: None,
-                transaction_data: transaction_data().to_xdr_base64().unwrap(),
-                events: Vec::default(),
-                min_resource_fee: 115,
-                results: vec![],
-                cost: Cost {
-                    cpu_insns: "0".to_string(),
-                    mem_bytes: "0".to_string(),
-                },
-                latest_ledger: 3,
-            },
-            None,
-        );
-
-        match result {
-            Ok(Transaction { operations, .. }) => {
-                assert_eq!(1, operations.len());
-                match operations[0].body {
-                    OperationBody::InvokeHostFunction(ref op) => {
-                        assert_eq!(0, op.functions.len());
-                    }
-                    _ => panic!("unexpected operation type: {:#?}", operations[0]),
-                }
-            }
-            err => panic!("expected successful txn error, got: {err:#?}"),
         }
     }
 }

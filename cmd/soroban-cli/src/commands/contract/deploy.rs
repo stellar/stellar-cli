@@ -7,10 +7,10 @@ use rand::Rng;
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     xdr::{
-        AccountId, ContractId, CreateContractArgs, Error as XdrError, Hash, HashIdPreimage,
-        HashIdPreimageSourceAccountContractId, HostFunction, HostFunctionArgs,
-        InvokeHostFunctionOp, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScContractExecutable, SequenceNumber, Transaction, TransactionExt, Uint256,
+        AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+        CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
+        HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation, OperationBody,
+        Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
         VecM, WriteXdr,
     },
     HostError,
@@ -145,7 +145,12 @@ impl Cmd {
         };
 
         let mut state = self.config.get_state()?;
-        utils::add_contract_to_ledger_entries(&mut state.ledger_entries, contract_id, wasm_hash.0);
+        utils::add_contract_to_ledger_entries(
+            &mut state.ledger_entries,
+            contract_id,
+            wasm_hash.0,
+            state.min_persistent_entry_expiration,
+        );
         self.config.set_state(&mut state)?;
         Ok(stellar_strkey::Contract(contract_id).to_string())
     }
@@ -161,6 +166,9 @@ impl Cmd {
         };
 
         let client = Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
@@ -191,29 +199,24 @@ fn build_create_contract_tx(
     salt: [u8; 32],
     key: &ed25519_dalek::Keypair,
 ) -> Result<(Transaction, Hash), Error> {
-    let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
-    let preimage =
-        HashIdPreimage::ContractIdFromSourceAccount(HashIdPreimageSourceAccountContractId {
-            network_id,
-            source_account: AccountId(PublicKey::PublicKeyTypeEd25519(
-                key.public.to_bytes().into(),
-            )),
-            salt: Uint256(salt),
-        });
-    let preimage_xdr = preimage.to_xdr()?;
-    let contract_id = Sha256::digest(preimage_xdr);
+    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
+        key.public.to_bytes().into(),
+    ));
+
+    let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
+        address: ScAddress::Account(source_account),
+        salt: Uint256(salt),
+    });
+    let contract_id = get_contract_id(contract_id_preimage.clone(), network_passphrase)?;
 
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            functions: vec![HostFunction {
-                args: HostFunctionArgs::CreateContract(CreateContractArgs {
-                    contract_id: ContractId::SourceAccount(Uint256(salt)),
-                    executable: ScContractExecutable::WasmRef(hash),
-                }),
-                auth: VecM::default(),
-            }]
-            .try_into()?,
+            host_function: HostFunction::CreateContract(CreateContractArgs {
+                contract_id_preimage,
+                executable: ContractExecutable::Wasm(hash),
+            }),
+            auth: VecM::default(),
         }),
     };
     let tx = Transaction {
@@ -227,6 +230,23 @@ fn build_create_contract_tx(
     };
 
     Ok((tx, Hash(contract_id.into())))
+}
+
+fn get_contract_id(
+    contract_id_preimage: ContractIdPreimage,
+    network_passphrase: &str,
+) -> Result<Hash, Error> {
+    let network_id = Hash(
+        Sha256::digest(network_passphrase.as_bytes())
+            .try_into()
+            .unwrap(),
+    );
+    let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
+        network_id,
+        contract_id_preimage,
+    });
+    let preimage_xdr = preimage.to_xdr()?;
+    Ok(Hash(Sha256::digest(preimage_xdr).into()))
 }
 
 #[cfg(test)]

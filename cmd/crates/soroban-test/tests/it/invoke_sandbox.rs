@@ -264,8 +264,12 @@ fn handles_kebab_case() {
         .is_ok());
 }
 
+#[ignore]
 #[tokio::test]
 async fn fetch() {
+    // TODO: Currently this test fetches a live contract from futurenet. This obviously depends on
+    // futurenet for the test to work, which is not great. But also means that if we are upgrading
+    // the XDR ahead of a futurenet upgrade, this test will pass. Oof. :(
     let e = TestEnv::default();
     let f = e.dir().join("contract.wasm");
     let cmd = e.cmd_arr::<fetch::Cmd>(&[

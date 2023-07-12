@@ -10,8 +10,10 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        self, ContractCodeEntry, ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyContractCode, LedgerKeyContractData, ScContractExecutable, ScVal,
+        self, ContractCodeEntry, ContractCodeEntryBody, ContractDataDurability, ContractDataEntry,
+        ContractDataEntryBody, ContractDataEntryData, ContractEntryBodyType, ContractExecutable,
+        Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractCode,
+        LedgerKeyContractData, ScAddress, ScContractInstance, ScVal,
     },
 };
 
@@ -136,6 +138,9 @@ impl Cmd {
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let client = Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         // async closures are not yet stable
         Ok(client.get_remote_wasm(&contract_id).await?)
     }
@@ -163,28 +168,41 @@ pub fn get_contract_wasm_from_storage(
     contract_id: [u8; 32],
 ) -> Result<Vec<u8>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract_id: contract_id.into(),
-        key: ScVal::LedgerKeyContractExecutable,
+        contract: ScAddress::Contract(contract_id.into()),
+        key: ScVal::LedgerKeyContractInstance,
+        durability: ContractDataDurability::Persistent,
+        body_type: ContractEntryBodyType::DataEntry,
     });
     match storage.get(&key.into(), &Budget::default()) {
         Ok(rc) => match rc.as_ref() {
             xdr::LedgerEntry {
                 data:
                     LedgerEntryData::ContractData(ContractDataEntry {
-                        val: ScVal::ContractExecutable(c),
+                        body:
+                            ContractDataEntryBody::DataEntry(ContractDataEntryData {
+                                val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
+                                ..
+                            }),
                         ..
                     }),
                 ..
-            } => match c {
-                ScContractExecutable::WasmRef(hash) => {
+            } => match executable {
+                ContractExecutable::Wasm(hash) => {
                     if let Ok(rc) = storage.get(
-                        &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() })
-                            .into(),
+                        &LedgerKey::ContractCode(LedgerKeyContractCode {
+                            hash: hash.clone(),
+                            body_type: ContractEntryBodyType::DataEntry,
+                        })
+                        .into(),
                         &Budget::default(),
                     ) {
                         match rc.as_ref() {
                             xdr::LedgerEntry {
-                                data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
+                                data:
+                                    LedgerEntryData::ContractCode(ContractCodeEntry {
+                                        body: ContractCodeEntryBody::DataEntry(code),
+                                        ..
+                                    }),
                                 ..
                             } => Ok(code.to_vec()),
                             _ => Err(FromWasmError::NotFound),
@@ -193,7 +211,7 @@ pub fn get_contract_wasm_from_storage(
                         Err(FromWasmError::NotFound)
                     }
                 }
-                ScContractExecutable::Token => todo!(),
+                ContractExecutable::Token => todo!(),
             },
             _ => Err(FromWasmError::NotFound),
         },

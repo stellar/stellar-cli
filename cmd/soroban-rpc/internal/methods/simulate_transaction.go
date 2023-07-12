@@ -28,8 +28,7 @@ type SimulateHostFunctionResult struct {
 }
 
 type SimulateTransactionResponse struct {
-	Error string `json:"error,omitempty"`
-	// TODO: update documentation and review field names
+	Error           string                       `json:"error,omitempty"`
 	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
 	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
 	MinResourceFee  int64                        `json:"minResourceFee,string"`
@@ -39,11 +38,12 @@ type SimulateTransactionResponse struct {
 }
 
 type PreflightGetter interface {
-	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (preflight.Preflight, error)
+	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (preflight.Preflight, error)
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
 func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, getter PreflightGetter) jrpc2.Handler {
+
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
@@ -67,10 +67,19 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			sourceAccount = txEnvelope.SourceAccount().ToAccountId()
 		}
 
-		xdrOp, ok := op.Body.GetInvokeHostFunctionOp()
-		if !ok {
+		footprint := xdr.LedgerFootprint{}
+		switch op.Body.Type {
+		case xdr.OperationTypeInvokeHostFunction:
+		case xdr.OperationTypeBumpFootprintExpiration, xdr.OperationTypeRestoreFootprint:
+			if txEnvelope.Type != xdr.EnvelopeTypeEnvelopeTypeTx && txEnvelope.V1.Tx.Ext.V != 1 {
+				return SimulateTransactionResponse{
+					Error: "To perform a SimulateTransaction for BumpFootprintExpiration or RestoreFootprint operations, SorobanTransactionData must be provided",
+				}
+			}
+			footprint = txEnvelope.V1.Tx.Ext.SorobanData.Resources.Footprint
+		default:
 			return SimulateTransactionResponse{
-				Error: "Transaction does not contain invoke host function operation",
+				Error: "Transaction contains unsupported operation type: " + op.Body.Type.String(),
 			}
 		}
 
@@ -90,7 +99,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
-		result, err := getter.GetPreflight(ctx, readTx, sourceAccount, xdrOp)
+		result, err := getter.GetPreflight(ctx, readTx, sourceAccount, op.Body, footprint)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error:        err.Error(),
@@ -98,16 +107,13 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
-		hostFunctionResults := make([]SimulateHostFunctionResult, len(result.Results))
-		for i := 0; i < len(hostFunctionResults); i++ {
-			hostFunctionResults[i] = SimulateHostFunctionResult{
-				Auth: result.Results[i].Auth,
-				XDR:  result.Results[i].Result,
-			}
-		}
-
 		return SimulateTransactionResponse{
-			Results:         hostFunctionResults,
+			Results: []SimulateHostFunctionResult{
+				{
+					XDR:  result.Result,
+					Auth: result.Auth,
+				},
+			},
 			Events:          result.Events,
 			TransactionData: result.TransactionData,
 			MinResourceFee:  result.MinFee,

@@ -127,15 +127,15 @@ type metricsLedgerEntryWrapper struct {
 	ledgerEntriesFetched uint32
 }
 
-func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
 	startTime := time.Now()
-	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key)
+	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key, includeExpired)
 	atomic.AddUint64(&m.totalDurationMs, uint64(time.Since(startTime).Milliseconds()))
 	atomic.AddUint32(&m.ledgerEntriesFetched, 1)
 	return ok, entry, err
 }
 
-func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, op xdr.InvokeHostFunctionOp) (Preflight, error) {
+func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (Preflight, error) {
 	if pwp.isClosed.Load() {
 		return Preflight{}, errors.New("preflight worker pool is closed")
 	}
@@ -143,11 +143,12 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 		LedgerEntryReadTx: readTx,
 	}
 	params := PreflightParameters{
-		Logger:             pwp.logger,
-		SourceAccount:      sourceAccount,
-		InvokeHostFunction: op,
-		NetworkPassphrase:  pwp.networkPassphrase,
-		LedgerEntryReadTx:  &wrappedTx,
+		Logger:            pwp.logger,
+		SourceAccount:     sourceAccount,
+		OpBody:            opBody,
+		NetworkPassphrase: pwp.networkPassphrase,
+		LedgerEntryReadTx: &wrappedTx,
+		Footprint:         footprint,
 	}
 	resultC := make(chan workerResult)
 	select {

@@ -539,19 +539,17 @@ func TestGetEvents(t *testing.T) {
 		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		var txMeta []xdr.TransactionMeta
 		txMeta = append(txMeta, transactionMetaWithEvents(
-			[]xdr.ContractEvent{
-				contractEvent(
-					contractID,
-					xdr.ScVec{xdr.ScVal{
-						Type: xdr.ScValTypeScvSymbol,
-						Sym:  &counter,
-					}},
-					xdr.ScVal{
-						Type: xdr.ScValTypeScvSymbol,
-						Sym:  &counter,
-					},
-				),
-			},
+			contractEvent(
+				contractID,
+				xdr.ScVec{xdr.ScVal{
+					Type: xdr.ScValTypeScvSymbol,
+					Sym:  &counter,
+				}},
+				xdr.ScVal{
+					Type: xdr.ScValTypeScvSymbol,
+					Sym:  &counter,
+				},
+			),
 		))
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(2, now.Unix(), txMeta...)))
 
@@ -577,19 +575,17 @@ func TestGetEvents(t *testing.T) {
 		var txMeta []xdr.TransactionMeta
 		for i := 0; i < 10; i++ {
 			txMeta = append(txMeta, transactionMetaWithEvents(
-				[]xdr.ContractEvent{
-					contractEvent(
-						contractID,
-						xdr.ScVec{xdr.ScVal{
-							Type: xdr.ScValTypeScvSymbol,
-							Sym:  &counter,
-						}},
-						xdr.ScVal{
-							Type: xdr.ScValTypeScvSymbol,
-							Sym:  &counter,
-						},
-					),
-				},
+				contractEvent(
+					contractID,
+					xdr.ScVec{xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					}},
+					xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					},
+				),
 			))
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
@@ -643,19 +639,17 @@ func TestGetEvents(t *testing.T) {
 		}
 		for i := 0; i < 5; i++ {
 			txMeta = append(txMeta, transactionMetaWithEvents(
-				[]xdr.ContractEvent{
-					contractEvent(
-						contractIds[i%len(contractIds)],
-						xdr.ScVec{xdr.ScVal{
-							Type: xdr.ScValTypeScvSymbol,
-							Sym:  &counter,
-						}},
-						xdr.ScVal{
-							Type: xdr.ScValTypeScvSymbol,
-							Sym:  &counter,
-						},
-					),
-				},
+				contractEvent(
+					contractIds[i%len(contractIds)],
+					xdr.ScVec{xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					}},
+					xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &counter,
+					},
+				),
 			))
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
@@ -693,17 +687,15 @@ func TestGetEvents(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			number := xdr.Uint64(i)
 			txMeta = append(txMeta, transactionMetaWithEvents(
-				[]xdr.ContractEvent{
-					// Generate a unique topic like /counter/4 for each event so we can check
-					contractEvent(
-						contractID,
-						xdr.ScVec{
-							xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
-							xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
-						},
+				// Generate a unique topic like /counter/4 for each event so we can check
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
-					),
-				},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
+				),
 			))
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
@@ -757,7 +749,7 @@ func TestGetEvents(t *testing.T) {
 		number := xdr.Uint64(1)
 		txMeta := []xdr.TransactionMeta{
 			// This matches neither the contract id nor the topic
-			transactionMetaWithEvents([]xdr.ContractEvent{
+			transactionMetaWithEvents(
 				contractEvent(
 					otherContractID,
 					xdr.ScVec{
@@ -765,9 +757,9 @@ func TestGetEvents(t *testing.T) {
 					},
 					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
-			}),
+			),
 			// This matches the contract id but not the topic
-			transactionMetaWithEvents([]xdr.ContractEvent{
+			transactionMetaWithEvents(
 				contractEvent(
 					contractID,
 					xdr.ScVec{
@@ -775,9 +767,9 @@ func TestGetEvents(t *testing.T) {
 					},
 					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
-			}),
+			),
 			// This matches the topic but not the contract id
-			transactionMetaWithEvents([]xdr.ContractEvent{
+			transactionMetaWithEvents(
 				contractEvent(
 					otherContractID,
 					xdr.ScVec{
@@ -786,9 +778,9 @@ func TestGetEvents(t *testing.T) {
 					},
 					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
-			}),
+			),
 			// This matches both the contract id and the topic
-			transactionMetaWithEvents([]xdr.ContractEvent{
+			transactionMetaWithEvents(
 				contractEvent(
 					contractID,
 					xdr.ScVec{
@@ -797,7 +789,7 @@ func TestGetEvents(t *testing.T) {
 					},
 					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
 				),
-			}),
+			),
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
@@ -848,7 +840,7 @@ func TestGetEvents(t *testing.T) {
 		store := events.NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 100)
 		contractID := xdr.Hash([32]byte{})
 		txMeta := []xdr.TransactionMeta{
-			transactionMetaWithEvents([]xdr.ContractEvent{
+			transactionMetaWithEvents(
 				contractEvent(
 					contractID,
 					xdr.ScVec{
@@ -870,7 +862,7 @@ func TestGetEvents(t *testing.T) {
 					},
 					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter},
 				),
-			}),
+			),
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
 
@@ -911,15 +903,13 @@ func TestGetEvents(t *testing.T) {
 		for i := 0; i < 180; i++ {
 			number := xdr.Uint64(i)
 			txMeta = append(txMeta, transactionMetaWithEvents(
-				[]xdr.ContractEvent{
-					contractEvent(
-						contractID,
-						xdr.ScVec{
-							xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
-						},
+				contractEvent(
+					contractID,
+					xdr.ScVec{
 						xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
-					),
-				},
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &number},
+				),
 			))
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
@@ -944,7 +934,7 @@ func TestGetEvents(t *testing.T) {
 				Op:     0,
 				Event:  0,
 			}.String()
-			value, err := xdr.MarshalBase64(txMeta[i].MustV3().Events[0].Events[0].Body.MustV0().Data)
+			value, err := xdr.MarshalBase64(txMeta[i].MustV3().SorobanMeta.Events[0].Body.MustV0().Data)
 			assert.NoError(t, err)
 			expected = append(expected, EventInfo{
 				EventType:      EventTypeContract,
@@ -970,43 +960,41 @@ func TestGetEvents(t *testing.T) {
 			// ledger/transaction/operation/event
 			xdr.ScSymbol("5/1/0/0"),
 			xdr.ScSymbol("5/1/0/1"),
-			xdr.ScSymbol("5/1/1/0"),
-			xdr.ScSymbol("5/1/1/1"),
+			xdr.ScSymbol("5/2/0/0"),
+			xdr.ScSymbol("5/2/0/1"),
 		}
 		txMeta := []xdr.TransactionMeta{
 			transactionMetaWithEvents(
-				[]xdr.ContractEvent{
-					contractEvent(
-						contractID,
-						xdr.ScVec{
-							counterScVal,
-						},
-						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[0]},
-					),
-					contractEvent(
-						contractID,
-						xdr.ScVec{
-							counterScVal,
-						},
-						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[1]},
-					),
-				},
-				[]xdr.ContractEvent{
-					contractEvent(
-						contractID,
-						xdr.ScVec{
-							counterScVal,
-						},
-						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[2]},
-					),
-					contractEvent(
-						contractID,
-						xdr.ScVec{
-							counterScVal,
-						},
-						xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[3]},
-					),
-				},
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						counterScVal,
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[0]},
+				),
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						counterScVal,
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[1]},
+				),
+			),
+			transactionMetaWithEvents(
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						counterScVal,
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[2]},
+				),
+				contractEvent(
+					contractID,
+					xdr.ScVec{
+						counterScVal,
+					},
+					xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &datas[3]},
+				),
 			),
 		}
 		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)))
@@ -1028,7 +1016,7 @@ func TestGetEvents(t *testing.T) {
 		var expected []EventInfo
 		expectedIDs := []string{
 			events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 1}.String(),
-			events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 0}.String(),
+			events.Cursor{Ledger: 5, Tx: 2, Op: 0, Event: 0}.String(),
 		}
 		symbols := datas[1:3]
 		for i, id := range expectedIDs {
@@ -1050,7 +1038,7 @@ func TestGetEvents(t *testing.T) {
 
 		results, err = handler.getEvents(GetEventsRequest{
 			Pagination: &PaginationOptions{
-				Cursor: &events.Cursor{Ledger: 5, Tx: 1, Op: 1, Event: 1},
+				Cursor: &events.Cursor{Ledger: 5, Tx: 2, Op: 0, Event: 1},
 				Limit:  2,
 			},
 		})
@@ -1060,26 +1048,22 @@ func TestGetEvents(t *testing.T) {
 }
 
 func ledgerCloseMetaWithEvents(sequence uint32, closeTimestamp int64, txMeta ...xdr.TransactionMeta) xdr.LedgerCloseMeta {
-	var txProcessing []xdr.TransactionResultMetaV2
+	var txProcessing []xdr.TransactionResultMeta
 	var phases []xdr.TransactionPhase
 
 	for _, item := range txMeta {
 		var operations []xdr.Operation
-		for range item.MustV3().Events {
+		for range item.MustV3().SorobanMeta.Events {
 			operations = append(operations,
 				xdr.Operation{
 					Body: xdr.OperationBody{
 						Type: xdr.OperationTypeInvokeHostFunction,
 						InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
-							Functions: []xdr.HostFunction{
-								{
-									Args: xdr.HostFunctionArgs{
-										Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-										InvokeContract: &xdr.ScVec{},
-									},
-									Auth: []xdr.ContractAuth{},
-								},
+							HostFunction: xdr.HostFunction{
+								Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+								InvokeContract: &xdr.ScVec{},
 							},
+							Auth: []xdr.SorobanAuthorizationEntry{},
 						},
 					},
 				})
@@ -1098,9 +1082,9 @@ func ledgerCloseMetaWithEvents(sequence uint32, closeTimestamp int64, txMeta ...
 			panic(err)
 		}
 
-		txProcessing = append(txProcessing, xdr.TransactionResultMetaV2{
+		txProcessing = append(txProcessing, xdr.TransactionResultMeta{
 			TxApplyProcessing: item,
-			Result: xdr.TransactionResultPairV2{
+			Result: xdr.TransactionResultPair{
 				TransactionHash: txHash,
 			},
 		})
@@ -1143,24 +1127,15 @@ func ledgerCloseMetaWithEvents(sequence uint32, closeTimestamp int64, txMeta ...
 		},
 	}
 }
-func transactionMetaWithEvents(events ...[]xdr.ContractEvent) xdr.TransactionMeta {
-	var operationEvents []xdr.OperationEvents
-	for _, e := range events {
-		operationEvents = append(operationEvents, xdr.OperationEvents{
-			Events: e,
-		})
-	}
+
+func transactionMetaWithEvents(events ...xdr.ContractEvent) xdr.TransactionMeta {
 	return xdr.TransactionMeta{
 		V:          3,
 		Operations: &[]xdr.OperationMeta{},
 		V3: &xdr.TransactionMetaV3{
-			TxResult: xdr.TransactionResult{
-				Result: xdr.TransactionResultResult{
-					InnerResultPair: &xdr.InnerTransactionResultPair{},
-					Results:         &[]xdr.OperationResult{},
-				},
+			SorobanMeta: &xdr.SorobanTransactionMeta{
+				Events: events,
 			},
-			Events: operationEvents,
 		},
 	}
 }

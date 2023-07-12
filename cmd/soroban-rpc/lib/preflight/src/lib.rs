@@ -6,17 +6,18 @@ extern crate libc;
 extern crate sha2;
 extern crate soroban_env_host;
 
+use ledger_storage::LedgerStorage;
 use sha2::{Digest, Sha256};
 use soroban_env_host::auth::RecordedAuthPayload;
 use soroban_env_host::budget::Budget;
-use soroban_env_host::events::{Event, Events};
+use soroban_env_host::events::Events;
 use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
-    AccountId, AddressWithNonce, ContractAuth, DiagnosticEvent, HostFunction, InvokeHostFunctionOp,
-    ReadXdr, ScVal, ScVec, WriteXdr,
+    AccountId, DiagnosticEvent, InvokeHostFunctionOp, LedgerFootprint, OperationBody, ReadXdr,
+    ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
 };
-use soroban_env_host::{Host, LedgerInfo};
-use std::convert::TryInto;
+use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
+use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
@@ -24,12 +25,16 @@ use std::rc::Rc;
 use std::{error, mem};
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct CLedgerInfo {
     pub protocol_version: u32,
     pub sequence_number: u32,
     pub timestamp: u64,
     pub network_passphrase: *const libc::c_char,
     pub base_reserve: u32,
+    pub min_temp_entry_expiration: u32,
+    pub min_persistent_entry_expiration: u32,
+    pub max_entry_expiration: u32,
 }
 
 impl From<CLedgerInfo> for LedgerInfo {
@@ -41,23 +46,20 @@ impl From<CLedgerInfo> for LedgerInfo {
             timestamp: c.timestamp,
             network_id: Sha256::digest(network_passphrase_cstr.to_str().unwrap().as_bytes()).into(),
             base_reserve: c.base_reserve,
+            min_temp_entry_expiration: c.min_temp_entry_expiration,
+            min_persistent_entry_expiration: c.min_persistent_entry_expiration,
+            max_entry_expiration: c.max_entry_expiration,
         }
     }
 }
 
 #[repr(C)]
-pub struct CHostFunctionPreflight {
-    pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR ContractAuths in base64
-    pub result: *mut libc::c_char,    // XDR SCVal in base64
-}
-
-#[repr(C)]
 pub struct CPreflightResult {
     pub error: *mut libc::c_char, // Error string in case of error, otherwise null
-    pub results: *mut CHostFunctionPreflight, // array of CHostFunctionPreflight
-    pub results_size: libc::size_t,
+    pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR SorobanAuthorizationEntrys in base64
+    pub result: *mut libc::c_char,    // XDR SCVal in base64
     pub transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64
-    pub min_fee: i64,                        // Minimum recommended resource fee
+    pub min_fee: i64,                 // Minimum recommended resource fee
     pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
@@ -69,8 +71,8 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
     // caller needs to invoke free_preflight_result(result) when done
     Box::into_raw(Box::new(CPreflightResult {
         error: c_str.into_raw(),
-        results: null_mut(),
-        results_size: 0,
+        auth: null_mut(),
+        result: null_mut(),
         transaction_data: null_mut(),
         min_fee: 0,
         events: null_mut(),
@@ -86,27 +88,9 @@ pub extern "C" fn preflight_invoke_hf_op(
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
-    // catch panics before they reach foreign callers (which otherwise would result in
-    // undefined behavior)
-    let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+    catch_preflight_panic(Box::new(move || {
         preflight_invoke_hf_op_or_maybe_panic(handle, invoke_hf_op, source_account, ledger_info)
-    }));
-    match res {
-        Err(panic) => match panic.downcast::<String>() {
-            Ok(panic_msg) => preflight_error(format!(
-                "panic during preflight_host_function() call: {panic_msg}"
-            )),
-            Err(_) => preflight_error(
-                "panic during preflight_host_function() call: unknown cause".to_string(),
-            ),
-        },
-        // transfer ownership to caller
-        // caller needs to invoke free_preflight_result(result) when done
-        Ok(r) => match r {
-            Ok(r2) => Box::into_raw(Box::new(r2)),
-            Err(e) => preflight_error(format!("{e}")),
-        },
-    }
+    }))
 }
 
 fn preflight_invoke_hf_op_or_maybe_panic(
@@ -127,35 +111,22 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let host = Host::with_storage_and_budget(storage, budget);
 
     host.switch_to_recording_auth();
+    host.set_diagnostic_level(DiagnosticLevel::Debug);
     host.set_source_account(source_account);
     host.set_ledger_info(ledger_info.into());
 
-    // Add auths to the functions, so that they are later taken into account for
-    // the envelope size estimation
-    let mut results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)> = Vec::new();
-
     // Run the preflight.
-    let mut functions_with_auths: Vec<HostFunction> = invoke_hf_op.functions.clone().into_vec();
-    for (i, f) in invoke_hf_op.functions.as_vec().iter().enumerate() {
-        // Hack to obtain the auth of each function separately
-        host.switch_to_recording_auth(); // resets auth from previous calls
-        let results = host.invoke_functions(vec![f.clone()])?;
-        let auths = host.get_recorded_auth_payloads()?;
-        functions_with_auths[i].auth = auths
-            .iter()
-            .map(recorded_auth_payload_to_xdr)
-            .collect::<Vec<_>>()
-            .try_into()?;
-        results_and_auths.push((results[0].clone(), auths));
-    }
+    let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
+    let auths = host.get_recorded_auth_payloads()?;
 
     // Recover, convert and return the storage footprint and other values to C.
-    let (storage, budget, events) = host.try_finish().unwrap();
+    let (storage, budget, events, _expiration_ledger_bumps) = host.try_finish().unwrap();
 
     let diagnostic_events = host_events_to_diagnostic_events(&events);
-    let (transaction_data, min_fee) = fees::compute_transaction_data_and_min_fee(
+    let (transaction_data, min_fee) = fees::compute_host_function_transaction_data_and_min_fee(
         &InvokeHostFunctionOp {
-            functions: functions_with_auths.try_into()?,
+            host_function: invoke_hf_op.host_function,
+            auth: Default::default(),
         },
         &ledger_storage::LedgerStorage {
             golang_handle: handle,
@@ -165,17 +136,119 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         &diagnostic_events,
     )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
-    let (results, results_size) = get_c_host_function_preflight_array(results_and_auths)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        results,
-        results_size,
+        auth: recorded_auth_payloads_to_c(auths)?,
+        result: CString::new(result.to_xdr_base64()?)?.into_raw(),
         transaction_data: transaction_data_cstr.into_raw(),
         min_fee,
         events: diagnostic_events_to_c(diagnostic_events)?,
-        cpu_instructions: budget.get_cpu_insns_count(),
-        memory_bytes: budget.get_mem_bytes_count(),
+        cpu_instructions: budget.get_cpu_insns_consumed(),
+        memory_bytes: budget.get_mem_bytes_consumed(),
     })
+}
+
+#[no_mangle]
+pub extern "C" fn preflight_footprint_expiration_op(
+    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+    op_body: *const libc::c_char, // OperationBody XDR in base64
+    footprint: *const libc::c_char, // LedgerFootprint XDR in base64
+) -> *mut CPreflightResult {
+    catch_preflight_panic(Box::new(move || {
+        preflight_footprint_expiration_op_or_maybe_panic(handle, op_body, footprint)
+    }))
+}
+
+fn preflight_footprint_expiration_op_or_maybe_panic(
+    handle: libc::uintptr_t,
+    op_body: *const libc::c_char,
+    footprint: *const libc::c_char,
+) -> Result<CPreflightResult, Box<dyn error::Error>> {
+    let op_body_cstr = unsafe { CStr::from_ptr(op_body) };
+    let op_body = OperationBody::from_xdr_base64(op_body_cstr.to_str()?)?;
+    let footprint_cstr = unsafe { CStr::from_ptr(footprint) };
+    let ledger_footprint = LedgerFootprint::from_xdr_base64(footprint_cstr.to_str()?)?;
+    let snapshot_source = &ledger_storage::LedgerStorage {
+        golang_handle: handle,
+    };
+    match op_body {
+        OperationBody::BumpFootprintExpiration(op) => preflight_bump_footprint_expiration(
+            ledger_footprint,
+            op.ledgers_to_expire,
+            snapshot_source,
+        ),
+        OperationBody::RestoreFootprint(_) => {
+            preflight_restore_footprint(ledger_footprint, snapshot_source)
+        }
+        op => Err(format!(
+            "preflight_footprint_expiration_op(): unsupported operation type {}",
+            op.name()
+        )
+        .into()),
+    }
+}
+
+fn preflight_bump_footprint_expiration(
+    footprint: LedgerFootprint,
+    ledgers_to_expire: u32,
+    snapshot_source: &LedgerStorage,
+) -> Result<CPreflightResult, Box<dyn Error>> {
+    let (transaction_data, min_fee) =
+        fees::compute_bump_footprint_exp_transaction_data_and_min_fee(
+            footprint,
+            ledgers_to_expire,
+            snapshot_source,
+        )?;
+    let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
+    Ok(CPreflightResult {
+        error: null_mut(),
+        auth: null_mut(),
+        result: null_mut(),
+        transaction_data: transaction_data_cstr.into_raw(),
+        min_fee,
+        events: null_mut(),
+        cpu_instructions: 0,
+        memory_bytes: 0,
+    })
+}
+
+fn preflight_restore_footprint(
+    footprint: LedgerFootprint,
+    snapshot_source: &LedgerStorage,
+) -> Result<CPreflightResult, Box<dyn Error>> {
+    let (transaction_data, min_fee) =
+        fees::compute_restore_footprint_transaction_data_and_min_fee(footprint, snapshot_source)?;
+    let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
+    Ok(CPreflightResult {
+        error: null_mut(),
+        auth: null_mut(),
+        result: null_mut(),
+        transaction_data: transaction_data_cstr.into_raw(),
+        min_fee,
+        events: null_mut(),
+        cpu_instructions: 0,
+        memory_bytes: 0,
+    })
+}
+
+fn catch_preflight_panic(
+    op: Box<dyn Fn() -> Result<CPreflightResult, Box<dyn error::Error>>>,
+) -> *mut CPreflightResult {
+    // catch panics before they reach foreign callers (which otherwise would result in
+    // undefined behavior)
+    let res = panic::catch_unwind(panic::AssertUnwindSafe(|| op()));
+    match res {
+        Err(panic) => match panic.downcast::<String>() {
+            Ok(panic_msg) => preflight_error(format!("panic during preflight() call: {panic_msg}")),
+            Err(_) => preflight_error("panic during preflight() call: unknown cause".to_string()),
+        },
+        // transfer ownership to caller
+        // caller needs to invoke free_preflight_result(result) when done
+        Ok(r) => match r {
+            Ok(r2) => Box::into_raw(Box::new(r2)),
+            Err(e) => preflight_error(format!("{e}")),
+        },
+    }
 }
 
 fn recorded_auth_payloads_to_c(
@@ -188,38 +261,39 @@ fn recorded_auth_payloads_to_c(
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
 
-fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> ContractAuth {
-    let address_with_nonce = match (payload.address.clone(), payload.nonce) {
-        (Some(address), Some(nonce)) => Some(AddressWithNonce { address, nonce }),
-        (None, None) => None,
+fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthorizationEntry {
+    match (payload.address.clone(), payload.nonce) {
+        (Some(address), Some(nonce)) => SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                address,
+                nonce,
+                // signature_args is left empty. This is where the client will put their signatures when
+                // submitting the transaction.
+                signature_expiration_ledger: 0,
+                signature_args: ScVec::default(),
+            }),
+            root_invocation: payload.invocation.clone(),
+        },
+        _ => SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::SourceAccount,
+            root_invocation: payload.invocation.clone(),
+        },
+        // TODO: there is a bug in the host library which prevents us from
+        //       doing this check. It should be fixed in preview 11.
         // the address and the nonce can't be present independently
-        (a,n) =>
-            panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
-    };
-    ContractAuth {
-        address_with_nonce,
-        root_invocation: payload.invocation.clone(),
-        // signature_args is left empty. This is where the client will put their signatures when
-        // submitting the transaction.
-        signature_args: ScVec::default(),
+        // (a,n) =>
+        //    panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
     }
 }
 
 fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
     let mut res: Vec<DiagnosticEvent> = Vec::new();
     for e in &events.0 {
-        let maybe_contract_event = match &e.event {
-            Event::Contract(e) | Event::StructuredDebug(e) => Some(e),
-            // Debug events can't be translated to diagnostic events
-            Event::Debug(_) => None,
+        let diagnostic_event = DiagnosticEvent {
+            in_successful_contract_call: !e.failed_call,
+            event: e.event.clone(),
         };
-        if let Some(contract_event) = maybe_contract_event {
-            let diagnostic_event = DiagnosticEvent {
-                in_successful_contract_call: !e.failed_call,
-                event: contract_event.clone(),
-            };
-            res.push(diagnostic_event);
-        }
+        res.push(diagnostic_event);
     }
     res
 }
@@ -232,23 +306,6 @@ fn diagnostic_events_to_c(
         .map(DiagnosticEvent::to_xdr_base64)
         .collect::<Result<Vec<_>, _>>()?;
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
-}
-
-// TODO: can we factor out the common parts of get_c_null_terminated_host_function_preflight_array and
-//       string_vec_to_c_null_terminated_char_array ?
-fn get_c_host_function_preflight_array(
-    results_and_auths: Vec<(ScVal, Vec<RecordedAuthPayload>)>,
-) -> Result<(*mut CHostFunctionPreflight, libc::size_t), Box<dyn error::Error>> {
-    let mut out_vec: Vec<CHostFunctionPreflight> = Vec::new();
-    for (result, auths) in results_and_auths {
-        let result_c_str = CString::new(result.to_xdr_base64()?)?.into_raw();
-        out_vec.push(CHostFunctionPreflight {
-            auth: recorded_auth_payloads_to_c(auths)?,
-            result: result_c_str,
-        });
-    }
-    let size = out_vec.len();
-    Ok((vec_to_c_array(out_vec), size))
 }
 
 fn string_vec_to_c_null_terminated_char_array(
@@ -294,17 +351,15 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
         if !(*result).error.is_null() {
             _ = CString::from_raw((*result).error);
         }
-        if !(*result).results.is_null() {
-            let results = Vec::from_raw_parts(
-                (*result).results,
-                (*result).results_size,
-                (*result).results_size,
-            );
-            for result in &results {
-                free_c_null_terminated_char_array(result.auth);
-                _ = CString::from_raw(result.result);
-            }
+
+        if !(*result).auth.is_null() {
+            free_c_null_terminated_char_array((*result).auth);
         }
+
+        if !(*result).result.is_null() {
+            _ = CString::from_raw((*result).result);
+        }
+
         if !(*result).transaction_data.is_null() {
             _ = CString::from_raw((*result).transaction_data);
         }

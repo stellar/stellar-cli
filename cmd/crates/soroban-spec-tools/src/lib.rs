@@ -4,13 +4,13 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::{
-    AccountId, BytesM, Error as XdrError, Hash, Int128Parts, Int256Parts, PublicKey, ScAddress,
-    ScBytes, ScContractExecutable, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecFunctionV0,
-    ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeSet,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
-    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
-    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
-    UInt128Parts, UInt256Parts, Uint256, VecM,
+    AccountId, BytesM, ContractExecutable, Error as XdrError, Hash, Int128Parts, Int256Parts,
+    PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
+    ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
+    ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
+    ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
+    ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
+    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod utils;
@@ -109,7 +109,7 @@ impl Spec {
             | ScType::Tuple(_)
             | ScType::BytesN(_)
             | ScType::Symbol
-            | ScType::Status
+            | ScType::Error
             | ScType::Bytes
             | ScType::Void
             | ScType::Timepoint
@@ -502,8 +502,8 @@ impl Spec {
             | (ScVal::Duration(_), ScType::Duration)
             | (ScVal::Timepoint(_), ScType::Timepoint)
             | (
-                ScVal::ContractExecutable(_)
-                | ScVal::LedgerKeyContractExecutable
+                ScVal::ContractInstance(_)
+                | ScVal::LedgerKeyContractInstance
                 | ScVal::LedgerKeyNonce(_),
                 _,
             )
@@ -517,7 +517,7 @@ impl Spec {
                 self.sc_object_to_json(val, type_)?
             }
 
-            (ScVal::Status(_), ScType::Status) => todo!(),
+            (ScVal::Error(_), ScType::Error) => todo!(),
             (v, typed) => todo!("{v:#?} doesn't have a matching {typed:#?}"),
         })
     }
@@ -525,9 +525,9 @@ impl Spec {
     /// # Errors
     ///
     /// Might return an error
-    pub fn vec_m_to_json(
+    pub fn vec_m_to_json<const MAX: u32>(
         &self,
-        vec_m: &VecM<ScVal, 256_000>,
+        vec_m: &VecM<ScVal, MAX>,
         type_: &ScType,
     ) -> Result<Value, Error> {
         Ok(Value::Array(
@@ -697,7 +697,7 @@ impl Spec {
 
             (ScVal::Bytes(_), ScType::Udt(_)) => todo!(),
 
-            (ScVal::ContractExecutable(_), _) => todo!(),
+            (ScVal::ContractInstance(_), _) => todo!(),
 
             (ScVal::Address(v), ScType::Address) => sc_address_to_json(v),
 
@@ -862,7 +862,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                         .map_err(|_| Error::InvalidValue(Some(t.clone())))
                 })
                 .collect();
-            let converted: BytesM<256_000_u32> = b?.try_into().map_err(Error::Xdr)?;
+            let converted: BytesM<{ u32::MAX }> = b?.try_into().map_err(Error::Xdr)?;
             ScVal::Bytes(ScBytes(converted))
         }
 
@@ -900,7 +900,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
     let val: Value = match v {
         ScVal::Bool(b) => Value::Bool(*b),
         ScVal::Void => Value::Null,
-        ScVal::LedgerKeyContractExecutable => return Err(Error::InvalidValue(None)),
+        ScVal::LedgerKeyContractInstance => return Err(Error::InvalidValue(None)),
         ScVal::U64(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::Timepoint(tp) => Value::Number(serde_json::Number::from(tp.0)),
         ScVal::Duration(d) => Value::Number(serde_json::Number::from(d.0)),
@@ -1001,10 +1001,18 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             );
             Value::String(i256.to_string())
         }
-        ScVal::ContractExecutable(ScContractExecutable::WasmRef(hash)) => json!({ "hash": hash }),
-        ScVal::ContractExecutable(ScContractExecutable::Token) => json!({"token": true}),
-        ScVal::LedgerKeyNonce(ScNonceKey { nonce_address }) => sc_address_to_json(nonce_address),
-        ScVal::Status(s) => serde_json::to_value(s)?,
+        ScVal::ContractInstance(ScContractInstance {
+            executable: ContractExecutable::Wasm(hash),
+            ..
+        }) => json!({ "hash": hash }),
+        ScVal::ContractInstance(ScContractInstance {
+            executable: ContractExecutable::Token,
+            ..
+        }) => json!({"token": true}),
+        ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => {
+            Value::Number(serde_json::Number::from(*nonce))
+        }
+        ScVal::Error(e) => serde_json::to_value(e)?,
     };
     Ok(val)
 }
@@ -1053,7 +1061,7 @@ impl Spec {
             ScType::I32 => Some("i32".to_string()),
             ScType::Bool => Some("bool".to_string()),
             ScType::Symbol => Some("Symbol".to_string()),
-            ScType::Status => Some("Status".to_string()),
+            ScType::Error => Some("Error".to_string()),
             ScType::Bytes => Some("hex_bytes".to_string()),
             ScType::Address => Some("Address".to_string()),
             ScType::Void => Some("Null".to_string()),
@@ -1185,7 +1193,7 @@ impl Spec {
             ScType::I32 => Some("-1".to_string()),
             ScType::Bool => Some("true".to_string()),
             ScType::Symbol => Some("\"hello\"".to_string()),
-            ScType::Status => Some("Status".to_string()),
+            ScType::Error => Some("Error".to_string()),
             ScType::Bytes => Some("\"beefface123\"".to_string()),
             ScType::Address => {
                 Some("\"GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4\"".to_string())
@@ -1253,29 +1261,46 @@ impl Spec {
                 };
                 Some(format!("\"{res}\""))
             }
-            ScType::Udt(ScSpecTypeUdt { name }) => match self.find(&name.to_string_lossy()).ok() {
-                Some(ScSpecEntry::UdtStructV0(strukt)) => {
-                    let inner = strukt
-                        .fields
-                        .iter()
-                        .map(|f| (f.name.to_string_lossy(), &f.type_))
-                        .map(|(name, type_)| {
-                            let type_ = self.example(type_)?;
-                            let name = format!(r#""{name}""#);
-                            Some(format!("{name}: {type_}"))
-                        })
-                        .collect::<Option<Vec<_>>>()?
-                        .join(", ");
-                    Some(format!(r#"{{ {inner} }}"#))
-                }
-                Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
-                Some(ScSpecEntry::UdtEnumV0(enum_)) => {
-                    enum_.cases.iter().next().map(|c| c.value.to_string())
-                }
-                Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
-            },
+            ScType::Udt(ScSpecTypeUdt { name }) => {
+                self.example_udts(name.to_string_lossy().as_ref())
+            }
             // No specific value name for these yet.
             ScType::Val => None,
+        }
+    }
+
+    fn example_udts(&self, name: &str) -> Option<String> {
+        match self.find(name).ok() {
+            Some(ScSpecEntry::UdtStructV0(strukt)) => {
+                // Check if a tuple strukt
+                if !strukt.fields.is_empty() && strukt.fields[0].name.to_string_lossy() == "0" {
+                    let value_types = strukt
+                        .fields
+                        .iter()
+                        .map(|f| f.type_.clone())
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .ok()?;
+                    return self.example(&ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })));
+                }
+                let inner = strukt
+                    .fields
+                    .iter()
+                    .map(|f| (f.name.to_string_lossy(), &f.type_))
+                    .map(|(name, type_)| {
+                        let type_ = self.example(type_)?;
+                        let name = format!(r#""{name}""#);
+                        Some(format!("{name}: {type_}"))
+                    })
+                    .collect::<Option<Vec<_>>>()?
+                    .join(", ");
+                Some(format!(r#"{{ {inner} }}"#))
+            }
+            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
+            Some(ScSpecEntry::UdtEnumV0(enum_)) => {
+                enum_.cases.iter().next().map(|c| c.value.to_string())
+            }
+            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
         }
     }
 

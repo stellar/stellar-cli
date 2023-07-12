@@ -74,20 +74,6 @@ fn map_help() {
 }
 
 #[test]
-fn set() {
-    invoke_with_roundtrip("set", json!([0, 1]));
-}
-
-#[test]
-fn set_help() {
-    invoke(&TestEnv::default(), "set")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Set<u32>"));
-}
-
-#[test]
 fn vec_() {
     invoke_with_roundtrip("vec", json!([0, 1]));
 }
@@ -118,6 +104,14 @@ fn tuple_help() {
 #[test]
 fn strukt() {
     invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"}));
+}
+
+#[test]
+fn tuple_strukt() {
+    invoke_with_roundtrip(
+        "tuple_strukt",
+        json!([{"a": 42, "b": true, "c": "world"}, "First"]),
+    );
 }
 
 #[test]
@@ -211,7 +205,7 @@ fn number_arg_return_err() {
 
 #[test]
 fn void() {
-    invoke(&TestEnv::default(), "void")
+    invoke(&TestEnv::default(), "woid")
         .assert()
         .success()
         .stdout("\n")
@@ -219,8 +213,8 @@ fn void() {
 }
 
 #[test]
-fn raw_val() {
-    invoke(&TestEnv::default(), "raw_val")
+fn val() {
+    invoke(&TestEnv::default(), "val")
         .assert()
         .success()
         .stdout("null\n")

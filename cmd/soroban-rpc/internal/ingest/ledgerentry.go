@@ -58,6 +58,21 @@ func ingestLedgerEntryChange(writer db.LedgerEntryWriter, change ingest.Change) 
 		if err != nil {
 			return err
 		}
-		return writer.UpsertLedgerEntry(ledgerKey, *change.Post)
+		if isExtension, expirationLedgerSeq := ledgerEntryIsExtension(ledgerKey, change.Post); isExtension {
+			return writer.ExtendLedgerEntry(ledgerKey, expirationLedgerSeq)
+		} else {
+			return writer.UpsertLedgerEntry(*change.Post)
+		}
+	}
+}
+
+func ledgerEntryIsExtension(ledgerKey xdr.LedgerKey, entry *xdr.LedgerEntry) (bool, xdr.Uint32) {
+	switch ledgerKey.Type {
+	case xdr.LedgerEntryTypeContractCode:
+		return entry.Data.ContractCode.Body.BodyType == xdr.ContractEntryBodyTypeExpirationExtension, entry.Data.ContractCode.ExpirationLedgerSeq
+	case xdr.LedgerEntryTypeContractData:
+		return entry.Data.ContractData.Body.BodyType == xdr.ContractEntryBodyTypeExpirationExtension, entry.Data.ContractData.ExpirationLedgerSeq
+	default:
+		return false, 0
 	}
 }

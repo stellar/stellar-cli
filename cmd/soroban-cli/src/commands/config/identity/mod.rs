@@ -16,7 +16,6 @@ pub enum Cmd {
     /// Generate a new identity with a seed phrase, currently 12 words
     Generate(generate::Cmd),
     /// List identities
-    #[command(aliases = ["list"])]
     Ls(ls::Cmd),
     /// Remove an identity
     Rm(rm::Cmd),

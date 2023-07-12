@@ -6,9 +6,8 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, Hash, HostFunction, HostFunctionArgs, InvokeHostFunctionOp, Memo,
-    MuxedAccount, Operation, OperationBody, Preconditions, SequenceNumber, Transaction,
-    TransactionExt, Uint256, UploadContractWasmArgs, VecM,
+    Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -60,8 +59,11 @@ impl Cmd {
 
     pub fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<Hash, Error> {
         let mut state = self.config.get_state()?;
-        let wasm_hash =
-            utils::add_contract_code_to_ledger_entries(&mut state.ledger_entries, contract)?;
+        let wasm_hash = utils::add_contract_code_to_ledger_entries(
+            &mut state.ledger_entries,
+            contract,
+            state.min_persistent_entry_expiration,
+        )?;
 
         self.config.set_state(&mut state)?;
 
@@ -71,6 +73,9 @@ impl Cmd {
     async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<Hash, Error> {
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
@@ -95,23 +100,18 @@ impl Cmd {
 }
 
 pub(crate) fn build_install_contract_code_tx(
-    contract: Vec<u8>,
+    source_code: Vec<u8>,
     sequence: i64,
     fee: u32,
     key: &ed25519_dalek::Keypair,
 ) -> Result<(Transaction, Hash), XdrError> {
-    let hash = utils::contract_hash(&contract)?;
+    let hash = utils::contract_hash(&source_code)?;
 
     let op = Operation {
         source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            functions: vec![HostFunction {
-                args: HostFunctionArgs::UploadContractWasm(UploadContractWasmArgs {
-                    code: contract.try_into()?,
-                }),
-                auth: VecM::default(),
-            }]
-            .try_into()?,
+            host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
+            auth: VecM::default(),
         }),
     };
 

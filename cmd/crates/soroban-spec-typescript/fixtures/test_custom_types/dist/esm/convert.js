@@ -1,0 +1,137 @@
+import { Address, xdr } from 'soroban-client';
+import { Buffer } from "buffer";
+import { bufToBigint } from 'bigint-conversion';
+export function scvalToBigInt(scval) {
+    switch (scval?.switch()) {
+        case undefined: {
+            return BigInt(0);
+        }
+        case xdr.ScValType.scvU64(): {
+            const { high, low } = scval.u64();
+            return bufToBigint(new Uint32Array([high, low]));
+        }
+        case xdr.ScValType.scvI64(): {
+            const { high, low } = scval.i64();
+            return bufToBigint(new Int32Array([high, low]));
+        }
+        case xdr.ScValType.scvU128(): {
+            const parts = scval.u128();
+            const a = parts.hi();
+            const b = parts.lo();
+            return bufToBigint(new Uint32Array([a.high, a.low, b.high, b.low]));
+        }
+        case xdr.ScValType.scvI128(): {
+            const parts = scval.i128();
+            const a = parts.hi();
+            const b = parts.lo();
+            return bufToBigint(new Int32Array([a.high, a.low, b.high, b.low]));
+        }
+        default: {
+            throw new Error(`Invalid type for scvalToBigInt: ${scval?.switch().name}`);
+        }
+    }
+    ;
+}
+export function strToScVal(base64Xdr) {
+    return xdr.ScVal.fromXDR(Buffer.from(base64Xdr, 'base64'));
+}
+export function scValStrToJs(base64Xdr) {
+    return scValToJs(strToScVal(base64Xdr));
+}
+export function scValToJs(val) {
+    switch (val?.switch()) {
+        case xdr.ScValType.scvBool(): {
+            return val.b();
+        }
+        case xdr.ScValType.scvVoid():
+        case undefined: {
+            return 0;
+        }
+        case xdr.ScValType.scvU32(): {
+            return val.u32();
+        }
+        case xdr.ScValType.scvI32(): {
+            return val.i32();
+        }
+        case xdr.ScValType.scvU64():
+        case xdr.ScValType.scvI64():
+        case xdr.ScValType.scvU128():
+        case xdr.ScValType.scvI128():
+        case xdr.ScValType.scvU256():
+        case xdr.ScValType.scvI256(): {
+            return scvalToBigInt(val);
+        }
+        case xdr.ScValType.scvAddress(): {
+            return Address.fromScVal(val).toString();
+        }
+        case xdr.ScValType.scvString(): {
+            return val.str().toString();
+        }
+        case xdr.ScValType.scvSymbol(): {
+            return val.sym().toString();
+        }
+        case xdr.ScValType.scvBytes(): {
+            return val.bytes();
+        }
+        case xdr.ScValType.scvVec(): {
+            return val.vec().map(v => scValToJs(v));
+        }
+        case xdr.ScValType.scvMap(): {
+            let res = {};
+            val.map().forEach((e) => {
+                let key = scValToJs(e.key());
+                let value;
+                let v = e.val();
+                // For now we assume second level maps are real maps. Not perfect but better.
+                switch (v?.switch()) {
+                    case xdr.ScValType.scvMap(): {
+                        let inner_map = new Map();
+                        v.map().forEach((e) => {
+                            let key = scValToJs(e.key());
+                            let value = scValToJs(e.val());
+                            inner_map.set(key, value);
+                        });
+                        value = inner_map;
+                        break;
+                    }
+                    default: {
+                        value = scValToJs(e.val());
+                    }
+                }
+                //@ts-ignore
+                res[key] = value;
+            });
+            return res;
+        }
+        case xdr.ScValType.scvContractInstance():
+            return val.instance();
+        case xdr.ScValType.scvLedgerKeyNonce():
+            return val.nonceKey();
+        case xdr.ScValType.scvTimepoint():
+            return val.timepoint();
+        case xdr.ScValType.scvDuration():
+            return val.duration();
+        // TODO: Add this case when merged
+        // case xdr.ScValType.scvError():
+        default: {
+            throw new Error(`type not implemented yet: ${val?.switch().name}`);
+        }
+    }
+    ;
+}
+export function addressToScVal(addr) {
+    let addrObj = Address.fromString(addr);
+    return addrObj.toScVal();
+}
+export function i128ToScVal(i) {
+    return xdr.ScVal.scvI128(new xdr.Int128Parts({
+        lo: xdr.Uint64.fromString((i & BigInt(0xffffffffffffffffn)).toString()),
+        hi: xdr.Int64.fromString(((i >> BigInt(64)) & BigInt(0xffffffffffffffffn)).toString()),
+    }));
+}
+export function u128ToScVal(i) {
+    return xdr.ScVal.scvU128(new xdr.UInt128Parts({
+        lo: xdr.Uint64.fromString((i & BigInt(0xffffffffffffffffn)).toString()),
+        hi: xdr.Int64.fromString(((i >> BigInt(64)) & BigInt(0xffffffffffffffffn)).toString()),
+    }));
+}
