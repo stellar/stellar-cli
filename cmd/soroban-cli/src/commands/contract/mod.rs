@@ -1,5 +1,6 @@
 pub mod bindings;
 pub mod build;
+pub mod bump;
 pub mod deploy;
 pub mod fetch;
 pub mod inspect;
@@ -7,14 +8,18 @@ pub mod install;
 pub mod invoke;
 pub mod optimize;
 pub mod read;
+pub mod restore;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    Build(build::Cmd),
-
     /// Generate code client bindings for a contract
     #[command(subcommand)]
     Bindings(bindings::Cmd),
+
+    Build(build::Cmd),
+
+    /// Extend the expiry ledger of a contract-data ledger entry
+    Bump(bump::Cmd),
 
     /// Deploy a contract
     Deploy(deploy::Cmd),
@@ -43,15 +48,21 @@ pub enum Cmd {
 
     /// Print the current value of a contract-data ledger entry
     Read(read::Cmd),
+
+    /// Restore an evicted value for a contract-data legder entry
+    Restore(restore::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Bindings(#[from] bindings::Error),
+
+    #[error(transparent)]
     Build(#[from] build::Error),
 
     #[error(transparent)]
-    Bindings(#[from] bindings::Error),
+    Bump(#[from] bump::Error),
 
     #[error(transparent)]
     Deploy(#[from] deploy::Error),
@@ -73,21 +84,43 @@ pub enum Error {
 
     #[error(transparent)]
     Read(#[from] read::Error),
+
+    #[error(transparent)]
+    Restore(#[from] restore::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match &self {
-            Cmd::Build(build) => build.run()?,
             Cmd::Bindings(bindings) => bindings.run()?,
+            Cmd::Build(build) => build.run()?,
+            Cmd::Bump(bump) => bump.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::Inspect(inspect) => inspect.run()?,
             Cmd::Install(install) => install.run().await?,
             Cmd::Invoke(invoke) => invoke.run().await?,
             Cmd::Optimize(optimize) => optimize.run()?,
-            Cmd::Read(read) => read.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
+            Cmd::Read(read) => read.run()?,
+            Cmd::Restore(restore) => restore.run().await?,
         }
         Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
+pub enum Durability {
+    /// Persistent
+    Persistent,
+    /// Temporary
+    Temporary,
+}
+
+impl From<Durability> for soroban_env_host::xdr::ContractDataDurability {
+    fn from(d: Durability) -> Self {
+        match d {
+            Durability::Persistent => soroban_env_host::xdr::ContractDataDurability::Persistent,
+            Durability::Temporary => soroban_env_host::xdr::ContractDataDurability::Temporary,
+        }
     }
 }

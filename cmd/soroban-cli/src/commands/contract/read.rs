@@ -1,4 +1,5 @@
 use std::{
+    convert::Into,
     fmt::Debug,
     io::{self, stdout},
 };
@@ -15,6 +16,7 @@ use soroban_env_host::{
 
 use crate::{
     commands::config::{ledger_file, locator},
+    commands::contract::Durability,
     utils,
 };
 
@@ -27,9 +29,13 @@ pub struct Cmd {
     /// Storage key (symbols only)
     #[arg(long = "key", conflicts_with = "key_xdr")]
     key: Option<String>,
-    /// Storage key (base64-encoded XDR)
+    /// Storage key (base64-encoded XDR ScVal)
     #[arg(long = "key-xdr", conflicts_with = "key")]
     key_xdr: Option<String>,
+    /// Storage entry durability
+    #[arg(long, value_enum)]
+    durability: Option<Durability>,
+
     /// Type of output to generate
     #[arg(long, value_enum, default_value("string"))]
     output: Output,
@@ -125,59 +131,62 @@ impl Cmd {
         let ledger_entries = &state.ledger_entries;
 
         let contract = ScAddress::Contract(xdr::Hash(contract_id));
-        let entries: Vec<(ScVal, ScVal)> = if let Some(key) = key {
-            ledger_entries
-                .iter()
-                .filter_map(|(k, v)| {
-                    let LedgerKey::ContractData(LedgerKeyContractData {
-                        contract: c,
-                        key: k,
-                        body_type,
-                        ..
-                    }) = k.as_ref() else {
-                        return None;
-                    };
-                    if c == &contract && k == &key && body_type == &ContractEntryBodyType::DataEntry
-                    {
-                        return Some(v.as_ref().clone());
+        let durability: Option<xdr::ContractDataDurability> = self.durability.map(Into::into);
+        let entries: Vec<(ScVal, ScVal)> = ledger_entries
+            .iter()
+            .map(|(k, v)| (k.as_ref().clone(), v.as_ref().clone()))
+            .filter(|(k, _v)| {
+                if let LedgerKey::ContractData(LedgerKeyContractData { contract: c, .. }) = k {
+                    if c == &contract {
+                        return true;
                     }
+                }
+                false
+            })
+            .filter(|(k, _v)| {
+                if let LedgerKey::ContractData(LedgerKeyContractData { body_type, .. }) = k {
+                    if body_type == &ContractEntryBodyType::DataEntry {
+                        return true;
+                    }
+                }
+                false
+            })
+            .filter(|(k, _v)| {
+                if key.is_none() {
+                    return true;
+                }
+                if let LedgerKey::ContractData(LedgerKeyContractData { key: k, .. }) = k {
+                    if Some(k) == key.as_ref() {
+                        return true;
+                    }
+                }
+                false
+            })
+            .filter(|(k, _v)| {
+                if durability.is_none() {
+                    return true;
+                }
+                if let LedgerKey::ContractData(LedgerKeyContractData { durability: d, .. }) = k {
+                    if Some(*d) == durability {
+                        return true;
+                    }
+                }
+                false
+            })
+            .map(|(_k, v)| v)
+            .filter_map(|val| {
+                if let LedgerEntryData::ContractData(ContractDataEntry {
+                    key,
+                    body: ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }),
+                    ..
+                }) = &val.data
+                {
+                    Some((key.clone(), val.clone()))
+                } else {
                     None
-                })
-                .filter_map(|val| {
-                    if let LedgerEntryData::ContractData(ContractDataEntry {
-                        key,
-                        body: ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }),
-                        ..
-                    }) = val.data
-                    {
-                        Some((key, val))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        } else {
-            ledger_entries
-                .iter()
-                .filter_map(|(k, v)| {
-                    if let LedgerKey::ContractData(kd) = *k.clone() {
-                        if kd.contract == contract && kd.key != ScVal::LedgerKeyContractInstance {
-                            if let LedgerEntryData::ContractData(ContractDataEntry {
-                                body:
-                                    ContractDataEntryBody::DataEntry(ContractDataEntryData {
-                                        val, ..
-                                    }),
-                                ..
-                            }) = &v.data
-                            {
-                                return Some((kd.key, val.clone()));
-                            }
-                        }
-                    }
-                    None
-                })
-                .collect()
-        };
+                }
+            })
+            .collect();
 
         let mut out = csv::Writer::from_writer(stdout());
         for (key, val) in entries {

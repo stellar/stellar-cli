@@ -44,33 +44,38 @@ pub fn assemble(
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
     let mut op = tx.operations[0].clone();
-    if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
-        if simulation.results.len() != 1 {
-            return Err(Error::UnexpectedSimulateTransactionResultSize {
-                length: simulation.results.len(),
-            });
-        }
+    let auths = match &mut op.body {
+        OperationBody::InvokeHostFunction(ref mut body) => {
+            if simulation.results.len() != 1 {
+                return Err(Error::UnexpectedSimulateTransactionResultSize {
+                    length: simulation.results.len(),
+                });
+            }
 
-        let auths = simulation
-            .results
-            .iter()
-            .map(|r| {
-                VecM::try_from(
-                    r.auth
-                        .iter()
-                        .map(SorobanAuthorizationEntry::from_xdr_base64)
-                        .collect::<Result<Vec<_>, _>>()?,
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        if !auths.is_empty() {
-            body.auth = auths[0].clone();
+            let auths = simulation
+                .results
+                .iter()
+                .map(|r| {
+                    VecM::try_from(
+                        r.auth
+                            .iter()
+                            .map(SorobanAuthorizationEntry::from_xdr_base64)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if !auths.is_empty() {
+                body.auth = auths[0].clone();
+            }
+            auths
         }
-        if let Some(log) = log_events {
-            log(&transaction_data.resources.footprint, &auths, &[], None);
+        OperationBody::BumpFootprintExpiration(_) | OperationBody::RestoreFootprint(_) => {
+            Vec::new()
         }
-    } else {
-        return Err(Error::UnsupportedOperationType);
+        _ => return Err(Error::UnsupportedOperationType),
+    };
+    if let Some(log) = log_events {
+        log(&transaction_data.resources.footprint, &auths, &[], None);
     }
 
     tx.fee = fee;

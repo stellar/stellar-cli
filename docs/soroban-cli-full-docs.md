@@ -6,11 +6,12 @@ This document contains the help content for the `soroban` command-line program.
 
 * [`soroban`↴](#soroban)
 * [`soroban contract`↴](#soroban-contract)
-* [`soroban contract build`↴](#soroban-contract-build)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
 * [`soroban contract bindings rust`↴](#soroban-contract-bindings-rust)
 * [`soroban contract bindings typescript`↴](#soroban-contract-bindings-typescript)
+* [`soroban contract build`↴](#soroban-contract-build)
+* [`soroban contract bump`↴](#soroban-contract-bump)
 * [`soroban contract deploy`↴](#soroban-contract-deploy)
 * [`soroban contract fetch`↴](#soroban-contract-fetch)
 * [`soroban contract inspect`↴](#soroban-contract-inspect)
@@ -18,6 +19,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract invoke`↴](#soroban-contract-invoke)
 * [`soroban contract optimize`↴](#soroban-contract-optimize)
 * [`soroban contract read`↴](#soroban-contract-read)
+* [`soroban contract restore`↴](#soroban-contract-restore)
 * [`soroban config`↴](#soroban-config)
 * [`soroban config identity`↴](#soroban-config-identity)
 * [`soroban config identity add`↴](#soroban-config-identity-add)
@@ -98,8 +100,9 @@ Tools for smart contract developers
 
 ###### **Subcommands:**
 
-* `build` — Build a contract from source
 * `bindings` — Generate code client bindings for a contract
+* `build` — Build a contract from source
+* `bump` — Extend the expiry ledger of a contract-data ledger entry
 * `deploy` — Deploy a contract
 * `fetch` — Fetch a contract's Wasm binary from a network or local sandbox
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
@@ -107,33 +110,7 @@ Tools for smart contract developers
 * `invoke` — Invoke a contract function
 * `optimize` — Optimize a WASM file
 * `read` — Print the current value of a contract-data ledger entry
-
-
-
-## `soroban contract build`
-
-Build a contract from source
-
-Builds all crates that are referenced by the cargo manifest (Cargo.toml) that have cdylib as their crate-type. Crates are built for the wasm32 target. Unless configured otherwise, crates are built with their default features and with their release profile.
-
-To view the commands that will be executed, without executing them, use the --print-commands-only option.
-
-**Usage:** `soroban contract build [OPTIONS]`
-
-###### **Options:**
-
-* `--manifest-path <MANIFEST_PATH>` — Path to Cargo.toml
-
-  Default value: `Cargo.toml`
-* `--package <PACKAGE>` — Package to build
-* `--profile <PROFILE>` — Build with the specified profile
-
-  Default value: `release`
-* `--features <FEATURES>` — Build with the list of features activated, space or comma separated
-* `--all-features` — Build with the all features activated
-* `--no-default-features` — Build with the default feature not activated
-* `--out-dir <OUT_DIR>` — Directory to copy wasm files to
-* `--print-commands-only` — Print commands to build without executing them
+* `restore` — Restore an evicted value for a contract-data legder entry
 
 
 
@@ -192,6 +169,67 @@ Generate a TypeScript / JavaScript package
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `soroban contract build`
+
+Build a contract from source
+
+Builds all crates that are referenced by the cargo manifest (Cargo.toml) that have cdylib as their crate-type. Crates are built for the wasm32 target. Unless configured otherwise, crates are built with their default features and with their release profile.
+
+To view the commands that will be executed, without executing them, use the --print-commands-only option.
+
+**Usage:** `soroban contract build [OPTIONS]`
+
+###### **Options:**
+
+* `--manifest-path <MANIFEST_PATH>` — Path to Cargo.toml
+
+  Default value: `Cargo.toml`
+* `--package <PACKAGE>` — Package to build
+* `--profile <PROFILE>` — Build with the specified profile
+
+  Default value: `release`
+* `--features <FEATURES>` — Build with the list of features activated, space or comma separated
+* `--all-features` — Build with the all features activated
+* `--no-default-features` — Build with the default feature not activated
+* `--out-dir <OUT_DIR>` — Directory to copy wasm files to
+* `--print-commands-only` — Print commands to build without executing them
+
+
+
+## `soroban contract bump`
+
+Extend the expiry ledger of a contract-data ledger entry
+
+**Usage:** `soroban contract bump [OPTIONS] --id <CONTRACT_ID> --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
+
+###### **Options:**
+
+* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries
+* `--key <KEY>` — Storage key (symbols only)
+* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--durability <DURABILITY>` — Storage entry durability
+
+  Possible values:
+  - `persistent`:
+    Persistent
+  - `temporary`:
+    Temporary
+
+* `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entries
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
 
 
 
@@ -335,7 +373,15 @@ Print the current value of a contract-data ledger entry
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--key <KEY>` — Storage key (symbols only)
-* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR ScVal)
+* `--durability <DURABILITY>` — Storage entry durability
+
+  Possible values:
+  - `persistent`:
+    Persistent
+  - `temporary`:
+    Temporary
+
 * `--output <OUTPUT>` — Type of output to generate
 
   Default value: `string`
@@ -351,6 +397,31 @@ Print the current value of a contract-data ledger entry
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban contract restore`
+
+Restore an evicted value for a contract-data legder entry
+
+**Usage:** `soroban contract restore [OPTIONS] --id <CONTRACT_ID>`
+
+###### **Options:**
+
+* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries
+* `--key <KEY>` — Storage key (symbols only)
+* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
 
 
 
