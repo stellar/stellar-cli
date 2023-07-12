@@ -1,10 +1,14 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{
-    AccountId, DiagnosticEvent, Hash, HashIdPreimageSorobanAuthorization, OperationBody, PublicKey,
-    ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, Transaction,
-    TransactionExt, Uint256, VecM, WriteXdr,
+use soroban_env_host::{
+    fees::{compute_transaction_resource_fee, FeeConfiguration, TransactionResources},
+    xdr::{
+        AccountId, DecoratedSignature, DiagnosticEvent, Hash, HashIdPreimageSorobanAuthorization,
+        OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, Signature,
+        SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
+        SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
+    },
 };
 
 use crate::rpc::{Error, LogEvents, SimulateTransactionResponse};
@@ -88,6 +92,47 @@ pub fn assemble(
     Ok(tx)
 }
 
+pub fn update_fee(
+    raw: &Transaction,
+    fee_configuration: &FeeConfiguration,
+) -> Result<Transaction, Error> {
+    let TransactionExt::V1(SorobanTransactionData { ext, resources, ..}) = &raw.ext else {
+        return Ok(raw.clone());
+    };
+    let envelope = TransactionV1Envelope {
+        tx: raw.clone(),
+        signatures: vec![
+            DecoratedSignature {
+                hint: SignatureHint([0; 4]),
+                signature: Signature::default(),
+            };
+            20
+        ]
+        .try_into()?,
+    };
+    let tx_resources = TransactionResources {
+        instructions: resources.instructions,
+        read_entries: resources.footprint.read_only.len() as u32,
+        write_entries: resources.footprint.read_write.len() as u32,
+        read_bytes: resources.read_bytes,
+        write_bytes: resources.write_bytes,
+        metadata_size_bytes: resources.extended_meta_data_size_bytes,
+        transaction_size_bytes: envelope.to_xdr()?.len() as u32,
+    };
+
+    let (fee, new_refundable_fee) =
+        compute_transaction_resource_fee(&tx_resources, fee_configuration);
+    let mut tx = raw.clone();
+    // TODO: Deal with this error
+    tx.fee = (fee * 115 / 100).try_into().unwrap();
+    tx.ext = TransactionExt::V1(SorobanTransactionData {
+        ext: ext.clone(),
+        resources: resources.clone(),
+        refundable_fee: new_refundable_fee,
+    });
+    Ok(tx)
+}
+
 // Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
 // transaction. If unable to sign, return an error.
 pub fn sign_soroban_authorizations(
@@ -95,17 +140,17 @@ pub fn sign_soroban_authorizations(
     source_key: &ed25519_dalek::Keypair,
     signers: &[ed25519_dalek::Keypair],
     network_passphrase: &str,
-) -> Result<Transaction, Error> {
+) -> Result<(Transaction, Vec<SorobanAuthorizationEntry>), Error> {
     let mut tx = raw.clone();
 
     if tx.operations.len() != 1 {
         // This must not be an invokeHostFunction operation, so nothing to do
-        return Ok(tx);
+        return Ok((tx, Vec::new()));
     }
 
     let mut op = tx.operations[0].clone();
     let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body else {
-        return Ok(tx);
+        return Ok((tx, Vec::new()));
     };
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
@@ -201,9 +246,9 @@ pub fn sign_soroban_authorizations(
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    body.auth = signed_auths.try_into()?;
+    body.auth = signed_auths.clone().try_into()?;
     tx.operations = vec![op].try_into()?;
-    Ok(tx)
+    Ok((tx, signed_auths))
 }
 
 #[cfg(test)]

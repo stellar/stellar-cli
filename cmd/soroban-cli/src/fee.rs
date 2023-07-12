@@ -1,7 +1,7 @@
 use crate::{commands::HEADING_RPC, rpc};
 use clap::arg;
 use soroban_env_host::{
-    fees::{compute_transaction_resource_fee, FeeConfiguration, TransactionResources},
+    fees::FeeConfiguration,
     xdr::{self, ReadXdr},
 };
 
@@ -43,7 +43,12 @@ pub async fn get_fee_configuration(client: &rpc::Client) -> Result<FeeConfigurat
         .entries
         .unwrap_or_default()
         .iter()
-        .map(|e| xdr::ConfigSettingEntry::from_xdr_base64(&e.xdr))
+        .map(|e| xdr::LedgerEntryData::from_xdr_base64(&e.xdr))
+        .map(|e| match e {
+            Ok(xdr::LedgerEntryData::ConfigSetting(config_setting)) => Ok(config_setting),
+            Err(e) => Err(rpc::Error::Xdr(e)),
+            Ok(_) => Err(rpc::Error::Xdr(xdr::Error::Invalid)),
+        })
         .collect::<Result<Vec<_>, _>>()?;
 
     if entries.len() != 5 {

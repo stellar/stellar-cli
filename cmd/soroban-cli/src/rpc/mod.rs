@@ -24,7 +24,10 @@ use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
 
-use crate::utils::{self, contract_spec};
+use crate::{
+    fee::get_fee_configuration,
+    utils::{self, contract_spec},
+};
 
 mod transaction;
 use transaction::{assemble, sign_soroban_authorizations};
@@ -577,9 +580,15 @@ impl Client {
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
-        let part_signed_tx =
+        let (part_signed_tx, signed) =
             sign_soroban_authorizations(&unsigned_tx, source_key, signers, network_passphrase)?;
-        let tx = utils::sign_transaction(source_key, &part_signed_tx, network_passphrase)?;
+        let fee_ready_txn = if signed.len() == 0 {
+            part_signed_tx
+        } else {
+            let fee_configuration = get_fee_configuration(self).await?;
+            transaction::update_fee(&part_signed_tx, &fee_configuration)?
+        };
+        let tx = utils::sign_transaction(source_key, &fee_ready_txn, network_passphrase)?;
         self.send_transaction(&tx).await
     }
 
