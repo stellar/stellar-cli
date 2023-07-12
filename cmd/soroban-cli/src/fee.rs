@@ -1,6 +1,9 @@
+use crate::{commands::HEADING_RPC, rpc};
 use clap::arg;
-
-use crate::commands::HEADING_RPC;
+use soroban_env_host::{
+    fees::{compute_transaction_resource_fee, FeeConfiguration, TransactionResources},
+    xdr::{self, ReadXdr},
+};
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -14,4 +17,59 @@ impl Default for Args {
     fn default() -> Self {
         Self { fee: 100 }
     }
+}
+
+pub async fn get_fee_configuration(client: &rpc::Client) -> Result<FeeConfiguration, rpc::Error> {
+    let response = client
+        .get_ledger_entries(
+            &vec![
+                xdr::ConfigSettingId::ContractComputeV0,
+                xdr::ConfigSettingId::ContractLedgerCostV0,
+                xdr::ConfigSettingId::ContractHistoricalDataV0,
+                xdr::ConfigSettingId::ContractMetaDataV0,
+                xdr::ConfigSettingId::ContractBandwidthV0,
+            ]
+            .iter()
+            .map(|config_setting_id| {
+                xdr::LedgerKey::ConfigSetting(xdr::LedgerKeyConfigSetting {
+                    config_setting_id: *config_setting_id,
+                })
+            })
+            .collect::<Vec<_>>(),
+        )
+        .await?;
+
+    let entries = response
+        .entries
+        .unwrap_or_default()
+        .iter()
+        .map(|e| xdr::ConfigSettingEntry::from_xdr_base64(&e.xdr))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if entries.len() != 5 {
+        return Err(rpc::Error::InvalidResponse);
+    }
+
+    let [
+        xdr::ConfigSettingEntry::ContractComputeV0(compute),
+        xdr::ConfigSettingEntry::ContractLedgerCostV0(ledger_cost),
+        xdr::ConfigSettingEntry::ContractHistoricalDataV0(historical_data),
+        xdr::ConfigSettingEntry::ContractMetaDataV0(metadata),
+        xdr::ConfigSettingEntry::ContractBandwidthV0(bandwidth),
+    ] =     &entries[..] else {
+        return Err(rpc::Error::InvalidResponse);
+    };
+
+    // Taken from Stellar Core's InitialSorobanNetworkConfig in NetworkConfig.h
+    let fee_configuration = FeeConfiguration {
+        fee_per_instruction_increment: compute.fee_rate_per_instructions_increment,
+        fee_per_read_entry: ledger_cost.fee_read_ledger_entry,
+        fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
+        fee_per_read_1kb: ledger_cost.fee_read1_kb,
+        fee_per_write_1kb: ledger_cost.fee_write1_kb,
+        fee_per_historical_1kb: historical_data.fee_historical1_kb,
+        fee_per_metadata_1kb: metadata.fee_extended_meta_data1_kb,
+        fee_per_propagate_1kb: bandwidth.fee_propagate_data1_kb,
+    };
+    Ok(fee_configuration)
 }
