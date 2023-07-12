@@ -139,6 +139,7 @@ pub fn sign_soroban_authorizations(
     raw: &Transaction,
     source_key: &ed25519_dalek::Keypair,
     signers: &[ed25519_dalek::Keypair],
+    signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<(Transaction, Vec<SorobanAuthorizationEntry>), Error> {
     let mut tx = raw.clone();
@@ -175,7 +176,6 @@ pub fn sign_soroban_authorizations(
             let SorobanAddressCredentials {
                 ref address,
                 nonce,
-                signature_expiration_ledger,
                 ..
             } = credentials;
 
@@ -210,7 +210,7 @@ pub fn sign_soroban_authorizations(
                 network_id: network_id.clone(),
                 invocation: auth.root_invocation.clone(),
                 nonce: *nonce,
-                signature_expiration_ledger: *signature_expiration_ledger,
+                signature_expiration_ledger,
             }
             .to_xdr()?;
 
@@ -241,6 +241,7 @@ pub fn sign_soroban_authorizations(
                 ),
             ];
             let map = ScMap::sorted_from(entries).map_err(Error::Xdr)?;
+            credentials.signature_expiration_ledger = signature_expiration_ledger;
             credentials.signature_args = vec![ScVal::Map(Some(map))].try_into()?;
             Ok(auth)
         })

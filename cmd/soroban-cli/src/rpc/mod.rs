@@ -577,15 +577,15 @@ impl Client {
         network_passphrase: &str,
         log_events: Option<LogEvents>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
+        let (fee_configuration, ledger_seq) = get_fee_configuration(self).await?;
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
         let (part_signed_tx, signed) =
-            sign_soroban_authorizations(&unsigned_tx, source_key, signers, network_passphrase)?;
+            sign_soroban_authorizations(&unsigned_tx, source_key, signers, ledger_seq+5, network_passphrase)?;
         let fee_ready_txn = if signed.len() == 0 {
             part_signed_tx
         } else {
-            let fee_configuration = get_fee_configuration(self).await?;
             transaction::update_fee(&part_signed_tx, &fee_configuration)?
         };
         let tx = utils::sign_transaction(source_key, &fee_ready_txn, network_passphrase)?;
