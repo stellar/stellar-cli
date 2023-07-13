@@ -581,14 +581,14 @@ impl Client {
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
-        let (part_signed_tx, signed) = sign_soroban_authorizations(
+        let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
             &unsigned_tx,
             source_key,
             signers,
             ledger_seq + 5,
             network_passphrase,
         )?;
-        let fee_ready_txn = if signed.len() == 0 {
+        let fee_ready_txn = if signed_auth_entries.is_empty() {
             part_signed_tx
         } else {
             transaction::update_fee(&part_signed_tx, &fee_configuration)?

@@ -6,8 +6,8 @@ use soroban_env_host::{
         AccountId, DecoratedSignature, DiagnosticEvent, Hash, HashIdPreimageSorobanAuthorization,
         OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, Signature,
         SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
-        SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-        TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
     },
 };
 
@@ -110,14 +110,15 @@ pub fn update_fee(
         ]
         .try_into()?,
     };
+    // TODO: Deal with potentual conversion errors here
     let tx_resources = TransactionResources {
         instructions: resources.instructions,
-        read_entries: resources.footprint.read_only.len() as u32,
-        write_entries: resources.footprint.read_write.len() as u32,
+        read_entries: resources.footprint.read_only.len().try_into().unwrap(),
+        write_entries: resources.footprint.read_write.len().try_into().unwrap(),
         read_bytes: resources.read_bytes,
         write_bytes: resources.write_bytes,
         metadata_size_bytes: resources.extended_meta_data_size_bytes,
-        transaction_size_bytes: envelope.to_xdr()?.len() as u32,
+        transaction_size_bytes: envelope.to_xdr()?.len().try_into().unwrap(),
     };
 
     let (fee, new_refundable_fee) =
