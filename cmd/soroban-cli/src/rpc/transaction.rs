@@ -241,7 +241,8 @@ pub fn sign_soroban_authorization_entry(
     }
     .to_xdr()?;
 
-    let signature = signer.sign(&preimage);
+    let payload = Sha256::digest(preimage);
+    let signature = signer.sign(&payload);
 
     let map = ScMap::sorted_from(vec![
         (
