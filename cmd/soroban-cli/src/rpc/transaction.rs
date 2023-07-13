@@ -6,8 +6,8 @@ use soroban_env_host::{
         AccountId, DecoratedSignature, DiagnosticEvent, Hash, HashIdPreimageSorobanAuthorization,
         OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, Signature,
         SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
-        SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
 
@@ -124,7 +124,7 @@ pub fn update_fee(
         compute_transaction_resource_fee(&tx_resources, fee_configuration);
     let mut tx = raw.clone();
     // TODO: Deal with this error
-    tx.fee = (fee * 115 / 100).try_into().unwrap();
+    tx.fee = tx.fee.max((fee * 115 / 100).try_into().unwrap());
     tx.ext = TransactionExt::V1(SorobanTransactionData {
         ext: ext.clone(),
         resources: resources.clone(),
@@ -173,9 +173,7 @@ pub fn sign_soroban_authorizations(
                 // Doesn't need special signing
                 return Ok(auth);
             };
-            let SorobanAddressCredentials {
-                ref address, nonce, ..
-            } = credentials;
+            let SorobanAddressCredentials { ref address, .. } = credentials;
 
             // See if we have a signer for this authorizationEntry
             // If not, then we Error
@@ -204,50 +202,75 @@ pub fn sign_soroban_authorizations(
                 });
             };
 
-            let preimage = HashIdPreimageSorobanAuthorization {
-                network_id: network_id.clone(),
-                invocation: auth.root_invocation.clone(),
-                nonce: *nonce,
+            sign_soroban_authorization_entry(
+                raw_auth,
+                signer,
                 signature_expiration_ledger,
-            }
-            .to_xdr()?;
-
-            let signature = signer.sign(&preimage);
-
-            let entries = vec![
-                (
-                    // TODO: Not sure if these should be symbols or strings
-                    ScVal::Symbol(ScSymbol("public_key".try_into()?)),
-                    ScVal::Bytes(
-                        signer
-                            .public
-                            .to_bytes()
-                            .to_vec()
-                            .try_into()
-                            .map_err(Error::Xdr)?,
-                    ),
-                ),
-                (
-                    ScVal::Symbol(ScSymbol("signature".try_into()?)),
-                    ScVal::Bytes(
-                        signature
-                            .to_bytes()
-                            .to_vec()
-                            .try_into()
-                            .map_err(Error::Xdr)?,
-                    ),
-                ),
-            ];
-            let map = ScMap::sorted_from(entries).map_err(Error::Xdr)?;
-            credentials.signature_expiration_ledger = signature_expiration_ledger;
-            credentials.signature_args = vec![ScVal::Map(Some(map))].try_into()?;
-            Ok(auth)
+                &network_id,
+            )
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
     body.auth = signed_auths.clone().try_into()?;
     tx.operations = vec![op].try_into()?;
     Ok((tx, signed_auths))
+}
+
+pub fn sign_soroban_authorization_entry(
+    raw: &SorobanAuthorizationEntry,
+    signer: &ed25519_dalek::Keypair,
+    signature_expiration_ledger: u32,
+    network_id: &Hash,
+) -> Result<SorobanAuthorizationEntry, Error> {
+    let mut auth = raw.clone();
+    let SorobanAuthorizationEntry {
+        credentials: SorobanCredentials::Address(ref mut credentials),
+        ..
+    } = auth else {
+        // Doesn't need special signing
+        return Ok(auth);
+    };
+    let SorobanAddressCredentials { nonce, .. } = credentials;
+
+    let preimage = HashIdPreimageSorobanAuthorization {
+        network_id: network_id.clone(),
+        invocation: auth.root_invocation.clone(),
+        nonce: *nonce,
+        signature_expiration_ledger,
+    }
+    .to_xdr()?;
+
+    let signature = signer.sign(&preimage);
+
+    let map = ScMap::sorted_from(vec![
+        (
+            // TODO: Not sure if these should be symbols or strings
+            ScVal::Symbol(ScSymbol("public_key".try_into()?)),
+            ScVal::Bytes(
+                signer
+                    .public
+                    .to_bytes()
+                    .to_vec()
+                    .try_into()
+                    .map_err(Error::Xdr)?,
+            ),
+        ),
+        (
+            ScVal::Symbol(ScSymbol("signature".try_into()?)),
+            ScVal::Bytes(
+                signature
+                    .to_bytes()
+                    .to_vec()
+                    .try_into()
+                    .map_err(Error::Xdr)?,
+            ),
+        ),
+    ])
+    .map_err(Error::Xdr)?;
+    credentials.signature_args = vec![ScVal::Map(Some(map))].try_into()?;
+    credentials.signature_expiration_ledger = signature_expiration_ledger;
+    auth.credentials = SorobanCredentials::Address(credentials.clone());
+    Ok(auth)
 }
 
 #[cfg(test)]
