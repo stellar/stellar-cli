@@ -3,11 +3,11 @@ use sha2::{Digest, Sha256};
 use soroban_env_host::{
     fees::{compute_transaction_resource_fee, FeeConfiguration, TransactionResources},
     xdr::{
-        AccountId, DecoratedSignature, DiagnosticEvent, Hash, HashIdPreimageSorobanAuthorization,
-        OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, Signature,
-        SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
-        SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        AccountId, DecoratedSignature, DiagnosticEvent, Hash, HashIdPreimage,
+        HashIdPreimageSorobanAuthorization, OperationBody, PublicKey, ReadXdr, ScAddress, ScMap,
+        ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
+        SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, Transaction,
+        TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
 
@@ -233,12 +233,12 @@ pub fn sign_soroban_authorization_entry(
     };
     let SorobanAddressCredentials { nonce, .. } = credentials;
 
-    let preimage = HashIdPreimageSorobanAuthorization {
+    let preimage = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
         network_id: network_id.clone(),
         invocation: auth.root_invocation.clone(),
         nonce: *nonce,
         signature_expiration_ledger,
-    }
+    })
     .to_xdr()?;
 
     let payload = Sha256::digest(preimage);
