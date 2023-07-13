@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run 
-      SYSTEM_TEST_GIT_REF: v1.0.17
+      SYSTEM_TEST_GIT_REF: v1.0.18
 
       # the soroban tools source code to compile and run from system test
       # refers to checked out source of current git hub ref context 
@@ -42,7 +42,7 @@ jobs:
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
       # the soroban test cases will compile various contracts from the examples repo
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "0bb7e11db3ddf9ed88c56c05c22e14503f97824a"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "release-preview-10"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v3
