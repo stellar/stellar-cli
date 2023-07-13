@@ -585,7 +585,7 @@ impl Client {
             &unsigned_tx,
             source_key,
             signers,
-            ledger_seq + 5,
+            ledger_seq + 60, // ~5 minutes of ledgers
             network_passphrase,
         )?;
         let fee_ready_txn = if signed_auth_entries.is_empty() {
