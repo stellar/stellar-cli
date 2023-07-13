@@ -45,7 +45,6 @@ type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
   parseResultXdr?: (xdr: string) => T,
 }
 
-
 /**
  * Invoke a method on the test_custom_types contract.
  *
@@ -64,8 +63,8 @@ export async function invoke<R extends ResponseTypes, T = string>({
 }: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
   const freighterAccount = await getAccount()
 
-  // use a placeholder account if not yet connected to Freighter so that view calls can still work
-  const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '0')
+  // use a placeholder null account if not yet connected to Freighter so that view calls can still work
+  const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0')
 
   const contract = new SorobanClient.Contract(CONTRACT_ID)
 

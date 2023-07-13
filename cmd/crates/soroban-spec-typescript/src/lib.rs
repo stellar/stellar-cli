@@ -179,7 +179,7 @@ pub fn entry_to_ts(entry: &Entry) -> String {
                     if let Type::Custom { name } = type_ {
                         format!("{name}FromXdr(xdr)")
                     } else {
-                        format!("scValStrToJs(xdr)")
+                        "scValStrToJs(xdr)".to_owned()
                     }
                 })
                 .unwrap_or_default();
@@ -187,7 +187,7 @@ pub fn entry_to_ts(entry: &Entry) -> String {
                 output = format!("new Ok({output})");
             }
             if return_type != "void" {
-                output = format!(r#"return {output};"#)
+                output = format!(r#"return {output};"#);
             };
             if is_result {
                 output = format!(

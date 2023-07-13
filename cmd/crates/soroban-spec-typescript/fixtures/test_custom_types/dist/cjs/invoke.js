@@ -28,8 +28,8 @@ exports.NotImplementedError = NotImplementedError;
 let someRpcResponse;
 async function invoke({ method, args, fee, responseType, parseResultXdr, secondsToWait, }) {
     const freighterAccount = await getAccount();
-    // use a placeholder account if not yet connected to Freighter so that view calls can still work
-    const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '0');
+    // use a placeholder null account if not yet connected to Freighter so that view calls can still work
+    const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
     const contract = new SorobanClient.Contract(constants_js_1.CONTRACT_ID);
     let tx = new SorobanClient.TransactionBuilder(account, {
         fee: fee.toString(10),

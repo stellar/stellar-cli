@@ -24,8 +24,8 @@ export class NotImplementedError extends Error {
 let someRpcResponse;
 export async function invoke({ method, args, fee, responseType, parseResultXdr, secondsToWait, }) {
     const freighterAccount = await getAccount();
-    // use a placeholder account if not yet connected to Freighter so that view calls can still work
-    const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '0');
+    // use a placeholder null account if not yet connected to Freighter so that view calls can still work
+    const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
     const contract = new SorobanClient.Contract(CONTRACT_ID);
     let tx = new SorobanClient.TransactionBuilder(account, {
         fee: fee.toString(10),
