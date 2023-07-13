@@ -19,7 +19,9 @@ impl Default for Args {
     }
 }
 
-pub async fn get_fee_configuration(client: &rpc::Client) -> Result<(FeeConfiguration, u32), rpc::Error> {
+pub async fn get_fee_configuration(
+    client: &rpc::Client,
+) -> Result<(FeeConfiguration, u32), rpc::Error> {
     let response = client
         .get_ledger_entries(
             &vec![
@@ -77,6 +79,9 @@ pub async fn get_fee_configuration(client: &rpc::Client) -> Result<(FeeConfigura
         fee_per_propagate_1kb: bandwidth.fee_propagate_data1_kb,
     };
 
-    let latest_ledger_seq = response.latest_ledger.parse::<u32>().map_err(|_| rpc::Error::Xdr(xdr::Error::Invalid))?;
+    let latest_ledger_seq = response
+        .latest_ledger
+        .parse::<u32>()
+        .map_err(|_| rpc::Error::Xdr(xdr::Error::Invalid))?;
     Ok((fee_configuration, latest_ledger_seq))
 }

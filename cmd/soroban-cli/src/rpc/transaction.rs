@@ -174,9 +174,7 @@ pub fn sign_soroban_authorizations(
                 return Ok(auth);
             };
             let SorobanAddressCredentials {
-                ref address,
-                nonce,
-                ..
+                ref address, nonce, ..
             } = credentials;
 
             // See if we have a signer for this authorizationEntry
