@@ -167,7 +167,16 @@ impl Cmd {
             return Err(Error::LedgerEntryNotFound);
         }
 
-        let (LedgerEntryChange::State(_state), LedgerEntryChange::Updated(LedgerEntry{ data: LedgerEntryData::ContractData(ContractDataEntry{expiration_ledger_seq, ..}), ..})) = (&operations[0].changes[0], &operations[0].changes[1]) else {
+        let (
+            LedgerEntryChange::State(_state),
+            LedgerEntryChange::Updated(LedgerEntry{
+                data: LedgerEntryData::ContractData(ContractDataEntry{
+                    expiration_ledger_seq,
+                    ..
+                }),
+                ..
+            })
+        ) = (&operations[0].changes[0], &operations[0].changes[1]) else {
             return Err(Error::LedgerEntryNotFound);
         };
 
