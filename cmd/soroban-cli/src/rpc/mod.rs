@@ -694,7 +694,10 @@ impl Client {
         let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
         let entries = contract_data.entries.unwrap_or_default();
         if entries.is_empty() {
-            return Err(Error::NotFound("Contract Code".to_string(), hex::encode(hash)));
+            return Err(Error::NotFound(
+                "Contract Code".to_string(),
+                hex::encode(hash),
+            ));
         }
         let contract_data_entry = &entries[0];
         match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
