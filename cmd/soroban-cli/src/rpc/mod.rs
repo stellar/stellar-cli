@@ -66,6 +66,8 @@ pub enum Error {
     TransactionSubmissionTimeout,
     #[error("transaction simulation failed: {0}")]
     TransactionSimulationFailed(String),
+    #[error("{0} not found: {1}")]
+    NotFound(String, String),
     #[error("Missing result in successful response")]
     MissingResult,
     #[error("Failed to read Error response from server")]
@@ -449,7 +451,7 @@ impl Client {
         let response = self.get_ledger_entries(keys).await?;
         let entries = response.entries.unwrap_or_default();
         if entries.is_empty() {
-            return Err(Error::MissingResult);
+            return Err(Error::NotFound("Account".to_string(), address.to_string()));
         }
         let ledger_entry = &entries[0];
         if let LedgerEntryData::Account(entry) =
@@ -656,7 +658,8 @@ impl Client {
         let contract_ref = self.get_ledger_entries(Vec::from([contract_key])).await?;
         let entries = contract_ref.entries.unwrap_or_default();
         if entries.is_empty() {
-            return Err(Error::MissingResult);
+            let contract_address = stellar_strkey::Contract(*contract_id).to_string();
+            return Err(Error::NotFound("Contract".to_string(), contract_address));
         }
         let contract_ref_entry = &entries[0];
         match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
@@ -685,13 +688,16 @@ impl Client {
 
     pub async fn get_remote_wasm_from_hash(&self, hash: xdr::Hash) -> Result<Vec<u8>, Error> {
         let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode {
-            hash,
+            hash: hash.clone(),
             body_type: xdr::ContractEntryBodyType::DataEntry,
         });
         let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
         let entries = contract_data.entries.unwrap_or_default();
         if entries.is_empty() {
-            return Err(Error::MissingResult);
+            return Err(Error::NotFound(
+                "Contract Code".to_string(),
+                hex::encode(hash),
+            ));
         }
         let contract_data_entry = &entries[0];
         match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
