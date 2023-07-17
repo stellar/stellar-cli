@@ -55,11 +55,11 @@ type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
 export async function invoke<R extends ResponseTypes = undefined, T = string>(args: InvokeArgs<R, T>): Promise<R extends undefined ? T : R extends "simulated" ? Simulation : R extends "full" ? SomeRpcResponse : T>;
 export async function invoke<R extends ResponseTypes, T = string>({
   method,
-  args,
-  fee,
+  args = [],
+  fee = 100,
   responseType,
   parseResultXdr,
-  secondsToWait,
+  secondsToWait = 10,
 }: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
   const freighterAccount = await getAccount()
 
@@ -80,6 +80,8 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   if (responseType === 'simulated') return simulated
 
+  const parse = parseResultXdr ?? (xdr => xdr)
+
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
   const auths = simulated.results?.[0]?.auth
   let authsCount =  auths?.length ?? 0;
@@ -95,7 +97,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
       }
       throw new Error(`Invalid response from simulateTransaction:\n{simulated}`)
     }
-    return parseResultXdr(results[0].xdr)
+    return parse(results[0].xdr)
   }
 
   // ^^^^ else, is CHANGE method ˅˅˅˅
@@ -123,8 +125,6 @@ export async function invoke<R extends ResponseTypes, T = string>({
   const raw = await sendTx(tx, secondsToWait);
 
   if (responseType === 'full') return raw
-
-  const parse = parseResultXdr ?? (xdr => xdr)
 
   // if `sendTx` awaited the inclusion of the tx in the ledger, it used
   // `getTransaction`, which has a `resultXdr` field

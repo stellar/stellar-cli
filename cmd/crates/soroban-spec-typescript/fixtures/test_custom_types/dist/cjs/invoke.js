@@ -26,7 +26,7 @@ class NotImplementedError extends Error {
 exports.NotImplementedError = NotImplementedError;
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse;
-async function invoke({ method, args, fee, responseType, parseResultXdr, secondsToWait, }) {
+async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, }) {
     const freighterAccount = await getAccount();
     // use a placeholder null account if not yet connected to Freighter so that view calls can still work
     const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
@@ -41,6 +41,7 @@ async function invoke({ method, args, fee, responseType, parseResultXdr, seconds
     const simulated = await server_js_1.Server.simulateTransaction(tx);
     if (responseType === 'simulated')
         return simulated;
+    const parse = parseResultXdr ?? (xdr => xdr);
     // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
     const auths = simulated.results?.[0]?.auth;
     let authsCount = auths?.length ?? 0;
@@ -55,7 +56,7 @@ async function invoke({ method, args, fee, responseType, parseResultXdr, seconds
             }
             throw new Error(`Invalid response from simulateTransaction:\n{simulated}`);
         }
-        return parseResultXdr(results[0].xdr);
+        return parse(results[0].xdr);
     }
     // ^^^^ else, is CHANGE method ˅˅˅˅
     if (authsCount > 1) {
@@ -78,7 +79,6 @@ async function invoke({ method, args, fee, responseType, parseResultXdr, seconds
     const raw = await sendTx(tx, secondsToWait);
     if (responseType === 'full')
         return raw;
-    const parse = parseResultXdr ?? (xdr => xdr);
     // if `sendTx` awaited the inclusion of the tx in the ledger, it used
     // `getTransaction`, which has a `resultXdr` field
     if ('resultXdr' in raw)
