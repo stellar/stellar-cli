@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run
-      SYSTEM_TEST_GIT_REF: v1.0.18
+      SYSTEM_TEST_GIT_REF: v1.0.19
 
       # the soroban tools source code to compile and run from system test
       # refers to checked out source of current git hub ref context
@@ -32,7 +32,7 @@ jobs:
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
 
       # sets the version of soroban-js-client used by tests
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: "0.9.1"
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: "0.9.2"
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
