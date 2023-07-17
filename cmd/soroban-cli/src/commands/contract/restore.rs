@@ -2,10 +2,12 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractDataDurability, ContractEntryBodyType, Error as XdrError, ExtensionPoint, Hash,
-    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal,
-    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt, Uint256,
+    ContractDataDurability, ContractDataEntry, ContractEntryBodyType, Error as XdrError,
+    ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
+    LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources,
+    SorobanTransactionData, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
+    Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -66,6 +68,8 @@ pub enum Error {
     KeyIsRequired,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+    #[error("Ledger entry not found")]
+    LedgerEntryNotFound,
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error("missing operation result")]
@@ -77,14 +81,18 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        if self.config.is_no_network() {
-            self.run_in_sandbox()
+        let expiration_ledger_seq = if self.config.is_no_network() {
+            self.run_in_sandbox()?
         } else {
-            self.run_against_rpc_server().await
-        }
+            self.run_against_rpc_server().await?
+        };
+
+        println!("New expiration ledger: {expiration_ledger_seq}");
+
+        Ok(())
     }
 
-    async fn run_against_rpc_server(&self) -> Result<(), Error> {
+    async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
@@ -127,7 +135,7 @@ impl Cmd {
             }),
         };
 
-        let (result, _meta, events) = client
+        let (result, meta, events) = client
             .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
             .await?;
 
@@ -136,10 +144,30 @@ impl Cmd {
             tracing::debug!(?events);
         }
 
-        Ok(())
+        // The transaction from core will succeed regardless of whether it actually found &
+        // restored the entry, so we have to inspect the result meta to tell if it worked or not.
+        let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
+            return Err(Error::LedgerEntryNotFound);
+        };
+
+        // Simply check if there is exactly one entry here. We only support bumping a single
+        // entry via this command (which we should fix separately, but).
+        if operations.len() == 0 {
+            return Err(Error::LedgerEntryNotFound);
+        }
+
+        if operations[0].changes.len() != 1 {
+            return Err(Error::LedgerEntryNotFound);
+        }
+
+        let LedgerEntryChange::Created(LedgerEntry{ data: LedgerEntryData::ContractData(ContractDataEntry{expiration_ledger_seq, ..}), ..}) = &operations[0].changes[0] else {
+            return Err(Error::LedgerEntryNotFound);
+        };
+
+        Ok(*expiration_ledger_seq)
     }
 
-    fn run_in_sandbox(&self) -> Result<(), Error> {
+    fn run_in_sandbox(&self) -> Result<u32, Error> {
         // TODO: Implement this. This means we need to store ledger entries somewhere, and handle
         // eviction, and restoration with that evicted state store.
         todo!("Restoring ledger entries is not supported in the local sandbox mode");
