@@ -1,4 +1,8 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
+use std::{
+    fmt::Debug,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
@@ -15,21 +19,29 @@ use crate::{
     commands::config,
     commands::contract::Durability,
     rpc::{self, Client},
-    utils, Pwd,
+    utils, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to which owns the data entries
-    #[arg(long = "id")]
-    contract_id: String,
+    #[arg(long = "id", required_unless_present = "wasm")]
+    contract_id: Option<String>,
     /// Storage key (symbols only)
     #[arg(long = "key", conflicts_with = "key_xdr")]
     key: Option<String>,
     /// Storage key (base64-encoded XDR)
     #[arg(long = "key-xdr", conflicts_with = "key")]
     key_xdr: Option<String>,
+    /// Path to Wasm file of contract code to bump
+    #[arg(
+        long,
+        conflicts_with = "contract_id",
+        conflicts_with = "key",
+        conflicts_with = "key_xdr"
+    )]
+    wasm: Option<PathBuf>,
     /// Storage entry durability
     #[arg(long, value_enum, required = true)]
     durability: Durability,
@@ -82,6 +94,8 @@ pub enum Error {
     MissingOperationResult,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
@@ -222,8 +236,8 @@ impl Cmd {
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+        utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone().unwrap(), e))
     }
 
     fn parse_key(&self, contract_id: [u8; 32]) -> Result<LedgerKey, Error> {
@@ -239,6 +253,8 @@ impl Cmd {
                 key: key.clone(),
                 error: e,
             })?
+        } else if let Some(wasm) = &self.wasm {
+            return Ok(crate::wasm::Args { wasm: wasm.clone() }.try_into()?);
         } else {
             return Err(Error::KeyIsRequired);
         };

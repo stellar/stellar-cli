@@ -1,4 +1,8 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
+use std::{
+    fmt::Debug,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
@@ -14,21 +18,37 @@ use stellar_strkey::DecodeError;
 use crate::{
     commands::config::{self, locator},
     rpc::{self, Client},
-    utils, Pwd,
+    utils, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to which owns the data entries
-    #[arg(long = "id")]
-    contract_id: String,
+    #[arg(long = "id", required_unless_present = "wasm")]
+    contract_id: Option<String>,
     /// Storage key (symbols only)
-    #[arg(long = "key", required_unless_present = "key_xdr")]
+    #[arg(
+        long = "key",
+        required_unless_present = "key_xdr",
+        required_unless_present = "wasm"
+    )]
     key: Vec<String>,
     /// Storage key (base64-encoded XDR)
-    #[arg(long = "key-xdr", required_unless_present = "key")]
+    #[arg(
+        long = "key-xdr",
+        required_unless_present = "key",
+        required_unless_present = "wasm"
+    )]
     key_xdr: Vec<String>,
+    /// Path to Wasm file of contract code to restore
+    #[arg(
+        long,
+        conflicts_with = "key",
+        conflicts_with = "key_xdr",
+        conflicts_with = "contract_id"
+    )]
+    wasm: Option<PathBuf>,
 
     #[command(flatten)]
     config: config::Args,
@@ -76,6 +96,8 @@ pub enum Error {
     MissingOperationResult,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
@@ -95,8 +117,12 @@ impl Cmd {
     async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = self.contract_id()?;
-        let entry_keys = self.parse_keys(contract_id)?;
+        let entry_keys = if let Some(wasm) = &self.wasm {
+            vec![crate::wasm::Args { wasm: wasm.clone() }.try_into()?]
+        } else {
+            let contract_id = self.contract_id()?;
+            self.parse_keys(contract_id)?
+        };
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
@@ -174,8 +200,8 @@ impl Cmd {
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+        utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone().unwrap(), e))
     }
 
     fn parse_keys(&self, contract_id: [u8; 32]) -> Result<Vec<LedgerKey>, Error> {
