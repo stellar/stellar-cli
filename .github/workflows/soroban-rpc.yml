@@ -30,7 +30,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - run: |
-        rustup update
+          rustup update
       - run: make build-libpreflight
       - run: go test -race -cover -timeout 25m -v ./cmd/soroban-rpc/...
 
