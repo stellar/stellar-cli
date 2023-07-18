@@ -184,7 +184,7 @@ impl Args {
         if let Err(Error::ConfigMissing(_, _)) = &res {
             if name == "futurenet" {
                 let network = Network {
-                    rpc_url: "https://rpc-futurenet.stellar.org/soroban/rpc".to_string(),
+                    rpc_url: "https://rpc-futurenet.stellar.org:443".to_string(),
                     network_passphrase: "Test SDF Future Network ; October 2022".to_string(),
                 };
                 self.write_network(name, &network)?;
