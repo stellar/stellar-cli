@@ -166,6 +166,7 @@ impl Cmd {
             .await?;
 
         tracing::debug!(?result);
+        tracing::debug!(?meta);
         if !events.is_empty() {
             tracing::debug!(?events);
         }
