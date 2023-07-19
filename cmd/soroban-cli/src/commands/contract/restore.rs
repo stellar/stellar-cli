@@ -198,6 +198,18 @@ impl Cmd {
                         ..
                     }),
                 ..
+            })
+            | LedgerEntryChange::Created(LedgerEntry {
+                data:
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        expiration_ledger_seq,
+                        ..
+                    })
+                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
+                ..
             }) => Ok(expiration_ledger_seq),
             _ => Err(Error::LedgerEntryNotFound),
         }
