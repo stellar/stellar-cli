@@ -80,14 +80,16 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   if (responseType === 'simulated') return simulated
 
-  const parse = parseResultXdr ?? (xdr => xdr)
-
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
   const auths = simulated.results?.[0]?.auth
   let authsCount =  auths?.length ?? 0;
 
+  const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length
+
+  const parse = parseResultXdr ?? (xdr => xdr)
+
   // if VIEW ˅˅˅˅
-  if (authsCount === 0) {
+  if (authsCount === 0 && writeLength === 0) {
     if (responseType === 'full') return simulated
 
     const { results } = simulated
@@ -113,14 +115,15 @@ export async function invoke<R extends ResponseTypes, T = string>({
     //     }; Not yet supported`
     //   )
     // }
-  }
-  if (!freighterAccount) {
-    throw new Error('Not connected to Freighter')
-  }
 
-  tx = await signTx(
-    SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
-  );
+    if (!freighterAccount) {
+      throw new Error('Not connected to Freighter')
+    }
+
+    tx = await signTx(
+      SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
+    );
+  }
 
   const raw = await sendTx(tx, secondsToWait);
 
