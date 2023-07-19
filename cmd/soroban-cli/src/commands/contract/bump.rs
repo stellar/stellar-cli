@@ -115,8 +115,7 @@ impl Cmd {
     async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = self.contract_id()?;
-        let needle = self.parse_key(contract_id)?;
+        let needle = self.parse_key()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
@@ -203,8 +202,7 @@ impl Cmd {
     }
 
     fn run_in_sandbox(&self) -> Result<u32, Error> {
-        let contract_id = self.contract_id()?;
-        let needle = self.parse_key(contract_id)?;
+        let needle = self.parse_key()?;
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -245,7 +243,7 @@ impl Cmd {
             .map_err(|e| Error::CannotParseContractId(self.contract_id.clone().unwrap(), e))
     }
 
-    fn parse_key(&self, contract_id: [u8; 32]) -> Result<LedgerKey, Error> {
+    fn parse_key(&self) -> Result<LedgerKey, Error> {
         let key = if let Some(key) = &self.key {
             soroban_spec_tools::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(|e| {
                 Error::CannotParseKey {
@@ -263,6 +261,7 @@ impl Cmd {
         } else {
             return Err(Error::KeyIsRequired);
         };
+        let contract_id = self.contract_id()?;
 
         Ok(LedgerKey::ContractData(LedgerKeyContractData {
             contract: ScAddress::Contract(Hash(contract_id)),
