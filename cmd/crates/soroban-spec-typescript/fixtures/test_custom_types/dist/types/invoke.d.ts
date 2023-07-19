@@ -1,6 +1,6 @@
 import * as SorobanClient from 'soroban-client';
 import type { Memo, MemoType, Operation, Transaction } from 'soroban-client';
-import { Options, ResponseTypes } from './method-options';
+import { Options, ResponseTypes } from './method-options.js';
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
 export declare class NotImplementedError extends Error {
 }
@@ -19,7 +19,7 @@ type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
  *
  * Uses Freighter to determine the current user and if necessary sign the transaction.
  *
- * @returns T, by default, the parsed XDR from either the simulation or the full transaction. If `simulateOnly` or `fullRpcResponse` are true, returns either the full simulation or the result of sending/getting the transaction to/from the ledger.
+ * @returns {T}, by default, the parsed XDR from either the simulation or the full transaction. If `simulateOnly` or `fullRpcResponse` are true, returns either the full simulation or the result of sending/getting the transaction to/from the ledger.
  */
 export declare function invoke<R extends ResponseTypes = undefined, T = string>(args: InvokeArgs<R, T>): Promise<R extends undefined ? T : R extends "simulated" ? Simulation : R extends "full" ? SomeRpcResponse : T>;
 /**

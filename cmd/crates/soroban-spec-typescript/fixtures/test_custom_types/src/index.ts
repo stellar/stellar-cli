@@ -3,7 +3,7 @@ import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
 import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke } from './invoke.js';
-import { ResponseTypes } from './method-options'
+import { ResponseTypes } from './method-options.js'
 
 export * from './constants.js'
 export * from './server.js'

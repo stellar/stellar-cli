@@ -10,7 +10,7 @@ import * as SorobanClient from 'soroban-client'
 import type { Account, Memo, MemoType, Operation, Transaction } from 'soroban-client';
 import { NETWORK_PASSPHRASE, CONTRACT_ID } from './constants.js'
 import { Server } from './server.js'
-import { Options, ResponseTypes } from './method-options'
+import { Options, ResponseTypes } from './method-options.js'
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>
 
@@ -50,7 +50,7 @@ type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
  *
  * Uses Freighter to determine the current user and if necessary sign the transaction.
  *
- * @returns T, by default, the parsed XDR from either the simulation or the full transaction. If `simulateOnly` or `fullRpcResponse` are true, returns either the full simulation or the result of sending/getting the transaction to/from the ledger.
+ * @returns {T}, by default, the parsed XDR from either the simulation or the full transaction. If `simulateOnly` or `fullRpcResponse` are true, returns either the full simulation or the result of sending/getting the transaction to/from the ledger.
  */
 export async function invoke<R extends ResponseTypes = undefined, T = string>(args: InvokeArgs<R, T>): Promise<R extends undefined ? T : R extends "simulated" ? Simulation : R extends "full" ? SomeRpcResponse : T>;
 export async function invoke<R extends ResponseTypes, T = string>({
@@ -80,14 +80,16 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   if (responseType === 'simulated') return simulated
 
-  const parse = parseResultXdr ?? (xdr => xdr)
-
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
   const auths = simulated.results?.[0]?.auth
   let authsCount =  auths?.length ?? 0;
 
+  const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length
+
+  const parse = parseResultXdr ?? (xdr => xdr)
+
   // if VIEW ˅˅˅˅
-  if (authsCount === 0) {
+  if (authsCount === 0 && writeLength === 0) {
     if (responseType === 'full') return simulated
 
     const { results } = simulated
@@ -113,14 +115,15 @@ export async function invoke<R extends ResponseTypes, T = string>({
     //     }; Not yet supported`
     //   )
     // }
-  }
-  if (!freighterAccount) {
-    throw new Error('Not connected to Freighter')
-  }
 
-  tx = await signTx(
-    SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
-  );
+    if (!freighterAccount) {
+      throw new Error('Not connected to Freighter')
+    }
+
+    tx = await signTx(
+      SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
+    );
+  }
 
   const raw = await sendTx(tx, secondsToWait);
 
@@ -134,7 +137,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
   if ('errorResultXdr' in raw) return parse(raw.errorResultXdr)
 
   // if neither of these are present, something went wrong
-  console.log("Don't know how to parse result! Returning fullRpcResponse")
+  console.error("Don't know how to parse result! Returning full RPC response.")
   return raw
 }
 

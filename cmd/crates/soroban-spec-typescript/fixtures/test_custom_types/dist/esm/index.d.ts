@@ -1,6 +1,6 @@
 import * as SorobanClient from 'soroban-client';
 import { Buffer } from "buffer";
-import { ResponseTypes } from './method-options';
+import { ResponseTypes } from './method-options.js';
 export * from './constants.js';
 export * from './server.js';
 export * from './invoke.js';

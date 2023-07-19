@@ -41,12 +41,13 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
     const simulated = await server_js_1.Server.simulateTransaction(tx);
     if (responseType === 'simulated')
         return simulated;
-    const parse = parseResultXdr ?? (xdr => xdr);
     // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
     const auths = simulated.results?.[0]?.auth;
     let authsCount = auths?.length ?? 0;
+    const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length;
+    const parse = parseResultXdr ?? (xdr => xdr);
     // if VIEW ˅˅˅˅
-    if (authsCount === 0) {
+    if (authsCount === 0 && writeLength === 0) {
         if (responseType === 'full')
             return simulated;
         const { results } = simulated;
@@ -71,11 +72,11 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         //     }; Not yet supported`
         //   )
         // }
+        if (!freighterAccount) {
+            throw new Error('Not connected to Freighter');
+        }
+        tx = await signTx(SorobanClient.assembleTransaction(tx, constants_js_1.NETWORK_PASSPHRASE, simulated));
     }
-    if (!freighterAccount) {
-        throw new Error('Not connected to Freighter');
-    }
-    tx = await signTx(SorobanClient.assembleTransaction(tx, constants_js_1.NETWORK_PASSPHRASE, simulated));
     const raw = await sendTx(tx, secondsToWait);
     if (responseType === 'full')
         return raw;
@@ -87,7 +88,7 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
     if ('errorResultXdr' in raw)
         return parse(raw.errorResultXdr);
     // if neither of these are present, something went wrong
-    console.log("Don't know how to parse result! Returning fullRpcResponse");
+    console.error("Don't know how to parse result! Returning full RPC response.");
     return raw;
 }
 exports.invoke = invoke;
