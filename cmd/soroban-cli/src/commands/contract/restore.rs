@@ -6,12 +6,12 @@ use std::{
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractDataDurability, ContractDataEntry, ContractEntryBodyType, Error as XdrError,
-    ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
-    LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-    ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
-    Uint256,
+    ContractCodeEntry, ContractDataDurability, ContractDataEntry, ContractEntryBodyType,
+    Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal,
+    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionMeta, TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -186,12 +186,21 @@ impl Cmd {
         if operations[0].changes.len() != 1 {
             return Err(Error::LedgerEntryNotFound);
         }
-
-        let LedgerEntryChange::Created(LedgerEntry{ data: LedgerEntryData::ContractData(ContractDataEntry{expiration_ledger_seq, ..}), ..}) = &operations[0].changes[0] else {
-            return Err(Error::LedgerEntryNotFound);
-        };
-
-        Ok(*expiration_ledger_seq)
+        match operations[0].changes[0] {
+            LedgerEntryChange::Updated(LedgerEntry {
+                data:
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        expiration_ledger_seq,
+                        ..
+                    })
+                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
+                ..
+            }) => Ok(expiration_ledger_seq),
+            _ => Err(Error::LedgerEntryNotFound),
+        }
     }
 
     fn run_in_sandbox(&self) -> Result<u32, Error> {
