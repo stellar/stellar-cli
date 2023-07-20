@@ -88,8 +88,9 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   const parse = parseResultXdr ?? (xdr => xdr)
 
-  // if VIEW ˅˅˅˅
-  if (authsCount === 0 && writeLength === 0) {
+  const isViewCall = authsCount === 0 && writeLength === 0
+
+  if (isViewCall) {
     if (responseType === 'full') return simulated
 
     const { results } = simulated
@@ -102,7 +103,6 @@ export async function invoke<R extends ResponseTypes, T = string>({
     return parse(results[0].xdr)
   }
 
-  // ^^^^ else, is CHANGE method ˅˅˅˅
   if (authsCount > 1) {
     throw new NotImplementedError("Multiple auths not yet supported")
   }
@@ -115,15 +115,15 @@ export async function invoke<R extends ResponseTypes, T = string>({
     //     }; Not yet supported`
     //   )
     // }
-
-    if (!freighterAccount) {
-      throw new Error('Not connected to Freighter')
-    }
-
-    tx = await signTx(
-      SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
-    );
   }
+
+  if (!freighterAccount) {
+    throw new Error('Not connected to Freighter')
+  }
+
+  tx = await signTx(
+    SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
+  );
 
   const raw = await sendTx(tx, secondsToWait);
 
