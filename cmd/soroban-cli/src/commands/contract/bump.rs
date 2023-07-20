@@ -1,13 +1,17 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
+use std::{
+    fmt::Debug,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, ContractDataEntry, ContractEntryBodyType, Error as XdrError,
-    ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
-    LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-    ReadXdr, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
-    Uint256,
+    BumpFootprintExpirationOp, ContractCodeEntry, ContractDataEntry, ContractEntryBodyType,
+    Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber,
+    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta,
+    TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -15,21 +19,29 @@ use crate::{
     commands::config,
     commands::contract::Durability,
     rpc::{self, Client},
-    utils, Pwd,
+    utils, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to which owns the data entries
-    #[arg(long = "id")]
-    contract_id: String,
+    #[arg(long = "id", required_unless_present = "wasm")]
+    contract_id: Option<String>,
     /// Storage key (symbols only)
     #[arg(long = "key", conflicts_with = "key_xdr")]
     key: Option<String>,
     /// Storage key (base64-encoded XDR)
     #[arg(long = "key-xdr", conflicts_with = "key")]
     key_xdr: Option<String>,
+    /// Path to Wasm file of contract code to bump
+    #[arg(
+        long,
+        conflicts_with = "contract_id",
+        conflicts_with = "key",
+        conflicts_with = "key_xdr"
+    )]
+    wasm: Option<PathBuf>,
     /// Storage entry durability
     #[arg(long, value_enum, required = true)]
     durability: Durability,
@@ -82,6 +94,8 @@ pub enum Error {
     MissingOperationResult,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
@@ -101,8 +115,7 @@ impl Cmd {
     async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = self.contract_id()?;
-        let needle = self.parse_key(contract_id)?;
+        let needle = self.parse_key()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
@@ -147,6 +160,7 @@ impl Cmd {
             .await?;
 
         tracing::debug!(?result);
+        tracing::debug!(?meta);
         if !events.is_empty() {
             tracing::debug!(?events);
         }
@@ -167,25 +181,28 @@ impl Cmd {
             return Err(Error::LedgerEntryNotFound);
         }
 
-        let (
-            LedgerEntryChange::State(_state),
-            LedgerEntryChange::Updated(LedgerEntry{
-                data: LedgerEntryData::ContractData(ContractDataEntry{
-                    expiration_ledger_seq,
+        match (&operations[0].changes[0], &operations[0].changes[1]) {
+            (
+                LedgerEntryChange::State(_),
+                LedgerEntryChange::Updated(LedgerEntry {
+                    data:
+                        LedgerEntryData::ContractData(ContractDataEntry {
+                            expiration_ledger_seq,
+                            ..
+                        })
+                        | LedgerEntryData::ContractCode(ContractCodeEntry {
+                            expiration_ledger_seq,
+                            ..
+                        }),
                     ..
                 }),
-                ..
-            })
-        ) = (&operations[0].changes[0], &operations[0].changes[1]) else {
-            return Err(Error::LedgerEntryNotFound);
-        };
-
-        Ok(*expiration_ledger_seq)
+            ) => Ok(*expiration_ledger_seq),
+            _ => Err(Error::LedgerEntryNotFound),
+        }
     }
 
     fn run_in_sandbox(&self) -> Result<u32, Error> {
-        let contract_id = self.contract_id()?;
-        let needle = self.parse_key(contract_id)?;
+        let needle = self.parse_key()?;
 
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -222,11 +239,11 @@ impl Cmd {
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+        utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone().unwrap(), e))
     }
 
-    fn parse_key(&self, contract_id: [u8; 32]) -> Result<LedgerKey, Error> {
+    fn parse_key(&self) -> Result<LedgerKey, Error> {
         let key = if let Some(key) = &self.key {
             soroban_spec_tools::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(|e| {
                 Error::CannotParseKey {
@@ -239,9 +256,12 @@ impl Cmd {
                 key: key.clone(),
                 error: e,
             })?
+        } else if let Some(wasm) = &self.wasm {
+            return Ok(crate::wasm::Args { wasm: wasm.clone() }.try_into()?);
         } else {
             return Err(Error::KeyIsRequired);
         };
+        let contract_id = self.contract_id()?;
 
         Ok(LedgerKey::ContractData(LedgerKeyContractData {
             contract: ScAddress::Contract(Hash(contract_id)),

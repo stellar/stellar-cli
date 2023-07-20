@@ -203,13 +203,14 @@ To view the commands that will be executed, without executing them, use the --pr
 
 Extend the expiry ledger of a contract-data ledger entry
 
-**Usage:** `soroban contract bump [OPTIONS] --id <CONTRACT_ID> --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
+**Usage:** `soroban contract bump [OPTIONS] --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
 
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--wasm <WASM>` — Path to Wasm file of contract code to bump
 * `--durability <DURABILITY>` — Storage entry durability
 
   Possible values:
@@ -409,13 +410,14 @@ Print the current value of a contract-data ledger entry
 
 Restore an evicted value for a contract-data legder entry
 
-**Usage:** `soroban contract restore [OPTIONS] --id <CONTRACT_ID>`
+**Usage:** `soroban contract restore [OPTIONS]`
 
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--wasm <WASM>` — Path to Wasm file of contract code to restore
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config

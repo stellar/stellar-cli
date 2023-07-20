@@ -1,8 +1,8 @@
 use clap::arg;
-use soroban_env_host::xdr;
+use soroban_env_host::xdr::{self, ContractEntryBodyType, LedgerKey, LedgerKeyContractCode};
 use std::{fs, io, path::Path};
 
-use crate::utils::contract_spec::ContractSpec;
+use crate::utils::{self, contract_spec::ContractSpec};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -60,6 +60,17 @@ impl Args {
     pub fn parse(&self) -> Result<ContractSpec, Error> {
         let contents = self.read()?;
         Ok(ContractSpec::new(&contents)?)
+    }
+}
+
+impl TryInto<LedgerKey> for Args {
+    type Error = Error;
+
+    fn try_into(self) -> Result<LedgerKey, Self::Error> {
+        Ok(LedgerKey::ContractCode(LedgerKeyContractCode {
+            hash: utils::contract_hash(&self.read()?)?,
+            body_type: ContractEntryBodyType::DataEntry,
+        }))
     }
 }
 
