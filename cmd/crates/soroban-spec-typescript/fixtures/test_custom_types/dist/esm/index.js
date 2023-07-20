@@ -171,247 +171,223 @@ function ComplexEnumFromXdr(base64Xdr) {
 const Errors = [
     { message: "Unknown error has occured" }
 ];
-export async function hello({ hello }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function hello({ hello }, options = {}) {
+    return await invoke({
         method: 'hello',
         args: [((i) => xdr.ScVal.scvSymbol(i))(hello)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function woid({ signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function woid(options = {}) {
+    return await invoke({
         method: 'woid',
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return;
+        ...options,
+        parseResultXdr: () => { },
+    });
 }
-export async function val({ signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function val(options = {}) {
+    return await invoke({
         method: 'val',
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function u32_fail_on_even({ u32_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function u32FailOnEven({ u32_ }, options = {}) {
+    return await invoke({
         method: 'u32_fail_on_even',
         args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
-    };
-    try {
-        // @ts-ignore Type does exist
-        const response = await invoke(invokeArgs);
-        return new Ok(scValStrToJs(response.xdr));
-    }
-    catch (e) {
-        //@ts-ignore
-        let err = getError(e.message);
-        if (err) {
-            return err;
-        }
-        else {
-            throw e;
-        }
-    }
+        ...options,
+        parseResultXdr: (xdr) => {
+            try {
+                return new Ok(scValStrToJs(xdr));
+            }
+            catch (e) {
+                //@ts-ignore
+                let err = getError(e.message);
+                if (err) {
+                    return err;
+                }
+                else {
+                    throw e;
+                }
+            }
+        },
+    });
 }
-export async function u32_({ u32_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function u32({ u32_ }, options = {}) {
+    return await invoke({
         method: 'u32_',
         args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function i32_({ i32_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function i32({ i32_ }, options = {}) {
+    return await invoke({
         method: 'i32_',
         args: [((i) => xdr.ScVal.scvI32(i))(i32_)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function i64_({ i64_ }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function i64({ i64_ }, options = {}) {
+    return await invoke({
         method: 'i64_',
         args: [((i) => xdr.ScVal.scvI64(xdr.Int64.fromString(i.toString())))(i64_)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
 /**
  * Example contract method which takes a struct
  */
-export async function strukt_hel({ strukt }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function struktHel({ strukt }, options = {}) {
+    return await invoke({
         method: 'strukt_hel',
         args: [((i) => TestToXdr(i))(strukt)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function strukt({ strukt }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function strukt({ strukt }, options = {}) {
+    return await invoke({
         method: 'strukt',
         args: [((i) => TestToXdr(i))(strukt)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return TestFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return TestFromXdr(xdr);
+        },
+    });
 }
-export async function simple({ simple }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function simple({ simple }, options = {}) {
+    return await invoke({
         method: 'simple',
         args: [((i) => SimpleEnumToXdr(i))(simple)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return SimpleEnumFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return SimpleEnumFromXdr(xdr);
+        },
+    });
 }
-export async function complex({ complex }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function complex({ complex }, options = {}) {
+    return await invoke({
         method: 'complex',
         args: [((i) => ComplexEnumToXdr(i))(complex)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return ComplexEnumFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return ComplexEnumFromXdr(xdr);
+        },
+    });
 }
-export async function addresse({ addresse }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function addresse({ addresse }, options = {}) {
+    return await invoke({
         method: 'addresse',
         args: [((i) => addressToScVal(i))(addresse)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function bytes({ bytes }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function bytes({ bytes }, options = {}) {
+    return await invoke({
         method: 'bytes',
         args: [((i) => xdr.ScVal.scvBytes(i))(bytes)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function bytes_n({ bytes_n }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function bytesN({ bytes_n }, options = {}) {
+    return await invoke({
         method: 'bytes_n',
         args: [((i) => xdr.ScVal.scvBytes(i))(bytes_n)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function card({ card }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function card({ card }, options = {}) {
+    return await invoke({
         method: 'card',
         args: [((i) => RoyalCardToXdr(i))(card)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return RoyalCardFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return RoyalCardFromXdr(xdr);
+        },
+    });
 }
-export async function boolean({ boolean }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function booleanMethod({ boolean }, options = {}) {
+    return await invoke({
         method: 'boolean',
         args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
 /**
  * Negates a boolean value
  */
-export async function not({ boolean }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function not({ boolean }, options = {}) {
+    return await invoke({
         method: 'not',
         args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function i128({ i128 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function i128({ i128 }, options = {}) {
+    return await invoke({
         method: 'i128',
         args: [((i) => i128ToScVal(i))(i128)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function u128({ u128 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function u128({ u128 }, options = {}) {
+    return await invoke({
         method: 'u128',
         args: [((i) => u128ToScVal(i))(u128)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function multi_args({ a, b }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function multiArgs({ a, b }, options = {}) {
+    return await invoke({
         method: 'multi_args',
         args: [((i) => xdr.ScVal.scvU32(i))(a),
             ((i) => xdr.ScVal.scvBool(i))(b)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function map({ map }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function map({ map }, options = {}) {
+    return await invoke({
         method: 'map',
         args: [((i) => xdr.ScVal.scvMap(Array.from(i.entries()).map(([key, value]) => {
                 return new xdr.ScMapEntry({
@@ -419,89 +395,83 @@ export async function map({ map }, { signAndSend, fee } = { signAndSend: false, 
                     val: ((i) => xdr.ScVal.scvBool(i))(value)
                 });
             })))(map)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function vec({ vec }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function vec({ vec }, options = {}) {
+    return await invoke({
         method: 'vec',
         args: [((i) => xdr.ScVal.scvVec(i.map((i) => xdr.ScVal.scvU32(i))))(vec)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function tuple({ tuple }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function tuple({ tuple }, options = {}) {
+    return await invoke({
         method: 'tuple',
         args: [((i) => xdr.ScVal.scvVec([((i) => xdr.ScVal.scvSymbol(i))(i[0]),
                 ((i) => xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
 /**
  * Example of an optional argument
  */
-export async function option({ option }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function option({ option }, options = {}) {
+    return await invoke({
         method: 'option',
         args: [((i) => (!i) ? xdr.ScVal.scvVoid() : xdr.ScVal.scvU32(i))(option)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function u256({ u256 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function u256({ u256 }, options = {}) {
+    return await invoke({
         method: 'u256',
         args: [((i) => i)(u256)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function i256({ i256 }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function i256({ i256 }, options = {}) {
+    return await invoke({
         method: 'i256',
         args: [((i) => i)(i256)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function string({ string }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function string({ string }, options = {}) {
+    return await invoke({
         method: 'string',
         args: [((i) => xdr.ScVal.scvString(i))(string)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return scValStrToJs(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return scValStrToJs(xdr);
+        },
+    });
 }
-export async function tuple_strukt({ tuple_strukt }, { signAndSend, fee } = { signAndSend: false, fee: 100 }) {
-    let invokeArgs = {
-        signAndSend,
-        fee,
+export async function tupleStrukt({ tuple_strukt }, options = {}) {
+    return await invoke({
         method: 'tuple_strukt',
         args: [((i) => TupleStructToXdr(i))(tuple_strukt)],
-    };
-    // @ts-ignore Type does exist
-    const response = await invoke(invokeArgs);
-    return TupleStructFromXdr(response.xdr);
+        ...options,
+        parseResultXdr: (xdr) => {
+            return TupleStructFromXdr(xdr);
+        },
+    });
 }
