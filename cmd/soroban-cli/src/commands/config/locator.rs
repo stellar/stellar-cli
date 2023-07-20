@@ -183,10 +183,7 @@ impl Args {
         let res = KeyType::Network.read_with_global(name, &self.local_config()?);
         if let Err(Error::ConfigMissing(_, _)) = &res {
             if name == "futurenet" {
-                let network = Network {
-                    rpc_url: "https://rpc-futurenet.stellar.org/soroban/rpc".to_string(),
-                    network_passphrase: "Test SDF Future Network ; October 2022".to_string(),
-                };
+                let network = Network::futurenet();
                 self.write_network(name, &network)?;
                 return Ok(network);
             }
