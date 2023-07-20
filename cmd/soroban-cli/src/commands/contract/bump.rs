@@ -26,6 +26,7 @@ use crate::{
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to which owns the data entries
+    /// If no keys provided the Contract's instance will be bumped
     #[arg(long = "id", required_unless_present = "wasm")]
     contract_id: Option<String>,
     /// Storage key (symbols only)
@@ -259,7 +260,7 @@ impl Cmd {
         } else if let Some(wasm) = &self.wasm {
             return Ok(crate::wasm::Args { wasm: wasm.clone() }.try_into()?);
         } else {
-            return Err(Error::KeyIsRequired);
+            ScVal::LedgerKeyContractInstance
         };
         let contract_id = self.contract_id()?;
 
