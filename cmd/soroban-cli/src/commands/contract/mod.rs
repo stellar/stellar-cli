@@ -18,7 +18,7 @@ pub enum Cmd {
 
     Build(build::Cmd),
 
-    /// Extend the expiry ledger of a contract-data ledger entry
+    /// Extend the expiry ledger of a contract-data ledger entry.
     ///
     /// If no keys are specificed the contract itself is bumped.
     Bump(bump::Cmd),
@@ -51,7 +51,7 @@ pub enum Cmd {
     /// Print the current value of a contract-data ledger entry
     Read(read::Cmd),
 
-    /// Restore an evicted value for a contract-data legder entry
+    /// Restore an evicted value for a contract-data legder entry.
     ///
     /// If no keys are specificed the contract itself is restored.
     Restore(restore::Cmd),
