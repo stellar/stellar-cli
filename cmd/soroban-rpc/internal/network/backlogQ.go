@@ -19,13 +19,13 @@ type backlogQLimiter struct {
 	logger       *log.Entry
 }
 
-type backlogHttpQLimiter struct {
+type backlogHTTPQLimiter struct {
 	httpDownstreamHandler http.Handler
 	backlogQLimiter
 }
 
-func MakeHttpBacklogQueueLimiter(downstream http.Handler, gauge prometheus.Gauge, limit uint64, logger *log.Entry) *backlogHttpQLimiter {
-	return &backlogHttpQLimiter{
+func MakeHTTPBacklogQueueLimiter(downstream http.Handler, gauge prometheus.Gauge, limit uint64, logger *log.Entry) *backlogHTTPQLimiter {
+	return &backlogHTTPQLimiter{
 		httpDownstreamHandler: downstream,
 		backlogQLimiter: backlogQLimiter{
 			limit:  limit,
@@ -51,7 +51,7 @@ func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, gauge prometheus.Gaug
 	}
 }
 
-func (q *backlogHttpQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
 		// we've reached our queue limit - let the caller know we're too busy.
 		atomic.AddUint64(&q.pending, ^uint64(0))

@@ -40,7 +40,7 @@ func TestBacklogQueueLimiter_HttpNonBlocking(t *testing.T) {
 		wg.Done()
 	}}
 
-	limiter := MakeHttpBacklogQueueLimiter(adding, nil, requestsSizeLimit, nil)
+	limiter := MakeHTTPBacklogQueueLimiter(adding, nil, requestsSizeLimit, nil)
 	for i := 1; i < 50; i++ {
 		n := rand.Int63n(int64(requestsSizeLimit))
 		wg.Add(int(n))
@@ -74,7 +74,8 @@ func TestBacklogQueueLimiter_JrpcNonBlocking(t *testing.T) {
 		wg.Add(int(n))
 		for k := n; k > 0; k-- {
 			go func() {
-				limiter.Handle(nil, nil)
+				_, err := limiter.Handle(nil, nil)
+				require.Nil(t, err)
 			}()
 		}
 		wg.Wait()
@@ -112,7 +113,7 @@ func TestBacklogQueueLimiter_HttpBlocking(t *testing.T) {
 			<-blockedCh
 			initialGroupBlocking.Done()
 		}}
-		limiter := MakeHttpBacklogQueueLimiter(blockedHandlers, nil, queueSize, nil)
+		limiter := MakeHTTPBacklogQueueLimiter(blockedHandlers, nil, queueSize, nil)
 		for i := uint64(0); i < queueSize/2; i++ {
 			go func() {
 				limiter.ServeHTTP(nil, nil)
@@ -130,7 +131,7 @@ func TestBacklogQueueLimiter_HttpBlocking(t *testing.T) {
 		}}
 
 		limiter.httpDownstreamHandler = secondBlockingGroupWgHandlers
-		for i := uint64(queueSize / 2); i < queueSize; i++ {
+		for i := queueSize / 2; i < queueSize; i++ {
 			go func() {
 				limiter.ServeHTTP(nil, nil)
 			}()
@@ -155,7 +156,6 @@ func TestBacklogQueueLimiter_HttpBlocking(t *testing.T) {
 		close(blockedCh)
 		initialGroupBlocking.Wait()
 	}
-
 }
 
 // The goal of the TestBacklogQueueLimiter_JrpcBlocking is to set
@@ -193,7 +193,7 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 		}}
 
 		limiter.jrpcDownstreamHandler = secondBlockingGroupWgHandlers
-		for i := uint64(queueSize / 2); i < queueSize; i++ {
+		for i := queueSize / 2; i < queueSize; i++ {
 			go func() {
 				_, err := limiter.Handle(context.Background(), &jrpc2.Request{})
 				require.Nil(t, err)
@@ -219,5 +219,4 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 		close(blockedCh)
 		initialGroupBlocking.Wait()
 	}
-
 }

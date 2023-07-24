@@ -226,7 +226,7 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 	return Handler{
 		bridge: bridge,
 		logger: params.Logger,
-		Handler: network.MakeHttpBacklogQueueLimiter(
+		Handler: network.MakeHTTPBacklogQueueLimiter(
 			bridge,
 			globalQueueRequestBacklogLimiter,
 			cfg.RequestBacklogGlobalQueueLimit,
