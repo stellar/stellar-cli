@@ -47,7 +47,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
         )?,
     };
     let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+        compute_transaction_resource_fee_wrapper(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
         refundable_fee: ref_fee,
@@ -339,7 +339,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     };
     let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
     let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+        compute_transaction_resource_fee_wrapper(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
         refundable_fee: ref_fee,
@@ -384,11 +384,20 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     };
     let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
     let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+        compute_transaction_resource_fee_wrapper(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
         refundable_fee: ref_fee,
         ext: ExtensionPoint::V0,
     };
     Ok((transaction_data, min_fee))
+}
+
+fn compute_transaction_resource_fee_wrapper(
+    tx_resources: &TransactionResources,
+    fee_config: &FeeConfiguration,
+) -> (i64, i64) {
+    let (min_fee, ref_fee) = compute_transaction_resource_fee(tx_resources, fee_config);
+    // FIXME: Hack suggested by the core team, until we compute rent fees properly
+    return (min_fee + 10000, ref_fee + 10000);
 }

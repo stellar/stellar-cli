@@ -148,6 +148,9 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	assert.NoError(t, err)
 	assert.Len(t, response.Results, 1)
 
+	// Hack until we start including rent fees in the preflight computation
+	transactionData.RefundableFee = 10000
+
 	op := params.Operations[0]
 	switch v := op.(type) {
 	case *txnbuild.InvokeHostFunction:
@@ -179,9 +182,7 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 
 	params.Operations = []txnbuild.Operation{op}
 
-	// Hack until we start including rent fees
-	minResourceFee := response.MinResourceFee * 120 / 100
-	params.BaseFee += minResourceFee
+	params.BaseFee += response.MinResourceFee
 	return params
 }
 
@@ -243,7 +244,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			WriteBytes:                112,
 			ExtendedMetaDataSizeBytes: 152,
 		},
-		RefundableFee: 30,
+		RefundableFee: 10030,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -459,7 +460,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
 	assert.NoError(t, err)
 	assert.Equal(t, obtainedAuth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsAddress)
-	assert.Equal(t, obtainedAuth.Credentials.Address.Signature.Type, xdr.ScSpecTypeScSpecTypeVoid)
+	assert.Equal(t, obtainedAuth.Credentials.Address.Signature.Type, xdr.ScValTypeScvVoid)
 
 	assert.NotZero(t, obtainedAuth.Credentials.Address.Nonce)
 	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
@@ -541,7 +542,7 @@ func TestSimulateTransactionError(t *testing.T) {
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
 	assert.NoError(t, err)
 	assert.Greater(t, result.LatestLedger, int64(0))
-	assert.Contains(t, result.Error, "UnexpectedSize")
+	assert.Contains(t, result.Error, "MissingValue")
 }
 
 func TestSimulateTransactionMultipleOperations(t *testing.T) {
