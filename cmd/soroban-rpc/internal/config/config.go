@@ -39,15 +39,15 @@ type Config struct {
 	PreflightWorkerQueueSize                    uint
 	SQLiteDBPath                                string
 	TransactionLedgerRetentionWindow            uint32
-	RequestBacklogGlobalQueueLimit              uint64
-	RequestBacklogGetHealthQueueLimit           uint64
-	RequestBacklogGetEventsQueueLimit           uint64
-	RequestBacklogGetNetworkQueueLimit          uint64
-	RequestBacklogGetLatestLedgerQueueLimit     uint64
-	RequestBacklogGetLedgerEntriesQueueLimit    uint64
-	RequestBacklogGetTransactionQueueLimit      uint64
-	RequestBacklogSendTransactionQueueLimit     uint64
-	RequestBacklogSimulateTransactionQueueLimit uint64
+	RequestBacklogGlobalQueueLimit              uint
+	RequestBacklogGetHealthQueueLimit           uint
+	RequestBacklogGetEventsQueueLimit           uint
+	RequestBacklogGetNetworkQueueLimit          uint
+	RequestBacklogGetLatestLedgerQueueLimit     uint
+	RequestBacklogGetLedgerEntriesQueueLimit    uint
+	RequestBacklogGetTransactionQueueLimit      uint
+	RequestBacklogSendTransactionQueueLimit     uint
+	RequestBacklogSimulateTransactionQueueLimit uint
 
 	// We memoize these, so they bind to pflags correctly
 	optionsCache *ConfigOptions

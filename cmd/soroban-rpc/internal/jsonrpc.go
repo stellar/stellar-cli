@@ -132,7 +132,7 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		underlyingHandler jrpc2.Handler
 		gaugeName         string
 		gaugeHelp         string
-		queueLimit        uint64
+		queueLimit        uint
 	}{
 		{
 			methodName:        "getHealth",
@@ -208,7 +208,7 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		limiter := network.MakeJrpcBacklogQueueLimiter(
 			handler.underlyingHandler,
 			gauge,
-			handler.queueLimit,
+			uint64(handler.queueLimit),
 			params.Logger)
 		handlersMap[handler.methodName] = limiter
 	}
@@ -229,7 +229,7 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		Handler: network.MakeHTTPBacklogQueueLimiter(
 			bridge,
 			globalQueueRequestBacklogLimiter,
-			cfg.RequestBacklogGlobalQueueLimit,
+			uint64(cfg.RequestBacklogGlobalQueueLimit),
 			params.Logger),
 	}
 }
