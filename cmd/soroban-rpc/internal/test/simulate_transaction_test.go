@@ -44,25 +44,17 @@ func getHelloWorldContract(t *testing.T) []byte {
 }
 
 func createInvokeHostOperation(sourceAccount string, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
-	methodSymbol := xdr.ScSymbol(method)
-	parameters := xdr.ScVec{
-		xdr.ScVal{
-			Type: xdr.ScValTypeScvAddress,
-			Address: &xdr.ScAddress{
-				Type:       xdr.ScAddressTypeScAddressTypeContract,
-				ContractId: &contractID,
-			},
-		},
-		xdr.ScVal{
-			Type: xdr.ScValTypeScvSymbol,
-			Sym:  &methodSymbol,
-		},
-	}
-	parameters = append(parameters, args...)
 	return &txnbuild.InvokeHostFunction{
 		HostFunction: xdr.HostFunction{
-			Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-			InvokeContract: &parameters,
+			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeContract: &xdr.InvokeContractArgs{
+				ContractAddress: xdr.ScAddress{
+					Type:       xdr.ScAddressTypeScAddressTypeContract,
+					ContractId: &contractID,
+				},
+				FunctionName: xdr.ScSymbol(method),
+				Args:         args,
+			},
 		},
 		Auth:          nil,
 		SourceAccount: sourceAccount,
@@ -465,7 +457,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
 	assert.NoError(t, err)
 	assert.Equal(t, obtainedAuth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsAddress)
-	assert.Nil(t, obtainedAuth.Credentials.Address.SignatureArgs)
+	assert.Equal(t, obtainedAuth.Credentials.Address.Signature.Type, xdr.ScSpecTypeScSpecTypeVoid)
 
 	assert.NotZero(t, obtainedAuth.Credentials.Address.Nonce)
 	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
@@ -515,8 +507,15 @@ func TestSimulateTransactionError(t *testing.T) {
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.Hash{}, "noMethod")
 	invokeHostOp.HostFunction = xdr.HostFunction{
-		Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-		InvokeContract: &xdr.ScVec{},
+		Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+		InvokeContract: &xdr.InvokeContractArgs{
+			ContractAddress: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &xdr.Hash{0x1, 0x2},
+			},
+			FunctionName: "",
+			Args:         nil,
+		},
 	}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{

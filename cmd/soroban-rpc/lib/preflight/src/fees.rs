@@ -131,8 +131,8 @@ fn calculate_host_function_soroban_resources(
 
     // Add a 15% leeway with a minimum of 50k instructions
     let instructions = max(
-        budget.get_cpu_insns_consumed() + 50000,
-        budget.get_cpu_insns_consumed() * 115 / 100,
+        budget.get_cpu_insns_consumed()? + 50000,
+        budget.get_cpu_insns_consumed()? * 115 / 100,
     );
     Ok(SorobanResources {
         footprint: fp,
@@ -208,7 +208,8 @@ fn get_fee_configuration(
         fee_per_read_entry: ledger_cost.fee_read_ledger_entry,
         fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
         fee_per_read_1kb: ledger_cost.fee_read1_kb,
-        fee_per_write_1kb: ledger_cost.fee_write1_kb,
+        // TODO: This fild should had been removed by the env library
+        fee_per_write_1kb: 0,
         fee_per_historical_1kb: historical_data.fee_historical1_kb,
         fee_per_metadata_1kb: metadata.fee_extended_meta_data1_kb,
         fee_per_propagate_1kb: bandwidth.fee_propagate_data1_kb,

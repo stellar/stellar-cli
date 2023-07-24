@@ -1,7 +1,7 @@
 use base64::DecodeError;
 use soroban_env_host::storage::SnapshotSource;
 use soroban_env_host::xdr::{
-    Error as XdrError, LedgerEntry, LedgerKey, ReadXdr, ScError, ScErrorCode, ScErrorType, WriteXdr,
+    Error as XdrError, LedgerEntry, LedgerKey, ReadXdr, ScError, ScErrorCode, WriteXdr,
 };
 use soroban_env_host::HostError;
 use std::ffi::{CStr, CString, NulError};
@@ -40,20 +40,9 @@ pub(crate) enum Error {
 impl Error {
     fn to_host_error(&self) -> HostError {
         match self {
-            Error::NotFound => HostError::from(ScError {
-                type_: ScErrorType::Storage,
-                code: ScErrorCode::MissingValue,
-            }),
-            Error::Xdr(_) => ScError {
-                type_: ScErrorType::Value,
-                code: ScErrorCode::InvalidInput,
-            }
-            .into(),
-            _ => ScError {
-                type_: ScErrorType::Context,
-                code: ScErrorCode::InternalError,
-            }
-            .into(),
+            Error::NotFound => ScError::Storage(ScErrorCode::MissingValue).into(),
+            Error::Xdr(_) => ScError::Value(ScErrorCode::InvalidInput).into(),
+            _ => ScError::Context(ScErrorCode::InternalError).into(),
         }
     }
 }
@@ -105,14 +94,11 @@ impl SnapshotSource for LedgerStorage {
     }
 
     fn has(&self, key: &Rc<LedgerKey>) -> Result<bool, HostError> {
-        let key_xdr = key.to_xdr_base64().map_err(|_| ScError {
-            type_: ScErrorType::Value,
-            code: ScErrorCode::InvalidInput,
-        })?;
-        let key_cstr = CString::new(key_xdr).map_err(|_| ScError {
-            type_: ScErrorType::Value,
-            code: ScErrorCode::InvalidInput,
-        })?;
+        let key_xdr = key
+            .to_xdr_base64()
+            .map_err(|_| ScError::Value(ScErrorCode::InvalidInput))?;
+        let key_cstr =
+            CString::new(key_xdr).map_err(|_| ScError::Value(ScErrorCode::InvalidInput))?;
         let res = unsafe { SnapshotSourceHas(self.golang_handle, key_cstr.as_ptr()) };
         Ok(res != 0)
     }

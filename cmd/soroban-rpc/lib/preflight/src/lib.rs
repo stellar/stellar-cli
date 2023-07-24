@@ -14,7 +14,7 @@ use soroban_env_host::events::Events;
 use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
     AccountId, DiagnosticEvent, InvokeHostFunctionOp, LedgerFootprint, OperationBody, ReadXdr,
-    ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
+    ScVal, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
 use std::error::Error;
@@ -110,10 +110,10 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let budget = Budget::default();
     let host = Host::with_storage_and_budget(storage, budget);
 
-    host.switch_to_recording_auth();
-    host.set_diagnostic_level(DiagnosticLevel::Debug);
-    host.set_source_account(source_account);
-    host.set_ledger_info(ledger_info.into());
+    host.switch_to_recording_auth()?;
+    host.set_diagnostic_level(DiagnosticLevel::Debug)?;
+    host.set_source_account(source_account)?;
+    host.set_ledger_info(ledger_info.into())?;
 
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
@@ -143,8 +143,8 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         transaction_data: transaction_data_cstr.into_raw(),
         min_fee,
         events: diagnostic_events_to_c(diagnostic_events)?,
-        cpu_instructions: budget.get_cpu_insns_consumed(),
-        memory_bytes: budget.get_mem_bytes_consumed(),
+        cpu_instructions: budget.get_cpu_insns_consumed()?,
+        memory_bytes: budget.get_mem_bytes_consumed()?,
     })
 }
 
@@ -270,7 +270,7 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthori
                 // signature_args is left empty. This is where the client will put their signatures when
                 // submitting the transaction.
                 signature_expiration_ledger: 0,
-                signature_args: ScVec::default(),
+                signature: ScVal::Void,
             }),
             root_invocation: payload.invocation.clone(),
         },
