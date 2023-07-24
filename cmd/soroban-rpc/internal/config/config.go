@@ -21,24 +21,33 @@ type Config struct {
 	CaptiveCoreConfigPath  string
 	CaptiveCoreHTTPPort    uint
 
-	Endpoint                         string
-	AdminEndpoint                    string
-	CheckpointFrequency              uint32
-	CoreRequestTimeout               time.Duration
-	DefaultEventsLimit               uint
-	EventLedgerRetentionWindow       uint32
-	FriendbotURL                     string
-	HistoryArchiveURLs               []string
-	IngestionTimeout                 time.Duration
-	LogFormat                        LogFormat
-	LogLevel                         logrus.Level
-	MaxEventsLimit                   uint
-	MaxHealthyLedgerLatency          time.Duration
-	NetworkPassphrase                string
-	PreflightWorkerCount             uint
-	PreflightWorkerQueueSize         uint
-	SQLiteDBPath                     string
-	TransactionLedgerRetentionWindow uint32
+	Endpoint                                    string
+	AdminEndpoint                               string
+	CheckpointFrequency                         uint32
+	CoreRequestTimeout                          time.Duration
+	DefaultEventsLimit                          uint
+	EventLedgerRetentionWindow                  uint32
+	FriendbotURL                                string
+	HistoryArchiveURLs                          []string
+	IngestionTimeout                            time.Duration
+	LogFormat                                   LogFormat
+	LogLevel                                    logrus.Level
+	MaxEventsLimit                              uint
+	MaxHealthyLedgerLatency                     time.Duration
+	NetworkPassphrase                           string
+	PreflightWorkerCount                        uint
+	PreflightWorkerQueueSize                    uint
+	SQLiteDBPath                                string
+	TransactionLedgerRetentionWindow            uint32
+	RequestBacklogGlobalQueueLimit              uint64
+	RequestBacklogGetHealthQueueLimit           uint64
+	RequestBacklogGetEventsQueueLimit           uint64
+	RequestBacklogGetNetworkQueueLimit          uint64
+	RequestBacklogGetLatestLedgerQueueLimit     uint64
+	RequestBacklogGetLedgerEntriesQueueLimit    uint64
+	RequestBacklogGetTransactionQueueLimit      uint64
+	RequestBacklogSendTransactionQueueLimit     uint64
+	RequestBacklogSimulateTransactionQueueLimit uint64
 
 	// We memoize these, so they bind to pflags correctly
 	optionsCache *ConfigOptions
