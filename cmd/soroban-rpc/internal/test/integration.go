@@ -107,6 +107,7 @@ func (i *Test) launchDaemon(coreBinaryPath string) {
 	var config config.Config
 	cmd := &cobra.Command{}
 	config.AddFlags(cmd)
+	config.SetValues(func(string) (string, bool) { return "", false })
 
 	config.Endpoint = fmt.Sprintf("localhost:%d", sorobanRPCPort)
 	config.AdminEndpoint = fmt.Sprintf("localhost:%d", adminPort)
