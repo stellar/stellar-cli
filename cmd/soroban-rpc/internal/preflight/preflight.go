@@ -95,6 +95,7 @@ type PreflightParameters struct {
 	Footprint         xdr.LedgerFootprint
 	NetworkPassphrase string
 	LedgerEntryReadTx db.LedgerEntryReadTx
+	BucketListSize    uint64
 }
 
 type Preflight struct {
@@ -126,8 +127,6 @@ func GoNullTerminatedStringSlice(str **C.char) []string {
 }
 
 func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, error) {
-	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
-	defer handle.Delete()
 	switch params.OpBody.Type {
 	case xdr.OperationTypeInvokeHostFunction:
 		return getInvokeHostFunctionPreflight(params)
@@ -154,6 +153,7 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 
 	res := C.preflight_footprint_expiration_op(
 		C.uintptr_t(handle),
+		C.uint64_t(params.BucketListSize),
 		opBodyCString,
 		footprintCString,
 	)
@@ -215,6 +215,7 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	defer handle.Delete()
 	res := C.preflight_invoke_hf_op(
 		C.uintptr_t(handle),
+		C.uint64_t(params.BucketListSize),
 		invokeHostFunctionCString,
 		sourceAccountCString,
 		li,

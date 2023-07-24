@@ -83,18 +83,26 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
 
 #[no_mangle]
 pub extern "C" fn preflight_invoke_hf_op(
-    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
+    bucket_list_size: u64,   // Bucket list size for current ledger
     invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
-        preflight_invoke_hf_op_or_maybe_panic(handle, invoke_hf_op, source_account, ledger_info)
+        preflight_invoke_hf_op_or_maybe_panic(
+            handle,
+            bucket_list_size,
+            invoke_hf_op,
+            source_account,
+            ledger_info,
+        )
     }))
 }
 
 fn preflight_invoke_hf_op_or_maybe_panic(
-    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
+    handle: libc::uintptr_t,
+    bucket_list_size: u64, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
     invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
@@ -134,6 +142,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         &storage,
         &budget,
         &diagnostic_events,
+        bucket_list_size,
     )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
@@ -150,17 +159,24 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 
 #[no_mangle]
 pub extern "C" fn preflight_footprint_expiration_op(
-    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+    handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
+    bucket_list_size: u64,   // Bucket list size for current ledger
     op_body: *const libc::c_char, // OperationBody XDR in base64
     footprint: *const libc::c_char, // LedgerFootprint XDR in base64
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
-        preflight_footprint_expiration_op_or_maybe_panic(handle, op_body, footprint)
+        preflight_footprint_expiration_op_or_maybe_panic(
+            handle,
+            bucket_list_size,
+            op_body,
+            footprint,
+        )
     }))
 }
 
 fn preflight_footprint_expiration_op_or_maybe_panic(
     handle: libc::uintptr_t,
+    bucket_list_size: u64,
     op_body: *const libc::c_char,
     footprint: *const libc::c_char,
 ) -> Result<CPreflightResult, Box<dyn error::Error>> {
@@ -176,9 +192,10 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
             ledger_footprint,
             op.ledgers_to_expire,
             snapshot_source,
+            bucket_list_size,
         ),
         OperationBody::RestoreFootprint(_) => {
-            preflight_restore_footprint(ledger_footprint, snapshot_source)
+            preflight_restore_footprint(ledger_footprint, snapshot_source, bucket_list_size)
         }
         op => Err(format!(
             "preflight_footprint_expiration_op(): unsupported operation type {}",
@@ -192,12 +209,14 @@ fn preflight_bump_footprint_expiration(
     footprint: LedgerFootprint,
     ledgers_to_expire: u32,
     snapshot_source: &LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<CPreflightResult, Box<dyn Error>> {
     let (transaction_data, min_fee) =
         fees::compute_bump_footprint_exp_transaction_data_and_min_fee(
             footprint,
             ledgers_to_expire,
             snapshot_source,
+            bucket_list_size,
         )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
@@ -215,9 +234,13 @@ fn preflight_bump_footprint_expiration(
 fn preflight_restore_footprint(
     footprint: LedgerFootprint,
     snapshot_source: &LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<CPreflightResult, Box<dyn Error>> {
-    let (transaction_data, min_fee) =
-        fees::compute_restore_footprint_transaction_data_and_min_fee(footprint, snapshot_source)?;
+    let (transaction_data, min_fee) = fees::compute_restore_footprint_transaction_data_and_min_fee(
+        footprint,
+        snapshot_source,
+        bucket_list_size,
+    )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),

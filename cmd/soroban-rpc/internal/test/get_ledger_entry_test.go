@@ -77,11 +77,12 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	kp := keypair.Root(StandaloneNetworkPassphrase)
 	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
 
+	helloWorldContract := getHelloWorldContract(t)
 	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(account.AccountID, testContract),
+			createInstallContractCodeOperation(account.AccountID, helloWorldContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -93,7 +94,7 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 
 	sendSuccessfulTransaction(t, client, kp, tx)
 
-	contractHash := sha256.Sum256(testContract)
+	contractHash := sha256.Sum256(helloWorldContract)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractCode,
 		ContractCode: &xdr.LedgerKeyContractCode{
@@ -112,5 +113,5 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
-	assert.Equal(t, testContract, *entry.MustContractCode().Body.Code)
+	assert.Equal(t, helloWorldContract, *entry.MustContractCode().Body.Code)
 }

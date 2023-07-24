@@ -179,7 +179,9 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 
 	params.Operations = []txnbuild.Operation{op}
 
-	params.BaseFee += response.MinResourceFee
+	// Hack until we start including rent fees
+	minResourceFee := response.MinResourceFee * 120 / 100
+	params.BaseFee += minResourceFee
 	return params
 }
 

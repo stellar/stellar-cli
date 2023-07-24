@@ -1,7 +1,8 @@
 use ledger_storage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::fees::{
-    compute_transaction_resource_fee, FeeConfiguration, TransactionResources,
+    compute_transaction_resource_fee, compute_write_fee_per_1kb, FeeConfiguration,
+    TransactionResources, WriteFeeConfiguration,
 };
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
 use soroban_env_host::xdr;
@@ -23,10 +24,11 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
+    bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let soroban_resources =
         calculate_host_function_soroban_resources(snapshot_source, storage, budget, events)?;
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
 
@@ -165,6 +167,7 @@ fn get_configuration_setting(
 
 fn get_fee_configuration(
     ledger_storage: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<FeeConfiguration, Box<dyn error::Error>> {
     // TODO: to improve the performance of this function (which is invoked every single preflight call) we can
     //       1. modify ledger_storage.get() so that it can gather multiple entries at once
@@ -202,14 +205,23 @@ fn get_fee_configuration(
         );
     };
 
+    let write_fee_configuration = WriteFeeConfiguration {
+        bucket_list_target_size_bytes: ledger_cost.bucket_list_target_size_bytes,
+        write_fee_1kb_bucket_list_low: ledger_cost.write_fee1_kb_bucket_list_low,
+        write_fee_1kb_bucket_list_high: ledger_cost.write_fee1_kb_bucket_list_high,
+        bucket_list_write_fee_growth_factor: ledger_cost.bucket_list_write_fee_growth_factor,
+    };
+
     // Taken from Stellar Core's InitialSorobanNetworkConfig in NetworkConfig.h
     let fee_configuration = FeeConfiguration {
         fee_per_instruction_increment: compute.fee_rate_per_instructions_increment,
         fee_per_read_entry: ledger_cost.fee_read_ledger_entry,
         fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
         fee_per_read_1kb: ledger_cost.fee_read1_kb,
-        // TODO: This fild should had been removed by the env library
-        fee_per_write_1kb: 0,
+        fee_per_write_1kb: compute_write_fee_per_1kb(
+            bucket_list_size as i64,
+            &write_fee_configuration,
+        ),
         fee_per_historical_1kb: historical_data.fee_historical1_kb,
         fee_per_metadata_1kb: metadata.fee_extended_meta_data1_kb,
         fee_per_propagate_1kb: bandwidth.fee_propagate_data1_kb,
@@ -296,6 +308,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     ledgers_to_expire: u32,
     snapshot_source: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let read_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
@@ -324,7 +337,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
             &soroban_resources.footprint,
         )?,
     };
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
     let (min_fee, ref_fee) =
         compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {
@@ -338,6 +351,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
 pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     snapshot_source: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
@@ -368,7 +382,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
             &soroban_resources.footprint,
         )?,
     };
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
     let (min_fee, ref_fee) =
         compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {

@@ -2,6 +2,7 @@ package methods
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
@@ -38,11 +39,11 @@ type SimulateTransactionResponse struct {
 }
 
 type PreflightGetter interface {
-	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (preflight.Preflight, error)
+	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, bucketListSize uint64, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (preflight.Preflight, error)
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
-func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, getter PreflightGetter) jrpc2.Handler {
+func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, ledgerReader db.LedgerReader, getter PreflightGetter) jrpc2.Handler {
 
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
 		var txEnvelope xdr.TransactionEnvelope
@@ -98,8 +99,26 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				Error: err.Error(),
 			}
 		}
+		// obtain bucket size
+		closeMeta, ok, err := ledgerReader.GetLedger(ctx, latestLedger)
+		if err != nil {
+			return SimulateTransactionResponse{
+				Error: err.Error(),
+			}
+		}
+		if !ok {
+			return SimulateTransactionResponse{
+				Error: fmt.Sprintf("missing meta for latest ledger (%d)", latestLedger),
+			}
+		}
+		if closeMeta.V != 2 {
+			return SimulateTransactionResponse{
+				Error: fmt.Sprintf("latest ledger (%d) meta has unexpected verion (%d)", latestLedger, closeMeta.V),
+			}
+		}
+		bucketListSize := uint64(closeMeta.V2.TotalByteSizeOfBucketList)
 
-		result, err := getter.GetPreflight(ctx, readTx, sourceAccount, op.Body, footprint)
+		result, err := getter.GetPreflight(ctx, readTx, bucketListSize, sourceAccount, op.Body, footprint)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error:        err.Error(),
