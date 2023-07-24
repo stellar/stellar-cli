@@ -147,6 +147,14 @@ fn e_2_s_enum() {
     invoke_with_roundtrip("complex", json!({"Enum": "First"}));
 }
 
+#[test]
+fn asset() {
+    invoke_with_roundtrip(
+        "complex",
+        json!({"Asset": ["CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT", "100" ]}),
+    );
+}
+
 fn complex_tuple() -> serde_json::Value {
     json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]})
 }

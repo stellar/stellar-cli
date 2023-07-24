@@ -41,6 +41,7 @@ pub enum ComplexEnum {
     Struct(Test),
     Tuple(TupleStruct),
     Enum(SimpleEnum),
+    Asset(Address, i128),
     Void,
 }
 
