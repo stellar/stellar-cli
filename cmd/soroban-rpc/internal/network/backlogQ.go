@@ -12,34 +12,46 @@ import (
 )
 
 type backlogQLimiter struct {
+	limit        uint64
+	pending      uint64
+	gauge        prometheus.Gauge
+	limitReached uint64
+	logger       *log.Entry
+}
+
+type backlogHttpQLimiter struct {
 	httpDownstreamHandler http.Handler
-	jrpcDownstreamHandler jrpc2.Handler
-	limit                 uint64
-	pending               uint64
-	guage                 prometheus.Gauge
-	limitReached          uint64
-	logger                *log.Entry
+	backlogQLimiter
 }
 
-func MakeHttpBacklogQueueLimiter(downstream http.Handler, guage prometheus.Gauge, limit uint64, logger *log.Entry) *backlogQLimiter {
-	return &backlogQLimiter{
+func MakeHttpBacklogQueueLimiter(downstream http.Handler, guage prometheus.Gauge, limit uint64, logger *log.Entry) *backlogHttpQLimiter {
+	return &backlogHttpQLimiter{
 		httpDownstreamHandler: downstream,
-		limit:                 limit,
-		guage:                 guage,
-		logger:                logger,
+		backlogQLimiter: backlogQLimiter{
+			limit:  limit,
+			gauge:  guage,
+			logger: logger,
+		},
 	}
 }
 
-func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, guage prometheus.Gauge, limit uint64, logger *log.Entry) *backlogQLimiter {
-	return &backlogQLimiter{
+type backlogJrpcQLimiter struct {
+	jrpcDownstreamHandler jrpc2.Handler
+	backlogQLimiter
+}
+
+func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, guage prometheus.Gauge, limit uint64, logger *log.Entry) *backlogJrpcQLimiter {
+	return &backlogJrpcQLimiter{
 		jrpcDownstreamHandler: downstream,
-		limit:                 limit,
-		guage:                 guage,
-		logger:                logger,
+		backlogQLimiter: backlogQLimiter{
+			limit:  limit,
+			gauge:  guage,
+			logger: logger,
+		},
 	}
 }
 
-func (q *backlogQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+func (q *backlogHttpQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
 		// we've reached our queue limit - let the caller know we're too busy.
 		atomic.AddUint64(&q.pending, ^uint64(0))
@@ -52,14 +64,14 @@ func (q *backlogQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) 
 		}
 		return
 	} else {
-		if q.guage != nil {
-			q.guage.Set(float64(newPending))
+		if q.gauge != nil {
+			q.gauge.Set(float64(newPending))
 		}
 	}
 	defer func() {
 		newPending := atomic.AddUint64(&q.pending, ^uint64(0))
-		if q.guage != nil {
-			q.guage.Set(float64(newPending))
+		if q.gauge != nil {
+			q.gauge.Set(float64(newPending))
 		}
 		atomic.StoreUint64(&q.limitReached, 0)
 	}()
@@ -67,7 +79,7 @@ func (q *backlogQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) 
 	q.httpDownstreamHandler.ServeHTTP(res, req)
 }
 
-func (q *backlogQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
+func (q *backlogJrpcQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
 		// we've reached our queue limit - let the caller know we're too busy.
 		atomic.AddUint64(&q.pending, ^uint64(0))
@@ -79,14 +91,14 @@ func (q *backlogQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (inter
 		}
 		return nil, errors.Errorf("rpc queue for %s surpassed queue limit of %d requests", req.Method(), q.limit)
 	} else {
-		if q.guage != nil {
-			q.guage.Set(float64(newPending))
+		if q.gauge != nil {
+			q.gauge.Set(float64(newPending))
 		}
 	}
 	defer func() {
 		newPending := atomic.AddUint64(&q.pending, ^uint64(0))
-		if q.guage != nil {
-			q.guage.Set(float64(newPending))
+		if q.gauge != nil {
+			q.gauge.Set(float64(newPending))
 		}
 		atomic.StoreUint64(&q.limitReached, 0)
 	}()
