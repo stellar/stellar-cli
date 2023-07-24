@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"sync"
 	"syscall"
@@ -125,13 +124,8 @@ func (i *Test) launchDaemon(coreBinaryPath string) {
 	config.SQLiteDBPath = path.Join(i.t.TempDir(), "soroban_rpc.sqlite")
 	config.IngestionTimeout = 10 * time.Minute
 	config.EventLedgerRetentionWindow = ledgerbucketwindow.DefaultEventLedgerRetentionWindow
-	config.TransactionLedgerRetentionWindow = 1440
 	config.CheckpointFrequency = checkpointFrequency
-	config.MaxEventsLimit = 10000
-	config.DefaultEventsLimit = 100
 	config.MaxHealthyLedgerLatency = time.Second * 10
-	config.PreflightWorkerCount = uint(runtime.NumCPU())
-	config.PreflightWorkerQueueSize = uint(runtime.NumCPU())
 
 	i.daemon = daemon.MustNew(&config)
 	go i.daemon.Run()
