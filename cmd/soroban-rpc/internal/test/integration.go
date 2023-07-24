@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"github.com/stellar/go/clients/stellarcore"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -104,7 +105,8 @@ func (i *Test) waitForCheckpoint() {
 
 func (i *Test) launchDaemon(coreBinaryPath string) {
 	var config config.Config
-	config.SetValues(func(string) (string, bool) { return "", false })
+	cmd := &cobra.Command{}
+	config.AddFlags(cmd)
 
 	config.Endpoint = fmt.Sprintf("localhost:%d", sorobanRPCPort)
 	config.AdminEndpoint = fmt.Sprintf("localhost:%d", adminPort)
