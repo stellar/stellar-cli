@@ -24,12 +24,12 @@ type backlogHttpQLimiter struct {
 	backlogQLimiter
 }
 
-func MakeHttpBacklogQueueLimiter(downstream http.Handler, guage prometheus.Gauge, limit uint64, logger *log.Entry) *backlogHttpQLimiter {
+func MakeHttpBacklogQueueLimiter(downstream http.Handler, gauge prometheus.Gauge, limit uint64, logger *log.Entry) *backlogHttpQLimiter {
 	return &backlogHttpQLimiter{
 		httpDownstreamHandler: downstream,
 		backlogQLimiter: backlogQLimiter{
 			limit:  limit,
-			gauge:  guage,
+			gauge:  gauge,
 			logger: logger,
 		},
 	}
@@ -40,12 +40,12 @@ type backlogJrpcQLimiter struct {
 	backlogQLimiter
 }
 
-func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, guage prometheus.Gauge, limit uint64, logger *log.Entry) *backlogJrpcQLimiter {
+func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, gauge prometheus.Gauge, limit uint64, logger *log.Entry) *backlogJrpcQLimiter {
 	return &backlogJrpcQLimiter{
 		jrpcDownstreamHandler: downstream,
 		backlogQLimiter: backlogQLimiter{
 			limit:  limit,
-			gauge:  guage,
+			gauge:  gauge,
 			logger: logger,
 		},
 	}
