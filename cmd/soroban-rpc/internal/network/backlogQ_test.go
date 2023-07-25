@@ -74,7 +74,7 @@ func TestBacklogQueueLimiter_JrpcNonBlocking(t *testing.T) {
 		wg.Add(int(n))
 		for k := n; k > 0; k-- {
 			go func() {
-				_, err := limiter.Handle(nil, nil)
+				_, err := limiter.Handle(context.Background(), nil)
 				require.Nil(t, err)
 			}()
 		}
