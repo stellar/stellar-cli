@@ -25,12 +25,14 @@ typedef struct CPreflightResult {
     uint64_t memory_bytes;
 } CPreflightResult;
 
-CPreflightResult *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+CPreflightResult *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
+                                         uint64_t bucket_list_size, // Bucket list size of current ledger
                                          const char *invoke_hf_op, // InvokeHostFunctionOp XDR in base64
                                          const char *source_account, // AccountId XDR in base64
                                          const struct CLedgerInfo ledger_info);
 
-CPreflightResult *preflight_footprint_expiration_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+CPreflightResult *preflight_footprint_expiration_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
+                                                    uint64_t bucket_list_size, // Bucket list size of current ledger
                                                     const char *op_body, // OperationBody XDR in base64
                                                     const char *footprint); // LedgerFootprint XDR in base64
 

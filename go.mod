@@ -15,7 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
 	github.com/spf13/pflag v1.0.5
-	github.com/stellar/go v0.0.0-20230719125248-3fa3ef423bf7
+	github.com/stellar/go v0.0.0-20230720111027-4b727cded5cc // bump-soroban-xdr branch
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/mod v0.6.0
 )
