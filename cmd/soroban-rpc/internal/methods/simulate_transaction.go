@@ -99,24 +99,12 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				Error: err.Error(),
 			}
 		}
-		// obtain bucket size
-		closeMeta, ok, err := ledgerReader.GetLedger(ctx, latestLedger)
+		bucketListSize, err := getBucketListSize(ctx, ledgerReader, latestLedger)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error: err.Error(),
 			}
 		}
-		if !ok {
-			return SimulateTransactionResponse{
-				Error: fmt.Sprintf("missing meta for latest ledger (%d)", latestLedger),
-			}
-		}
-		if closeMeta.V != 2 {
-			return SimulateTransactionResponse{
-				Error: fmt.Sprintf("latest ledger (%d) meta has unexpected verion (%d)", latestLedger, closeMeta.V),
-			}
-		}
-		bucketListSize := uint64(closeMeta.V2.TotalByteSizeOfBucketList)
 
 		result, err := getter.GetPreflight(ctx, readTx, bucketListSize, sourceAccount, op.Body, footprint)
 		if err != nil {
@@ -143,4 +131,19 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			LatestLedger: int64(latestLedger),
 		}
 	})
+}
+
+func getBucketListSize(ctx context.Context, ledgerReader db.LedgerReader, latestLedger uint32) (uint64, error) {
+	// obtain bucket size
+	var closeMeta, ok, err = ledgerReader.GetLedger(ctx, latestLedger)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, fmt.Errorf("missing meta for latest ledger (%d)", latestLedger)
+	}
+	if closeMeta.V != 2 {
+		return 0, fmt.Errorf("latest ledger (%d) meta has unexpected verion (%d)", latestLedger, closeMeta.V)
+	}
+	return uint64(closeMeta.V2.TotalByteSizeOfBucketList), nil
 }
