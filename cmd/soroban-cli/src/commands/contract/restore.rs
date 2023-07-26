@@ -27,21 +27,21 @@ pub struct Cmd {
     /// Contract ID to which owns the data entries.
     /// If no keys provided the Contract's instance will be restored
     #[arg(long = "id", required_unless_present = "wasm")]
-    contract_id: Option<String>,
+    pub contract_id: Option<String>,
     /// Storage key (symbols only)
     #[arg(
         long = "key",
         required_unless_present = "key_xdr",
         required_unless_present = "wasm"
     )]
-    key: Vec<String>,
+    pub key: Vec<String>,
     /// Storage key (base64-encoded XDR)
     #[arg(
         long = "key-xdr",
         required_unless_present = "key",
         required_unless_present = "wasm"
     )]
-    key_xdr: Vec<String>,
+    pub key_xdr: Vec<String>,
     /// Path to Wasm file of contract code to restore
     #[arg(
         long,
@@ -49,10 +49,10 @@ pub struct Cmd {
         conflicts_with = "key_xdr",
         conflicts_with = "contract_id"
     )]
-    wasm: Option<PathBuf>,
+    pub wasm: Option<PathBuf>,
 
     #[command(flatten)]
-    config: config::Args,
+    pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
 }
@@ -115,7 +115,7 @@ impl Cmd {
         Ok(())
     }
 
-    async fn run_against_rpc_server(&self) -> Result<u32, Error> {
+    pub async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = if let Some(wasm) = &self.wasm {
@@ -216,7 +216,7 @@ impl Cmd {
         }
     }
 
-    fn run_in_sandbox(&self) -> Result<u32, Error> {
+    pub fn run_in_sandbox(&self) -> Result<u32, Error> {
         // TODO: Implement this. This means we need to store ledger entries somewhere, and handle
         // eviction, and restoration with that evicted state store.
         todo!("Restoring ledger entries is not supported in the local sandbox mode");

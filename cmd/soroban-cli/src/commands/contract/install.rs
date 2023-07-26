@@ -2,13 +2,16 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
-use crate::rpc::{self, Client};
-use crate::{commands::config, utils, wasm};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
+    OperationBody, Preconditions, SequenceNumber, Transaction, TransactionExt, TransactionResult,
+    TransactionResultResult, Uint256, VecM,
 };
+
+use super::restore;
+use crate::rpc::{self, Client};
+use crate::{commands::config, utils, wasm};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -39,6 +42,8 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
+    #[error(transparent)]
+    Restore(#[from] restore::Error),
 }
 
 impl Cmd {
@@ -86,14 +91,35 @@ impl Cmd {
         let (tx_without_preflight, hash) =
             build_install_contract_code_tx(contract.clone(), sequence + 1, self.fee.fee, &key)?;
 
-        client
+        // Currently internal errors are not returned if the contract code is expired
+        if let (
+            TransactionResult {
+                result: TransactionResultResult::TxInternalError,
+                ..
+            },
+            _,
+            _,
+        ) = client
             .prepare_and_send_transaction(
                 &tx_without_preflight,
                 &key,
                 &network.network_passphrase,
                 None,
             )
+            .await?
+        {
+            // Now just need to restore it and don't have to install again
+            restore::Cmd {
+                contract_id: None,
+                key: vec![],
+                key_xdr: vec![],
+                wasm: Some(self.wasm.wasm.clone()),
+                config: self.config.clone(),
+                fee: self.fee.clone(),
+            }
+            .run_against_rpc_server()
             .await?;
+        }
 
         Ok(hash)
     }
