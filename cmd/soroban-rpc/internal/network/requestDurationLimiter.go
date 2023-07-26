@@ -2,9 +2,11 @@ package network
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/creachadair/jrpc2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/support/log"
 )
@@ -150,3 +152,98 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 		}
 	}
 }
+
+type rpcRequestDurationLimiter struct {
+	jrpcDownstreamHandler jrpc2.Handler
+	requestDurationLimiter
+}
+
+func MakeRPCRequestDurationLimiter(
+	downstream jrpc2.Handler,
+	warningThreshold time.Duration,
+	limitThreshold time.Duration,
+	warningCounter prometheus.Counter,
+	limitCounter prometheus.Counter,
+	logger *log.Entry) *rpcRequestDurationLimiter {
+	return &rpcRequestDurationLimiter{
+		jrpcDownstreamHandler: downstream,
+		requestDurationLimiter: requestDurationLimiter{
+			warningThreshold: warningThreshold,
+			limitThreshold:   limitThreshold,
+			logger:           logger,
+			warningCounter:   warningCounter,
+			limitCounter:     limitCounter,
+		},
+	}
+}
+
+func (q *rpcRequestDurationLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
+	var warningCh <-chan time.Time
+	if q.warningThreshold != time.Duration(0) && q.warningThreshold < q.limitThreshold {
+		warningCh = time.NewTimer(q.warningThreshold).C
+	}
+	var limitCh <-chan time.Time
+	if q.limitThreshold != time.Duration(0) {
+		limitCh = time.NewTimer(q.limitThreshold).C
+	}
+	type requestResultOutput struct {
+		data interface{}
+		err  error
+	}
+	requestCompleted := make(chan requestResultOutput, 1)
+	requestCtx, requestCtxCancel := context.WithTimeout(ctx, q.limitThreshold)
+	defer requestCtxCancel()
+
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				q.logger.Errorf("Request for method %s resulted in an error : %v", req.Method(), err)
+			}
+			close(requestCompleted)
+		}()
+		var res requestResultOutput
+		res.data, res.err = q.jrpcDownstreamHandler.Handle(requestCtx, req)
+		requestCompleted <- res
+	}()
+
+	warn := false
+	for {
+		select {
+		case <-warningCh:
+			// warn
+			warn = true
+		case <-limitCh:
+			// limit
+			requestCtxCancel()
+			if q.limitCounter != nil {
+				q.limitCounter.Inc()
+			}
+			if q.logger != nil {
+				q.logger.Infof("Request processing for %s exceed limiting threshold of %v", req.Method(), q.limitThreshold)
+			}
+			if ctxErr := ctx.Err(); ctxErr == nil {
+				return nil, ErrRequestExceededProcessingLimitThreshold
+			} else {
+				return nil, ctxErr
+			}
+		case requestRes, ok := <-requestCompleted:
+			if warn {
+				if q.warningCounter != nil {
+					q.warningCounter.Inc()
+				}
+				if q.logger != nil {
+					q.logger.Infof("Request processing for %s exceed warning threshold of %v", req.Method(), q.warningThreshold)
+				}
+			}
+			if ok {
+				return requestRes.data, requestRes.err
+			} else {
+				// request panicked ?
+				return nil, ErrFailToProcessDueToInternalIssue
+			}
+		}
+	}
+}
+
+var ErrRequestExceededProcessingLimitThreshold = errors.New("request exceeded processing limit threshold")
+var ErrFailToProcessDueToInternalIssue = errors.New("request failed to process due to internal issue")
