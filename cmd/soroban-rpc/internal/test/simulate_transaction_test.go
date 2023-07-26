@@ -240,9 +240,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				},
 			},
 			Instructions:              74350,
-			ReadBytes:                 40,
+			ReadBytes:                 1040,
 			WriteBytes:                112,
-			ExtendedMetaDataSizeBytes: 152,
+			ExtendedMetaDataSizeBytes: 1152,
 		},
 		RefundableFee: 10225,
 	}

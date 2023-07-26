@@ -420,5 +420,6 @@ fn compute_transaction_resource_fee_wrapper(
 ) -> (i64, i64) {
     let (min_fee, ref_fee) = compute_transaction_resource_fee(tx_resources, fee_config);
     // FIXME: Hack suggested by the core team, until we compute rent fees properly
-    return (min_fee + 10000, ref_fee + 10000);
+    //        and include expiration ledger bumps
+    return (min_fee + 10000 + 10000, ref_fee + 10000);
 }
