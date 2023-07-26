@@ -7,11 +7,10 @@ use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
 use soroban_env_host::xdr;
 use soroban_env_host::xdr::{
     BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
-    DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntry, LedgerEntryData,
-    LedgerFootprint, LedgerKey, LedgerKeyConfigSetting, Memo, MuxedAccount, MuxedAccountMed25519,
-    Operation, OperationBody, Preconditions, RestoreFootprintOp, SequenceNumber, Signature,
-    SignatureHint, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-    TransactionV1Envelope, Uint256, WriteXdr,
+    DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Memo,
+    MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
+    RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
+    SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
@@ -143,26 +142,6 @@ fn calculate_host_function_soroban_resources(
     })
 }
 
-fn get_configuration_setting(
-    ledger_storage: &ledger_storage::LedgerStorage,
-    setting_id: ConfigSettingId,
-) -> Result<ConfigSettingEntry, Box<dyn error::Error>> {
-    let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
-        config_setting_id: setting_id,
-    });
-    match ledger_storage.get(&key, false)? {
-        LedgerEntry {
-            data: LedgerEntryData::ConfigSetting(cs),
-            ..
-        } => Ok(cs),
-        _ => Err(format!(
-            "get_configuration_setting(): unexpected ledger entry for {} key",
-            setting_id.name()
-        )
-        .into()),
-    }
-}
-
 fn get_fee_configuration(
     ledger_storage: &ledger_storage::LedgerStorage,
 ) -> Result<FeeConfiguration, Box<dyn error::Error>> {
@@ -172,31 +151,31 @@ fn get_fee_configuration(
     //          same time as the DB, ensuring they are always in memory).
     //
 
-    let ConfigSettingEntry::ContractComputeV0(compute) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractComputeV0)? else {
+    let ConfigSettingEntry::ContractComputeV0(compute) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)? else {
             return Err(
                 "get_fee_configuration(): unexpected config setting entry for ComputeV0 key".into(),
             );
         };
 
-    let ConfigSettingEntry::ContractLedgerCostV0(ledger_cost) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractLedgerCostV0)? else {
+    let ConfigSettingEntry::ContractLedgerCostV0(ledger_cost) = ledger_storage.get_configuration_setting( ConfigSettingId::ContractLedgerCostV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for LedgerCostV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::ContractHistoricalDataV0(historical_data) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractHistoricalDataV0)? else {
+    let ConfigSettingEntry::ContractHistoricalDataV0(historical_data) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractHistoricalDataV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for HistoricalDataV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::ContractMetaDataV0(metadata) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractMetaDataV0)? else {
+    let ConfigSettingEntry::ContractMetaDataV0(metadata) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractMetaDataV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for MetaDataV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::ContractBandwidthV0(bandwidth) = get_configuration_setting(ledger_storage, ConfigSettingId::ContractBandwidthV0)? else {
+    let ConfigSettingEntry::ContractBandwidthV0(bandwidth) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractBandwidthV0)? else {
         return Err(
             "get_fee_configuration(): unexpected config setting entry for BandwidthV0 key".into(),
         );
