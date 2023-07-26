@@ -338,6 +338,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+
 	tx, err := txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)

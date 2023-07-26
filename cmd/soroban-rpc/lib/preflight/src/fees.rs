@@ -397,7 +397,24 @@ fn compute_transaction_resource_fee_wrapper(
     tx_resources: &TransactionResources,
     fee_config: &FeeConfiguration,
 ) -> (i64, i64) {
-    let (min_fee, ref_fee) = compute_transaction_resource_fee(tx_resources, fee_config);
+    // FIXME: Hack suggested by the core team until they include expiration ledger bumps
+    let resources = TransactionResources {
+        instructions: tx_resources.instructions,
+        read_entries: tx_resources.read_entries,
+        write_entries: tx_resources.read_entries,
+        read_bytes: max(
+            tx_resources.read_bytes + 1000,
+            tx_resources.read_bytes * 120 / 100,
+        ),
+        write_bytes: tx_resources.write_bytes,
+        metadata_size_bytes: max(
+            tx_resources.metadata_size_bytes + 1000,
+            tx_resources.metadata_size_bytes * 120 / 100,
+        ),
+        transaction_size_bytes: tx_resources.transaction_size_bytes,
+    };
+
+    let (min_fee, ref_fee) = compute_transaction_resource_fee(&resources, fee_config);
     // FIXME: Hack suggested by the core team, until we compute rent fees properly
     return (min_fee + 10000, ref_fee + 10000);
 }
