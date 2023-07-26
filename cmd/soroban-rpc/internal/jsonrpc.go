@@ -223,13 +223,22 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network", Name: "global_inflight_requests",
 		Help: "Number of concurrenty in-flight http requests",
 	})
+
+	queueLimitedBridge := network.MakeHTTPBacklogQueueLimiter(
+		bridge,
+		globalQueueRequestBacklogLimiter,
+		uint64(cfg.RequestBacklogGlobalQueueLimit),
+		params.Logger)
+
+	durationLimitedBridge := network.MakeHTTPRequestDurationLimiter(
+		queueLimitedBridge,
+		5*time.Second,
+		10*time.Second,
+		params.Logger)
+
 	return Handler{
-		bridge: bridge,
-		logger: params.Logger,
-		Handler: network.MakeHTTPBacklogQueueLimiter(
-			bridge,
-			globalQueueRequestBacklogLimiter,
-			uint64(cfg.RequestBacklogGlobalQueueLimit),
-			params.Logger),
+		bridge:  bridge,
+		logger:  params.Logger,
+		Handler: durationLimitedBridge,
 	}
 }
