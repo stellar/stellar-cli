@@ -244,7 +244,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			WriteBytes:                112,
 			ExtendedMetaDataSizeBytes: 152,
 		},
-		RefundableFee: 10030,
+		RefundableFee: 10225,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
