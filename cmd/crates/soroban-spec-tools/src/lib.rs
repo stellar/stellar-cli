@@ -27,7 +27,7 @@ pub enum Error {
     EnumCase(String, String),
     #[error("Enum {0} missing value for type {1}")]
     EnumMissingSecondValue(String, String),
-    #[error("Enum {0} is informed ")]
+    #[error("Enum {0} is illformed")]
     IllFormedEnum(String),
     #[error("Unknown const case {0}")]
     EnumConst(u32),
