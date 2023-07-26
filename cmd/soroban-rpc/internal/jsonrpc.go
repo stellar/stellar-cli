@@ -230,10 +230,20 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		uint64(cfg.RequestBacklogGlobalQueueLimit),
 		params.Logger)
 
+	globalQueueRequestExecutionDurationWarningCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network", Name: "global_request_execution_duration_threshold_warning",
+		Help: "The metric measures the count of requests that surpassed the warning threshold for execution time",
+	})
+	globalQueueRequestExecutionDurationLimitCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network", Name: "global_request_execution_duration_threshold_limit",
+		Help: "The metric measures the count of requests that surpassed the limit threshold for execution time",
+	})
 	durationLimitedBridge := network.MakeHTTPRequestDurationLimiter(
 		queueLimitedBridge,
-		5*time.Second,
-		10*time.Second,
+		cfg.RequestExecutionWarningThreshold,
+		cfg.RequestExecutionLimitThreshold,
+		globalQueueRequestExecutionDurationWarningCounter,
+		globalQueueRequestExecutionDurationLimitCounter,
 		params.Logger)
 
 	return Handler{

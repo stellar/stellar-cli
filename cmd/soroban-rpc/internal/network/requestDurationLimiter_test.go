@@ -55,6 +55,8 @@ func TestRequestDurationLimiter_Limiting(t *testing.T) {
 		longExecutingHandler,
 		time.Second/20,
 		time.Second/10,
+		nil,
+		nil,
 		nil).ServeHTTP
 
 	client := http.Client{}
@@ -83,6 +85,8 @@ func TestRequestDurationLimiter_NoLimiting(t *testing.T) {
 		longExecutingHandler,
 		time.Second*5,
 		time.Second*10,
+		nil,
+		nil,
 		nil).ServeHTTP
 
 	client := http.Client{}

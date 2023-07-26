@@ -48,6 +48,8 @@ type Config struct {
 	RequestBacklogGetTransactionQueueLimit      uint
 	RequestBacklogSendTransactionQueueLimit     uint
 	RequestBacklogSimulateTransactionQueueLimit uint
+	RequestExecutionWarningThreshold            time.Duration
+	RequestExecutionLimitThreshold              time.Duration
 
 	// We memoize these, so they bind to pflags correctly
 	optionsCache *ConfigOptions

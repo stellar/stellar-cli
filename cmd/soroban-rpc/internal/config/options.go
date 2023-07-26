@@ -334,6 +334,18 @@ func (cfg *Config) options() ConfigOptions {
 			DefaultValue: uint(100),
 			Validate:     positive,
 		},
+		{
+			Name:         "request-execution-warning-threshold",
+			Usage:        "The request execution warning threshold is the predetermined maximum duration of time that a request can take to be processed before a warning would be generated",
+			ConfigKey:    &cfg.RequestExecutionWarningThreshold,
+			DefaultValue: time.Duration(5 * time.Second),
+		},
+		{
+			Name:         "request-execution-limit-threshold",
+			Usage:        "The request execution limit threshold is the predefined maximum duration of time allowed for processing a request. When that time elapses, the server would return 504 and abort the request's execution",
+			ConfigKey:    &cfg.RequestExecutionLimitThreshold,
+			DefaultValue: time.Duration(15 * time.Second),
+		},
 	}
 	return *cfg.optionsCache
 }

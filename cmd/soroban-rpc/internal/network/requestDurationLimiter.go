@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/support/log"
 )
 
@@ -12,6 +13,8 @@ type requestDurationLimiter struct {
 	warningThreshold time.Duration
 	limitThreshold   time.Duration
 	logger           *log.Entry
+	warningCounter   prometheus.Counter
+	limitCounter     prometheus.Counter
 }
 
 type httpRequestDurationLimiter struct {
@@ -23,6 +26,8 @@ func MakeHTTPRequestDurationLimiter(
 	downstream http.Handler,
 	warningThreshold time.Duration,
 	limitThreshold time.Duration,
+	warningCounter prometheus.Counter,
+	limitCounter prometheus.Counter,
 	logger *log.Entry) *httpRequestDurationLimiter {
 	return &httpRequestDurationLimiter{
 		httpDownstreamHandler: downstream,
@@ -30,6 +35,8 @@ func MakeHTTPRequestDurationLimiter(
 			warningThreshold: warningThreshold,
 			limitThreshold:   limitThreshold,
 			logger:           logger,
+			warningCounter:   warningCounter,
+			limitCounter:     limitCounter,
 		},
 	}
 }
@@ -62,7 +69,7 @@ func (w *bufferedResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
 }
 
-func (w *bufferedResponseWriter) WriteOut(rw http.ResponseWriter) {
+func (w *bufferedResponseWriter) WriteOut(ctx context.Context, rw http.ResponseWriter) {
 	// update the headers map.
 	headers := rw.Header()
 	for k := range headers {
@@ -71,16 +78,24 @@ func (w *bufferedResponseWriter) WriteOut(rw http.ResponseWriter) {
 	for k, v := range w.header {
 		headers[k] = v
 	}
-	if len(w.buffer) == 0 {
+	complete := make(chan interface{})
+	go func() {
+		if len(w.buffer) == 0 {
+			if w.statusCode != 0 {
+				rw.WriteHeader(w.statusCode)
+			}
+			return
+		}
 		if w.statusCode != 0 {
 			rw.WriteHeader(w.statusCode)
 		}
-		return
+		rw.Write(w.buffer)
+		close(complete)
+	}()
+	select {
+	case <-complete:
+	case <-ctx.Done():
 	}
-	if w.statusCode != 0 {
-		rw.WriteHeader(w.statusCode)
-	}
-	rw.Write(w.buffer)
 }
 
 func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -102,23 +117,35 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 		close(requestCompleted)
 	}()
 
+	warn := false
 	for {
 		select {
 		case <-warningCh:
 			// warn
-			if q.logger != nil {
-				q.logger.Infof("Request processing for %s exceed warning threshold of %v", req.URL.Path, q.warningThreshold)
-			}
+			warn = true
 		case <-limitCh:
 			// limit
 			requestCtxCancel()
+			if q.limitCounter != nil {
+				q.limitCounter.Inc()
+			}
 			if q.logger != nil {
 				q.logger.Infof("Request processing for %s exceed limiting threshold of %v", req.URL.Path, q.limitThreshold)
 			}
-			res.WriteHeader(http.StatusGatewayTimeout)
+			if req.Context().Err() == nil {
+				res.WriteHeader(http.StatusGatewayTimeout)
+			}
 			return
 		case <-requestCompleted:
-			responseBuffer.WriteOut(res)
+			if warn {
+				if q.warningCounter != nil {
+					q.warningCounter.Inc()
+				}
+				if q.logger != nil {
+					q.logger.Infof("Request processing for %s exceed warning threshold of %v", req.URL.Path, q.warningThreshold)
+				}
+			}
+			responseBuffer.WriteOut(req.Context(), res)
 			return
 		}
 	}
