@@ -133,8 +133,18 @@ fn complex_enum_help() {
         .arg("--help")
         .assert()
         .stdout(predicates::str::contains(
-            "--complex '[\"Struct\", { \"a\": 1, \"b\": true, \"c\": \"hello\" }]'",
-        ));
+            r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Enum":"First"|"Second"|"Third"}"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Asset":["GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4", "-100"]}"#,
+        ))
+        .stdout(predicates::str::contains(r#""Void"'"#));
 }
 
 #[test]
