@@ -26,8 +26,12 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     events: &Vec<DiagnosticEvent>,
     bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    let soroban_resources =
-        calculate_host_function_soroban_resources(snapshot_source, storage, budget, events)?;
+    let soroban_resources = hack_soroban_resources(calculate_host_function_soroban_resources(
+        snapshot_source,
+        storage,
+        budget,
+        events,
+    )?);
     let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
@@ -315,13 +319,13 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         snapshot_source,
         false,
     )?;
-    let soroban_resources = SorobanResources {
+    let soroban_resources = hack_soroban_resources(SorobanResources {
         footprint,
         instructions: 0,
         read_bytes,
         write_bytes: 0,
         extended_meta_data_size_bytes: 2 * read_bytes,
-    };
+    });
     let transaction_resources = TransactionResources {
         instructions: 0,
         read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?,
@@ -358,7 +362,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         snapshot_source,
         true,
     )?;
-    let soroban_resources = SorobanResources {
+    let soroban_resources = hack_soroban_resources(SorobanResources {
         footprint,
         instructions: 0,
         // FIXME(fons): this seems to be a workaround a bug in code (the fix is to also count bytes read but not written in readBytes).
@@ -366,7 +370,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         read_bytes: write_bytes,
         write_bytes,
         extended_meta_data_size_bytes: 2 * write_bytes,
-    };
+    });
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_resources = TransactionResources {
         instructions: 0,
@@ -393,28 +397,28 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     Ok((transaction_data, min_fee))
 }
 
+fn hack_soroban_resources(resources: SorobanResources) -> SorobanResources {
+    // FIXME: Hack suggested by the core team until they include expiration ledger bumps
+    return SorobanResources {
+        footprint: resources.footprint,
+        instructions: resources.instructions,
+        read_bytes: max(
+            resources.read_bytes + 1000,
+            resources.read_bytes * 120 / 100,
+        ),
+        write_bytes: resources.write_bytes,
+        extended_meta_data_size_bytes: max(
+            resources.extended_meta_data_size_bytes + 1000,
+            resources.extended_meta_data_size_bytes * 120 / 100,
+        ),
+    };
+}
+
 fn compute_transaction_resource_fee_wrapper(
     tx_resources: &TransactionResources,
     fee_config: &FeeConfiguration,
 ) -> (i64, i64) {
-    // FIXME: Hack suggested by the core team until they include expiration ledger bumps
-    let resources = TransactionResources {
-        instructions: tx_resources.instructions,
-        read_entries: tx_resources.read_entries,
-        write_entries: tx_resources.read_entries,
-        read_bytes: max(
-            tx_resources.read_bytes + 1000,
-            tx_resources.read_bytes * 120 / 100,
-        ),
-        write_bytes: tx_resources.write_bytes,
-        metadata_size_bytes: max(
-            tx_resources.metadata_size_bytes + 1000,
-            tx_resources.metadata_size_bytes * 120 / 100,
-        ),
-        transaction_size_bytes: tx_resources.transaction_size_bytes,
-    };
-
-    let (min_fee, ref_fee) = compute_transaction_resource_fee(&resources, fee_config);
+    let (min_fee, ref_fee) = compute_transaction_resource_fee(tx_resources, fee_config);
     // FIXME: Hack suggested by the core team, until we compute rent fees properly
     return (min_fee + 10000, ref_fee + 10000);
 }
