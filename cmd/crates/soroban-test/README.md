@@ -3,7 +3,7 @@ Soroban Test
 
 Test framework wrapping Soroban CLI.
 
-Provides a way to run tests aganist a local sandbox; running against RPC endpoint _coming soon_.
+Provides a way to run tests against a local sandbox; running against RPC endpoint _coming soon_.
 
 
 Overview
