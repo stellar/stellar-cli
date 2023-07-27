@@ -111,7 +111,7 @@ func analyzedDependency(depInfo projectDependency) analyzedProjectDependency {
 	var workspaceVersion bool
 	if depInfo.class == depClassCargo {
 		// for cargo versions, we need to look into the actual repository in order to determine
-		// the ealiest version of the most up-to-date version.
+		// the earliest version of the most up-to-date version.
 		latestCommit, updatedVersion, workspaceVersion, err = findLatestVersion(repo, latestCommitRef, revCommit, depInfo.name)
 		if err != nil {
 			exitErr()

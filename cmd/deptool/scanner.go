@@ -50,7 +50,7 @@ type patchCratesIOToml struct {
 }
 
 type cargoToml struct {
-	Workspace workspaceDepenenciesToml // this is the workspace.dependencies entry; the toml decoder breaks it into workspace and depenencies
+	Workspace workspaceDepenenciesToml // this is the workspace.dependencies entry; the toml decoder breaks it into workspace and dependencies
 	Patch     patchCratesIOToml        // this is the patch.crates-io entry
 }
 
