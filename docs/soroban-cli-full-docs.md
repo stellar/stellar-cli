@@ -412,7 +412,7 @@ Print the current value of a contract-data ledger entry
 
 Restore an evicted value for a contract-data legder entry.
 
-If no keys are specified the contract itself is restored.
+If no keys are specificed the contract itself is restored.
 
 **Usage:** `soroban contract restore [OPTIONS]`
 
