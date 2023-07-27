@@ -183,7 +183,7 @@ type rpcRequestDurationLimiter struct {
 	requestDurationLimiter
 }
 
-func MakeRPCRequestDurationLimiter(
+func MakeJrpcRequestDurationLimiter(
 	downstream jrpc2.Handler,
 	warningThreshold time.Duration,
 	limitThreshold time.Duration,
