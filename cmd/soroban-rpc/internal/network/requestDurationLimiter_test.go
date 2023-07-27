@@ -61,7 +61,9 @@ func TestRequestDurationLimiter_Limiting(t *testing.T) {
 		nil).ServeHTTP
 
 	client := http.Client{}
-	resp, err := client.Get("http://" + addr + "/")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+addr+"/", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
 	require.NoError(t, err)
 	bytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, resp.Body.Close())
@@ -94,7 +96,9 @@ func TestRequestDurationLimiter_NoLimiting(t *testing.T) {
 		nil).ServeHTTP
 
 	client := http.Client{}
-	resp, err := client.Get("http://" + addr + "/")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+addr+"/", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
 	require.NoError(t, err)
 	bytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, resp.Body.Close())

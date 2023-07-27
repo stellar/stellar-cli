@@ -42,7 +42,7 @@ func TestBacklogQueueLimiter_HttpNonBlocking(t *testing.T) {
 
 	limiter := MakeHTTPBacklogQueueLimiter(adding, nil, requestsSizeLimit, nil)
 	for i := 1; i < 50; i++ {
-		n := rand.Int63n(int64(requestsSizeLimit))
+		n := rand.Int63n(int64(requestsSizeLimit)) //nolint:gosec
 		wg.Add(int(n))
 		for k := n; k > 0; k-- {
 			go func() {
@@ -70,7 +70,7 @@ func TestBacklogQueueLimiter_JrpcNonBlocking(t *testing.T) {
 
 	limiter := MakeJrpcBacklogQueueLimiter(adding, nil, requestsSizeLimit, nil)
 	for i := 1; i < 50; i++ {
-		n := rand.Int63n(int64(requestsSizeLimit))
+		n := rand.Int63n(int64(requestsSizeLimit)) //nolint:gosec
 		wg.Add(int(n))
 		for k := n; k > 0; k-- {
 			go func() {
