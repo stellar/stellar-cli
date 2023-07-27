@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: overcat/stellar-system-test
+          repository: stellar/system-test
           ref: ${{ env.SYSTEM_TEST_GIT_REF }}
           path: system-test
       - uses: actions/checkout@v3
