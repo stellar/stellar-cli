@@ -72,7 +72,8 @@ pub struct Args {
         long,
         conflicts_with = "network_passphrase",
         conflicts_with = "rpc_url",
-        env = "SOROBAN_NETWORK"
+        env = "SOROBAN_NETWORK",
+        help_heading = HEADING_RPC,
     )]
     pub network: Option<String>,
 }
