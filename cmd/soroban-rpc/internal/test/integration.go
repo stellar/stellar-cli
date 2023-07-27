@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"sync"
 	"syscall"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"github.com/stellar/go/clients/stellarcore"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -103,31 +103,30 @@ func (i *Test) waitForCheckpoint() {
 }
 
 func (i *Test) launchDaemon(coreBinaryPath string) {
-	config := config.Config{
-		Endpoint:                         fmt.Sprintf("localhost:%d", sorobanRPCPort),
-		AdminEndpoint:                    fmt.Sprintf("localhost:%d", adminPort),
-		StellarCoreURL:                   "http://localhost:" + strconv.Itoa(stellarCorePort),
-		CoreRequestTimeout:               time.Second * 2,
-		StellarCoreBinaryPath:            coreBinaryPath,
-		CaptiveCoreConfigPath:            path.Join(i.composePath, "captive-core-integration-tests.cfg"),
-		CaptiveCoreStoragePath:           i.t.TempDir(),
-		CaptiveCoreHTTPPort:              0,
-		CaptiveCoreUseDB:                 true,
-		FriendbotURL:                     friendbotURL,
-		NetworkPassphrase:                StandaloneNetworkPassphrase,
-		HistoryArchiveURLs:               []string{"http://localhost:1570"},
-		LogLevel:                         logrus.DebugLevel,
-		SQLiteDBPath:                     path.Join(i.t.TempDir(), "soroban_rpc.sqlite"),
-		IngestionTimeout:                 10 * time.Minute,
-		EventLedgerRetentionWindow:       ledgerbucketwindow.DefaultEventLedgerRetentionWindow,
-		TransactionLedgerRetentionWindow: 1440,
-		CheckpointFrequency:              checkpointFrequency,
-		MaxEventsLimit:                   10000,
-		DefaultEventsLimit:               100,
-		MaxHealthyLedgerLatency:          time.Second * 10,
-		PreflightWorkerCount:             uint(runtime.NumCPU()),
-		PreflightWorkerQueueSize:         uint(runtime.NumCPU()),
-	}
+	var config config.Config
+	cmd := &cobra.Command{}
+	config.AddFlags(cmd)
+	config.SetValues(func(string) (string, bool) { return "", false })
+
+	config.Endpoint = fmt.Sprintf("localhost:%d", sorobanRPCPort)
+	config.AdminEndpoint = fmt.Sprintf("localhost:%d", adminPort)
+	config.StellarCoreURL = "http://localhost:" + strconv.Itoa(stellarCorePort)
+	config.CoreRequestTimeout = time.Second * 2
+	config.StellarCoreBinaryPath = coreBinaryPath
+	config.CaptiveCoreConfigPath = path.Join(i.composePath, "captive-core-integration-tests.cfg")
+	config.CaptiveCoreStoragePath = i.t.TempDir()
+	config.CaptiveCoreHTTPPort = 0
+	config.CaptiveCoreUseDB = true
+	config.FriendbotURL = friendbotURL
+	config.NetworkPassphrase = StandaloneNetworkPassphrase
+	config.HistoryArchiveURLs = []string{"http://localhost:1570"}
+	config.LogLevel = logrus.DebugLevel
+	config.SQLiteDBPath = path.Join(i.t.TempDir(), "soroban_rpc.sqlite")
+	config.IngestionTimeout = 10 * time.Minute
+	config.EventLedgerRetentionWindow = ledgerbucketwindow.DefaultEventLedgerRetentionWindow
+	config.CheckpointFrequency = checkpointFrequency
+	config.MaxHealthyLedgerLatency = time.Second * 10
+
 	i.daemon = daemon.MustNew(&config)
 	go i.daemon.Run()
 
