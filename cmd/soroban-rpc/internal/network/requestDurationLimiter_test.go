@@ -37,7 +37,6 @@ func createTestServer() (serverAddr string, redirector *TestServerHandlerWrapper
 		server.Shutdown(context.Background()) //nolint:errcheck
 		<-serverDown
 	}
-
 }
 func TestRequestDurationLimiter_Limiting(t *testing.T) {
 	addr, redirector, shutdown := createTestServer()
@@ -65,6 +64,7 @@ func TestRequestDurationLimiter_Limiting(t *testing.T) {
 	resp, err := client.Get("http://" + addr + "/")
 	require.NoError(t, err)
 	bytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, resp.Body.Close())
 	require.NoError(t, err)
 	require.Equal(t, []byte{}, bytes)
 	require.Equal(t, resp.StatusCode, http.StatusGatewayTimeout)
@@ -97,6 +97,7 @@ func TestRequestDurationLimiter_NoLimiting(t *testing.T) {
 	resp, err := client.Get("http://" + addr + "/")
 	require.NoError(t, err)
 	bytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, resp.Body.Close())
 	require.NoError(t, err)
 	require.Equal(t, []byte{1, 2, 3}, bytes)
 	require.Equal(t, resp.StatusCode, http.StatusOK)
