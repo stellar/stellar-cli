@@ -240,11 +240,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				},
 			},
 			Instructions:              74350,
-			ReadBytes:                 40,
+			ReadBytes:                 1040,
 			WriteBytes:                112,
-			ExtendedMetaDataSizeBytes: 152,
+			ExtendedMetaDataSizeBytes: 1152,
 		},
-		RefundableFee: 10030,
+		RefundableFee: 10225,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -338,6 +338,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+
 	tx, err := txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
