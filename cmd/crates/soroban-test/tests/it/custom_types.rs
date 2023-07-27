@@ -133,8 +133,18 @@ fn complex_enum_help() {
         .arg("--help")
         .assert()
         .stdout(predicates::str::contains(
-            "--complex '[\"Struct\", { \"a\": 1, \"b\": true, \"c\": \"hello\" }]'",
-        ));
+            r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Enum":"First"|"Second"|"Third"}"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Asset":["GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4", "-100"]}"#,
+        ))
+        .stdout(predicates::str::contains(r#""Void"'"#));
 }
 
 #[test]
@@ -145,6 +155,14 @@ fn enum_2_str() {
 #[test]
 fn e_2_s_enum() {
     invoke_with_roundtrip("complex", json!({"Enum": "First"}));
+}
+
+#[test]
+fn asset() {
+    invoke_with_roundtrip(
+        "complex",
+        json!({"Asset": ["CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT", "100" ]}),
+    );
 }
 
 fn complex_tuple() -> serde_json::Value {

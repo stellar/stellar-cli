@@ -1,7 +1,9 @@
 use base64::DecodeError;
+use ledger_storage::Error::UnexpectedConfigLedgerEntryType;
 use soroban_env_host::storage::SnapshotSource;
 use soroban_env_host::xdr::{
-    Error as XdrError, LedgerEntry, LedgerKey, ReadXdr, ScError, ScErrorCode, ScErrorType, WriteXdr,
+    ConfigSettingEntry, ConfigSettingId, Error as XdrError, LedgerEntry, LedgerEntryData,
+    LedgerKey, LedgerKeyConfigSetting, ReadXdr, ScError, ScErrorCode, ScErrorType, WriteXdr,
 };
 use soroban_env_host::HostError;
 use std::ffi::{CStr, CString, NulError};
@@ -35,6 +37,8 @@ pub(crate) enum Error {
     DecodeError(#[from] DecodeError),
     #[error("utf8 error: {0}")]
     Utf8Error(#[from] Utf8Error),
+    #[error("unexpected ledger entry type for key {key_name}")]
+    UnexpectedConfigLedgerEntryType { key_name: String },
 }
 
 impl Error {
@@ -95,6 +99,24 @@ impl LedgerStorage {
     pub fn get_xdr(&self, key: &LedgerKey, include_expired: bool) -> Result<Vec<u8>, Error> {
         let base64_str = self.get_xdr_base64(key, include_expired)?;
         Ok(base64::decode(base64_str)?)
+    }
+
+    pub fn get_configuration_setting(
+        &self,
+        setting_id: ConfigSettingId,
+    ) -> Result<ConfigSettingEntry, Error> {
+        let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
+            config_setting_id: setting_id,
+        });
+        match self.get(&key, false)? {
+            LedgerEntry {
+                data: LedgerEntryData::ConfigSetting(cs),
+                ..
+            } => Ok(cs),
+            _ => Err(UnexpectedConfigLedgerEntryType {
+                key_name: setting_id.name().to_string(),
+            }),
+        }
     }
 }
 
