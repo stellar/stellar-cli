@@ -128,89 +128,108 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		},
 	}
 	handlers := []struct {
-		methodName        string
-		underlyingHandler jrpc2.Handler
-		gaugeName         string
-		gaugeHelp         string
-		queueLimit        uint
+		methodName           string
+		underlyingHandler    jrpc2.Handler
+		queueLimit           uint
+		longName             string
+		requestDurationLimit time.Duration
 	}{
 		{
 			methodName:        "getHealth",
 			underlyingHandler: methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
-			gaugeName:         "get_health_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight getHealth requests",
 			queueLimit:        cfg.RequestBacklogGetHealthQueueLimit,
+			longName:          "get_health",
 		},
 		{
 			methodName:        "getEvents",
 			underlyingHandler: methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
-			gaugeName:         "get_events_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight getEvents requests",
+			longName:          "get_events",
 			queueLimit:        cfg.RequestBacklogGetEventsQueueLimit,
 		},
 		{
 			methodName:        "getNetwork",
 			underlyingHandler: methods.NewGetNetworkHandler(params.Daemon, cfg.NetworkPassphrase, cfg.FriendbotURL),
-			gaugeName:         "get_network_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight getNetwork requests",
+			longName:          "get_network",
 			queueLimit:        cfg.RequestBacklogGetNetworkQueueLimit,
 		},
 		{
 			methodName:        "getLatestLedger",
 			underlyingHandler: methods.NewGetLatestLedgerHandler(params.LedgerEntryReader, params.LedgerReader),
-			gaugeName:         "get_latest_ledger_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight getLatestLedger requests",
+			longName:          "get_latest_ledger",
 			queueLimit:        cfg.RequestBacklogGetLatestLedgerQueueLimit,
 		},
 		{
 			methodName:        "getLedgerEntry",
 			underlyingHandler: methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
-			gaugeName:         "get_ledger_entry_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight getLedgerEntry requests",
+			longName:          "get_ledger_entry",
 			queueLimit:        cfg.RequestBacklogGetLedgerEntriesQueueLimit, // share with getLedgerEntries
 		},
 		{
 			methodName:        "getLedgerEntries",
 			underlyingHandler: methods.NewGetLedgerEntriesHandler(params.Logger, params.LedgerEntryReader),
-			gaugeName:         "get_ledger_entries_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight getLedgerEntries requests",
+			longName:          "get_ledger_entries",
 			queueLimit:        cfg.RequestBacklogGetLedgerEntriesQueueLimit,
 		},
 		{
 			methodName:        "getTransaction",
 			underlyingHandler: methods.NewGetTransactionHandler(params.TransactionStore),
-			gaugeName:         "get_transaction_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight getTransactions requests",
+			longName:          "get_transaction",
 			queueLimit:        cfg.RequestBacklogGetTransactionQueueLimit,
 		},
 		{
 			methodName:        "sendTransaction",
 			underlyingHandler: methods.NewSendTransactionHandler(params.Daemon, params.Logger, params.TransactionStore, cfg.NetworkPassphrase),
-			gaugeName:         "send_transaction_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight sendTransactions requests",
+			longName:          "send_transaction",
 			queueLimit:        cfg.RequestBacklogSendTransactionQueueLimit,
 		},
 		{
 			methodName:        "simulateTransaction",
 			underlyingHandler: methods.NewSimulateTransactionHandler(params.Logger, params.LedgerEntryReader, params.PreflightGetter),
-			gaugeName:         "simulate_transaction_inflight_requests",
-			gaugeHelp:         "Number of concurrenty in-flight simulateTransactions requests",
+			longName:          "simulate_transaction",
 			queueLimit:        cfg.RequestBacklogSimulateTransactionQueueLimit,
 		},
 	}
 	handlersMap := handler.Map{}
 	for _, handler := range handlers {
-		gauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		queueLimiterGaugeName := handler.longName + "_inflight_requests"
+		queueLimiterGaugeHelp := "Number of concurrenty in-flight " + handler.methodName + " requests"
+
+		queueLimiterGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network",
-			Name: handler.gaugeName,
-			Help: handler.gaugeHelp,
+			Name: queueLimiterGaugeName,
+			Help: queueLimiterGaugeHelp,
 		})
-		limiter := network.MakeJrpcBacklogQueueLimiter(
+		queueLimiter := network.MakeJrpcBacklogQueueLimiter(
 			handler.underlyingHandler,
-			gauge,
+			queueLimiterGauge,
 			uint64(handler.queueLimit),
 			params.Logger)
-		handlersMap[handler.methodName] = limiter
+
+		durationWarnCounterName := handler.longName + "_execution_threshold_warning"
+		durationLimitCounterName := handler.longName + "_execution_threshold_limit"
+		durationWarnCounterHelp := "The metric measures the count of " + handler.methodName + " requests that surpassed the warning threshold for execution time"
+		durationLimitCounterHelp := "The metric measures the count of " + handler.methodName + " requests that surpassed the limit threshold for execution time"
+
+		requestDurationWarnCounter := prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network",
+			Name: durationWarnCounterName,
+			Help: durationWarnCounterHelp,
+		})
+		requestDurationLimitCounter := prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network",
+			Name: durationLimitCounterName,
+			Help: durationLimitCounterHelp,
+		})
+		// set the warning threshold to be one third of the limit.
+		requestDurationWarn := handler.requestDurationLimit / 3
+		durationLimiter := network.MakeRPCRequestDurationLimiter(
+			queueLimiter,
+			requestDurationWarn,
+			handler.requestDurationLimit,
+			requestDurationWarnCounter,
+			requestDurationLimitCounter,
+			params.Logger)
+		handlersMap[handler.methodName] = durationLimiter
 	}
 	bridge := jhttp.NewBridge(decorateHandlers(
 		params.Daemon,
@@ -241,7 +260,7 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 	durationLimitedBridge := network.MakeHTTPRequestDurationLimiter(
 		queueLimitedBridge,
 		cfg.RequestExecutionWarningThreshold,
-		cfg.RequestExecutionLimitThreshold,
+		cfg.MaxRequestExecutionDuration,
 		globalQueueRequestExecutionDurationWarningCounter,
 		globalQueueRequestExecutionDurationLimitCounter,
 		params.Logger)
