@@ -41,6 +41,7 @@ pub enum ComplexEnum {
     Struct(Test),
     Tuple(TupleStruct),
     Enum(SimpleEnum),
+    Asset(Address, i128),
     Void,
 }
 
@@ -48,7 +49,7 @@ pub enum ComplexEnum {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
-    /// Unknown error has occured
+    /// Unknown error has occurred
     OhNo = 1,
 }
 #[contractimpl]
