@@ -132,7 +132,7 @@ func (cfg *Config) loadEnv(lookupEnv func(string) (string, bool)) error {
 // loadFlags populates the config with values from the cli flags
 func (cfg *Config) loadFlags() error {
 	for _, option := range cfg.options() {
-		if !option.flag.Changed {
+		if option.flag == nil || !option.flag.Changed {
 			continue
 		}
 		val, err := option.GetFlag(cfg.flagset)
