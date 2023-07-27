@@ -6,15 +6,23 @@ import (
 	"sync/atomic"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/log"
 )
 
+const RequestBacklogQueue_NoLimit = maxUint
+
+// The gauge is a subset of prometheus.Gauge, and it allows us to mock the
+// gauge usage for testing purposes without requiring the implementation of the true
+// prometheus.Gauge.
+type gauge interface {
+	Set(float64)
+}
+
 type backlogQLimiter struct {
 	limit        uint64
 	pending      uint64
-	gauge        prometheus.Gauge
+	gauge        gauge
 	limitReached uint64
 	logger       *log.Entry
 }
@@ -24,7 +32,7 @@ type backlogHTTPQLimiter struct {
 	backlogQLimiter
 }
 
-func MakeHTTPBacklogQueueLimiter(downstream http.Handler, gauge prometheus.Gauge, limit uint64, logger *log.Entry) *backlogHTTPQLimiter {
+func MakeHTTPBacklogQueueLimiter(downstream http.Handler, gauge gauge, limit uint64, logger *log.Entry) *backlogHTTPQLimiter {
 	return &backlogHTTPQLimiter{
 		httpDownstreamHandler: downstream,
 		backlogQLimiter: backlogQLimiter{
@@ -40,7 +48,7 @@ type backlogJrpcQLimiter struct {
 	backlogQLimiter
 }
 
-func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, gauge prometheus.Gauge, limit uint64, logger *log.Entry) *backlogJrpcQLimiter {
+func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, gauge gauge, limit uint64, logger *log.Entry) *backlogJrpcQLimiter {
 	return &backlogJrpcQLimiter{
 		jrpcDownstreamHandler: downstream,
 		backlogQLimiter: backlogQLimiter{
@@ -52,6 +60,11 @@ func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, gauge prometheus.Gaug
 }
 
 func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	if q.limit == RequestBacklogQueue_NoLimit {
+		// if specified max duration, pass-through
+		q.httpDownstreamHandler.ServeHTTP(res, req)
+		return
+	}
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
 		// we've reached our queue limit - let the caller know we're too busy.
 		atomic.AddUint64(&q.pending, ^uint64(0))
@@ -80,6 +93,10 @@ func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Reque
 }
 
 func (q *backlogJrpcQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
+	if q.limit == RequestBacklogQueue_NoLimit {
+		// if specified max duration, pass-through
+		return q.jrpcDownstreamHandler.Handle(ctx, req)
+	}
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
 		// we've reached our queue limit - let the caller know we're too busy.
 		atomic.AddUint64(&q.pending, ^uint64(0))

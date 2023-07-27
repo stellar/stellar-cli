@@ -275,7 +275,7 @@ func (cfg *Config) options() ConfigOptions {
 			Name:         "request-backlog-global-queue-limit",
 			Usage:        "Maximum number of outstanding requests",
 			ConfigKey:    &cfg.RequestBacklogGlobalQueueLimit,
-			DefaultValue: uint(1000),
+			DefaultValue: uint(5000),
 			Validate:     positive,
 		},
 		{

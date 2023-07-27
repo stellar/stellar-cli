@@ -15,12 +15,23 @@ const maxUint = ^uint64(0)         //18446744073709551615
 const maxInt = int64(maxUint >> 1) // 9223372036854775807
 const maxDuration = time.Duration(maxInt)
 
+const RequestDurationLimiter_NoLimit = maxDuration
+
+// The increasingCounter is a subset of prometheus.Counter, and it allows us to mock the
+// counter usage for testing purposes without requiring the implementation of the true
+// prometheus.Counter.
+type increasingCounter interface {
+	// Inc increments the counter by 1. Use Add to increment it by arbitrary
+	// non-negative values.
+	Inc()
+}
+
 type requestDurationLimiter struct {
 	warningThreshold time.Duration
 	limitThreshold   time.Duration
 	logger           *log.Entry
-	warningCounter   prometheus.Counter
-	limitCounter     prometheus.Counter
+	warningCounter   increasingCounter
+	limitCounter     increasingCounter
 }
 
 type httpRequestDurationLimiter struct {
@@ -32,8 +43,8 @@ func MakeHTTPRequestDurationLimiter(
 	downstream http.Handler,
 	warningThreshold time.Duration,
 	limitThreshold time.Duration,
-	warningCounter prometheus.Counter,
-	limitCounter prometheus.Counter,
+	warningCounter increasingCounter,
+	limitCounter increasingCounter,
 	logger *log.Entry) *httpRequestDurationLimiter {
 	// make sure the warning threshold is less then the limit threshold; otherwise, just set it to the limit threshold.
 	if warningThreshold > limitThreshold {
@@ -110,7 +121,7 @@ func (w *bufferedResponseWriter) WriteOut(ctx context.Context, rw http.ResponseW
 }
 
 func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	if q.limitThreshold == maxDuration {
+	if q.limitThreshold == RequestDurationLimiter_NoLimit {
 		// if specified max duration, pass-through
 		q.httpDownstreamHandler.ServeHTTP(res, req)
 		return
@@ -197,7 +208,7 @@ func MakeRPCRequestDurationLimiter(
 }
 
 func (q *rpcRequestDurationLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
-	if q.limitThreshold == maxDuration {
+	if q.limitThreshold == RequestDurationLimiter_NoLimit {
 		// if specified max duration, pass-through
 		return q.jrpcDownstreamHandler.Handle(ctx, req)
 	}
