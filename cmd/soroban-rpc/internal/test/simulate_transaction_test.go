@@ -8,6 +8,7 @@ import (
 	"path"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
@@ -641,7 +642,7 @@ func TestSimulateTransactionUnmarshalError(t *testing.T) {
 	)
 }
 
-func TestSimulateTransactionBumpFootprint(t *testing.T) {
+func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	test := NewTest(t)
 
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
@@ -717,7 +718,7 @@ func TestSimulateTransactionBumpFootprint(t *testing.T) {
 				Type: xdr.ScValTypeScvSymbol,
 				Sym:  &counterSym,
 			},
-			Durability: xdr.ContractDataDurabilityTemporary,
+			Durability: xdr.ContractDataDurabilityPersistent,
 			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	}
@@ -739,7 +740,7 @@ func TestSimulateTransactionBumpFootprint(t *testing.T) {
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
 			&txnbuild.BumpFootprintExpiration{
-				LedgersToExpire: 100,
+				LedgersToExpire: 10,
 				Ext: xdr.TransactionExt{
 					V: 1,
 					SorobanData: &xdr.SorobanTransactionData{
@@ -768,5 +769,41 @@ func TestSimulateTransactionBumpFootprint(t *testing.T) {
 	assert.True(t, ok)
 
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
+
+	// Wait until it expires
+	for i := 0; i < 50; i++ {
+		err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &result)
+		if err != nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	// and restore it
+	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			&txnbuild.RestoreFootprint{
+				Ext: xdr.TransactionExt{
+					V: 1,
+					SorobanData: &xdr.SorobanTransactionData{
+						Resources: xdr.SorobanResources{
+							Footprint: xdr.LedgerFootprint{
+								ReadWrite: []xdr.LedgerKey{key},
+							},
+						},
+					},
+				},
+			},
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	tx, err = txnbuild.NewTransaction(params)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
 }
