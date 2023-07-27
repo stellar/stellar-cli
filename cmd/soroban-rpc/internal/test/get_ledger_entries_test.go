@@ -106,11 +106,11 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	sendTxRequest := methods.SendTransactionRequest{Transaction: b64}
 	var sendTxResponse methods.SendTransactionResponse
 	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, proto.TXStatusPending, sendTxResponse.Status)
+	require.NoError(t, err)
+	require.Equal(t, proto.TXStatusPending, sendTxResponse.Status)
 
 	txStatusResponse := getTransaction(t, client, sendTxResponse.Hash)
-	assert.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
+	require.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
 
 	contractHash := sha256.Sum256(testContract)
 	contractKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
@@ -150,12 +150,12 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 
 	var result methods.GetLedgerEntriesResponse
 	err = client.CallResult(context.Background(), "getLedgerEntries", request, &result)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 1, len(result.Entries))
-	assert.Greater(t, result.LatestLedger, int64(0))
+	require.Greater(t, result.LatestLedger, int64(0))
 
 	var firstEntry xdr.LedgerEntryData
-	assert.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
-	assert.Equal(t, testContract, *firstEntry.MustContractCode().Body.Code)
-	assert.Equal(t, contractKeyB64, result.Entries[0].Key)
+	require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
+	require.Equal(t, testContract, *firstEntry.MustContractCode().Body.Code)
+	require.Equal(t, contractKeyB64, result.Entries[0].Key)
 }
