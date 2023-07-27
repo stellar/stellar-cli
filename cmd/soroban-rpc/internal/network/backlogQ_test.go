@@ -140,7 +140,7 @@ func TestBacklogQueueLimiter_HttpBlocking(t *testing.T) {
 		// now, try to place additional entry - which should be blocked.
 		var res TestingResponseWriter
 		limiter.ServeHTTP(&res, nil)
-		require.Equal(t, http.StatusTooManyRequests, res.statusCode)
+		require.Equal(t, http.StatusServiceUnavailable, res.statusCode)
 
 		secondBlockingGroupWg.Add(int(queueSize) - int(queueSize)/2)
 		// unblock the second group.

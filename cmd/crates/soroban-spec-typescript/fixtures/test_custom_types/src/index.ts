@@ -229,7 +229,7 @@ function ComplexEnumFromXdr(base64Xdr: string): ComplexEnum {
 }
 
 const Errors = [ 
-{message:"Unknown error has occured"}
+{message:"Unknown error has occurred"}
 ]
 export async function hello<R extends ResponseTypes = undefined>({hello}: {hello: string}, options: {
   /**

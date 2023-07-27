@@ -55,7 +55,7 @@ func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Reque
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
 		// we've reached our queue limit - let the caller know we're too busy.
 		atomic.AddUint64(&q.pending, ^uint64(0))
-		res.WriteHeader(http.StatusTooManyRequests)
+		res.WriteHeader(http.StatusServiceUnavailable)
 		if atomic.CompareAndSwapUint64(&q.limitReached, 0, 1) {
 			// if the limit was reached, log a message.
 			if q.logger != nil {

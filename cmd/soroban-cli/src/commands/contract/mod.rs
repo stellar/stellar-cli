@@ -20,7 +20,7 @@ pub enum Cmd {
 
     /// Extend the expiry ledger of a contract-data ledger entry.
     ///
-    /// If no keys are specificed the contract itself is bumped.
+    /// If no keys are specified the contract itself is bumped.
     Bump(bump::Cmd),
 
     /// Deploy a contract
