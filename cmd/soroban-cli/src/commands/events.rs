@@ -299,6 +299,7 @@ mod tests {
 
     use assert_fs::NamedTempFile;
     use soroban_env_host::events;
+    use soroban_sdk::xdr::VecM;
 
     use super::*;
 
@@ -320,7 +321,7 @@ mod tests {
                     contract_id: Some(xdr::Hash([0; 32])),
                     type_: xdr::ContractEventType::Contract,
                     body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
-                        topics: xdr::ScVec(vec![].try_into().unwrap()),
+                        topics: VecM::default(),
                         data: xdr::ScVal::U32(12345),
                     }),
                 },
@@ -332,7 +333,7 @@ mod tests {
                     contract_id: Some(xdr::Hash([0x1; 32])),
                     type_: xdr::ContractEventType::Contract,
                     body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
-                        topics: xdr::ScVec(vec![].try_into().unwrap()),
+                        topics: VecM::default(),
                         data: xdr::ScVal::I32(67890),
                     }),
                 },

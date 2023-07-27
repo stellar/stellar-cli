@@ -13,9 +13,9 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
-        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount,
-        Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
+        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeContractArgs,
+        InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo,
+        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
         ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber, SorobanAddressCredentials,
         SorobanAuthorizationEntry, SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
     },
@@ -166,7 +166,7 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-    ) -> Result<(String, Spec, ScVec), Error> {
+    ) -> Result<(String, Spec, InvokeContractArgs), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
         let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
@@ -209,28 +209,27 @@ impl Cmd {
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
-        // Add the contract ID and the function name to the arguments
-        let mut complete_args = vec![
-            ScVal::Address(ScAddress::Contract(Hash(contract_id))),
-            ScVal::Symbol(
-                function
-                    .try_into()
-                    .map_err(|_| Error::FunctionNameTooLong(function.clone()))?,
-            ),
-        ];
-        complete_args.extend_from_slice(parsed_args.as_slice());
-        let complete_args_len = complete_args.len();
+        let contract_address_arg = ScAddress::Contract(Hash(contract_id));
+        let function_symbol_arg = function
+            .try_into()
+            .map_err(|_| Error::FunctionNameTooLong(function.clone()))?;
 
-        Ok((
-            function.clone(),
-            spec,
-            complete_args
+        let final_args =
+            parsed_args
+                .clone()
                 .try_into()
                 .map_err(|_| Error::MaxNumberOfArgumentsReached {
-                    current: complete_args_len,
+                    current: parsed_args.len(),
                     maximum: ScVec::default().max_len(),
-                })?,
-        ))
+                })?;
+
+        let invoke_args = InvokeContractArgs {
+            contract_address: contract_address_arg,
+            function_name: function_symbol_arg,
+            args: final_args,
+        };
+
+        Ok((function.clone(), spec, invoke_args))
     }
 
     pub async fn run(&self) -> Result<(), Error> {
@@ -332,20 +331,20 @@ impl Cmd {
         };
         let budget = Budget::default();
         if self.unlimited_budget {
-            budget.reset_unlimited();
+            budget.reset_unlimited()?;
         };
         let h = Host::with_storage_and_budget(storage, budget);
-        h.switch_to_recording_auth();
-        h.set_source_account(source_account);
+        h.switch_to_recording_auth()?;
+        h.set_source_account(source_account)?;
 
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info.clone());
+        h.set_ledger_info(ledger_info.clone())?;
 
         let (function, spec, host_function_params) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
-        h.set_diagnostic_level(DiagnosticLevel::Debug);
+        h.set_diagnostic_level(DiagnosticLevel::Debug)?;
         let resv = h
             .invoke_function(HostFunction::InvokeContract(host_function_params))
             .map_err(|host_error| {
@@ -370,7 +369,7 @@ impl Cmd {
                             address,
                             nonce,
                             signature_expiration_ledger: ledger_info.sequence_number + 1,
-                            signature_args: ScVec::default(),
+                            signature: ScVal::Void,
                         })
                     }
                     _ => SorobanCredentials::SourceAccount,
@@ -473,7 +472,7 @@ pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<Stri
 }
 
 fn build_invoke_contract_tx(
-    parameters: ScVec,
+    parameters: InvokeContractArgs,
     sequence: i64,
     fee: u32,
     key: &ed25519_dalek::Keypair,
