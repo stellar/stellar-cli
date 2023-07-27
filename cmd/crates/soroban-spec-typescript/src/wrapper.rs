@@ -50,7 +50,7 @@ pub fn type_to_js_xdr(value: &types::Type) -> String {
         | types::Type::I256
         | types::Type::Timepoint
         | types::Type::Duration => "i".to_owned(),
-        // This is case shoudn't happen since we only go xdr -> js for errors
+        // This is case shouldn't happen since we only go xdr -> js for errors
         types::Type::Error { .. } => "N/A".to_owned(),
         types::Type::String => "xdr.ScVal.scvString(i)".to_owned(),
     }

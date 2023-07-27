@@ -203,7 +203,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 Extend the expiry ledger of a contract-data ledger entry.
 
-If no keys are specificed the contract itself is bumped.
+If no keys are specified the contract itself is bumped.
 
 **Usage:** `soroban contract bump [OPTIONS] --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
 
@@ -412,7 +412,7 @@ Print the current value of a contract-data ledger entry
 
 Restore an evicted value for a contract-data legder entry.
 
-If no keys are specificed the contract itself is restored.
+If no keys are specified the contract itself is restored.
 
 **Usage:** `soroban contract restore [OPTIONS]`
 

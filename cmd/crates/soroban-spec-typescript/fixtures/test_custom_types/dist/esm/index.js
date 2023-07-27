@@ -169,7 +169,7 @@ function ComplexEnumFromXdr(base64Xdr) {
     return { tag, values };
 }
 const Errors = [
-    { message: "Unknown error has occured" }
+    { message: "Unknown error has occurred" }
 ];
 export async function hello({ hello }, options = {}) {
     return await invoke({
