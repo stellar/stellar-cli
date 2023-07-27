@@ -16,7 +16,8 @@ const RequestBacklogQueue_NoLimit = maxUint
 // gauge usage for testing purposes without requiring the implementation of the true
 // prometheus.Gauge.
 type gauge interface {
-	Set(float64)
+	Inc()
+	Dec()
 }
 
 type backlogQLimiter struct {
@@ -78,13 +79,14 @@ func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Reque
 		return
 	} else {
 		if q.gauge != nil {
-			q.gauge.Set(float64(newPending))
+			q.gauge.Inc()
 		}
 	}
 	defer func() {
-		newPending := atomic.AddUint64(&q.pending, ^uint64(0))
+
+		atomic.AddUint64(&q.pending, ^uint64(0))
 		if q.gauge != nil {
-			q.gauge.Set(float64(newPending))
+			q.gauge.Dec()
 		}
 		atomic.StoreUint64(&q.limitReached, 0)
 	}()
@@ -97,6 +99,7 @@ func (q *backlogJrpcQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (i
 		// if specified max duration, pass-through
 		return q.jrpcDownstreamHandler.Handle(ctx, req)
 	}
+
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
 		// we've reached our queue limit - let the caller know we're too busy.
 		atomic.AddUint64(&q.pending, ^uint64(0))
@@ -109,13 +112,14 @@ func (q *backlogJrpcQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (i
 		return nil, errors.Errorf("rpc queue for %s surpassed queue limit of %d requests", req.Method(), q.limit)
 	} else {
 		if q.gauge != nil {
-			q.gauge.Set(float64(newPending))
+			q.gauge.Inc()
 		}
 	}
+
 	defer func() {
-		newPending := atomic.AddUint64(&q.pending, ^uint64(0))
+		atomic.AddUint64(&q.pending, ^uint64(0))
 		if q.gauge != nil {
-			q.gauge.Set(float64(newPending))
+			q.gauge.Dec()
 		}
 		atomic.StoreUint64(&q.limitReached, 0)
 	}()

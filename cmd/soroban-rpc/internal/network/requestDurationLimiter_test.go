@@ -75,7 +75,7 @@ func TestRequestDurationLimiter_Limiting(t *testing.T) {
 	require.Equal(t, []byte{}, bytes)
 	require.Equal(t, resp.StatusCode, http.StatusGatewayTimeout)
 	require.Zero(t, warningCounter.count)
-	require.Equal(t, 1, limitCounter.count)
+	require.Equal(t, int64(1), limitCounter.count)
 	require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
 	shutdown()
 }
@@ -156,7 +156,7 @@ func TestRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{1, 2, 3}, bytes)
 	require.Equal(t, resp.StatusCode, http.StatusOK)
-	require.Equal(t, 1, warningCounter.count)
+	require.Equal(t, int64(1), warningCounter.count)
 	require.Zero(t, limitCounter.count)
 	require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
 	shutdown()

@@ -2,25 +2,30 @@ package network
 
 import (
 	"net/http"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/support/log"
 )
 
 type TestingCounter struct {
-	count int
+	count int64
 }
 
 func (tc *TestingCounter) Inc() {
-	tc.count++
+	atomic.AddInt64(&tc.count, 1)
 }
 
 type TestingGauge struct {
-	val float64
+	count int64
 }
 
-func (tg *TestingGauge) Set(v float64) {
-	tg.val = v
+func (tg *TestingGauge) Inc() {
+	atomic.AddInt64(&tg.count, 1)
+}
+
+func (tg *TestingGauge) Dec() {
+	atomic.AddInt64(&tg.count, -1)
 }
 
 type TestLogsCounter struct {
