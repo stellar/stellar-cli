@@ -24,17 +24,17 @@ func createTestServer() (serverAddr string, redirector *TestServerHandlerWrapper
 	listener, _ := net.ListenTCP("tcp", ipAddr)
 	handlerRedirector := &TestServerHandlerWrapper{}
 	server := http.Server{
-		Handler: handlerRedirector,
+		Handler:           handlerRedirector,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	serverDown := make(chan interface{})
+	serverDown := make(chan error)
 	go func() {
-		server.Serve(listener)
-		close(serverDown)
+		serverDown <- server.Serve(listener)
 	}()
 
 	return listener.Addr().String(), handlerRedirector, func() {
-		server.Shutdown(context.Background())
+		server.Shutdown(context.Background()) //nolint:errcheck
 		<-serverDown
 	}
 
@@ -48,7 +48,9 @@ func TestRequestDurationLimiter_Limiting(t *testing.T) {
 				return
 			case <-time.After(time.Second * 10):
 			}
-			res.Write([]byte{1, 2, 3})
+			n, err := res.Write([]byte{1, 2, 3})
+			require.Equal(t, 3, n)
+			require.Nil(t, err)
 		},
 	}
 	redirector.f = MakeHTTPRequestDurationLimiter(
@@ -78,7 +80,9 @@ func TestRequestDurationLimiter_NoLimiting(t *testing.T) {
 				return
 			case <-time.After(time.Second / 10):
 			}
-			res.Write([]byte{1, 2, 3})
+			n, err := res.Write([]byte{1, 2, 3})
+			require.Equal(t, 3, n)
+			require.Nil(t, err)
 		},
 	}
 	redirector.f = MakeHTTPRequestDurationLimiter(

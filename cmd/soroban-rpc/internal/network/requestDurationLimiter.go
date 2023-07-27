@@ -99,7 +99,8 @@ func (w *bufferedResponseWriter) WriteOut(ctx context.Context, rw http.ResponseW
 		if w.statusCode != 0 {
 			rw.WriteHeader(w.statusCode)
 		}
-		rw.Write(w.buffer)
+		// the following return size/error won't help us much at this point. The request is already finalized.
+		rw.Write(w.buffer) //nolint:errcheck
 		close(complete)
 	}()
 	select {
