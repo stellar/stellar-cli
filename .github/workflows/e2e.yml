@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run
-      SYSTEM_TEST_GIT_REF: v1.0.19
+      SYSTEM_TEST_GIT_REF: "a27c4941564dea24518d26111ecb5a29e5e8ff79"
 
       # the soroban tools source code to compile and run from system test
       # refers to checked out source of current git hub ref context
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: stellar/system-test
+          repository: overcat/stellar-system-test
           ref: ${{ env.SYSTEM_TEST_GIT_REF }}
           path: system-test
       - uses: actions/checkout@v3
