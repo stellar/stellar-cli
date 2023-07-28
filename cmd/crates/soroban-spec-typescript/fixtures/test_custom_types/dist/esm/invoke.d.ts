@@ -1,6 +1,6 @@
 import * as SorobanClient from 'soroban-client';
 import type { Memo, MemoType, Operation, Transaction } from 'soroban-client';
-import { Options, ResponseTypes } from './method-options.js';
+import type { Options, ResponseTypes, Wallet } from './method-options.js';
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
 export declare class NotImplementedError extends Error {
 }
@@ -30,7 +30,7 @@ export declare function invoke<R extends ResponseTypes = undefined, T = string>(
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-export declare function signTx(tx: Tx): Promise<Tx>;
+export declare function signTx(wallet: Wallet, tx: Tx): Promise<Tx>;
 /**
  * Send a transaction to the Soroban network.
  *

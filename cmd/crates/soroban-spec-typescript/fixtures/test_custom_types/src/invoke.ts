@@ -1,16 +1,8 @@
-import freighter from "@stellar/freighter-api";
-// working around ESM compatibility issues
-const {
-  isConnected,
-  isAllowed,
-  getUserInfo,
-  signTransaction,
-} = freighter;
 import * as SorobanClient from 'soroban-client'
 import type { Account, Memo, MemoType, Operation, Transaction } from 'soroban-client';
 import { NETWORK_PASSPHRASE, CONTRACT_ID } from './constants.js'
 import { Server } from './server.js'
-import { Options, ResponseTypes } from './method-options.js'
+import type { Options, ResponseTypes, Wallet } from './method-options.js'
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>
 
@@ -18,11 +10,11 @@ export type Tx = Transaction<Memo<MemoType>, Operation[]>
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
  */
-async function getAccount(): Promise<Account | null> {
-  if (!await isConnected() || !await isAllowed()) {
+async function getAccount(wallet: Wallet): Promise<Account | null> {
+  if (!await wallet.isConnected() || !await wallet.isAllowed()) {
     return null
   }
-  const { publicKey } = await getUserInfo()
+  const { publicKey } = await wallet.getUserInfo()
   if (!publicKey) {
     return null
   }
@@ -60,11 +52,13 @@ export async function invoke<R extends ResponseTypes, T = string>({
   responseType,
   parseResultXdr,
   secondsToWait = 10,
+  wallet,
 }: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
-  const freighterAccount = await getAccount()
+  wallet = wallet ?? await import('@stellar/freighter-api')
+  const walletAccount = await getAccount(wallet)
 
   // use a placeholder null account if not yet connected to Freighter so that view calls can still work
-  const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0')
+  const account = walletAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0')
 
   const contract = new SorobanClient.Contract(CONTRACT_ID)
 
@@ -82,14 +76,15 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
   const auths = simulated.results?.[0]?.auth
-  let authsCount =  auths?.length ?? 0;
+  let authsCount = auths?.length ?? 0;
 
   const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length
 
   const parse = parseResultXdr ?? (xdr => xdr)
 
-  // if VIEW ˅˅˅˅
-  if (authsCount === 0 && writeLength === 0) {
+  const isViewCall = authsCount === 0 && writeLength === 0
+
+  if (isViewCall) {
     if (responseType === 'full') return simulated
 
     const { results } = simulated
@@ -102,7 +97,6 @@ export async function invoke<R extends ResponseTypes, T = string>({
     return parse(results[0].xdr)
   }
 
-  // ^^^^ else, is CHANGE method ˅˅˅˅
   if (authsCount > 1) {
     throw new NotImplementedError("Multiple auths not yet supported")
   }
@@ -115,15 +109,16 @@ export async function invoke<R extends ResponseTypes, T = string>({
     //     }; Not yet supported`
     //   )
     // }
-
-    if (!freighterAccount) {
-      throw new Error('Not connected to Freighter')
-    }
-
-    tx = await signTx(
-      SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
-    );
   }
+
+  if (!walletAccount) {
+    throw new Error('Not connected to Freighter')
+  }
+
+  tx = await signTx(
+    wallet,
+    SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
+  );
 
   const raw = await sendTx(tx, secondsToWait);
 
@@ -149,8 +144,8 @@ export async function invoke<R extends ResponseTypes, T = string>({
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-export async function signTx(tx: Tx): Promise<Tx> {
-  const signed = await signTransaction(tx.toXDR(), {
+export async function signTx(wallet: Wallet, tx: Tx): Promise<Tx> {
+  const signed = await wallet.signTransaction(tx.toXDR(), {
     networkPassphrase: NETWORK_PASSPHRASE,
   })
 
