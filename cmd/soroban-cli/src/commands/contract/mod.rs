@@ -128,3 +128,13 @@ impl From<Durability> for soroban_env_host::xdr::ContractDataDurability {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
+pub enum SpecOutput {
+    /// XDR of array of contract spec entries
+    XdrBase64,
+    /// Array of xdr of contract spec entries
+    XdrBase64Array,
+    /// Pretty print of contract spec entries
+    Docs,
+}
