@@ -174,6 +174,11 @@ function ComplexEnumToXdr(complexEnum) {
             res.push(((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("Enum"));
             res.push(((i) => SimpleEnumToXdr(i))(complexEnum.values[0]));
             break;
+        case "Asset":
+            res.push(((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("Asset"));
+            res.push(((i) => (0, convert_js_1.addressToScVal)(i))(complexEnum.values[0]));
+            res.push(((i) => (0, convert_js_1.i128ToScVal)(i))(complexEnum.values[1]));
+            break;
         case "Void":
             res.push(((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("Void"));
             break;
