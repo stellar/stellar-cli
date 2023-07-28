@@ -191,7 +191,7 @@ func TestJRPCRequestDurationLimiter_Limiting(t *testing.T) {
 			return nil, ctx.Err()
 		case <-time.After(time.Second * 10):
 		}
-		return "ok", nil
+		return "", nil
 	})
 
 	warningCounter := TestingCounter{}
@@ -228,13 +228,14 @@ func TestJRPCRequestDurationLimiter_NoLimiting(t *testing.T) {
 	addr, redirector, shutdown := createTestServer()
 	hoistFunction := bindRPCHoist(redirector)
 
+	returnString := "ok"
 	longExecutingHandler := handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(time.Second / 10):
 		}
-		return "ok", nil
+		return returnString, nil
 	})
 
 	warningCounter := TestingCounter{}
@@ -257,7 +258,7 @@ func TestJRPCRequestDurationLimiter_NoLimiting(t *testing.T) {
 	}{1}
 	err := client.CallResult(context.Background(), "method", req, &res)
 	require.Nil(t, err)
-	require.Equal(t, "ok", res)
+	require.Equal(t, returnString, res)
 	require.Zero(t, warningCounter.count)
 	require.Zero(t, limitCounter.count)
 	require.Equal(t, [7]int{0, 0, 0, 0, 0, 0, 0}, logCounter.writtenLogEntries)
@@ -268,13 +269,14 @@ func TestJRPCRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
 	addr, redirector, shutdown := createTestServer()
 	hoistFunction := bindRPCHoist(redirector)
 
+	returnString := "ok"
 	longExecutingHandler := handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(time.Second / 5):
 		}
-		return "ok", nil
+		return returnString, nil
 	})
 
 	warningCounter := TestingCounter{}
@@ -297,7 +299,7 @@ func TestJRPCRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
 	}{1}
 	err := client.CallResult(context.Background(), "method", req, &res)
 	require.Nil(t, err)
-	require.Equal(t, "ok", res)
+	require.Equal(t, returnString, res)
 	require.Equal(t, int64(1), warningCounter.count)
 	require.Zero(t, limitCounter.count)
 	require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)

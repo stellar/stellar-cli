@@ -13,7 +13,7 @@ const maxUint = ^uint64(0)         //18446744073709551615
 const maxInt = int64(maxUint >> 1) // 9223372036854775807
 const maxDuration = time.Duration(maxInt)
 
-const RequestDurationLimiter_NoLimit = maxDuration
+const RequestDurationLimiterNoLimit = maxDuration
 
 // The increasingCounter is a subset of prometheus.Counter, and it allows us to mock the
 // counter usage for testing purposes without requiring the implementation of the true
@@ -119,7 +119,7 @@ func (w *bufferedResponseWriter) WriteOut(ctx context.Context, rw http.ResponseW
 }
 
 func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	if q.limitThreshold == RequestDurationLimiter_NoLimit {
+	if q.limitThreshold == RequestDurationLimiterNoLimit {
 		// if specified max duration, pass-through
 		q.httpDownstreamHandler.ServeHTTP(res, req)
 		return
@@ -206,7 +206,7 @@ func MakeJrpcRequestDurationLimiter(
 }
 
 func (q *rpcRequestDurationLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
-	if q.limitThreshold == RequestDurationLimiter_NoLimit {
+	if q.limitThreshold == RequestDurationLimiterNoLimit {
 		// if specified max duration, pass-through
 		return q.jrpcDownstreamHandler.Handle(ctx, req)
 	}

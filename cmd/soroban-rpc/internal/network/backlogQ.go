@@ -10,7 +10,7 @@ import (
 	"github.com/stellar/go/support/log"
 )
 
-const RequestBacklogQueue_NoLimit = maxUint
+const RequestBacklogQueueNoLimit = maxUint
 
 // The gauge is a subset of prometheus.Gauge, and it allows us to mock the
 // gauge usage for testing purposes without requiring the implementation of the true
@@ -61,7 +61,7 @@ func MakeJrpcBacklogQueueLimiter(downstream jrpc2.Handler, gauge gauge, limit ui
 }
 
 func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	if q.limit == RequestBacklogQueue_NoLimit {
+	if q.limit == RequestBacklogQueueNoLimit {
 		// if specified max duration, pass-through
 		q.httpDownstreamHandler.ServeHTTP(res, req)
 		return
@@ -95,7 +95,7 @@ func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Reque
 }
 
 func (q *backlogJrpcQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
-	if q.limit == RequestBacklogQueue_NoLimit {
+	if q.limit == RequestBacklogQueueNoLimit {
 		// if specified max duration, pass-through
 		return q.jrpcDownstreamHandler.Handle(ctx, req)
 	}
