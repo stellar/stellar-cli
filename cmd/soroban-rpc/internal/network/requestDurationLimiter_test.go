@@ -9,6 +9,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/creachadair/jrpc2"
+	"github.com/creachadair/jrpc2/handler"
+	"github.com/creachadair/jrpc2/jhttp"
 )
 
 type TestServerHandlerWrapper struct {
@@ -39,7 +43,7 @@ func createTestServer() (serverAddr string, redirector *TestServerHandlerWrapper
 	}
 }
 
-func TestRequestDurationLimiter_Limiting(t *testing.T) {
+func TestHTTPRequestDurationLimiter_Limiting(t *testing.T) {
 	addr, redirector, shutdown := createTestServer()
 	longExecutingHandler := &TestServerHandlerWrapper{
 		f: func(res http.ResponseWriter, req *http.Request) {
@@ -80,7 +84,7 @@ func TestRequestDurationLimiter_Limiting(t *testing.T) {
 	shutdown()
 }
 
-func TestRequestDurationLimiter_NoLimiting(t *testing.T) {
+func TestHTTPRequestDurationLimiter_NoLimiting(t *testing.T) {
 	addr, redirector, shutdown := createTestServer()
 	longExecutingHandler := &TestServerHandlerWrapper{
 		f: func(res http.ResponseWriter, req *http.Request) {
@@ -121,7 +125,7 @@ func TestRequestDurationLimiter_NoLimiting(t *testing.T) {
 	shutdown()
 }
 
-func TestRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
+func TestHTTPRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
 	addr, redirector, shutdown := createTestServer()
 	longExecutingHandler := &TestServerHandlerWrapper{
 		f: func(res http.ResponseWriter, req *http.Request) {
@@ -156,6 +160,144 @@ func TestRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{1, 2, 3}, bytes)
 	require.Equal(t, resp.StatusCode, http.StatusOK)
+	require.Equal(t, int64(1), warningCounter.count)
+	require.Zero(t, limitCounter.count)
+	require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
+	shutdown()
+}
+
+type JRPCHandlerFunc func(ctx context.Context, r *jrpc2.Request) (interface{}, error)
+
+func bindRPCHoist(redirector *TestServerHandlerWrapper) *JRPCHandlerFunc {
+	var hoistFunction JRPCHandlerFunc
+
+	bridgeMap := handler.Map{
+		"method": handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
+			return hoistFunction(ctx, r)
+		}),
+	}
+
+	redirector.f = jhttp.NewBridge(bridgeMap, &jhttp.BridgeOptions{}).ServeHTTP
+	return &hoistFunction
+}
+
+func TestJRPCRequestDurationLimiter_Limiting(t *testing.T) {
+	addr, redirector, shutdown := createTestServer()
+	hoistFunction := bindRPCHoist(redirector)
+
+	longExecutingHandler := handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Second * 10):
+		}
+		return "ok", nil
+	})
+
+	warningCounter := TestingCounter{}
+	limitCounter := TestingCounter{}
+	logCounter := makeTestLogCounter()
+	*hoistFunction = MakeJrpcRequestDurationLimiter(
+		longExecutingHandler,
+		time.Second/20,
+		time.Second/10,
+		&warningCounter,
+		&limitCounter,
+		logCounter.Entry()).Handle
+
+	ch := jhttp.NewChannel("http://"+addr+"/", nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	var res interface{}
+	req := struct {
+		i int
+	}{1}
+	err := client.CallResult(context.Background(), "method", req, &res)
+	require.NotNil(t, err)
+	jrpcError, ok := err.(*jrpc2.Error)
+	require.True(t, ok)
+	require.Equal(t, ErrRequestExceededProcessingLimitThreshold.Code, jrpcError.Code)
+	require.Equal(t, nil, res)
+	require.Zero(t, warningCounter.count)
+	require.Equal(t, int64(1), limitCounter.count)
+	require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
+	shutdown()
+}
+
+func TestJRPCRequestDurationLimiter_NoLimiting(t *testing.T) {
+	addr, redirector, shutdown := createTestServer()
+	hoistFunction := bindRPCHoist(redirector)
+
+	longExecutingHandler := handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Second / 10):
+		}
+		return "ok", nil
+	})
+
+	warningCounter := TestingCounter{}
+	limitCounter := TestingCounter{}
+	logCounter := makeTestLogCounter()
+	*hoistFunction = MakeJrpcRequestDurationLimiter(
+		longExecutingHandler,
+		time.Second*5,
+		time.Second*10,
+		&warningCounter,
+		&limitCounter,
+		logCounter.Entry()).Handle
+
+	ch := jhttp.NewChannel("http://"+addr+"/", nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	var res interface{}
+	req := struct {
+		i int
+	}{1}
+	err := client.CallResult(context.Background(), "method", req, &res)
+	require.Nil(t, err)
+	require.Equal(t, "ok", res)
+	require.Zero(t, warningCounter.count)
+	require.Zero(t, limitCounter.count)
+	require.Equal(t, [7]int{0, 0, 0, 0, 0, 0, 0}, logCounter.writtenLogEntries)
+	shutdown()
+}
+
+func TestJRPCRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
+	addr, redirector, shutdown := createTestServer()
+	hoistFunction := bindRPCHoist(redirector)
+
+	longExecutingHandler := handler.New(func(ctx context.Context, r *jrpc2.Request) (interface{}, error) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Second / 5):
+		}
+		return "ok", nil
+	})
+
+	warningCounter := TestingCounter{}
+	limitCounter := TestingCounter{}
+	logCounter := makeTestLogCounter()
+	*hoistFunction = MakeJrpcRequestDurationLimiter(
+		longExecutingHandler,
+		time.Second/10,
+		time.Second*10,
+		&warningCounter,
+		&limitCounter,
+		logCounter.Entry()).Handle
+
+	ch := jhttp.NewChannel("http://"+addr+"/", nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	var res interface{}
+	req := struct {
+		i int
+	}{1}
+	err := client.CallResult(context.Background(), "method", req, &res)
+	require.Nil(t, err)
+	require.Equal(t, "ok", res)
 	require.Equal(t, int64(1), warningCounter.count)
 	require.Zero(t, limitCounter.count)
 	require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)

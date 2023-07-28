@@ -2,12 +2,10 @@ package network
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/support/log"
 )
 
@@ -187,8 +185,8 @@ func MakeJrpcRequestDurationLimiter(
 	downstream jrpc2.Handler,
 	warningThreshold time.Duration,
 	limitThreshold time.Duration,
-	warningCounter prometheus.Counter,
-	limitCounter prometheus.Counter,
+	warningCounter increasingCounter,
+	limitCounter increasingCounter,
 	logger *log.Entry) *rpcRequestDurationLimiter {
 	// make sure the warning threshold is less then the limit threshold; otherwise, just set it to the limit threshold.
 	if warningThreshold > limitThreshold {
@@ -279,5 +277,12 @@ func (q *rpcRequestDurationLimiter) Handle(ctx context.Context, req *jrpc2.Reque
 	}
 }
 
-var ErrRequestExceededProcessingLimitThreshold = errors.New("request exceeded processing limit threshold")
-var ErrFailToProcessDueToInternalIssue = errors.New("request failed to process due to internal issue")
+var ErrRequestExceededProcessingLimitThreshold = jrpc2.Error{
+	Code:    -32001,
+	Message: "request exceeded processing limit threshold",
+}
+
+var ErrFailToProcessDueToInternalIssue = jrpc2.Error{
+	Code:    -32003, // internal error
+	Message: "request failed to process due to internal issue",
+}
