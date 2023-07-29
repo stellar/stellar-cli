@@ -6,6 +6,7 @@ pub mod completion;
 pub mod config;
 pub mod contract;
 pub mod events;
+pub mod fund;
 pub mod global;
 pub mod lab;
 pub mod plugin;
@@ -73,12 +74,13 @@ impl Root {
     }
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
-            Cmd::Contract(contract) => contract.run().await?,
-            Cmd::Events(events) => events.run().await?,
-            Cmd::Lab(lab) => lab.run().await?,
-            Cmd::Version(version) => version.run(),
             Cmd::Completion(completion) => completion.run(),
             Cmd::Config(config) => config.run()?,
+            Cmd::Contract(contract) => contract.run().await?,
+            Cmd::Events(events) => events.run().await?,
+            Cmd::Fund(fund) => fund.run().await?,
+            Cmd::Lab(lab) => lab.run().await?,
+            Cmd::Version(version) => version.run(),
         };
         Ok(())
     }
@@ -94,6 +96,9 @@ impl FromStr for Root {
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
+    /// Print shell completion code for the specified shell.
+    #[command(long_about = completion::LONG_ABOUT)]
+    Completion(completion::Cmd),
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
@@ -102,14 +107,13 @@ pub enum Cmd {
     Config(config::Cmd),
     /// Watch the network for contract events
     Events(events::Cmd),
+    /// Fund an identity on a test network
+    Fund(fund::Cmd),
     /// Experiment with early features and expert tools
     #[command(subcommand)]
     Lab(lab::Cmd),
     /// Print version information
     Version(version::Cmd),
-    /// Print shell completion code for the specified shell.
-    #[command(long_about = completion::LONG_ABOUT)]
-    Completion(completion::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -124,4 +128,6 @@ pub enum Error {
     Lab(#[from] lab::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    Fund(#[from] fund::Error),
 }

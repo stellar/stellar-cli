@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use clap::{arg, Parser};
 use serde::{Deserialize, Serialize};
 
@@ -67,6 +69,14 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
+    /// Helper URL to use for funding accounts on test networks
+    #[arg(
+        long = "helper-url",
+        requires = "rpc_url",
+        env = "SOROBAN_NETWORK_PASSPHRASE",
+        help_heading = HEADING_RPC,
+    )]
+    pub helper_url: Option<String>,
     /// Name of network to use from config
     #[arg(
         long,
@@ -88,6 +98,7 @@ impl Args {
             Ok(Network {
                 rpc_url,
                 network_passphrase,
+                helper_url: self.helper_url.clone(),
             })
         } else {
             Err(Error::Network)
@@ -116,6 +127,35 @@ pub struct Network {
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,
+
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[arg(
+        long,
+        env = "SOROBAN_HELPER_URL",
+        help_heading = HEADING_RPC,
+    )]
+    pub helper_url: Option<String>,
+}
+
+impl Network {
+    pub fn helper_url(&self, addr: &str) -> String {
+        let authority = self.helper_url.clone().unwrap_or_else(|| {
+            http::Uri::from_str(&self.rpc_url)
+                .expect("Invalid URI")
+                .into_parts()
+                .authority
+                .unwrap()
+                .to_string()
+        });
+        tracing::trace!("helper url authority {:?}", authority);
+        http::Uri::builder()
+            .scheme("http")
+            .authority(authority)
+            .path_and_query(format!("/friendbot?addr={addr}"))
+            .build()
+            .expect("Invalid URI")
+            .to_string()
+    }
 }
 
 impl Network {
@@ -123,6 +163,7 @@ impl Network {
         Network {
             rpc_url: "https://rpc-futurenet.stellar.org:443".to_owned(),
             network_passphrase: "Test SDF Future Network ; October 2022".to_owned(),
+            helper_url: Some("https://friendbot-futurenet.stellar.org".to_owned()),
         }
     }
 }
