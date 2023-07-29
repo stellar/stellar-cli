@@ -31,7 +31,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!("{}", self.public_key()?.to_string());
+        println!("{}", self.public_key()?);
         Ok(())
     }
 
