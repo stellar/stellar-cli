@@ -34,10 +34,10 @@ pub enum Error {
     #[error(transparent)]
     Generate(#[from] generate::Error),
     #[error(transparent)]
+    Rm(#[from] rm::Error),
+    #[error(transparent)]
     Ls(#[from] ls::Error),
 
-    #[error(transparent)]
-    Rm(#[from] rm::Error),
     #[error(transparent)]
     Show(#[from] show::Error),
 }
@@ -47,9 +47,9 @@ impl Cmd {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Address(cmd) => cmd.run()?,
-            Cmd::Rm(cmd) => cmd.run()?,
-            Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Generate(cmd) => cmd.run()?,
+            Cmd::Ls(cmd) => cmd.run()?,
+            Cmd::Rm(cmd) => cmd.run()?,
             Cmd::Show(cmd) => cmd.run()?,
         };
         Ok(())

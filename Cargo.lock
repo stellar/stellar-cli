@@ -2347,6 +2347,7 @@ dependencies = [
  "heck",
  "hex",
  "http",
+ "hyper",
  "itertools",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
