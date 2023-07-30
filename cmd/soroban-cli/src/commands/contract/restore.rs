@@ -166,10 +166,10 @@ impl Cmd {
             .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
             .await?;
 
-        tracing::debug!(?result);
-        tracing::debug!(?meta);
+        tracing::trace!(?result);
+        tracing::trace!(?meta);
         if !events.is_empty() {
-            tracing::debug!(?events);
+            tracing::info!("Events:\n {events:#?}");
         }
 
         // The transaction from core will succeed regardless of whether it actually found &
@@ -177,6 +177,7 @@ impl Cmd {
         let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
             return Err(Error::LedgerEntryNotFound);
         };
+        tracing::debug!("Operations:\nlen:{}\n{operations:#?}", operations.len());
 
         // Simply check if there is exactly one entry here. We only support bumping a single
         // entry via this command (which we should fix separately, but).
@@ -184,36 +185,45 @@ impl Cmd {
             return Err(Error::LedgerEntryNotFound);
         }
 
-        if operations[0].changes.len() != 2 {
-            return Err(Error::LedgerEntryNotFound);
+        if operations.len() != 1 {
+            tracing::warn!(
+                "Unexpected number of operations: {}. Currently only handle one.",
+                operations[0].changes.len()
+            );
         }
-        match operations[0].changes[1] {
-            LedgerEntryChange::Updated(LedgerEntry {
-                data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        expiration_ledger_seq,
+
+        operations
+            .get(0)
+            .and_then(|op| {
+                op.changes.iter().find_map(|entry| match entry {
+                    LedgerEntryChange::Updated(LedgerEntry {
+                        data:
+                            LedgerEntryData::ContractData(ContractDataEntry {
+                                expiration_ledger_seq,
+                                ..
+                            })
+                            | LedgerEntryData::ContractCode(ContractCodeEntry {
+                                expiration_ledger_seq,
+                                ..
+                            }),
                         ..
                     })
-                    | LedgerEntryData::ContractCode(ContractCodeEntry {
-                        expiration_ledger_seq,
+                    | LedgerEntryChange::Created(LedgerEntry {
+                        data:
+                            LedgerEntryData::ContractData(ContractDataEntry {
+                                expiration_ledger_seq,
+                                ..
+                            })
+                            | LedgerEntryData::ContractCode(ContractCodeEntry {
+                                expiration_ledger_seq,
+                                ..
+                            }),
                         ..
-                    }),
-                ..
+                    }) => Some(*expiration_ledger_seq),
+                    _ => None,
+                })
             })
-            | LedgerEntryChange::Created(LedgerEntry {
-                data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        expiration_ledger_seq,
-                        ..
-                    })
-                    | LedgerEntryData::ContractCode(ContractCodeEntry {
-                        expiration_ledger_seq,
-                        ..
-                    }),
-                ..
-            }) => Ok(expiration_ledger_seq),
-            _ => Err(Error::LedgerEntryNotFound),
-        }
+            .ok_or(Error::MissingOperationResult)
     }
 
     pub fn run_in_sandbox(&self) -> Result<u32, Error> {

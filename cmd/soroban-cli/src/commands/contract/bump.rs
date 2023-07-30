@@ -160,10 +160,10 @@ impl Cmd {
             .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
             .await?;
 
-        tracing::debug!(?result);
-        tracing::debug!(?meta);
+        tracing::trace!(?result);
+        tracing::trace!(?meta);
         if !events.is_empty() {
-            tracing::debug!(?events);
+            tracing::info!("Events:\n {events:#?}");
         }
 
         // The transaction from core will succeed regardless of whether it actually found & bumped
