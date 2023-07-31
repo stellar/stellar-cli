@@ -184,10 +184,10 @@ impl Cmd {
             return Err(Error::LedgerEntryNotFound);
         }
 
-        if operations[0].changes.len() != 1 {
+        if operations[0].changes.len() != 2 {
             return Err(Error::LedgerEntryNotFound);
         }
-        match operations[0].changes[0] {
+        match operations[0].changes[1] {
             LedgerEntryChange::Updated(LedgerEntry {
                 data:
                     LedgerEntryData::ContractData(ContractDataEntry {
