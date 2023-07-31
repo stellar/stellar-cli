@@ -29,18 +29,10 @@ pub struct Cmd {
     #[arg(long = "id", required_unless_present = "wasm")]
     pub contract_id: Option<String>,
     /// Storage key (symbols only)
-    #[arg(
-        long = "key",
-        required_unless_present = "key_xdr",
-        required_unless_present = "wasm"
-    )]
+    #[arg(long = "key")]
     pub key: Vec<String>,
     /// Storage key (base64-encoded XDR)
-    #[arg(
-        long = "key-xdr",
-        required_unless_present = "key",
-        required_unless_present = "wasm"
-    )]
+    #[arg(long = "key-xdr")]
     pub key_xdr: Vec<String>,
     /// Path to Wasm file of contract code to restore
     #[arg(
