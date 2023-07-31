@@ -740,7 +740,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
 			&txnbuild.BumpFootprintExpiration{
-				LedgersToExpire: 10,
+				LedgersToExpire: 20,
 				Ext: xdr.TransactionExt{
 					V: 1,
 					SorobanData: &xdr.SorobanTransactionData{
