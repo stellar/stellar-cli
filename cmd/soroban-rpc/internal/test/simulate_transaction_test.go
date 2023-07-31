@@ -805,5 +805,4 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-
 }
