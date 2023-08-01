@@ -186,19 +186,12 @@ impl Cmd {
             }
         }
 
-        // Validate and normalize contract_ids
+        // Validate contract_ids
         for id in &mut self.contract_ids {
-            // We parse the contract IDs to ensure they're the correct format, and padded out
-            // correctly.
-            //
-            // TODO: Once soroban-rpc supports passing these as a strkey, we should change to
-            // formatting these as C-strkeys.
-            *id = utils::contract_id_from_str(id)
-                .map(hex::encode)
-                .map_err(|e| Error::InvalidContractId {
-                    contract_id: id.clone(),
-                    error: e,
-                })?;
+            utils::contract_id_from_str(id).map_err(|e| Error::InvalidContractId {
+                contract_id: id.clone(),
+                error: e,
+            })?;
         }
 
         let response = if self.network.is_no_network() {

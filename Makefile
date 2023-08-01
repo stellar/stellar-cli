@@ -20,10 +20,10 @@ GOLDFLAGS :=	-X 'github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/confi
 				-X 'github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config.Branch=${REPOSITORY_BRANCH}'
 
 
-# The following works around incompatiblity beween the rust and the go linkers -
+# The following works around incompatibility between the rust and the go linkers -
 # the rust would generate an object file with min-version of 13.0 where-as the go
 # compiler would generate a binary compatible with 12.3 and up. To align these
-# we instruct the go comiler to produce binaries comparible with version 13.0.
+# we instruct the go compiler to produce binaries comparible with version 13.0.
 # this is a mac-only limitation.
 ifeq ($(shell uname -s),Darwin)
 	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'

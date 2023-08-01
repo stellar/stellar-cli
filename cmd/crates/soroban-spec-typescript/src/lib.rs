@@ -110,6 +110,16 @@ fn method_options(return_type: &String) -> String {
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {{@link SorobanClient.SorobanRpc.GetTransactionResponse}} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {{@link SorobanClient.SorobanRpc.SendTransactionResponse}} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 }}"#
     )
 }

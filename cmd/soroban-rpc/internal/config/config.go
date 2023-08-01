@@ -21,24 +21,43 @@ type Config struct {
 	CaptiveCoreConfigPath  string
 	CaptiveCoreHTTPPort    uint
 
-	Endpoint                         string
-	AdminEndpoint                    string
-	CheckpointFrequency              uint32
-	CoreRequestTimeout               time.Duration
-	DefaultEventsLimit               uint
-	EventLedgerRetentionWindow       uint32
-	FriendbotURL                     string
-	HistoryArchiveURLs               []string
-	IngestionTimeout                 time.Duration
-	LogFormat                        LogFormat
-	LogLevel                         logrus.Level
-	MaxEventsLimit                   uint
-	MaxHealthyLedgerLatency          time.Duration
-	NetworkPassphrase                string
-	PreflightWorkerCount             uint
-	PreflightWorkerQueueSize         uint
-	SQLiteDBPath                     string
-	TransactionLedgerRetentionWindow uint32
+	Endpoint                                    string
+	AdminEndpoint                               string
+	CheckpointFrequency                         uint32
+	CoreRequestTimeout                          time.Duration
+	DefaultEventsLimit                          uint
+	EventLedgerRetentionWindow                  uint32
+	FriendbotURL                                string
+	HistoryArchiveURLs                          []string
+	IngestionTimeout                            time.Duration
+	LogFormat                                   LogFormat
+	LogLevel                                    logrus.Level
+	MaxEventsLimit                              uint
+	MaxHealthyLedgerLatency                     time.Duration
+	NetworkPassphrase                           string
+	PreflightWorkerCount                        uint
+	PreflightWorkerQueueSize                    uint
+	SQLiteDBPath                                string
+	TransactionLedgerRetentionWindow            uint32
+	RequestBacklogGlobalQueueLimit              uint
+	RequestBacklogGetHealthQueueLimit           uint
+	RequestBacklogGetEventsQueueLimit           uint
+	RequestBacklogGetNetworkQueueLimit          uint
+	RequestBacklogGetLatestLedgerQueueLimit     uint
+	RequestBacklogGetLedgerEntriesQueueLimit    uint
+	RequestBacklogGetTransactionQueueLimit      uint
+	RequestBacklogSendTransactionQueueLimit     uint
+	RequestBacklogSimulateTransactionQueueLimit uint
+	RequestExecutionWarningThreshold            time.Duration
+	MaxRequestExecutionDuration                 time.Duration
+	MaxGetHealthExecutionDuration               time.Duration
+	MaxGetEventsExecutionDuration               time.Duration
+	MaxGetNetworkExecutionDuration              time.Duration
+	MaxGetLatestLedgerExecutionDuration         time.Duration
+	MaxGetLedgerEntriesExecutionDuration        time.Duration
+	MaxGetTransactionExecutionDuration          time.Duration
+	MaxSendTransactionExecutionDuration         time.Duration
+	MaxSimulateTransactionExecutionDuration     time.Duration
 
 	// We memoize these, so they bind to pflags correctly
 	optionsCache *ConfigOptions
@@ -113,7 +132,7 @@ func (cfg *Config) loadEnv(lookupEnv func(string) (string, bool)) error {
 // loadFlags populates the config with values from the cli flags
 func (cfg *Config) loadFlags() error {
 	for _, option := range cfg.options() {
-		if !option.flag.Changed {
+		if option.flag == nil || !option.flag.Changed {
 			continue
 		}
 		val, err := option.GetFlag(cfg.flagset)

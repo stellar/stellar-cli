@@ -1,9 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendTx = exports.signTx = exports.invoke = exports.NotImplementedError = void 0;
-const freighter_api_1 = require("@stellar/freighter-api");
-// working around ESM compatibility issues
-const { isConnected, isAllowed, getUserInfo, signTransaction, } = freighter_api_1.default;
 const SorobanClient = require("soroban-client");
 const constants_js_1 = require("./constants.js");
 const server_js_1 = require("./server.js");
@@ -11,11 +8,11 @@ const server_js_1 = require("./server.js");
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
  */
-async function getAccount() {
-    if (!await isConnected() || !await isAllowed()) {
+async function getAccount(wallet) {
+    if (!await wallet.isConnected() || !await wallet.isAllowed()) {
         return null;
     }
-    const { publicKey } = await getUserInfo();
+    const { publicKey } = await wallet.getUserInfo();
     if (!publicKey) {
         return null;
     }
@@ -26,10 +23,11 @@ class NotImplementedError extends Error {
 exports.NotImplementedError = NotImplementedError;
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse;
-async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, }) {
-    const freighterAccount = await getAccount();
+async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, wallet, }) {
+    wallet = wallet ?? await Promise.resolve().then(() => require('@stellar/freighter-api'));
+    const walletAccount = await getAccount(wallet);
     // use a placeholder null account if not yet connected to Freighter so that view calls can still work
-    const account = freighterAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
+    const account = walletAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
     const contract = new SorobanClient.Contract(constants_js_1.CONTRACT_ID);
     let tx = new SorobanClient.TransactionBuilder(account, {
         fee: fee.toString(10),
@@ -46,8 +44,8 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
     let authsCount = auths?.length ?? 0;
     const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length;
     const parse = parseResultXdr ?? (xdr => xdr);
-    // if VIEW ˅˅˅˅
-    if (authsCount === 0 && writeLength === 0) {
+    const isViewCall = authsCount === 0 && writeLength === 0;
+    if (isViewCall) {
         if (responseType === 'full')
             return simulated;
         const { results } = simulated;
@@ -59,7 +57,6 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         }
         return parse(results[0].xdr);
     }
-    // ^^^^ else, is CHANGE method ˅˅˅˅
     if (authsCount > 1) {
         throw new NotImplementedError("Multiple auths not yet supported");
     }
@@ -72,11 +69,11 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         //     }; Not yet supported`
         //   )
         // }
-        if (!freighterAccount) {
-            throw new Error('Not connected to Freighter');
-        }
-        tx = await signTx(SorobanClient.assembleTransaction(tx, constants_js_1.NETWORK_PASSPHRASE, simulated));
     }
+    if (!walletAccount) {
+        throw new Error('Not connected to Freighter');
+    }
+    tx = await signTx(wallet, SorobanClient.assembleTransaction(tx, constants_js_1.NETWORK_PASSPHRASE, simulated));
     const raw = await sendTx(tx, secondsToWait);
     if (responseType === 'full')
         return raw;
@@ -100,8 +97,8 @@ exports.invoke = invoke;
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-async function signTx(tx) {
-    const signed = await signTransaction(tx.toXDR(), {
+async function signTx(wallet, tx) {
+    const signed = await wallet.signTransaction(tx.toXDR(), {
         networkPassphrase: constants_js_1.NETWORK_PASSPHRASE,
     });
     return SorobanClient.TransactionBuilder.fromXDR(signed, constants_js_1.NETWORK_PASSPHRASE);

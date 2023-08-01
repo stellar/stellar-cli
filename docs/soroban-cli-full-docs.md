@@ -203,7 +203,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 Extend the expiry ledger of a contract-data ledger entry.
 
-If no keys are specificed the contract itself is bumped.
+If no keys are specified the contract itself is bumped.
 
 **Usage:** `soroban contract bump [OPTIONS] --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
 
