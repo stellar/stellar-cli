@@ -21,15 +21,28 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 		Data: xdr.LedgerEntryData{
 			Type: xdr.LedgerEntryTypeContractData,
 			ContractData: &xdr.ContractDataEntry{
-				ContractId: mockContractID,
-				Key: xdr.ScVal{
-					Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+				Contract: xdr.ScAddress{
+					Type:       xdr.ScAddressTypeScAddressTypeContract,
+					ContractId: &mockContractID,
 				},
-				Val: xdr.ScVal{
-					Type: xdr.ScValTypeScvContractExecutable,
-					Exec: &xdr.ScContractExecutable{
-						Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-						WasmId: &mockContractHash,
+				Key: xdr.ScVal{
+					Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+				},
+				Durability: xdr.ContractDataDurabilityPersistent,
+				Body: xdr.ContractDataEntryBody{
+					BodyType: xdr.ContractEntryBodyTypeDataEntry,
+					Data: &xdr.ContractDataEntryData{
+						Flags: 0,
+						Val: xdr.ScVal{
+							Type: xdr.ScValTypeScvContractInstance,
+							Instance: &xdr.ScContractInstance{
+								Executable: xdr.ContractExecutable{
+									Type:     xdr.ContractExecutableTypeContractExecutableWasm,
+									WasmHash: &mockContractHash,
+								},
+								Storage: nil,
+							},
+						},
 					},
 				},
 			},
@@ -41,7 +54,11 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 			Type: xdr.LedgerEntryTypeContractCode,
 			ContractCode: &xdr.ContractCodeEntry{
 				Hash: mockContractHash,
-				Code: helloWorldContract,
+				Body: xdr.ContractCodeEntryBody{
+					BodyType: xdr.ContractEntryBodyTypeDataEntry,
+					Code:     &helloWorldContract,
+				},
+				ExpirationLedgerSeq: 20000,
 			},
 		},
 	},
@@ -67,22 +84,21 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 			ConfigSetting: &xdr.ConfigSettingEntry{
 				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractLedgerCostV0,
 				ContractLedgerCost: &xdr.ConfigSettingContractLedgerCostV0{
-					LedgerMaxReadLedgerEntries:  100,
-					LedgerMaxReadBytes:          100,
-					LedgerMaxWriteLedgerEntries: 100,
-					LedgerMaxWriteBytes:         100,
-					TxMaxReadLedgerEntries:      100,
-					TxMaxReadBytes:              100,
-					TxMaxWriteLedgerEntries:     100,
-					TxMaxWriteBytes:             100,
-					FeeReadLedgerEntry:          100,
-					FeeWriteLedgerEntry:         100,
-					FeeRead1Kb:                  100,
-					FeeWrite1Kb:                 100,
-					BucketListSizeBytes:         100,
-					BucketListFeeRateLow:        100,
-					BucketListFeeRateHigh:       100,
-					BucketListGrowthFactor:      100,
+					LedgerMaxReadLedgerEntries:     100,
+					LedgerMaxReadBytes:             100,
+					LedgerMaxWriteLedgerEntries:    100,
+					LedgerMaxWriteBytes:            100,
+					TxMaxReadLedgerEntries:         100,
+					TxMaxReadBytes:                 100,
+					TxMaxWriteLedgerEntries:        100,
+					TxMaxWriteBytes:                100,
+					FeeReadLedgerEntry:             100,
+					FeeWriteLedgerEntry:            100,
+					FeeRead1Kb:                     100,
+					BucketListTargetSizeBytes:      100,
+					WriteFee1KbBucketListLow:       100,
+					WriteFee1KbBucketListHigh:      100,
+					BucketListWriteFeeGrowthFactor: 100,
 				},
 			},
 		},
@@ -144,7 +160,10 @@ type inMemoryLedgerEntryReadTx map[string]xdr.LedgerEntry
 func newInMemoryLedgerEntryReadTx(entries []xdr.LedgerEntry) (inMemoryLedgerEntryReadTx, error) {
 	result := make(map[string]xdr.LedgerEntry, len(entries))
 	for _, entry := range entries {
-		key := entry.LedgerKey()
+		key, err := entry.LedgerKey()
+		if err != nil {
+			return inMemoryLedgerEntryReadTx{}, err
+		}
 		serialized, err := key.MarshalBinaryBase64()
 		if err != nil {
 			return inMemoryLedgerEntryReadTx{}, err
@@ -158,7 +177,7 @@ func (m inMemoryLedgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
 	return 2, nil
 }
 
-func (m inMemoryLedgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func (m inMemoryLedgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
 	serializedKey, err := key.MarshalBinaryBase64()
 	if err != nil {
 		return false, xdr.LedgerEntry{}, err
@@ -177,36 +196,29 @@ func (m inMemoryLedgerEntryReadTx) Done() error {
 func BenchmarkGetPreflight(b *testing.B) {
 	ledgerEntryReadTx, err := newInMemoryLedgerEntryReadTx(mockLedgerEntries)
 	require.NoError(b, err)
-	methodSymbol := xdr.ScSymbol("hello")
 	argSymbol := xdr.ScSymbol("world")
-	contractIDBytes := xdr.ScBytes(mockContractID[:])
-	parameters := xdr.ScVec{
-		xdr.ScVal{
-			Type:  xdr.ScValTypeScvBytes,
-			Bytes: &contractIDBytes,
-		},
-		xdr.ScVal{
-			Type: xdr.ScValTypeScvSymbol,
-			Sym:  &methodSymbol,
-		},
-		xdr.ScVal{
-			Type: xdr.ScValTypeScvSymbol,
-			Sym:  &argSymbol,
-		},
-	}
 	params := PreflightParameters{
 		Logger:        log.New(),
 		SourceAccount: xdr.MustAddress("GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H"),
-		InvokeHostFunction: xdr.InvokeHostFunctionOp{
-			Functions: []xdr.HostFunction{
-				{
-					Args: xdr.HostFunctionArgs{
-						Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-						InvokeContract: &parameters,
+		OpBody: xdr.OperationBody{Type: xdr.OperationTypeInvokeHostFunction,
+			InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
+				HostFunction: xdr.HostFunction{
+					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+					InvokeContract: &xdr.InvokeContractArgs{
+						ContractAddress: xdr.ScAddress{
+							Type:       xdr.ScAddressTypeScAddressTypeContract,
+							ContractId: &mockContractID,
+						},
+						FunctionName: "hello",
+						Args: []xdr.ScVal{
+							{
+								Type: xdr.ScValTypeScvSymbol,
+								Sym:  &argSymbol,
+							},
+						},
 					},
 				},
-			},
-		},
+			}},
 		NetworkPassphrase: "foo",
 		LedgerEntryReadTx: ledgerEntryReadTx,
 	}
