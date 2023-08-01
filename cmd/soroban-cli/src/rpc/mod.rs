@@ -453,10 +453,15 @@ impl Client {
         let response = self.get_ledger_entries(keys).await?;
         let entries = response.entries.unwrap_or_default();
         if entries.is_empty() {
-            return Err(Error::NotFound("Account".to_string(), format!(r#"{address}
+            return Err(Error::NotFound(
+                "Account".to_string(),
+                format!(
+                    r#"{address}
 Might need to fund account like:
 soroban config identity fund {address} --network <name>
-soroban config identity fund {address} --helper-url <url>"#)));
+soroban config identity fund {address} --helper-url <url>"#
+                ),
+            ));
         }
         let ledger_entry = &entries[0];
         if let LedgerEntryData::Account(entry) =
