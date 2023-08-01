@@ -8,10 +8,10 @@ use clap::{command, Parser};
 use soroban_env_host::xdr::{
     ContractCodeEntry, ContractDataDurability, ContractDataEntry, ContractEntryBodyType,
     Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal,
-    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-    TransactionMeta, TransactionMetaV3, Uint256,
+    LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount,
+    Operation, OperationBody, OperationMeta, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress,
+    ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -26,7 +26,11 @@ use crate::{
 pub struct Cmd {
     /// Contract ID to which owns the data entries.
     /// If no keys provided the Contract's instance will be restored
-    #[arg(long = "id", required_unless_present = "wasm")]
+    #[arg(
+        long = "id",
+        required_unless_present = "wasm",
+        required_unless_present = "wasm_hash"
+    )]
     pub contract_id: Option<String>,
     /// Storage key (symbols only)
     #[arg(long = "key")]
@@ -39,9 +43,20 @@ pub struct Cmd {
         long,
         conflicts_with = "key",
         conflicts_with = "key_xdr",
-        conflicts_with = "contract_id"
+        conflicts_with = "contract_id",
+        conflicts_with = "wasm_hash"
     )]
     pub wasm: Option<PathBuf>,
+
+    /// Hash of contract code to restore
+    #[arg(
+        long = "wasm-hash",
+        conflicts_with = "key",
+        conflicts_with = "key_xdr",
+        conflicts_with = "contract_id",
+        conflicts_with = "wasm"
+    )]
+    pub wasm_hash: Option<String>,
 
     #[command(flatten)]
     pub config: config::Args,
@@ -112,6 +127,14 @@ impl Cmd {
         tracing::trace!(?network);
         let entry_keys = if let Some(wasm) = &self.wasm {
             vec![crate::wasm::Args { wasm: wasm.clone() }.try_into()?]
+        } else if let Some(wasm_hash) = &self.wasm_hash {
+            vec![LedgerKey::ContractCode(LedgerKeyContractCode {
+                hash: Hash(
+                    utils::contract_id_from_str(wasm_hash)
+                        .map_err(|e| Error::CannotParseContractId(wasm_hash.clone(), e))?,
+                ),
+                body_type: ContractEntryBodyType::DataEntry,
+            })]
         } else {
             let contract_id = self.contract_id()?;
             self.parse_keys(contract_id)?
@@ -183,39 +206,7 @@ impl Cmd {
                 operations[0].changes.len()
             );
         }
-
-        operations
-            .get(0)
-            .and_then(|op| {
-                op.changes.iter().find_map(|entry| match entry {
-                    LedgerEntryChange::Updated(LedgerEntry {
-                        data:
-                            LedgerEntryData::ContractData(ContractDataEntry {
-                                expiration_ledger_seq,
-                                ..
-                            })
-                            | LedgerEntryData::ContractCode(ContractCodeEntry {
-                                expiration_ledger_seq,
-                                ..
-                            }),
-                        ..
-                    })
-                    | LedgerEntryChange::Created(LedgerEntry {
-                        data:
-                            LedgerEntryData::ContractData(ContractDataEntry {
-                                expiration_ledger_seq,
-                                ..
-                            })
-                            | LedgerEntryData::ContractCode(ContractCodeEntry {
-                                expiration_ledger_seq,
-                                ..
-                            }),
-                        ..
-                    }) => Some(*expiration_ledger_seq),
-                    _ => None,
-                })
-            })
-            .ok_or(Error::MissingOperationResult)
+        parse_operations(&operations).ok_or(Error::MissingOperationResult)
     }
 
     pub fn run_in_sandbox(&self) -> Result<u32, Error> {
@@ -266,4 +257,36 @@ impl Cmd {
             })
             .collect())
     }
+}
+
+fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
+    ops.get(0).and_then(|op| {
+        op.changes.iter().find_map(|entry| match entry {
+            LedgerEntryChange::Updated(LedgerEntry {
+                data:
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        expiration_ledger_seq,
+                        ..
+                    })
+                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
+                ..
+            })
+            | LedgerEntryChange::Created(LedgerEntry {
+                data:
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        expiration_ledger_seq,
+                        ..
+                    })
+                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
+                ..
+            }) => Some(*expiration_ledger_seq),
+            _ => None,
+        })
+    })
 }

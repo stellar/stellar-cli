@@ -114,6 +114,7 @@ impl Cmd {
                 key: vec![],
                 key_xdr: vec![],
                 wasm: Some(self.wasm.wasm.clone()),
+                wasm_hash: None,
                 config: self.config.clone(),
                 fee: self.fee.clone(),
             }
