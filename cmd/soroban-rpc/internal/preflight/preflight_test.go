@@ -10,10 +10,26 @@ import (
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/require"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
 var mockContractID = xdr.Hash{0xa, 0xb, 0xc}
 var mockContractHash = xdr.Hash{0xd, 0xe, 0xf}
+
+var contractCostParams = func() *xdr.ContractCostParams {
+	var result xdr.ContractCostParams
+
+	for i := 0; i < 22; i++ {
+		result = append(result, xdr.ContractCostParamEntry{
+			Ext:        xdr.ExtensionPoint{},
+			ConstTerm:  0,
+			LinearTerm: 0,
+		})
+	}
+
+	return &result
+}()
 
 var mockLedgerEntries = []xdr.LedgerEntry{
 	{
@@ -28,7 +44,8 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 				Key: xdr.ScVal{
 					Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 				},
-				Durability: xdr.ContractDataDurabilityPersistent,
+				Durability:          xdr.ContractDataDurabilityPersistent,
+				ExpirationLedgerSeq: 100000,
 				Body: xdr.ContractDataEntryBody{
 					BodyType: xdr.ContractEntryBodyTypeDataEntry,
 					Data: &xdr.ContractDataEntryData{
@@ -69,10 +86,10 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 			ConfigSetting: &xdr.ConfigSettingEntry{
 				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractComputeV0,
 				ContractCompute: &xdr.ConfigSettingContractComputeV0{
-					LedgerMaxInstructions:           100,
-					TxMaxInstructions:               100,
-					FeeRatePerInstructionsIncrement: 100,
-					TxMemoryLimit:                   100,
+					LedgerMaxInstructions:           100000000,
+					TxMaxInstructions:               100000000,
+					FeeRatePerInstructionsIncrement: 1,
+					TxMemoryLimit:                   100000000,
 				},
 			},
 		},
@@ -96,9 +113,9 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 					FeeWriteLedgerEntry:            100,
 					FeeRead1Kb:                     100,
 					BucketListTargetSizeBytes:      100,
-					WriteFee1KbBucketListLow:       100,
-					WriteFee1KbBucketListHigh:      100,
-					BucketListWriteFeeGrowthFactor: 100,
+					WriteFee1KbBucketListLow:       1,
+					WriteFee1KbBucketListHigh:      1,
+					BucketListWriteFeeGrowthFactor: 1,
 				},
 			},
 		},
@@ -139,6 +156,48 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 					TxMaxSizeBytes:              100,
 					FeePropagateData1Kb:         100,
 				},
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
+				StateExpirationSettings: &xdr.StateExpirationSettings{
+					MaxEntryExpiration:             100,
+					MinTempEntryExpiration:         100,
+					MinPersistentEntryExpiration:   100,
+					AutoBumpLedgers:                100,
+					PersistentRentRateDenominator:  100,
+					TempRentRateDenominator:        100,
+					MaxEntriesToExpire:             100,
+					BucketListSizeWindowSampleSize: 100,
+					EvictionScanSize:               100,
+				},
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractCostParamsCpuInstructions,
+				// Obtained with TestGetLedgerEntryConfigSettings
+				ContractCostParamsCpuInsns: contractCostParams,
+			},
+		},
+	},
+	{
+		LastModifiedLedgerSeq: 2,
+		Data: xdr.LedgerEntryData{
+			Type: xdr.LedgerEntryTypeConfigSetting,
+			ConfigSetting: &xdr.ConfigSettingEntry{
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractCostParamsMemoryBytes,
+				// Obtained with TestGetLedgerEntryConfigSettings
+				ContractCostParamsMemBytes: contractCostParams,
 			},
 		},
 	},
@@ -193,9 +252,28 @@ func (m inMemoryLedgerEntryReadTx) Done() error {
 	return nil
 }
 
-func BenchmarkGetPreflight(b *testing.B) {
-	ledgerEntryReadTx, err := newInMemoryLedgerEntryReadTx(mockLedgerEntries)
-	require.NoError(b, err)
+func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
+	var ledgerEntryReadTx db.LedgerEntryReadTx
+	if inMemory {
+		var err error
+		ledgerEntryReadTx, err = newInMemoryLedgerEntryReadTx(mockLedgerEntries)
+		require.NoError(t, err)
+	} else {
+		d := t.TempDir()
+		dbInstance, err := db.OpenSQLiteDB(path.Join(d, "soroban_rpc.sqlite"))
+		require.NoError(t, err)
+		readWriter := db.NewReadWriter(dbInstance, 100, 10000)
+		tx, err := readWriter.NewTx(context.Background())
+		require.NoError(t, err)
+		for _, e := range mockLedgerEntries {
+			err := tx.LedgerEntryWriter().UpsertLedgerEntry(e)
+			require.NoError(t, err)
+		}
+		err = tx.Commit(2)
+		require.NoError(t, err)
+		ledgerEntryReadTx, err = db.NewLedgerEntryReader(dbInstance).NewTx(context.Background())
+		require.NoError(t, err)
+	}
 	argSymbol := xdr.ScSymbol("world")
 	params := PreflightParameters{
 		Logger:        log.New(),
@@ -221,13 +299,36 @@ func BenchmarkGetPreflight(b *testing.B) {
 			}},
 		NetworkPassphrase: "foo",
 		LedgerEntryReadTx: ledgerEntryReadTx,
+		BucketListSize:    200,
 	}
-	b.ResetTimer()
+	return params
+}
 
+func TestGetPreflight(t *testing.T) {
+	params := getPreflightParameters(t, false)
+	_, err := GetPreflight(context.Background(), params)
+	require.NoError(t, err)
+
+	params = getPreflightParameters(t, true)
+	_, err = GetPreflight(context.Background(), params)
+	require.NoError(t, err)
+}
+
+func benchmark(b *testing.B, inMemory bool) {
+	params := getPreflightParameters(b, inMemory)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StartTimer()
 		_, err := GetPreflight(context.Background(), params)
 		b.StopTimer()
 		require.NoError(b, err)
 	}
+}
+
+func BenchmarkGetPreflightInMemory(b *testing.B) {
+	benchmark(b, true)
+}
+
+func BenchmarkGetPreflightInDB(b *testing.B) {
+	benchmark(b, false)
 }
