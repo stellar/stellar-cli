@@ -1,7 +1,7 @@
 use clap::{command, Parser};
-use soroban_env_host::xdr::{self, WriteXdr};
+use soroban_env_host::xdr;
 use std::{fmt::Debug, path::PathBuf};
-use tracing::{debug, trace};
+use tracing::debug;
 
 use super::SpecOutput;
 use crate::{commands::config::locator, wasm};
@@ -12,7 +12,7 @@ pub struct Cmd {
     #[command(flatten)]
     wasm: wasm::Args,
     /// Output just XDR in base64
-    #[arg(long, default_value = "SpecOutput::Docs")]
+    #[arg(long, default_value = "docs")]
     output: SpecOutput,
 
     #[clap(flatten)]
@@ -27,6 +27,8 @@ pub enum Error {
     MissingSpec(PathBuf),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Spec(#[from] crate::utils::contract_spec::Error),
 }
 
 impl Cmd {
@@ -38,18 +40,7 @@ impl Cmd {
                 .spec_base64
                 .clone()
                 .ok_or_else(|| Error::MissingSpec(self.wasm.wasm.clone()))?,
-            SpecOutput::XdrBase64Array => {
-                let spec = wasm
-                    .spec
-                    .iter()
-                    .map(|e| {
-                        trace!("{e:#?}\n{}\n", e.to_xdr_base64()?);
-                        Ok(format!("\"{}\"", e.to_xdr_base64()?))
-                    })
-                    .collect::<Result<Vec<_>, Error>>()?
-                    .join(",\n");
-                format!("[{spec}]")
-            }
+            SpecOutput::XdrBase64Array => wasm.spec_as_json_array()?,
             SpecOutput::Docs => wasm.to_string(),
         };
         println!("{output}");
