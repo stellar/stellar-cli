@@ -11,6 +11,7 @@ import (
 
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/network"
+	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
@@ -456,12 +457,12 @@ func TestGetEventsRequestValid(t *testing.T) {
 		StartLedger: 1,
 		Filters: []EventFilter{
 			{ContractIDs: []string{
-				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-				"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-				"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-				"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+				"CCVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKUD2U",
+				"CC53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53WQD5",
+				"CDGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZLND",
+				"CDO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53YUK",
+				"CDXO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO4M7R",
+				"CD7777777777777777777777777777777777777777777777777767GY",
 			}},
 		},
 		Pagination: nil,
@@ -471,6 +472,14 @@ func TestGetEventsRequestValid(t *testing.T) {
 		StartLedger: 1,
 		Filters: []EventFilter{
 			{ContractIDs: []string{"a"}},
+		},
+		Pagination: nil,
+	}).Valid(1000), "filter 1 invalid: contract ID 1 invalid")
+
+	assert.EqualError(t, (&GetEventsRequest{
+		StartLedger: 1,
+		Filters: []EventFilter{
+			{ContractIDs: []string{"CCVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVKVINVALID"}},
 		},
 		Pagination: nil,
 	}).Valid(1000), "filter 1 invalid: contract ID 1 invalid")
@@ -617,7 +626,7 @@ func TestGetEvents(t *testing.T) {
 				EventType:      EventTypeContract,
 				Ledger:         1,
 				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
+				ContractID:     "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
 				ID:             id,
 				PagingToken:    id,
 				Topic:          []string{value},
@@ -662,7 +671,7 @@ func TestGetEvents(t *testing.T) {
 		results, err := handler.getEvents(GetEventsRequest{
 			StartLedger: 1,
 			Filters: []EventFilter{
-				{ContractIDs: []string{contractIds[0].HexString()}},
+				{ContractIDs: []string{strkey.MustEncode(strkey.VersionByteContract, contractIds[0][:])}},
 			},
 		})
 		assert.NoError(t, err)
@@ -731,7 +740,7 @@ func TestGetEvents(t *testing.T) {
 				EventType:                EventTypeContract,
 				Ledger:                   1,
 				LedgerClosedAt:           now.Format(time.RFC3339),
-				ContractID:               "0000000000000000000000000000000000000000000000000000000000000000",
+				ContractID:               "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr, value},
@@ -802,7 +811,7 @@ func TestGetEvents(t *testing.T) {
 			StartLedger: 1,
 			Filters: []EventFilter{
 				{
-					ContractIDs: []string{contractID.HexString()},
+					ContractIDs: []string{strkey.MustEncode(strkey.VersionByteContract, contractID[:])},
 					Topics: []TopicFilter{
 						[]SegmentFilter{
 							{scval: &xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &counter}},
@@ -825,7 +834,7 @@ func TestGetEvents(t *testing.T) {
 				EventType:                EventTypeContract,
 				Ledger:                   1,
 				LedgerClosedAt:           now.Format(time.RFC3339),
-				ContractID:               contractID.HexString(),
+				ContractID:               strkey.MustEncode(strkey.VersionByteContract, contractID[:]),
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr, value},
@@ -885,7 +894,7 @@ func TestGetEvents(t *testing.T) {
 				EventType:                EventTypeSystem,
 				Ledger:                   1,
 				LedgerClosedAt:           now.Format(time.RFC3339),
-				ContractID:               contractID.HexString(),
+				ContractID:               strkey.MustEncode(strkey.VersionByteContract, contractID[:]),
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr},
@@ -940,7 +949,7 @@ func TestGetEvents(t *testing.T) {
 				EventType:      EventTypeContract,
 				Ledger:         1,
 				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     "0000000000000000000000000000000000000000000000000000000000000000",
+				ContractID:     "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
 				ID:             id,
 				PagingToken:    id,
 				Topic:          []string{value},
@@ -1026,7 +1035,7 @@ func TestGetEvents(t *testing.T) {
 				EventType:                EventTypeContract,
 				Ledger:                   5,
 				LedgerClosedAt:           now.Format(time.RFC3339),
-				ContractID:               contractID.HexString(),
+				ContractID:               strkey.MustEncode(strkey.VersionByteContract, contractID[:]),
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr},

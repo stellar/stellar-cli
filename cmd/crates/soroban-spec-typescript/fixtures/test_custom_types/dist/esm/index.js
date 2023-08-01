@@ -155,6 +155,11 @@ function ComplexEnumToXdr(complexEnum) {
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Enum"));
             res.push(((i) => SimpleEnumToXdr(i))(complexEnum.values[0]));
             break;
+        case "Asset":
+            res.push(((i) => xdr.ScVal.scvSymbol(i))("Asset"));
+            res.push(((i) => addressToScVal(i))(complexEnum.values[0]));
+            res.push(((i) => i128ToScVal(i))(complexEnum.values[1]));
+            break;
         case "Void":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Void"));
             break;
@@ -169,7 +174,7 @@ function ComplexEnumFromXdr(base64Xdr) {
     return { tag, values };
 }
 const Errors = [
-    { message: "Unknown error has occured" }
+    { message: "Unknown error has occurred" }
 ];
 export async function hello({ hello }, options = {}) {
     return await invoke({

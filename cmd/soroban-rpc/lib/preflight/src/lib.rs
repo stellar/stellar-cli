@@ -13,8 +13,9 @@ use soroban_env_host::budget::Budget;
 use soroban_env_host::events::Events;
 use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
-    AccountId, DiagnosticEvent, InvokeHostFunctionOp, LedgerFootprint, OperationBody, ReadXdr,
-    ScVal, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
+    AccountId, ConfigSettingEntry, ConfigSettingId, DiagnosticEvent, InvokeHostFunctionOp,
+    LedgerFootprint, OperationBody, ReadXdr, ScVal, SorobanAddressCredentials,
+    SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
 use std::error::Error;
@@ -111,11 +112,12 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(invoke_hf_op_cstr.to_str()?)?;
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
     let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str()?)?;
-    let src = Rc::new(ledger_storage::LedgerStorage {
+    let storage = Storage::with_recording_footprint(Rc::new(LedgerStorage {
         golang_handle: handle,
-    });
-    let storage = Storage::with_recording_footprint(src);
-    let budget = Budget::default();
+    }));
+    let budget = get_budget_from_network_config_params(&LedgerStorage {
+        golang_handle: handle,
+    })?;
     let host = Host::with_storage_and_budget(storage, budget);
 
     host.switch_to_recording_auth()?;
@@ -136,7 +138,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
             host_function: invoke_hf_op.host_function,
             auth: Default::default(),
         },
-        &ledger_storage::LedgerStorage {
+        &LedgerStorage {
             golang_handle: handle,
         },
         &storage,
@@ -155,6 +157,36 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         cpu_instructions: budget.get_cpu_insns_consumed()?,
         memory_bytes: budget.get_mem_bytes_consumed()?,
     })
+}
+
+fn get_budget_from_network_config_params(
+    ledger_storage: &LedgerStorage,
+) -> Result<Budget, Box<dyn error::Error>> {
+    let ConfigSettingEntry::ContractComputeV0(compute) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)? else {
+        return Err(
+            "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
+        );
+    };
+
+    let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage.get_configuration_setting( ConfigSettingId::ContractCostParamsCpuInstructions)? else {
+        return Err(
+            "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
+        );
+    };
+
+    let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)? else {
+        return Err(
+            "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
+        );
+    };
+
+    let budget = Budget::from_configs(
+        compute.tx_max_instructions as u64,
+        compute.tx_memory_limit as u64,
+        cost_params_cpu,
+        cost_params_memory,
+    );
+    Ok(budget)
 }
 
 #[no_mangle]

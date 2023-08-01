@@ -2,7 +2,6 @@ package methods
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
+	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 
@@ -155,8 +155,8 @@ func (e *EventFilter) Valid() error {
 		return errors.New("maximum 5 topics per filter")
 	}
 	for i, id := range e.ContractIDs {
-		out, err := hex.DecodeString(id)
-		if err != nil || len(out) != 32 {
+		_, err := strkey.Decode(strkey.VersionByteContract, id)
+		if err != nil {
 			return fmt.Errorf("contract ID %d invalid", i+1)
 		}
 	}
@@ -179,7 +179,7 @@ func (e *EventFilter) matchesContractIDs(event xdr.ContractEvent) bool {
 	if event.ContractId == nil {
 		return false
 	}
-	needle := hex.EncodeToString((*event.ContractId)[:])
+	needle := strkey.MustEncode(strkey.VersionByteContract, (*event.ContractId)[:])
 	for _, id := range e.ContractIDs {
 		if id == needle {
 			return true
@@ -418,7 +418,7 @@ func eventInfoForEvent(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerCl
 		InSuccessfulContractCall: event.InSuccessfulContractCall,
 	}
 	if event.Event.ContractId != nil {
-		info.ContractID = hex.EncodeToString((*event.Event.ContractId)[:])
+		info.ContractID = strkey.MustEncode(strkey.VersionByteContract, (*event.Event.ContractId)[:])
 	}
 	return info, nil
 }

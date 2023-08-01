@@ -3,7 +3,7 @@ import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
 import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke } from './invoke.js';
-import { ResponseTypes } from './method-options.js'
+import type { ResponseTypes, Wallet } from './method-options.js'
 
 export * from './constants.js'
 export * from './server.js'
@@ -191,7 +191,7 @@ function TupleStructFromXdr(base64Xdr: string): TupleStruct {
     return scValStrToJs(base64Xdr) as TupleStruct;
 }
 
-export type ComplexEnum = {tag: "Struct", values: [Test]} | {tag: "Tuple", values: [TupleStruct]} | {tag: "Enum", values: [SimpleEnum]} | {tag: "Void", values: void};
+export type ComplexEnum = {tag: "Struct", values: [Test]} | {tag: "Tuple", values: [TupleStruct]} | {tag: "Enum", values: [SimpleEnum]} | {tag: "Asset", values: [Address, i128]} | {tag: "Void", values: void};
 
 function ComplexEnumToXdr(complexEnum?: ComplexEnum): xdr.ScVal {
     if (!complexEnum) {
@@ -211,6 +211,11 @@ function ComplexEnumToXdr(complexEnum?: ComplexEnum): xdr.ScVal {
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Enum"));
             res.push(((i)=>SimpleEnumToXdr(i))(complexEnum.values[0]));
             break;
+    case "Asset":
+            res.push(((i) => xdr.ScVal.scvSymbol(i))("Asset"));
+            res.push(((i)=>addressToScVal(i))(complexEnum.values[0]));
+            res.push(((i)=>i128ToScVal(i))(complexEnum.values[1]));
+            break;
     case "Void":
             res.push(((i) => xdr.ScVal.scvSymbol(i))("Void"));
             break;  
@@ -229,7 +234,7 @@ function ComplexEnumFromXdr(base64Xdr: string): ComplexEnum {
 }
 
 const Errors = [ 
-{message:"Unknown error has occured"}
+{message:"Unknown error has occurred"}
 ]
 export async function hello<R extends ResponseTypes = undefined>({hello}: {hello: string}, options: {
   /**
@@ -248,6 +253,16 @@ export async function hello<R extends ResponseTypes = undefined>({hello}: {hello
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'hello',
@@ -276,6 +291,16 @@ export async function woid<R extends ResponseTypes = undefined>(options: {
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'woid',
@@ -301,6 +326,16 @@ export async function val<R extends ResponseTypes = undefined>(options: {
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'val',
@@ -328,6 +363,16 @@ export async function u32FailOnEven<R extends ResponseTypes = undefined>({u32_}:
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'u32_fail_on_even',
@@ -366,6 +411,16 @@ export async function u32<R extends ResponseTypes = undefined>({u32_}: {u32_: u3
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'u32_',
@@ -394,6 +449,16 @@ export async function i32<R extends ResponseTypes = undefined>({i32_}: {i32_: i3
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'i32_',
@@ -422,6 +487,16 @@ export async function i64<R extends ResponseTypes = undefined>({i64_}: {i64_: i6
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'i64_',
@@ -453,6 +528,16 @@ export async function struktHel<R extends ResponseTypes = undefined>({strukt}: {
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'strukt_hel',
@@ -481,6 +566,16 @@ export async function strukt<R extends ResponseTypes = undefined>({strukt}: {str
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'strukt',
@@ -509,6 +604,16 @@ export async function simple<R extends ResponseTypes = undefined>({simple}: {sim
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'simple',
@@ -537,6 +642,16 @@ export async function complex<R extends ResponseTypes = undefined>({complex}: {c
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'complex',
@@ -565,6 +680,16 @@ export async function addresse<R extends ResponseTypes = undefined>({addresse}: 
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'addresse',
@@ -593,6 +718,16 @@ export async function bytes<R extends ResponseTypes = undefined>({bytes}: {bytes
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'bytes',
@@ -621,6 +756,16 @@ export async function bytesN<R extends ResponseTypes = undefined>({bytes_n}: {by
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'bytes_n',
@@ -649,6 +794,16 @@ export async function card<R extends ResponseTypes = undefined>({card}: {card: R
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'card',
@@ -677,6 +832,16 @@ export async function booleanMethod<R extends ResponseTypes = undefined>({boolea
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'boolean',
@@ -708,6 +873,16 @@ export async function not<R extends ResponseTypes = undefined>({boolean}: {boole
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'not',
@@ -736,6 +911,16 @@ export async function i128<R extends ResponseTypes = undefined>({i128}: {i128: i
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'i128',
@@ -764,6 +949,16 @@ export async function u128<R extends ResponseTypes = undefined>({u128}: {u128: u
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'u128',
@@ -792,6 +987,16 @@ export async function multiArgs<R extends ResponseTypes = undefined>({a, b}: {a:
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'multi_args',
@@ -821,6 +1026,16 @@ export async function map<R extends ResponseTypes = undefined>({map}: {map: Map<
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'map',
@@ -853,6 +1068,16 @@ export async function vec<R extends ResponseTypes = undefined>({vec}: {vec: Arra
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'vec',
@@ -881,6 +1106,16 @@ export async function tuple<R extends ResponseTypes = undefined>({tuple}: {tuple
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'tuple',
@@ -913,6 +1148,16 @@ export async function option<R extends ResponseTypes = undefined>({option}: {opt
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'option',
@@ -941,6 +1186,16 @@ export async function u256<R extends ResponseTypes = undefined>({u256}: {u256: u
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'u256',
@@ -969,6 +1224,16 @@ export async function i256<R extends ResponseTypes = undefined>({i256}: {i256: i
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'i256',
@@ -997,6 +1262,16 @@ export async function string<R extends ResponseTypes = undefined>({string}: {str
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'string',
@@ -1025,6 +1300,16 @@ export async function tupleStrukt<R extends ResponseTypes = undefined>({tuple_st
    * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
    */
   secondsToWait?: number
+  /**
+   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
+   *
+   * ```ts
+   * import freighter from "@stellar/freighter-api";
+   *
+   * // later, when calling this function:
+   *   wallet: freighter,
+   */
+  wallet?: Wallet
 } = {}) {
     return await invoke({
         method: 'tuple_strukt',
