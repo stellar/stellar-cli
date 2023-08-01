@@ -171,7 +171,7 @@ fn get_budget_from_network_config_params(
         );
     };
 
-    // cpu_limit and memory_limit are both with a range where neither of 
+    // cpu_limit and memory_limit are both with a range where neither of
     #[allow(clippy::cast_sign_loss, clippy::cast_lossless)]
     let budget = Budget::from_configs(
         compute.tx_max_instructions as u64,
