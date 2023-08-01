@@ -297,7 +297,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         transaction_size_bytes: estimate_max_transaction_size_for_operation(
             &OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
                 ext: ExtensionPoint::V0,
-                ledgers_to_expire: ledgers_to_expire,
+                ledgers_to_expire,
             }),
             &soroban_resources.footprint,
         )?,

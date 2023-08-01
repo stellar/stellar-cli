@@ -15,7 +15,7 @@ use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
     AccountId, ConfigSettingEntry, ConfigSettingId, DiagnosticEvent, InvokeHostFunctionOp,
     LedgerFootprint, OperationBody, ReadXdr, ScVec, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
+    SorobanAuthorizationEntry, SorobanCredentials, VecM, WriteXdr,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
 use std::error::Error;
@@ -128,7 +128,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let (transaction_data, min_fee) = fees::compute_host_function_transaction_data_and_min_fee(
         &InvokeHostFunctionOp {
             host_function: invoke_hf_op.host_function,
-            auth: Default::default(),
+            auth: VecM::default(),
         },
         &LedgerStorage {
             golang_handle: handle,
@@ -171,6 +171,8 @@ fn get_budget_from_network_config_params(
         );
     };
 
+    // cpu_limit and memory_limit are both with a range where neither of 
+    #[allow(clippy::cast_sign_loss, clippy::cast_lossless)]
     let budget = Budget::from_configs(
         compute.tx_max_instructions as u64,
         compute.tx_memory_limit as u64,
@@ -268,7 +270,7 @@ fn catch_preflight_panic(
 ) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
-    let res = panic::catch_unwind(panic::AssertUnwindSafe(|| op()));
+    let res = panic::catch_unwind(panic::AssertUnwindSafe(op));
     match res {
         Err(panic) => match panic.downcast::<String>() {
             Ok(panic_msg) => preflight_error(format!("panic during preflight() call: {panic_msg}")),
