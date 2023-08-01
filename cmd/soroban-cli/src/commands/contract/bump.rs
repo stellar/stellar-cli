@@ -8,10 +8,10 @@ use clap::{command, Parser};
 use soroban_env_host::xdr::{
     BumpFootprintExpirationOp, ContractCodeEntry, ContractDataEntry, ContractEntryBodyType,
     Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber,
-    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta,
-    TransactionMetaV3, Uint256,
+    LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount,
+    Operation, OperationBody, Preconditions, ReadXdr, ScAddress, ScSpecTypeDef, ScVal,
+    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionMeta, TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -27,7 +27,11 @@ use crate::{
 pub struct Cmd {
     /// Contract ID to which owns the data entries.
     /// If no keys provided the Contract's instance will be bumped
-    #[arg(long = "id", required_unless_present = "wasm")]
+    #[arg(
+        long = "id",
+        required_unless_present = "wasm",
+        required_unless_present = "wasm_hash"
+    )]
     contract_id: Option<String>,
     /// Storage key (symbols only)
     #[arg(long = "key", conflicts_with = "key_xdr")]
@@ -40,9 +44,19 @@ pub struct Cmd {
         long,
         conflicts_with = "contract_id",
         conflicts_with = "key",
-        conflicts_with = "key_xdr"
+        conflicts_with = "key_xdr",
+        conflicts_with = "wasm_hash"
     )]
     wasm: Option<PathBuf>,
+    /// Path to Wasm file of contract code to bump
+    #[arg(
+        long,
+        conflicts_with = "contract_id",
+        conflicts_with = "key",
+        conflicts_with = "key_xdr",
+        conflicts_with = "wasm"
+    )]
+    wasm_hash: Option<String>,
     /// Storage entry durability
     #[arg(long, value_enum, required = true)]
     durability: Durability,
@@ -160,10 +174,10 @@ impl Cmd {
             .prepare_and_send_transaction(&tx, &key, &network.network_passphrase, None)
             .await?;
 
-        tracing::debug!(?result);
-        tracing::debug!(?meta);
+        tracing::trace!(?result);
+        tracing::trace!(?meta);
         if !events.is_empty() {
-            tracing::debug!(?events);
+            tracing::info!("Events:\n {events:#?}");
         }
 
         // The transaction from core will succeed regardless of whether it actually found & bumped
@@ -239,11 +253,6 @@ impl Cmd {
         Ok(new_expiration_ledger_seq)
     }
 
-    fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone().unwrap(), e))
-    }
-
     fn parse_key(&self) -> Result<LedgerKey, Error> {
         let key = if let Some(key) = &self.key {
             soroban_spec_tools::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(|e| {
@@ -259,10 +268,18 @@ impl Cmd {
             })?
         } else if let Some(wasm) = &self.wasm {
             return Ok(crate::wasm::Args { wasm: wasm.clone() }.try_into()?);
+        } else if let Some(wasm_hash) = &self.wasm_hash {
+            return Ok(LedgerKey::ContractCode(LedgerKeyContractCode {
+                hash: Hash(
+                    utils::contract_id_from_str(wasm_hash)
+                        .map_err(|e| Error::CannotParseContractId(wasm_hash.clone(), e))?,
+                ),
+                body_type: ContractEntryBodyType::DataEntry,
+            }));
         } else {
             ScVal::LedgerKeyContractInstance
         };
-        let contract_id = self.contract_id()?;
+        let contract_id = contract_id(self.contract_id.as_ref().unwrap())?;
 
         Ok(LedgerKey::ContractData(LedgerKeyContractData {
             contract: ScAddress::Contract(Hash(contract_id)),
@@ -284,4 +301,8 @@ fn bump_entry(v: &LedgerEntry, ledgers_to_expire: u32) -> (LedgerEntry, u32) {
         new_expiration_ledger_seq = code.expiration_ledger_seq;
     }
     (new_v, new_expiration_ledger_seq)
+}
+
+fn contract_id(s: &str) -> Result<[u8; 32], Error> {
+    utils::contract_id_from_str(s).map_err(|e| Error::CannotParseContractId(s.to_string(), e))
 }

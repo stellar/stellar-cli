@@ -65,7 +65,6 @@ impl Args {
 
 impl TryInto<LedgerKey> for Args {
     type Error = Error;
-
     fn try_into(self) -> Result<LedgerKey, Self::Error> {
         Ok(LedgerKey::ContractCode(LedgerKeyContractCode {
             hash: utils::contract_hash(&self.read()?)?,
