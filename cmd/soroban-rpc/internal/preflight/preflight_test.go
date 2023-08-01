@@ -325,10 +325,7 @@ func benchmark(b *testing.B, inMemory bool) {
 	}
 }
 
-func BenchmarkGetPreflightInMemory(b *testing.B) {
-	benchmark(b, true)
-}
-
-func BenchmarkGetPreflightInDB(b *testing.B) {
-	benchmark(b, false)
+func BenchmarkGetPreflight(b *testing.B) {
+	b.Run("In-memory storage", func(b *testing.B) { benchmark(b, true) })
+	b.Run("DB storage", func(b *testing.B) { benchmark(b, false) })
 }
