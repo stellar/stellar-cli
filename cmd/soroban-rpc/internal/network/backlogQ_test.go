@@ -37,22 +37,27 @@ func TestBacklogQueueLimiter_HttpNonBlocking(t *testing.T) {
 	requestsSizeLimit := uint64(1000)
 	adding := &TestingHandlerWrapper{f: func(res http.ResponseWriter, req *http.Request) {
 		atomic.AddUint64(&sum, 1)
-		wg.Done()
 	}}
 
-	limiter := MakeHTTPBacklogQueueLimiter(adding, nil, requestsSizeLimit, nil)
+	logCounter := makeTestLogCounter()
+	testGauge := &TestingGauge{}
+	limiter := MakeHTTPBacklogQueueLimiter(adding, testGauge, requestsSizeLimit, logCounter.Entry())
 	for i := 1; i < 50; i++ {
-		n := rand.Int63n(int64(requestsSizeLimit))
+		n := rand.Int63n(int64(requestsSizeLimit)) //nolint:gosec
+		require.Zero(t, int(testGauge.count))
 		wg.Add(int(n))
 		for k := n; k > 0; k-- {
 			go func() {
 				limiter.ServeHTTP(nil, nil)
+				wg.Done()
 			}()
 		}
 		wg.Wait()
 		require.Equal(t, uint64(n), sum)
+		require.Zero(t, int(testGauge.count))
 		sum = 0
 	}
+	require.Equal(t, [7]int{0, 0, 0, 0, 0, 0, 0}, logCounter.writtenLogEntries)
 }
 
 // The goal of the TestBacklogQueueLimiter_HttpNonBlocking is to try
@@ -64,39 +69,28 @@ func TestBacklogQueueLimiter_JrpcNonBlocking(t *testing.T) {
 	requestsSizeLimit := uint64(1000)
 	adding := &TestingJrpcHandlerWrapper{f: func(context.Context, *jrpc2.Request) (interface{}, error) {
 		atomic.AddUint64(&sum, 1)
-		wg.Done()
 		return nil, nil
 	}}
-
-	limiter := MakeJrpcBacklogQueueLimiter(adding, nil, requestsSizeLimit, nil)
+	logCounter := makeTestLogCounter()
+	testGauge := &TestingGauge{}
+	limiter := MakeJrpcBacklogQueueLimiter(adding, testGauge, requestsSizeLimit, logCounter.Entry())
 	for i := 1; i < 50; i++ {
-		n := rand.Int63n(int64(requestsSizeLimit))
+		n := rand.Int63n(int64(requestsSizeLimit)) //nolint:gosec
+		require.Zero(t, int(testGauge.count))
 		wg.Add(int(n))
 		for k := n; k > 0; k-- {
 			go func() {
 				_, err := limiter.Handle(context.Background(), nil)
 				require.Nil(t, err)
+				wg.Done()
 			}()
 		}
 		wg.Wait()
+		require.Zero(t, int(testGauge.count))
 		require.Equal(t, uint64(n), sum)
 		sum = 0
 	}
-}
-
-type TestingResponseWriter struct {
-	statusCode int
-}
-
-func (t *TestingResponseWriter) Header() http.Header {
-	return http.Header{}
-}
-func (t *TestingResponseWriter) Write([]byte) (int, error) {
-	return 0, nil
-}
-
-func (t *TestingResponseWriter) WriteHeader(statusCode int) {
-	t.statusCode = statusCode
+	require.Equal(t, [7]int{0, 0, 0, 0, 0, 0, 0}, logCounter.writtenLogEntries)
 }
 
 // The goal of the TestBacklogQueueLimiter_HttpBlocking is to set
@@ -111,15 +105,19 @@ func TestBacklogQueueLimiter_HttpBlocking(t *testing.T) {
 		blockedHandlers := &TestingHandlerWrapper{f: func(res http.ResponseWriter, req *http.Request) {
 			initialGroupBlocking.Done()
 			<-blockedCh
-			initialGroupBlocking.Done()
 		}}
-		limiter := MakeHTTPBacklogQueueLimiter(blockedHandlers, nil, queueSize, nil)
+		logCounter := makeTestLogCounter()
+		testGauge := &TestingGauge{}
+		limiter := MakeHTTPBacklogQueueLimiter(blockedHandlers, testGauge, queueSize, logCounter.Entry())
 		for i := uint64(0); i < queueSize/2; i++ {
 			go func() {
 				limiter.ServeHTTP(nil, nil)
+				initialGroupBlocking.Done()
 			}()
 		}
+
 		initialGroupBlocking.Wait()
+		require.Equal(t, int(queueSize)/2, int(testGauge.count))
 
 		var secondBlockingGroupWg sync.WaitGroup
 		secondBlockingGroupWg.Add(int(queueSize) - int(queueSize)/2)
@@ -127,25 +125,31 @@ func TestBacklogQueueLimiter_HttpBlocking(t *testing.T) {
 		secondBlockingGroupWgHandlers := &TestingHandlerWrapper{f: func(res http.ResponseWriter, req *http.Request) {
 			secondBlockingGroupWg.Done()
 			<-secondBlockingGroupWgCh
-			secondBlockingGroupWg.Done()
 		}}
 
 		limiter.httpDownstreamHandler = secondBlockingGroupWgHandlers
 		for i := queueSize / 2; i < queueSize; i++ {
 			go func() {
 				limiter.ServeHTTP(nil, nil)
+				secondBlockingGroupWg.Done()
 			}()
 		}
+
 		secondBlockingGroupWg.Wait()
+		require.Equal(t, [7]int{0, 0, 0, 0, 0, 0, 0}, logCounter.writtenLogEntries)
+		require.Equal(t, int(queueSize), int(testGauge.count))
 		// now, try to place additional entry - which should be blocked.
 		var res TestingResponseWriter
 		limiter.ServeHTTP(&res, nil)
 		require.Equal(t, http.StatusServiceUnavailable, res.statusCode)
+		require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
+		require.Equal(t, int(queueSize), int(testGauge.count))
 
 		secondBlockingGroupWg.Add(int(queueSize) - int(queueSize)/2)
 		// unblock the second group.
 		close(secondBlockingGroupWgCh)
 		secondBlockingGroupWg.Wait()
+		require.Equal(t, int(queueSize)/2, int(testGauge.count))
 
 		// see that we have no blocking
 		res = TestingResponseWriter{}
@@ -155,6 +159,8 @@ func TestBacklogQueueLimiter_HttpBlocking(t *testing.T) {
 		initialGroupBlocking.Add(int(queueSize) / 2)
 		close(blockedCh)
 		initialGroupBlocking.Wait()
+		require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
+		require.Zero(t, int(testGauge.count))
 	}
 }
 
@@ -170,17 +176,20 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 		blockedHandlers := &TestingJrpcHandlerWrapper{f: func(context.Context, *jrpc2.Request) (interface{}, error) {
 			initialGroupBlocking.Done()
 			<-blockedCh
-			initialGroupBlocking.Done()
 			return nil, nil
 		}}
-		limiter := MakeJrpcBacklogQueueLimiter(blockedHandlers, nil, queueSize, nil)
+		logCounter := makeTestLogCounter()
+		testGauge := &TestingGauge{}
+		limiter := MakeJrpcBacklogQueueLimiter(blockedHandlers, testGauge, queueSize, logCounter.Entry())
 		for i := uint64(0); i < queueSize/2; i++ {
 			go func() {
 				_, err := limiter.Handle(context.Background(), &jrpc2.Request{})
 				require.Nil(t, err)
+				initialGroupBlocking.Done()
 			}()
 		}
 		initialGroupBlocking.Wait()
+		require.Equal(t, int(queueSize)/2, int(testGauge.count))
 
 		var secondBlockingGroupWg sync.WaitGroup
 		secondBlockingGroupWg.Add(int(queueSize) - int(queueSize)/2)
@@ -188,7 +197,6 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 		secondBlockingGroupWgHandlers := &TestingJrpcHandlerWrapper{f: func(context.Context, *jrpc2.Request) (interface{}, error) {
 			secondBlockingGroupWg.Done()
 			<-secondBlockingGroupWgCh
-			secondBlockingGroupWg.Done()
 			return nil, nil
 		}}
 
@@ -197,18 +205,23 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 			go func() {
 				_, err := limiter.Handle(context.Background(), &jrpc2.Request{})
 				require.Nil(t, err)
+				secondBlockingGroupWg.Done()
 			}()
 		}
 		secondBlockingGroupWg.Wait()
+		require.Equal(t, [7]int{0, 0, 0, 0, 0, 0, 0}, logCounter.writtenLogEntries)
+		require.Equal(t, int(queueSize), int(testGauge.count))
 		// now, try to place additional entry - which should be blocked.
 		var res TestingResponseWriter
 		_, err := limiter.Handle(context.Background(), &jrpc2.Request{})
 		require.NotNil(t, err)
+		require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
 
 		secondBlockingGroupWg.Add(int(queueSize) - int(queueSize)/2)
 		// unblock the second group.
 		close(secondBlockingGroupWgCh)
 		secondBlockingGroupWg.Wait()
+		require.Equal(t, int(queueSize)/2, int(testGauge.count))
 
 		// see that we have no blocking
 		res = TestingResponseWriter{}
@@ -218,5 +231,7 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 		initialGroupBlocking.Add(int(queueSize) / 2)
 		close(blockedCh)
 		initialGroupBlocking.Wait()
+		require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
+		require.Zero(t, int(testGauge.count))
 	}
 }

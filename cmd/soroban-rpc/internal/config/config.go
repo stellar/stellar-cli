@@ -48,6 +48,16 @@ type Config struct {
 	RequestBacklogGetTransactionQueueLimit      uint
 	RequestBacklogSendTransactionQueueLimit     uint
 	RequestBacklogSimulateTransactionQueueLimit uint
+	RequestExecutionWarningThreshold            time.Duration
+	MaxRequestExecutionDuration                 time.Duration
+	MaxGetHealthExecutionDuration               time.Duration
+	MaxGetEventsExecutionDuration               time.Duration
+	MaxGetNetworkExecutionDuration              time.Duration
+	MaxGetLatestLedgerExecutionDuration         time.Duration
+	MaxGetLedgerEntriesExecutionDuration        time.Duration
+	MaxGetTransactionExecutionDuration          time.Duration
+	MaxSendTransactionExecutionDuration         time.Duration
+	MaxSimulateTransactionExecutionDuration     time.Duration
 
 	// We memoize these, so they bind to pflags correctly
 	optionsCache *ConfigOptions
@@ -122,7 +132,7 @@ func (cfg *Config) loadEnv(lookupEnv func(string) (string, bool)) error {
 // loadFlags populates the config with values from the cli flags
 func (cfg *Config) loadFlags() error {
 	for _, option := range cfg.options() {
-		if !option.flag.Changed {
+		if option.flag == nil || !option.flag.Changed {
 			continue
 		}
 		val, err := option.GetFlag(cfg.flagset)

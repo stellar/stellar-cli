@@ -105,8 +105,12 @@ func (i *Test) waitForCheckpoint() {
 func (i *Test) launchDaemon(coreBinaryPath string) {
 	var config config.Config
 	cmd := &cobra.Command{}
-	config.AddFlags(cmd)
-	config.SetValues(func(string) (string, bool) { return "", false })
+	if err := config.AddFlags(cmd); err != nil {
+		i.t.FailNow()
+	}
+	if err := config.SetValues(func(string) (string, bool) { return "", false }); err != nil {
+		i.t.FailNow()
+	}
 
 	config.Endpoint = fmt.Sprintf("localhost:%d", sorobanRPCPort)
 	config.AdminEndpoint = fmt.Sprintf("localhost:%d", adminPort)

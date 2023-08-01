@@ -23,6 +23,10 @@ func (cfg *Config) AddFlags(cmd *cobra.Command) error {
 
 // AddFlag adds a CLI flag for this option to the given flagset.
 func (co *ConfigOption) AddFlag(flagset *pflag.FlagSet) error {
+	// config options that has no names do not represent a valid flag.
+	if len(co.Name) == 0 {
+		return nil
+	}
 	// Treat any option with a custom parser as a string option.
 	if co.CustomSetValue != nil {
 		if co.DefaultValue == nil {
