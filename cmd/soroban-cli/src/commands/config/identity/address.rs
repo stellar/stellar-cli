@@ -36,14 +36,11 @@ impl Cmd {
     }
 
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        let res = if let Some(name) = &self.name {
+        Ok(if let Some(name) = &self.name {
             self.locator.read_identity(name)?
         } else {
             Secret::test_seed_phrase()?
-        };
-        let key = res.key_pair(self.hd_path)?;
-        Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-            key.public.as_bytes(),
-        )?)
+        }
+        .public_key(self.hd_path)?)
     }
 }
