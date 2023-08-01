@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use clap::{arg, Parser};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use stellar_strkey::ed25519::PublicKey;
 
 use crate::{commands::HEADING_RPC, rpc};
@@ -42,6 +43,12 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
+    #[error("Failed to parse JSON from {0}, {1}")]
+    FailedToParseJSON(String, serde_json::Error),
+    #[error("Invalid URL {0}")]
+    InvalidUrl(String),
+    #[error("Inproper response {0}")]
+    InproperResponse(String),
 }
 
 impl Cmd {
@@ -143,32 +150,48 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn helper_url(&self, addr: &str) -> String {
-        let authority = self.helper_url.clone().unwrap_or_else(|| {
-            http::Uri::from_str(&self.rpc_url)
-                .expect("Invalid URI")
-                .into_parts()
-                .authority
-                .unwrap()
-                .to_string()
-        });
-        tracing::trace!("helper url authority {:?}", authority);
-        http::Uri::builder()
-            .scheme("http")
-            .authority(authority)
-            .path_and_query(format!("/friendbot?addr={addr}"))
-            .build()
-            .expect("Invalid URI")
-            .to_string()
+    pub fn helper_url(&self, addr: &str) -> Result<http::Uri, Error> {
+        tracing::debug!("address {addr:?}");
+        let (url_root, path) = if let Some(helper_url) = &self.helper_url {
+            (helper_url, "")
+        } else {
+            (&self.rpc_url, "/friendbot")
+        };
+        tracing::debug!("helper url {url_root:?}\npath: {path:?}");
+        let uri =
+            http::Uri::from_str(url_root).map_err(|_| Error::InvalidUrl(url_root.to_string()))?;
+        http::Uri::from_str(&format!("{uri:?}?addr={addr}"))
+            .map_err(|_| Error::InvalidUrl(url_root.to_string()))
     }
 
+    #[allow(clippy::similar_names)]
     pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
-        let url = self.helper_url(&addr.to_string());
-        let client = hyper::Client::new();
-        let url = url.parse().map_err(|_| rpc::Error::InvalidUrl(url.to_owned()))?;
-        tracing::debug!("URL {:?}", url);
-        let response = client.get(url).await?;
-        tracing::debug!("{:?}", response);
+        let uri = self.helper_url(&addr.to_string())?;
+        tracing::debug!("URL {uri:?}");
+        let response = match uri.scheme_str() {
+            Some("http") => hyper::Client::new().get(uri.clone()).await?,
+            Some("https") => {
+                let https = hyper_tls::HttpsConnector::new();
+                hyper::Client::builder()
+                    .build::<_, hyper::Body>(https)
+                    .get(uri.clone())
+                    .await?
+            }
+            _ => {
+                return Err(Error::InvalidUrl(uri.to_string()));
+            }
+        };
+        let body = hyper::body::to_bytes(response.into_body()).await?;
+        let res = serde_json::from_slice::<serde_json::Value>(&body)
+            .map_err(|e| Error::FailedToParseJSON(uri.to_string(), e))?;
+        tracing::debug!("{res:#?}");
+        if let Some(detail) = res.get("detail").and_then(Value::as_str) {
+            if detail.contains("createAccountAlreadyExist") {
+                tracing::warn!("Account already exists");
+            }
+        } else if res.get("successful").is_none() {
+            return Err(Error::InproperResponse(res.to_string()));
+        }
         Ok(())
     }
 }
