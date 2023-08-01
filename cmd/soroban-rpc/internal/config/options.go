@@ -12,6 +12,7 @@ import (
 
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/support/strutils"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
@@ -272,67 +273,127 @@ func (cfg *Config) options() ConfigOptions {
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-global-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-global-queue-limit"),
 			Usage:        "Maximum number of outstanding requests",
 			ConfigKey:    &cfg.RequestBacklogGlobalQueueLimit,
-			DefaultValue: uint(1000),
+			DefaultValue: uint(5000),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-get-health-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-get-health-queue-limit"),
 			Usage:        "Maximum number of outstanding GetHealth requests",
 			ConfigKey:    &cfg.RequestBacklogGetHealthQueueLimit,
 			DefaultValue: uint(1000),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-get-events-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-get-events-queue-limit"),
 			Usage:        "Maximum number of outstanding GetEvents requests",
 			ConfigKey:    &cfg.RequestBacklogGetEventsQueueLimit,
 			DefaultValue: uint(1000),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-get-network-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-get-network-queue-limit"),
 			Usage:        "Maximum number of outstanding GetNetwork requests",
 			ConfigKey:    &cfg.RequestBacklogGetNetworkQueueLimit,
 			DefaultValue: uint(1000),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-get-latest-ledger-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-get-latest-ledger-queue-limit"),
 			Usage:        "Maximum number of outstanding GetLatestsLedger requests",
 			ConfigKey:    &cfg.RequestBacklogGetLatestLedgerQueueLimit,
 			DefaultValue: uint(1000),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-get-ledger-entries-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-get-ledger-entries-queue-limit"),
 			Usage:        "Maximum number of outstanding GetLedgerEntries requests",
 			ConfigKey:    &cfg.RequestBacklogGetLedgerEntriesQueueLimit,
 			DefaultValue: uint(1000),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-get-transaction-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-get-transaction-queue-limit"),
 			Usage:        "Maximum number of outstanding GetTransaction requests",
 			ConfigKey:    &cfg.RequestBacklogGetTransactionQueueLimit,
 			DefaultValue: uint(1000),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-send-transaction-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-send-transaction-queue-limit"),
 			Usage:        "Maximum number of outstanding SendTransaction requests",
 			ConfigKey:    &cfg.RequestBacklogSendTransactionQueueLimit,
 			DefaultValue: uint(500),
 			Validate:     positive,
 		},
 		{
-			Name:         "request-backlog-simulate-transaction-queue-limit",
+			TomlKey:      strutils.KebabToConstantCase("request-backlog-simulate-transaction-queue-limit"),
 			Usage:        "Maximum number of outstanding SimulateTransaction requests",
 			ConfigKey:    &cfg.RequestBacklogSimulateTransactionQueueLimit,
 			DefaultValue: uint(100),
 			Validate:     positive,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("request-execution-warning-threshold"),
+			Usage:        "The request execution warning threshold is the predetermined maximum duration of time that a request can take to be processed before a warning would be generated",
+			ConfigKey:    &cfg.RequestExecutionWarningThreshold,
+			DefaultValue: 5 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-request-execution-duration"),
+			Usage:        "The max request execution duration is the predefined maximum duration of time allowed for processing a request. When that time elapses, the server would return 504 and abort the request's execution",
+			ConfigKey:    &cfg.MaxRequestExecutionDuration,
+			DefaultValue: 25 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-get-health-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a getHealth request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxGetHealthExecutionDuration,
+			DefaultValue: 5 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-get_events-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a getEvents request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxGetEventsExecutionDuration,
+			DefaultValue: 10 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-get-network-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a getNetwork request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxGetNetworkExecutionDuration,
+			DefaultValue: 5 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-get-latest-ledger-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a getLatestLedger request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxGetLatestLedgerExecutionDuration,
+			DefaultValue: 5 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-get_ledger-entries-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a getLedgerEntries request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxGetLedgerEntriesExecutionDuration,
+			DefaultValue: 5 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-get-transaction-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a getTransaction request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxGetTransactionExecutionDuration,
+			DefaultValue: 5 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-send-transaction-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a sendTransaction request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxSendTransactionExecutionDuration,
+			DefaultValue: 15 * time.Second,
+		},
+		{
+			TomlKey:      strutils.KebabToConstantCase("max-simulate-transaction-execution-duration"),
+			Usage:        "The maximum duration of time allowed for processing a simulateTransaction request. When that time elapses, the rpc server would return -32001 and abort the request's execution",
+			ConfigKey:    &cfg.MaxSimulateTransactionExecutionDuration,
+			DefaultValue: 15 * time.Second,
 		},
 	}
 	return *cfg.optionsCache
