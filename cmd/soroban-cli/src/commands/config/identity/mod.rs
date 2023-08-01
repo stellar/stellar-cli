@@ -2,6 +2,7 @@ use clap::Parser;
 
 pub mod add;
 pub mod address;
+pub mod fund;
 pub mod generate;
 pub mod ls;
 pub mod rm;
@@ -13,6 +14,8 @@ pub enum Cmd {
     Add(add::Cmd),
     /// Given an identity return its address (public key)
     Address(address::Cmd),
+    /// Fund an identity on a test network
+    Fund(fund::Cmd),
     /// Generate a new identity with a seed phrase, currently 12 words
     Generate(generate::Cmd),
     /// List identities
@@ -30,6 +33,8 @@ pub enum Error {
 
     #[error(transparent)]
     Address(#[from] address::Error),
+    #[error(transparent)]
+    Fund(#[from] fund::Error),
 
     #[error(transparent)]
     Generate(#[from] generate::Error),
@@ -43,11 +48,12 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Address(cmd) => cmd.run()?,
-            Cmd::Generate(cmd) => cmd.run()?,
+            Cmd::Fund(cmd) => cmd.run().await?,
+            Cmd::Generate(cmd) => cmd.run().await?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Rm(cmd) => cmd.run()?,
             Cmd::Show(cmd) => cmd.run()?,

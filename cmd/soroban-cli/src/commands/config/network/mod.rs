@@ -2,8 +2,9 @@ use std::str::FromStr;
 
 use clap::{arg, Parser};
 use serde::{Deserialize, Serialize};
+use stellar_strkey::ed25519::PublicKey;
 
-use crate::commands::HEADING_RPC;
+use crate::{commands::HEADING_RPC, rpc};
 
 use super::locator;
 
@@ -37,6 +38,10 @@ pub enum Error {
 
     #[error("network arg or rpc url  and network passphrase are required if using the network")]
     Network,
+    #[error(transparent)]
+    Rpc(#[from] rpc::Error),
+    #[error(transparent)]
+    Hyper(#[from] hyper::Error),
 }
 
 impl Cmd {
@@ -155,6 +160,16 @@ impl Network {
             .build()
             .expect("Invalid URI")
             .to_string()
+    }
+
+    pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
+        let url = self.helper_url(&addr.to_string());
+        let client = hyper::Client::new();
+        let url = url.parse().map_err(|_| rpc::Error::InvalidUrl(url.to_owned()))?;
+        tracing::debug!("URL {:?}", url);
+        let response = client.get(url).await?;
+        tracing::debug!("{:?}", response);
+        Ok(())
     }
 }
 
