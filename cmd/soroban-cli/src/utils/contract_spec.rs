@@ -95,9 +95,7 @@ impl ContractSpec {
         let spec = self
             .spec
             .iter()
-            .map(|e| {
-                Ok(format!("\"{}\"", e.to_xdr_base64()?))
-            })
+            .map(|e| Ok(format!("\"{}\"", e.to_xdr_base64()?)))
             .collect::<Result<Vec<_>, Error>>()?
             .join(",\n");
         Ok(format!("[{spec}]"))

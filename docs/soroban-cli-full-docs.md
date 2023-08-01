@@ -291,6 +291,18 @@ Inspect a WASM file listing contract functions, meta, etc
 ###### **Options:**
 
 * `--wasm <WASM>` — Path to wasm binary
+* `--output <OUTPUT>` — Output just XDR in base64
+
+  Default value: `docs`
+
+  Possible values:
+  - `xdr-base64`:
+    XDR of array of contract spec entries
+  - `xdr-base64-array`:
+    Array of xdr of contract spec entries
+  - `docs`:
+    Pretty print of contract spec entries
+
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
 
