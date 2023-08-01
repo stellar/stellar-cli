@@ -93,8 +93,6 @@ pub enum Error {
     Spec(#[from] soroban_spec::read::FromWasmError),
     #[error(transparent)]
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
-    #[error(transparent)]
-    Hyper(#[from] hyper::Error),
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -947,13 +945,4 @@ mod tests {
             }
         }
     }
-}
-
-pub async fn fund_address(url: &str) -> Result<(), Error> {
-    let client = hyper::Client::new();
-    let url = url.parse().map_err(|_| Error::InvalidUrl(url.to_owned()))?;
-    tracing::debug!("URL {:?}", url);
-    let response = client.get(url).await?;
-    tracing::debug!("{:?}", response);
-    Ok(())
 }

@@ -1,7 +1,7 @@
 use clap::arg;
 use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
-use stellar_strkey::ed25519::PrivateKey;
+use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::utils;
 
@@ -100,6 +100,13 @@ impl Secret {
                 .from_path_index(index.unwrap_or_default(), None)?
                 .private(),
         })
+    }
+
+    pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
+        let key = self.key_pair(index)?;
+        Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+            key.public.as_bytes(),
+        )?)
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::Keypair, Error> {
