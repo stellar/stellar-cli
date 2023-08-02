@@ -89,7 +89,6 @@ fn invoke_hello_world() {
         .success();
 }
 
-
 #[test]
 fn invoke_hello_world_from_file() {
     let sandbox = TestEnv::default();

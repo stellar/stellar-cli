@@ -59,7 +59,6 @@ fn multi_arg_success() {
         .stdout("42\n");
 }
 
-
 #[test]
 fn bytes_as_file() {
     let env = &TestEnv::default();
