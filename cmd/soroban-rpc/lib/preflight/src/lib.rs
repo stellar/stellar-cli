@@ -153,19 +153,25 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 fn get_budget_from_network_config_params(
     ledger_storage: &LedgerStorage,
 ) -> Result<Budget, Box<dyn error::Error>> {
-    let ConfigSettingEntry::ContractComputeV0(compute) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)? else {
+    let ConfigSettingEntry::ContractComputeV0(compute) =
+        ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
+    else {
         return Err(
             "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage.get_configuration_setting( ConfigSettingId::ContractCostParamsCpuInstructions)? else {
+    let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage
+        .get_configuration_setting(ConfigSettingId::ContractCostParamsCpuInstructions)?
+    else {
         return Err(
             "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
         );
     };
 
-    let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) = ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)? else {
+    let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) =
+        ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)?
+    else {
         return Err(
             "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
         );

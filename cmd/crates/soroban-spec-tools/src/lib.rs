@@ -645,7 +645,7 @@ impl Spec {
                 };
 
                 let ScVal::Symbol(case_name) = first else {
-                     return Err(Error::EnumFirstValueNotSymbol)
+                    return Err(Error::EnumFirstValueNotSymbol);
                 };
                 let case = union
                     .cases
