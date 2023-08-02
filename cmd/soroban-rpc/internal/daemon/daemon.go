@@ -98,13 +98,14 @@ func (d *Daemon) Close() error {
 
 // newCaptiveCore creates a new captive core backend instance and returns it.
 func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbackend.CaptiveStellarCore, error) {
-	httpPortUint := uint(cfg.CaptiveCoreHTTPPort)
-	var captiveCoreTomlParams ledgerbackend.CaptiveCoreTomlParams
-	captiveCoreTomlParams.HTTPPort = &httpPortUint
-	captiveCoreTomlParams.HistoryArchiveURLs = cfg.HistoryArchiveURLs
-	captiveCoreTomlParams.NetworkPassphrase = cfg.NetworkPassphrase
-	captiveCoreTomlParams.Strict = true
-	captiveCoreTomlParams.UseDB = cfg.CaptiveCoreUseDB
+	captiveCoreTomlParams := ledgerbackend.CaptiveCoreTomlParams{
+		HTTPPort:                       &cfg.CaptiveCoreHTTPPort,
+		HistoryArchiveURLs:             cfg.HistoryArchiveURLs,
+		NetworkPassphrase:              cfg.NetworkPassphrase,
+		Strict:                         true,
+		UseDB:                          cfg.CaptiveCoreUseDB,
+		EnforceSorobanDiagnosticEvents: true,
+	}
 	captiveCoreToml, err := ledgerbackend.NewCaptiveCoreTomlFromFile(cfg.CaptiveCoreConfigPath, captiveCoreTomlParams)
 	if err != nil {
 		logger.WithError(err).Fatal("Invalid captive core toml")

@@ -6,8 +6,9 @@ use std::{
 };
 
 use stellar_xdr::{
-    ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0, ScSpecUdtEnumV0,
-    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM,
+    DepthLimitedRead, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
+    ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
+    StringM,
 };
 
 pub struct ContractSpec {
@@ -59,8 +60,9 @@ impl ContractSpec {
         let mut env_meta_base64 = None;
         let env_meta = if let Some(env_meta) = env_meta {
             env_meta_base64 = Some(base64::encode(env_meta));
-            let mut cursor = Cursor::new(env_meta);
-            ScEnvMetaEntry::read_xdr_iter(&mut cursor)
+            let cursor = Cursor::new(env_meta);
+            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
+            ScEnvMetaEntry::read_xdr_iter(&mut depth_limit_read)
                 .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
@@ -69,8 +71,9 @@ impl ContractSpec {
         let mut meta_base64 = None;
         let meta = if let Some(meta) = meta {
             meta_base64 = Some(base64::encode(meta));
-            let mut cursor = Cursor::new(meta);
-            ScMetaEntry::read_xdr_iter(&mut cursor)
+            let cursor = Cursor::new(meta);
+            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
+            ScMetaEntry::read_xdr_iter(&mut depth_limit_read)
                 .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
@@ -79,8 +82,9 @@ impl ContractSpec {
         let mut spec_base64 = None;
         let spec = if let Some(spec) = spec {
             spec_base64 = Some(base64::encode(spec));
-            let mut cursor = Cursor::new(spec);
-            ScSpecEntry::read_xdr_iter(&mut cursor)
+            let cursor = Cursor::new(spec);
+            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
+            ScSpecEntry::read_xdr_iter(&mut depth_limit_read)
                 .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]

@@ -8,12 +8,11 @@ import (
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/jhttp"
+	"github.com/stellar/go/txnbuild"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/go/keypair"
-	proto "github.com/stellar/go/protocols/stellarcore"
-	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
@@ -91,19 +90,8 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	})
 	tx, err := txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
-	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
-	assert.NoError(t, err)
-	b64, err := tx.Base64()
-	assert.NoError(t, err)
 
-	sendTxRequest := methods.SendTransactionRequest{Transaction: b64}
-	var sendTxResponse methods.SendTransactionResponse
-	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, proto.TXStatusPending, sendTxResponse.Status)
-
-	txStatusResponse := getTransaction(t, client, sendTxResponse.Hash)
-	assert.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
+	sendSuccessfulTransaction(t, client, kp, tx)
 
 	contractHash := sha256.Sum256(testContract)
 	keyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
