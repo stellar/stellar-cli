@@ -401,8 +401,34 @@ fn boolean() {
         );
 }
 #[test]
+fn boolean_two() {
+    invoke(&TestEnv::default(), "boolean")
+        .arg("--boolean")
+        .arg("true")
+        .assert()
+        .success()
+        .stdout(
+            r#"true
+"#,
+        );
+}
+
+#[test]
 fn boolean_no_flag() {
     invoke(&TestEnv::default(), "boolean")
+        .assert()
+        .success()
+        .stdout(
+            r#"false
+"#,
+        );
+}
+
+#[test]
+fn boolean_false() {
+    invoke(&TestEnv::default(), "boolean")
+        .arg("--boolean")
+        .arg("false")
         .assert()
         .success()
         .stdout(
