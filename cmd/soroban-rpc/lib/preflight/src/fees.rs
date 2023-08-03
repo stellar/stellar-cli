@@ -1,7 +1,8 @@
 use ledger_storage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::fees::{
-    compute_transaction_resource_fee, FeeConfiguration, TransactionResources,
+    compute_transaction_resource_fee, compute_write_fee_per_1kb, FeeConfiguration,
+    TransactionResources, WriteFeeConfiguration,
 };
 use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
 use soroban_env_host::xdr;
@@ -22,10 +23,15 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
+    bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    let soroban_resources =
-        calculate_host_function_soroban_resources(snapshot_source, storage, budget, events)?;
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let soroban_resources = hack_soroban_resources(calculate_host_function_soroban_resources(
+        snapshot_source,
+        storage,
+        budget,
+        events,
+    )?);
+    let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
 
@@ -44,7 +50,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
         )?,
     };
     let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+        compute_transaction_resource_fee_wrapper(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
         refundable_fee: ref_fee,
@@ -130,8 +136,8 @@ fn calculate_host_function_soroban_resources(
 
     // Add a 15% leeway with a minimum of 50k instructions
     let instructions = max(
-        budget.get_cpu_insns_consumed() + 50000,
-        budget.get_cpu_insns_consumed() * 115 / 100,
+        budget.get_cpu_insns_consumed()? + 50000,
+        budget.get_cpu_insns_consumed()? * 115 / 100,
     );
     Ok(SorobanResources {
         footprint: fp,
@@ -144,6 +150,7 @@ fn calculate_host_function_soroban_resources(
 
 fn get_fee_configuration(
     ledger_storage: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<FeeConfiguration, Box<dyn error::Error>> {
     // TODO: to improve the performance of this function (which is invoked every single preflight call) we can
     //       1. modify ledger_storage.get() so that it can gather multiple entries at once
@@ -192,13 +199,23 @@ fn get_fee_configuration(
         );
     };
 
+    let write_fee_configuration = WriteFeeConfiguration {
+        bucket_list_target_size_bytes: ledger_cost.bucket_list_target_size_bytes,
+        write_fee_1kb_bucket_list_low: ledger_cost.write_fee1_kb_bucket_list_low,
+        write_fee_1kb_bucket_list_high: ledger_cost.write_fee1_kb_bucket_list_high,
+        bucket_list_write_fee_growth_factor: ledger_cost.bucket_list_write_fee_growth_factor,
+    };
+
     // Taken from Stellar Core's InitialSorobanNetworkConfig in NetworkConfig.h
     let fee_configuration = FeeConfiguration {
         fee_per_instruction_increment: compute.fee_rate_per_instructions_increment,
         fee_per_read_entry: ledger_cost.fee_read_ledger_entry,
         fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
         fee_per_read_1kb: ledger_cost.fee_read1_kb,
-        fee_per_write_1kb: ledger_cost.fee_write1_kb,
+        fee_per_write_1kb: compute_write_fee_per_1kb(
+            bucket_list_size as i64,
+            &write_fee_configuration,
+        ),
         fee_per_historical_1kb: historical_data.fee_historical1_kb,
         fee_per_metadata_1kb: metadata.fee_extended_meta_data1_kb,
         fee_per_propagate_1kb: bandwidth.fee_propagate_data1_kb,
@@ -285,19 +302,20 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     ledgers_to_expire: u32,
     snapshot_source: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let read_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
         snapshot_source,
         false,
     )?;
-    let soroban_resources = SorobanResources {
+    let soroban_resources = hack_soroban_resources(SorobanResources {
         footprint,
         instructions: 0,
         read_bytes,
         write_bytes: 0,
         extended_meta_data_size_bytes: 2 * read_bytes,
-    };
+    });
     let transaction_resources = TransactionResources {
         instructions: 0,
         read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?,
@@ -313,9 +331,9 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
             &soroban_resources.footprint,
         )?,
     };
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
     let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+        compute_transaction_resource_fee_wrapper(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
         refundable_fee: ref_fee,
@@ -327,13 +345,14 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
 pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     snapshot_source: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         snapshot_source,
         true,
     )?;
-    let soroban_resources = SorobanResources {
+    let soroban_resources = hack_soroban_resources(SorobanResources {
         footprint,
         instructions: 0,
         // FIXME(fons): this seems to be a workaround a bug in code (the fix is to also count bytes read but not written in readBytes).
@@ -341,7 +360,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         read_bytes: write_bytes,
         write_bytes,
         extended_meta_data_size_bytes: 2 * write_bytes,
-    };
+    });
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_resources = TransactionResources {
         instructions: 0,
@@ -357,13 +376,40 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
             &soroban_resources.footprint,
         )?,
     };
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let fee_configuration = get_fee_configuration(snapshot_source, bucket_list_size)?;
     let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
+        compute_transaction_resource_fee_wrapper(&transaction_resources, &fee_configuration);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
         refundable_fee: ref_fee,
         ext: ExtensionPoint::V0,
     };
     Ok((transaction_data, min_fee))
+}
+
+fn hack_soroban_resources(resources: SorobanResources) -> SorobanResources {
+    // FIXME: Hack suggested by the core team until they include expiration ledger bumps
+    return SorobanResources {
+        footprint: resources.footprint,
+        instructions: resources.instructions,
+        read_bytes: max(
+            resources.read_bytes + 1000,
+            resources.read_bytes * 120 / 100,
+        ),
+        write_bytes: resources.write_bytes,
+        extended_meta_data_size_bytes: max(
+            resources.extended_meta_data_size_bytes + 1000,
+            resources.extended_meta_data_size_bytes * 120 / 100,
+        ),
+    };
+}
+
+fn compute_transaction_resource_fee_wrapper(
+    tx_resources: &TransactionResources,
+    fee_config: &FeeConfiguration,
+) -> (i64, i64) {
+    let (min_fee, ref_fee) = compute_transaction_resource_fee(tx_resources, fee_config);
+    // FIXME: Hack suggested by the core team, until we compute rent fees properly
+    //        and include expiration ledger bumps
+    return (min_fee + 10000 + 10000, ref_fee + 10000);
 }
