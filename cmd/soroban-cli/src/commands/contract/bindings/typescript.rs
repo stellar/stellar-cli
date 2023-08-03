@@ -3,17 +3,22 @@ use std::{fmt::Debug, path::PathBuf};
 use clap::{command, Parser};
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 
-use crate::commands::config::{
-    locator,
-    network::{self, Network},
-};
+use crate::{commands::{
+    config::{
+        locator,
+        network::{self, Network},
+        ledger_file,
+    },
+    contract::{self, fetch},
+}, utils::contract_spec::{ContractSpec, self}};
 use crate::wasm;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    #[command(flatten)]
-    wasm: wasm::Args,
+    /// Path to optional wasm binary
+    #[arg(long)]
+    pub wasm: Option<std::path::PathBuf>,
 
     /// where to place generated project
     #[arg(long)]
@@ -47,11 +52,28 @@ pub enum Error {
 
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
+    #[error(transparent)]
+    Spec(#[from] contract_spec::Error),
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        let spec = self.wasm.parse().unwrap().spec;
+    pub async fn run(&self) -> Result<(), Error> {
+        let spec = if let Some(wasm) = &self.wasm {
+            let wasm: wasm::Args = wasm.into();
+            wasm.parse().unwrap().spec
+        } else {
+            let fetch = contract::fetch::Cmd {
+                contract_id: self.contract_id.clone(),
+                out_file: None,
+                locator: self.locator.clone(),
+                network: self.network.clone(),
+                ledger_file: ledger_file::Args::default(),
+            };
+            let bytes = fetch.get_bytes().await?;
+            ContractSpec::new(&bytes)?.spec
+        };
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));
         }

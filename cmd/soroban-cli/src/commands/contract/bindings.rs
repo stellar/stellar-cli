@@ -27,11 +27,11 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         match &self {
             Cmd::Json(json) => json.run()?,
             Cmd::Rust(rust) => rust.run()?,
-            Cmd::Typescript(ts) => ts.run()?,
+            Cmd::Typescript(ts) => ts.run().await?,
         }
         Ok(())
     }
