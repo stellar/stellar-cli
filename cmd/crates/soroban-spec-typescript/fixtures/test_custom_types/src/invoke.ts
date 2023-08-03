@@ -1,38 +1,20 @@
-import freighter from "@stellar/freighter-api";
-// working around ESM compatibility issues
-const {
-  isConnected,
-  isAllowed,
-  getUserInfo,
-  signTransaction,
-} = freighter;
 import * as SorobanClient from 'soroban-client'
 import type { Account, Memo, MemoType, Operation, Transaction } from 'soroban-client';
 import { NETWORK_PASSPHRASE, CONTRACT_ID } from './constants.js'
 import { Server } from './server.js'
+import type { Options, ResponseTypes, Wallet } from './method-options.js'
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>
-
-export type Simulation = NonNullable<SorobanClient.SorobanRpc.SimulateTransactionResponse['results']>[0]
-
-export type TxResponse = SorobanClient.SorobanRpc.GetTransactionResponse;
-
-export type InvokeArgs = {
-  method: string
-  args?: any[]
-  signAndSend?: boolean
-  fee?: number
-}
 
 /**
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
  */
-async function getAccount(): Promise<Account | null> {
-  if (!await isConnected() || !await isAllowed()) {
+async function getAccount(wallet: Wallet): Promise<Account | null> {
+  if (!await wallet.isConnected() || !await wallet.isAllowed()) {
     return null
   }
-  const { publicKey } = await getUserInfo()
+  const { publicKey } = await wallet.getUserInfo()
   if (!publicKey) {
     return null
   }
@@ -41,22 +23,42 @@ async function getAccount(): Promise<Account | null> {
 
 export class NotImplementedError extends Error { }
 
+type Simulation = SorobanClient.SorobanRpc.SimulateTransactionResponse
+type SendTx = SorobanClient.SorobanRpc.SendTransactionResponse
+type GetTx = SorobanClient.SorobanRpc.GetTransactionResponse
+
+// defined this way so typeahead shows full union, not named alias
+let someRpcResponse: Simulation | SendTx | GetTx
+type SomeRpcResponse = typeof someRpcResponse
+
+type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
+  method: string,
+  args?: any[],
+  parseResultXdr?: (xdr: string) => T,
+}
+
 /**
  * Invoke a method on the test_custom_types contract.
  *
  * Uses Freighter to determine the current user and if necessary sign the transaction.
  *
- * @param {string} obj.method - The method to invoke.
- * @param {any[]} obj.args - The arguments to pass to the method.
- * @param {boolean} obj.signAndSend - Whether to sign and send the transaction, or just simulate it. Unless the method requires authentication.
- * @param {number} obj.fee - The fee to pay for the transaction.
- * @returns The transaction response, or the simulation result if signing isn't required.
+ * @returns {T}, by default, the parsed XDR from either the simulation or the full transaction. If `simulateOnly` or `fullRpcResponse` are true, returns either the full simulation or the result of sending/getting the transaction to/from the ledger.
  */
-export async function invoke({ method, args = [], fee = 100, signAndSend = false }: InvokeArgs): Promise<(TxResponse & { xdr: string }) | Simulation> {
-  const freighterAccount = await getAccount()
+export async function invoke<R extends ResponseTypes = undefined, T = string>(args: InvokeArgs<R, T>): Promise<R extends undefined ? T : R extends "simulated" ? Simulation : R extends "full" ? SomeRpcResponse : T>;
+export async function invoke<R extends ResponseTypes, T = string>({
+  method,
+  args = [],
+  fee = 100,
+  responseType,
+  parseResultXdr,
+  secondsToWait = 10,
+  wallet,
+}: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
+  wallet = wallet ?? await import('@stellar/freighter-api')
+  const walletAccount = await getAccount(wallet)
 
-  // use a placeholder account if not yet connected to Freighter so that view calls can still work
-  const account = freighterAccount ?? new SorobanClient.Account('GBZXP4PWQLOTBL3P6OE6DQ7QXNYDAZMWQG27V7ATM7P3TKSRDLQS4V7Q', '0')
+  // use a placeholder null account if not yet connected to Freighter so that view calls can still work
+  const account = walletAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0')
 
   const contract = new SorobanClient.Contract(CONTRACT_ID)
 
@@ -70,7 +72,21 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
 
   const simulated = await Server.simulateTransaction(tx)
 
-  if (!signAndSend) {
+  if (responseType === 'simulated') return simulated
+
+  // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
+  const auths = simulated.results?.[0]?.auth
+  let authsCount = auths?.length ?? 0;
+
+  const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length
+
+  const parse = parseResultXdr ?? (xdr => xdr)
+
+  const isViewCall = authsCount === 0 && writeLength === 0
+
+  if (isViewCall) {
+    if (responseType === 'full') return simulated
+
     const { results } = simulated
     if (!results || results[0] === undefined) {
       if (simulated.error) {
@@ -78,20 +94,13 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
       }
       throw new Error(`Invalid response from simulateTransaction:\n{simulated}`)
     }
-    return results[0]
+    return parse(results[0].xdr)
   }
 
-  if (!freighterAccount) {
-    throw new Error('Not connected to Freighter')
-  }
-
-  // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
-  const auths = simulated.results?.[0]?.auth
-  let auth_len =  auths?.length ?? 0;
-
-  if (auth_len > 1) {
+  if (authsCount > 1) {
     throw new NotImplementedError("Multiple auths not yet supported")
-  } else if (auth_len == 1) {
+  }
+  if (authsCount === 1) {
     // TODO: figure out how to fix with new SorobanClient
     // const auth = SorobanClient.xdr.SorobanAuthorizationEntry.fromXDR(auths![0]!, 'base64')
     // if (auth.addressWithNonce() !== undefined) {
@@ -102,16 +111,29 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
     // }
   }
 
+  if (!walletAccount) {
+    throw new Error('Not connected to Freighter')
+  }
+
   tx = await signTx(
+    wallet,
     SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
   );
 
-  const raw = await sendTx(tx);
-  return {
-    ...raw,
-    xdr: raw.resultXdr!,
-  };
+  const raw = await sendTx(tx, secondsToWait);
 
+  if (responseType === 'full') return raw
+
+  // if `sendTx` awaited the inclusion of the tx in the ledger, it used
+  // `getTransaction`, which has a `resultXdr` field
+  if ('resultXdr' in raw) return parse(raw.resultXdr)
+
+  // otherwise, it returned the result of `sendTransaction`
+  if ('errorResultXdr' in raw) return parse(raw.errorResultXdr)
+
+  // if neither of these are present, something went wrong
+  console.error("Don't know how to parse result! Returning full RPC response.")
+  return raw
 }
 
 /**
@@ -122,8 +144,8 @@ export async function invoke({ method, args = [], fee = 100, signAndSend = false
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-export async function signTx(tx: Tx): Promise<Tx> {
-  const signed = await signTransaction(tx.toXDR(), {
+export async function signTx(wallet: Wallet, tx: Tx): Promise<Tx> {
+  const signed = await wallet.signTransaction(tx.toXDR(), {
     networkPassphrase: NETWORK_PASSPHRASE,
   })
 
@@ -143,8 +165,13 @@ export async function signTx(tx: Tx): Promise<Tx> {
  * function for its timeout/`secondsToWait` logic, rather than implementing
  * your own.
  */
-export async function sendTx(tx: Tx, secondsToWait = 10): Promise<TxResponse> {
+export async function sendTx(tx: Tx, secondsToWait: number): Promise<SendTx | GetTx> {
   const sendTransactionResponse = await Server.sendTransaction(tx);
+
+  if (sendTransactionResponse.status !== "PENDING" || secondsToWait === 0) {
+    return sendTransactionResponse;
+  }
+
   let getTransactionResponse = await Server.getTransaction(sendTransactionResponse.hash);
 
   const waitUntil = new Date((Date.now() + secondsToWait * 1000)).valueOf()

@@ -153,8 +153,8 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	}
 	var transactionData xdr.SorobanTransactionData
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
-	assert.NoError(t, err)
-	assert.Len(t, response.Results, 1)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 1)
 
 	op := params.Operations[0]
 	switch v := op.(type) {
@@ -503,7 +503,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
-	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 33")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 42")
 }
 
 func TestSimulateTransactionError(t *testing.T) {

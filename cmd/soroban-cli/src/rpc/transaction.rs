@@ -401,7 +401,11 @@ mod tests {
         assert_eq!(1, op.auth.len());
         let auth = &op.auth[0];
 
-        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::SorobanAuthorizedContractFunction{ ref function_name, .. }) = auth.root_invocation.function else {
+        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::SorobanAuthorizedContractFunction {
+            ref function_name,
+            ..
+        }) = auth.root_invocation.function
+        else {
             panic!("unexpected function type");
         };
         assert_eq!("fn".to_string(), format!("{}", function_name.0));
@@ -410,7 +414,8 @@ mod tests {
             address:
                 xdr::ScAddress::Account(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(address))),
             ..
-        }) = &auth.credentials else {
+        }) = &auth.credentials
+        else {
             panic!("unexpected credentials type");
         };
         assert_eq!(

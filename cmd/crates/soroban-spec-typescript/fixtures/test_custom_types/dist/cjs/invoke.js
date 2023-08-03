@@ -1,9 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendTx = exports.signTx = exports.invoke = exports.NotImplementedError = void 0;
-const freighter_api_1 = require("@stellar/freighter-api");
-// working around ESM compatibility issues
-const { isConnected, isAllowed, getUserInfo, signTransaction, } = freighter_api_1.default;
 const SorobanClient = require("soroban-client");
 const constants_js_1 = require("./constants.js");
 const server_js_1 = require("./server.js");
@@ -11,11 +8,11 @@ const server_js_1 = require("./server.js");
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
  */
-async function getAccount() {
-    if (!await isConnected() || !await isAllowed()) {
+async function getAccount(wallet) {
+    if (!await wallet.isConnected() || !await wallet.isAllowed()) {
         return null;
     }
-    const { publicKey } = await getUserInfo();
+    const { publicKey } = await wallet.getUserInfo();
     if (!publicKey) {
         return null;
     }
@@ -24,21 +21,13 @@ async function getAccount() {
 class NotImplementedError extends Error {
 }
 exports.NotImplementedError = NotImplementedError;
-/**
- * Invoke a method on the test_custom_types contract.
- *
- * Uses Freighter to determine the current user and if necessary sign the transaction.
- *
- * @param {string} obj.method - The method to invoke.
- * @param {any[]} obj.args - The arguments to pass to the method.
- * @param {boolean} obj.signAndSend - Whether to sign and send the transaction, or just simulate it. Unless the method requires authentication.
- * @param {number} obj.fee - The fee to pay for the transaction.
- * @returns The transaction response, or the simulation result if signing isn't required.
- */
-async function invoke({ method, args = [], fee = 100, signAndSend = false }) {
-    const freighterAccount = await getAccount();
-    // use a placeholder account if not yet connected to Freighter so that view calls can still work
-    const account = freighterAccount ?? new SorobanClient.Account('GBZXP4PWQLOTBL3P6OE6DQ7QXNYDAZMWQG27V7ATM7P3TKSRDLQS4V7Q', '0');
+// defined this way so typeahead shows full union, not named alias
+let someRpcResponse;
+async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, wallet, }) {
+    wallet = wallet ?? await Promise.resolve().then(() => require('@stellar/freighter-api'));
+    const walletAccount = await getAccount(wallet);
+    // use a placeholder null account if not yet connected to Freighter so that view calls can still work
+    const account = walletAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
     const contract = new SorobanClient.Contract(constants_js_1.CONTRACT_ID);
     let tx = new SorobanClient.TransactionBuilder(account, {
         fee: fee.toString(10),
@@ -48,7 +37,17 @@ async function invoke({ method, args = [], fee = 100, signAndSend = false }) {
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
     const simulated = await server_js_1.Server.simulateTransaction(tx);
-    if (!signAndSend) {
+    if (responseType === 'simulated')
+        return simulated;
+    // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
+    const auths = simulated.results?.[0]?.auth;
+    let authsCount = auths?.length ?? 0;
+    const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length;
+    const parse = parseResultXdr ?? (xdr => xdr);
+    const isViewCall = authsCount === 0 && writeLength === 0;
+    if (isViewCall) {
+        if (responseType === 'full')
+            return simulated;
         const { results } = simulated;
         if (!results || results[0] === undefined) {
             if (simulated.error) {
@@ -56,18 +55,12 @@ async function invoke({ method, args = [], fee = 100, signAndSend = false }) {
             }
             throw new Error(`Invalid response from simulateTransaction:\n{simulated}`);
         }
-        return results[0];
+        return parse(results[0].xdr);
     }
-    if (!freighterAccount) {
-        throw new Error('Not connected to Freighter');
-    }
-    // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
-    const auths = simulated.results?.[0]?.auth;
-    let auth_len = auths?.length ?? 0;
-    if (auth_len > 1) {
+    if (authsCount > 1) {
         throw new NotImplementedError("Multiple auths not yet supported");
     }
-    else if (auth_len == 1) {
+    if (authsCount === 1) {
         // TODO: figure out how to fix with new SorobanClient
         // const auth = SorobanClient.xdr.SorobanAuthorizationEntry.fromXDR(auths![0]!, 'base64')
         // if (auth.addressWithNonce() !== undefined) {
@@ -77,12 +70,23 @@ async function invoke({ method, args = [], fee = 100, signAndSend = false }) {
         //   )
         // }
     }
-    tx = await signTx(SorobanClient.assembleTransaction(tx, constants_js_1.NETWORK_PASSPHRASE, simulated));
-    const raw = await sendTx(tx);
-    return {
-        ...raw,
-        xdr: raw.resultXdr,
-    };
+    if (!walletAccount) {
+        throw new Error('Not connected to Freighter');
+    }
+    tx = await signTx(wallet, SorobanClient.assembleTransaction(tx, constants_js_1.NETWORK_PASSPHRASE, simulated));
+    const raw = await sendTx(tx, secondsToWait);
+    if (responseType === 'full')
+        return raw;
+    // if `sendTx` awaited the inclusion of the tx in the ledger, it used
+    // `getTransaction`, which has a `resultXdr` field
+    if ('resultXdr' in raw)
+        return parse(raw.resultXdr);
+    // otherwise, it returned the result of `sendTransaction`
+    if ('errorResultXdr' in raw)
+        return parse(raw.errorResultXdr);
+    // if neither of these are present, something went wrong
+    console.error("Don't know how to parse result! Returning full RPC response.");
+    return raw;
 }
 exports.invoke = invoke;
 /**
@@ -93,8 +97,8 @@ exports.invoke = invoke;
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-async function signTx(tx) {
-    const signed = await signTransaction(tx.toXDR(), {
+async function signTx(wallet, tx) {
+    const signed = await wallet.signTransaction(tx.toXDR(), {
         networkPassphrase: constants_js_1.NETWORK_PASSPHRASE,
     });
     return SorobanClient.TransactionBuilder.fromXDR(signed, constants_js_1.NETWORK_PASSPHRASE);
@@ -110,8 +114,11 @@ exports.signTx = signTx;
  * function for its timeout/`secondsToWait` logic, rather than implementing
  * your own.
  */
-async function sendTx(tx, secondsToWait = 10) {
+async function sendTx(tx, secondsToWait) {
     const sendTransactionResponse = await server_js_1.Server.sendTransaction(tx);
+    if (sendTransactionResponse.status !== "PENDING" || secondsToWait === 0) {
+        return sendTransactionResponse;
+    }
     let getTransactionResponse = await server_js_1.Server.getTransaction(sendTransactionResponse.hash);
     const waitUntil = new Date((Date.now() + secondsToWait * 1000)).valueOf();
     let waitTime = 1000;

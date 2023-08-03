@@ -201,15 +201,19 @@ To view the commands that will be executed, without executing them, use the --pr
 
 ## `soroban contract bump`
 
-Extend the expiry ledger of a contract-data ledger entry
+Extend the expiry ledger of a contract-data ledger entry.
 
-**Usage:** `soroban contract bump [OPTIONS] --id <CONTRACT_ID> --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
+If no keys are specified the contract itself is bumped.
+
+**Usage:** `soroban contract bump [OPTIONS] --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
 
 ###### **Options:**
 
-* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries
+* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be bumped
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--wasm <WASM>` — Path to Wasm file of contract code to bump
+* `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to bump
 * `--durability <DURABILITY>` — Storage entry durability
 
   Possible values:
@@ -407,15 +411,19 @@ Print the current value of a contract-data ledger entry
 
 ## `soroban contract restore`
 
-Restore an evicted value for a contract-data legder entry
+Restore an evicted value for a contract-data legder entry.
 
-**Usage:** `soroban contract restore [OPTIONS] --id <CONTRACT_ID>`
+If no keys are specificed the contract itself is restored.
+
+**Usage:** `soroban contract restore [OPTIONS]`
 
 ###### **Options:**
 
-* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries
+* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be restored
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--wasm <WASM>` — Path to Wasm file of contract code to restore
+* `--wasm-hash <WASM_HASH>` — Hash of contract code to restore
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config

@@ -133,8 +133,18 @@ fn complex_enum_help() {
         .arg("--help")
         .assert()
         .stdout(predicates::str::contains(
-            "--complex '[\"Struct\", { \"a\": 1, \"b\": true, \"c\": \"hello\" }]'",
-        ));
+            r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Enum":"First"|"Second"|"Third"}"#,
+        ))
+        .stdout(predicates::str::contains(
+            r#"{"Asset":["GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4", "-100"]}"#,
+        ))
+        .stdout(predicates::str::contains(r#""Void"'"#));
 }
 
 #[test]
@@ -145,6 +155,14 @@ fn enum_2_str() {
 #[test]
 fn e_2_s_enum() {
     invoke_with_roundtrip("complex", json!({"Enum": "First"}));
+}
+
+#[test]
+fn asset() {
+    invoke_with_roundtrip(
+        "complex",
+        json!({"Asset": ["CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT", "100" ]}),
+    );
 }
 
 fn complex_tuple() -> serde_json::Value {
@@ -197,7 +215,7 @@ fn number_arg_return_err() {
             .unwrap_err();
         if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
             assert_eq!(name, "OhNo");
-            assert_eq!(doc, "Unknown error has occured");
+            assert_eq!(doc, "Unknown error has occurred");
         };
         println!("{res:#?}");
     });
@@ -383,8 +401,34 @@ fn boolean() {
         );
 }
 #[test]
+fn boolean_two() {
+    invoke(&TestEnv::default(), "boolean")
+        .arg("--boolean")
+        .arg("true")
+        .assert()
+        .success()
+        .stdout(
+            r#"true
+"#,
+        );
+}
+
+#[test]
 fn boolean_no_flag() {
     invoke(&TestEnv::default(), "boolean")
+        .assert()
+        .success()
+        .stdout(
+            r#"false
+"#,
+        );
+}
+
+#[test]
+fn boolean_false() {
+    invoke(&TestEnv::default(), "boolean")
+        .arg("--boolean")
+        .arg("false")
         .assert()
         .success()
         .stdout(

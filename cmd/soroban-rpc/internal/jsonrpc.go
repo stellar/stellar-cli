@@ -20,6 +20,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/network"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
 
@@ -126,21 +127,156 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 			Logger: func(text string) { params.Logger.Debug(text) },
 		},
 	}
-	bridge := jhttp.NewBridge(decorateHandlers(params.Daemon, params.Logger, handler.Map{
-		"getHealth":           methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
-		"getEvents":           methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
-		"getNetwork":          methods.NewGetNetworkHandler(params.Daemon, cfg.NetworkPassphrase, cfg.FriendbotURL),
-		"getLatestLedger":     methods.NewGetLatestLedgerHandler(params.LedgerEntryReader, params.LedgerReader),
-		"getLedgerEntry":      methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
-		"getLedgerEntries":    methods.NewGetLedgerEntriesHandler(params.Logger, params.LedgerEntryReader),
-		"getTransaction":      methods.NewGetTransactionHandler(params.TransactionStore),
-		"sendTransaction":     methods.NewSendTransactionHandler(params.Daemon, params.Logger, params.TransactionStore, cfg.NetworkPassphrase),
-		"simulateTransaction": methods.NewSimulateTransactionHandler(params.Logger, params.LedgerEntryReader, params.PreflightGetter),
-	}), &bridgeOptions)
+	handlers := []struct {
+		methodName           string
+		underlyingHandler    jrpc2.Handler
+		queueLimit           uint
+		longName             string
+		requestDurationLimit time.Duration
+	}{
+		{
+			methodName:           "getHealth",
+			underlyingHandler:    methods.NewHealthCheck(params.TransactionStore, cfg.MaxHealthyLedgerLatency),
+			longName:             "get_health",
+			queueLimit:           cfg.RequestBacklogGetHealthQueueLimit,
+			requestDurationLimit: cfg.MaxGetHealthExecutionDuration,
+		},
+		{
+			methodName:           "getEvents",
+			underlyingHandler:    methods.NewGetEventsHandler(params.EventStore, cfg.MaxEventsLimit, cfg.DefaultEventsLimit),
+			longName:             "get_events",
+			queueLimit:           cfg.RequestBacklogGetEventsQueueLimit,
+			requestDurationLimit: cfg.MaxGetEventsExecutionDuration,
+		},
+		{
+			methodName:           "getNetwork",
+			underlyingHandler:    methods.NewGetNetworkHandler(params.Daemon, cfg.NetworkPassphrase, cfg.FriendbotURL),
+			longName:             "get_network",
+			queueLimit:           cfg.RequestBacklogGetNetworkQueueLimit,
+			requestDurationLimit: cfg.MaxGetNetworkExecutionDuration,
+		},
+		{
+			methodName:           "getLatestLedger",
+			underlyingHandler:    methods.NewGetLatestLedgerHandler(params.LedgerEntryReader, params.LedgerReader),
+			longName:             "get_latest_ledger",
+			queueLimit:           cfg.RequestBacklogGetLatestLedgerQueueLimit,
+			requestDurationLimit: cfg.MaxGetLatestLedgerExecutionDuration,
+		},
+		{
+			methodName:           "getLedgerEntry",
+			underlyingHandler:    methods.NewGetLedgerEntryHandler(params.Logger, params.LedgerEntryReader),
+			longName:             "get_ledger_entry",
+			queueLimit:           cfg.RequestBacklogGetLedgerEntriesQueueLimit, // share with getLedgerEntries
+			requestDurationLimit: cfg.MaxGetLedgerEntriesExecutionDuration,
+		},
+		{
+			methodName:           "getLedgerEntries",
+			underlyingHandler:    methods.NewGetLedgerEntriesHandler(params.Logger, params.LedgerEntryReader),
+			longName:             "get_ledger_entries",
+			queueLimit:           cfg.RequestBacklogGetLedgerEntriesQueueLimit,
+			requestDurationLimit: cfg.MaxGetLedgerEntriesExecutionDuration,
+		},
+		{
+			methodName:           "getTransaction",
+			underlyingHandler:    methods.NewGetTransactionHandler(params.TransactionStore),
+			longName:             "get_transaction",
+			queueLimit:           cfg.RequestBacklogGetTransactionQueueLimit,
+			requestDurationLimit: cfg.MaxGetTransactionExecutionDuration,
+		},
+		{
+			methodName:           "sendTransaction",
+			underlyingHandler:    methods.NewSendTransactionHandler(params.Daemon, params.Logger, params.TransactionStore, cfg.NetworkPassphrase),
+			longName:             "send_transaction",
+			queueLimit:           cfg.RequestBacklogSendTransactionQueueLimit,
+			requestDurationLimit: cfg.MaxSendTransactionExecutionDuration,
+		},
+		{
+			methodName:           "simulateTransaction",
+			underlyingHandler:    methods.NewSimulateTransactionHandler(params.Logger, params.LedgerEntryReader, params.PreflightGetter),
+			longName:             "simulate_transaction",
+			queueLimit:           cfg.RequestBacklogSimulateTransactionQueueLimit,
+			requestDurationLimit: cfg.MaxSimulateTransactionExecutionDuration,
+		},
+	}
+	handlersMap := handler.Map{}
+	for _, handler := range handlers {
+		queueLimiterGaugeName := handler.longName + "_inflight_requests"
+		queueLimiterGaugeHelp := "Number of concurrenty in-flight " + handler.methodName + " requests"
+
+		queueLimiterGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network",
+			Name: queueLimiterGaugeName,
+			Help: queueLimiterGaugeHelp,
+		})
+		queueLimiter := network.MakeJrpcBacklogQueueLimiter(
+			handler.underlyingHandler,
+			queueLimiterGauge,
+			uint64(handler.queueLimit),
+			params.Logger)
+
+		durationWarnCounterName := handler.longName + "_execution_threshold_warning"
+		durationLimitCounterName := handler.longName + "_execution_threshold_limit"
+		durationWarnCounterHelp := "The metric measures the count of " + handler.methodName + " requests that surpassed the warning threshold for execution time"
+		durationLimitCounterHelp := "The metric measures the count of " + handler.methodName + " requests that surpassed the limit threshold for execution time"
+
+		requestDurationWarnCounter := prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network",
+			Name: durationWarnCounterName,
+			Help: durationWarnCounterHelp,
+		})
+		requestDurationLimitCounter := prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network",
+			Name: durationLimitCounterName,
+			Help: durationLimitCounterHelp,
+		})
+		// set the warning threshold to be one third of the limit.
+		requestDurationWarn := handler.requestDurationLimit / 3
+		durationLimiter := network.MakeJrpcRequestDurationLimiter(
+			queueLimiter,
+			requestDurationWarn,
+			handler.requestDurationLimit,
+			requestDurationWarnCounter,
+			requestDurationLimitCounter,
+			params.Logger)
+		handlersMap[handler.methodName] = durationLimiter
+	}
+	bridge := jhttp.NewBridge(decorateHandlers(
+		params.Daemon,
+		params.Logger,
+		handlersMap),
+		&bridgeOptions)
+
+	// globalQueueRequestBacklogLimiter is a metric for measuring the total concurrent inflight requests
+	globalQueueRequestBacklogLimiter := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network", Name: "global_inflight_requests",
+		Help: "Number of concurrenty in-flight http requests",
+	})
+
+	queueLimitedBridge := network.MakeHTTPBacklogQueueLimiter(
+		bridge,
+		globalQueueRequestBacklogLimiter,
+		uint64(cfg.RequestBacklogGlobalQueueLimit),
+		params.Logger)
+
+	globalQueueRequestExecutionDurationWarningCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network", Name: "global_request_execution_duration_threshold_warning",
+		Help: "The metric measures the count of requests that surpassed the warning threshold for execution time",
+	})
+	globalQueueRequestExecutionDurationLimitCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network", Name: "global_request_execution_duration_threshold_limit",
+		Help: "The metric measures the count of requests that surpassed the limit threshold for execution time",
+	})
+	durationLimitedBridge := network.MakeHTTPRequestDurationLimiter(
+		queueLimitedBridge,
+		cfg.RequestExecutionWarningThreshold,
+		cfg.MaxRequestExecutionDuration,
+		globalQueueRequestExecutionDurationWarningCounter,
+		globalQueueRequestExecutionDurationLimitCounter,
+		params.Logger)
 
 	return Handler{
 		bridge:  bridge,
 		logger:  params.Logger,
-		Handler: bridge,
+		Handler: durationLimitedBridge,
 	}
 }

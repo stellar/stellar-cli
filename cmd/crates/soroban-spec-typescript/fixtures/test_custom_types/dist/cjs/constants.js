@@ -19,4 +19,4 @@ exports.NETWORK_PASSPHRASE = 'Test SDF Future Network ; October 2022';
 /**
  * The Soroban RPC endpoint used to initialize this library.
  */
-exports.RPC_URL = 'https://rpc-futurenet.stellar.org:443/soroban/rpc';
+exports.RPC_URL = 'https://rpc-futurenet.stellar.org/soroban/rpc';

@@ -305,7 +305,11 @@ impl Cmd {
             tracing::debug!(?events);
         }
 
-        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3{soroban_meta: Some(xdr::SorobanTransactionMeta{return_value, ..}), ..}) = meta else {
+        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
+            soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
+            ..
+        }) = meta
+        else {
             return Err(Error::MissingOperationResult);
         };
 
@@ -552,7 +556,11 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
 
         // Set up special-case arg rules
         arg = match type_ {
-            xdr::ScSpecTypeDef::Bool => arg.num_args(0).required(false),
+            xdr::ScSpecTypeDef::Bool => arg
+                .num_args(0..1)
+                .default_missing_value("true")
+                .default_value("false")
+                .num_args(0..=1),
             xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
             xdr::ScSpecTypeDef::I256
             | xdr::ScSpecTypeDef::I128

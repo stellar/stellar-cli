@@ -29,6 +29,8 @@ jobs:
       - uses: ./.github/actions/setup-go
         with:
           go-version: ${{ matrix.go }}
+      - run: |
+          rustup update
       - run: make build-libpreflight
       - run: go test -race -cover -timeout 25m -v ./cmd/soroban-rpc/...
 
@@ -61,7 +63,9 @@ jobs:
         with:
           go-version: 1.20.1
 
-      - run: rustup target add ${{ matrix.rust_target }}
+      - run: |
+          rustup target add ${{ matrix.rust_target }}
+          rustup update
 
       # On windows, make sure we have the same compiler (linker) used by rust.
       # This is important since the symbols names won't match otherwise.
@@ -103,7 +107,7 @@ jobs:
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.11.1-1373.875f47e24.focal~soroban
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.12.1-1393.db40326a1.focal~soroban
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -130,7 +134,7 @@ jobs:
           # libc++1-8 won't be installed if another version is installed (but apt won't give you a helpful
           # message about why the installation fails)
           sudo apt-get remove -y libc++1-10 libc++abi1-10 || true
-          
+
           sudo wget -qO - https://apt.stellar.org/SDF.asc | APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=true sudo apt-key add -
           sudo bash -c 'echo "deb https://apt.stellar.org focal unstable" > /etc/apt/sources.list.d/SDF-unstable.list'
           sudo apt-get update && sudo apt-get install -y stellar-core="$PROTOCOL_20_CORE_DEBIAN_PKG_VERSION"
@@ -142,7 +146,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ca-certificates curl gnupg
-          
+
           # Install docker apt repo
           sudo install -m 0755 -d /etc/apt/keyrings
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -162,7 +166,7 @@ jobs:
 
       - name: Build libpreflight
         run: make build-libpreflight
-      
+
       - name: Run Soroban RPC Integration Tests
         run: |
           go test -race -timeout 25m -v ./cmd/soroban-rpc/internal/test/...

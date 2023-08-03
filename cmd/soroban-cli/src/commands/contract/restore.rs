@@ -1,35 +1,65 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
+use std::{
+    fmt::Debug,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractDataDurability, ContractEntryBodyType, Error as XdrError, ExtensionPoint, Hash,
-    LedgerFootprint, LedgerKey, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal,
-    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt, Uint256,
+    ContractCodeEntry, ContractDataDurability, ContractDataEntry, ContractEntryBodyType,
+    Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+    LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount,
+    Operation, OperationBody, OperationMeta, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress,
+    ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
 use crate::{
     commands::config::{self, locator},
     rpc::{self, Client},
-    utils, Pwd,
+    utils, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Contract ID to which owns the data entries
-    #[arg(long = "id")]
-    contract_id: String,
+    /// Contract ID to which owns the data entries.
+    /// If no keys provided the Contract's instance will be restored
+    #[arg(
+        long = "id",
+        required_unless_present = "wasm",
+        required_unless_present = "wasm_hash"
+    )]
+    pub contract_id: Option<String>,
     /// Storage key (symbols only)
-    #[arg(long = "key", required_unless_present = "key_xdr")]
-    key: Vec<String>,
+    #[arg(long = "key")]
+    pub key: Vec<String>,
     /// Storage key (base64-encoded XDR)
-    #[arg(long = "key-xdr", required_unless_present = "key")]
-    key_xdr: Vec<String>,
+    #[arg(long = "key-xdr")]
+    pub key_xdr: Vec<String>,
+    /// Path to Wasm file of contract code to restore
+    #[arg(
+        long,
+        conflicts_with = "key",
+        conflicts_with = "key_xdr",
+        conflicts_with = "contract_id",
+        conflicts_with = "wasm_hash"
+    )]
+    pub wasm: Option<PathBuf>,
+
+    /// Hash of contract code to restore
+    #[arg(
+        long = "wasm-hash",
+        conflicts_with = "key",
+        conflicts_with = "key_xdr",
+        conflicts_with = "contract_id",
+        conflicts_with = "wasm"
+    )]
+    pub wasm_hash: Option<String>,
 
     #[command(flatten)]
-    config: config::Args,
+    pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
 }
@@ -66,29 +96,49 @@ pub enum Error {
     KeyIsRequired,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+    #[error("Ledger entry not found")]
+    LedgerEntryNotFound,
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error("missing operation result")]
     MissingOperationResult,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        if self.config.is_no_network() {
-            self.run_in_sandbox()
+        let expiration_ledger_seq = if self.config.is_no_network() {
+            self.run_in_sandbox()?
         } else {
-            self.run_against_rpc_server().await
-        }
+            self.run_against_rpc_server().await?
+        };
+
+        println!("New expiration ledger: {expiration_ledger_seq}");
+
+        Ok(())
     }
 
-    async fn run_against_rpc_server(&self) -> Result<(), Error> {
+    pub async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = self.contract_id()?;
-        let entry_keys = self.parse_keys(contract_id)?;
+        let entry_keys = if let Some(wasm) = &self.wasm {
+            vec![crate::wasm::Args { wasm: wasm.clone() }.try_into()?]
+        } else if let Some(wasm_hash) = &self.wasm_hash {
+            vec![LedgerKey::ContractCode(LedgerKeyContractCode {
+                hash: Hash(
+                    utils::contract_id_from_str(wasm_hash)
+                        .map_err(|e| Error::CannotParseContractId(wasm_hash.clone(), e))?,
+                ),
+                body_type: ContractEntryBodyType::DataEntry,
+            })]
+        } else {
+            let contract_id = self.contract_id()?;
+            self.parse_keys(contract_id)?
+        };
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
@@ -127,27 +177,47 @@ impl Cmd {
             }),
         };
 
-        let (result, _meta, events) = client
+        let (result, meta, events) = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None)
             .await?;
 
-        tracing::debug!(?result);
+        tracing::trace!(?result);
+        tracing::trace!(?meta);
         if !events.is_empty() {
-            tracing::debug!(?events);
+            tracing::info!("Events:\n {events:#?}");
         }
 
-        Ok(())
+        // The transaction from core will succeed regardless of whether it actually found &
+        // restored the entry, so we have to inspect the result meta to tell if it worked or not.
+        let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
+            return Err(Error::LedgerEntryNotFound);
+        };
+        tracing::debug!("Operations:\nlen:{}\n{operations:#?}", operations.len());
+
+        // Simply check if there is exactly one entry here. We only support bumping a single
+        // entry via this command (which we should fix separately, but).
+        if operations.len() == 0 {
+            return Err(Error::LedgerEntryNotFound);
+        }
+
+        if operations.len() != 1 {
+            tracing::warn!(
+                "Unexpected number of operations: {}. Currently only handle one.",
+                operations[0].changes.len()
+            );
+        }
+        parse_operations(&operations).ok_or(Error::MissingOperationResult)
     }
 
-    fn run_in_sandbox(&self) -> Result<(), Error> {
+    pub fn run_in_sandbox(&self) -> Result<u32, Error> {
         // TODO: Implement this. This means we need to store ledger entries somewhere, and handle
         // eviction, and restoration with that evicted state store.
         todo!("Restoring ledger entries is not supported in the local sandbox mode");
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+        utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone().unwrap(), e))
     }
 
     fn parse_keys(&self, contract_id: [u8; 32]) -> Result<Vec<LedgerKey>, Error> {
@@ -172,7 +242,7 @@ impl Cmd {
         }
 
         if keys.is_empty() {
-            return Err(Error::KeyIsRequired);
+            keys.push(ScVal::LedgerKeyContractInstance);
         };
 
         Ok(keys
@@ -187,4 +257,36 @@ impl Cmd {
             })
             .collect())
     }
+}
+
+fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
+    ops.get(0).and_then(|op| {
+        op.changes.iter().find_map(|entry| match entry {
+            LedgerEntryChange::Updated(LedgerEntry {
+                data:
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        expiration_ledger_seq,
+                        ..
+                    })
+                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
+                ..
+            })
+            | LedgerEntryChange::Created(LedgerEntry {
+                data:
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        expiration_ledger_seq,
+                        ..
+                    })
+                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
+                ..
+            }) => Some(*expiration_ledger_seq),
+            _ => None,
+        })
+    })
 }

@@ -72,7 +72,8 @@ pub struct Args {
         long,
         conflicts_with = "network_passphrase",
         conflicts_with = "rpc_url",
-        env = "SOROBAN_NETWORK"
+        env = "SOROBAN_NETWORK",
+        help_heading = HEADING_RPC,
     )]
     pub network: Option<String>,
 }
@@ -115,4 +116,13 @@ pub struct Network {
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,
+}
+
+impl Network {
+    pub fn futurenet() -> Self {
+        Network {
+            rpc_url: "https://rpc-futurenet.stellar.org:443".to_owned(),
+            network_passphrase: "Test SDF Future Network ; October 2022".to_owned(),
+        }
+    }
 }
