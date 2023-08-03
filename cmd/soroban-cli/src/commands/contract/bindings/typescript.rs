@@ -3,15 +3,17 @@ use std::{fmt::Debug, path::PathBuf};
 use clap::{command, Parser};
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 
-use crate::{commands::{
-    config::{
-        locator,
-        network::{self, Network},
-        ledger_file,
-    },
-    contract::{self, fetch},
-}, utils::contract_spec::{ContractSpec, self}};
 use crate::wasm;
+use crate::{
+    commands::{
+        config::{
+            ledger_file, locator,
+            network::{self, Network},
+        },
+        contract::{self, fetch},
+    },
+    utils::contract_spec::{self, ContractSpec},
+};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
