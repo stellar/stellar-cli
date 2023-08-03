@@ -560,7 +560,8 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
             .alias(file_arg_name.to_kebab_case())
             .num_args(1)
             .hide(true)
-            .value_parser(value_parser!(PathBuf));
+            .value_parser(value_parser!(PathBuf))
+            .conflicts_with(name);
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
             let value_name: &'static str = Box::leak(value_name.into_boxed_str());
