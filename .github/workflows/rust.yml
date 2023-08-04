@@ -63,7 +63,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Print PATH
-        run: echo $env:PATH
+        run: |
+          echo "$GITHUB_PATH"
+          cat $GITHUB_PATH
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Setup perl
         uses: shogo82148/actions-setup-perl@v1.23.0
