@@ -59,7 +59,7 @@ jobs:
         name: Setup perl
         uses: shogo82148/actions-setup-perl@v1.23.0
         with:
-          perl-version: "5.32.1.1"
+          perl-version: "5.32.1"
           distribution: strawberry
       #      - if: matrix.target == 'x86_64-pc-windows-msvc'
       #        run: cpanm --installdeps .
@@ -70,6 +70,7 @@ jobs:
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
+          perl --version
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run: rustup target add ${{ matrix.target }}
