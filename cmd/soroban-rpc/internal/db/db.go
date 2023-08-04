@@ -151,7 +151,7 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 			stmtCache:                     stmtCache,
 			buffer:                        xdr.NewEncodingBuffer(),
 			keyToEntryBatch:               make(map[string]*xdr.LedgerEntry, rw.maxBatchSize),
-			keyToEntryPendingCacheUpdates: map[string]*string{},
+			keyToEntryPendingCacheUpdates: make(map[string]*string, rw.maxBatchSize),
 			maxBatchSize:                  rw.maxBatchSize,
 		},
 		ledgerRetentionWindow: rw.ledgerRetentionWindow,

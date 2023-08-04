@@ -280,7 +280,7 @@ func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error)
 	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
-	localCache := map[string]string{}
+	localCache := make(map[string]string, len(r.db.ledgerEntryCache))
 	for k, v := range r.db.ledgerEntryCache {
 		localCache[k] = v
 	}
