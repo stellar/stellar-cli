@@ -96,7 +96,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match &self {
-            Cmd::Bindings(bindings) => bindings.run()?,
+            Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run()?,
             Cmd::Bump(bump) => bump.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
