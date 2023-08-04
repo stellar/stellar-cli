@@ -61,16 +61,20 @@ jobs:
       - run: rustup target add wasm32-unknown-unknown
       - if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
+      - if: matrix.target == 'x86_64-pc-windows-msvc'
+        name: Print PATH
+        run: echo %PATH%
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Setup perl
-        uses: shogo82148/actions-setup-perl@v1
+        uses: shogo82148/actions-setup-perl@v1.23.0
         with:
-          perl-version: "5.30"
+          perl-version: "5.34"
           distribution: strawberry
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Set git to use LF
         run: |
+          cpanm --installdeps .
+          prove -lv t
           git config --global core.autocrlf false
           git config --global core.eol lf
       - run: cargo clippy --all-targets --target ${{ matrix.target }}
