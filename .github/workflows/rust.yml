@@ -64,9 +64,21 @@ jobs:
       - if: matrix.os == 'windows-latest-8-cores'
         run: choco install openssl
       - run: cargo clippy --all-targets --target ${{ matrix.target }}
+        env:
+          OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
+          OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
+          OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
+          X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
+          X86_64_PC_WINDOWS_MSVC_OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
+          X86_64_PC_WINDOWS_MSVC_OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
       - run: make build-test
         env:
-          OPENSSL_DIR: "C:\\Program Files\\OpenSSL-Win64"
+          OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
+          OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
+          OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
+          X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
+          X86_64_PC_WINDOWS_MSVC_OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
+          X86_64_PC_WINDOWS_MSVC_OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
       - if: startsWith(matrix.target, 'x86_64')
         # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
         run: |
