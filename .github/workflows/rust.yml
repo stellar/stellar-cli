@@ -64,27 +64,16 @@ jobs:
       - if: matrix.os == 'windows-latest-8-cores'
         run: |
           choco install openssl
-          echo "##[add-path]C:\\Program Files\\OpenSSL\\bin"
+          echo "C:\\Program Files\\OpenSSL\\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo ("OPENSSL_NO_VENDOR=1") >> $env:GITHUB_ENV
+          echo ("SSL_CERT=C:\\Program Files\\OpenSSL\\certs\\cacert.pem") >> $env:GITHUB_ENV
+          echo ("OPENSSL_CONF=C:\\Program Files\\OpenSSL\\bin\\openssl.cfg") >> $env:GITHUB_ENV
+          echo ("OPENSSL_DIR=C:\\Program Files\\OpenSSL") >> $env:GITHUB_ENV
+          echo ("OPENSSL_LIB_DIR=C:\\Program Files\\OpenSSL\\lib") >> $env:GITHUB_ENV
+          echo ("OPENSSL_IMCLUDE_DIR=C:\\Program Files\\OpenSSL\\include") >> $env:GITHUB_ENV
+          echo ("RUSTFLAGS=\"-Ctarget-feature=+crt-static\"") >> $env:GITHUB_ENV
       - run: cargo clippy --all-targets --target ${{ matrix.target }}
-        env:
-          OPENSSL_NO_VENDOR: 1
-          RUSTFLAGS: "-Ctarget-feature=+crt-static"
-          SSL_CERT: "C:\\Program Files\\OpenSSL\\certs\\cacert.pem"
-          OPENSSL_CONF: "C:\\Program Files\\OpenSSL\\bin\\openssl.cfg"
-          OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
-          OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
-          OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
-          X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
-          X86_64_PC_WINDOWS_MSVC_OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
-          X86_64_PC_WINDOWS_MSVC_OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
       - run: make build-test
-        env:
-          OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
-          OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
-          OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
-          X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
-          X86_64_PC_WINDOWS_MSVC_OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
-          X86_64_PC_WINDOWS_MSVC_OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
       - if: startsWith(matrix.target, 'x86_64')
         # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
         run: |
