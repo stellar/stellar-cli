@@ -62,9 +62,15 @@ jobs:
       - if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
       - if: matrix.os == 'windows-latest-8-cores'
-        run: choco install openssl
+        run: |
+          choco install openssl
+          echo "##[add-path]C:\\Program Files\\OpenSSL\\bin"
       - run: cargo clippy --all-targets --target ${{ matrix.target }}
         env:
+          OPENSSL_NO_VENDOR: 1
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
+          SSL_CERT: "C:\\Program Files\\OpenSSL\\certs\\cacert.pem"
+          OPENSSL_CONF: "C:\\Program Files\\OpenSSL\\bin\\openssl.cfg"
           OPENSSL_DIR: "C:\\Program Files\\OpenSSL"
           OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL\\lib"
           OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL\\include"
