@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use stellar_strkey::ed25519::PublicKey;
 
-use crate::{commands::HEADING_RPC, rpc::{self, Client}};
+use crate::{
+    commands::HEADING_RPC,
+    rpc::{self, Client},
+};
 
 use super::locator;
 
@@ -137,7 +140,8 @@ impl Network {
         tracing::debug!("address {addr:?}");
         let client = Client::new(&self.rpc_url)?;
         let helper_url_root = client.friendbot_url().await?;
-        let uri = http::Uri::from_str(&helper_url_root).map_err(|_|Error::InvalidUrl(helper_url_root.to_string()))?;
+        let uri = http::Uri::from_str(&helper_url_root)
+            .map_err(|_| Error::InvalidUrl(helper_url_root.to_string()))?;
         http::Uri::from_str(&format!("{uri:?}?addr={addr}"))
             .map_err(|_| Error::InvalidUrl(helper_url_root.to_string()))
     }
@@ -178,7 +182,7 @@ impl Network {
     pub fn futurenet() -> Self {
         Network {
             rpc_url: "https://rpc-futurenet.stellar.org:443".to_owned(),
-            network_passphrase: "Test SDF Future Network ; October 2022".to_owned()
+            network_passphrase: "Test SDF Future Network ; October 2022".to_owned(),
         }
     }
 }

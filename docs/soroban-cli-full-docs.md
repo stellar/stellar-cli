@@ -193,7 +193,6 @@ Generate a TypeScript / JavaScript package
 * `--config-dir <CONFIG_DIR>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -251,7 +250,6 @@ If no keys are specified the contract itself is bumped.
 * `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entries
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
@@ -278,7 +276,6 @@ Deploy a contract
 * `--salt <SALT>` — Custom salt 32-byte salt for the token id
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
@@ -305,7 +302,6 @@ Fetch a contract's Wasm binary from a network or local sandbox
 * `--config-dir <CONFIG_DIR>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 
@@ -347,7 +343,6 @@ Install a WASM file to the ledger without creating a contract instance
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
@@ -383,7 +378,6 @@ soroban contract invoke ... -- --help
 * `--unlimited-budget` — Run with an unlimited budget
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
@@ -443,7 +437,6 @@ Print the current value of a contract-data ledger entry
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
@@ -470,7 +463,6 @@ If no keys are specificed the contract itself is restored.
 * `--wasm-hash <WASM_HASH>` — Hash of contract code to restore
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
@@ -565,7 +557,6 @@ Fund an identity on a test network
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
@@ -593,7 +584,6 @@ Generate a new identity with a seed phrase, currently 12 words
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -674,7 +664,6 @@ Add a new network
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Network passphrase to sign the transaction sent to the rpc server
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
 
@@ -748,7 +737,6 @@ Watch the network for contract events
 * `--config-dir <CONFIG_DIR>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--events-file <PATH>` — File to persist events, default is `.soroban/events.json`
 
@@ -791,7 +779,6 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
@@ -815,7 +802,6 @@ Compute the expected contract id for the given asset
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--helper-url <HELPER_URL>` — Helper URL to use for funding accounts on test networks
 * `--network <NETWORK>` — Name of network to use from config
 * `--ledger-file <LEDGER_FILE>` — File to persist ledger state, default is `.soroban/ledger.json`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
