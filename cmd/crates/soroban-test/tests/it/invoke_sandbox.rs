@@ -90,6 +90,47 @@ fn invoke_hello_world() {
 }
 
 #[test]
+fn invoke_hello_world_from_file() {
+    let sandbox = TestEnv::default();
+    let tmp_file = sandbox.temp_dir.join("world.txt");
+    std::fs::write(&tmp_file, "world").unwrap();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--")
+        .arg("hello")
+        .arg("--world-file-path")
+        .arg(&tmp_file)
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
+}
+
+#[test]
+fn invoke_hello_world_from_file_fail() {
+    let sandbox = TestEnv::default();
+    let tmp_file = sandbox.temp_dir.join("world.txt");
+    std::fs::write(&tmp_file, "world").unwrap();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .arg("--")
+        .arg("hello")
+        .arg("--world-file-path")
+        .arg(&tmp_file)
+        .arg("--world=hello")
+        .assert()
+        .stderr(predicates::str::contains("error: the argument '--world-file-path <world-file-path>' cannot be used with '--world <Symbol>'"))
+        .failure();
+}
+
+#[test]
 fn invoke_hello_world_with_lib() {
     TestEnv::with_default(|e| {
         let cmd = contract::invoke::Cmd {

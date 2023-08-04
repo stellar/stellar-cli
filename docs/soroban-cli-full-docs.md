@@ -331,7 +331,7 @@ soroban contract invoke ... -- --help
 
 ###### **Arguments:**
 
-* `<CONTRACT_FN_AND_ARGS>`
+* `<CONTRACT_FN_AND_ARGS>` — Function name as subcommand, then arguments for that function as `--arg-name value`
 
 ###### **Options:**
 
