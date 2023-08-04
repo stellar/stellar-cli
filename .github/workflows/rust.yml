@@ -59,7 +59,7 @@ jobs:
         name: Setup perl
         uses: shogo82148/actions-setup-perl@v1.23.0
         with:
-          perl-version: "5.32"
+          perl-version: "5.36.1"
           distribution: strawberry
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         run: cpanm --installdeps .
