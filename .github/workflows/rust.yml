@@ -65,13 +65,13 @@ jobs:
         run: |
           choco install openssl
           echo "C:\\Program Files\\OpenSSL\\bin" >> $GITHUB_PATH
-          echo ("OPENSSL_NO_VENDOR=1") >> $env:GITHUB_ENV
-          echo ("SSL_CERT=C:\\Program Files\\OpenSSL\\certs\\cacert.pem") >> $env:GITHUB_ENV
-          echo ("OPENSSL_CONF=C:\\Program Files\\OpenSSL\\bin\\openssl.cfg") >> $env:GITHUB_ENV
-          echo ("OPENSSL_DIR=C:\\Program Files\\OpenSSL") >> $env:GITHUB_ENV
-          echo ("OPENSSL_LIB_DIR=C:\\Program Files\\OpenSSL\\lib") >> $env:GITHUB_ENV
-          echo ("OPENSSL_IMCLUDE_DIR=C:\\Program Files\\OpenSSL\\include") >> $env:GITHUB_ENV
-          echo ("RUSTFLAGS=\"-Ctarget-feature=+crt-static\"") >> $env:GITHUB_ENV
+          echo "OPENSSL_NO_VENDOR=1" >> $env:GITHUB_ENV
+          echo "SSL_CERT=C:\\Program Files\\OpenSSL\\certs\\cacert.pem" >> $env:GITHUB_ENV
+          echo "OPENSSL_CONF=C:\\Program Files\\OpenSSL\\bin\\openssl.cfg" >> $env:GITHUB_ENV
+          echo "OPENSSL_DIR=C:\\Program Files\\OpenSSL" >> $env:GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=C:\\Program Files\\OpenSSL\\lib" >> $env:GITHUB_ENV
+          echo "OPENSSL_IMCLUDE_DIR=C:\\Program Files\\OpenSSL\\include" >> $env:GITHUB_ENV
+          echo "RUSTFLAGS=\"-Ctarget-feature=+crt-static\"" >> $env:GITHUB_ENV
       - run: cargo clippy --all-targets --target ${{ matrix.target }}
       - run: make build-test
       - if: startsWith(matrix.target, 'x86_64')
