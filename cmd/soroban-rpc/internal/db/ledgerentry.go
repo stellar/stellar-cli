@@ -39,9 +39,9 @@ type ledgerEntryWriter struct {
 	stmtCache *sq.StmtCache
 	buffer    *xdr.EncodingBuffer
 	// nil entries imply deletion
-	keyToEntryBatch               map[string]*xdr.LedgerEntry
-	keyToEntryPendingCacheUpdates map[string]*string
-	maxBatchSize                  int
+	keyToEntryBatch         map[string]*xdr.LedgerEntry
+	ledgerEntryCacheWriteTx transactionalCacheWriteTx
+	maxBatchSize            int
 }
 
 func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedgerSeq xdr.Uint32) error {
@@ -159,7 +159,7 @@ func (l ledgerEntryWriter) flush() error {
 			return err
 		}
 		for key, entry := range upsertCacheUpdates {
-			l.keyToEntryPendingCacheUpdates[key] = entry
+			l.ledgerEntryCacheWriteTx.upsert(key, *entry)
 		}
 	}
 
@@ -169,7 +169,7 @@ func (l ledgerEntryWriter) flush() error {
 			return err
 		}
 		for _, key := range deleteKeys {
-			l.keyToEntryPendingCacheUpdates[key] = nil
+			l.ledgerEntryCacheWriteTx.delete(key)
 		}
 	}
 
@@ -177,10 +177,10 @@ func (l ledgerEntryWriter) flush() error {
 }
 
 type ledgerEntryReadTx struct {
-	cachedLatestLedgerSeq    uint32
-	ledgerEntryCacheSnapshot map[string]string
-	tx                       db.SessionInterface
-	buffer                   *xdr.EncodingBuffer
+	cachedLatestLedgerSeq  uint32
+	ledgerEntryCacheReadTx transactionalCacheReadTx
+	tx                     db.SessionInterface
+	buffer                 *xdr.EncodingBuffer
 }
 
 func (l *ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
@@ -200,7 +200,7 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 		return false, "", err
 	}
 
-	entry, ok := l.ledgerEntryCacheSnapshot[encodedKey]
+	entry, ok := l.ledgerEntryCacheReadTx[encodedKey]
 	if ok {
 		return ok, entry, nil
 	}
@@ -270,22 +270,21 @@ func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error)
 	txSession := r.db.Clone()
 	// We need to copy the cached ledger entries locally when we start the transaction
 	// since otherwise we would break the consistency between the transaction and the cache.
-	// TODO: is it worth locking around BeginTx()? The idea is to make the cache consistent with the
-	//       write transaction but it can cause contention.
+
+	// We need to make the cache snapshot atomic with the read transaction creation.
+	// Otherwise, the cache can be made inconsistent if a write transaction finishes
+	// in between, updating the cache.
 	r.db.ledgerEntryCacheMutex.RLock()
 	defer r.db.ledgerEntryCacheMutex.RUnlock()
 	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
-	localCache := make(map[string]string, len(r.db.ledgerEntryCache))
-	for k, v := range r.db.ledgerEntryCache {
-		localCache[k] = v
-	}
+	cacheReadTx := r.db.ledgerEntryCache.newReadTx()
 
 	return &ledgerEntryReadTx{
-		ledgerEntryCacheSnapshot: localCache,
-		tx:                       txSession,
-		buffer:                   xdr.NewEncodingBuffer(),
+		ledgerEntryCacheReadTx: cacheReadTx,
+		tx:                     txSession,
+		buffer:                 xdr.NewEncodingBuffer(),
 	}, nil
 }
 

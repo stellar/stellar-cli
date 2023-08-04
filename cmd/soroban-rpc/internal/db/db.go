@@ -42,7 +42,7 @@ type WriteTx interface {
 
 type DB struct {
 	db.SessionInterface
-	ledgerEntryCache      map[string]string // Just like the DB: compress-encoded ledger key -> ledger entry XDR
+	ledgerEntryCache      transactionalCache // Just like the DB: compress-encoded ledger key -> ledger entry XDR
 	ledgerEntryCacheMutex sync.RWMutex
 }
 
@@ -70,7 +70,7 @@ func OpenSQLiteDBWithPrometheusMetrics(dbFilePath string, namespace string, sub 
 	}
 	result := DB{
 		SessionInterface: db.RegisterMetrics(session, namespace, sub, registry),
-		ledgerEntryCache: map[string]string{},
+		ledgerEntryCache: newTransactionalCache(),
 	}
 	return &result, nil
 }
@@ -82,7 +82,7 @@ func OpenSQLiteDB(dbFilePath string) (*DB, error) {
 	}
 	result := DB{
 		SessionInterface: session,
-		ledgerEntryCache: map[string]string{},
+		ledgerEntryCache: newTransactionalCache(),
 	}
 	return &result, nil
 }
@@ -139,7 +139,7 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 	stmtCache := sq.NewStmtCache(txSession.GetTx())
 	db := rw.db
 	return writeTx{
-		db: rw.db,
+		db: db,
 		postCommit: func() error {
 			_, err := db.ExecRaw(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
@@ -148,11 +148,11 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 		stmtCache:    stmtCache,
 		ledgerWriter: ledgerWriter{stmtCache: stmtCache},
 		ledgerEntryWriter: ledgerEntryWriter{
-			stmtCache:                     stmtCache,
-			buffer:                        xdr.NewEncodingBuffer(),
-			keyToEntryBatch:               make(map[string]*xdr.LedgerEntry, rw.maxBatchSize),
-			keyToEntryPendingCacheUpdates: make(map[string]*string, rw.maxBatchSize),
-			maxBatchSize:                  rw.maxBatchSize,
+			stmtCache:               stmtCache,
+			buffer:                  xdr.NewEncodingBuffer(),
+			keyToEntryBatch:         make(map[string]*xdr.LedgerEntry, rw.maxBatchSize),
+			ledgerEntryCacheWriteTx: db.ledgerEntryCache.newWriteTx(rw.maxBatchSize),
+			maxBatchSize:            rw.maxBatchSize,
 		},
 		ledgerRetentionWindow: rw.ledgerRetentionWindow,
 	}, nil
@@ -191,20 +191,20 @@ func (w writeTx) Commit(ledgerSeq uint32) error {
 		return err
 	}
 
-	// TODO: is it worth locking around Commit()? The idea is to make the cache consistent with the
-	//       write transaction but it can cause contention.
-	w.db.ledgerEntryCacheMutex.Lock()
-	defer w.db.ledgerEntryCacheMutex.Unlock()
-	if err = w.tx.Commit(); err != nil {
-		return err
-	}
-
-	for key, entry := range w.ledgerEntryWriter.keyToEntryPendingCacheUpdates {
-		if entry == nil {
-			delete(w.db.ledgerEntryCache, key)
-		} else {
-			w.db.ledgerEntryCache[key] = *entry
+	// We need to make the cache update atomic with the transaction commit.
+	// Otherwise, the cache can be made inconsistent if a write transaction finishes
+	// in between, updating the cache in the wrong order.
+	commit := func() error {
+		w.db.ledgerEntryCacheMutex.Lock()
+		defer w.db.ledgerEntryCacheMutex.Unlock()
+		if err = w.tx.Commit(); err != nil {
+			return err
 		}
+		w.ledgerEntryWriter.ledgerEntryCacheWriteTx.commit()
+		return nil
+	}
+	if err := commit(); err != nil {
+		return err
 	}
 
 	return w.postCommit()
