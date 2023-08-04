@@ -56,21 +56,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - if: matrix.target == 'x86_64-pc-windows-msvc'
-        name: Print PATH
-        run: |
-          echo "$GITHUB_PATH"
-          type $GITHUB_PATH
-      - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Setup perl
         uses: shogo82148/actions-setup-perl@v1.23.0
         with:
           perl-version: "5.32"
           distribution: strawberry
       - if: matrix.target == 'x86_64-pc-windows-msvc'
+        run: cpanm --installdeps .
+      - if: matrix.target == 'x86_64-pc-windows-msvc'
+        run: prove -lv t
+      - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Set git to use LF
         run: |
-          cpanm --installdeps .
-          prove -lv t
           git config --global core.autocrlf false
           git config --global core.eol lf
       - uses: stellar/actions/rust-cache@main
