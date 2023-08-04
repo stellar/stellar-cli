@@ -146,6 +146,12 @@ func (l ledgerEntryWriter) flush() error {
 		} else {
 			deleteKeys = append(deleteKeys, key)
 		}
+		// Delete each entry instead of reassigning l.keyToEntryBatch
+		// to the empty map because the map was allocated with a
+		// capacity of: make(map[string]*string, rw.maxBatchSize).
+		// We want to reuse the hashtable buckets in subsequent
+		// calls to UpsertLedgerEntry / DeleteLedgerEntry.
+		delete(l.keyToEntryBatch, key)
 	}
 
 	if upsertCount > 0 {
@@ -165,15 +171,6 @@ func (l ledgerEntryWriter) flush() error {
 		for _, key := range deleteKeys {
 			l.keyToEntryPendingCacheUpdates[key] = nil
 		}
-	}
-
-	for key := range l.keyToEntryBatch {
-		// Delete each entry instead of reassigning l.keyToEntryBatch
-		// to the empty map because the map was allocated with a
-		// capacity of: make(map[string]*string, rw.maxBatchSize).
-		// We want to reuse the hashtable buckets in subsequent
-		// calls to UpsertLedgerEntry / DeleteLedgerEntry.
-		delete(l.keyToEntryBatch, key)
 	}
 
 	return nil
