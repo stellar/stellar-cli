@@ -427,6 +427,17 @@ impl Client {
             .build(url)?)
     }
 
+    pub async fn friendbot_url(&self) -> Result<String, Error> {
+        let network = self.get_network().await?;
+        tracing::trace!("{network:#?}");
+        network.friendbot_url.ok_or_else(|| {
+            Error::NotFound(
+                "Friendbot".to_string(),
+                "Friendbot is not available on this network".to_string(),
+            )
+        })
+    }
+
     pub async fn verify_network_passphrase(&self, expected: Option<&str>) -> Result<String, Error> {
         let server = self.get_network().await?.passphrase;
         if expected.is_some() && expected != Some(&server) {

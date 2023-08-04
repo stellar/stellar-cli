@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use stellar_strkey::ed25519::PublicKey;
 
-use crate::{commands::HEADING_RPC, rpc};
+use crate::{commands::HEADING_RPC, rpc::{self, Client}};
 
 use super::locator;
 
@@ -81,14 +81,6 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
-    /// Helper URL to use for funding accounts on test networks
-    #[arg(
-        long = "helper-url",
-        requires = "rpc_url",
-        env = "SOROBAN_NETWORK_PASSPHRASE",
-        help_heading = HEADING_RPC,
-    )]
-    pub helper_url: Option<String>,
     /// Name of network to use from config
     #[arg(
         long,
@@ -110,7 +102,6 @@ impl Args {
             Ok(Network {
                 rpc_url,
                 network_passphrase,
-                helper_url: self.helper_url.clone(),
             })
         } else {
             Err(Error::Network)
@@ -139,34 +130,21 @@ pub struct Network {
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,
-
-    /// Network passphrase to sign the transaction sent to the rpc server
-    #[arg(
-        long,
-        env = "SOROBAN_HELPER_URL",
-        help_heading = HEADING_RPC,
-    )]
-    pub helper_url: Option<String>,
 }
 
 impl Network {
-    pub fn helper_url(&self, addr: &str) -> Result<http::Uri, Error> {
+    pub async fn helper_url(&self, addr: &str) -> Result<http::Uri, Error> {
         tracing::debug!("address {addr:?}");
-        let (url_root, path) = if let Some(helper_url) = &self.helper_url {
-            (helper_url, "")
-        } else {
-            (&self.rpc_url, "/friendbot")
-        };
-        tracing::debug!("helper url {url_root:?}\npath: {path:?}");
-        let uri =
-            http::Uri::from_str(url_root).map_err(|_| Error::InvalidUrl(url_root.to_string()))?;
+        let client = Client::new(&self.rpc_url)?;
+        let helper_url_root = client.friendbot_url().await?;
+        let uri = http::Uri::from_str(&helper_url_root).map_err(|_|Error::InvalidUrl(helper_url_root.to_string()))?;
         http::Uri::from_str(&format!("{uri:?}?addr={addr}"))
-            .map_err(|_| Error::InvalidUrl(url_root.to_string()))
+            .map_err(|_| Error::InvalidUrl(helper_url_root.to_string()))
     }
 
     #[allow(clippy::similar_names)]
     pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
-        let uri = self.helper_url(&addr.to_string())?;
+        let uri = self.helper_url(&addr.to_string()).await?;
         tracing::debug!("URL {uri:?}");
         let response = match uri.scheme_str() {
             Some("http") => hyper::Client::new().get(uri.clone()).await?,
@@ -200,8 +178,7 @@ impl Network {
     pub fn futurenet() -> Self {
         Network {
             rpc_url: "https://rpc-futurenet.stellar.org:443".to_owned(),
-            network_passphrase: "Test SDF Future Network ; October 2022".to_owned(),
-            helper_url: Some("https://friendbot-futurenet.stellar.org".to_owned()),
+            network_passphrase: "Test SDF Future Network ; October 2022".to_owned()
         }
     }
 }
