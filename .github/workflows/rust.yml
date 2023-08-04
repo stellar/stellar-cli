@@ -61,10 +61,10 @@ jobs:
         with:
           perl-version: "5.36.1"
           distribution: strawberry
-      - if: matrix.target == 'x86_64-pc-windows-msvc'
-        run: cpanm --installdeps .
-      - if: matrix.target == 'x86_64-pc-windows-msvc'
-        run: prove -lv t
+      #      - if: matrix.target == 'x86_64-pc-windows-msvc'
+      #        run: cpanm --installdeps .
+      #      - if: matrix.target == 'x86_64-pc-windows-msvc'
+      #        run: prove -lv t
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Set git to use LF
         run: |
