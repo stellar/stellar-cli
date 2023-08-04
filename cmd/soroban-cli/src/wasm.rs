@@ -1,6 +1,9 @@
 use clap::arg;
 use soroban_env_host::xdr::{self, ContractEntryBodyType, LedgerKey, LedgerKeyContractCode};
-use std::{fs, io, path::Path};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use crate::utils::{self, contract_spec::ContractSpec};
 
@@ -30,7 +33,7 @@ pub enum Error {
 pub struct Args {
     /// Path to wasm binary
     #[arg(long)]
-    pub wasm: std::path::PathBuf,
+    pub wasm: PathBuf,
 }
 
 impl Args {
@@ -60,6 +63,12 @@ impl Args {
     pub fn parse(&self) -> Result<ContractSpec, Error> {
         let contents = self.read()?;
         Ok(ContractSpec::new(&contents)?)
+    }
+}
+
+impl From<&PathBuf> for Args {
+    fn from(wasm: &PathBuf) -> Self {
+        Self { wasm: wasm.clone() }
     }
 }
 
