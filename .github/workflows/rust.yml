@@ -63,12 +63,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Print PATH
-        run: echo %PATH%
+        run: echo $env:PATH
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Setup perl
         uses: shogo82148/actions-setup-perl@v1.23.0
         with:
-          perl-version: "5.34"
+          perl-version: "5.32"
           distribution: strawberry
       - if: matrix.target == 'x86_64-pc-windows-msvc'
         name: Set git to use LF
