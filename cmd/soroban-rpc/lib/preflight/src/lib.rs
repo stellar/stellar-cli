@@ -36,6 +36,7 @@ pub struct CLedgerInfo {
     pub min_temp_entry_expiration: u32,
     pub min_persistent_entry_expiration: u32,
     pub max_entry_expiration: u32,
+    pub autobump_ledgers: u32,
 }
 
 impl From<CLedgerInfo> for LedgerInfo {
@@ -50,6 +51,7 @@ impl From<CLedgerInfo> for LedgerInfo {
             min_temp_entry_expiration: c.min_temp_entry_expiration,
             min_persistent_entry_expiration: c.min_persistent_entry_expiration,
             max_entry_expiration: c.max_entry_expiration,
+            autobump_ledgers: c.autobump_ledgers,
         }
     }
 }
@@ -128,9 +130,10 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
     let auths = host.get_recorded_auth_payloads()?;
-
+    // TODO: is this correct?
+    let budget = host.budget_cloned();
     // Recover, convert and return the storage footprint and other values to C.
-    let (storage, budget, events, _expiration_ledger_bumps) = host.try_finish().unwrap();
+    let (storage, events) = host.try_finish()?;
 
     let diagnostic_events = host_events_to_diagnostic_events(&events);
     let (transaction_data, min_fee) = fees::compute_host_function_transaction_data_and_min_fee(
@@ -145,6 +148,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         &budget,
         &diagnostic_events,
         bucket_list_size,
+        ledger_info.sequence_number,
     )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
@@ -201,6 +205,7 @@ pub extern "C" fn preflight_footprint_expiration_op(
     bucket_list_size: u64,   // Bucket list size for current ledger
     op_body: *const libc::c_char, // OperationBody XDR in base64
     footprint: *const libc::c_char, // LedgerFootprint XDR in base64
+    current_ledger_seq: u32,
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
         preflight_footprint_expiration_op_or_maybe_panic(
@@ -208,6 +213,7 @@ pub extern "C" fn preflight_footprint_expiration_op(
             bucket_list_size,
             op_body,
             footprint,
+            current_ledger_seq,
         )
     }))
 }
@@ -217,24 +223,29 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
     bucket_list_size: u64,
     op_body: *const libc::c_char,
     footprint: *const libc::c_char,
+    current_ledger_seq: u32,
 ) -> Result<CPreflightResult, Box<dyn error::Error>> {
     let op_body_cstr = unsafe { CStr::from_ptr(op_body) };
     let op_body = OperationBody::from_xdr_base64(op_body_cstr.to_str()?)?;
     let footprint_cstr = unsafe { CStr::from_ptr(footprint) };
     let ledger_footprint = LedgerFootprint::from_xdr_base64(footprint_cstr.to_str()?)?;
-    let snapshot_source = &ledger_storage::LedgerStorage {
+    let ledger_storage = &ledger_storage::LedgerStorage {
         golang_handle: handle,
     };
     match op_body {
         OperationBody::BumpFootprintExpiration(op) => preflight_bump_footprint_expiration(
             ledger_footprint,
             op.ledgers_to_expire,
-            snapshot_source,
+            ledger_storage,
             bucket_list_size,
+            current_ledger_seq,
         ),
-        OperationBody::RestoreFootprint(_) => {
-            preflight_restore_footprint(ledger_footprint, snapshot_source, bucket_list_size)
-        }
+        OperationBody::RestoreFootprint(_) => preflight_restore_footprint(
+            ledger_footprint,
+            ledger_storage,
+            bucket_list_size,
+            current_ledger_seq,
+        ),
         op => Err(format!(
             "preflight_footprint_expiration_op(): unsupported operation type {}",
             op.name()
@@ -246,15 +257,17 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
 fn preflight_bump_footprint_expiration(
     footprint: LedgerFootprint,
     ledgers_to_expire: u32,
-    snapshot_source: &LedgerStorage,
+    ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
+    current_ledger_seq: u32,
 ) -> Result<CPreflightResult, Box<dyn Error>> {
     let (transaction_data, min_fee) =
         fees::compute_bump_footprint_exp_transaction_data_and_min_fee(
             footprint,
             ledgers_to_expire,
-            snapshot_source,
+            ledger_storage,
             bucket_list_size,
+            current_ledger_seq,
         )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
@@ -271,13 +284,15 @@ fn preflight_bump_footprint_expiration(
 
 fn preflight_restore_footprint(
     footprint: LedgerFootprint,
-    snapshot_source: &LedgerStorage,
+    ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
+    current_ledger_seq: u32,
 ) -> Result<CPreflightResult, Box<dyn Error>> {
     let (transaction_data, min_fee) = fees::compute_restore_footprint_transaction_data_and_min_fee(
         footprint,
-        snapshot_source,
+        ledger_storage,
         bucket_list_size,
+        current_ledger_seq,
     )?;
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
