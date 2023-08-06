@@ -200,7 +200,7 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 		return false, "", err
 	}
 
-	entry, ok := l.ledgerEntryCacheReadTx[encodedKey]
+	entry, ok := l.ledgerEntryCacheReadTx.get(encodedKey)
 	if ok {
 		return ok, entry, nil
 	}
