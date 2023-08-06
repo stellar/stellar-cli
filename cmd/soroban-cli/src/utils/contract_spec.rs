@@ -6,7 +6,7 @@ use std::{
 use soroban_env_host::xdr::{
     self, DepthLimitedRead, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
     ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
-    StringM,
+    StringM, WriteXdr,
 };
 
 pub struct ContractSpec {
@@ -96,6 +96,16 @@ impl ContractSpec {
             spec_base64,
             spec,
         })
+    }
+
+    pub fn spec_as_json_array(&self) -> Result<String, Error> {
+        let spec = self
+            .spec
+            .iter()
+            .map(|e| Ok(format!("\"{}\"", e.to_xdr_base64()?)))
+            .collect::<Result<Vec<_>, Error>>()?
+            .join(",\n");
+        Ok(format!("[{spec}]"))
     }
 }
 

@@ -60,6 +60,19 @@ fn multi_arg_success() {
 }
 
 #[test]
+fn bytes_as_file() {
+    let env = &TestEnv::default();
+    let path = env.temp_dir.join("bytes.txt");
+    std::fs::write(&path, 0x0073_7465_6c6c_6172u128.to_be_bytes()).unwrap();
+    invoke(env, "bytes")
+        .arg("--bytes-file-path")
+        .arg(path)
+        .assert()
+        .success()
+        .stdout("\"0000000000000000007374656c6c6172\"\n");
+}
+
+#[test]
 fn map() {
     invoke_with_roundtrip("map", json!({"0": true, "1": false}));
 }

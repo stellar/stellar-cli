@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::{arg, command, Parser};
+use clap::{arg, command, value_parser, Parser};
 use heck::ToKebabCase;
 use soroban_env_host::{
     budget::Budget,
@@ -58,7 +58,7 @@ pub struct Cmd {
           help_heading = HEADING_SANDBOX)]
     pub unlimited_budget: bool,
 
-    // Function name as subcommand, then arguments for that function as `--arg-name value`
+    /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
@@ -153,6 +153,8 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     ContractSpec(#[from] contract_spec::Error),
+    #[error("")]
+    MissingFileArg(PathBuf),
 }
 
 impl From<Infallible> for Error {
@@ -203,6 +205,26 @@ impl Cmd {
                         .map_err(|error| Error::CannotParseArg { arg: name, error })
                 } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
                     Ok(ScVal::Void)
+                } else if let Some(arg_path) =
+                    matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name))
+                {
+                    if matches!(i.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
+                        Ok(ScVal::try_from(
+                            &std::fs::read(arg_path)
+                                .map_err(|_| Error::MissingFileArg(arg_path.clone()))?,
+                        )
+                        .unwrap())
+                    } else {
+                        let file_contents = std::fs::read_to_string(arg_path)
+                            .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
+                        tracing::debug!(
+                            "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
+                            i.type_,
+                            file_contents.len()
+                        );
+                        spec.from_string(&file_contents, &i.type_)
+                            .map_err(|error| Error::CannotParseArg { arg: name, error })
+                    }
                 } else {
                     Err(Error::MissingArgument(name))
                 }
@@ -520,16 +542,26 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         cmd = cmd.alias(kebab_name);
     }
     let func = spec.find_function(name).unwrap();
-    let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
+    let doc: &'static str = Box::leak(arg_file_help(&func.doc.to_string_lossy()).into_boxed_str());
     cmd = cmd.about(Some(doc));
     for (name, type_) in inputs_map.iter() {
         let mut arg = clap::Arg::new(name);
+        let file_arg_name = fmt_arg_file_name(name);
+        let mut file_arg = clap::Arg::new(&file_arg_name);
         arg = arg
             .long(name)
             .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());
+
+        file_arg = file_arg
+            .long(&file_arg_name)
+            .alias(file_arg_name.to_kebab_case())
+            .num_args(1)
+            .hide(true)
+            .value_parser(value_parser!(PathBuf))
+            .conflicts_with(name);
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
             let value_name: &'static str = Box::leak(value_name.into_boxed_str());
@@ -552,6 +584,20 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         };
 
         cmd = cmd.arg(arg);
+        cmd = cmd.arg(file_arg);
     }
     Ok(cmd)
+}
+
+fn fmt_arg_file_name(name: &str) -> String {
+    format!("{name}-file-path")
+}
+
+fn arg_file_help(docs: &str) -> String {
+    format!(
+        r#"{docs}
+Usage Notes:
+Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
+Note: The only types which aren't JSON are Bytes and Bytes which are raw bytes"#
+    )
 }
