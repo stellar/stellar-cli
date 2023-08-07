@@ -32,13 +32,13 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
-    let soroban_resources = hack_soroban_resources(calculate_host_function_soroban_resources(
+    let soroban_resources = calculate_host_function_soroban_resources(
         &ledger_changes,
         pre_storage,
         post_storage,
         budget,
         events,
-    )?);
+    )?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
 
@@ -296,7 +296,7 @@ fn finalize_transaction_data_and_min_fee(
     let (fee_configuration, rent_fee_configuration) =
         get_fee_configurations(pre_storage, bucket_list_size)?;
     let (non_refundable_fee, refundable_fee) =
-        compute_transaction_resource_fee_wrapper(transaction_resources, &fee_configuration);
+        compute_transaction_resource_fee(transaction_resources, &fee_configuration);
     let rent_fee = compute_rent_fee(&rent_changes, &rent_fee_configuration, current_ledger_seq);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
@@ -344,13 +344,13 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         ledger_storage,
         false,
     )?;
-    let soroban_resources = hack_soroban_resources(SorobanResources {
+    let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
         read_bytes,
         write_bytes: 0,
         contract_events_size_bytes: 0,
-    });
+    };
     let transaction_resources = TransactionResources {
         instructions: 0,
         read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?,
@@ -444,7 +444,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         ledger_storage,
         true,
     )?;
-    let soroban_resources = hack_soroban_resources(SorobanResources {
+    let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
         // FIXME(fons): this seems to be a workaround for a bug in Core (the fix is to also count bytes read but not written in readBytes).
@@ -452,7 +452,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         read_bytes: write_bytes,
         write_bytes,
         contract_events_size_bytes: 0,
-    });
+    };
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_resources = TransactionResources {
         instructions: 0,
@@ -476,30 +476,4 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         current_ledger_seq,
         bucket_list_size,
     )
-}
-
-fn hack_soroban_resources(resources: SorobanResources) -> SorobanResources {
-    // FIXME: Hack suggested by the core team until they include expiration ledger bumps
-    return SorobanResources {
-        footprint: resources.footprint,
-        instructions: resources.instructions,
-        read_bytes: resources.read_bytes,
-        // read_bytes: max(
-        //     resources.read_bytes + 6000,
-        //     resources.read_bytes * 120 / 100,
-        // ),
-        write_bytes: resources.write_bytes,
-        contract_events_size_bytes: resources.contract_events_size_bytes,
-    };
-}
-
-fn compute_transaction_resource_fee_wrapper(
-    tx_resources: &TransactionResources,
-    fee_config: &FeeConfiguration,
-) -> (i64, i64) {
-    let (min_fee, ref_fee) = compute_transaction_resource_fee(tx_resources, fee_config);
-    // FIXME: Hack suggested by the core team, until we compute rent fees properly
-    //        and include expiration ledger bumps
-    // return (min_fee + 10000 + 10000, ref_fee + 10000);
-    return (min_fee, ref_fee);
 }
