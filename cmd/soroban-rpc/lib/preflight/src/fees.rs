@@ -199,7 +199,7 @@ fn get_fee_configurations(
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractEventsV0)?
     else {
         return Err(
-            "get_fee_configuration(): unexpected config setting entry for MetaDataV0 key".into(),
+            "get_fee_configuration(): unexpected config setting entry for ContractEventsV0 key".into(),
         );
     };
 

@@ -137,10 +137,10 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 		Data: xdr.LedgerEntryData{
 			Type: xdr.LedgerEntryTypeConfigSetting,
 			ConfigSetting: &xdr.ConfigSettingEntry{
-				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractMetaDataV0,
-				ContractMetaData: &xdr.ConfigSettingContractMetaDataV0{
-					TxMaxExtendedMetaDataSizeBytes: 100,
-					FeeExtendedMetaData1Kb:         100,
+				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractEventsV0,
+				ContractEvents: &xdr.ConfigSettingContractEventsV0{
+					TxMaxContractEventsSizeBytes: 10000,
+					FeeContractEvents1Kb:         1,
 				},
 			},
 		},
@@ -152,9 +152,9 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 			ConfigSetting: &xdr.ConfigSettingEntry{
 				ConfigSettingId: xdr.ConfigSettingIdConfigSettingContractBandwidthV0,
 				ContractBandwidth: &xdr.ConfigSettingContractBandwidthV0{
-					LedgerMaxPropagateSizeBytes: 100,
-					TxMaxSizeBytes:              100,
-					FeePropagateData1Kb:         100,
+					LedgerMaxTxsSizeBytes: 100000,
+					TxMaxSizeBytes:        1000,
+					FeeTxSize1Kb:          1,
 				},
 			},
 		},
