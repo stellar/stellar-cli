@@ -318,8 +318,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     // FIXME: we are querying the ledger entries from the DB twice (once here and again in calculate_unmodified_ledger_entry_bytes)
-    // FIXME: factor this out into a separate function
-    let mut rent_changes: Vec<LedgerEntryRentChange> = vec![];
+    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage.get(key, false)?;
         let (expiration_ledger, durability) =
@@ -410,8 +409,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
             );
         };
     // FIXME: we are querying the ledger entries from the DB twice (once here and again in calculate_unmodified_ledger_entry_bytes)
-    // FIXME: factor this out into a separate function
-    let mut rent_changes: Vec<LedgerEntryRentChange> = vec![];
+    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
     for key in footprint.read_write.as_vec() {
         let unmodified_entry = ledger_storage.get(key, true)?;
         let (expiration_ledger, durability) =
