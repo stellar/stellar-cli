@@ -6,9 +6,11 @@ import (
 	"embed"
 	"fmt"
 	"strconv"
+	"sync"
 
 	sq "github.com/Masterminds/squirrel"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/prometheus/client_golang/prometheus"
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/stellar/go/support/db"
@@ -38,7 +40,13 @@ type WriteTx interface {
 	Rollback() error
 }
 
-func OpenSQLiteDB(dbFilePath string) (*db.Session, error) {
+type DB struct {
+	db.SessionInterface
+	ledgerEntryCache      transactionalCache // Just like the DB: compress-encoded ledger key -> ledger entry XDR
+	ledgerEntryCacheMutex sync.RWMutex
+}
+
+func openSQLiteDB(dbFilePath string) (*db.Session, error) {
 	// 1. Use Write-Ahead Logging (WAL).
 	// 2. Disable WAL auto-checkpointing (we will do the checkpointing ourselves with wal_checkpoint pragmas
 	//    after every write transaction).
@@ -52,8 +60,31 @@ func OpenSQLiteDB(dbFilePath string) (*db.Session, error) {
 		_ = session.Close()
 		return nil, errors.Wrap(err, "could not run migrations")
 	}
-
 	return session, nil
+}
+
+func OpenSQLiteDBWithPrometheusMetrics(dbFilePath string, namespace string, sub db.Subservice, registry *prometheus.Registry) (*DB, error) {
+	session, err := openSQLiteDB(dbFilePath)
+	if err != nil {
+		return nil, err
+	}
+	result := DB{
+		SessionInterface: db.RegisterMetrics(session, namespace, sub, registry),
+		ledgerEntryCache: newTransactionalCache(),
+	}
+	return &result, nil
+}
+
+func OpenSQLiteDB(dbFilePath string) (*DB, error) {
+	session, err := openSQLiteDB(dbFilePath)
+	if err != nil {
+		return nil, err
+	}
+	result := DB{
+		SessionInterface: session,
+		ledgerEntryCache: newTransactionalCache(),
+	}
+	return &result, nil
 }
 
 func getLatestLedgerSequence(ctx context.Context, q db.SessionInterface) (uint32, error) {
@@ -79,7 +110,7 @@ func getLatestLedgerSequence(ctx context.Context, q db.SessionInterface) (uint32
 }
 
 type readWriter struct {
-	db                    db.SessionInterface
+	db                    *DB
 	maxBatchSize          int
 	ledgerRetentionWindow uint32
 }
@@ -88,7 +119,7 @@ type readWriter struct {
 // the size of ledger entry batches when writing ledger entries
 // and the retention window for how many historical ledgers are
 // recorded in the database.
-func NewReadWriter(db db.SessionInterface, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
+func NewReadWriter(db *DB, maxBatchSize int, ledgerRetentionWindow uint32) ReadWriter {
 	return &readWriter{
 		db:                    db,
 		maxBatchSize:          maxBatchSize,
@@ -108,6 +139,7 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 	stmtCache := sq.NewStmtCache(txSession.GetTx())
 	db := rw.db
 	return writeTx{
+		db: db,
 		postCommit: func() error {
 			_, err := db.ExecRaw(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
@@ -116,16 +148,18 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 		stmtCache:    stmtCache,
 		ledgerWriter: ledgerWriter{stmtCache: stmtCache},
 		ledgerEntryWriter: ledgerEntryWriter{
-			buffer:          xdr.NewEncodingBuffer(),
-			stmtCache:       stmtCache,
-			keyToEntryBatch: make(map[string]*string, rw.maxBatchSize),
-			maxBatchSize:    rw.maxBatchSize,
+			stmtCache:               stmtCache,
+			buffer:                  xdr.NewEncodingBuffer(),
+			keyToEntryBatch:         make(map[string]*xdr.LedgerEntry, rw.maxBatchSize),
+			ledgerEntryCacheWriteTx: db.ledgerEntryCache.newWriteTx(rw.maxBatchSize),
+			maxBatchSize:            rw.maxBatchSize,
 		},
 		ledgerRetentionWindow: rw.ledgerRetentionWindow,
 	}, nil
 }
 
 type writeTx struct {
+	db                    *DB
 	postCommit            func() error
 	tx                    db.SessionInterface
 	stmtCache             *sq.StmtCache
@@ -157,7 +191,19 @@ func (w writeTx) Commit(ledgerSeq uint32) error {
 		return err
 	}
 
-	if err = w.tx.Commit(); err != nil {
+	// We need to make the cache update atomic with the transaction commit.
+	// Otherwise, the cache can be made inconsistent if a write transaction finishes
+	// in between, updating the cache in the wrong order.
+	commit := func() error {
+		w.db.ledgerEntryCacheMutex.Lock()
+		defer w.db.ledgerEntryCacheMutex.Unlock()
+		if err = w.tx.Commit(); err != nil {
+			return err
+		}
+		w.ledgerEntryWriter.ledgerEntryCacheWriteTx.commit()
+		return nil
+	}
+	if err := commit(); err != nil {
 		return err
 	}
 

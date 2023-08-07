@@ -13,11 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/xdr"
 )
 
-func getLedgerEntryAndLatestLedgerSequenceWithErr(db db.SessionInterface, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
+func getLedgerEntryAndLatestLedgerSequenceWithErr(db *DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
 	tx, err := NewLedgerEntryReader(db).NewTx(context.Background())
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
@@ -40,7 +39,7 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db db.SessionInterface, key xd
 	return present, entry, latestSeq, doneErr
 }
 
-func getLedgerEntryAndLatestLedgerSequence(t require.TestingT, db db.SessionInterface, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
+func getLedgerEntryAndLatestLedgerSequence(t require.TestingT, db *DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
 	present, entry, latestSeq, err := getLedgerEntryAndLatestLedgerSequenceWithErr(db, key)
 	require.NoError(t, err)
 	return present, entry, latestSeq
@@ -623,27 +622,29 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 	var wg sync.WaitGroup
 	writer := func() {
 		defer wg.Done()
-		val := xdr.Uint32(0)
-		data := xdr.ContractDataEntry{
-			Contract: xdr.ScAddress{
-				Type:       xdr.ScAddressTypeScAddressTypeContract,
-				ContractId: &contractID,
-			},
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvU32,
-				U32:  &val,
-			},
-			Durability: xdr.ContractDataDurabilityPersistent,
-			Body: xdr.ContractDataEntryBody{
-				BodyType: xdr.ContractEntryBodyTypeDataEntry,
-				Data: &xdr.ContractDataEntryData{
-					Val: xdr.ScVal{
-						Type: xdr.ScValTypeScvU32,
-						U32:  &val,
+		data := func(i int) xdr.ContractDataEntry {
+			val := xdr.Uint32(i)
+			return xdr.ContractDataEntry{
+				Contract: xdr.ScAddress{
+					Type:       xdr.ScAddressTypeScAddressTypeContract,
+					ContractId: &contractID,
+				},
+				Key: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &val,
+				},
+				Durability: xdr.ContractDataDurabilityPersistent,
+				Body: xdr.ContractDataEntryBody{
+					BodyType: xdr.ContractEntryBodyTypeDataEntry,
+					Data: &xdr.ContractDataEntryData{
+						Val: xdr.ScVal{
+							Type: xdr.ScValTypeScvU32,
+							U32:  &val,
+						},
 					},
 				},
-			},
-			ExpirationLedgerSeq: math.MaxUint32,
+				ExpirationLedgerSeq: math.MaxUint32,
+			}
 		}
 		rw := NewReadWriter(db, 10, 15)
 		for ledgerSequence := uint32(0); ledgerSequence < 1000; ledgerSequence++ {
@@ -651,8 +652,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 			assert.NoError(t, err)
 			writer := tx.LedgerEntryWriter()
 			for i := 0; i < 200; i++ {
-				val++
-				_, entry := getContractDataLedgerEntry(t, data)
+				_, entry := getContractDataLedgerEntry(t, data(i))
 				assert.NoError(t, writer.UpsertLedgerEntry(entry))
 			}
 			assert.NoError(t, tx.Commit(ledgerSequence))
@@ -752,7 +752,7 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 	b.StopTimer()
 }
 
-func NewTestDB(tb testing.TB) db.SessionInterface {
+func NewTestDB(tb testing.TB) *DB {
 	tmp := tb.TempDir()
 	dbPath := path.Join(tmp, "db.sqlite")
 	db, err := OpenSQLiteDB(dbPath)
@@ -765,5 +765,8 @@ func NewTestDB(tb testing.TB) db.SessionInterface {
 	tb.Cleanup(func() {
 		assert.NoError(tb, db.Close())
 	})
-	return db
+	return &DB{
+		SessionInterface: db,
+		ledgerEntryCache: map[string]string{},
+	}
 }

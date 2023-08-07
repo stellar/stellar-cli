@@ -16,7 +16,6 @@ import (
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest/ledgerbackend"
-	dbsession "github.com/stellar/go/support/db"
 	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
 
@@ -41,7 +40,7 @@ type Daemon struct {
 	core                *ledgerbackend.CaptiveStellarCore
 	coreClient          *CoreClientWithMetrics
 	ingestService       *ingest.Service
-	db                  dbsession.SessionInterface
+	db                  *db.DB
 	jsonRPCHandler      *internal.Handler
 	logger              *supportlog.Entry
 	preflightWorkerPool *preflight.PreflightWorkerPool
@@ -53,7 +52,7 @@ type Daemon struct {
 	metricsRegistry     *prometheus.Registry
 }
 
-func (d *Daemon) GetDB() dbsession.SessionInterface {
+func (d *Daemon) GetDB() *db.DB {
 	return d.db
 }
 
@@ -152,13 +151,11 @@ func MustNew(cfg *config.Config) *Daemon {
 		logger.WithError(err).Fatal("could not connect to history archive")
 	}
 
-	session, err := db.OpenSQLiteDB(cfg.SQLiteDBPath)
+	metricsRegistry := prometheus.NewRegistry()
+	dbConn, err := db.OpenSQLiteDBWithPrometheusMetrics(cfg.SQLiteDBPath, prometheusNamespace, "db", metricsRegistry)
 	if err != nil {
 		logger.WithError(err).Fatal("could not open database")
 	}
-	metricsRegistry := prometheus.NewRegistry()
-
-	dbConn := dbsession.RegisterMetrics(session, prometheusNamespace, "db", metricsRegistry)
 
 	daemon := &Daemon{
 		logger:          logger,
@@ -195,7 +192,7 @@ func MustNew(cfg *config.Config) *Daemon {
 	defer cancelReadTxMeta()
 	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(readTxMetaCtx)
 	if err != nil {
-		logger.WithError(err).Fatal("could obtain txmeta cache from the database")
+		logger.WithError(err).Fatal("could not obtain txmeta cache from the database")
 	}
 	for _, txmeta := range txmetas {
 		// NOTE: We could optimize this to avoid unnecessary ingestion calls

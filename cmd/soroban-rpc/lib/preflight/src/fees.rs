@@ -152,12 +152,6 @@ fn get_fee_configuration(
     ledger_storage: &ledger_storage::LedgerStorage,
     bucket_list_size: u64,
 ) -> Result<FeeConfiguration, Box<dyn error::Error>> {
-    // TODO: to improve the performance of this function (which is invoked every single preflight call) we can
-    //       1. modify ledger_storage.get() so that it can gather multiple entries at once
-    //       2. implement a write-through cache for the configuration ledger entries (i.e. the cache is written to at the
-    //          same time as the DB, ensuring they are always in memory).
-    //
-
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
     else {
