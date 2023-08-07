@@ -322,8 +322,8 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage.get(key, false)?;
         if let LedgerEntryData::ContractData(ref cd) = unmodified_entry.data {
-            let new_expiration_leger = current_ledger_seq + ledgers_to_expire;
-            if new_expiration_leger <= cd.expiration_ledger_seq {
+            let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
+            if new_expiration_ledger <= cd.expiration_ledger_seq {
                 // noop
                 continue;
             }
@@ -333,7 +333,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
                 old_size_bytes: size,
                 new_size_bytes: size,
                 old_expiration_ledger: cd.expiration_ledger_seq,
-                new_expiration_ledger: new_expiration_leger,
+                new_expiration_ledger,
             };
             rent_changes.push(rent_change);
         } else {
@@ -405,22 +405,26 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
                 let err = format!("Non-persistent key ({:?}) in footprint", key).into();
                 return Err(err);
             }
-            if current_ledger_seq <= cd.expiration_ledger_seq {
+            println!(
+                "\n\n\ncurrent_ledger_seq: {}, expiration_ledger_seq: {}\n\n",
+                current_ledger_seq, cd.expiration_ledger_seq,
+            );
+            if current_ledger_seq < cd.expiration_ledger_seq {
                 // TODO: is this accurate?
                 //       shouldn't we just check that cd.expiration_ledger_seq <= current_ledger_seq + min_persistent_expiration - 1 ?
                 // noop (the entry hadn't expired)
                 continue;
             }
-            let new_expiration_leger =
+            let new_expiration_ledger =
                 current_ledger_seq + state_expiration.min_persistent_entry_expiration - 1;
             let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
             let rent_change = LedgerEntryRentChange {
-                is_persistent: cd.durability == Persistent,
-                // TODO: is this correct? Or should the old size be considered 0?
-                old_size_bytes: size,
+                is_persistent: true,
+                // TODO: is this correct? Or should the old size be considered to be `size`?
+                old_size_bytes: 0,
                 new_size_bytes: size,
                 old_expiration_ledger: cd.expiration_ledger_seq,
-                new_expiration_ledger: new_expiration_leger,
+                new_expiration_ledger,
             };
             rent_changes.push(rent_change);
         } else {
@@ -432,6 +436,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
             return Err(err);
         }
     }
+    println!("rent changes size: {}", rent_changes.len());
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,
@@ -440,7 +445,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let soroban_resources = hack_soroban_resources(SorobanResources {
         footprint,
         instructions: 0,
-        // FIXME(fons): this seems to be a workaround a bug in code (the fix is to also count bytes read but not written in readBytes).
+        // FIXME(fons): this seems to be a workaround for a bug in Core (the fix is to also count bytes read but not written in readBytes).
         //        we should review it in preview 11.
         read_bytes: write_bytes,
         write_bytes,
