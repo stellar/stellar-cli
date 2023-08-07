@@ -1,4 +1,5 @@
 use ledger_storage;
+use ledger_storage::LedgerStorage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
 use soroban_env_host::fees::{
@@ -13,7 +14,7 @@ use soroban_env_host::xdr::{
     BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
     DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint,
     LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    ReadXdr, RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
+    RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
@@ -22,17 +23,18 @@ use std::error;
 
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
-    ledger_storage: &ledger_storage::LedgerStorage,
-    storage: &Storage,
+    pre_storage: &ledger_storage::LedgerStorage,
+    post_storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    let ledger_changes = get_ledger_changes(budget, storage, ledger_storage)?;
+    let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
     let soroban_resources = hack_soroban_resources(calculate_host_function_soroban_resources(
         &ledger_changes,
-        &storage.footprint,
+        pre_storage,
+        post_storage,
         budget,
         events,
     )?);
@@ -56,7 +58,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     let rent_changes = extract_rent_changes(&ledger_changes);
 
     finalize_transaction_data_and_min_fee(
-        &ledger_storage,
+        &pre_storage,
         &transaction_resources,
         soroban_resources,
         &rent_changes,
@@ -120,27 +122,33 @@ fn estimate_max_transaction_size_for_operation(
 
 fn calculate_host_function_soroban_resources(
     ledger_changes: &Vec<LedgerEntryChange>,
-    footprint: &Footprint,
+    pre_storage: &LedgerStorage,
+    post_storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources, Box<dyn error::Error>> {
-    println!("printing ledger changes");
-    for c in ledger_changes {
-        let key = LedgerKey::from_xdr(&c.encoded_key)?;
-        println!("key: {:#?}", key);
-        println!("old entry size bytes: {}", c.old_entry_size_bytes);
+    let ledger_footprint = storage_footprint_to_ledger_footprint(&post_storage.footprint)?;
+    // TODO: check this is correct
+    let mut unmodified_ledger_keys: Vec<LedgerKey> = Vec::new();
+    for k in ledger_footprint.read_only.as_vec() {
+        if !post_storage.map.contains_key::<LedgerKey>(k, budget)? {
+            unmodified_ledger_keys.push(k.clone());
+        }
     }
-    let read_bytes: u32 = ledger_changes
+    let unmodified_entries_read_bytes =
+        calculate_unmodified_ledger_entry_bytes(&unmodified_ledger_keys, pre_storage, false)?;
+    let modified_entries_read_bytes: u32 = ledger_changes
         .iter()
         .map(|c| c.encoded_key.len() as u32 + c.old_entry_size_bytes)
         .sum();
+
     let write_bytes: u32 = ledger_changes
         .iter()
         .map(|c| {
             c.encoded_key.len() as u32 + c.encoded_new_value.as_ref().map_or(0, |v| v.len()) as u32
         })
         .sum();
-    let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)?;
+
     let contract_events_size_bytes = calculate_event_size_bytes(events)?;
 
     // Add a 15% leeway with a minimum of 50k instructions
@@ -151,7 +159,7 @@ fn calculate_host_function_soroban_resources(
     Ok(SorobanResources {
         footprint: ledger_footprint,
         instructions: u32::try_from(instructions)?,
-        read_bytes,
+        read_bytes: unmodified_entries_read_bytes + modified_entries_read_bytes,
         write_bytes,
         contract_events_size_bytes,
     })
@@ -240,13 +248,13 @@ fn get_fee_configurations(
 
 fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &Vec<LedgerKey>,
-    ledger_storage: &ledger_storage::LedgerStorage,
+    pre_storage: &ledger_storage::LedgerStorage,
     include_expired: bool,
 ) -> Result<u32, Box<dyn error::Error>> {
     let mut res: usize = 0;
     for lk in ledger_entries {
         let key_size = lk.to_xdr()?.len();
-        let entry_size = ledger_storage.get_xdr(lk, include_expired)?.len();
+        let entry_size = pre_storage.get_xdr(lk, include_expired)?.len();
         res += key_size + entry_size;
     }
     Ok(res as u32)
@@ -277,7 +285,7 @@ fn storage_footprint_to_ledger_footprint(foot: &Footprint) -> Result<LedgerFootp
 }
 
 fn finalize_transaction_data_and_min_fee(
-    ledger_storage: &ledger_storage::LedgerStorage,
+    pre_storage: &ledger_storage::LedgerStorage,
     transaction_resources: &TransactionResources,
     soroban_resources: SorobanResources,
     rent_changes: &Vec<LedgerEntryRentChange>,
@@ -285,7 +293,7 @@ fn finalize_transaction_data_and_min_fee(
     bucket_list_size: u64,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
     let (fee_configuration, rent_fee_configuration) =
-        get_fee_configurations(ledger_storage, bucket_list_size)?;
+        get_fee_configurations(pre_storage, bucket_list_size)?;
     let (non_refundable_fee, refundable_fee) =
         compute_transaction_resource_fee_wrapper(transaction_resources, &fee_configuration);
     let rent_fee = compute_rent_fee(&rent_changes, &rent_fee_configuration, current_ledger_seq);
@@ -468,10 +476,11 @@ fn hack_soroban_resources(resources: SorobanResources) -> SorobanResources {
     return SorobanResources {
         footprint: resources.footprint,
         instructions: resources.instructions,
-        read_bytes: max(
-            resources.read_bytes + 6000,
-            resources.read_bytes * 120 / 100,
-        ),
+        read_bytes: resources.read_bytes,
+        // read_bytes: max(
+        //     resources.read_bytes + 6000,
+        //     resources.read_bytes * 120 / 100,
+        // ),
         write_bytes: resources.write_bytes,
         contract_events_size_bytes: resources.contract_events_size_bytes,
     };
