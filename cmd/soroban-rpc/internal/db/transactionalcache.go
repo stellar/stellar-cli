@@ -29,6 +29,9 @@ func (r transactionalCacheReadTx) get(key string) (string, bool) {
 	val, ok := r[key]
 	return val, ok
 }
+func (r transactionalCacheReadTx) upsert(key, value string) {
+	r[key] = value
+}
 
 type transactionalCacheWriteTx struct {
 	// nil indicates deletion

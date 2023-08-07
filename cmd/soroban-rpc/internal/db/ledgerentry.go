@@ -218,7 +218,9 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 	default:
 		return false, "", fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName)
 	}
-	return true, results[0], nil
+	result := results[0]
+	l.ledgerEntryCacheReadTx.upsert(encodedKey, result)
+	return true, result, nil
 }
 
 func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
