@@ -52,6 +52,8 @@ pub enum Error {
     InvalidUrl(String),
     #[error("Inproper response {0}")]
     InproperResponse(String),
+    #[error("Currently not supported on windows. Please visit:\n{0}")]
+    WindowsNotSupported(String),
 }
 
 impl Cmd {
@@ -153,11 +155,18 @@ impl Network {
         let response = match uri.scheme_str() {
             Some("http") => hyper::Client::new().get(uri.clone()).await?,
             Some("https") => {
-                let https = hyper_tls::HttpsConnector::new();
-                hyper::Client::builder()
-                    .build::<_, hyper::Body>(https)
-                    .get(uri.clone())
-                    .await?
+                #[cfg(target_os = "windows")]
+                {
+                    return Err(Error::WindowsNotSupported(uri.to_string()));
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let https = hyper_tls::HttpsConnector::new();
+                    hyper::Client::builder()
+                        .build::<_, hyper::Body>(https)
+                        .get(uri.clone())
+                        .await?
+                }
             }
             _ => {
                 return Err(Error::InvalidUrl(uri.to_string()));
