@@ -13,7 +13,7 @@ use soroban_env_host::xdr::{
     BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
     DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint,
     LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
+    ReadXdr, RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
@@ -124,6 +124,12 @@ fn calculate_host_function_soroban_resources(
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources, Box<dyn error::Error>> {
+    println!("printing ledger changes");
+    for c in ledger_changes {
+        let key = LedgerKey::from_xdr(&c.encoded_key)?;
+        println!("key: {:#?}", key);
+        println!("old entry size bytes: {}", c.old_entry_size_bytes);
+    }
     let read_bytes: u32 = ledger_changes
         .iter()
         .map(|c| c.encoded_key.len() as u32 + c.old_entry_size_bytes)
@@ -462,11 +468,10 @@ fn hack_soroban_resources(resources: SorobanResources) -> SorobanResources {
     return SorobanResources {
         footprint: resources.footprint,
         instructions: resources.instructions,
-        read_bytes: resources.read_bytes,
-        //read_bytes: max(
-        //    resources.read_bytes + 1000,
-        //    resources.read_bytes * 120 / 100,
-        //),
+        read_bytes: max(
+            resources.read_bytes + 6000,
+            resources.read_bytes * 120 / 100,
+        ),
         write_bytes: resources.write_bytes,
         contract_events_size_bytes: resources.contract_events_size_bytes,
     };
