@@ -171,6 +171,17 @@ pub struct GetNetworkResponse {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetLatestLedgerResponse {
+    pub id: String,
+    #[serde(
+        rename = "protocolVersion",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub protocol_version: u32,
+    pub sequence: u32,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Cost {
     #[serde(
         rename = "cpuInsns",
@@ -443,6 +454,14 @@ impl Client {
     pub async fn get_network(&self) -> Result<GetNetworkResponse, Error> {
         tracing::trace!("Getting network");
         Ok(self.client()?.request("getNetwork", rpc_params![]).await?)
+    }
+
+    pub async fn get_latest_ledger(&self) -> Result<GetLatestLedgerResponse, Error> {
+        tracing::trace!("Getting latest ledger");
+        Ok(self
+            .client()?
+            .request("getLatestLedger", rpc_params![])
+            .await?)
     }
 
     pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
