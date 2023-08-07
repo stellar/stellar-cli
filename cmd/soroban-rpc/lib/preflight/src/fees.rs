@@ -324,7 +324,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         if let LedgerEntryData::ContractData(ref cd) = unmodified_entry.data {
             let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
             if new_expiration_ledger <= cd.expiration_ledger_seq {
-                // noop
+                // The bump would be innefective
                 continue;
             }
             let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
@@ -405,10 +405,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
                 let err = format!("Non-persistent key ({:?}) in footprint", key).into();
                 return Err(err);
             }
-            println!(
-                "\n\n\ncurrent_ledger_seq: {}, expiration_ledger_seq: {}\n\n",
-                current_ledger_seq, cd.expiration_ledger_seq,
-            );
             if current_ledger_seq < cd.expiration_ledger_seq {
                 // TODO: is this accurate?
                 //       shouldn't we just check that cd.expiration_ledger_seq <= current_ledger_seq + min_persistent_expiration - 1 ?
