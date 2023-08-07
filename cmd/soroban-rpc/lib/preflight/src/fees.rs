@@ -11,11 +11,12 @@ use soroban_env_host::storage::{AccessType, Footprint, Storage};
 use soroban_env_host::xdr;
 use soroban_env_host::xdr::ContractDataDurability::Persistent;
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
-    DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint,
-    LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
+    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, ContractDataDurability,
+    DecoratedSignature, DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntry,
+    LedgerEntryData, LedgerFootprint, LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519,
+    Operation, OperationBody, Preconditions, RestoreFootprintOp, SequenceNumber, Signature,
+    SignatureHint, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
@@ -321,29 +322,22 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     let mut rent_changes: Vec<LedgerEntryRentChange> = vec![];
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage.get(key, false)?;
-        if let LedgerEntryData::ContractData(ref cd) = unmodified_entry.data {
-            let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
-            if new_expiration_ledger <= cd.expiration_ledger_seq {
-                // The bump would be innefective
-                continue;
-            }
-            let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-            let rent_change = LedgerEntryRentChange {
-                is_persistent: cd.durability == Persistent,
-                old_size_bytes: size,
-                new_size_bytes: size,
-                old_expiration_ledger: cd.expiration_ledger_seq,
-                new_expiration_ledger,
-            };
-            rent_changes.push(rent_change);
-        } else {
-            let err = format!(
-                "Incorrect ledger entry type ({}) in footprint",
-                unmodified_entry.data.name()
-            )
-            .into();
-            return Err(err);
+        let (expiration_ledger, durability) =
+            get_bumpable_entry_expiration_and_durability(&unmodified_entry)?;
+        let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
+        if new_expiration_ledger <= expiration_ledger {
+            // The bump would be innefective
+            continue;
         }
+        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
+        let rent_change = LedgerEntryRentChange {
+            is_persistent: durability == Persistent,
+            old_size_bytes: size,
+            new_size_bytes: size,
+            old_expiration_ledger: expiration_ledger,
+            new_expiration_ledger,
+        };
+        rent_changes.push(rent_change);
     }
     let read_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
@@ -382,6 +376,26 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     )
 }
 
+fn get_bumpable_entry_expiration_and_durability(
+    ledger_entry: &LedgerEntry,
+) -> Result<(u32, ContractDataDurability), Box<dyn error::Error>> {
+    // TODO: Are there any other acceptable entry types?
+    //       is the ContractCode entry type always considered persistent?
+    let res = match ledger_entry.data {
+        LedgerEntryData::ContractData(ref cd) => (cd.expiration_ledger_seq, cd.durability),
+        LedgerEntryData::ContractCode(ref cc) => (cc.expiration_ledger_seq, Persistent),
+        _ => {
+            let err = format!(
+                "Incorrect ledger entry type ({}) in footprint",
+                ledger_entry.data.name()
+            )
+            .into();
+            return Err(err);
+        }
+    };
+    Ok(res)
+}
+
 pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     ledger_storage: &ledger_storage::LedgerStorage,
@@ -400,39 +414,31 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let mut rent_changes: Vec<LedgerEntryRentChange> = vec![];
     for key in footprint.read_write.as_vec() {
         let unmodified_entry = ledger_storage.get(key, true)?;
-        if let LedgerEntryData::ContractData(ref cd) = unmodified_entry.data {
-            if cd.durability != Persistent {
-                let err = format!("Non-persistent key ({:?}) in footprint", key).into();
-                return Err(err);
-            }
-            if current_ledger_seq < cd.expiration_ledger_seq {
-                // TODO: is this accurate?
-                //       shouldn't we just check that cd.expiration_ledger_seq <= current_ledger_seq + min_persistent_expiration - 1 ?
-                // noop (the entry hadn't expired)
-                continue;
-            }
-            let new_expiration_ledger =
-                current_ledger_seq + state_expiration.min_persistent_entry_expiration - 1;
-            let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-            let rent_change = LedgerEntryRentChange {
-                is_persistent: true,
-                // TODO: is this correct? Or should the old size be considered to be `size`?
-                old_size_bytes: 0,
-                new_size_bytes: size,
-                old_expiration_ledger: cd.expiration_ledger_seq,
-                new_expiration_ledger,
-            };
-            rent_changes.push(rent_change);
-        } else {
-            let err = format!(
-                "Incorrect ledger entry type ({}) in footprint",
-                unmodified_entry.data.name()
-            )
-            .into();
+        let (expiration_ledger, durability) =
+            get_bumpable_entry_expiration_and_durability(&unmodified_entry)?;
+        if durability != Persistent {
+            let err = format!("Non-persistent key ({:?}) in footprint", key).into();
             return Err(err);
         }
+        if current_ledger_seq < expiration_ledger {
+            // TODO: is this accurate?
+            //       shouldn't we just check that cd.expiration_ledger_seq < current_ledger_seq + min_persistent_expiration - 1 ?
+            // noop (the entry hadn't expired)
+            continue;
+        }
+        let new_expiration_ledger =
+            current_ledger_seq + state_expiration.min_persistent_entry_expiration - 1;
+        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
+        let rent_change = LedgerEntryRentChange {
+            is_persistent: true,
+            // TODO: is this correct? Or should the old size be considered to be `size`?
+            old_size_bytes: 0,
+            new_size_bytes: size,
+            old_expiration_ledger: expiration_ledger,
+            new_expiration_ledger,
+        };
+        rent_changes.push(rent_change);
     }
-    println!("rent changes size: {}", rent_changes.len());
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,
