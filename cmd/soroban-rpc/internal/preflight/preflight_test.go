@@ -271,7 +271,7 @@ func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
 		}
 		err = tx.Commit(2)
 		require.NoError(t, err)
-		ledgerEntryReadTx, err = db.NewLedgerEntryReader(dbInstance).NewTx(context.Background())
+		ledgerEntryReadTx, err = db.NewLedgerEntryReader(dbInstance).NewCachedTx(context.Background())
 		require.NoError(t, err)
 	}
 	argSymbol := xdr.ScSymbol("world")
