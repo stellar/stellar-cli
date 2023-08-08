@@ -625,7 +625,6 @@ func TestSimulateTransactionWithoutInvokeHostFunction(t *testing.T) {
 }
 
 func TestSimulateTransactionUnmarshalError(t *testing.T) {
-
 	test := NewTest(t)
 
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
@@ -780,7 +779,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 			break
 		}
 		assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
-		fmt.Println("waiting for ledger entry to expire at ledger", entry.MustContractData().ExpirationLedgerSeq)
+		fmt.Println("waiting for ledger entry to expire at ledger", entry.MustContractData().ExpirationLedgerSeq+1)
 		time.Sleep(time.Second)
 	}
 	require.True(t, expired)
