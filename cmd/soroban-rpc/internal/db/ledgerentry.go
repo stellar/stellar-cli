@@ -204,7 +204,11 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 	if l.ledgerEntryCacheReadTx != nil {
 		entry, ok := l.ledgerEntryCacheReadTx.get(encodedKey)
 		if ok {
-			return ok, entry, nil
+			if entry != nil {
+				return true, *entry, nil
+			} else {
+				return false, "", nil
+			}
 		}
 	}
 
@@ -215,17 +219,20 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 	}
 	switch len(results) {
 	case 0:
+		if l.ledgerEntryCacheReadTx != nil {
+			l.ledgerEntryCacheReadTx.upsert(encodedKey, nil)
+		}
 		return false, "", nil
 	case 1:
 		// expected length
+		result := results[0]
+		if l.ledgerEntryCacheReadTx != nil {
+			l.ledgerEntryCacheReadTx.upsert(encodedKey, &result)
+		}
+		return true, result, nil
 	default:
 		return false, "", fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName)
 	}
-	result := results[0]
-	if l.ledgerEntryCacheReadTx != nil {
-		l.ledgerEntryCacheReadTx.upsert(encodedKey, result)
-	}
-	return true, result, nil
 }
 
 func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
