@@ -418,6 +418,11 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
             let err = format!("Non-persistent key ({:?}) in footprint", key).into();
             return Err(err);
         }
+        // FIXME: according to https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration :
+        //  The entry is considered expired when current_ledger > expirationLedger.
+        //  So, the code below should be `current_ledger_seq <= expiration_ledger`
+        //  However, we observe the expiration happening exactly at expiration_ledger.
+        //  Is this a bug in the ledger updates of soroban-rpc?
         if current_ledger_seq < expiration_ledger {
             // TODO: is this accurate?
             //       shouldn't we just check that cd.expiration_ledger_seq < current_ledger_seq + min_persistent_expiration - 1 ?
