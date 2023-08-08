@@ -357,8 +357,9 @@ func TestGetLedgerEntryHidesExpiredContractDataEntries(t *testing.T) {
 	}{
 		{21, true},
 		{22, true},
-		{23, false},
+		{23, true},
 		{24, false},
+		{25, false},
 	} {
 		// ffwd to the ledger sequence
 		tx, err := NewReadWriter(db, 0, 15).NewTx(context.Background())
@@ -403,8 +404,9 @@ func TestGetLedgerEntryHidesExpiredContractCodeEntries(t *testing.T) {
 	}{
 		{21, true},
 		{22, true},
-		{23, false},
+		{23, true},
 		{24, false},
+		{25, false},
 	} {
 		// ffwd to the ledger sequence
 		tx, err := NewReadWriter(db, 0, 15).NewTx(context.Background())
