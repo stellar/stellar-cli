@@ -92,6 +92,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 cargo_metadata = "0.15.4"
 pathdiff = "0.2.1"
 # For hyper-tls
+[target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10.55", features = ["vendored"] }
 
 [build-dependencies]
