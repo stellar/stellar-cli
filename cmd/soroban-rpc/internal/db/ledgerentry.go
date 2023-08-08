@@ -21,6 +21,7 @@ const (
 type LedgerEntryReader interface {
 	GetLatestLedgerSequence(ctx context.Context) (uint32, error)
 	NewTx(ctx context.Context) (LedgerEntryReadTx, error)
+	NewCachedTx(ctx context.Context) (LedgerEntryReadTx, error)
 }
 
 type LedgerEntryReadTx interface {
@@ -200,9 +201,15 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 		return false, "", err
 	}
 
-	entry, ok := l.ledgerEntryCacheReadTx.get(encodedKey)
-	if ok {
-		return ok, entry, nil
+	if l.ledgerEntryCacheReadTx != nil {
+		entry, ok := l.ledgerEntryCacheReadTx.get(encodedKey)
+		if ok {
+			if entry != nil {
+				return true, *entry, nil
+			} else {
+				return false, "", nil
+			}
+		}
 	}
 
 	sql := sq.Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey})
@@ -212,13 +219,20 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 	}
 	switch len(results) {
 	case 0:
+		if l.ledgerEntryCacheReadTx != nil {
+			l.ledgerEntryCacheReadTx.upsert(encodedKey, nil)
+		}
 		return false, "", nil
 	case 1:
 		// expected length
+		result := results[0]
+		if l.ledgerEntryCacheReadTx != nil {
+			l.ledgerEntryCacheReadTx.upsert(encodedKey, &result)
+		}
+		return true, result, nil
 	default:
 		return false, "", fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName)
 	}
-	return true, results[0], nil
 }
 
 func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
@@ -266,7 +280,7 @@ func (r ledgerEntryReader) GetLatestLedgerSequence(ctx context.Context) (uint32,
 	return getLatestLedgerSequence(ctx, r.db)
 }
 
-func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error) {
+func (r ledgerEntryReader) NewCachedTx(ctx context.Context) (LedgerEntryReadTx, error) {
 	txSession := r.db.Clone()
 	// We need to copy the cached ledger entries locally when we start the transaction
 	// since otherwise we would break the consistency between the transaction and the cache.
@@ -280,11 +294,21 @@ func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error)
 		return nil, err
 	}
 	cacheReadTx := r.db.ledgerEntryCache.newReadTx()
-
 	return &ledgerEntryReadTx{
 		ledgerEntryCacheReadTx: cacheReadTx,
 		tx:                     txSession,
 		buffer:                 xdr.NewEncodingBuffer(),
+	}, nil
+}
+
+func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error) {
+	txSession := r.db.Clone()
+	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
+		return nil, err
+	}
+	return &ledgerEntryReadTx{
+		tx:     txSession,
+		buffer: xdr.NewEncodingBuffer(),
 	}, nil
 }
 
