@@ -24,10 +24,7 @@ use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
 
-use crate::{
-    fee::get_fee_configuration,
-    utils::{self, contract_spec},
-};
+use crate::utils::{self, contract_spec};
 
 mod transaction;
 use transaction::{assemble, sign_soroban_authorizations};
@@ -598,7 +595,7 @@ impl Client {
         network_passphrase: &str,
         log_events: Option<LogEvents>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
-        let (fee_configuration, ledger_seq) = get_fee_configuration(self).await?;
+        let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
@@ -606,13 +603,15 @@ impl Client {
             &unsigned_tx,
             source_key,
             signers,
-            ledger_seq + 60, // ~5 minutes of ledgers
+            sequence + 60, // ~5 minutes of ledgers
             network_passphrase,
         )?;
         let fee_ready_txn = if signed_auth_entries.is_empty() {
             part_signed_tx
         } else {
-            transaction::update_fee(&part_signed_tx, &fee_configuration)?
+            // re-simulate to calculate the new fees
+            self.prepare_transaction(&part_signed_tx, log_events)
+                .await?
         };
         let tx = utils::sign_transaction(source_key, &fee_ready_txn, network_passphrase)?;
         self.send_transaction(&tx).await

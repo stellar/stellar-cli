@@ -15,9 +15,10 @@ use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
     AccountId, ConfigSettingEntry, ConfigSettingId, DiagnosticEvent, InvokeHostFunctionOp,
     LedgerFootprint, OperationBody, ReadXdr, ScVec, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
+    SorobanAuthorizationEntry, SorobanCredentials, VecM, WriteXdr,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
+use std::convert::TryFrom;
 use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::panic;
@@ -119,7 +120,17 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
-    let auths = host.get_recorded_auth_payloads()?;
+    let auth: VecM<SorobanAuthorizationEntry> = if invoke_hf_op.auth.is_empty() {
+        let payloads = host.get_recorded_auth_payloads()?;
+        VecM::try_from(
+            payloads
+                .iter()
+                .map(recorded_auth_payload_to_xdr)
+                .collect::<Vec<_>>(),
+        )?
+    } else {
+        invoke_hf_op.auth
+    };
 
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, budget, events, _expiration_ledger_bumps) = host.try_finish().unwrap();
@@ -128,7 +139,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let (transaction_data, min_fee) = fees::compute_host_function_transaction_data_and_min_fee(
         &InvokeHostFunctionOp {
             host_function: invoke_hf_op.host_function,
-            auth: Default::default(),
+            auth: auth.clone(),
         },
         &LedgerStorage {
             golang_handle: handle,
@@ -140,7 +151,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        auth: recorded_auth_payloads_to_c(auths)?,
+        auth: recorded_auth_payloads_to_c(auth.to_vec())?,
         result: CString::new(result.to_xdr_base64()?)?.into_raw(),
         transaction_data: transaction_data_cstr.into_raw(),
         min_fee,
@@ -290,11 +301,11 @@ fn catch_preflight_panic(
 }
 
 fn recorded_auth_payloads_to_c(
-    payloads: Vec<RecordedAuthPayload>,
+    payloads: Vec<SorobanAuthorizationEntry>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let xdr_base64_vec: Vec<String> = payloads
         .iter()
-        .map(|p| recorded_auth_payload_to_xdr(p).to_xdr_base64())
+        .map(WriteXdr::to_xdr_base64)
         .collect::<Result<Vec<_>, _>>()?;
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }

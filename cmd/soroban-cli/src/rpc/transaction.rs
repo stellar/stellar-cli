@@ -1,14 +1,10 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
-use soroban_env_host::{
-    fees::{compute_transaction_resource_fee, FeeConfiguration, TransactionResources},
-    xdr::{
-        AccountId, DecoratedSignature, DiagnosticEvent, Hash, HashIdPreimage,
-        HashIdPreimageSorobanAuthorization, OperationBody, PublicKey, ReadXdr, ScAddress, ScMap,
-        ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
-        SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, Transaction,
-        TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
-    },
+use soroban_env_host::xdr::{
+    AccountId, DiagnosticEvent, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
+    OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal,
+    SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
+    SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
 };
 
 use crate::rpc::{Error, LogEvents, SimulateTransactionResponse};
@@ -42,40 +38,37 @@ pub fn assemble(
         tracing::debug!(simulation_events=?events);
     }
 
-    // update the fees of the actual transaction to meet the minimum resource fees.
-    let mut fee = tx.fee;
-    let classic_transaction_fees = crate::fee::Args::default().fee;
-    if fee < classic_transaction_fees + simulation.min_resource_fee {
-        fee = classic_transaction_fees + simulation.min_resource_fee;
-    }
-
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
     let mut op = tx.operations[0].clone();
     let auths = match &mut op.body {
         OperationBody::InvokeHostFunction(ref mut body) => {
-            if simulation.results.len() != 1 {
-                return Err(Error::UnexpectedSimulateTransactionResultSize {
-                    length: simulation.results.len(),
-                });
-            }
+            if !body.auth.is_empty() {
+                vec![body.auth.clone()]
+            } else {
+                if simulation.results.len() != 1 {
+                    return Err(Error::UnexpectedSimulateTransactionResultSize {
+                        length: simulation.results.len(),
+                    });
+                }
 
-            let auths = simulation
-                .results
-                .iter()
-                .map(|r| {
-                    VecM::try_from(
-                        r.auth
-                            .iter()
-                            .map(SorobanAuthorizationEntry::from_xdr_base64)
-                            .collect::<Result<Vec<_>, _>>()?,
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            if !auths.is_empty() {
-                body.auth = auths[0].clone();
+                let auths = simulation
+                    .results
+                    .iter()
+                    .map(|r| {
+                        VecM::try_from(
+                            r.auth
+                                .iter()
+                                .map(SorobanAuthorizationEntry::from_xdr_base64)
+                                .collect::<Result<Vec<_>, _>>()?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                if !auths.is_empty() {
+                    body.auth = auths[0].clone();
+                }
+                auths
             }
-            auths
         }
         OperationBody::BumpFootprintExpiration(_) | OperationBody::RestoreFootprint(_) => {
             Vec::new()
@@ -86,51 +79,17 @@ pub fn assemble(
         log(&transaction_data.resources.footprint, &auths, &[], None);
     }
 
-    tx.fee = fee;
+    // update the fees of the actual transaction to meet the minimum resource fees.
+    let classic_transaction_fees = crate::fee::Args::default().fee;
+    // Pad the fees up by 15% for a bit of wiggle room.
+    tx.fee = (tx
+        .fee
+        .max(classic_transaction_fees + simulation.min_resource_fee)
+        * 115)
+        / 100;
+
     tx.operations = vec![op].try_into()?;
     tx.ext = TransactionExt::V1(transaction_data);
-    Ok(tx)
-}
-
-pub fn update_fee(
-    raw: &Transaction,
-    fee_configuration: &FeeConfiguration,
-) -> Result<Transaction, Error> {
-    let TransactionExt::V1(SorobanTransactionData { ext, resources, ..}) = &raw.ext else {
-        return Ok(raw.clone());
-    };
-    let envelope = TransactionV1Envelope {
-        tx: raw.clone(),
-        signatures: vec![
-            DecoratedSignature {
-                hint: SignatureHint([0; 4]),
-                signature: Signature::default(),
-            };
-            20
-        ]
-        .try_into()?,
-    };
-    // TODO: Deal with potentual conversion errors here
-    let tx_resources = TransactionResources {
-        instructions: resources.instructions,
-        read_entries: resources.footprint.read_only.len().try_into().unwrap(),
-        write_entries: resources.footprint.read_write.len().try_into().unwrap(),
-        read_bytes: resources.read_bytes,
-        write_bytes: resources.write_bytes,
-        metadata_size_bytes: resources.extended_meta_data_size_bytes,
-        transaction_size_bytes: envelope.to_xdr()?.len().try_into().unwrap(),
-    };
-
-    let (fee, new_refundable_fee) =
-        compute_transaction_resource_fee(&tx_resources, fee_configuration);
-    let mut tx = raw.clone();
-    // TODO: Deal with this error
-    tx.fee = tx.fee.max((fee * 115 / 100).try_into().unwrap());
-    tx.ext = TransactionExt::V1(SorobanTransactionData {
-        ext: ext.clone(),
-        resources: resources.clone(),
-        refundable_fee: new_refundable_fee,
-    });
     Ok(tx)
 }
 
@@ -379,7 +338,7 @@ mod tests {
 
         // validate it auto updated the tx fees from sim response fees
         // since it was greater than tx.fee
-        assert_eq!(215, result.fee);
+        assert_eq!(247, result.fee);
 
         // validate it updated sorobantransactiondata block in the tx ext
         assert_eq!(TransactionExt::V1(transaction_data()), result.ext);
