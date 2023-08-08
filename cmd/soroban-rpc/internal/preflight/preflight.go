@@ -199,9 +199,13 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	}
 
 	stateExpiration := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
+	// It's of utmost importance to simulate the transactions like we were on the next ledger.
+	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
+	// transaction submission.
+	sequenceNumber := latestLedger + 1
 	li := C.CLedgerInfo{
 		network_passphrase: C.CString(params.NetworkPassphrase),
-		sequence_number:    C.uint32_t(latestLedger),
+		sequence_number:    C.uint32_t(sequenceNumber),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
