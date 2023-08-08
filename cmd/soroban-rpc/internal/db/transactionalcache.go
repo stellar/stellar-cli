@@ -48,7 +48,8 @@ func (w transactionalCacheWriteTx) commit() {
 	for key, newValue := range w.pendingUpdates {
 		if newValue == nil {
 			delete(w.parent.entries, key)
+		} else {
+			w.parent.entries[key] = *newValue
 		}
-		w.parent.entries[key] = *newValue
 	}
 }
