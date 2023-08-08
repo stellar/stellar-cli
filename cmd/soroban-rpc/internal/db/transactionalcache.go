@@ -11,7 +11,8 @@ func newTransactionalCache() transactionalCache {
 func (c transactionalCache) newReadTx() transactionalCacheReadTx {
 	ret := make(transactionalCacheReadTx, len(c.entries))
 	for k, v := range c.entries {
-		ret[k] = v
+		localV := v
+		ret[k] = &localV
 	}
 	return ret
 }
@@ -23,11 +24,18 @@ func (c transactionalCache) newWriteTx(estimatedWriteCount int) transactionalCac
 	}
 }
 
-type transactionalCacheReadTx map[string]string
+// nil indicates not present in the underlying storage
+type transactionalCacheReadTx map[string]*string
 
-func (r transactionalCacheReadTx) get(key string) (string, bool) {
+// nil indicates not present in the underlying storage
+func (r transactionalCacheReadTx) get(key string) (*string, bool) {
 	val, ok := r[key]
 	return val, ok
+}
+
+// nil indicates not present in the underlying storage
+func (r transactionalCacheReadTx) upsert(key string, value *string) {
+	r[key] = value
 }
 
 type transactionalCacheWriteTx struct {
