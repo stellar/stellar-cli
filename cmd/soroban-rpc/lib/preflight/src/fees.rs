@@ -129,7 +129,9 @@ fn calculate_host_function_soroban_resources(
     events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources, Box<dyn error::Error>> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(&post_storage.footprint)?;
-    // TODO: check this is correct
+    // FIXME: This hack is needed due to a bug in recording mode which prevents get_ledger_changes() from
+    //        including unmodified ledger entries.
+    //        Remove once this is fixed upstream.
     let mut unmodified_ledger_keys: Vec<LedgerKey> = Vec::new();
     for k in ledger_footprint.read_only.as_vec() {
         if !post_storage.map.contains_key::<LedgerKey>(k, budget)? {
@@ -317,7 +319,6 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    // FIXME: we are querying the ledger entries from the DB twice (once here and again in calculate_unmodified_ledger_entry_bytes)
     let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage.get(key, false)?;
@@ -378,8 +379,6 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
 fn get_bumpable_entry_expiration_and_durability(
     ledger_entry: &LedgerEntry,
 ) -> Result<(u32, ContractDataDurability), Box<dyn error::Error>> {
-    // TODO: Are there any other acceptable entry types?
-    //       is the ContractCode entry type always considered persistent?
     let res = match ledger_entry.data {
         LedgerEntryData::ContractData(ref cd) => (cd.expiration_ledger_seq, cd.durability),
         LedgerEntryData::ContractCode(ref cc) => (cc.expiration_ledger_seq, Persistent),
@@ -408,7 +407,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
                 "get_fee_configuration(): unexpected config setting entry for StateExpiration key".into(),
             );
         };
-    // FIXME: we are querying the ledger entries from the DB twice (once here and again in calculate_unmodified_ledger_entry_bytes)
     let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
     for key in footprint.read_write.as_vec() {
         let unmodified_entry = ledger_storage.get(key, true)?;
@@ -419,8 +417,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
             return Err(err);
         }
         if current_ledger_seq <= expiration_ledger {
-            // TODO: is this accurate?
-            //       shouldn't we just check that cd.expiration_ledger_seq < current_ledger_seq + min_persistent_expiration - 1 ?
             // noop (the entry hadn't expired)
             continue;
         }
@@ -429,10 +425,9 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
         let rent_change = LedgerEntryRentChange {
             is_persistent: true,
-            // TODO: is this correct? Or should the old size be considered to be `size`?
             old_size_bytes: 0,
             new_size_bytes: size,
-            old_expiration_ledger: expiration_ledger,
+            old_expiration_ledger: 0,
             new_expiration_ledger,
         };
         rent_changes.push(rent_change);
@@ -445,8 +440,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        // FIXME(fons): this seems to be a workaround for a bug in Core (the fix is to also count bytes read but not written in readBytes).
-        //        we should review it in preview 11.
         read_bytes: write_bytes,
         write_bytes,
         contract_events_size_bytes: 0,
