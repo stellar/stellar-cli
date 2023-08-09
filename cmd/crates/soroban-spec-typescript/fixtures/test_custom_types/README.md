@@ -12,33 +12,33 @@ soroban contract bindings ts \
   --name test_custom_types
 ```
 
-It uses these settings by default, but you can override them with environment variables if you need to:
+For now, these settings are hardcoded in the generated library (see the [src/constants.ts](./src/constants.ts) file. In the future, these auto-generated libraries will provide a way to configure these settings at runtime.
 
-- **Contract ID**: `CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE`
+# To publish or not to publish
 
-  Override with environment variable `SOROBAN_TEST_CUSTOM_TYPES_CONTRACT_ID` or `PUBLIC_SOROBAN_TEST_CUSTOM_TYPES_CONTRACT_ID`
+This library is suitable for publishing to NPM. You can publish it to NPM using the `npm publish` command.
 
-- **RPC endpoint**: `https://rpc-futurenet.stellar.org/soroban/rpc`
-
-  Override with environment variable `SOROBAN_RPC_URL` or `PUBLIC_SOROBAN_RPC_URL`
-
-- **Network Passphrase**: `Test SDF Future Network ; October 2022`
-
-  Override with environment variable `SOROBAN_NETWORK_PASSPHRASE` or `PUBLIC_SOROBAN_NETWORK_PASSPHRASE`
-
-# Use it
-
-You don't need to publish this library to NPM to use it. You can add it to your project's `package.json` using a file path:
+But you don't need to publish this library to NPM to use it. You can add it to your project's `package.json` using a file path:
 
 ```json
-{
-  "dependencies": {
-    "test_custom_types": "./path/to/this/folder"
-  }
+"dependencies": {
+  "test_custom_types": "./path/to/this/folder"
 }
 ```
 
-Then you can import it into your editor and see inline documentation for all of its exports:
+However, we've actually encountered [frustration](https://github.com/stellar/soroban-example-dapp/pull/117#discussion_r1232873560) using local libraries with NPM in this way. Though it seems a bit messy, we suggest generating the library directly to your `node_modules` folder automatically after each install by using a `postinstall` script. We've had the least trouble with this approach. NPM will automatically remove what it sees as erroneous directories during the `install` step, and then regenerate them when it gets to your `postinstall` step, which will keep the library up-to-date with your contract.
+
+```json
+"scripts": {
+  "postinstall": "soroban contract bindings ts --rpc-url https://rpc-futurenet.stellar.org/soroban/rpc --network-passphrase \"Test SDF Future Network ; October 2022\" --id CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE --name test_custom_types"
+}
+```
+
+Obviously you need to adjust the above command based on the actual command you used to generate the library.
+
+# Use it
+
+Now that you have your library up-to-date and added to your project, you can import it in a file and see inline documentation for all of its exports:
 
 ```js
 import * as testCustomTypes from "test_custom_types"

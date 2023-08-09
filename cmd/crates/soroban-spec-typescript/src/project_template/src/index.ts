@@ -3,10 +3,8 @@ import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
 import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke } from './invoke.js';
-import type { ResponseTypes, Wallet } from './method-options.js'
+import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'
 
-export * from './constants.js'
-export * from './server.js'
 export * from './invoke.js'
 
 export type u32 = number;
@@ -90,4 +88,3 @@ function getError(err: string): Err<Error_> | undefined {
     }
     return undefined;
 }
-

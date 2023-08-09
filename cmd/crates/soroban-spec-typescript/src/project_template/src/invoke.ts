@@ -1,8 +1,6 @@
 import * as SorobanClient from 'soroban-client'
 import type { Account, Memo, MemoType, Operation, Transaction } from 'soroban-client';
-import { NETWORK_PASSPHRASE, CONTRACT_ID } from './constants.js'
-import { Server } from './server.js'
-import type { Options, ResponseTypes, Wallet } from './method-options.js'
+import type { ClassOptions, MethodOptions, ResponseTypes, Wallet } from './method-options.js'
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>
 
@@ -10,7 +8,7 @@ export type Tx = Transaction<Memo<MemoType>, Operation[]>
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
  */
-async function getAccount(wallet: Wallet): Promise<Account | null> {
+async function getAccount(wallet: Wallet, server: SorobanClient.Server): Promise<Account | null> {
   if (!await wallet.isConnected() || !await wallet.isAllowed()) {
     return null
   }
@@ -18,7 +16,7 @@ async function getAccount(wallet: Wallet): Promise<Account | null> {
   if (!publicKey) {
     return null
   }
-  return await Server.getAccount(publicKey)
+  return await server.getAccount(publicKey)
 }
 
 export class NotImplementedError extends Error { }
@@ -31,7 +29,7 @@ type GetTx = SorobanClient.SorobanRpc.GetTransactionResponse
 let someRpcResponse: Simulation | SendTx | GetTx
 type SomeRpcResponse = typeof someRpcResponse
 
-type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
+type InvokeArgs<R extends ResponseTypes, T = string> = MethodOptions<R> & ClassOptions & {
   method: string,
   args?: any[],
   parseResultXdr?: (xdr: string) => T,
@@ -52,25 +50,29 @@ export async function invoke<R extends ResponseTypes, T = string>({
   responseType,
   parseResultXdr,
   secondsToWait = 10,
+  rpcUrl,
+  networkPassphrase,
+  contractId,
   wallet,
 }: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
   wallet = wallet ?? await import('@stellar/freighter-api')
-  const walletAccount = await getAccount(wallet)
+  const server = new SorobanClient.Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') });
+  const walletAccount = await getAccount(wallet, server)
 
   // use a placeholder null account if not yet connected to Freighter so that view calls can still work
   const account = walletAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0')
 
-  const contract = new SorobanClient.Contract(CONTRACT_ID)
+  const contract = new SorobanClient.Contract(contractId)
 
   let tx = new SorobanClient.TransactionBuilder(account, {
     fee: fee.toString(10),
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase,
   })
     .addOperation(contract.call(method, ...args))
     .setTimeout(SorobanClient.TimeoutInfinite)
     .build()
 
-  const simulated = await Server.simulateTransaction(tx)
+  const simulated = await server.simulateTransaction(tx)
 
   if (responseType === 'simulated') return simulated
 
@@ -117,10 +119,11 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   tx = await signTx(
     wallet,
-    SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated) as Tx
+    SorobanClient.assembleTransaction(tx, networkPassphrase, simulated) as Tx,
+    networkPassphrase,
   );
 
-  const raw = await sendTx(tx, secondsToWait);
+  const raw = await sendTx(tx, secondsToWait, server);
 
   if (responseType === 'full') return raw
 
@@ -144,14 +147,14 @@ export async function invoke<R extends ResponseTypes, T = string>({
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-export async function signTx(wallet: Wallet, tx: Tx): Promise<Tx> {
+export async function signTx(wallet: Wallet, tx: Tx, networkPassphrase: string): Promise<Tx> {
   const signed = await wallet.signTransaction(tx.toXDR(), {
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase,
   })
 
   return SorobanClient.TransactionBuilder.fromXDR(
     signed,
-    NETWORK_PASSPHRASE
+    networkPassphrase,
   ) as Tx
 }
 
@@ -165,14 +168,14 @@ export async function signTx(wallet: Wallet, tx: Tx): Promise<Tx> {
  * function for its timeout/`secondsToWait` logic, rather than implementing
  * your own.
  */
-export async function sendTx(tx: Tx, secondsToWait: number): Promise<SendTx | GetTx> {
-  const sendTransactionResponse = await Server.sendTransaction(tx);
+export async function sendTx(tx: Tx, secondsToWait: number, server: SorobanClient.Server): Promise<SendTx | GetTx> {
+  const sendTransactionResponse = await server.sendTransaction(tx);
 
   if (sendTransactionResponse.status !== "PENDING" || secondsToWait === 0) {
     return sendTransactionResponse;
   }
 
-  let getTransactionResponse = await Server.getTransaction(sendTransactionResponse.hash);
+  let getTransactionResponse = await server.getTransaction(sendTransactionResponse.hash);
 
   const waitUntil = new Date((Date.now() + secondsToWait * 1000)).valueOf()
 
@@ -185,7 +188,7 @@ export async function sendTx(tx: Tx, secondsToWait: number): Promise<SendTx | Ge
     /// Exponential backoff
     waitTime = waitTime * exponentialFactor;
     // See if the transaction is complete
-    getTransactionResponse = await Server.getTransaction(sendTransactionResponse.hash)
+    getTransactionResponse = await server.getTransaction(sendTransactionResponse.hash)
   }
 
   if (getTransactionResponse.status === "NOT_FOUND") {

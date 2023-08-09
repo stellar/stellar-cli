@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.tupleStrukt = exports.string = exports.i256 = exports.u256 = exports.option = exports.tuple = exports.vec = exports.map = exports.multiArgs = exports.u128 = exports.i128 = exports.not = exports.booleanMethod = exports.card = exports.bytesN = exports.bytes = exports.addresse = exports.complex = exports.simple = exports.strukt = exports.struktHel = exports.i64 = exports.i32 = exports.u32 = exports.u32FailOnEven = exports.val = exports.woid = exports.hello = exports.RoyalCard = exports.Err = exports.Ok = void 0;
+exports.Contract = exports.RoyalCard = exports.Err = exports.Ok = void 0;
 const soroban_client_1 = require("soroban-client");
 const buffer_1 = require("buffer");
 const convert_js_1 = require("./convert.js");
@@ -195,335 +195,342 @@ function ComplexEnumFromXdr(base64Xdr) {
 const Errors = [
     { message: "Unknown error has occurred" }
 ];
-async function hello({ hello }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'hello',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))(hello)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.hello = hello;
-async function woid(options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'woid',
-        ...options,
-        parseResultXdr: () => { },
-    });
-}
-exports.woid = woid;
-async function val(options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'val',
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.val = val;
-async function u32FailOnEven({ u32_ }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'u32_fail_on_even',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            try {
-                return new Ok((0, convert_js_1.scValStrToJs)(xdr));
-            }
-            catch (e) {
-                //@ts-ignore
-                let err = getError(e.message);
-                if (err) {
-                    return err;
+class Contract {
+    options;
+    constructor(options) {
+        this.options = options;
+    }
+    async hello({ hello }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'hello',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))(hello)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async woid(options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'woid',
+            ...options,
+            ...this.options,
+            parseResultXdr: () => { },
+        });
+    }
+    async val(options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'val',
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async u32FailOnEven({ u32_ }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'u32_fail_on_even',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                try {
+                    return new Ok((0, convert_js_1.scValStrToJs)(xdr));
                 }
-                else {
-                    throw e;
+                catch (e) {
+                    //@ts-ignore
+                    let err = getError(e.message);
+                    if (err) {
+                        return err;
+                    }
+                    else {
+                        throw e;
+                    }
                 }
-            }
-        },
-    });
-}
-exports.u32FailOnEven = u32FailOnEven;
-async function u32({ u32_ }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'u32_',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.u32 = u32;
-async function i32({ i32_ }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'i32_',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvI32(i))(i32_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.i32 = i32;
-async function i64({ i64_ }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'i64_',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvI64(soroban_client_1.xdr.Int64.fromString(i.toString())))(i64_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.i64 = i64;
-/**
+            },
+        });
+    }
+    async u32({ u32_ }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'u32_',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async i32({ i32_ }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'i32_',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvI32(i))(i32_)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async i64({ i64_ }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'i64_',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvI64(soroban_client_1.xdr.Int64.fromString(i.toString())))(i64_)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    /**
  * Example contract method which takes a struct
  */
-async function struktHel({ strukt }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'strukt_hel',
-        args: [((i) => TestToXdr(i))(strukt)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.struktHel = struktHel;
-async function strukt({ strukt }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'strukt',
-        args: [((i) => TestToXdr(i))(strukt)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return TestFromXdr(xdr);
-        },
-    });
-}
-exports.strukt = strukt;
-async function simple({ simple }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'simple',
-        args: [((i) => SimpleEnumToXdr(i))(simple)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return SimpleEnumFromXdr(xdr);
-        },
-    });
-}
-exports.simple = simple;
-async function complex({ complex }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'complex',
-        args: [((i) => ComplexEnumToXdr(i))(complex)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return ComplexEnumFromXdr(xdr);
-        },
-    });
-}
-exports.complex = complex;
-async function addresse({ addresse }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'addresse',
-        args: [((i) => (0, convert_js_1.addressToScVal)(i))(addresse)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.addresse = addresse;
-async function bytes({ bytes }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'bytes',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvBytes(i))(bytes)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.bytes = bytes;
-async function bytesN({ bytes_n }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'bytes_n',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvBytes(i))(bytes_n)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.bytesN = bytesN;
-async function card({ card }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'card',
-        args: [((i) => RoyalCardToXdr(i))(card)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return RoyalCardFromXdr(xdr);
-        },
-    });
-}
-exports.card = card;
-async function booleanMethod({ boolean }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'boolean',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvBool(i))(boolean)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.booleanMethod = booleanMethod;
-/**
+    async struktHel({ strukt }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'strukt_hel',
+            args: [((i) => TestToXdr(i))(strukt)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async strukt({ strukt }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'strukt',
+            args: [((i) => TestToXdr(i))(strukt)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return TestFromXdr(xdr);
+            },
+        });
+    }
+    async simple({ simple }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'simple',
+            args: [((i) => SimpleEnumToXdr(i))(simple)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return SimpleEnumFromXdr(xdr);
+            },
+        });
+    }
+    async complex({ complex }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'complex',
+            args: [((i) => ComplexEnumToXdr(i))(complex)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return ComplexEnumFromXdr(xdr);
+            },
+        });
+    }
+    async addresse({ addresse }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'addresse',
+            args: [((i) => (0, convert_js_1.addressToScVal)(i))(addresse)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async bytes({ bytes }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'bytes',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvBytes(i))(bytes)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async bytesN({ bytes_n }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'bytes_n',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvBytes(i))(bytes_n)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async card({ card }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'card',
+            args: [((i) => RoyalCardToXdr(i))(card)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return RoyalCardFromXdr(xdr);
+            },
+        });
+    }
+    async booleanMethod({ boolean }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'boolean',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvBool(i))(boolean)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    /**
  * Negates a boolean value
  */
-async function not({ boolean }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'not',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvBool(i))(boolean)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.not = not;
-async function i128({ i128 }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'i128',
-        args: [((i) => (0, convert_js_1.i128ToScVal)(i))(i128)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.i128 = i128;
-async function u128({ u128 }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'u128',
-        args: [((i) => (0, convert_js_1.u128ToScVal)(i))(u128)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.u128 = u128;
-async function multiArgs({ a, b }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'multi_args',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(a),
-            ((i) => soroban_client_1.xdr.ScVal.scvBool(i))(b)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.multiArgs = multiArgs;
-async function map({ map }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'map',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvMap(Array.from(i.entries()).map(([key, value]) => {
-                return new soroban_client_1.xdr.ScMapEntry({
-                    key: ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(key),
-                    val: ((i) => soroban_client_1.xdr.ScVal.scvBool(i))(value)
-                });
-            })))(map)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.map = map;
-async function vec({ vec }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'vec',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvVec(i.map((i) => soroban_client_1.xdr.ScVal.scvU32(i))))(vec)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.vec = vec;
-async function tuple({ tuple }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'tuple',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvVec([((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))(i[0]),
-                ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.tuple = tuple;
-/**
+    async not({ boolean }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'not',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvBool(i))(boolean)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async i128({ i128 }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'i128',
+            args: [((i) => (0, convert_js_1.i128ToScVal)(i))(i128)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async u128({ u128 }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'u128',
+            args: [((i) => (0, convert_js_1.u128ToScVal)(i))(u128)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async multiArgs({ a, b }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'multi_args',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(a),
+                ((i) => soroban_client_1.xdr.ScVal.scvBool(i))(b)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async map({ map }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'map',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvMap(Array.from(i.entries()).map(([key, value]) => {
+                    return new soroban_client_1.xdr.ScMapEntry({
+                        key: ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(key),
+                        val: ((i) => soroban_client_1.xdr.ScVal.scvBool(i))(value)
+                    });
+                })))(map)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async vec({ vec }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'vec',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvVec(i.map((i) => soroban_client_1.xdr.ScVal.scvU32(i))))(vec)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async tuple({ tuple }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'tuple',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvVec([((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))(i[0]),
+                    ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    /**
  * Example of an optional argument
  */
-async function option({ option }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'option',
-        args: [((i) => (!i) ? soroban_client_1.xdr.ScVal.scvVoid() : soroban_client_1.xdr.ScVal.scvU32(i))(option)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
+    async option({ option }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'option',
+            args: [((i) => (!i) ? soroban_client_1.xdr.ScVal.scvVoid() : soroban_client_1.xdr.ScVal.scvU32(i))(option)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async u256({ u256 }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'u256',
+            args: [((i) => i)(u256)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async i256({ i256 }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'i256',
+            args: [((i) => i)(i256)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async string({ string }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'string',
+            args: [((i) => soroban_client_1.xdr.ScVal.scvString(i))(string)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return (0, convert_js_1.scValStrToJs)(xdr);
+            },
+        });
+    }
+    async tupleStrukt({ tuple_strukt }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'tuple_strukt',
+            args: [((i) => TupleStructToXdr(i))(tuple_strukt)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return TupleStructFromXdr(xdr);
+            },
+        });
+    }
 }
-exports.option = option;
-async function u256({ u256 }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'u256',
-        args: [((i) => i)(u256)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.u256 = u256;
-async function i256({ i256 }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'i256',
-        args: [((i) => i)(i256)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.i256 = i256;
-async function string({ string }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'string',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvString(i))(string)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.string = string;
-async function tupleStrukt({ tuple_strukt }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'tuple_strukt',
-        args: [((i) => TupleStructToXdr(i))(tuple_strukt)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return TupleStructFromXdr(xdr);
-        },
-    });
-}
-exports.tupleStrukt = tupleStrukt;
+exports.Contract = Contract;
