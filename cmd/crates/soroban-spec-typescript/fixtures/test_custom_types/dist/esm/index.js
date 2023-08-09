@@ -2,9 +2,8 @@ import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
 import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke } from './invoke.js';
-export * from './constants.js';
-export * from './server.js';
 export * from './invoke.js';
+export * from './method-options.js';
 ;
 ;
 export class Ok {
@@ -62,7 +61,9 @@ function getError(err) {
         return new Err(Errors[i]);
     }
     return undefined;
-}
+} /**
+ * This is from the rust doc above the struct Test
+ */
 function TestToXdr(test) {
     if (!test) {
         return xdr.ScVal.scvVoid();

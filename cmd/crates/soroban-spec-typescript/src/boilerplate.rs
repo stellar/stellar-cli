@@ -74,22 +74,16 @@ impl Project {
             ("INSERT_RPC_URL_HERE", rpc_url),
         ];
         let root: &Path = self.as_ref();
-        [
-            "package.json",
-            "README.md",
-            "src/constants.ts",
-            "src/index.ts",
-            "src/invoke.ts",
-        ]
-        .into_iter()
-        .try_for_each(|file_name| {
-            let file = &root.join(file_name);
-            let mut contents = fs::read_to_string(file).unwrap();
-            for (pattern, replacement) in replacement_strings {
-                contents = contents.replace(pattern, replacement);
-            }
-            fs::write(file, contents)
-        })
+        ["package.json", "README.md", "src/index.ts", "src/invoke.ts"]
+            .into_iter()
+            .try_for_each(|file_name| {
+                let file = &root.join(file_name);
+                let mut contents = fs::read_to_string(file).unwrap();
+                for (pattern, replacement) in replacement_strings {
+                    contents = contents.replace(pattern, replacement);
+                }
+                fs::write(file, contents)
+            })
     }
 
     fn append_index_ts(&self, spec: &[ScSpecEntry]) -> std::io::Result<()> {

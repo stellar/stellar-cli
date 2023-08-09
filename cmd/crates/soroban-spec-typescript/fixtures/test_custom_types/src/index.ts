@@ -5,9 +5,8 @@ import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strT
 import { invoke } from './invoke.js';
 import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'
 
-export * from './constants.js'
-export * from './server.js'
 export * from './invoke.js'
+export * from './method-options.js'
 
 export type u32 = number;
 export type i32 = number;
@@ -89,9 +88,7 @@ function getError(err: string): Err<Error_> | undefined {
         return new Err(Errors[i]!);
     }
     return undefined;
-}
-
-/**
+}/**
  * This is from the rust doc above the struct Test
  */
 export interface Test {

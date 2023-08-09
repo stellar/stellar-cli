@@ -19,9 +19,8 @@ const soroban_client_1 = require("soroban-client");
 const buffer_1 = require("buffer");
 const convert_js_1 = require("./convert.js");
 const invoke_js_1 = require("./invoke.js");
-__exportStar(require("./constants.js"), exports);
-__exportStar(require("./server.js"), exports);
 __exportStar(require("./invoke.js"), exports);
+__exportStar(require("./method-options.js"), exports);
 ;
 ;
 class Ok {
@@ -81,7 +80,9 @@ function getError(err) {
         return new Err(Errors[i]);
     }
     return undefined;
-}
+} /**
+ * This is from the rust doc above the struct Test
+ */
 function TestToXdr(test) {
     if (!test) {
         return soroban_client_1.xdr.ScVal.scvVoid();

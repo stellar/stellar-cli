@@ -6,6 +6,7 @@ import { invoke } from './invoke.js';
 import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'
 
 export * from './invoke.js'
+export * from './method-options.js'
 
 export type u32 = number;
 export type i32 = number;

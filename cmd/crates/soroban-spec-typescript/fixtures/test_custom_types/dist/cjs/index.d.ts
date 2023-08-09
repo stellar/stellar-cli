@@ -1,9 +1,8 @@
 import * as SorobanClient from 'soroban-client';
 import { Buffer } from "buffer";
 import type { ResponseTypes, ClassOptions } from './method-options.js';
-export * from './constants.js';
-export * from './server.js';
 export * from './invoke.js';
+export * from './method-options.js';
 export type u32 = number;
 export type i32 = number;
 export type u64 = bigint;
@@ -41,9 +40,6 @@ export declare class Err<T> implements Result<T> {
     isOk(): boolean;
     isErr(): boolean;
 }
-/**
- * This is from the rust doc above the struct Test
- */
 export interface Test {
     a: u32;
     b: boolean;

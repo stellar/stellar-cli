@@ -1,0 +1,20 @@
+{
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "ava"
+	},
+	"devDependencies": {
+		"@ava/typescript": "^4.1.0",
+		"ava": "^5.3.1",
+		"typescript": "^5.1.6"
+	},
+	"ava": {
+		"typescript": {
+			"rewritePaths": {
+				"src/": "build/"
+			},
+			"compile": "tsc"
+		}
+	}
+}
