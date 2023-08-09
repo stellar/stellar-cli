@@ -1,11 +1,9 @@
 import * as SorobanClient from 'soroban-client';
-import { NETWORK_PASSPHRASE, CONTRACT_ID } from './constants.js';
-import { Server } from './server.js';
 /**
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
  */
-async function getAccount(wallet) {
+async function getAccount(wallet, server) {
     if (!await wallet.isConnected() || !await wallet.isAllowed()) {
         return null;
     }
@@ -13,26 +11,27 @@ async function getAccount(wallet) {
     if (!publicKey) {
         return null;
     }
-    return await Server.getAccount(publicKey);
+    return await server.getAccount(publicKey);
 }
 export class NotImplementedError extends Error {
 }
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse;
-export async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, wallet, }) {
+export async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, rpcUrl, networkPassphrase, contractId, wallet, }) {
     wallet = wallet ?? await import('@stellar/freighter-api');
-    const walletAccount = await getAccount(wallet);
+    const server = new SorobanClient.Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') });
+    const walletAccount = await getAccount(wallet, server);
     // use a placeholder null account if not yet connected to Freighter so that view calls can still work
     const account = walletAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
-    const contract = new SorobanClient.Contract(CONTRACT_ID);
+    const contract = new SorobanClient.Contract(contractId);
     let tx = new SorobanClient.TransactionBuilder(account, {
         fee: fee.toString(10),
-        networkPassphrase: NETWORK_PASSPHRASE,
+        networkPassphrase,
     })
         .addOperation(contract.call(method, ...args))
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
-    const simulated = await Server.simulateTransaction(tx);
+    const simulated = await server.simulateTransaction(tx);
     if (responseType === 'simulated')
         return simulated;
     // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
@@ -69,8 +68,8 @@ export async function invoke({ method, args = [], fee = 100, responseType, parse
     if (!walletAccount) {
         throw new Error('Not connected to Freighter');
     }
-    tx = await signTx(wallet, SorobanClient.assembleTransaction(tx, NETWORK_PASSPHRASE, simulated));
-    const raw = await sendTx(tx, secondsToWait);
+    tx = await signTx(wallet, SorobanClient.assembleTransaction(tx, networkPassphrase, simulated), networkPassphrase);
+    const raw = await sendTx(tx, secondsToWait, server);
     if (responseType === 'full')
         return raw;
     // if `sendTx` awaited the inclusion of the tx in the ledger, it used
@@ -92,11 +91,11 @@ export async function invoke({ method, args = [], fee = 100, responseType, parse
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-export async function signTx(wallet, tx) {
+export async function signTx(wallet, tx, networkPassphrase) {
     const signed = await wallet.signTransaction(tx.toXDR(), {
-        networkPassphrase: NETWORK_PASSPHRASE,
+        networkPassphrase,
     });
-    return SorobanClient.TransactionBuilder.fromXDR(signed, NETWORK_PASSPHRASE);
+    return SorobanClient.TransactionBuilder.fromXDR(signed, networkPassphrase);
 }
 /**
  * Send a transaction to the Soroban network.
@@ -108,12 +107,12 @@ export async function signTx(wallet, tx) {
  * function for its timeout/`secondsToWait` logic, rather than implementing
  * your own.
  */
-export async function sendTx(tx, secondsToWait) {
-    const sendTransactionResponse = await Server.sendTransaction(tx);
+export async function sendTx(tx, secondsToWait, server) {
+    const sendTransactionResponse = await server.sendTransaction(tx);
     if (sendTransactionResponse.status !== "PENDING" || secondsToWait === 0) {
         return sendTransactionResponse;
     }
-    let getTransactionResponse = await Server.getTransaction(sendTransactionResponse.hash);
+    let getTransactionResponse = await server.getTransaction(sendTransactionResponse.hash);
     const waitUntil = new Date((Date.now() + secondsToWait * 1000)).valueOf();
     let waitTime = 1000;
     let exponentialFactor = 1.5;
@@ -123,7 +122,7 @@ export async function sendTx(tx, secondsToWait) {
         /// Exponential backoff
         waitTime = waitTime * exponentialFactor;
         // See if the transaction is complete
-        getTransactionResponse = await Server.getTransaction(sendTransactionResponse.hash);
+        getTransactionResponse = await server.getTransaction(sendTransactionResponse.hash);
     }
     if (getTransactionResponse.status === "NOT_FOUND") {
         console.log(`Waited ${secondsToWait} seconds for transaction to complete, but it did not. Returning anyway. Check the transaction status manually. Info: ${JSON.stringify(sendTransactionResponse, null, 2)}`);
