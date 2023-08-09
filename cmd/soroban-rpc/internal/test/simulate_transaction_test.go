@@ -775,11 +775,11 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 		err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &result)
 		if err != nil {
 			expired = true
-			fmt.Println("ledger entry expired")
+			t.Logf("ledger entry expired")
 			break
 		}
 		assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
-		fmt.Println("waiting for ledger entry to expire at ledger", entry.MustContractData().ExpirationLedgerSeq+1)
+		t.Log("waiting for ledger entry to expire at ledger", entry.MustContractData().ExpirationLedgerSeq+1)
 		time.Sleep(time.Second)
 	}
 	require.True(t, expired)
