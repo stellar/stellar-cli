@@ -73,12 +73,12 @@ impl Root {
     }
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
+            Cmd::Completion(completion) => completion.run(),
+            Cmd::Config(config) => config.run().await?,
             Cmd::Contract(contract) => contract.run().await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Lab(lab) => lab.run().await?,
             Cmd::Version(version) => version.run(),
-            Cmd::Completion(completion) => completion.run(),
-            Cmd::Config(config) => config.run()?,
         };
         Ok(())
     }
@@ -94,6 +94,9 @@ impl FromStr for Root {
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
+    /// Print shell completion code for the specified shell.
+    #[command(long_about = completion::LONG_ABOUT)]
+    Completion(completion::Cmd),
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
@@ -107,9 +110,6 @@ pub enum Cmd {
     Lab(lab::Cmd),
     /// Print version information
     Version(version::Cmd),
-    /// Print shell completion code for the specified shell.
-    #[command(long_about = completion::LONG_ABOUT)]
-    Completion(completion::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]

@@ -34,6 +34,10 @@ func (entryReader *ConstantLedgerEntryReader) NewTx(ctx context.Context) (db.Led
 	return ConstantLedgerEntryReaderTx{}, nil
 }
 
+func (entryReader *ConstantLedgerEntryReader) NewCachedTx(ctx context.Context) (db.LedgerEntryReadTx, error) {
+	return ConstantLedgerEntryReaderTx{}, nil
+}
+
 func (entryReaderTx ConstantLedgerEntryReaderTx) GetLatestLedgerSequence() (uint32, error) {
 	return expectedLatestLedgerSequence, nil
 }

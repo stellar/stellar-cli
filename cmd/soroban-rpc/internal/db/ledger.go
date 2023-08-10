@@ -6,7 +6,6 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/xdr"
 )
 
@@ -24,10 +23,10 @@ type LedgerWriter interface {
 }
 
 type ledgerReader struct {
-	db db.SessionInterface
+	db *DB
 }
 
-func NewLedgerReader(db db.SessionInterface) LedgerReader {
+func NewLedgerReader(db *DB) LedgerReader {
 	return ledgerReader{db: db}
 }
 
