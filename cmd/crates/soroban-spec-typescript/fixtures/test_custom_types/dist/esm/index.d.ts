@@ -63,7 +63,7 @@ export declare enum RoyalCard {
 export type TupleStruct = [Test, SimpleEnum];
 export type ComplexEnum = {
     tag: "Struct";
-    values: [Test];
+    values: readonly [Test];
 } | {
     tag: "Tuple";
     values: [TupleStruct];
