@@ -72,20 +72,20 @@ if (typeof window !== 'undefined') {
     window.Buffer = window.Buffer || Buffer;
 }
 
-const regex = /ContractError\((\d+)\)/;
+const regex = /Error\(Contract, #(\d+)\)/;
 
-function getError(err: string): Err<Error_> | undefined {
-    const match = err.match(regex);
+function parseError(message: string): Err<Error_> | undefined {
+    const match = message.match(regex);
     if (!match) {
         return undefined;
     }
-    if (Errors == undefined) {
+    if (Errors === undefined) {
         return undefined;
     }
-    // @ts-ignore
     let i = parseInt(match[1], 10);
-    if (i < Errors.length) {
-        return new Err(Errors[i]!);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
     }
     return undefined;
 }/**
@@ -230,9 +230,9 @@ function ComplexEnumFromXdr(base64Xdr: string): ComplexEnum {
     return { tag, values } as ComplexEnum;
 }
 
-const Errors = [
-{message:"Unknown error has occurred"}
-]
+const Errors = {
+1: {message:"Please provide an odd number"}
+}
 
 export class Contract {
     constructor(public readonly options: ClassOptions) {}
@@ -254,7 +254,7 @@ export class Contract {
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'hello',
             args: [((i) => xdr.ScVal.scvSymbol(i))(hello)],
             ...options,
@@ -284,7 +284,7 @@ export class Contract {
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'woid',
             ...options,
             ...this.options,
@@ -311,7 +311,7 @@ export class Contract {
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'val',
             ...options,
             ...this.options,
@@ -340,25 +340,23 @@ export class Contract {
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    try {
+            return await invoke({
             method: 'u32_fail_on_even',
             args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
             ...options,
             ...this.options,
             parseResultXdr: (xdr): Ok<u32> | Err<Error_> | undefined => {
-                try {
-                    return new Ok(scValStrToJs(xdr));
-                } catch (e) {
-                    //@ts-ignore
-                    let err = getError(e.message);
-                    if (err) {
-                        return err;
-                    } else {
-                        throw e;
-                    }
-                }
+                return new Ok(scValStrToJs(xdr));
             },
         });
+        } catch (e) {
+            if (typeof e === 'string') {
+                let err = parseError(e);
+                if (err) return err;
+            }
+            throw e;
+        }
     }
 
 
@@ -380,7 +378,7 @@ export class Contract {
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'u32_',
             args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
             ...options,
@@ -410,7 +408,7 @@ export class Contract {
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'i32_',
             args: [((i) => xdr.ScVal.scvI32(i))(i32_)],
             ...options,
@@ -440,7 +438,7 @@ export class Contract {
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'i64_',
             args: [((i) => xdr.ScVal.scvI64(xdr.Int64.fromString(i.toString())))(i64_)],
             ...options,
@@ -473,7 +471,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'strukt_hel',
             args: [((i) => TestToXdr(i))(strukt)],
             ...options,
@@ -503,7 +501,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'strukt',
             args: [((i) => TestToXdr(i))(strukt)],
             ...options,
@@ -533,7 +531,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'simple',
             args: [((i) => SimpleEnumToXdr(i))(simple)],
             ...options,
@@ -563,7 +561,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'complex',
             args: [((i) => ComplexEnumToXdr(i))(complex)],
             ...options,
@@ -593,7 +591,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'addresse',
             args: [((i) => addressToScVal(i))(addresse)],
             ...options,
@@ -623,7 +621,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'bytes',
             args: [((i) => xdr.ScVal.scvBytes(i))(bytes)],
             ...options,
@@ -653,7 +651,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'bytes_n',
             args: [((i) => xdr.ScVal.scvBytes(i))(bytes_n)],
             ...options,
@@ -683,7 +681,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'card',
             args: [((i) => RoyalCardToXdr(i))(card)],
             ...options,
@@ -713,7 +711,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'boolean',
             args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
             ...options,
@@ -746,7 +744,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'not',
             args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
             ...options,
@@ -776,7 +774,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'i128',
             args: [((i) => i128ToScVal(i))(i128)],
             ...options,
@@ -806,7 +804,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'u128',
             args: [((i) => u128ToScVal(i))(u128)],
             ...options,
@@ -836,7 +834,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'multi_args',
             args: [((i) => xdr.ScVal.scvU32(i))(a),
         ((i) => xdr.ScVal.scvBool(i))(b)],
@@ -867,7 +865,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'map',
             args: [((i) => xdr.ScVal.scvMap(Array.from(i.entries()).map(([key, value]) => {
             return new xdr.ScMapEntry({
@@ -901,7 +899,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'vec',
             args: [((i) => xdr.ScVal.scvVec(i.map((i)=>xdr.ScVal.scvU32(i))))(vec)],
             ...options,
@@ -931,7 +929,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'tuple',
             args: [((i) => xdr.ScVal.scvVec([((i) => xdr.ScVal.scvSymbol(i))(i[0]),
         ((i) => xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
@@ -965,7 +963,7 @@ async option<R extends ResponseTypes = undefined>({option}: {option: Option<u32>
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'option',
             args: [((i) => (!i) ? xdr.ScVal.scvVoid() : xdr.ScVal.scvU32(i))(option)],
             ...options,
@@ -995,7 +993,7 @@ async option<R extends ResponseTypes = undefined>({option}: {option: Option<u32>
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'u256',
             args: [((i) => i)(u256)],
             ...options,
@@ -1025,7 +1023,7 @@ async option<R extends ResponseTypes = undefined>({option}: {option: Option<u32>
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'i256',
             args: [((i) => i)(i256)],
             ...options,
@@ -1055,7 +1053,7 @@ async option<R extends ResponseTypes = undefined>({option}: {option: Option<u32>
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'string',
             args: [((i) => xdr.ScVal.scvString(i))(string)],
             ...options,
@@ -1085,7 +1083,7 @@ async option<R extends ResponseTypes = undefined>({option}: {option: Option<u32>
          */
         secondsToWait?: number
     } = {}) {
-        return await invoke({
+                    return await invoke({
             method: 'tuple_strukt',
             args: [((i) => TupleStructToXdr(i))(tuple_strukt)],
             ...options,

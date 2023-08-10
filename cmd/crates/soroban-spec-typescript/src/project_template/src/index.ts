@@ -72,20 +72,20 @@ if (typeof window !== 'undefined') {
     window.Buffer = window.Buffer || Buffer;
 }
 
-const regex = /ContractError\((\d+)\)/;
+const regex = /Error\(Contract, #(\d+)\)/;
 
-function getError(err: string): Err<Error_> | undefined {
-    const match = err.match(regex);
+function parseError(message: string): Err<Error_> | undefined {
+    const match = message.match(regex);
     if (!match) {
         return undefined;
     }
-    if (Errors == undefined) {
+    if (Errors === undefined) {
         return undefined;
     }
-    // @ts-ignore
     let i = parseInt(match[1], 10);
-    if (i < Errors.length) {
-        return new Err(Errors[i]!);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
     }
     return undefined;
 }

@@ -74,6 +74,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   const simulated = await server.simulateTransaction(tx)
 
+  if (simulated.error) throw simulated.error
   if (responseType === 'simulated') return simulated
 
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.

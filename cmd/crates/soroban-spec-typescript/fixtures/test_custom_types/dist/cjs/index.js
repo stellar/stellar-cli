@@ -65,19 +65,19 @@ if (typeof window !== 'undefined') {
     //@ts-ignore Buffer exists
     window.Buffer = window.Buffer || buffer_1.Buffer;
 }
-const regex = /ContractError\((\d+)\)/;
-function getError(err) {
-    const match = err.match(regex);
+const regex = /Error\(Contract, #(\d+)\)/;
+function parseError(message) {
+    const match = message.match(regex);
     if (!match) {
         return undefined;
     }
-    if (Errors == undefined) {
+    if (Errors === undefined) {
         return undefined;
     }
-    // @ts-ignore
     let i = parseInt(match[1], 10);
-    if (i < Errors.length) {
-        return new Err(Errors[i]);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
     }
     return undefined;
 } /**
@@ -193,9 +193,9 @@ function ComplexEnumFromXdr(base64Xdr) {
     }
     return { tag, values };
 }
-const Errors = [
-    { message: "Unknown error has occurred" }
-];
+const Errors = {
+    1: { message: "Please provide an odd number" }
+};
 class Contract {
     options;
     constructor(options) {
@@ -231,27 +231,25 @@ class Contract {
         });
     }
     async u32FailOnEven({ u32_ }, options = {}) {
-        return await (0, invoke_js_1.invoke)({
-            method: 'u32_fail_on_even',
-            args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
-            ...options,
-            ...this.options,
-            parseResultXdr: (xdr) => {
-                try {
+        try {
+            return await (0, invoke_js_1.invoke)({
+                method: 'u32_fail_on_even',
+                args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(u32_)],
+                ...options,
+                ...this.options,
+                parseResultXdr: (xdr) => {
                     return new Ok((0, convert_js_1.scValStrToJs)(xdr));
-                }
-                catch (e) {
-                    //@ts-ignore
-                    let err = getError(e.message);
-                    if (err) {
-                        return err;
-                    }
-                    else {
-                        throw e;
-                    }
-                }
-            },
-        });
+                },
+            });
+        }
+        catch (e) {
+            if (typeof e === 'string') {
+                let err = parseError(e);
+                if (err)
+                    return err;
+            }
+            throw e;
+        }
     }
     async u32({ u32_ }, options = {}) {
         return await (0, invoke_js_1.invoke)({
