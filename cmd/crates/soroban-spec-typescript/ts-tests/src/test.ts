@@ -1,5 +1,5 @@
 import test from 'ava'
-import { Contract, Ok, Err, Error_ } from '../../fixtures/test_custom_types/dist/esm/index.js'
+import { Contract, Ok, Err } from '../../fixtures/test_custom_types/dist/esm/index.js'
 
 // hash of installed `test_custom_types` contract
 // const CONTRACT_HASH = '693a01aa9c1388acbce3d84f045ff6e66579ad06a8dd3adac9fbdd793e72705f'
@@ -36,12 +36,89 @@ test('woid', async t => {
   t.is(await contract.woid(), undefined)
 })
 
-test("stukt", async (t) => {
-  let test = { a: 0, b: true, c: "hello" };
-  t.notDeepEqual(await contract.strukt({ strukt: test }), test);
-});
-
 test('u32_fail_on_even', async t => {
   t.deepEqual(await contract.u32FailOnEven({ u32_: 1 }), new Ok(1))
   t.deepEqual(await contract.u32FailOnEven({ u32_: 0 }), new Err({ message: "Please provide an odd number" }))
 })
+
+test('u32', async t => {
+  t.is(await contract.u32({ u32_: 1 }), 1)
+})
+
+test('i32', async t => {
+  t.is(await contract.i32({ i32_: 1 }), 1)
+})
+
+test('i64', async t => {
+  t.is(await contract.i64({ i64_: 1n }), 1n)
+})
+
+test("strukt_hel", async (t) => {
+  let test = { a: 0, b: true, c: "world" }
+  t.deepEqual(await contract.struktHel({ strukt: test }), ["Hello", "world"])
+})
+
+test.failing("strukt", async (t) => {
+  let test = { a: 0, b: true, c: "hello" }
+  t.deepEqual(await contract.strukt({ strukt: test }), test)
+})
+
+test('simple first', async t => {
+  const simple = { tag: 'First', values: undefined } as const
+  t.deepEqual(await contract.simple({ simple }), simple)
+})
+
+test('simple second', async t => {
+  const simple = { tag: 'Second', values: undefined } as const
+  t.deepEqual(await contract.simple({ simple }), simple)
+})
+
+test('simple third', async t => {
+  const simple = { tag: 'Third', values: undefined } as const
+  t.deepEqual(await contract.simple({ simple }), simple)
+})
+
+test('complex with struct', async t => {
+  const input = { tag: 'Struct', values: [{ a: 0, b: true, c: 'hello' }] } as const
+  const output = { tag: 'Struct', values: { a: 0, b: true, c: 'hello' } }
+  t.deepEqual(await contract.complex({ complex: input }), output)
+})
+
+test('complex with void', async t => {
+  const complex = { tag: 'Void', values: undefined } as const
+  t.deepEqual(await contract.complex({ complex }), complex)
+})
+
+test.todo('addresse')
+
+test.todo('bytes')
+
+test.todo('bytes_n')
+
+test.todo('card')
+
+test.todo('boolean')
+
+test.todo('not')
+
+test.todo('i128')
+
+test.todo('u128')
+
+test.todo('multi_args')
+
+test.todo('map')
+
+test.todo('vec')
+
+test.todo('tuple')
+
+test.todo('option')
+
+test.todo('u256')
+
+test.todo('i256')
+
+test.todo('string')
+
+test.todo('tuple_strukt')
