@@ -69,6 +69,8 @@ csv = "1.1.6"
 ed25519-dalek = "1.0.1"
 jsonrpsee-http-client = "0.18.1"
 jsonrpsee-core = "0.18.1"
+hyper   = "0.14.27"
+hyper-tls = "0.5"
 http = "0.2.9"
 regex = "1.6.0"
 wasm-opt = { version = "0.114.0", optional = true }
@@ -89,6 +91,9 @@ tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 cargo_metadata = "0.15.4"
 pathdiff = "0.2.1"
+# For hyper-tls
+[target.'cfg(unix)'.dependencies]
+openssl = { version = "0.10.55", features = ["vendored"] }
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
