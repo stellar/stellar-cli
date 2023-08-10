@@ -31,7 +31,7 @@ pub struct Cmd {
     overwrite: bool,
 
     /// The contract ID/address on the network
-    #[arg(long, alias = "id")]
+    #[arg(long, visible_alias = "id")]
     contract_id: String,
 
     #[command(flatten)]
