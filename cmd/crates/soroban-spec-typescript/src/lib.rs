@@ -204,21 +204,6 @@ pub fn entry_to_ts(entry: &Entry) -> String {
             if return_type != "void" {
                 output = format!(r#"return {output};"#);
             };
-            if is_result {
-                output = format!(
-                    r#"try {{
-                    {output}
-                }} catch (e) {{
-                    //@ts-ignore
-                    let err = getError(e.message);
-                    if (err) {{
-                        return err;
-                    }} else {{
-                        throw e;
-                    }}
-                }}"#
-                );
-            }
             let parse_result_xdr = if return_type == "void" {
                 r#"parseResultXdr: () => {}"#.to_owned()
             } else {
@@ -233,14 +218,30 @@ pub fn entry_to_ts(entry: &Entry) -> String {
             let args = (!inputs.is_empty())
                 .then(|| format!("args: [{args}],\n            "))
                 .unwrap_or_default();
-            format!(
-                r#"{ts_doc}async {js_name}<R extends ResponseTypes = undefined>({input}options: {options} = {{}}) {{
-        return await invoke({{
+            let mut body = format!(
+                r#"return await invoke({{
             method: '{name}',
             {args}...options,
             ...this.options,
             {parse_result_xdr},
-        }});
+        }});"#
+            );
+            if is_result {
+                body = format!(
+                    r#"try {{
+            {body}
+        }} catch (e) {{
+            if (typeof e === 'string') {{
+                let err = parseError(e);
+                if (err) return err;
+            }}
+            throw e;
+        }}"#
+                );
+            }
+            format!(
+                r#"{ts_doc}async {js_name}<R extends ResponseTypes = undefined>({input}options: {options} = {{}}) {{
+                    {body}
     }}
 "#
             )
@@ -373,12 +374,12 @@ function {name}ToXdr(val: {name}): xdr.ScVal {{
             let doc = doc_to_ts_doc(doc);
             let cases = cases
                 .iter()
-                .map(|c| format!("{{message:\"{}\"}}", c.doc))
+                .map(|c| format!("{}: {{message:\"{}\"}}", c.value, c.doc))
                 .join(",\n  ");
             format!(
-                r#"{doc}const Errors = [
+                r#"{doc}const Errors = {{
 {cases}
-]"#
+}}"#
             )
         }
     }

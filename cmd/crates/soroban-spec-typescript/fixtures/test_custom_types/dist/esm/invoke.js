@@ -32,6 +32,8 @@ export async function invoke({ method, args = [], fee = 100, responseType, parse
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
     const simulated = await server.simulateTransaction(tx);
+    if (simulated.error)
+        throw simulated.error;
     if (responseType === 'simulated')
         return simulated;
     // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
