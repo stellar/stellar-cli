@@ -1,5 +1,4 @@
 use ledger_storage;
-use ledger_storage::LedgerStorage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
 use soroban_env_host::fees::{
@@ -34,8 +33,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
     let soroban_resources = calculate_host_function_soroban_resources(
         &ledger_changes,
-        pre_storage,
-        post_storage,
+        &post_storage.footprint,
         budget,
         events,
     )?;
@@ -123,12 +121,11 @@ fn estimate_max_transaction_size_for_operation(
 
 fn calculate_host_function_soroban_resources(
     ledger_changes: &Vec<LedgerEntryChange>,
-    pre_storage: &LedgerStorage,
-    post_storage: &Storage,
+    footprint: &Footprint,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources, Box<dyn error::Error>> {
-    let ledger_footprint = storage_footprint_to_ledger_footprint(&post_storage.footprint)?;
+    let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)?;
     let read_bytes: u32 = ledger_changes
         .iter()
         .map(|c| c.encoded_key.len() as u32 + c.old_entry_size_bytes)
