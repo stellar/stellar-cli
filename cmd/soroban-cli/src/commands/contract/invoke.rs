@@ -553,8 +553,10 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         cmd = cmd.alias(kebab_name);
     }
     let func = spec.find_function(name).unwrap();
-    let doc: &'static str = Box::leak(arg_file_help(&func.doc.to_string_lossy()).into_boxed_str());
-    cmd = cmd.about(Some(doc));
+    let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
+    let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
+
+    cmd = cmd.about(Some(doc)).long_about(long_doc);
     for (name, type_) in inputs_map.iter() {
         let mut arg = clap::Arg::new(name);
         let file_arg_name = fmt_arg_file_name(name);
