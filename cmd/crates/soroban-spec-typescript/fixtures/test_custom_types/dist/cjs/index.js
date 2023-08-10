@@ -375,7 +375,7 @@ class Contract {
             },
         });
     }
-    async booleanMethod({ boolean }, options = {}) {
+    async boolean({ boolean }, options = {}) {
         return await (0, invoke_js_1.invoke)({
             method: 'boolean',
             args: [((i) => soroban_client_1.xdr.ScVal.scvBool(i))(boolean)],

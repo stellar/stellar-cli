@@ -107,15 +107,28 @@ test('complex with void', async t => {
   t.deepEqual(await contract.complex({ complex }), complex)
 })
 
-test.todo('addresse')
+test('addresse', async t => {
+  t.is(await contract.addresse({ addresse: publicKey }), publicKey)
+})
 
-test.todo('bytes')
+test('bytes', async t => {
+  const bytes = Buffer.from('hello')
+  t.deepEqual(await contract.bytes({ bytes }), bytes)
+})
 
-test.todo('bytes_n')
+test.failing('bytes_n', async t => {
+  const bytes_n = Buffer.from('1') // what's the correct way to construct bytes_n?
+  t.deepEqual(await contract.bytesN({ bytes_n }), bytes_n)
+})
 
-test.todo('card')
+test.failing('card', async t => {
+  const card = 11
+  t.is(await contract.card({ card }), card)
+})
 
-test.todo('boolean')
+test('boolean', async t => {
+  t.is(await contract.boolean({ boolean: true }), true)
+})
 
 test.todo('not')
 

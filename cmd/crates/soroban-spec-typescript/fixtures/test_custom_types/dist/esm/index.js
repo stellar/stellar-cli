@@ -356,7 +356,7 @@ export class Contract {
             },
         });
     }
-    async booleanMethod({ boolean }, options = {}) {
+    async boolean({ boolean }, options = {}) {
         return await invoke({
             method: 'boolean',
             args: [((i) => xdr.ScVal.scvBool(i))(boolean)],

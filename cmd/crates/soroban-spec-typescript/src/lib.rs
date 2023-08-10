@@ -130,18 +130,7 @@ fn method_options(return_type: &String) -> String {
 }
 
 fn jsify_name(name: &String) -> String {
-    match name.as_str() {
-        "abstract" | "arguments" | "await" | "boolean" | "break" | "byte" | "case" | "catch"
-        | "char" | "class" | "const" | "continue" | "debugger" | "default" | "delete" | "do"
-        | "double" | "else" | "enum" | "eval" | "export" | "extends" | "false" | "final"
-        | "finally" | "float" | "for" | "function" | "goto" | "if" | "implements" | "import"
-        | "in" | "instanceof" | "int" | "interface" | "let" | "long" | "native" | "new"
-        | "null" | "package" | "private" | "protected" | "public" | "return" | "short"
-        | "static" | "super" | "switch" | "synchronized" | "this" | "throw" | "throws"
-        | "transient" | "true" | "try" | "typeof" | "var" | "void" | "volatile" | "while"
-        | "with" | "yield" => format!("{name}Method"),
-        _ => name.to_lower_camel_case(),
-    }
+    name.to_lower_camel_case()
 }
 
 #[allow(clippy::too_many_lines)]
@@ -174,7 +163,7 @@ pub fn entry_to_ts(entry: &Entry) -> String {
                 return_type = type_to_ts(&outputs[0]);
                 is_result = return_type.starts_with("Result<");
             } else {
-                return_type = format!("[{}]", outputs.iter().map(type_to_ts).join(", "));
+                return_type = format!("readonly [{}]", outputs.iter().map(type_to_ts).join(", "));
             };
             let ts_doc = doc_to_ts_doc(doc);
 
@@ -295,7 +284,7 @@ function {name}FromXdr(base64Xdr: string): {name} {{
             let fields = fields.iter().map(type_to_ts).join(",  ");
             let void = type_to_js_xdr(&Type::Void);
             format!(
-                r#"{docs}export type {name} = [{fields}];
+                r#"{docs}export type {name} = readonly [{fields}];
 
 function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
     if (!{arg_name}) {{
@@ -473,7 +462,7 @@ pub fn type_to_ts(value: &types::Type) -> String {
             if elements.is_empty() {
                 "void".to_owned()
             } else {
-                format!("[{}]", elements.iter().map(type_to_ts).join(", "))
+                format!("readonly [{}]", elements.iter().map(type_to_ts).join(", "))
             }
         }
         types::Type::Custom { name } => name.clone(),
