@@ -60,19 +60,19 @@ export declare enum RoyalCard {
     Queen = 12,
     King = 13
 }
-export type TupleStruct = [Test, SimpleEnum];
+export type TupleStruct = readonly [Test, SimpleEnum];
 export type ComplexEnum = {
     tag: "Struct";
     values: readonly [Test];
 } | {
     tag: "Tuple";
-    values: [TupleStruct];
+    values: readonly [TupleStruct];
 } | {
     tag: "Enum";
-    values: [SimpleEnum];
+    values: readonly [SimpleEnum];
 } | {
     tag: "Asset";
-    values: [Address, i128];
+    values: readonly [Address, i128];
 } | {
     tag: "Void";
     values: void;
