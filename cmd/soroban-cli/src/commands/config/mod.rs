@@ -45,9 +45,9 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         match &self {
-            Cmd::Identity(identity) => identity.run()?,
+            Cmd::Identity(identity) => identity.run().await?,
             Cmd::Network(network) => network.run()?,
         }
         Ok(())
