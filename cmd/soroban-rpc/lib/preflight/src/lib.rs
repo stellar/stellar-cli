@@ -189,12 +189,12 @@ fn get_budget_from_network_config_params(
         );
     };
 
-    let budget = Budget::from_configs(
+    let budget = Budget::try_from_configs(
         compute.tx_max_instructions as u64,
         compute.tx_memory_limit as u64,
         cost_params_cpu,
         cost_params_memory,
-    );
+    )?;
     Ok(budget)
 }
 

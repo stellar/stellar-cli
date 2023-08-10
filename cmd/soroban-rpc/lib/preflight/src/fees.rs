@@ -129,18 +129,7 @@ fn calculate_host_function_soroban_resources(
     events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources, Box<dyn error::Error>> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(&post_storage.footprint)?;
-    // FIXME: This hack is needed due to a bug in recording mode which prevents get_ledger_changes() from
-    //        including unmodified ledger entries.
-    //        Remove once this is fixed upstream.
-    let mut unmodified_ledger_keys: Vec<LedgerKey> = Vec::new();
-    for k in ledger_footprint.read_only.as_vec() {
-        if !post_storage.map.contains_key::<LedgerKey>(k, budget)? {
-            unmodified_ledger_keys.push(k.clone());
-        }
-    }
-    let unmodified_entries_read_bytes =
-        calculate_unmodified_ledger_entry_bytes(&unmodified_ledger_keys, pre_storage, false)?;
-    let modified_entries_read_bytes: u32 = ledger_changes
+    let read_bytes: u32 = ledger_changes
         .iter()
         .map(|c| c.encoded_key.len() as u32 + c.old_entry_size_bytes)
         .sum();
@@ -162,7 +151,7 @@ fn calculate_host_function_soroban_resources(
     Ok(SorobanResources {
         footprint: ledger_footprint,
         instructions: u32::try_from(instructions)?,
-        read_bytes: unmodified_entries_read_bytes + modified_entries_read_bytes,
+        read_bytes,
         write_bytes,
         contract_events_size_bytes,
     })
