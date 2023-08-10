@@ -36,9 +36,10 @@ test('woid', async t => {
   t.is(await contract.woid(), undefined)
 })
 
-test('val', async t => {
-  t.is(await contract.val(), 0)
-})
+test("stukt", async (t) => {
+  let test = { a: 0, b: true, c: "hello" };
+  t.notDeepEqual(await contract.strukt({ strukt: test }), test);
+});
 
 test('u32_fail_on_even', async t => {
   t.deepEqual(await contract.u32FailOnEven({ u32_: 1 }), new Ok(1))
