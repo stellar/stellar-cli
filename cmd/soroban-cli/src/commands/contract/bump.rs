@@ -164,7 +164,7 @@ impl Cmd {
                     instructions: 0,
                     read_bytes: 0,
                     write_bytes: 0,
-                    extended_meta_data_size_bytes: 0,
+                    contract_events_size_bytes: 0,
                 },
                 refundable_fee: 0,
             }),

@@ -23,7 +23,7 @@ pub struct Args {
     pub verbose: bool,
 
     /// Log DEBUG and TRACE events
-    #[arg(long, alias = "vv")]
+    #[arg(long, visible_alias = "vv")]
     pub very_verbose: bool,
 
     /// List installed plugins. E.g. `soroban-hello`
