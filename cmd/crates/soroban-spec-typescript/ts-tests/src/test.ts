@@ -79,9 +79,27 @@ test('simple third', async t => {
 })
 
 test('complex with struct', async t => {
-  const input = { tag: 'Struct', values: [{ a: 0, b: true, c: 'hello' }] } as const
-  const output = { tag: 'Struct', values: { a: 0, b: true, c: 'hello' } }
-  t.deepEqual(await contract.complex({ complex: input }), output)
+  const arg = { tag: 'Struct', values: [{ a: 0, b: true, c: 'hello' }] } as const
+  const ret = { tag: 'Struct', values: { a: 0, b: true, c: 'hello' } }
+  t.deepEqual(await contract.complex({ complex: arg }), ret)
+})
+
+test('complex with tuple', async t => {
+  const arg = { tag: 'Tuple', values: [[{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }]] } as const
+  const ret = { tag: 'Tuple', values: [{ a: 0, b: true, c: 'hello' }, ['First']] }
+  t.deepEqual(await contract.complex({ complex: arg }), ret)
+})
+
+test('complex with enum', async t => {
+  const arg = { tag: 'Enum', values: [{ tag: 'First', values: undefined }] } as const
+  const ret = { tag: 'Enum', values: ['First'] }
+  t.deepEqual(await contract.complex({ complex: arg }), ret)
+})
+
+test('complex with asset', async t => {
+  const arg = { tag: 'Asset', values: [publicKey, 1n] } as const
+  const ret = { tag: 'Asset', values: publicKey }
+  t.deepEqual(await contract.complex({ complex: arg }), ret)
 })
 
 test('complex with void', async t => {
