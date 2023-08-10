@@ -89,6 +89,7 @@ impl Cmd {
         let Network {
             rpc_url,
             network_passphrase,
+            ..
         } = self
             .network
             .get(&self.locator)

@@ -5,6 +5,7 @@ This document contains the help content for the `soroban` command-line program.
 **Command Overview:**
 
 * [`soroban`↴](#soroban)
+* [`soroban completion`↴](#soroban-completion)
 * [`soroban contract`↴](#soroban-contract)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
@@ -24,6 +25,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban config identity`↴](#soroban-config-identity)
 * [`soroban config identity add`↴](#soroban-config-identity-add)
 * [`soroban config identity address`↴](#soroban-config-identity-address)
+* [`soroban config identity fund`↴](#soroban-config-identity-fund)
 * [`soroban config identity generate`↴](#soroban-config-identity-generate)
 * [`soroban config identity ls`↴](#soroban-config-identity-ls)
 * [`soroban config identity rm`↴](#soroban-config-identity-rm)
@@ -40,7 +42,6 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban lab xdr`↴](#soroban-lab-xdr)
 * [`soroban lab xdr dec`↴](#soroban-lab-xdr-dec)
 * [`soroban version`↴](#soroban-version)
-* [`soroban completion`↴](#soroban-completion)
 
 ## `soroban`
 
@@ -73,12 +74,12 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 
 ###### **Subcommands:**
 
+* `completion` — Print shell completion code for the specified shell
 * `contract` — Tools for smart contract developers
 * `config` — Read and update config
 * `events` — Watch the network for contract events
 * `lab` — Experiment with early features and expert tools
 * `version` — Print version information
-* `completion` — Print shell completion code for the specified shell
 
 ###### **Options:**
 
@@ -89,6 +90,30 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `-v`, `--verbose` — Log DEBUG events
 * `--very-verbose` — Log DEBUG and TRACE events
 * `--list` — List installed plugins. E.g. `soroban-hello`
+
+
+
+## `soroban completion`
+
+Print shell completion code for the specified shell
+
+Ensure the completion package for your shell is installed,
+e.g., bash-completion for bash.
+
+To enable autocomplete in the current bash shell, run:
+  source <(soroban completion --shell bash)
+
+To enable autocomplete permanently, run:
+  echo "source <(soroban completion --shell bash)" >> ~/.bashrc
+
+**Usage:** `soroban completion --shell <SHELL>`
+
+###### **Options:**
+
+* `--shell <SHELL>` — The shell type
+
+  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
+
 
 
 
@@ -473,6 +498,7 @@ Configure different identities to sign transactions
 
 * `add` — Add a new identity (keypair, ledger, macOS keychain)
 * `address` — Given an identity return its address (public key)
+* `fund` — Fund an identity on a test network
 * `generate` — Generate a new identity with a seed phrase, currently 12 words
 * `ls` — List identities
 * `rm` — Remove an identity
@@ -517,6 +543,27 @@ Given an identity return its address (public key)
 
 
 
+## `soroban config identity fund`
+
+Fund an identity on a test network
+
+**Usage:** `soroban config identity fund [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
 ## `soroban config identity generate`
 
 Generate a new identity with a seed phrase, currently 12 words
@@ -535,6 +582,9 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--config-dir <CONFIG_DIR>`
 * `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
 
 
 
@@ -803,30 +853,6 @@ Decode XDR
 Print version information
 
 **Usage:** `soroban version`
-
-
-
-## `soroban completion`
-
-Print shell completion code for the specified shell
-
-Ensure the completion package for your shell is installed,
-e.g., bash-completion for bash.
-
-To enable autocomplete in the current bash shell, run:
-  source <(soroban completion --shell bash)
-
-To enable autocomplete permanently, run:
-  echo "source <(soroban completion --shell bash)" >> ~/.bashrc
-
-**Usage:** `soroban completion --shell <SHELL>`
-
-###### **Options:**
-
-* `--shell <SHELL>` — The shell type
-
-  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
-
 
 
 
