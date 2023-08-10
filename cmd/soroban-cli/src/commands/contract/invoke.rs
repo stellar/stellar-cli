@@ -8,6 +8,8 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, value_parser, Parser};
 use heck::ToKebabCase;
+use soroban_env_host::e2e_invoke::get_ledger_changes;
+use soroban_env_host::xdr::ReadXdr;
 use soroban_env_host::{
     budget::Budget,
     events::HostEvent,
@@ -403,7 +405,8 @@ impl Cmd {
                 root_invocation: payload.invocation,
             })
             .collect();
-        let (storage, budget, events, expiration_ledger_bumps) = h.try_finish().map_err(|h| h.1)?;
+        let budget = h.budget_cloned();
+        let (storage, events) = h.try_finish()?;
         let footprint = &create_ledger_footprint(&storage.footprint);
         log_events(
             footprint,
@@ -412,6 +415,14 @@ impl Cmd {
             Some(&budget),
         );
 
+        let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
+        let mut expiration_ledger_bumps: HashMap<LedgerKey, u32> = HashMap::new();
+        for ledger_entry_change in ledger_changes {
+            if let Some(exp_change) = ledger_entry_change.expiration_change {
+                let key = xdr::LedgerKey::from_xdr(ledger_entry_change.encoded_key)?;
+                expiration_ledger_bumps.insert(key, exp_change.new_expiration_ledger);
+            }
+        }
         utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
         self.config.set_state(&mut state)?;

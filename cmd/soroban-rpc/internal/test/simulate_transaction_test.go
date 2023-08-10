@@ -146,11 +146,9 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	}
 	var transactionData xdr.SorobanTransactionData
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
+
 	require.NoError(t, err)
 	require.Len(t, response.Results, 1)
-
-	// Hack until we start including rent fees in the preflight computation
-	transactionData.RefundableFee = 10000
 
 	op := params.Operations[0]
 	switch v := op.(type) {
@@ -240,12 +238,12 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions:              74350,
-			ReadBytes:                 1040,
-			WriteBytes:                112,
-			ExtendedMetaDataSizeBytes: 1152,
+			Instructions:            88144,
+			ReadBytes:               40,
+			WriteBytes:              112,
+			ContractEventsSizeBytes: 0,
 		},
-		RefundableFee: 10225,
+		RefundableFee: 1,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -277,6 +275,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+
 	txB64, err = tx.Base64()
 	require.NoError(t, err)
 	request = methods.SimulateTransactionRequest{Transaction: txB64}
@@ -451,7 +450,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotZero(t, obtainedTransactionData.RefundableFee)
-	assert.NotZero(t, obtainedTransactionData.Resources.ExtendedMetaDataSizeBytes)
+	assert.NotZero(t, obtainedTransactionData.Resources.ContractEventsSizeBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.Instructions)
 	assert.NotZero(t, obtainedTransactionData.Resources.ReadBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.WriteBytes)
@@ -500,7 +499,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
-	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 42")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 48")
 }
 
 func TestSimulateTransactionError(t *testing.T) {
@@ -771,13 +770,19 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 
 	// Wait until it expires
+	expired := false
 	for i := 0; i < 50; i++ {
 		err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &result)
 		if err != nil {
+			expired = true
+			t.Logf("ledger entry expired")
 			break
 		}
+		assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
+		t.Log("waiting for ledger entry to expire at ledger", entry.MustContractData().ExpirationLedgerSeq+1)
 		time.Sleep(time.Second)
 	}
+	require.True(t, expired)
 
 	// and restore it
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{

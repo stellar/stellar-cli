@@ -151,11 +151,17 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
 
+	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
+	if err != nil {
+		return Preflight{}, err
+	}
+
 	res := C.preflight_footprint_expiration_op(
 		C.uintptr_t(handle),
 		C.uint64_t(params.BucketListSize),
 		opBodyCString,
 		footprintCString,
+		C.uint32_t(latestLedger),
 	)
 
 	C.free(unsafe.Pointer(opBodyCString))
@@ -188,26 +194,26 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	if err != nil {
 		return Preflight{}, err
 	}
-	minTempEntryExpiration := uint32(0)
-	minPersistentEntryExpiration := uint32(0)
-	maxEntryExpiration := uint32(0)
-	if hasConfig {
-		setting := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
-		minTempEntryExpiration = uint32(setting.MinTempEntryExpiration)
-		minPersistentEntryExpiration = uint32(setting.MinPersistentEntryExpiration)
-		maxEntryExpiration = uint32(setting.MaxEntryExpiration)
+	if !hasConfig {
+		return Preflight{}, errors.New("state expiration config setting missing in ledger storage")
 	}
 
+	stateExpiration := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
+	// It's of utmost importance to simulate the transactions like we were on the next ledger.
+	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
+	// transaction submission.
+	sequenceNumber := latestLedger + 1
 	li := C.CLedgerInfo{
 		network_passphrase: C.CString(params.NetworkPassphrase),
-		sequence_number:    C.uint(latestLedger),
+		sequence_number:    C.uint32_t(sequenceNumber),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
 		base_reserve:                    5_000_000,
-		min_temp_entry_expiration:       C.uint(minTempEntryExpiration),
-		min_persistent_entry_expiration: C.uint(minPersistentEntryExpiration),
-		max_entry_expiration:            C.uint(maxEntryExpiration),
+		min_temp_entry_expiration:       C.uint(stateExpiration.MinTempEntryExpiration),
+		min_persistent_entry_expiration: C.uint(stateExpiration.MinPersistentEntryExpiration),
+		max_entry_expiration:            C.uint(stateExpiration.MaxEntryExpiration),
+		auto_bump_ledgers:               C.uint(stateExpiration.AutoBumpLedgers),
 	}
 
 	sourceAccountCString := C.CString(sourceAccountB64)
