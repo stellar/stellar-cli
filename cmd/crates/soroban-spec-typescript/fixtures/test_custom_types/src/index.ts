@@ -170,7 +170,7 @@ function RoyalCardToXdr(val: RoyalCard): xdr.ScVal {
     return  xdr.ScVal.scvI32(val);
 }
 
-export type TupleStruct = [Test,  SimpleEnum];
+export type TupleStruct = readonly [Test,  SimpleEnum];
 
 function TupleStructToXdr(tupleStruct?: TupleStruct): xdr.ScVal {
     if (!tupleStruct) {
@@ -188,7 +188,7 @@ function TupleStructFromXdr(base64Xdr: string): TupleStruct {
     return scValStrToJs(base64Xdr) as TupleStruct;
 }
 
-export type ComplexEnum = {tag: "Struct", values: [Test]} | {tag: "Tuple", values: [TupleStruct]} | {tag: "Enum", values: [SimpleEnum]} | {tag: "Asset", values: [Address, i128]} | {tag: "Void", values: void};
+export type ComplexEnum = {tag: "Struct", values: readonly [Test]} | {tag: "Tuple", values: readonly [TupleStruct]} | {tag: "Enum", values: readonly [SimpleEnum]} | {tag: "Asset", values: readonly [Address, i128]} | {tag: "Void", values: void};
 
 function ComplexEnumToXdr(complexEnum?: ComplexEnum): xdr.ScVal {
     if (!complexEnum) {
@@ -693,7 +693,7 @@ async struktHel<R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, o
     }
 
 
-    async booleanMethod<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, options: {
+    async boolean<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -911,7 +911,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
     }
 
 
-    async tuple<R extends ResponseTypes = undefined>({tuple}: {tuple: [string, u32]}, options: {
+    async tuple<R extends ResponseTypes = undefined>({tuple}: {tuple: readonly [string, u32]}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -919,7 +919,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
         /**
          * What type of response to return.
          *
-         *   - `undefined`, the default, parses the returned XDR as `[string, u32]`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `undefined`, the default, parses the returned XDR as `readonly [string, u32]`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
          *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
          *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
          */
@@ -935,7 +935,7 @@ async not<R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, op
         ((i) => xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
             ...options,
             ...this.options,
-            parseResultXdr: (xdr): [string, u32] => {
+            parseResultXdr: (xdr): readonly [string, u32] => {
                 return scValStrToJs(xdr);
             },
         });
