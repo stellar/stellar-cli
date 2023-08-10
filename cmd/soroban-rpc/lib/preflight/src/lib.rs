@@ -130,7 +130,6 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
     let auths = host.get_recorded_auth_payloads()?;
-    // TODO: is this correct?
     let budget = host.budget_cloned();
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, events) = host.try_finish()?;
@@ -350,15 +349,13 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthori
             }),
             root_invocation: payload.invocation.clone(),
         },
-        _ => SorobanAuthorizationEntry {
+        (None, None) => SorobanAuthorizationEntry {
             credentials: SorobanCredentials::SourceAccount,
             root_invocation: payload.invocation.clone(),
         },
-        // TODO: there is a bug in the host library which prevents us from
-        //       doing this check. It should be fixed in preview 11.
         // the address and the nonce can't be present independently
-        // (a,n) =>
-        //    panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
+        (a,n) =>
+            panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
     }
 }
 
