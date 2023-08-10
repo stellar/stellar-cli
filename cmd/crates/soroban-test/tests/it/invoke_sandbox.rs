@@ -186,13 +186,14 @@ fn invoke_auth() {
         .success();
 }
 
-#[test]
-fn invoke_auth_with_identity() {
+#[tokio::test]
+async fn invoke_auth_with_identity() {
     let sandbox = TestEnv::default();
 
     sandbox
         .cmd::<identity::generate::Cmd>("test -d ")
         .run()
+        .await
         .unwrap();
     sandbox
         .new_assert_cmd("contract")

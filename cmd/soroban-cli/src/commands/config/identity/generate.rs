@@ -1,8 +1,9 @@
+use clap::{arg, command};
+
 use super::super::{
-    locator,
+    locator, network,
     secret::{self, Secret},
 };
-use clap::{arg, command};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -10,6 +11,8 @@ pub enum Error {
     Config(#[from] locator::Error),
     #[error(transparent)]
     Secret(#[from] secret::Error),
+    #[error(transparent)]
+    Network(#[from] network::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -38,10 +41,13 @@ pub struct Cmd {
     /// Equivalent to --seed 0000000000000000
     #[arg(long, short = 'd', conflicts_with = "seed")]
     pub default_seed: bool,
+
+    #[command(flatten)]
+    pub network: network::Args,
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         let seed_phrase = if self.default_seed {
             Secret::test_seed_phrase()
         } else {
@@ -56,6 +62,13 @@ impl Cmd {
             seed_phrase
         };
         self.config_locator.write_identity(&self.name, &secret)?;
+        if !self.network.is_no_network() {
+            let addr = secret.public_key(self.hd_path)?;
+            self.network
+                .get(&self.config_locator)?
+                .fund_address(&addr)
+                .await?;
+        }
         Ok(())
     }
 }
