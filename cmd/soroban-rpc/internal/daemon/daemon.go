@@ -27,6 +27,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/util"
 )
 
 const (
@@ -275,19 +276,25 @@ func (d *Daemon) Run() {
 		"addr":    d.server.Addr,
 	}).Info("starting Soroban JSON RPC server")
 
-	go func() {
+	util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
+		Log:                d.logger,
+		ExitProcessOnPanic: true,
+	}, func() {
 		if err := d.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Error starting or closing listener:
 			d.logger.WithError(err).Fatal("soroban JSON RPC server encountered fatal error")
 		}
-	}()
+	})
 
 	if d.adminServer != nil {
-		go func() {
+		util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
+			Log:                d.logger,
+			ExitProcessOnPanic: true,
+		}, func() {
 			if err := d.adminServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				d.logger.WithError(err).Error("soroban admin server encountered fatal error")
 			}
-		}()
+		})
 	}
 
 	// Shutdown gracefully when we receive an interrupt signal.
