@@ -12,6 +12,9 @@ use super::generate;
 
 static PROJECT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src/project_template");
 
+const NETWORK_PASSPHRASE_FUTURENET: &str = "Test SDF Future Network ; October 2022";
+const NETWORK_PASSPHRASE_LOCALNET: &str = "Standalone Network ; February 2017";
+
 pub struct Project(PathBuf);
 
 impl TryInto<Project> for PathBuf {
@@ -49,7 +52,7 @@ impl Project {
         spec: &[ScSpecEntry],
     ) -> std::io::Result<()> {
         self.replace_placeholder_patterns(contract_name, contract_id, rpc_url, network_passphrase)?;
-        self.append_index_ts(spec)
+        self.append_index_ts(spec, contract_id, network_passphrase)
     }
 
     fn replace_placeholder_patterns(
@@ -86,11 +89,36 @@ impl Project {
             })
     }
 
-    fn append_index_ts(&self, spec: &[ScSpecEntry]) -> std::io::Result<()> {
+    fn append_index_ts(
+        &self,
+        spec: &[ScSpecEntry],
+        contract_id: &str,
+        network_passphrase: &str,
+    ) -> std::io::Result<()> {
+        let networks = self.format_networks_object(contract_id, network_passphrase);
+        let types_and_fns = generate(spec);
         fs::OpenOptions::new()
             .append(true)
             .open(self.0.join("src/index.ts"))?
-            .write_all(generate(spec).as_bytes())
+            .write_all(format!("{networks}\n\n{types_and_fns}").as_bytes())
+    }
+
+    fn format_networks_object(&self, contract_id: &str, network_passphrase: &str) -> String {
+        let network = if network_passphrase == NETWORK_PASSPHRASE_FUTURENET {
+            "futurenet"
+        } else if network_passphrase == NETWORK_PASSPHRASE_LOCALNET {
+            "localnet"
+        } else {
+            "unknown"
+        };
+        format!(
+            r#"export const networks = {{
+    {network}: {{
+        networkPassphrase: "{network_passphrase}",
+        contractId: "{contract_id}",
+    }}
+}} as const"#
+        )
     }
 }
 

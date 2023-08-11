@@ -104,7 +104,7 @@ typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
 					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
 					--contract-name test_custom_types \
-					--contract-id CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE \
+					--contract-id CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4 \
 					--network futurenet \
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures
 
