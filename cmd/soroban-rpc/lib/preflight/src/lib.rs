@@ -113,14 +113,20 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     })?;
     let host = Host::with_storage_and_budget(storage, budget);
 
-    host.switch_to_recording_auth();
+    let needs_auth_recording = invoke_hf_op.auth.is_empty();
+    if needs_auth_recording {
+        host.switch_to_recording_auth();
+    } else {
+        host.set_authorization_entries(invoke_hf_op.auth.to_vec()).unwrap();
+    }
+
     host.set_diagnostic_level(DiagnosticLevel::Debug);
     host.set_source_account(source_account);
     host.set_ledger_info(ledger_info.into());
 
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
-    let auth: VecM<SorobanAuthorizationEntry> = if invoke_hf_op.auth.is_empty() {
+    let auth: VecM<SorobanAuthorizationEntry> = if needs_auth_recording {
         let payloads = host.get_recorded_auth_payloads()?;
         VecM::try_from(
             payloads
