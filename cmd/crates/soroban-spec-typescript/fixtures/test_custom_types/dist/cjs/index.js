@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Contract = exports.RoyalCard = exports.Err = exports.Ok = void 0;
+exports.Contract = exports.RoyalCard = exports.networks = exports.Err = exports.Ok = void 0;
 const soroban_client_1 = require("soroban-client");
 const buffer_1 = require("buffer");
 const convert_js_1 = require("./convert.js");
@@ -80,9 +80,13 @@ function parseError(message) {
         return new Err(err);
     }
     return undefined;
-} /**
- * This is from the rust doc above the struct Test
- */
+}
+exports.networks = {
+    futurenet: {
+        networkPassphrase: "Test SDF Future Network ; October 2022",
+        contractId: "CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4",
+    }
+};
 function TestToXdr(test) {
     if (!test) {
         return soroban_client_1.xdr.ScVal.scvVoid();

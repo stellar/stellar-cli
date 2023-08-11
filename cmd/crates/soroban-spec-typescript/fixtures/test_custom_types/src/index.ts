@@ -88,7 +88,14 @@ function parseError(message: string): Err<Error_> | undefined {
         return new Err(err);
     }
     return undefined;
-}/**
+}export const networks = {
+    futurenet: {
+        networkPassphrase: "Test SDF Future Network ; October 2022",
+        contractId: "CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4",
+    }
+} as const
+
+/**
  * This is from the rust doc above the struct Test
  */
 export interface Test {

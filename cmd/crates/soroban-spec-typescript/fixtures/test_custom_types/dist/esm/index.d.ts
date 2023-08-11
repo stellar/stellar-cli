@@ -40,6 +40,15 @@ export declare class Err<T> implements Result<T> {
     isOk(): boolean;
     isErr(): boolean;
 }
+export declare const networks: {
+    readonly futurenet: {
+        readonly networkPassphrase: "Test SDF Future Network ; October 2022";
+        readonly contractId: "CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4";
+    };
+};
+/**
+ * This is from the rust doc above the struct Test
+ */
 export interface Test {
     a: u32;
     b: boolean;

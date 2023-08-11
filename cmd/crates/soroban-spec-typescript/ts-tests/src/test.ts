@@ -1,17 +1,12 @@
 import test from 'ava'
-import { Contract, Ok, Err } from '../../fixtures/test_custom_types/dist/esm/index.js'
+import { Contract, Ok, Err, networks } from '../../fixtures/test_custom_types/dist/esm/index.js'
 
-// hash of installed `test_custom_types` contract
-// const CONTRACT_HASH = '693a01aa9c1388acbce3d84f045ff6e66579ad06a8dd3adac9fbdd793e72705f'
-const contractId = 'CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4'
 const rpcUrl = 'https://rpc-futurenet.stellar.org'
-const networkPassphrase = 'Test SDF Future Network ; October 2022'
 const publicKey = 'GCBVOLOM32I7OD5TWZQCIXCXML3TK56MDY7ZMTAILIBQHHKPCVU42XYW'
 
 const contract = new Contract({
-  contractId,
+  ...networks.futurenet,
   rpcUrl,
-  networkPassphrase,
   wallet: {
     isConnected: () => Promise.resolve(true),
     isAllowed: () => Promise.resolve(true),
