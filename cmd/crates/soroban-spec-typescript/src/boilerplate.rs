@@ -95,7 +95,7 @@ impl Project {
         contract_id: &str,
         network_passphrase: &str,
     ) -> std::io::Result<()> {
-        let networks = self.format_networks_object(contract_id, network_passphrase);
+        let networks = Project::format_networks_object(contract_id, network_passphrase);
         let types_and_fns = generate(spec);
         fs::OpenOptions::new()
             .append(true)
@@ -103,7 +103,7 @@ impl Project {
             .write_all(format!("\n\n{networks}\n\n{types_and_fns}").as_bytes())
     }
 
-    fn format_networks_object(&self, contract_id: &str, network_passphrase: &str) -> String {
+    fn format_networks_object(contract_id: &str, network_passphrase: &str) -> String {
         let network = if network_passphrase == NETWORK_PASSPHRASE_FUTURENET {
             "futurenet"
         } else if network_passphrase == NETWORK_PASSPHRASE_LOCALNET {
