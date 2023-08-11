@@ -100,7 +100,7 @@ impl Project {
         fs::OpenOptions::new()
             .append(true)
             .open(self.0.join("src/index.ts"))?
-            .write_all(format!("{networks}\n\n{types_and_fns}").as_bytes())
+            .write_all(format!("\n\n{networks}\n\n{types_and_fns}").as_bytes())
     }
 
     fn format_networks_object(&self, contract_id: &str, network_passphrase: &str) -> String {
