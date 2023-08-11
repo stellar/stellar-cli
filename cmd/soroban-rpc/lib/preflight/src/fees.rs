@@ -31,13 +31,9 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
     let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
-    let soroban_resources = calculate_host_function_soroban_resources(
-        &ledger_changes,
-        &post_storage.footprint,
-        budget,
-        events,
-    )
-    .context("cannot compute host function resources")?;
+    let soroban_resources =
+        calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget)
+            .context("cannot compute host function resources")?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
 
@@ -54,7 +50,8 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
             &soroban_resources.footprint,
         )
         .context("cannot estimate maximum transaction size")?,
-        contract_events_size_bytes: soroban_resources.contract_events_size_bytes,
+        contract_events_size_bytes: calculate_event_size_bytes(events)
+            .context("cannot calculate events size")?,
     };
     let rent_changes = extract_rent_changes(&ledger_changes);
 
@@ -104,7 +101,6 @@ fn estimate_max_transaction_size_for_operation(
                     instructions: 0,
                     read_bytes: 0,
                     write_bytes: 0,
-                    contract_events_size_bytes: 0,
                 },
                 refundable_fee: 0,
                 ext: ExtensionPoint::V0,
@@ -125,7 +121,6 @@ fn calculate_host_function_soroban_resources(
     ledger_changes: &Vec<LedgerEntryChange>,
     footprint: &Footprint,
     budget: &Budget,
-    events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)
         .context("cannot convert storage footprint to ledger footprint")?;
@@ -141,9 +136,6 @@ fn calculate_host_function_soroban_resources(
         })
         .sum();
 
-    let contract_events_size_bytes =
-        calculate_event_size_bytes(events).context("cannot calculate events size")?;
-
     // Add a 15% leeway with a minimum of 50k instructions
     let budget_instructions = budget
         .get_cpu_insns_consumed()
@@ -154,7 +146,6 @@ fn calculate_host_function_soroban_resources(
         instructions: u32::try_from(instructions)?,
         read_bytes,
         write_bytes,
-        contract_events_size_bytes,
     })
 }
 
@@ -166,7 +157,6 @@ fn get_fee_configurations(
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
     else {
         bail!("unexpected config setting entry for ComputeV0 key");
-
     };
 
     let ConfigSettingEntry::ContractLedgerCostV0(ledger_cost) =
@@ -195,9 +185,9 @@ fn get_fee_configurations(
 
     let ConfigSettingEntry::StateExpiration(state_expiration) =
         ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
-        else {
-            bail!("unexpected config setting entry for StateExpiration key");
-        };
+    else {
+        bail!("unexpected config setting entry for StateExpiration key");
+    };
 
     let write_fee_configuration = WriteFeeConfiguration {
         bucket_list_target_size_bytes: ledger_cost.bucket_list_target_size_bytes,
@@ -324,7 +314,6 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         instructions: 0,
         read_bytes,
         write_bytes: 0,
-        contract_events_size_bytes: 0,
     };
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
         &OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
@@ -395,9 +384,9 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
 ) -> Result<(SorobanTransactionData, i64)> {
     let ConfigSettingEntry::StateExpiration(state_expiration) =
         ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
-        else {
-            bail!("unexpected config setting entry for StateExpiration key");
-        };
+    else {
+        bail!("unexpected config setting entry for StateExpiration key");
+    };
     let rent_changes = compute_restore_footprint_rent_changes(
         &footprint,
         ledger_storage,
@@ -416,7 +405,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         instructions: 0,
         read_bytes: write_bytes,
         write_bytes,
-        contract_events_size_bytes: 0,
     };
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
