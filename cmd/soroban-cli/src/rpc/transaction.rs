@@ -43,9 +43,7 @@ pub fn assemble(
     let mut op = tx.operations[0].clone();
     let auths = match &mut op.body {
         OperationBody::InvokeHostFunction(ref mut body) => {
-            if !body.auth.is_empty() {
-                vec![body.auth.clone()]
-            } else {
+            if body.auth.is_empty() {
                 if simulation.results.len() != 1 {
                     return Err(Error::UnexpectedSimulateTransactionResultSize {
                         length: simulation.results.len(),
@@ -68,6 +66,8 @@ pub fn assemble(
                     body.auth = auths[0].clone();
                 }
                 auths
+            } else {
+                vec![body.auth.clone()]
             }
         }
         OperationBody::BumpFootprintExpiration(_) | OperationBody::RestoreFootprint(_) => {
