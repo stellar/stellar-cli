@@ -6,7 +6,6 @@ import { Contract, Ok, Err } from '../../fixtures/test_custom_types/dist/esm/ind
 const contractId = 'CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4'
 const rpcUrl = 'https://rpc-futurenet.stellar.org'
 const networkPassphrase = 'Test SDF Future Network ; October 2022'
-const seedPhrase = 'jealous isolate reflect gun lazy genre strategy real phone like flame cheese'
 const publicKey = 'GCBVOLOM32I7OD5TWZQCIXCXML3TK56MDY7ZMTAILIBQHHKPCVU42XYW'
 
 const contract = new Contract({
@@ -21,10 +20,7 @@ const contract = new Contract({
       network?: string,
       networkPassphrase?: string,
       accountToSign?: string,
-    }) => {
-      console.log(`how to use account "${seedPhrase}" to sign tx?`, tx)
-      return tx
-    }
+    }) => tx,
   },
 })
 
