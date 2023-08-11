@@ -56,7 +56,7 @@ pub(crate) fn preflight_invoke_hf_op(
     // them, and return the correct fees and footprint.
     let needs_auth_recording = invoke_hf_op.auth.is_empty();
     if needs_auth_recording {
-        host.switch_to_recording_auth()
+        host.switch_to_recording_auth(true)
             .context("cannot switch auth to recording mode")?;
     } else {
         host.set_authorization_entries(invoke_hf_op.auth.to_vec())
