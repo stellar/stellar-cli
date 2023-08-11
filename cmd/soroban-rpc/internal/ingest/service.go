@@ -17,6 +17,7 @@ import (
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/util"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/events"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
@@ -81,7 +82,11 @@ func NewService(cfg Config) *Service {
 		ledgerStatsMetric:       ledgerStatsMetric,
 	}
 	service.wg.Add(1)
-	go func() {
+	util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
+		Log:                cfg.Logger,
+		LogPanicsToStdErr:  true,
+		ExitProcessOnPanic: true,
+	}, func() {
 		defer service.wg.Done()
 		// Retry running ingestion every second for 5 seconds.
 		constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
@@ -101,7 +106,7 @@ func NewService(cfg Config) *Service {
 		if err != nil && !errors.Is(err, context.Canceled) {
 			service.logger.WithError(err).Fatal("could not run ingestion")
 		}
-	}()
+	})
 	return service
 }
 
@@ -170,9 +175,13 @@ func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive hi
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		// Do it in parallel with the upcoming captive core preparation to save time
 		s.logger.Infof("found an empty database, creating ledger-entry baseline from the most recent checkpoint (%d). This can take up to 30 minutes, depending on the network", checkpointLedger)
-		go func() {
+		util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
+			Log:                s.logger,
+			LogPanicsToStdErr:  true,
+			ExitProcessOnPanic: true,
+		}, func() {
 			checkPointFillErr <- s.fillEntriesFromCheckpoint(ctx, archive, checkpointLedger)
-		}()
+		})
 		return checkpointLedger + 1, checkPointFillErr, nil
 	} else if err != nil {
 		return 0, checkPointFillErr, err

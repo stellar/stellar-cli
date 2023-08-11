@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"runtime"
@@ -13,6 +14,7 @@ import (
 
 type MonitoredRoutineConfiguration struct {
 	Log                *log.Entry
+	LogPanicsToStdErr  bool
 	ExitProcessOnPanic bool
 	PanicsCounter      prometheus.Counter
 }
@@ -31,29 +33,46 @@ func recoverRoutine(cfg *MonitoredRoutineConfiguration, fn func()) {
 	if recoverRes == nil {
 		return
 	}
+	var cs []string
 	if cfg.Log != nil {
-		log := cfg.Log
-		functionName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
-		log.Warnf("panicing root function '%s'", functionName)
-		// while we're within the recoverRoutine, the debug.Stack() would return the
-		// call stack where the panic took place.
-		callStackStrings := string(debug.Stack())
-		for i, callStackLine := range strings.FieldsFunc(callStackStrings, func(r rune) bool { return r == '\n' || r == '\t' }) {
-			// skip the first 5 entries, since these are the "debug.Stack()" entries, which aren't really useful.
-			if i < 5 {
-				continue
-			}
-			log.Warn(callStackLine)
-			// once we reached the MonitoredRoutine entry, stop.
-			if strings.Contains(callStackLine, ".MonitoredRoutine") {
-				break
-			}
+		cs = getPanicCallStack(fn)
+		for _, line := range cs {
+			cfg.Log.Warn(line)
 		}
 	}
+	if cfg.LogPanicsToStdErr {
+		if len(cs) == 0 {
+			cs = getPanicCallStack(fn)
+		}
+		for _, line := range cs {
+			fmt.Fprintln(os.Stderr, line)
+		}
+	}
+
 	if cfg.PanicsCounter != nil {
 		cfg.PanicsCounter.Inc()
 	}
 	if cfg.ExitProcessOnPanic {
 		os.Exit(1)
 	}
+}
+
+func getPanicCallStack(fn func()) (outCallStack []string) {
+	functionName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
+	outCallStack = append(outCallStack, fmt.Sprintf("panicing root function '%s'", functionName))
+	// while we're within the recoverRoutine, the debug.Stack() would return the
+	// call stack where the panic took place.
+	callStackStrings := string(debug.Stack())
+	for i, callStackLine := range strings.FieldsFunc(callStackStrings, func(r rune) bool { return r == '\n' || r == '\t' }) {
+		// skip the first 5 entries, since these are the "debug.Stack()" entries, which aren't really useful.
+		if i < 5 {
+			continue
+		}
+		outCallStack = append(outCallStack, callStackLine)
+		// once we reached the MonitoredRoutine entry, stop.
+		if strings.Contains(callStackLine, ".MonitoredRoutine") {
+			break
+		}
+	}
+	return outCallStack
 }
