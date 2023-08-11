@@ -5,6 +5,7 @@ This document contains the help content for the `soroban` command-line program.
 **Command Overview:**
 
 * [`soroban`↴](#soroban)
+* [`soroban completion`↴](#soroban-completion)
 * [`soroban contract`↴](#soroban-contract)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
@@ -24,6 +25,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban config identity`↴](#soroban-config-identity)
 * [`soroban config identity add`↴](#soroban-config-identity-add)
 * [`soroban config identity address`↴](#soroban-config-identity-address)
+* [`soroban config identity fund`↴](#soroban-config-identity-fund)
 * [`soroban config identity generate`↴](#soroban-config-identity-generate)
 * [`soroban config identity ls`↴](#soroban-config-identity-ls)
 * [`soroban config identity rm`↴](#soroban-config-identity-rm)
@@ -40,7 +42,6 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban lab xdr`↴](#soroban-lab-xdr)
 * [`soroban lab xdr dec`↴](#soroban-lab-xdr-dec)
 * [`soroban version`↴](#soroban-version)
-* [`soroban completion`↴](#soroban-completion)
 
 ## `soroban`
 
@@ -73,12 +74,12 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 
 ###### **Subcommands:**
 
+* `completion` — Print shell completion code for the specified shell
 * `contract` — Tools for smart contract developers
 * `config` — Read and update config
 * `events` — Watch the network for contract events
 * `lab` — Experiment with early features and expert tools
 * `version` — Print version information
-* `completion` — Print shell completion code for the specified shell
 
 ###### **Options:**
 
@@ -89,6 +90,30 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `-v`, `--verbose` — Log DEBUG events
 * `--very-verbose` — Log DEBUG and TRACE events
 * `--list` — List installed plugins. E.g. `soroban-hello`
+
+
+
+## `soroban completion`
+
+Print shell completion code for the specified shell
+
+Ensure the completion package for your shell is installed,
+e.g., bash-completion for bash.
+
+To enable autocomplete in the current bash shell, run:
+  source <(soroban completion --shell bash)
+
+To enable autocomplete permanently, run:
+  echo "source <(soroban completion --shell bash)" >> ~/.bashrc
+
+**Usage:** `soroban completion --shell <SHELL>`
+
+###### **Options:**
+
+* `--shell <SHELL>` — The shell type
+
+  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
+
 
 
 
@@ -156,14 +181,14 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `soroban contract bindings typescript [OPTIONS] --wasm <WASM> --output-dir <OUTPUT_DIR> --contract-name <CONTRACT_NAME> --contract-id <CONTRACT_ID>`
+**Usage:** `soroban contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Path to wasm binary
-* `--output-dir <OUTPUT_DIR>` — where to place generated project
-* `--contract-name <CONTRACT_NAME>`
-* `--contract-id <CONTRACT_ID>`
+* `--wasm <WASM>` — Path to optional wasm binary
+* `--output-dir <OUTPUT_DIR>` — Where to place generated project
+* `--overwrite` — Whether to overwrite output directory if it already exists
+* `--contract-id <CONTRACT_ID>` — The contract ID/address on the network
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -291,6 +316,18 @@ Inspect a WASM file listing contract functions, meta, etc
 ###### **Options:**
 
 * `--wasm <WASM>` — Path to wasm binary
+* `--output <OUTPUT>` — Output just XDR in base64
+
+  Default value: `docs`
+
+  Possible values:
+  - `xdr-base64`:
+    XDR of array of contract spec entries
+  - `xdr-base64-array`:
+    Array of xdr of contract spec entries
+  - `docs`:
+    Pretty print of contract spec entries
+
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
 
@@ -331,7 +368,7 @@ soroban contract invoke ... -- --help
 
 ###### **Arguments:**
 
-* `<CONTRACT_FN_AND_ARGS>`
+* `<CONTRACT_FN_AND_ARGS>` — Function name as subcommand, then arguments for that function as `--arg-name value`
 
 ###### **Options:**
 
@@ -461,6 +498,7 @@ Configure different identities to sign transactions
 
 * `add` — Add a new identity (keypair, ledger, macOS keychain)
 * `address` — Given an identity return its address (public key)
+* `fund` — Fund an identity on a test network
 * `generate` — Generate a new identity with a seed phrase, currently 12 words
 * `ls` — List identities
 * `rm` — Remove an identity
@@ -505,6 +543,27 @@ Given an identity return its address (public key)
 
 
 
+## `soroban config identity fund`
+
+Fund an identity on a test network
+
+**Usage:** `soroban config identity fund [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
 ## `soroban config identity generate`
 
 Generate a new identity with a seed phrase, currently 12 words
@@ -523,6 +582,9 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--config-dir <CONFIG_DIR>`
 * `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
 
 
 
@@ -771,7 +833,7 @@ Decode XDR
 
 * `--type <TYPE>` — XDR type to decode to
 
-  Possible values: `Value`, `ScpBallot`, `ScpStatementType`, `ScpNomination`, `ScpStatement`, `ScpStatementPledges`, `ScpStatementPrepare`, `ScpStatementConfirm`, `ScpStatementExternalize`, `ScpEnvelope`, `ScpQuorumSet`, `ConfigSettingContractExecutionLanesV0`, `ConfigSettingContractComputeV0`, `ConfigSettingContractLedgerCostV0`, `ConfigSettingContractHistoricalDataV0`, `ConfigSettingContractMetaDataV0`, `ConfigSettingContractBandwidthV0`, `ContractCostType`, `ContractCostParamEntry`, `StateExpirationSettings`, `ContractCostParams`, `ConfigSettingId`, `ConfigSettingEntry`, `ScEnvMetaKind`, `ScEnvMetaEntry`, `ScMetaV0`, `ScMetaKind`, `ScMetaEntry`, `ScSpecType`, `ScSpecTypeOption`, `ScSpecTypeResult`, `ScSpecTypeVec`, `ScSpecTypeMap`, `ScSpecTypeSet`, `ScSpecTypeTuple`, `ScSpecTypeBytesN`, `ScSpecTypeUdt`, `ScSpecTypeDef`, `ScSpecUdtStructFieldV0`, `ScSpecUdtStructV0`, `ScSpecUdtUnionCaseVoidV0`, `ScSpecUdtUnionCaseTupleV0`, `ScSpecUdtUnionCaseV0Kind`, `ScSpecUdtUnionCaseV0`, `ScSpecUdtUnionV0`, `ScSpecUdtEnumCaseV0`, `ScSpecUdtEnumV0`, `ScSpecUdtErrorEnumCaseV0`, `ScSpecUdtErrorEnumV0`, `ScSpecFunctionInputV0`, `ScSpecFunctionV0`, `ScSpecEntryKind`, `ScSpecEntry`, `ScValType`, `ScErrorType`, `ScErrorCode`, `ScError`, `UInt128Parts`, `Int128Parts`, `UInt256Parts`, `Int256Parts`, `ContractExecutableType`, `ContractExecutable`, `ScAddressType`, `ScAddress`, `ScVec`, `ScMap`, `ScBytes`, `ScString`, `ScSymbol`, `ScNonceKey`, `ScContractInstance`, `ScVal`, `ScMapEntry`, `StoredTransactionSet`, `PersistedScpStateV0`, `PersistedScpStateV1`, `PersistedScpState`, `Thresholds`, `String32`, `String64`, `SequenceNumber`, `DataValue`, `PoolId`, `AssetCode4`, `AssetCode12`, `AssetType`, `AssetCode`, `AlphaNum4`, `AlphaNum12`, `Asset`, `Price`, `Liabilities`, `ThresholdIndexes`, `LedgerEntryType`, `Signer`, `AccountFlags`, `SponsorshipDescriptor`, `AccountEntryExtensionV3`, `AccountEntryExtensionV2`, `AccountEntryExtensionV2Ext`, `AccountEntryExtensionV1`, `AccountEntryExtensionV1Ext`, `AccountEntry`, `AccountEntryExt`, `TrustLineFlags`, `LiquidityPoolType`, `TrustLineAsset`, `TrustLineEntryExtensionV2`, `TrustLineEntryExtensionV2Ext`, `TrustLineEntry`, `TrustLineEntryExt`, `TrustLineEntryV1`, `TrustLineEntryV1Ext`, `OfferEntryFlags`, `OfferEntry`, `OfferEntryExt`, `DataEntry`, `DataEntryExt`, `ClaimPredicateType`, `ClaimPredicate`, `ClaimantType`, `Claimant`, `ClaimantV0`, `ClaimableBalanceIdType`, `ClaimableBalanceId`, `ClaimableBalanceFlags`, `ClaimableBalanceEntryExtensionV1`, `ClaimableBalanceEntryExtensionV1Ext`, `ClaimableBalanceEntry`, `ClaimableBalanceEntryExt`, `LiquidityPoolConstantProductParameters`, `LiquidityPoolEntry`, `LiquidityPoolEntryBody`, `LiquidityPoolEntryConstantProduct`, `ContractEntryBodyType`, `ContractDataFlags`, `ContractDataDurability`, `ContractDataEntry`, `ContractDataEntryBody`, `ContractDataEntryData`, `ContractCodeEntry`, `ContractCodeEntryBody`, `LedgerEntryExtensionV1`, `LedgerEntryExtensionV1Ext`, `LedgerEntry`, `LedgerEntryData`, `LedgerEntryExt`, `LedgerKey`, `LedgerKeyAccount`, `LedgerKeyTrustLine`, `LedgerKeyOffer`, `LedgerKeyData`, `LedgerKeyClaimableBalance`, `LedgerKeyLiquidityPool`, `LedgerKeyContractData`, `LedgerKeyContractCode`, `LedgerKeyConfigSetting`, `EnvelopeType`, `UpgradeType`, `StellarValueType`, `LedgerCloseValueSignature`, `StellarValue`, `StellarValueExt`, `LedgerHeaderFlags`, `LedgerHeaderExtensionV1`, `LedgerHeaderExtensionV1Ext`, `LedgerHeader`, `LedgerHeaderExt`, `LedgerUpgradeType`, `ConfigUpgradeSetKey`, `LedgerUpgrade`, `ConfigUpgradeSet`, `BucketEntryType`, `BucketMetadata`, `BucketMetadataExt`, `BucketEntry`, `TxSetComponentType`, `TxSetComponent`, `TxSetComponentTxsMaybeDiscountedFee`, `TransactionPhase`, `TransactionSet`, `TransactionSetV1`, `GeneralizedTransactionSet`, `TransactionResultPair`, `TransactionResultSet`, `TransactionHistoryEntry`, `TransactionHistoryEntryExt`, `TransactionHistoryResultEntry`, `TransactionHistoryResultEntryExt`, `LedgerHeaderHistoryEntry`, `LedgerHeaderHistoryEntryExt`, `LedgerScpMessages`, `ScpHistoryEntryV0`, `ScpHistoryEntry`, `LedgerEntryChangeType`, `LedgerEntryChange`, `LedgerEntryChanges`, `OperationMeta`, `TransactionMetaV1`, `TransactionMetaV2`, `ContractEventType`, `ContractEvent`, `ContractEventBody`, `ContractEventV0`, `DiagnosticEvent`, `SorobanTransactionMeta`, `TransactionMetaV3`, `InvokeHostFunctionSuccessPreImage`, `TransactionMeta`, `TransactionResultMeta`, `UpgradeEntryMeta`, `LedgerCloseMetaV0`, `LedgerCloseMetaV1`, `LedgerCloseMetaV2`, `LedgerCloseMeta`, `ErrorCode`, `SError`, `SendMore`, `SendMoreExtended`, `AuthCert`, `Hello`, `Auth`, `IpAddrType`, `PeerAddress`, `PeerAddressIp`, `MessageType`, `DontHave`, `SurveyMessageCommandType`, `SurveyMessageResponseType`, `SurveyRequestMessage`, `SignedSurveyRequestMessage`, `EncryptedBody`, `SurveyResponseMessage`, `SignedSurveyResponseMessage`, `PeerStats`, `PeerStatList`, `TopologyResponseBodyV0`, `TopologyResponseBodyV1`, `SurveyResponseBody`, `TxAdvertVector`, `FloodAdvert`, `TxDemandVector`, `FloodDemand`, `StellarMessage`, `AuthenticatedMessage`, `AuthenticatedMessageV0`, `LiquidityPoolParameters`, `MuxedAccount`, `MuxedAccountMed25519`, `DecoratedSignature`, `OperationType`, `CreateAccountOp`, `PaymentOp`, `PathPaymentStrictReceiveOp`, `PathPaymentStrictSendOp`, `ManageSellOfferOp`, `ManageBuyOfferOp`, `CreatePassiveSellOfferOp`, `SetOptionsOp`, `ChangeTrustAsset`, `ChangeTrustOp`, `AllowTrustOp`, `ManageDataOp`, `BumpSequenceOp`, `CreateClaimableBalanceOp`, `ClaimClaimableBalanceOp`, `BeginSponsoringFutureReservesOp`, `RevokeSponsorshipType`, `RevokeSponsorshipOp`, `RevokeSponsorshipOpSigner`, `ClawbackOp`, `ClawbackClaimableBalanceOp`, `SetTrustLineFlagsOp`, `LiquidityPoolDepositOp`, `LiquidityPoolWithdrawOp`, `HostFunctionType`, `ContractIdPreimageType`, `ContractIdPreimage`, `ContractIdPreimageFromAddress`, `CreateContractArgs`, `HostFunction`, `SorobanAuthorizedFunctionType`, `SorobanAuthorizedContractFunction`, `SorobanAuthorizedFunction`, `SorobanAuthorizedInvocation`, `SorobanAddressCredentials`, `SorobanCredentialsType`, `SorobanCredentials`, `SorobanAuthorizationEntry`, `InvokeHostFunctionOp`, `BumpFootprintExpirationOp`, `RestoreFootprintOp`, `Operation`, `OperationBody`, `HashIdPreimage`, `HashIdPreimageOperationId`, `HashIdPreimageRevokeId`, `HashIdPreimageContractId`, `HashIdPreimageSorobanAuthorization`, `MemoType`, `Memo`, `TimeBounds`, `LedgerBounds`, `PreconditionsV2`, `PreconditionType`, `Preconditions`, `LedgerFootprint`, `SorobanResources`, `SorobanTransactionData`, `TransactionV0`, `TransactionV0Ext`, `TransactionV0Envelope`, `Transaction`, `TransactionExt`, `TransactionV1Envelope`, `FeeBumpTransaction`, `FeeBumpTransactionInnerTx`, `FeeBumpTransactionExt`, `FeeBumpTransactionEnvelope`, `TransactionEnvelope`, `TransactionSignaturePayload`, `TransactionSignaturePayloadTaggedTransaction`, `ClaimAtomType`, `ClaimOfferAtomV0`, `ClaimOfferAtom`, `ClaimLiquidityAtom`, `ClaimAtom`, `CreateAccountResultCode`, `CreateAccountResult`, `PaymentResultCode`, `PaymentResult`, `PathPaymentStrictReceiveResultCode`, `SimplePaymentResult`, `PathPaymentStrictReceiveResult`, `PathPaymentStrictReceiveResultSuccess`, `PathPaymentStrictSendResultCode`, `PathPaymentStrictSendResult`, `PathPaymentStrictSendResultSuccess`, `ManageSellOfferResultCode`, `ManageOfferEffect`, `ManageOfferSuccessResult`, `ManageOfferSuccessResultOffer`, `ManageSellOfferResult`, `ManageBuyOfferResultCode`, `ManageBuyOfferResult`, `SetOptionsResultCode`, `SetOptionsResult`, `ChangeTrustResultCode`, `ChangeTrustResult`, `AllowTrustResultCode`, `AllowTrustResult`, `AccountMergeResultCode`, `AccountMergeResult`, `InflationResultCode`, `InflationPayout`, `InflationResult`, `ManageDataResultCode`, `ManageDataResult`, `BumpSequenceResultCode`, `BumpSequenceResult`, `CreateClaimableBalanceResultCode`, `CreateClaimableBalanceResult`, `ClaimClaimableBalanceResultCode`, `ClaimClaimableBalanceResult`, `BeginSponsoringFutureReservesResultCode`, `BeginSponsoringFutureReservesResult`, `EndSponsoringFutureReservesResultCode`, `EndSponsoringFutureReservesResult`, `RevokeSponsorshipResultCode`, `RevokeSponsorshipResult`, `ClawbackResultCode`, `ClawbackResult`, `ClawbackClaimableBalanceResultCode`, `ClawbackClaimableBalanceResult`, `SetTrustLineFlagsResultCode`, `SetTrustLineFlagsResult`, `LiquidityPoolDepositResultCode`, `LiquidityPoolDepositResult`, `LiquidityPoolWithdrawResultCode`, `LiquidityPoolWithdrawResult`, `InvokeHostFunctionResultCode`, `InvokeHostFunctionResult`, `BumpFootprintExpirationResultCode`, `BumpFootprintExpirationResult`, `RestoreFootprintResultCode`, `RestoreFootprintResult`, `OperationResultCode`, `OperationResult`, `OperationResultTr`, `TransactionResultCode`, `InnerTransactionResult`, `InnerTransactionResultResult`, `InnerTransactionResultExt`, `InnerTransactionResultPair`, `TransactionResult`, `TransactionResultResult`, `TransactionResultExt`, `Hash`, `Uint256`, `Uint32`, `Int32`, `Uint64`, `Int64`, `TimePoint`, `Duration`, `ExtensionPoint`, `CryptoKeyType`, `PublicKeyType`, `SignerKeyType`, `PublicKey`, `SignerKey`, `SignerKeyEd25519SignedPayload`, `Signature`, `SignatureHint`, `NodeId`, `AccountId`, `Curve25519Secret`, `Curve25519Public`, `HmacSha256Key`, `HmacSha256Mac`
+  Possible values: `Value`, `ScpBallot`, `ScpStatementType`, `ScpNomination`, `ScpStatement`, `ScpStatementPledges`, `ScpStatementPrepare`, `ScpStatementConfirm`, `ScpStatementExternalize`, `ScpEnvelope`, `ScpQuorumSet`, `ConfigSettingContractExecutionLanesV0`, `ConfigSettingContractComputeV0`, `ConfigSettingContractLedgerCostV0`, `ConfigSettingContractHistoricalDataV0`, `ConfigSettingContractEventsV0`, `ConfigSettingContractBandwidthV0`, `ContractCostType`, `ContractCostParamEntry`, `StateExpirationSettings`, `EvictionIterator`, `ContractCostParams`, `ConfigSettingId`, `ConfigSettingEntry`, `ScEnvMetaKind`, `ScEnvMetaEntry`, `ScMetaV0`, `ScMetaKind`, `ScMetaEntry`, `ScSpecType`, `ScSpecTypeOption`, `ScSpecTypeResult`, `ScSpecTypeVec`, `ScSpecTypeMap`, `ScSpecTypeSet`, `ScSpecTypeTuple`, `ScSpecTypeBytesN`, `ScSpecTypeUdt`, `ScSpecTypeDef`, `ScSpecUdtStructFieldV0`, `ScSpecUdtStructV0`, `ScSpecUdtUnionCaseVoidV0`, `ScSpecUdtUnionCaseTupleV0`, `ScSpecUdtUnionCaseV0Kind`, `ScSpecUdtUnionCaseV0`, `ScSpecUdtUnionV0`, `ScSpecUdtEnumCaseV0`, `ScSpecUdtEnumV0`, `ScSpecUdtErrorEnumCaseV0`, `ScSpecUdtErrorEnumV0`, `ScSpecFunctionInputV0`, `ScSpecFunctionV0`, `ScSpecEntryKind`, `ScSpecEntry`, `ScValType`, `ScErrorType`, `ScErrorCode`, `ScError`, `UInt128Parts`, `Int128Parts`, `UInt256Parts`, `Int256Parts`, `ContractExecutableType`, `ContractExecutable`, `ScAddressType`, `ScAddress`, `ScVec`, `ScMap`, `ScBytes`, `ScString`, `ScSymbol`, `ScNonceKey`, `ScContractInstance`, `ScVal`, `ScMapEntry`, `StoredTransactionSet`, `PersistedScpStateV0`, `PersistedScpStateV1`, `PersistedScpState`, `Thresholds`, `String32`, `String64`, `SequenceNumber`, `DataValue`, `PoolId`, `AssetCode4`, `AssetCode12`, `AssetType`, `AssetCode`, `AlphaNum4`, `AlphaNum12`, `Asset`, `Price`, `Liabilities`, `ThresholdIndexes`, `LedgerEntryType`, `Signer`, `AccountFlags`, `SponsorshipDescriptor`, `AccountEntryExtensionV3`, `AccountEntryExtensionV2`, `AccountEntryExtensionV2Ext`, `AccountEntryExtensionV1`, `AccountEntryExtensionV1Ext`, `AccountEntry`, `AccountEntryExt`, `TrustLineFlags`, `LiquidityPoolType`, `TrustLineAsset`, `TrustLineEntryExtensionV2`, `TrustLineEntryExtensionV2Ext`, `TrustLineEntry`, `TrustLineEntryExt`, `TrustLineEntryV1`, `TrustLineEntryV1Ext`, `OfferEntryFlags`, `OfferEntry`, `OfferEntryExt`, `DataEntry`, `DataEntryExt`, `ClaimPredicateType`, `ClaimPredicate`, `ClaimantType`, `Claimant`, `ClaimantV0`, `ClaimableBalanceIdType`, `ClaimableBalanceId`, `ClaimableBalanceFlags`, `ClaimableBalanceEntryExtensionV1`, `ClaimableBalanceEntryExtensionV1Ext`, `ClaimableBalanceEntry`, `ClaimableBalanceEntryExt`, `LiquidityPoolConstantProductParameters`, `LiquidityPoolEntry`, `LiquidityPoolEntryBody`, `LiquidityPoolEntryConstantProduct`, `ContractEntryBodyType`, `ContractDataFlags`, `ContractDataDurability`, `ContractDataEntry`, `ContractDataEntryBody`, `ContractDataEntryData`, `ContractCodeEntry`, `ContractCodeEntryBody`, `LedgerEntryExtensionV1`, `LedgerEntryExtensionV1Ext`, `LedgerEntry`, `LedgerEntryData`, `LedgerEntryExt`, `LedgerKey`, `LedgerKeyAccount`, `LedgerKeyTrustLine`, `LedgerKeyOffer`, `LedgerKeyData`, `LedgerKeyClaimableBalance`, `LedgerKeyLiquidityPool`, `LedgerKeyContractData`, `LedgerKeyContractCode`, `LedgerKeyConfigSetting`, `EnvelopeType`, `UpgradeType`, `StellarValueType`, `LedgerCloseValueSignature`, `StellarValue`, `StellarValueExt`, `LedgerHeaderFlags`, `LedgerHeaderExtensionV1`, `LedgerHeaderExtensionV1Ext`, `LedgerHeader`, `LedgerHeaderExt`, `LedgerUpgradeType`, `ConfigUpgradeSetKey`, `LedgerUpgrade`, `ConfigUpgradeSet`, `BucketEntryType`, `BucketMetadata`, `BucketMetadataExt`, `BucketEntry`, `TxSetComponentType`, `TxSetComponent`, `TxSetComponentTxsMaybeDiscountedFee`, `TransactionPhase`, `TransactionSet`, `TransactionSetV1`, `GeneralizedTransactionSet`, `TransactionResultPair`, `TransactionResultSet`, `TransactionHistoryEntry`, `TransactionHistoryEntryExt`, `TransactionHistoryResultEntry`, `TransactionHistoryResultEntryExt`, `LedgerHeaderHistoryEntry`, `LedgerHeaderHistoryEntryExt`, `LedgerScpMessages`, `ScpHistoryEntryV0`, `ScpHistoryEntry`, `LedgerEntryChangeType`, `LedgerEntryChange`, `LedgerEntryChanges`, `OperationMeta`, `TransactionMetaV1`, `TransactionMetaV2`, `ContractEventType`, `ContractEvent`, `ContractEventBody`, `ContractEventV0`, `DiagnosticEvent`, `SorobanTransactionMeta`, `TransactionMetaV3`, `InvokeHostFunctionSuccessPreImage`, `TransactionMeta`, `TransactionResultMeta`, `UpgradeEntryMeta`, `LedgerCloseMetaV0`, `LedgerCloseMetaV1`, `LedgerCloseMetaV2`, `LedgerCloseMeta`, `ErrorCode`, `SError`, `SendMore`, `SendMoreExtended`, `AuthCert`, `Hello`, `Auth`, `IpAddrType`, `PeerAddress`, `PeerAddressIp`, `MessageType`, `DontHave`, `SurveyMessageCommandType`, `SurveyMessageResponseType`, `SurveyRequestMessage`, `SignedSurveyRequestMessage`, `EncryptedBody`, `SurveyResponseMessage`, `SignedSurveyResponseMessage`, `PeerStats`, `PeerStatList`, `TopologyResponseBodyV0`, `TopologyResponseBodyV1`, `SurveyResponseBody`, `TxAdvertVector`, `FloodAdvert`, `TxDemandVector`, `FloodDemand`, `StellarMessage`, `AuthenticatedMessage`, `AuthenticatedMessageV0`, `LiquidityPoolParameters`, `MuxedAccount`, `MuxedAccountMed25519`, `DecoratedSignature`, `OperationType`, `CreateAccountOp`, `PaymentOp`, `PathPaymentStrictReceiveOp`, `PathPaymentStrictSendOp`, `ManageSellOfferOp`, `ManageBuyOfferOp`, `CreatePassiveSellOfferOp`, `SetOptionsOp`, `ChangeTrustAsset`, `ChangeTrustOp`, `AllowTrustOp`, `ManageDataOp`, `BumpSequenceOp`, `CreateClaimableBalanceOp`, `ClaimClaimableBalanceOp`, `BeginSponsoringFutureReservesOp`, `RevokeSponsorshipType`, `RevokeSponsorshipOp`, `RevokeSponsorshipOpSigner`, `ClawbackOp`, `ClawbackClaimableBalanceOp`, `SetTrustLineFlagsOp`, `LiquidityPoolDepositOp`, `LiquidityPoolWithdrawOp`, `HostFunctionType`, `ContractIdPreimageType`, `ContractIdPreimage`, `ContractIdPreimageFromAddress`, `CreateContractArgs`, `InvokeContractArgs`, `HostFunction`, `SorobanAuthorizedFunctionType`, `SorobanAuthorizedFunction`, `SorobanAuthorizedInvocation`, `SorobanAddressCredentials`, `SorobanCredentialsType`, `SorobanCredentials`, `SorobanAuthorizationEntry`, `InvokeHostFunctionOp`, `BumpFootprintExpirationOp`, `RestoreFootprintOp`, `Operation`, `OperationBody`, `HashIdPreimage`, `HashIdPreimageOperationId`, `HashIdPreimageRevokeId`, `HashIdPreimageContractId`, `HashIdPreimageSorobanAuthorization`, `MemoType`, `Memo`, `TimeBounds`, `LedgerBounds`, `PreconditionsV2`, `PreconditionType`, `Preconditions`, `LedgerFootprint`, `SorobanResources`, `SorobanTransactionData`, `TransactionV0`, `TransactionV0Ext`, `TransactionV0Envelope`, `Transaction`, `TransactionExt`, `TransactionV1Envelope`, `FeeBumpTransaction`, `FeeBumpTransactionInnerTx`, `FeeBumpTransactionExt`, `FeeBumpTransactionEnvelope`, `TransactionEnvelope`, `TransactionSignaturePayload`, `TransactionSignaturePayloadTaggedTransaction`, `ClaimAtomType`, `ClaimOfferAtomV0`, `ClaimOfferAtom`, `ClaimLiquidityAtom`, `ClaimAtom`, `CreateAccountResultCode`, `CreateAccountResult`, `PaymentResultCode`, `PaymentResult`, `PathPaymentStrictReceiveResultCode`, `SimplePaymentResult`, `PathPaymentStrictReceiveResult`, `PathPaymentStrictReceiveResultSuccess`, `PathPaymentStrictSendResultCode`, `PathPaymentStrictSendResult`, `PathPaymentStrictSendResultSuccess`, `ManageSellOfferResultCode`, `ManageOfferEffect`, `ManageOfferSuccessResult`, `ManageOfferSuccessResultOffer`, `ManageSellOfferResult`, `ManageBuyOfferResultCode`, `ManageBuyOfferResult`, `SetOptionsResultCode`, `SetOptionsResult`, `ChangeTrustResultCode`, `ChangeTrustResult`, `AllowTrustResultCode`, `AllowTrustResult`, `AccountMergeResultCode`, `AccountMergeResult`, `InflationResultCode`, `InflationPayout`, `InflationResult`, `ManageDataResultCode`, `ManageDataResult`, `BumpSequenceResultCode`, `BumpSequenceResult`, `CreateClaimableBalanceResultCode`, `CreateClaimableBalanceResult`, `ClaimClaimableBalanceResultCode`, `ClaimClaimableBalanceResult`, `BeginSponsoringFutureReservesResultCode`, `BeginSponsoringFutureReservesResult`, `EndSponsoringFutureReservesResultCode`, `EndSponsoringFutureReservesResult`, `RevokeSponsorshipResultCode`, `RevokeSponsorshipResult`, `ClawbackResultCode`, `ClawbackResult`, `ClawbackClaimableBalanceResultCode`, `ClawbackClaimableBalanceResult`, `SetTrustLineFlagsResultCode`, `SetTrustLineFlagsResult`, `LiquidityPoolDepositResultCode`, `LiquidityPoolDepositResult`, `LiquidityPoolWithdrawResultCode`, `LiquidityPoolWithdrawResult`, `InvokeHostFunctionResultCode`, `InvokeHostFunctionResult`, `BumpFootprintExpirationResultCode`, `BumpFootprintExpirationResult`, `RestoreFootprintResultCode`, `RestoreFootprintResult`, `OperationResultCode`, `OperationResult`, `OperationResultTr`, `TransactionResultCode`, `InnerTransactionResult`, `InnerTransactionResultResult`, `InnerTransactionResultExt`, `InnerTransactionResultPair`, `TransactionResult`, `TransactionResultResult`, `TransactionResultExt`, `Hash`, `Uint256`, `Uint32`, `Int32`, `Uint64`, `Int64`, `TimePoint`, `Duration`, `ExtensionPoint`, `CryptoKeyType`, `PublicKeyType`, `SignerKeyType`, `PublicKey`, `SignerKey`, `SignerKeyEd25519SignedPayload`, `Signature`, `SignatureHint`, `NodeId`, `AccountId`, `Curve25519Secret`, `Curve25519Public`, `HmacSha256Key`, `HmacSha256Mac`
 
 * `--xdr <XDR>` — XDR (base64 encoded) to decode
 * `--output <OUTPUT>` — Type of output
@@ -791,30 +853,6 @@ Decode XDR
 Print version information
 
 **Usage:** `soroban version`
-
-
-
-## `soroban completion`
-
-Print shell completion code for the specified shell
-
-Ensure the completion package for your shell is installed,
-e.g., bash-completion for bash.
-
-To enable autocomplete in the current bash shell, run:
-  source <(soroban completion --shell bash)
-
-To enable autocomplete permanently, run:
-  echo "source <(soroban completion --shell bash)" >> ~/.bashrc
-
-**Usage:** `soroban completion --shell <SHELL>`
-
-###### **Options:**
-
-* `--shell <SHELL>` — The shell type
-
-  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
-
 
 
 

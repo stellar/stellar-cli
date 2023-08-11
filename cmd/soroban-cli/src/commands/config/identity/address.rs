@@ -31,17 +31,17 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!("{}", self.public_key()?.to_string());
+        println!("{}", self.public_key()?);
         Ok(())
     }
 
     pub fn private_key(&self) -> Result<ed25519_dalek::Keypair, Error> {
-        let res = if let Some(name) = &self.name {
+        Ok(if let Some(name) = &self.name {
             self.locator.read_identity(name)?
         } else {
             Secret::test_seed_phrase()?
-        };
-        Ok(res.key_pair(self.hd_path)?)
+        }
+        .key_pair(self.hd_path)?)
     }
 
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {

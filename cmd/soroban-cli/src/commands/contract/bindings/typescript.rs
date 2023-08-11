@@ -1,28 +1,37 @@
-use std::{fmt::Debug, path::PathBuf};
+use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 
-use crate::commands::config::{
-    locator,
-    network::{self, Network},
-};
 use crate::wasm;
+use crate::{
+    commands::{
+        config::{
+            ledger_file, locator,
+            network::{self, Network},
+        },
+        contract::{self, fetch},
+    },
+    utils::contract_spec::{self, ContractSpec},
+};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    #[command(flatten)]
-    wasm: wasm::Args,
+    /// Path to optional wasm binary
+    #[arg(long)]
+    pub wasm: Option<std::path::PathBuf>,
 
-    /// where to place generated project
+    /// Where to place generated project
     #[arg(long)]
     output_dir: PathBuf,
 
+    /// Whether to overwrite output directory if it already exists
     #[arg(long)]
-    contract_name: String,
+    overwrite: bool,
 
-    #[arg(long, alias = "id")]
+    /// The contract ID/address on the network
+    #[arg(long, visible_alias = "id")]
     contract_id: String,
 
     #[command(flatten)]
@@ -39,39 +48,70 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("--root-dir cannot be a file: {0:?}")]
+    #[error("--output-dir cannot be a file: {0:?}")]
     IsFile(PathBuf),
+
+    #[error("--output-dir already exists and you did not specify --overwrite: {0:?}")]
+    OutputDirExists(PathBuf),
+
+    #[error("--output-dir filepath not representable as utf-8: {0:?}")]
+    NotUtf8(OsString),
 
     #[error(transparent)]
     Network(#[from] network::Error),
 
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
+    #[error(transparent)]
+    Spec(#[from] contract_spec::Error),
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        let spec = self.wasm.parse().unwrap().spec;
+    pub async fn run(&self) -> Result<(), Error> {
+        let spec = if let Some(wasm) = &self.wasm {
+            let wasm: wasm::Args = wasm.into();
+            wasm.parse().unwrap().spec
+        } else {
+            let fetch = contract::fetch::Cmd {
+                contract_id: self.contract_id.clone(),
+                out_file: None,
+                locator: self.locator.clone(),
+                network: self.network.clone(),
+                ledger_file: ledger_file::Args::default(),
+            };
+            let bytes = fetch.get_bytes().await?;
+            ContractSpec::new(&bytes)?.spec
+        };
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));
         }
-        let output_dir = if self.output_dir.exists() {
-            self.output_dir.join(&self.contract_name)
-        } else {
-            self.output_dir.clone()
-        };
-        std::fs::create_dir_all(&output_dir)?;
-        let p: Project = output_dir.clone().try_into()?;
+        if self.output_dir.exists() {
+            if self.overwrite {
+                std::fs::remove_dir_all(&self.output_dir)?;
+            } else {
+                return Err(Error::OutputDirExists(self.output_dir.clone()));
+            }
+        }
+        std::fs::create_dir_all(&self.output_dir)?;
+        let p: Project = self.output_dir.clone().try_into()?;
         let Network {
             rpc_url,
             network_passphrase,
+            ..
         } = self
             .network
             .get(&self.locator)
             .ok()
             .unwrap_or_else(Network::futurenet);
+        let absolute_path = self.output_dir.canonicalize()?;
+        let file_name = absolute_path.file_name().unwrap();
+        let contract_name = &file_name
+            .to_str()
+            .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
         p.init(
-            &self.contract_name,
+            contract_name,
             &self.contract_id,
             &rpc_url,
             &network_passphrase,
@@ -79,13 +119,13 @@ impl Cmd {
         )?;
         std::process::Command::new("npm")
             .arg("install")
-            .current_dir(&output_dir)
+            .current_dir(&self.output_dir)
             .spawn()?
             .wait()?;
         std::process::Command::new("npm")
             .arg("run")
             .arg("build")
-            .current_dir(&output_dir)
+            .current_dir(&self.output_dir)
             .spawn()?
             .wait()?;
         Ok(())

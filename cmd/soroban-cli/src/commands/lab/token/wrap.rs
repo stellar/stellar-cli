@@ -87,7 +87,7 @@ impl Cmd {
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info);
+        h.set_ledger_info(ledger_info)?;
 
         let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
             contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),

@@ -135,7 +135,7 @@ func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey, includeExp
 	return ok, entry, err
 }
 
-func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (Preflight, error) {
+func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, bucketListSize uint64, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (Preflight, error) {
 	if pwp.isClosed.Load() {
 		return Preflight{}, errors.New("preflight worker pool is closed")
 	}
@@ -148,6 +148,7 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 		OpBody:            opBody,
 		NetworkPassphrase: pwp.networkPassphrase,
 		LedgerEntryReadTx: &wrappedTx,
+		BucketListSize:    bucketListSize,
 		Footprint:         footprint,
 	}
 	resultC := make(chan workerResult)

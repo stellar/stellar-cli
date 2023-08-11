@@ -12,6 +12,7 @@ typedef struct CLedgerInfo {
   uint32_t min_temp_entry_expiration;
   uint32_t min_persistent_entry_expiration;
   uint32_t max_entry_expiration;
+  uint32_t auto_bump_ledgers;
 } CLedgerInfo;
 
 typedef struct CPreflightResult {
@@ -25,14 +26,17 @@ typedef struct CPreflightResult {
     uint64_t memory_bytes;
 } CPreflightResult;
 
-CPreflightResult *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+CPreflightResult *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
+                                         uint64_t bucket_list_size, // Bucket list size of current ledger
                                          const char *invoke_hf_op, // InvokeHostFunctionOp XDR in base64
                                          const char *source_account, // AccountId XDR in base64
                                          const struct CLedgerInfo ledger_info);
 
-CPreflightResult *preflight_footprint_expiration_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHasconst
+CPreflightResult *preflight_footprint_expiration_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
+                                                    uint64_t bucket_list_size, // Bucket list size of current ledger
                                                     const char *op_body, // OperationBody XDR in base64
-                                                    const char *footprint); // LedgerFootprint XDR in base64
+                                                    const char *footprint, // LedgerFootprint XDR in base64
+                                                    uint32_t current_ledger_seq); // Current ledger sequence
 
 // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
 extern char *SnapshotSourceGet(uintptr_t handle, char *ledger_key, int include_expired);
@@ -43,4 +47,3 @@ extern int SnapshotSourceHas(uintptr_t handle, char *ledger_key);
 void free_preflight_result(CPreflightResult *result);
 
 extern void FreeGoCString(char *str);
-

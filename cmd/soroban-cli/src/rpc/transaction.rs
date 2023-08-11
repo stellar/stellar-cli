@@ -225,7 +225,9 @@ pub fn sign_soroban_authorization_entry(
         ),
     ])
     .map_err(Error::Xdr)?;
-    credentials.signature_args = vec![ScVal::Map(Some(map))].try_into()?;
+    credentials.signature = ScVal::Vec(Some(
+        vec![ScVal::Map(Some(map))].try_into().map_err(Error::Xdr)?,
+    ));
     credentials.signature_expiration_ledger = signature_expiration_ledger;
     auth.credentials = SorobanCredentials::Address(credentials.clone());
     Ok(auth)
@@ -238,10 +240,10 @@ mod tests {
     use super::super::{Cost, SimulateHostFunctionResult};
     use soroban_env_host::xdr::{
         self, AccountId, ChangeTrustAsset, ChangeTrustOp, ExtensionPoint, Hash, HostFunction,
-        InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, Preconditions,
-        PublicKey, ScAddress, ScSymbol, ScVal, ScVec, SequenceNumber,
-        SorobanAuthorizedContractFunction, SorobanAuthorizedFunction, SorobanAuthorizedInvocation,
-        SorobanResources, SorobanTransactionData, Uint256, WriteXdr,
+        InvokeContractArgs, InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation,
+        Preconditions, PublicKey, ScAddress, ScSymbol, ScVal, SequenceNumber,
+        SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanResources,
+        SorobanTransactionData, Uint256, WriteXdr,
     };
     use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 
@@ -257,7 +259,7 @@ mod tests {
                 instructions: 0,
                 read_bytes: 5,
                 write_bytes: 0,
-                extended_meta_data_size_bytes: 0,
+                contract_events_size_bytes: 0,
             },
             refundable_fee: 0,
             ext: ExtensionPoint::V0,
@@ -273,16 +275,14 @@ mod tests {
                 )))),
                 nonce: 0,
                 signature_expiration_ledger: 0,
-                signature_args: ScVec(VecM::default()),
+                signature: ScVal::Void,
             }),
             root_invocation: SorobanAuthorizedInvocation {
-                function: SorobanAuthorizedFunction::ContractFn(
-                    SorobanAuthorizedContractFunction {
-                        contract_address: ScAddress::Contract(Hash([0; 32])),
-                        function_name: ScSymbol("fn".try_into().unwrap()),
-                        args: ScVec(VecM::default()),
-                    },
-                ),
+                function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                    contract_address: ScAddress::Contract(Hash([0; 32])),
+                    function_name: ScSymbol("fn".try_into().unwrap()),
+                    args: VecM::default(),
+                }),
                 sub_invocations: VecM::default(),
             },
         };
@@ -315,7 +315,11 @@ mod tests {
             operations: vec![Operation {
                 source_account: None,
                 body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-                    host_function: HostFunction::InvokeContract(ScVec(VecM::default())),
+                    host_function: HostFunction::InvokeContract(InvokeContractArgs {
+                        contract_address: ScAddress::Contract(Hash([0x0; 32])),
+                        function_name: ScSymbol::default(),
+                        args: VecM::default(),
+                    }),
                     auth: VecM::default(),
                 }),
             }]
@@ -357,7 +361,7 @@ mod tests {
         assert_eq!(1, op.auth.len());
         let auth = &op.auth[0];
 
-        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::SorobanAuthorizedContractFunction {
+        let xdr::SorobanAuthorizedFunction::ContractFn(xdr::InvokeContractArgs {
             ref function_name,
             ..
         }) = auth.root_invocation.function

@@ -218,7 +218,7 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 
 func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 	startTime := time.Now()
-	s.logger.Infof("Applying txmeta for ledger %d", sequence)
+	s.logger.Infof("Ingesting ledger %d", sequence)
 	ledgerCloseMeta, err := s.ledgerBackend.GetLedger(ctx, sequence)
 	if err != nil {
 		return err
@@ -251,6 +251,7 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 	if err := tx.Commit(sequence); err != nil {
 		return err
 	}
+	s.logger.Debugf("Ingested ledger %d", sequence)
 
 	s.ingestionDurationMetric.
 		With(prometheus.Labels{"type": "total"}).Observe(time.Since(startTime).Seconds())

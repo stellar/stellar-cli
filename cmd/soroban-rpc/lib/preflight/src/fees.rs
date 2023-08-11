@@ -1,16 +1,21 @@
 use ledger_storage;
 use soroban_env_host::budget::Budget;
+use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
 use soroban_env_host::fees::{
-    compute_transaction_resource_fee, FeeConfiguration, TransactionResources,
+    compute_rent_fee, compute_transaction_resource_fee, compute_write_fee_per_1kb,
+    FeeConfiguration, LedgerEntryRentChange, RentFeeConfiguration, TransactionResources,
+    WriteFeeConfiguration,
 };
-use soroban_env_host::storage::{AccessType, Footprint, Storage, StorageMap};
+use soroban_env_host::storage::{AccessType, Footprint, Storage};
 use soroban_env_host::xdr;
+use soroban_env_host::xdr::ContractDataDurability::Persistent;
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
-    DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Memo,
-    MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
+    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, ContractDataDurability,
+    DecoratedSignature, DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerEntry,
+    LedgerEntryData, LedgerFootprint, LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519,
+    Operation, OperationBody, Preconditions, RestoreFootprintOp, SequenceNumber, Signature,
+    SignatureHint, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionV1Envelope, Uint256, WriteXdr,
 };
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
@@ -18,14 +23,20 @@ use std::error;
 
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
-    snapshot_source: &ledger_storage::LedgerStorage,
-    storage: &Storage,
+    pre_storage: &ledger_storage::LedgerStorage,
+    post_storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
+    bucket_list_size: u64,
+    current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
-    let soroban_resources =
-        calculate_host_function_soroban_resources(snapshot_source, storage, budget, events)?;
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
+    let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
+    let soroban_resources = calculate_host_function_soroban_resources(
+        &ledger_changes,
+        &post_storage.footprint,
+        budget,
+        events,
+    )?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
 
@@ -36,21 +47,23 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
         write_entries: read_write_entries,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: soroban_resources.write_bytes,
-        metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
         // Note: we could get a better transaction size if the full transaction was passed down to libpreflight
         transaction_size_bytes: estimate_max_transaction_size_for_operation(
             &OperationBody::InvokeHostFunction(op.clone()),
             &soroban_resources.footprint,
         )?,
+        contract_events_size_bytes: soroban_resources.contract_events_size_bytes,
     };
-    let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
-    let transaction_data = SorobanTransactionData {
-        resources: soroban_resources,
-        refundable_fee: ref_fee,
-        ext: ExtensionPoint::V0,
-    };
-    Ok((transaction_data, min_fee))
+    let rent_changes = extract_rent_changes(&ledger_changes);
+
+    finalize_transaction_data_and_min_fee(
+        &pre_storage,
+        &transaction_resources,
+        soroban_resources,
+        &rent_changes,
+        current_ledger_seq,
+        bucket_list_size,
+    )
 }
 
 fn estimate_max_transaction_size_for_operation(
@@ -89,7 +102,7 @@ fn estimate_max_transaction_size_for_operation(
                     instructions: 0,
                     read_bytes: 0,
                     write_bytes: 0,
-                    extended_meta_data_size_bytes: 0,
+                    contract_events_size_bytes: 0,
                 },
                 refundable_fee: 0,
                 ext: ExtensionPoint::V0,
@@ -107,50 +120,44 @@ fn estimate_max_transaction_size_for_operation(
 }
 
 fn calculate_host_function_soroban_resources(
-    snapshot_source: &ledger_storage::LedgerStorage,
-    storage: &Storage,
+    ledger_changes: &Vec<LedgerEntryChange>,
+    footprint: &Footprint,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources, Box<dyn error::Error>> {
-    let fp = storage_footprint_to_ledger_footprint(&storage.footprint)?;
-    /*
-      readBytes = size(footprint.readOnly) + size(footprint.readWrite)
-      writeBytes = size(storage.map[rw entries])
-      metadataSize = readBytes(footprint.readWrite) + writeBytes + eventsSize
-    */
-    let original_write_ledger_entry_bytes =
-        calculate_unmodified_ledger_entry_bytes(fp.read_write.as_vec(), snapshot_source, false)?;
-    let read_bytes =
-        calculate_unmodified_ledger_entry_bytes(fp.read_only.as_vec(), snapshot_source, false)?
-            + original_write_ledger_entry_bytes;
-    let write_bytes =
-        calculate_modified_read_write_ledger_entry_bytes(&storage.footprint, &storage.map, budget)?;
-    let meta_data_size_bytes =
-        original_write_ledger_entry_bytes + write_bytes + calculate_event_size_bytes(events)?;
+    let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)?;
+    let read_bytes: u32 = ledger_changes
+        .iter()
+        .map(|c| c.encoded_key.len() as u32 + c.old_entry_size_bytes)
+        .sum();
+
+    let write_bytes: u32 = ledger_changes
+        .iter()
+        .map(|c| {
+            c.encoded_key.len() as u32 + c.encoded_new_value.as_ref().map_or(0, |v| v.len()) as u32
+        })
+        .sum();
+
+    let contract_events_size_bytes = calculate_event_size_bytes(events)?;
 
     // Add a 15% leeway with a minimum of 50k instructions
     let instructions = max(
-        budget.get_cpu_insns_consumed() + 50000,
-        budget.get_cpu_insns_consumed() * 115 / 100,
+        budget.get_cpu_insns_consumed()? + 50000,
+        budget.get_cpu_insns_consumed()? * 115 / 100,
     );
     Ok(SorobanResources {
-        footprint: fp,
+        footprint: ledger_footprint,
         instructions: u32::try_from(instructions)?,
         read_bytes,
         write_bytes,
-        extended_meta_data_size_bytes: meta_data_size_bytes,
+        contract_events_size_bytes,
     })
 }
 
-fn get_fee_configuration(
+fn get_fee_configurations(
     ledger_storage: &ledger_storage::LedgerStorage,
-) -> Result<FeeConfiguration, Box<dyn error::Error>> {
-    // TODO: to improve the performance of this function (which is invoked every single preflight call) we can
-    //       1. modify ledger_storage.get() so that it can gather multiple entries at once
-    //       2. implement a write-through cache for the configuration ledger entries (i.e. the cache is written to at the
-    //          same time as the DB, ensuring they are always in memory).
-    //
-
+    bucket_list_size: u64,
+) -> Result<(FeeConfiguration, RentFeeConfiguration), Box<dyn error::Error>> {
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
     else {
@@ -176,11 +183,11 @@ fn get_fee_configuration(
         );
     };
 
-    let ConfigSettingEntry::ContractMetaDataV0(metadata) =
-        ledger_storage.get_configuration_setting(ConfigSettingId::ContractMetaDataV0)?
+    let ConfigSettingEntry::ContractEventsV0(events) =
+        ledger_storage.get_configuration_setting(ConfigSettingId::ContractEventsV0)?
     else {
         return Err(
-            "get_fee_configuration(): unexpected config setting entry for MetaDataV0 key".into(),
+            "get_fee_configuration(): unexpected config setting entry for ContractEventsV0 key".into(),
         );
     };
 
@@ -192,69 +199,54 @@ fn get_fee_configuration(
         );
     };
 
-    // Taken from Stellar Core's InitialSorobanNetworkConfig in NetworkConfig.h
+    let ConfigSettingEntry::StateExpiration(state_expiration) =
+        ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
+        else {
+            return Err(
+                "get_fee_configuration(): unexpected config setting entry for StateExpiration key".into(),
+            );
+        };
+
+    let write_fee_configuration = WriteFeeConfiguration {
+        bucket_list_target_size_bytes: ledger_cost.bucket_list_target_size_bytes,
+        write_fee_1kb_bucket_list_low: ledger_cost.write_fee1_kb_bucket_list_low,
+        write_fee_1kb_bucket_list_high: ledger_cost.write_fee1_kb_bucket_list_high,
+        bucket_list_write_fee_growth_factor: ledger_cost.bucket_list_write_fee_growth_factor,
+    };
+
+    let write_fee_per_1kb =
+        compute_write_fee_per_1kb(bucket_list_size as i64, &write_fee_configuration);
+
     let fee_configuration = FeeConfiguration {
         fee_per_instruction_increment: compute.fee_rate_per_instructions_increment,
         fee_per_read_entry: ledger_cost.fee_read_ledger_entry,
         fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
         fee_per_read_1kb: ledger_cost.fee_read1_kb,
-        fee_per_write_1kb: ledger_cost.fee_write1_kb,
+        fee_per_write_1kb: write_fee_per_1kb,
         fee_per_historical_1kb: historical_data.fee_historical1_kb,
-        fee_per_metadata_1kb: metadata.fee_extended_meta_data1_kb,
-        fee_per_propagate_1kb: bandwidth.fee_propagate_data1_kb,
+        fee_per_contract_event_1kb: events.fee_contract_events1_kb,
+        fee_per_transaction_size_1kb: bandwidth.fee_tx_size1_kb,
     };
-    Ok(fee_configuration)
-}
-
-fn calculate_modified_read_write_ledger_entry_bytes(
-    footprint: &Footprint,
-    storage_map: &StorageMap,
-    budget: &Budget,
-) -> Result<u32, Box<dyn error::Error>> {
-    let mut res: u32 = 0;
-    for (lk, ole) in storage_map {
-        match footprint.0.get::<LedgerKey>(lk, budget)? {
-            Some(AccessType::ReadOnly) => (),
-            Some(AccessType::ReadWrite) => {
-                if let Some(le) = ole {
-                    let entry_bytes = le.to_xdr()?;
-                    let key_bytes = lk.to_xdr()?;
-                    res += u32::try_from(entry_bytes.len() + key_bytes.len())?;
-                }
-            }
-            None => return Err("storage ledger entry not found in footprint".into()),
-        }
-    }
-    Ok(res)
+    let rent_fee_configuration = RentFeeConfiguration {
+        fee_per_write_1kb: write_fee_per_1kb,
+        persistent_rent_rate_denominator: state_expiration.persistent_rent_rate_denominator,
+        temporary_rent_rate_denominator: state_expiration.temp_rent_rate_denominator,
+    };
+    Ok((fee_configuration, rent_fee_configuration))
 }
 
 fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &Vec<LedgerKey>,
-    snapshot_source: &ledger_storage::LedgerStorage,
+    pre_storage: &ledger_storage::LedgerStorage,
     include_expired: bool,
 ) -> Result<u32, Box<dyn error::Error>> {
-    let mut res: u32 = 0;
+    let mut res: usize = 0;
     for lk in ledger_entries {
-        res += u32::try_from(lk.to_xdr()?.len())?;
-        match snapshot_source.get_xdr(lk, include_expired) {
-            Ok(entry_bytes) => {
-                res += u32::try_from(entry_bytes.len())?;
-            }
-            Err(e) => {
-                match e {
-                    ledger_storage::Error::NotFound =>
-                    // The entry is not present in the unmodified ledger storage.
-                    // We assume it to be due to the entry being created by a host function invocation.
-                    // Thus, we shouldn't count it in as unmodified.
-                    {
-                        continue;
-                    }
-                    _ => return Err(e)?,
-                }
-            }
-        };
+        let key_size = lk.to_xdr()?.len();
+        let entry_size = pre_storage.get_xdr(lk, include_expired)?.len();
+        res += key_size + entry_size;
     }
-    Ok(res)
+    Ok(res as u32)
 }
 
 fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32, Box<dyn error::Error>> {
@@ -281,14 +273,61 @@ fn storage_footprint_to_ledger_footprint(foot: &Footprint) -> Result<LedgerFootp
     })
 }
 
+fn finalize_transaction_data_and_min_fee(
+    pre_storage: &ledger_storage::LedgerStorage,
+    transaction_resources: &TransactionResources,
+    soroban_resources: SorobanResources,
+    rent_changes: &Vec<LedgerEntryRentChange>,
+    current_ledger_seq: u32,
+    bucket_list_size: u64,
+) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+    let (fee_configuration, rent_fee_configuration) =
+        get_fee_configurations(pre_storage, bucket_list_size)?;
+    let (non_refundable_fee, refundable_fee) =
+        compute_transaction_resource_fee(transaction_resources, &fee_configuration);
+    let rent_fee = compute_rent_fee(&rent_changes, &rent_fee_configuration, current_ledger_seq);
+    let transaction_data = SorobanTransactionData {
+        resources: soroban_resources,
+        refundable_fee: refundable_fee + rent_fee,
+        ext: ExtensionPoint::V0,
+    };
+    let res = (
+        transaction_data,
+        refundable_fee + non_refundable_fee + rent_fee,
+    );
+    Ok(res)
+}
+
 pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     ledgers_to_expire: u32,
-    snapshot_source: &ledger_storage::LedgerStorage,
+    ledger_storage: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
+    current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
+    for key in (&footprint).read_only.as_vec() {
+        let unmodified_entry = ledger_storage.get(key, false)?;
+        let (expiration_ledger, durability) =
+            get_bumpable_entry_expiration_and_durability(&unmodified_entry)?;
+        let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
+        if new_expiration_ledger <= expiration_ledger {
+            // The bump would be innefective
+            continue;
+        }
+        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
+        let rent_change = LedgerEntryRentChange {
+            is_persistent: durability == Persistent,
+            old_size_bytes: size,
+            new_size_bytes: size,
+            old_expiration_ledger: expiration_ledger,
+            new_expiration_ledger,
+        };
+        rent_changes.push(rent_change);
+    }
     let read_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
-        snapshot_source,
+        ledger_storage,
         false,
     )?;
     let soroban_resources = SorobanResources {
@@ -296,7 +335,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         instructions: 0,
         read_bytes,
         write_bytes: 0,
-        extended_meta_data_size_bytes: 2 * read_bytes,
+        contract_events_size_bytes: 0,
     };
     let transaction_resources = TransactionResources {
         instructions: 0,
@@ -304,7 +343,6 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         write_entries: 0,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: 0,
-        metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
         transaction_size_bytes: estimate_max_transaction_size_for_operation(
             &OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
                 ext: ExtensionPoint::V0,
@@ -312,35 +350,85 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
             }),
             &soroban_resources.footprint,
         )?,
+        contract_events_size_bytes: 0,
     };
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
-    let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
-    let transaction_data = SorobanTransactionData {
-        resources: soroban_resources,
-        refundable_fee: ref_fee,
-        ext: ExtensionPoint::V0,
+    finalize_transaction_data_and_min_fee(
+        &ledger_storage,
+        &transaction_resources,
+        soroban_resources,
+        &rent_changes,
+        current_ledger_seq,
+        bucket_list_size,
+    )
+}
+
+fn get_bumpable_entry_expiration_and_durability(
+    ledger_entry: &LedgerEntry,
+) -> Result<(u32, ContractDataDurability), Box<dyn error::Error>> {
+    let res = match ledger_entry.data {
+        LedgerEntryData::ContractData(ref cd) => (cd.expiration_ledger_seq, cd.durability),
+        LedgerEntryData::ContractCode(ref cc) => (cc.expiration_ledger_seq, Persistent),
+        _ => {
+            let err = format!(
+                "Incorrect ledger entry type ({}) in footprint",
+                ledger_entry.data.name()
+            )
+            .into();
+            return Err(err);
+        }
     };
-    Ok((transaction_data, min_fee))
+    Ok(res)
 }
 
 pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
-    snapshot_source: &ledger_storage::LedgerStorage,
+    ledger_storage: &ledger_storage::LedgerStorage,
+    bucket_list_size: u64,
+    current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+    let ConfigSettingEntry::StateExpiration(state_expiration) =
+        ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
+        else {
+            return Err(
+                "get_fee_configuration(): unexpected config setting entry for StateExpiration key".into(),
+            );
+        };
+    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
+    for key in footprint.read_write.as_vec() {
+        let unmodified_entry = ledger_storage.get(key, true)?;
+        let (expiration_ledger, durability) =
+            get_bumpable_entry_expiration_and_durability(&unmodified_entry)?;
+        if durability != Persistent {
+            let err = format!("Non-persistent key ({:?}) in footprint", key).into();
+            return Err(err);
+        }
+        if current_ledger_seq <= expiration_ledger {
+            // noop (the entry hadn't expired)
+            continue;
+        }
+        let new_expiration_ledger =
+            current_ledger_seq + state_expiration.min_persistent_entry_expiration - 1;
+        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
+        let rent_change = LedgerEntryRentChange {
+            is_persistent: true,
+            old_size_bytes: 0,
+            new_size_bytes: size,
+            old_expiration_ledger: 0,
+            new_expiration_ledger,
+        };
+        rent_changes.push(rent_change);
+    }
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
-        snapshot_source,
+        ledger_storage,
         true,
     )?;
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        // FIXME(fons): this seems to be a workaround a bug in code (the fix is to also count bytes read but not written in readBytes).
-        //        we should review it in preview 11.
         read_bytes: write_bytes,
         write_bytes,
-        extended_meta_data_size_bytes: 2 * write_bytes,
+        contract_events_size_bytes: 0,
     };
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_resources = TransactionResources {
@@ -349,21 +437,20 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         write_entries: entry_count,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: soroban_resources.write_bytes,
-        metadata_size_bytes: soroban_resources.extended_meta_data_size_bytes,
         transaction_size_bytes: estimate_max_transaction_size_for_operation(
             &OperationBody::RestoreFootprint(RestoreFootprintOp {
                 ext: ExtensionPoint::V0,
             }),
             &soroban_resources.footprint,
         )?,
+        contract_events_size_bytes: 0,
     };
-    let fee_configuration = get_fee_configuration(snapshot_source)?;
-    let (min_fee, ref_fee) =
-        compute_transaction_resource_fee(&transaction_resources, &fee_configuration);
-    let transaction_data = SorobanTransactionData {
-        resources: soroban_resources,
-        refundable_fee: ref_fee,
-        ext: ExtensionPoint::V0,
-    };
-    Ok((transaction_data, min_fee))
+    finalize_transaction_data_and_min_fee(
+        &ledger_storage,
+        &transaction_resources,
+        soroban_resources,
+        &rent_changes,
+        current_ledger_seq,
+        bucket_list_size,
+    )
 }

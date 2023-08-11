@@ -8,6 +8,7 @@ import (
 	"path"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
@@ -44,25 +45,17 @@ func getHelloWorldContract(t *testing.T) []byte {
 }
 
 func createInvokeHostOperation(sourceAccount string, contractID xdr.Hash, method string, args ...xdr.ScVal) *txnbuild.InvokeHostFunction {
-	methodSymbol := xdr.ScSymbol(method)
-	parameters := xdr.ScVec{
-		xdr.ScVal{
-			Type: xdr.ScValTypeScvAddress,
-			Address: &xdr.ScAddress{
-				Type:       xdr.ScAddressTypeScAddressTypeContract,
-				ContractId: &contractID,
-			},
-		},
-		xdr.ScVal{
-			Type: xdr.ScValTypeScvSymbol,
-			Sym:  &methodSymbol,
-		},
-	}
-	parameters = append(parameters, args...)
 	return &txnbuild.InvokeHostFunction{
 		HostFunction: xdr.HostFunction{
-			Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-			InvokeContract: &parameters,
+			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeContract: &xdr.InvokeContractArgs{
+				ContractAddress: xdr.ScAddress{
+					Type:       xdr.ScAddressTypeScAddressTypeContract,
+					ContractId: &contractID,
+				},
+				FunctionName: xdr.ScSymbol(method),
+				Args:         args,
+			},
 		},
 		Auth:          nil,
 		SourceAccount: sourceAccount,
@@ -153,6 +146,7 @@ func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbu
 	}
 	var transactionData xdr.SorobanTransactionData
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
+
 	require.NoError(t, err)
 	require.Len(t, response.Results, 1)
 
@@ -244,12 +238,12 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions:              74350,
-			ReadBytes:                 40,
-			WriteBytes:                112,
-			ExtendedMetaDataSizeBytes: 152,
+			Instructions:            73776,
+			ReadBytes:               40,
+			WriteBytes:              112,
+			ContractEventsSizeBytes: 0,
 		},
-		RefundableFee: 30,
+		RefundableFee: 1,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -281,6 +275,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+
 	txB64, err = tx.Base64()
 	require.NoError(t, err)
 	request = methods.SimulateTransactionRequest{Transaction: txB64}
@@ -343,6 +338,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
+
 	tx, err := txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
@@ -454,7 +450,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotZero(t, obtainedTransactionData.RefundableFee)
-	assert.NotZero(t, obtainedTransactionData.Resources.ExtendedMetaDataSizeBytes)
+	assert.NotZero(t, obtainedTransactionData.Resources.ContractEventsSizeBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.Instructions)
 	assert.NotZero(t, obtainedTransactionData.Resources.ReadBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.WriteBytes)
@@ -465,7 +461,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &obtainedAuth)
 	assert.NoError(t, err)
 	assert.Equal(t, obtainedAuth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsAddress)
-	assert.Nil(t, obtainedAuth.Credentials.Address.SignatureArgs)
+	assert.Equal(t, obtainedAuth.Credentials.Address.Signature.Type, xdr.ScValTypeScvVoid)
 
 	assert.NotZero(t, obtainedAuth.Credentials.Address.Nonce)
 	assert.Equal(t, xdr.ScAddressTypeScAddressTypeAccount, obtainedAuth.Credentials.Address.Address.Type)
@@ -503,7 +499,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
-	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 42")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 52")
 }
 
 func TestSimulateTransactionError(t *testing.T) {
@@ -515,8 +511,15 @@ func TestSimulateTransactionError(t *testing.T) {
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
 	invokeHostOp := createInvokeHostOperation(sourceAccount, xdr.Hash{}, "noMethod")
 	invokeHostOp.HostFunction = xdr.HostFunction{
-		Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-		InvokeContract: &xdr.ScVec{},
+		Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+		InvokeContract: &xdr.InvokeContractArgs{
+			ContractAddress: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &xdr.Hash{0x1, 0x2},
+			},
+			FunctionName: "",
+			Args:         nil,
+		},
 	}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
@@ -540,7 +543,7 @@ func TestSimulateTransactionError(t *testing.T) {
 	err = client.CallResult(context.Background(), "simulateTransaction", request, &result)
 	assert.NoError(t, err)
 	assert.Greater(t, result.LatestLedger, int64(0))
-	assert.Contains(t, result.Error, "UnexpectedSize")
+	assert.Contains(t, result.Error, "MissingValue")
 }
 
 func TestSimulateTransactionMultipleOperations(t *testing.T) {
@@ -638,7 +641,7 @@ func TestSimulateTransactionUnmarshalError(t *testing.T) {
 	)
 }
 
-func TestSimulateTransactionBumpFootprint(t *testing.T) {
+func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	test := NewTest(t)
 
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
@@ -714,7 +717,7 @@ func TestSimulateTransactionBumpFootprint(t *testing.T) {
 				Type: xdr.ScValTypeScvSymbol,
 				Sym:  &counterSym,
 			},
-			Durability: xdr.ContractDataDurabilityTemporary,
+			Durability: xdr.ContractDataDurabilityPersistent,
 			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	}
@@ -736,7 +739,7 @@ func TestSimulateTransactionBumpFootprint(t *testing.T) {
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
 			&txnbuild.BumpFootprintExpiration{
-				LedgersToExpire: 100,
+				LedgersToExpire: 20,
 				Ext: xdr.TransactionExt{
 					V: 1,
 					SorobanData: &xdr.SorobanTransactionData{
@@ -766,4 +769,45 @@ func TestSimulateTransactionBumpFootprint(t *testing.T) {
 
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 
+	// Wait until it expires
+	expired := false
+	for i := 0; i < 50; i++ {
+		err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &result)
+		if err != nil {
+			expired = true
+			t.Logf("ledger entry expired")
+			break
+		}
+		assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
+		t.Log("waiting for ledger entry to expire at ledger", entry.MustContractData().ExpirationLedgerSeq+1)
+		time.Sleep(time.Second)
+	}
+	require.True(t, expired)
+
+	// and restore it
+	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			&txnbuild.RestoreFootprint{
+				Ext: xdr.TransactionExt{
+					V: 1,
+					SorobanData: &xdr.SorobanTransactionData{
+						Resources: xdr.SorobanResources{
+							Footprint: xdr.LedgerFootprint{
+								ReadWrite: []xdr.LedgerKey{key},
+							},
+						},
+					},
+				},
+			},
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	tx, err = txnbuild.NewTransaction(params)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 }

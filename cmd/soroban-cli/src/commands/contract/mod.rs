@@ -96,7 +96,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match &self {
-            Cmd::Bindings(bindings) => bindings.run()?,
+            Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run()?,
             Cmd::Bump(bump) => bump.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
@@ -127,4 +127,14 @@ impl From<Durability> for soroban_env_host::xdr::ContractDataDurability {
             Durability::Temporary => soroban_env_host::xdr::ContractDataDurability::Temporary,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
+pub enum SpecOutput {
+    /// XDR of array of contract spec entries
+    XdrBase64,
+    /// Array of xdr of contract spec entries
+    XdrBase64Array,
+    /// Pretty print of contract spec entries
+    Docs,
 }

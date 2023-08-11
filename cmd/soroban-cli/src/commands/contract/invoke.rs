@@ -6,17 +6,19 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
-use clap::{arg, command, Parser};
+use clap::{arg, command, value_parser, Parser};
 use ed25519_dalek::Keypair;
 use heck::ToKebabCase;
+use soroban_env_host::e2e_invoke::get_ledger_changes;
+use soroban_env_host::xdr::ReadXdr;
 use soroban_env_host::{
     budget::Budget,
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
-        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo, MuxedAccount,
-        Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
+        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeContractArgs,
+        InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo,
+        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
         ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber, SorobanAddressCredentials,
         SorobanAuthorizationEntry, SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
     },
@@ -59,7 +61,7 @@ pub struct Cmd {
           help_heading = HEADING_SANDBOX)]
     pub unlimited_budget: bool,
 
-    // Function name as subcommand, then arguments for that function as `--arg-name value`
+    /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
@@ -156,6 +158,8 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     ContractSpec(#[from] contract_spec::Error),
+    #[error("")]
+    MissingFileArg(PathBuf),
 }
 
 impl From<Infallible> for Error {
@@ -169,7 +173,7 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-    ) -> Result<(String, Spec, ScVec, Vec<Keypair>), Error> {
+    ) -> Result<(String, Spec, InvokeContractArgs, Vec<Keypair>), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
         let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
@@ -186,62 +190,77 @@ impl Cmd {
         let func = spec.find_function(function)?;
         // create parsed_args in same order as the inputs to func
         let mut signers: Vec<Keypair> = vec![];
-        let mut parsed_args: Vec<ScVal> = vec![];
-        for i in func.inputs.iter() {
-            let name = i.name.to_string().unwrap();
-            if let Some(mut val) = matches_.get_raw(&name) {
-                let mut s = val.next().unwrap().to_string_lossy().to_string();
-                if matches!(i.type_, ScSpecTypeDef::Address) {
-                    let cmd = crate::commands::config::identity::address::Cmd {
-                        name: Some(s.clone()),
-                        hd_path: Some(0),
-                        locator: self.config.locator.clone(),
-                    };
-                    if let Ok(key) = cmd.private_key() {
-                        // TODO: Once we upgrade to ed25519_dalek@2.0.0, switch this to
-                        // `key.clone()`
-                        let signer = Keypair::from_bytes(&key.to_bytes())?;
-                        signers.push(signer);
-                        s = stellar_strkey::ed25519::PublicKey::from_payload(
-                            key.public.as_bytes(),
-                        )?
-                        .to_string();
+        let parsed_args = func
+            .inputs
+            .iter()
+            .map(|i| {
+                let name = i.name.to_string().unwrap();
+                if let Some(mut val) = matches_.get_raw(&name) {
+                    let mut s = val.next().unwrap().to_string_lossy().to_string();
+                    if matches!(i.type_, ScSpecTypeDef::Address) {
+                        let cmd = crate::commands::config::identity::address::Cmd {
+                            name: Some(s.clone()),
+                            hd_path: Some(0),
+                            locator: self.config.locator.clone(),
+                        };
+                        if let Ok(address) = cmd.public_key() {
+                            s = address.to_string();
+                        }
+                        if let Ok(key) = cmd.private_key() {
+                            signers.push(key);
+                        }
                     }
+                    spec.from_string(&s, &i.type_)
+                        .map_err(|error| Error::CannotParseArg { arg: name, error })
+                } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
+                    Ok(ScVal::Void)
+                } else if let Some(arg_path) =
+                    matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name))
+                {
+                    if matches!(i.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
+                        Ok(ScVal::try_from(
+                            &std::fs::read(arg_path)
+                                .map_err(|_| Error::MissingFileArg(arg_path.clone()))?,
+                        )
+                        .unwrap())
+                    } else {
+                        let file_contents = std::fs::read_to_string(arg_path)
+                            .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
+                        tracing::debug!(
+                            "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
+                            i.type_,
+                            file_contents.len()
+                        );
+                        spec.from_string(&file_contents, &i.type_)
+                            .map_err(|error| Error::CannotParseArg { arg: name, error })
+                    }
+                } else {
+                    Err(Error::MissingArgument(name))
                 }
-                let arg = spec
-                    .from_string(&s, &i.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })?;
-                parsed_args.push(arg);
-            } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
-                parsed_args.push(ScVal::Void);
-            } else {
-                return Err(Error::MissingArgument(name));
-            }
-        }
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
 
-        // Add the contract ID and the function name to the arguments
-        let mut complete_args = vec![
-            ScVal::Address(ScAddress::Contract(Hash(contract_id))),
-            ScVal::Symbol(
-                function
-                    .try_into()
-                    .map_err(|_| Error::FunctionNameTooLong(function.clone()))?,
-            ),
-        ];
-        complete_args.extend_from_slice(parsed_args.as_slice());
-        let complete_args_len = complete_args.len();
+        let contract_address_arg = ScAddress::Contract(Hash(contract_id));
+        let function_symbol_arg = function
+            .try_into()
+            .map_err(|_| Error::FunctionNameTooLong(function.clone()))?;
 
-        Ok((
-            function.clone(),
-            spec,
-            complete_args
+        let final_args =
+            parsed_args
+                .clone()
                 .try_into()
                 .map_err(|_| Error::MaxNumberOfArgumentsReached {
-                    current: complete_args_len,
+                    current: parsed_args.len(),
                     maximum: ScVec::default().max_len(),
-                })?,
-            signers,
-        ))
+                })?;
+
+        let invoke_args = InvokeContractArgs {
+            contract_address: contract_address_arg,
+            function_name: function_symbol_arg,
+            args: final_args,
+        };
+
+        Ok((function.clone(), spec, invoke_args, signers))
     }
 
     pub async fn run(&self) -> Result<(), Error> {
@@ -353,20 +372,20 @@ impl Cmd {
         };
         let budget = Budget::default();
         if self.unlimited_budget {
-            budget.reset_unlimited();
+            budget.reset_unlimited()?;
         };
         let h = Host::with_storage_and_budget(storage, budget);
-        h.switch_to_recording_auth();
-        h.set_source_account(source_account);
+        h.switch_to_recording_auth()?;
+        h.set_source_account(source_account)?;
 
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
         ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info.clone());
+        h.set_ledger_info(ledger_info.clone())?;
 
         let (function, spec, host_function_params, _signers) =
             self.build_host_function_parameters(contract_id, &spec_entries)?;
-        h.set_diagnostic_level(DiagnosticLevel::Debug);
+        h.set_diagnostic_level(DiagnosticLevel::Debug)?;
         let resv = h
             .invoke_function(HostFunction::InvokeContract(host_function_params))
             .map_err(|host_error| {
@@ -391,7 +410,7 @@ impl Cmd {
                             address,
                             nonce,
                             signature_expiration_ledger: ledger_info.sequence_number + 1,
-                            signature_args: ScVec::default(),
+                            signature: ScVal::Void,
                         })
                     }
                     _ => SorobanCredentials::SourceAccount,
@@ -399,7 +418,8 @@ impl Cmd {
                 root_invocation: payload.invocation,
             })
             .collect();
-        let (storage, budget, events, expiration_ledger_bumps) = h.try_finish().map_err(|h| h.1)?;
+        let budget = h.budget_cloned();
+        let (storage, events) = h.try_finish()?;
         let footprint = &create_ledger_footprint(&storage.footprint);
         log_events(
             footprint,
@@ -408,6 +428,14 @@ impl Cmd {
             Some(&budget),
         );
 
+        let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
+        let mut expiration_ledger_bumps: HashMap<LedgerKey, u32> = HashMap::new();
+        for ledger_entry_change in ledger_changes {
+            if let Some(exp_change) = ledger_entry_change.expiration_change {
+                let key = xdr::LedgerKey::from_xdr(ledger_entry_change.encoded_key)?;
+                expiration_ledger_bumps.insert(key, exp_change.new_expiration_ledger);
+            }
+        }
         utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
         self.config.set_state(&mut state)?;
@@ -494,7 +522,7 @@ pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<Stri
 }
 
 fn build_invoke_contract_tx(
-    parameters: ScVec,
+    parameters: InvokeContractArgs,
     sequence: i64,
     fee: u32,
     key: &Keypair,
@@ -539,15 +567,27 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
     }
     let func = spec.find_function(name).unwrap();
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
-    cmd = cmd.about(Some(doc));
+    let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
+
+    cmd = cmd.about(Some(doc)).long_about(long_doc);
     for (name, type_) in inputs_map.iter() {
         let mut arg = clap::Arg::new(name);
+        let file_arg_name = fmt_arg_file_name(name);
+        let mut file_arg = clap::Arg::new(&file_arg_name);
         arg = arg
             .long(name)
             .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_).unwrap());
+
+        file_arg = file_arg
+            .long(&file_arg_name)
+            .alias(file_arg_name.to_kebab_case())
+            .num_args(1)
+            .hide(true)
+            .value_parser(value_parser!(PathBuf))
+            .conflicts_with(name);
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
             let value_name: &'static str = Box::leak(value_name.into_boxed_str());
@@ -570,6 +610,20 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
         };
 
         cmd = cmd.arg(arg);
+        cmd = cmd.arg(file_arg);
     }
     Ok(cmd)
+}
+
+fn fmt_arg_file_name(name: &str) -> String {
+    format!("{name}-file-path")
+}
+
+fn arg_file_help(docs: &str) -> String {
+    format!(
+        r#"{docs}
+Usage Notes:
+Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
+Note: The only types which aren't JSON are Bytes and Bytes which are raw bytes"#
+    )
 }

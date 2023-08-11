@@ -4,6 +4,7 @@ use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
+use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::{
     budget::Budget,
     events::HostEvent,
@@ -52,6 +53,8 @@ pub enum Error {
     InvalidRpcUrl(http::uri::InvalidUri),
     #[error("invalid rpc url: {0}")]
     InvalidRpcUrlFromUriParts(http::uri::InvalidUriParts),
+    #[error("invalid friendbot url: {0}")]
+    InvalidUrl(String),
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
     #[error("json decoding error: {0}")]
@@ -437,6 +440,17 @@ impl Client {
             .build(url)?)
     }
 
+    pub async fn friendbot_url(&self) -> Result<String, Error> {
+        let network = self.get_network().await?;
+        tracing::trace!("{network:#?}");
+        network.friendbot_url.ok_or_else(|| {
+            Error::NotFound(
+                "Friendbot".to_string(),
+                "Friendbot is not available on this network".to_string(),
+            )
+        })
+    }
+
     pub async fn verify_network_passphrase(&self, expected: Option<&str>) -> Result<String, Error> {
         let server = self.get_network().await?.passphrase;
         if expected.is_some() && expected != Some(&server) {
@@ -472,11 +486,20 @@ impl Client {
         let response = self.get_ledger_entries(&keys).await?;
         let entries = response.entries.unwrap_or_default();
         if entries.is_empty() {
-            return Err(Error::NotFound("Account".to_string(), address.to_string()));
+            return Err(Error::NotFound(
+                "Account".to_string(),
+                format!(
+                    r#"{address}
+Might need to fund account like:
+soroban config identity fund {address} --network <name>
+soroban config identity fund {address} --helper-url <url>"#
+                ),
+            ));
         }
         let ledger_entry = &entries[0];
+        let mut depth_limit_read = DepthLimitedRead::new(ledger_entry.xdr.as_bytes(), 100);
         if let LedgerEntryData::Account(entry) =
-            LedgerEntryData::read_xdr_base64(&mut ledger_entry.xdr.as_bytes())?
+            LedgerEntryData::read_xdr_base64(&mut depth_limit_read)?
         {
             tracing::trace!(account=?entry);
             Ok(entry)
@@ -505,8 +528,11 @@ impl Client {
             let error = error_result_xdr
                 .ok_or(Error::MissingError)
                 .and_then(|x| {
-                    TransactionResult::read_xdr_base64(&mut x.as_bytes())
-                        .map_err(|_| Error::InvalidResponse)
+                    TransactionResult::read_xdr_base64(&mut DepthLimitedRead::new(
+                        x.as_bytes(),
+                        100,
+                    ))
+                    .map_err(|_| Error::InvalidResponse)
                 })
                 .map(|r| r.result);
             tracing::error!(?error);
