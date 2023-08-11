@@ -115,9 +115,6 @@ pub fn sign_soroban_authorizations(
     };
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
-    // TODO: Pass this in from the caller? Or where do we get this from? Can we just use the one
-    // already in the auth?
-    // let ledger_validity_count = 5;
 
     let source_address = source_key.public.as_bytes();
 
@@ -206,7 +203,6 @@ pub fn sign_soroban_authorization_entry(
 
     let map = ScMap::sorted_from(vec![
         (
-            // TODO: Not sure if these should be symbols or strings
             ScVal::Symbol(ScSymbol("public_key".try_into()?)),
             ScVal::Bytes(
                 signer
