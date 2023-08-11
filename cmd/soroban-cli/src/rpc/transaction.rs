@@ -140,7 +140,8 @@ pub fn sign_soroban_authorizations(
             let needle = match address {
                 ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
                 ScAddress::Contract(Hash(c)) => {
-                    // This address is for a contract. There's no way to sign it because it is malformed.
+                    // This address is for a contract. This means we're using a custom
+                    // smart-contract account. Currently the CLI doesn't support that yet.
                     return Err(Error::MissingSignerForAddress {
                         address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
                             .to_string(),
