@@ -130,26 +130,68 @@ test('boolean', async t => {
   t.is(await contract.boolean({ boolean: true }), true)
 })
 
-test.todo('not')
+test('not', async t => {
+  t.is(await contract.not({ boolean: true }), false)
+})
 
-test.todo('i128')
+test('i128', async t => {
+  t.is(await contract.i128({ i128: -1n }), -1n)
+})
 
-test.todo('u128')
+test('u128', async t => {
+  t.is(await contract.u128({ u128: 1n }), 1n)
+})
 
-test.todo('multi_args')
+test('multi_args', async t => {
+  t.is(await contract.multiArgs({ a: 1, b: true }), 1)
+  t.is(await contract.multiArgs({ a: 1, b: false }), 0)
+})
 
-test.todo('map')
+test('map', async t => {
+  const map = new Map()
+  map.set(1, true)
+  map.set(2, false)
+  // map.set(3, 'hahaha') // should throw an error
+  t.deepEqual(await contract.map({ map }), Object.fromEntries(map.entries()))
+})
 
-test.todo('vec')
+test('vec', async t => {
+  const vec = [1, 2, 3]
+  t.deepEqual(await contract.vec({ vec }), vec)
+})
 
-test.todo('tuple')
+test('tuple', async t => {
+  const tuple = ['hello', 1] as const
+  t.deepEqual(await contract.tuple({ tuple }), tuple)
+})
 
-test.todo('option')
+test.failing('option', async t => {
+  // this makes sense
+  t.deepEqual(await contract.option({ option: 1 }), 1)
 
-test.todo('u256')
+  // this passes but shouldn't
+  t.deepEqual(await contract.option({ option: undefined }), 0)
 
-test.todo('i256')
+  // this is the behavior we probably want, but fails
+  // t.deepEqual(await contract.option(), undefined) // typing and implementation require the object
+  // t.deepEqual(await contract.option({}), undefined) // typing requires argument; implementation would be fine with this
+  t.deepEqual(await contract.option({ option: undefined }), undefined)
+})
 
-test.todo('string')
+test.failing('u256', async t => {
+  t.is(await contract.u256({ u256: 1n }), 1n)
+})
 
-test.todo('tuple_strukt')
+test.failing('i256', async t => {
+  t.is(await contract.i256({ i256: -1n }), -1n)
+})
+
+test('string', async t => {
+  t.is(await contract.string({ string: 'hello' }), 'hello')
+})
+
+test('tuple_strukt', async t => {
+  const arg = [{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }] as const
+  const res = [{ a: 0, b: true, c: 'hello' }, ['First']]
+  t.deepEqual(await contract.tupleStrukt({ tuple_strukt: arg }), res)
+})
