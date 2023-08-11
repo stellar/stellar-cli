@@ -117,7 +117,8 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     if needs_auth_recording {
         host.switch_to_recording_auth();
     } else {
-        host.set_authorization_entries(invoke_hf_op.auth.to_vec()).unwrap();
+        host.set_authorization_entries(invoke_hf_op.auth.to_vec())
+            .unwrap();
     }
 
     host.set_diagnostic_level(DiagnosticLevel::Debug);
