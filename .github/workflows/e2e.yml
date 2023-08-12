@@ -32,7 +32,7 @@ jobs:
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
 
       # sets the version of soroban-js-client used by tests
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: "0.9.2"
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: "https://github.com/stellar/js-soroban-client#331637a19040680a5fb203a03bd5e7b12299c80c"
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
