@@ -70,8 +70,8 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}
-          ref: ${{ SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF }}
-          path: $GITHUB_WORKSPACE/system-test/js-soroban-client
+          ref: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF }}
+          path: system-test/js-soroban-client
       - uses: stellar/actions/rust-cache@main
       - name: Build system test with component versions
         run: |
