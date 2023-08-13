@@ -63,9 +63,10 @@ jobs:
         with:
           path: soroban-tools
       - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}   
-        name: checkout js-soroban-client
+        name: prepare local js-soroban-client
         run: |
           rm -rf $GITHUB_WORKSPACE/system-test/js-soroban-client;
+      - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}    
         uses: actions/checkout@v3
         with:
           repository: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}
