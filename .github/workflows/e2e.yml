@@ -74,22 +74,22 @@ jobs:
           path: system-test/js-soroban-client
       - uses: stellar/actions/rust-cache@main
       - name: Build system test with component versions
-        run: |
-          cd $GITHUB_WORKSPACE/system-test; \
-          if [ -z "$SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO"  ]; then \
-             JS_SOROBAN_CLIENT_REF="$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION" \
-          else \
-             JS_SOROBAN_CLIENT_REF=file:/home/tester/js-soroban-client \
-          fi \
-          make \
-              CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
-              CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
-              CORE_IMAGE=$SYSTEM_TEST_CORE_IMAGE \
-              SOROBAN_RPC_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
-              SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
-              RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
-              QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
-              JS_SOROBAN_CLIENT_NPM_VERSION=$JS_SOROBAN_CLIENT_REF \
+        run: >
+          cd $GITHUB_WORKSPACE/system-test; 
+          if [ -z "$SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO" ]; then 
+             JS_SOROBAN_CLIENT_REF="$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION" 
+          else 
+             JS_SOROBAN_CLIENT_REF=file:/home/tester/js-soroban-client 
+          fi 
+          make 
+              CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF 
+              CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" 
+              CORE_IMAGE=$SYSTEM_TEST_CORE_IMAGE 
+              SOROBAN_RPC_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF 
+              SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF 
+              RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION 
+              QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF 
+              JS_SOROBAN_CLIENT_NPM_VERSION=$JS_SOROBAN_CLIENT_REF 
               build
       - name: Run system test scenarios
         run: |
