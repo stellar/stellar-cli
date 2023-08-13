@@ -74,12 +74,12 @@ jobs:
           path: system-test/js-soroban-client
       - uses: stellar/actions/rust-cache@main
       - name: Build system test with component versions
-        run: >
+        run: |
           cd $GITHUB_WORKSPACE/system-test; 
-          if [ -z "$SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO" ]; then 
-             JS_SOROBAN_CLIENT_REF="$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION" 
-          else 
-             JS_SOROBAN_CLIENT_REF=file:/home/tester/js-soroban-client 
+          if [ -z "$SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO" ]; then \
+             JS_SOROBAN_CLIENT_REF="$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION" \
+          else \
+             JS_SOROBAN_CLIENT_REF=file:/home/tester/js-soroban-client \
           fi 
           make 
               CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF 
@@ -90,7 +90,7 @@ jobs:
               RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION 
               QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF 
               JS_SOROBAN_CLIENT_NPM_VERSION=$JS_SOROBAN_CLIENT_REF 
-              build
+              build;
       - name: Run system test scenarios
         run: |
           docker run --rm -t --name e2e_test stellar/system-test:dev \
