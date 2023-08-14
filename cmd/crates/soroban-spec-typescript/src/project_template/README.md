@@ -9,7 +9,7 @@ soroban contract bindings ts \
   --rpc-url INSERT_RPC_URL_HERE \
   --network-passphrase "INSERT_NETWORK_PASSPHRASE_HERE" \
   --contract-id INSERT_CONTRACT_ID_HERE \
-  --name INSERT_CONTRACT_NAME_HERE
+  --output-dir ./path/to/INSERT_CONTRACT_NAME_HERE
 ```
 
 The network passphrase and contract ID are exported from [index.ts](./src/index.ts) in the `networks` constant. If you are the one who generated this library and you know that this contract is also deployed to other networks, feel free to update `networks` with other valid options. This will help your contract consumers use this library more easily.
