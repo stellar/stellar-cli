@@ -9,7 +9,7 @@ soroban contract bindings ts \
   --rpc-url https://rpc-futurenet.stellar.org:443 \
   --network-passphrase "Test SDF Future Network ; October 2022" \
   --contract-id CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4 \
-  --name test_custom_types
+  --output-dir ./path/to/test_custom_types
 ```
 
 The network passphrase and contract ID are exported from [index.ts](./src/index.ts) in the `networks` constant. If you are the one who generated this library and you know that this contract is also deployed to other networks, feel free to update `networks` with other valid options. This will help your contract consumers use this library more easily.
