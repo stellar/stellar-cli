@@ -25,9 +25,11 @@ export type ClassOptions = {
    * @example
    * ```ts
    * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
+   * import { Contract } from "INSERT_CONTRACT_NAME_HERE";
+   * const contract = new Contract({
+   *   …,
    *   wallet: freighter,
+   * })
    * ```
    */
   wallet?: Wallet
