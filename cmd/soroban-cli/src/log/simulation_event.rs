@@ -1,6 +1,6 @@
-use soroban_env_host::events::HostEvent;
+use soroban_env_host::xdr::DiagnosticEvent;
 
-pub fn events(events: &[HostEvent]) {
+pub fn simulation_events(events: &[DiagnosticEvent]) {
     for (i, event) in events.iter().enumerate() {
         tracing::info!("{i}: {event:#?}");
     }
