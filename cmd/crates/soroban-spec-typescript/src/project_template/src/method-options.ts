@@ -22,11 +22,13 @@ export type ClassOptions = {
   /**
    * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
    *
+   * @example
    * ```ts
    * import freighter from "@stellar/freighter-api";
    *
    * // later, when calling this function:
    *   wallet: freighter,
+   * ```
    */
   wallet?: Wallet
 }
