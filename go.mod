@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/Masterminds/squirrel v1.5.0
 	github.com/cenkalti/backoff/v4 v4.2.0
-	github.com/creachadair/jrpc2 v0.41.1
+	github.com/creachadair/jrpc2 v1.1.0
 	github.com/go-chi/chi v4.0.3+incompatible
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/mattn/go-sqlite3 v1.14.16
@@ -28,6 +28,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-sdk-go v1.39.5 // indirect
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
+	github.com/creachadair/mds v0.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/go-errors/errors v0.0.0-20150906023321-a41850380601 // indirect
@@ -68,7 +69,7 @@ require (
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/net v0.1.0 // indirect
-	golang.org/x/sync v0.2.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/gorp.v1 v1.7.1 // indirect

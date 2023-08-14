@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +48,7 @@ func TestGetLedgerEntryNotFound(t *testing.T) {
 	var result methods.GetLedgerEntryResponse
 	jsonRPCErr := client.CallResult(context.Background(), "getLedgerEntry", request, &result).(*jrpc2.Error)
 	assert.Contains(t, jsonRPCErr.Message, "not found")
-	assert.Equal(t, code.InvalidRequest, jsonRPCErr.Code)
+	assert.Equal(t, jrpc2.InvalidRequest, jsonRPCErr.Code)
 }
 
 func TestGetLedgerEntryInvalidParams(t *testing.T) {
@@ -65,7 +64,7 @@ func TestGetLedgerEntryInvalidParams(t *testing.T) {
 	var result methods.GetLedgerEntryResponse
 	jsonRPCErr := client.CallResult(context.Background(), "getLedgerEntry", request, &result).(*jrpc2.Error)
 	assert.Equal(t, "cannot unmarshal key value", jsonRPCErr.Message)
-	assert.Equal(t, code.InvalidParams, jsonRPCErr.Code)
+	assert.Equal(t, jrpc2.InvalidParams, jsonRPCErr.Code)
 }
 
 func TestGetLedgerEntrySucceeds(t *testing.T) {
