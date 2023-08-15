@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
@@ -25,7 +24,7 @@ func NewGetNetworkHandler(daemon interfaces.Daemon, networkPassphrase, friendbot
 		info, err := coreClient.Info(ctx)
 		if err != nil {
 			return GetNetworkResponse{}, (&jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: err.Error(),
 			})
 		}
