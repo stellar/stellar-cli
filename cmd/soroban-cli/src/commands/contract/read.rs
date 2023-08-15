@@ -171,7 +171,7 @@ impl Cmd {
         tracing::trace!(?keys);
 
         client
-            .get_ledger_entries(keys)
+            .get_ledger_entries(&keys)
             .await?
             .entries
             .unwrap_or_default()
