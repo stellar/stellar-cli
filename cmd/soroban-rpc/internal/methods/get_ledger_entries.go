@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/go/support/log"
@@ -44,7 +43,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				logger.WithError(err).WithField("request", request).
 					Infof("could not unmarshal requestKey %s at index %d from getLedgerEntries request", requestKey, i)
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
-					Code:    code.InvalidParams,
+					Code:    jrpc2.InvalidParams,
 					Message: fmt.Sprintf("cannot unmarshal key value %s at index %d", requestKey, i),
 				}
 			}
@@ -54,7 +53,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 		tx, err := ledgerEntryReader.NewTx(ctx)
 		if err != nil {
 			return GetLedgerEntriesResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not create read transaction",
 			}
 		}
@@ -65,7 +64,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 		latestLedger, err := tx.GetLatestLedgerSequence()
 		if err != nil {
 			return GetLedgerEntriesResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not get latest ledger",
 			}
 		}
@@ -77,7 +76,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				logger.WithError(err).WithField("request", request).
 					Infof("could not obtain ledger entry %v at index %d from storage", ledgerKey, i)
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
-					Code:    code.InternalError,
+					Code:    jrpc2.InternalError,
 					Message: fmt.Sprintf("could not obtain ledger entry %v at index %d from storage", ledgerKey, i),
 				}
 			}
@@ -91,7 +90,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				logger.WithError(err).WithField("request", request).
 					Infof("could not serialize ledger entry data for ledger %v at index %d", ledgerEntry, i)
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
-					Code:    code.InternalError,
+					Code:    jrpc2.InternalError,
 					Message: fmt.Sprintf("could not serialize ledger entry data for ledger %v at index %d", ledgerEntry, i),
 				}
 			}

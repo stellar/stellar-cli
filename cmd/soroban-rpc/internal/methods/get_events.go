@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/go/strkey"
@@ -316,7 +315,7 @@ type eventsRPCHandler struct {
 func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse, error) {
 	if err := request.Valid(h.maxLimit); err != nil {
 		return GetEventsResponse{}, &jrpc2.Error{
-			Code:    code.InvalidParams,
+			Code:    jrpc2.InvalidParams,
 			Message: err.Error(),
 		}
 	}
@@ -357,7 +356,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 	)
 	if err != nil {
 		return GetEventsResponse{}, &jrpc2.Error{
-			Code:    code.InvalidRequest,
+			Code:    jrpc2.InvalidRequest,
 			Message: err.Error(),
 		}
 	}

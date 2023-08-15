@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 	"github.com/stellar/go/xdr"
 
@@ -70,7 +69,7 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	// parse hash
 	if hex.DecodedLen(len(request.Hash)) != len(xdr.Hash{}) {
 		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    code.InvalidParams,
+			Code:    jrpc2.InvalidParams,
 			Message: fmt.Sprintf("unexpected hash length (%d)", len(request.Hash)),
 		}
 	}
@@ -79,7 +78,7 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	_, err := hex.Decode(txHash[:], []byte(request.Hash))
 	if err != nil {
 		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    code.InvalidParams,
+			Code:    jrpc2.InvalidParams,
 			Message: fmt.Sprintf("incorrect hash: %v", err),
 		}
 	}
@@ -102,19 +101,19 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	response.LedgerCloseTime = tx.Ledger.CloseTime
 	if response.ResultXdr, err = xdr.MarshalBase64(tx.Result); err != nil {
 		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    code.InternalError,
+			Code:    jrpc2.InternalError,
 			Message: err.Error(),
 		}
 	}
 	if response.EnvelopeXdr, err = xdr.MarshalBase64(tx.Envelope); err != nil {
 		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    code.InternalError,
+			Code:    jrpc2.InternalError,
 			Message: err.Error(),
 		}
 	}
 	if response.ResultMetaXdr, err = xdr.MarshalBase64(tx.Meta); err != nil {
 		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    code.InternalError,
+			Code:    jrpc2.InternalError,
 			Message: err.Error(),
 		}
 	}
