@@ -29,13 +29,15 @@ type SimulateHostFunctionResult struct {
 }
 
 type SimulateTransactionResponse struct {
-	Error           string                       `json:"error,omitempty"`
-	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
-	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
-	MinResourceFee  int64                        `json:"minResourceFee,string"`
-	Results         []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
-	Cost            SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
-	LatestLedger    int64                        `json:"latestLedger,string"`
+	Error                     string                       `json:"error,omitempty"`
+	TransactionData           string                       `json:"transactionData"`  // SorobanTransactionData XDR in base64
+	Events                    []string                     `json:"events,omitempty"` // DiagnosticEvent XDR in base64
+	MinResourceFee            int64                        `json:"minResourceFee,string"`
+	Results                   []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
+	Cost                      SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
+	LatestLedger              int64                        `json:"latestLedger,string"`
+	PreRestoreTransactionData string                       `json:"preRestoreTransactionData,omitempty"` // SorobanTransactionData XDR in base64
+	PreRestoreMinResourceFee  int64                        `json:"preRestoreMinResourceFee,omitempty"`
 }
 
 type PreflightGetter interface {
@@ -114,13 +116,15 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
+		var results []SimulateHostFunctionResult
+		if result.Result != "" {
+			results = append(results, SimulateHostFunctionResult{
+				XDR:  result.Result,
+				Auth: result.Auth,
+			})
+		}
 		return SimulateTransactionResponse{
-			Results: []SimulateHostFunctionResult{
-				{
-					XDR:  result.Result,
-					Auth: result.Auth,
-				},
-			},
+			Results:         results,
 			Events:          result.Events,
 			TransactionData: result.TransactionData,
 			MinResourceFee:  result.MinFee,
@@ -128,7 +132,9 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
 			},
-			LatestLedger: int64(latestLedger),
+			LatestLedger:              int64(latestLedger),
+			PreRestoreTransactionData: result.PreRestoreTransactionData,
+			PreRestoreMinResourceFee:  result.PreRestoreMinFee,
 		}
 	})
 }
