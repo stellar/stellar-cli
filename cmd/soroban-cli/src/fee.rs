@@ -1,6 +1,5 @@
-use clap::arg;
-
 use crate::commands::HEADING_RPC;
+use clap::arg;
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
