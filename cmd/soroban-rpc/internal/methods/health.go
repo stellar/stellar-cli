@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
@@ -22,7 +21,7 @@ func NewHealthCheck(txStore *transactions.MemoryStore, maxHealthyLedgerLatency t
 		ledgerInfo := txStore.GetLatestLedger()
 		if ledgerInfo.Sequence < 1 {
 			return HealthCheckResult{}, jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "data stores are not initialized",
 			}
 		}
@@ -32,7 +31,7 @@ func NewHealthCheck(txStore *transactions.MemoryStore, maxHealthyLedgerLatency t
 			roundedLatency := lastKnownLedgerLatency.Round(time.Second)
 			msg := fmt.Sprintf("latency (%s) since last known ledger closed is too high (>%s)", roundedLatency, maxHealthyLedgerLatency)
 			return HealthCheckResult{}, jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: msg,
 			}
 		}

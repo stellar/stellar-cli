@@ -97,7 +97,7 @@ func (q *backlogHTTPQLimiter) ServeHTTP(res http.ResponseWriter, req *http.Reque
 func (q *backlogJrpcQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
 	if q.limit == RequestBacklogQueueNoLimit {
 		// if specified max duration, pass-through
-		return q.jrpcDownstreamHandler.Handle(ctx, req)
+		return q.jrpcDownstreamHandler(ctx, req)
 	}
 
 	if newPending := atomic.AddUint64(&q.pending, 1); newPending > q.limit {
@@ -124,5 +124,5 @@ func (q *backlogJrpcQLimiter) Handle(ctx context.Context, req *jrpc2.Request) (i
 		atomic.StoreUint64(&q.limitReached, 0)
 	}()
 
-	return q.jrpcDownstreamHandler.Handle(ctx, req)
+	return q.jrpcDownstreamHandler(ctx, req)
 }
