@@ -7,6 +7,7 @@ import (
 	"net/http/pprof" //nolint:gosec
 	"os"
 	"os/signal"
+	runtimePprof "runtime/pprof"
 	"sync"
 	"syscall"
 	"time"
@@ -261,6 +262,11 @@ func MustNew(cfg *config.Config) *Daemon {
 		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		// add the entry points for:
+		// goroutine, threadcreate, heap, allocs, block, mutex
+		for _, profile := range runtimePprof.Profiles() {
+			adminMux.Handle("/debug/pprof/"+profile.Name(), pprof.Handler(profile.Name()))
+		}
 		adminMux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 		daemon.adminServer = &http.Server{Addr: cfg.AdminEndpoint, Handler: adminMux}
 	}
