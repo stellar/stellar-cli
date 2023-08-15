@@ -73,7 +73,7 @@ func TestBacklogQueueLimiter_JrpcNonBlocking(t *testing.T) {
 	}}
 	logCounter := makeTestLogCounter()
 	testGauge := &TestingGauge{}
-	limiter := MakeJrpcBacklogQueueLimiter(adding, testGauge, requestsSizeLimit, logCounter.Entry())
+	limiter := MakeJrpcBacklogQueueLimiter(adding.Handle, testGauge, requestsSizeLimit, logCounter.Entry())
 	for i := 1; i < 50; i++ {
 		n := rand.Int63n(int64(requestsSizeLimit)) //nolint:gosec
 		require.Zero(t, int(testGauge.count))
@@ -180,7 +180,7 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 		}}
 		logCounter := makeTestLogCounter()
 		testGauge := &TestingGauge{}
-		limiter := MakeJrpcBacklogQueueLimiter(blockedHandlers, testGauge, queueSize, logCounter.Entry())
+		limiter := MakeJrpcBacklogQueueLimiter(blockedHandlers.Handle, testGauge, queueSize, logCounter.Entry())
 		for i := uint64(0); i < queueSize/2; i++ {
 			go func() {
 				_, err := limiter.Handle(context.Background(), &jrpc2.Request{})
@@ -200,7 +200,7 @@ func TestBacklogQueueLimiter_JrpcBlocking(t *testing.T) {
 			return nil, nil
 		}}
 
-		limiter.jrpcDownstreamHandler = secondBlockingGroupWgHandlers
+		limiter.jrpcDownstreamHandler = secondBlockingGroupWgHandlers.Handle
 		for i := queueSize / 2; i < queueSize; i++ {
 			go func() {
 				_, err := limiter.Handle(context.Background(), &jrpc2.Request{})

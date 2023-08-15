@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,7 +72,7 @@ func TestGetLedgerEntriesInvalidParams(t *testing.T) {
 	var result methods.GetLedgerEntriesResponse
 	jsonRPCErr := client.CallResult(context.Background(), "getLedgerEntries", request, &result).(*jrpc2.Error)
 	assert.Contains(t, jsonRPCErr.Message, "cannot unmarshal key value")
-	assert.Equal(t, code.InvalidParams, jsonRPCErr.Code)
+	assert.Equal(t, jrpc2.InvalidParams, jsonRPCErr.Code)
 }
 
 func TestGetLedgerEntriesSucceeds(t *testing.T) {
