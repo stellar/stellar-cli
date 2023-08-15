@@ -28,7 +28,7 @@ use tokio::time::sleep;
 use crate::utils::{self, contract_spec};
 
 mod transaction;
-use transaction::assemble;
+use transaction::{assemble, sign_soroban_authorizations};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -75,6 +75,8 @@ pub enum Error {
     MissingResult,
     #[error("Failed to read Error response from server")]
     MissingError,
+    #[error("Missing signing key for account {address}")]
+    MissingSignerForAddress { address: String },
     #[error("cursor is not valid")]
     InvalidCursor,
     #[error("unexpected ({length}) simulate transaction result length")]
@@ -166,6 +168,17 @@ pub struct GetNetworkResponse {
         deserialize_with = "deserialize_number_from_string"
     )]
     pub protocol_version: u32,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetLatestLedgerResponse {
+    pub id: String,
+    #[serde(
+        rename = "protocolVersion",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub protocol_version: u32,
+    pub sequence: u32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -454,6 +467,14 @@ impl Client {
         Ok(self.client()?.request("getNetwork", rpc_params![]).await?)
     }
 
+    pub async fn get_latest_ledger(&self) -> Result<GetLatestLedgerResponse, Error> {
+        tracing::trace!("Getting latest ledger");
+        Ok(self
+            .client()?
+            .request("getLatestLedger", rpc_params![])
+            .await?)
+    }
+
     pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
         tracing::trace!("Getting address {}", address);
         let key = LedgerKey::Account(LedgerKeyAccount {
@@ -462,7 +483,7 @@ impl Client {
             ))),
         });
         let keys = Vec::from([key]);
-        let response = self.get_ledger_entries(keys).await?;
+        let response = self.get_ledger_entries(&keys).await?;
         let entries = response.entries.unwrap_or_default();
         if entries.is_empty() {
             return Err(Error::NotFound(
@@ -595,14 +616,30 @@ soroban config identity fund {address} --helper-url <url>"#
     pub async fn prepare_and_send_transaction(
         &self,
         tx_without_preflight: &Transaction,
-        key: &ed25519_dalek::Keypair,
+        source_key: &ed25519_dalek::Keypair,
+        signers: &[ed25519_dalek::Keypair],
         network_passphrase: &str,
         log_events: Option<LogEvents>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
+        let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
         let unsigned_tx = self
             .prepare_transaction(tx_without_preflight, log_events)
             .await?;
-        let tx = utils::sign_transaction(key, &unsigned_tx, network_passphrase)?;
+        let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
+            &unsigned_tx,
+            source_key,
+            signers,
+            sequence + 60, // ~5 minutes of ledgers
+            network_passphrase,
+        )?;
+        let fee_ready_txn = if signed_auth_entries.is_empty() {
+            part_signed_tx
+        } else {
+            // re-simulate to calculate the new fees
+            self.prepare_transaction(&part_signed_tx, log_events)
+                .await?
+        };
+        let tx = utils::sign_transaction(source_key, &fee_ready_txn, network_passphrase)?;
         self.send_transaction(&tx).await
     }
 
@@ -615,10 +652,10 @@ soroban config identity fund {address} --helper-url <url>"#
 
     pub async fn get_ledger_entries(
         &self,
-        keys: Vec<LedgerKey>,
+        keys: &[LedgerKey],
     ) -> Result<GetLedgerEntriesResponse, Error> {
         let mut base64_keys: Vec<String> = vec![];
-        for k in &keys {
+        for k in keys {
             let base64_result = k.to_xdr_base64();
             if base64_result.is_err() {
                 return Err(Error::Xdr(XdrError::Invalid));
@@ -681,7 +718,7 @@ soroban config identity fund {address} --helper-url <url>"#
             durability: xdr::ContractDataDurability::Persistent,
             body_type: xdr::ContractEntryBodyType::DataEntry,
         });
-        let contract_ref = self.get_ledger_entries(Vec::from([contract_key])).await?;
+        let contract_ref = self.get_ledger_entries(&[contract_key]).await?;
         let entries = contract_ref.entries.unwrap_or_default();
         if entries.is_empty() {
             let contract_address = stellar_strkey::Contract(*contract_id).to_string();
@@ -717,7 +754,7 @@ soroban config identity fund {address} --helper-url <url>"#
             hash: hash.clone(),
             body_type: xdr::ContractEntryBodyType::DataEntry,
         });
-        let contract_data = self.get_ledger_entries(Vec::from([code_key])).await?;
+        let contract_data = self.get_ledger_entries(&[code_key]).await?;
         let entries = contract_data.entries.unwrap_or_default();
         if entries.is_empty() {
             return Err(Error::NotFound(

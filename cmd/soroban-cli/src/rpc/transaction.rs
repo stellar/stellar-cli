@@ -1,6 +1,10 @@
+use ed25519_dalek::Signer;
+use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    DiagnosticEvent, OperationBody, ReadXdr, SorobanAuthorizationEntry, SorobanTransactionData,
-    Transaction, TransactionExt, VecM,
+    AccountId, DiagnosticEvent, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
+    OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal,
+    SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
+    SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
 };
 
 use crate::rpc::{Error, LogEvents, SimulateTransactionResponse};
@@ -34,40 +38,37 @@ pub fn assemble(
         tracing::debug!(simulation_events=?events);
     }
 
-    // update the fees of the actual transaction to meet the minimum resource fees.
-    let mut fee = tx.fee;
-    let classic_transaction_fees = crate::fee::Args::default().fee;
-    if fee < classic_transaction_fees + simulation.min_resource_fee {
-        fee = classic_transaction_fees + simulation.min_resource_fee;
-    }
-
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
     let mut op = tx.operations[0].clone();
     let auths = match &mut op.body {
         OperationBody::InvokeHostFunction(ref mut body) => {
-            if simulation.results.len() != 1 {
-                return Err(Error::UnexpectedSimulateTransactionResultSize {
-                    length: simulation.results.len(),
-                });
-            }
+            if body.auth.is_empty() {
+                if simulation.results.len() != 1 {
+                    return Err(Error::UnexpectedSimulateTransactionResultSize {
+                        length: simulation.results.len(),
+                    });
+                }
 
-            let auths = simulation
-                .results
-                .iter()
-                .map(|r| {
-                    VecM::try_from(
-                        r.auth
-                            .iter()
-                            .map(SorobanAuthorizationEntry::from_xdr_base64)
-                            .collect::<Result<Vec<_>, _>>()?,
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            if !auths.is_empty() {
-                body.auth = auths[0].clone();
+                let auths = simulation
+                    .results
+                    .iter()
+                    .map(|r| {
+                        VecM::try_from(
+                            r.auth
+                                .iter()
+                                .map(SorobanAuthorizationEntry::from_xdr_base64)
+                                .collect::<Result<Vec<_>, _>>()?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                if !auths.is_empty() {
+                    body.auth = auths[0].clone();
+                }
+                auths
+            } else {
+                vec![body.auth.clone()]
             }
-            auths
         }
         OperationBody::BumpFootprintExpiration(_) | OperationBody::RestoreFootprint(_) => {
             Vec::new()
@@ -78,10 +79,158 @@ pub fn assemble(
         log(&transaction_data.resources.footprint, &auths, &[], None);
     }
 
-    tx.fee = fee;
+    // update the fees of the actual transaction to meet the minimum resource fees.
+    let classic_transaction_fees = crate::fee::Args::default().fee;
+    // Pad the fees up by 15% for a bit of wiggle room.
+    tx.fee = (tx
+        .fee
+        .max(classic_transaction_fees + simulation.min_resource_fee)
+        * 115)
+        / 100;
+
     tx.operations = vec![op].try_into()?;
     tx.ext = TransactionExt::V1(transaction_data);
     Ok(tx)
+}
+
+// Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
+// transaction. If unable to sign, return an error.
+pub fn sign_soroban_authorizations(
+    raw: &Transaction,
+    source_key: &ed25519_dalek::Keypair,
+    signers: &[ed25519_dalek::Keypair],
+    signature_expiration_ledger: u32,
+    network_passphrase: &str,
+) -> Result<(Transaction, Vec<SorobanAuthorizationEntry>), Error> {
+    let mut tx = raw.clone();
+
+    if tx.operations.len() != 1 {
+        // This must not be an invokeHostFunction operation, so nothing to do
+        return Ok((tx, Vec::new()));
+    }
+
+    let mut op = tx.operations[0].clone();
+    let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body else {
+        return Ok((tx, Vec::new()));
+    };
+
+    let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
+
+    let source_address = source_key.public.as_bytes();
+
+    let signed_auths = body
+        .auth
+        .iter()
+        .map(|raw_auth| {
+            let mut auth = raw_auth.clone();
+            let SorobanAuthorizationEntry {
+                credentials: SorobanCredentials::Address(ref mut credentials),
+                ..
+            } = auth else {
+                // Doesn't need special signing
+                return Ok(auth);
+            };
+            let SorobanAddressCredentials { ref address, .. } = credentials;
+
+            // See if we have a signer for this authorizationEntry
+            // If not, then we Error
+            let needle = match address {
+                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
+                ScAddress::Contract(Hash(c)) => {
+                    // This address is for a contract. This means we're using a custom
+                    // smart-contract account. Currently the CLI doesn't support that yet.
+                    return Err(Error::MissingSignerForAddress {
+                        address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
+                            .to_string(),
+                    });
+                }
+            };
+            let signer = if let Some(s) = signers.iter().find(|s| needle == s.public.as_bytes()) {
+                s
+            } else if needle == source_address {
+                // This is the source address, so we can sign it
+                source_key
+            } else {
+                // We don't have a signer for this address
+                return Err(Error::MissingSignerForAddress {
+                    address: stellar_strkey::Strkey::PublicKeyEd25519(
+                        stellar_strkey::ed25519::PublicKey(*needle),
+                    )
+                    .to_string(),
+                });
+            };
+
+            sign_soroban_authorization_entry(
+                raw_auth,
+                signer,
+                signature_expiration_ledger,
+                &network_id,
+            )
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    body.auth = signed_auths.clone().try_into()?;
+    tx.operations = vec![op].try_into()?;
+    Ok((tx, signed_auths))
+}
+
+pub fn sign_soroban_authorization_entry(
+    raw: &SorobanAuthorizationEntry,
+    signer: &ed25519_dalek::Keypair,
+    signature_expiration_ledger: u32,
+    network_id: &Hash,
+) -> Result<SorobanAuthorizationEntry, Error> {
+    let mut auth = raw.clone();
+    let SorobanAuthorizationEntry {
+        credentials: SorobanCredentials::Address(ref mut credentials),
+        ..
+    } = auth else {
+        // Doesn't need special signing
+        return Ok(auth);
+    };
+    let SorobanAddressCredentials { nonce, .. } = credentials;
+
+    let preimage = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
+        network_id: network_id.clone(),
+        invocation: auth.root_invocation.clone(),
+        nonce: *nonce,
+        signature_expiration_ledger,
+    })
+    .to_xdr()?;
+
+    let payload = Sha256::digest(preimage);
+    let signature = signer.sign(&payload);
+
+    let map = ScMap::sorted_from(vec![
+        (
+            ScVal::Symbol(ScSymbol("public_key".try_into()?)),
+            ScVal::Bytes(
+                signer
+                    .public
+                    .to_bytes()
+                    .to_vec()
+                    .try_into()
+                    .map_err(Error::Xdr)?,
+            ),
+        ),
+        (
+            ScVal::Symbol(ScSymbol("signature".try_into()?)),
+            ScVal::Bytes(
+                signature
+                    .to_bytes()
+                    .to_vec()
+                    .try_into()
+                    .map_err(Error::Xdr)?,
+            ),
+        ),
+    ])
+    .map_err(Error::Xdr)?;
+    credentials.signature = ScVal::Vec(Some(
+        vec![ScVal::Map(Some(map))].try_into().map_err(Error::Xdr)?,
+    ));
+    credentials.signature_expiration_ledger = signature_expiration_ledger;
+    auth.credentials = SorobanCredentials::Address(credentials.clone());
+    Ok(auth)
 }
 
 #[cfg(test)]
@@ -190,7 +339,7 @@ mod tests {
 
         // validate it auto updated the tx fees from sim response fees
         // since it was greater than tx.fee
-        assert_eq!(215, result.fee);
+        assert_eq!(247, result.fee);
 
         // validate it updated sorobantransactiondata block in the tx ext
         assert_eq!(TransactionExt::V1(transaction_data()), result.ext);
