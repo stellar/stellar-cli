@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/go/support/log"
@@ -38,7 +37,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 			logger.WithError(err).WithField("request", request).
 				Info("could not unmarshal ledgerKey from getLedgerEntry request")
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
-				Code:    code.InvalidParams,
+				Code:    jrpc2.InvalidParams,
 				Message: "cannot unmarshal key value",
 			}
 		}
@@ -46,7 +45,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 		tx, err := ledgerEntryReader.NewTx(ctx)
 		if err != nil {
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not create read transaction",
 			}
 		}
@@ -57,7 +56,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 		latestLedger, err := tx.GetLatestLedgerSequence()
 		if err != nil {
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not get latest ledger",
 			}
 		}
@@ -67,14 +66,14 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 			logger.WithError(err).WithField("request", request).
 				Info("could not obtain ledger entry from storage")
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not obtain ledger entry from storage",
 			}
 		}
 
 		if !present {
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
-				Code:    code.InvalidRequest,
+				Code:    jrpc2.InvalidRequest,
 				Message: fmt.Sprintf("not found (at ledger %d)", latestLedger),
 			}
 		}
@@ -87,7 +86,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 			logger.WithError(err).WithField("request", request).
 				Info("could not serialize ledger entry data")
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not serialize ledger entry data",
 			}
 		}

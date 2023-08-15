@@ -64,7 +64,7 @@ func decorateHandlers(daemon interfaces.Daemon, logger *log.Entry, m handler.Map
 			reqID := strconv.FormatUint(middleware.NextRequestID(), 10)
 			logRequest(logger, reqID, r)
 			startTime := time.Now()
-			result, err := h.Handle(ctx, r)
+			result, err := h(ctx, r)
 			duration := time.Since(startTime)
 			label := prometheus.Labels{"endpoint": r.Method(), "status": "ok"}
 			simulateTransactionResponse, ok := result.(methods.SimulateTransactionResponse)
@@ -232,13 +232,13 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		// set the warning threshold to be one third of the limit.
 		requestDurationWarn := handler.requestDurationLimit / 3
 		durationLimiter := network.MakeJrpcRequestDurationLimiter(
-			queueLimiter,
+			queueLimiter.Handle,
 			requestDurationWarn,
 			handler.requestDurationLimit,
 			requestDurationWarnCounter,
 			requestDurationLimitCounter,
 			params.Logger)
-		handlersMap[handler.methodName] = durationLimiter
+		handlersMap[handler.methodName] = durationLimiter.Handle
 	}
 	bridge := jhttp.NewBridge(decorateHandlers(
 		params.Daemon,

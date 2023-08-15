@@ -103,6 +103,7 @@ impl Cmd {
             .prepare_and_send_transaction(
                 &tx_without_preflight,
                 &key,
+                &[],
                 &network.network_passphrase,
                 None,
             )

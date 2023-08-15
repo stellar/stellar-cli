@@ -75,7 +75,7 @@ func createLedger(ledgerSequence uint32, protocolVersion uint32, hash byte) xdr.
 
 func TestGetLatestLedger(t *testing.T) {
 	getLatestLedgerHandler := NewGetLatestLedgerHandler(&ConstantLedgerEntryReader{}, &ConstantLedgerReader{})
-	latestLedgerRespI, err := getLatestLedgerHandler.Handle(context.Background(), &jrpc2.Request{})
+	latestLedgerRespI, err := getLatestLedgerHandler(context.Background(), &jrpc2.Request{})
 	latestLedgerResp := latestLedgerRespI.(GetLatestLedgerResponse)
 	assert.NoError(t, err)
 
