@@ -15,9 +15,10 @@ use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
     AccountId, ConfigSettingEntry, ConfigSettingId, DiagnosticEvent, InvokeHostFunctionOp,
     LedgerFootprint, OperationBody, ReadXdr, ScVal, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
+    SorobanAuthorizationEntry, SorobanCredentials, VecM, WriteXdr,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
+use std::convert::TryFrom;
 use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::panic;
@@ -122,14 +123,38 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     })?;
     let host = Host::with_storage_and_budget(storage, budget);
 
-    host.switch_to_recording_auth()?;
+    // We make an assumption here:
+    // - if a transaction doesn't include any soroban authorization entries the client either
+    // doesn't know the authorization entries, or there are none. In either case it is best to
+    // record the authorization entries and return them to the client.
+    // - if a transaction *does* include soroban authorization entries, then the client *already*
+    // knows the needed entries, so we should try them in enforcing mode so that we can validate
+    // them, and return the correct fees and footprint.
+    let needs_auth_recording = invoke_hf_op.auth.is_empty();
+    if needs_auth_recording {
+        host.switch_to_recording_auth()?;
+    } else {
+        host.set_authorization_entries(invoke_hf_op.auth.to_vec())?;
+    }
+
     host.set_diagnostic_level(DiagnosticLevel::Debug)?;
     host.set_source_account(source_account)?;
     host.set_ledger_info(ledger_info.into())?;
 
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
-    let auths = host.get_recorded_auth_payloads()?;
+    let auths: VecM<SorobanAuthorizationEntry> = if needs_auth_recording {
+        let payloads = host.get_recorded_auth_payloads()?;
+        VecM::try_from(
+            payloads
+                .iter()
+                .map(recorded_auth_payload_to_xdr)
+                .collect::<Vec<_>>(),
+        )?
+    } else {
+        invoke_hf_op.auth
+    };
+
     let budget = host.budget_cloned();
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, events) = host.try_finish()?;
@@ -138,7 +163,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let (transaction_data, min_fee) = fees::compute_host_function_transaction_data_and_min_fee(
         &InvokeHostFunctionOp {
             host_function: invoke_hf_op.host_function,
-            auth: Default::default(),
+            auth: auths.clone(),
         },
         &LedgerStorage {
             golang_handle: handle,
@@ -152,7 +177,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        auth: recorded_auth_payloads_to_c(auths)?,
+        auth: recorded_auth_payloads_to_c(auths.to_vec())?,
         result: CString::new(result.to_xdr_base64()?)?.into_raw(),
         transaction_data: transaction_data_cstr.into_raw(),
         min_fee,
@@ -327,11 +352,11 @@ fn catch_preflight_panic(
 }
 
 fn recorded_auth_payloads_to_c(
-    payloads: Vec<RecordedAuthPayload>,
+    payloads: Vec<SorobanAuthorizationEntry>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let xdr_base64_vec: Vec<String> = payloads
         .iter()
-        .map(|p| recorded_auth_payload_to_xdr(p).to_xdr_base64())
+        .map(WriteXdr::to_xdr_base64)
         .collect::<Result<Vec<_>, _>>()?;
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
@@ -342,7 +367,7 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthori
             credentials: SorobanCredentials::Address(SorobanAddressCredentials {
                 address,
                 nonce,
-                // signature_args is left empty. This is where the client will put their signatures when
+                // signature is left empty. This is where the client will put their signatures when
                 // submitting the transaction.
                 signature_expiration_ledger: 0,
                 signature: ScVal::Void,
