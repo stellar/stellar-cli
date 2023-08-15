@@ -123,6 +123,13 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     })?;
     let host = Host::with_storage_and_budget(storage, budget);
 
+    // We make an assumption here:
+    // - if a transaction doesn't include any soroban authorization entries the client either
+    // doesn't know the authorization entries, or there are none. In either case it is best to
+    // record the authorization entries and return them to the client.
+    // - if a transaction *does* include soroban authorization entries, then the client *already*
+    // knows the needed entries, so we should try them in enforcing mode so that we can validate
+    // them, and return the correct fees and footprint.
     let needs_auth_recording = invoke_hf_op.auth.is_empty();
     if needs_auth_recording {
         host.switch_to_recording_auth()?;
