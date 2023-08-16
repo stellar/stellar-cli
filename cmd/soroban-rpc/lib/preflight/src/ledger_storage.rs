@@ -1,4 +1,4 @@
-use base64::DecodeError;
+use base64::{engine::general_purpose::STANDARD as base64, DecodeError, Engine as _};
 use ledger_storage::Error::UnexpectedConfigLedgerEntryType;
 use soroban_env_host::storage::SnapshotSource;
 use soroban_env_host::xdr::{
@@ -87,7 +87,7 @@ impl LedgerStorage {
 
     pub fn get_xdr(&self, key: &LedgerKey, include_expired: bool) -> Result<Vec<u8>, Error> {
         let base64_str = self.get_xdr_base64(key, include_expired)?;
-        Ok(base64::decode(base64_str)?)
+        Ok(base64.decode(base64_str)?)
     }
 
     pub fn get_configuration_setting(
