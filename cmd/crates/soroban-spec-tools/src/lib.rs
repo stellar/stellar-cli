@@ -4,8 +4,8 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use soroban_env_host::xdr::{
-    self, AccountId, BytesM, ContractExecutable, Error as XdrError, Hash, Int128Parts, Int256Parts,
-    PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
+    self, AccountId, BytesM, ContractExecutable, Hash, Int128Parts, Int256Parts, PublicKey,
+    ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
     ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
     ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
     ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
@@ -38,7 +38,7 @@ pub enum Error {
     #[error("Missing Spec")]
     MissingSpec,
     #[error(transparent)]
-    Xdr(XdrError),
+    Xdr(xdr::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
