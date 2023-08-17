@@ -5,7 +5,7 @@ const rpcUrl = 'https://rpc-futurenet.stellar.org'
 const publicKey = 'GCBVOLOM32I7OD5TWZQCIXCXML3TK56MDY7ZMTAILIBQHHKPCVU42XYW'
 
 const contract = new Contract({
-  ...networks.futurenet,
+  ...networks[Object.keys(networks)[0] as keyof typeof networks],
   rpcUrl,
   wallet: {
     isConnected: () => Promise.resolve(true),

@@ -1,0 +1,30 @@
+name: Test `bindings typescript` generated libs
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Generate and test generated library against a standalone RPC node
+    runs-on: ubuntu-latest
+    container:
+      image: stellar/quickstart:soroban-dev@sha256:a6b03cf6b0433c99f2f799b719f0faadbb79684b1b763e7674ba749fb0f648ee
+      ports:
+        - 8000:8000
+      options: --standalone --enable-soroban-rpc
+    steps:
+    - uses: actions/checkout@v3
+    - uses: stellar/actions/rust-cache@main
+    - run: rustup update
+    - run: rustup target add wasm32-unknown-unknown
+    - run: make build-test-wasms
+    - run: cargo install soroban-cli --version 0.9.4 # FIXME: install version in this branch; main's broken with quickstart currently
+    - run: soroban config network add standalone --rpc-url "http://localhost:8000/soroban/rpc" --network-passphrase "Standalone Network ; February 2017"
+    - run: soroban config identity generate alice
+    - run: curl "http://localhost:8000/friendbot?addr=$(soroban config identity address alice)"
+    - run: echo "ID=$(soroban contract deploy --wasm target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --source alice --network standalone)" >> "$GITHUB_OUTPUT"
+      id: deploy
+	  - run: soroban contract bindings typescript --wasm target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --contract-id $ID --network standalone --output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types
+      env:
+        ID: ${{ steps.deploy.outputs.ID }}
+    - run: npm i && npm run test
+      working-directory: cmd/crates/soroban-spec-typescript/ts-tests
