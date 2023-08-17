@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use clap::{command, CommandFactory, FromArgMatches, Parser};
+use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 pub mod completion;
 pub mod config;
@@ -59,9 +59,14 @@ pub struct Root {
 }
 
 impl Root {
-    pub fn new() -> Result<Self, clap::Error> {
-        let mut matches = Self::command().get_matches();
-        Self::from_arg_matches_mut(&mut matches)
+    pub fn new() -> Result<Self, Error> {
+        Self::try_parse().map_err(|e| match e.kind() {
+            ErrorKind::InvalidSubcommand => match plugin::run() {
+                Ok(_) => Error::Clap(e),
+                Err(e) => Error::Plugin(e),
+            },
+            _ => Error::Clap(e),
+        })
     }
 
     pub fn from_arg_matches<I, T>(itr: I) -> Result<Self, clap::Error>
@@ -72,6 +77,13 @@ impl Root {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
     pub async fn run(&mut self) -> Result<(), Error> {
+        if self.global_args.list {
+            println!(
+                "Installed Plugins:\n    {}",
+                plugin::list().unwrap_or_default().join("\n    ")
+            );
+            return Ok(());
+        }
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Config(config) => config.run().await?,
@@ -124,4 +136,8 @@ pub enum Error {
     Lab(#[from] lab::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    Clap(#[from] clap::error::Error),
+    #[error(transparent)]
+    Plugin(#[from] plugin::Error),
 }
