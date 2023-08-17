@@ -60,12 +60,23 @@ pub struct Root {
 
 impl Root {
     pub fn new() -> Result<Self, Error> {
-        Self::try_parse().map_err(|e| match e.kind() {
-            ErrorKind::InvalidSubcommand => match plugin::run() {
-                Ok(_) => Error::Clap(e),
-                Err(e) => Error::Plugin(e),
-            },
-            _ => Error::Clap(e),
+        Self::try_parse().map_err(|e| {
+            if std::env::args().any(|s| s == "--list") {
+                let plugins = plugin::list().unwrap_or_default();
+                if plugins.is_empty() {
+                    println!("No Plugins installed. E.g. soroban-hello");
+                } else {
+                    println!("Installed Plugins:\n    {}", plugins.join("\n    "));
+                }
+                std::process::exit(0);
+            }
+            match e.kind() {
+                ErrorKind::InvalidSubcommand => match plugin::run() {
+                    Ok(_) => Error::Clap(e),
+                    Err(e) => Error::Plugin(e),
+                },
+                _ => Error::Clap(e),
+            }
         })
     }
 
@@ -77,13 +88,6 @@ impl Root {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
     pub async fn run(&mut self) -> Result<(), Error> {
-        if self.global_args.list {
-            println!(
-                "Installed Plugins:\n    {}",
-                plugin::list().unwrap_or_default().join("\n    ")
-            );
-            return Ok(());
-        }
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Config(config) => config.run().await?,
