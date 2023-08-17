@@ -1,11 +1,11 @@
 import test from 'ava'
-import { Contract, Ok, Err, networks } from '../../fixtures/test_custom_types/dist/esm/index.js'
+import { Contract, Ok, Err, networks } from 'test-custom-types'
 
 const rpcUrl = 'https://rpc-futurenet.stellar.org'
 const publicKey = 'GCBVOLOM32I7OD5TWZQCIXCXML3TK56MDY7ZMTAILIBQHHKPCVU42XYW'
 
 const contract = new Contract({
-  ...networks.futurenet,
+  ...networks[Object.keys(networks)[0] as keyof typeof networks],
   rpcUrl,
   wallet: {
     isConnected: () => Promise.resolve(true),

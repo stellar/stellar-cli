@@ -1,0 +1,34 @@
+name: bindings typescript
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: test generated libraries
+    runs-on: ubuntu-20.04
+    services:
+      rpc:
+        image: stellar/quickstart:soroban-dev@sha256:a6b03cf6b0433c99f2f799b719f0faadbb79684b1b763e7674ba749fb0f648ee
+        ports:
+          - 8000:8000
+        env:
+          ENABLE_LOGS: true
+          NETWORK: standalone
+          ENABLE_SOROBAN_RPC: true
+        options: >-
+          --health-cmd "curl -X POST \"http://localhost:8000/soroban/rpc\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - uses: actions/checkout@v3
+    - uses: stellar/actions/rust-cache@main
+    - uses: baptiste0928/cargo-install@v2
+      with:
+        crate: soroban-cli
+        version: "0.9.4" # FIXME: install version in this branch; main's broken with quickstart currently
+    - run: rustup update
+    - run: rustup target add wasm32-unknown-unknown
+    - run: make build-test-wasms
+    - run: npm i && npm run test
+      working-directory: cmd/crates/soroban-spec-typescript/ts-tests
