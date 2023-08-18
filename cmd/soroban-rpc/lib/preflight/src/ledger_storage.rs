@@ -85,7 +85,6 @@ impl EntryRestoreTracker {
             // it hasn't expired
             return false;
         }
-        println!("succesfully tracking {:?}", key);
         self.ledger_keys_requiring_restore
             .borrow_mut()
             .insert(key.clone());

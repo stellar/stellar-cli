@@ -788,8 +788,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	waitForExpiration()
 
 	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPresistentEntryParams)
-	assert.NotZero(t, simulationResult.PreRestoreTransactionData)
-	assert.NotZero(t, simulationResult.PreRestoreMinResourceFee)
+	assert.NotZero(t, simulationResult.RestorePreamble)
 
 	params = preflightTransactionParamsLocally(t,
 		txnbuild.TransactionParams{
@@ -803,8 +802,8 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 			},
 		},
 		methods.SimulateTransactionResponse{
-			TransactionData: simulationResult.PreRestoreTransactionData,
-			MinResourceFee:  simulationResult.PreRestoreMinResourceFee,
+			TransactionData: simulationResult.RestorePreamble.TransactionData,
+			MinResourceFee:  simulationResult.RestorePreamble.MinResourceFee,
 		},
 	)
 	tx, err = txnbuild.NewTransaction(params)

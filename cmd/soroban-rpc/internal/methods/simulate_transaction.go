@@ -28,16 +28,20 @@ type SimulateHostFunctionResult struct {
 	XDR  string   `json:"xdr"`
 }
 
+type RestorePreamble struct {
+	TransactionData string `json:"transactionData"` // SorobanTransactionData XDR in base64
+	MinResourceFee  int64  `json:"minResourceFee,string"`
+}
+
 type SimulateTransactionResponse struct {
-	Error                     string                       `json:"error,omitempty"`
-	TransactionData           string                       `json:"transactionData"`  // SorobanTransactionData XDR in base64
-	Events                    []string                     `json:"events,omitempty"` // DiagnosticEvent XDR in base64
-	MinResourceFee            int64                        `json:"minResourceFee,string"`
-	Results                   []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
-	Cost                      SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
-	LatestLedger              int64                        `json:"latestLedger,string"`
-	PreRestoreTransactionData string                       `json:"preRestoreTransactionData,omitempty"` // SorobanTransactionData XDR in base64
-	PreRestoreMinResourceFee  int64                        `json:"preRestoreMinResourceFee,omitempty"`
+	Error           string                       `json:"error,omitempty"`
+	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
+	MinResourceFee  int64                        `json:"minResourceFee,string"`
+	Events          []string                     `json:"events,omitempty"`          // DiagnosticEvent XDR in base64
+	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
+	Cost            SimulateTransactionCost      `json:"cost"`                      // the effective cpu and memory cost of the invoked transaction execution.
+	RestorePreamble RestorePreamble              `json:"restorePeramble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
+	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
 type PreflightGetter interface {
@@ -123,6 +127,14 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				Auth: result.Auth,
 			})
 		}
+		restorePreable := RestorePreamble{}
+		if result.PreRestoreTransactionData != "" {
+			restorePreable = RestorePreamble{
+				TransactionData: result.PreRestoreTransactionData,
+				MinResourceFee:  result.PreRestoreMinFee,
+			}
+		}
+
 		return SimulateTransactionResponse{
 			Results:         results,
 			Events:          result.Events,
@@ -132,9 +144,8 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
 			},
-			LatestLedger:              int64(latestLedger),
-			PreRestoreTransactionData: result.PreRestoreTransactionData,
-			PreRestoreMinResourceFee:  result.PreRestoreMinFee,
+			LatestLedger:    int64(latestLedger),
+			RestorePreamble: restorePreable,
 		}
 	})
 }
