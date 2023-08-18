@@ -61,28 +61,6 @@ func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char, includeExpired C.
 	return C.CString(out)
 }
 
-// SnapshotSourceHas takes LedgerKey XDR in base64 and returns whether it exists
-// It's used by the Rust preflight code to obtain ledger entries.
-//
-//export SnapshotSourceHas
-func SnapshotSourceHas(handle C.uintptr_t, cLedgerKey *C.char) C.int {
-	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
-	ledgerKeyB64 := C.GoString(cLedgerKey)
-	var ledgerKey xdr.LedgerKey
-	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
-		panic(err)
-	}
-	present, _, err := h.readTx.GetLedgerEntry(ledgerKey, false)
-	if err != nil {
-		h.logger.WithError(err).Error("SnapshotSourceHas(): GetLedgerEntry() failed")
-		return 0
-	}
-	if present {
-		return 1
-	}
-	return 0
-}
-
 //export FreeGoCString
 func FreeGoCString(str *C.char) {
 	C.free(unsafe.Pointer(str))
@@ -99,13 +77,15 @@ type PreflightParameters struct {
 }
 
 type Preflight struct {
-	Events          []string // DiagnosticEvents XDR in base64
-	TransactionData string   // SorobanTransactionData XDR in base64
-	MinFee          int64
-	Result          string   // XDR SCVal in base64
-	Auth            []string // SorobanAuthorizationEntrys XDR in base64
-	CPUInstructions uint64
-	MemoryBytes     uint64
+	Events                    []string // DiagnosticEvents XDR in base64
+	TransactionData           string   // SorobanTransactionData XDR in base64
+	MinFee                    int64
+	Result                    string   // XDR SCVal in base64
+	Auth                      []string // SorobanAuthorizationEntrys XDR in base64
+	CPUInstructions           uint64
+	MemoryBytes               uint64
+	PreRestoreTransactionData string // SorobanTransactionData XDR in base64
+	PreRestoreMinFee          int64
 }
 
 // GoNullTerminatedStringSlice transforms a C NULL-terminated char** array to a Go string slice
@@ -240,13 +220,15 @@ func GoPreflight(result *C.CPreflightResult) (Preflight, error) {
 	}
 
 	preflight := Preflight{
-		Events:          GoNullTerminatedStringSlice(result.events),
-		TransactionData: C.GoString(result.transaction_data),
-		MinFee:          int64(result.min_fee),
-		Result:          C.GoString(result.result),
-		Auth:            GoNullTerminatedStringSlice(result.auth),
-		CPUInstructions: uint64(result.cpu_instructions),
-		MemoryBytes:     uint64(result.memory_bytes),
+		Events:                    GoNullTerminatedStringSlice(result.events),
+		TransactionData:           C.GoString(result.transaction_data),
+		MinFee:                    int64(result.min_fee),
+		Result:                    C.GoString(result.result),
+		Auth:                      GoNullTerminatedStringSlice(result.auth),
+		CPUInstructions:           uint64(result.cpu_instructions),
+		MemoryBytes:               uint64(result.memory_bytes),
+		PreRestoreTransactionData: C.GoString(result.pre_restore_transaction_data),
+		PreRestoreMinFee:          int64(result.pre_restore_min_fee),
 	}
 	return preflight, nil
 }
