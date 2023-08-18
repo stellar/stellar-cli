@@ -40,7 +40,7 @@ type SimulateTransactionResponse struct {
 	Events          []string                     `json:"events,omitempty"`          // DiagnosticEvent XDR in base64
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
 	Cost            SimulateTransactionCost      `json:"cost"`                      // the effective cpu and memory cost of the invoked transaction execution.
-	RestorePreamble RestorePreamble              `json:"restorePeramble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
+	RestorePreamble RestorePreamble              `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
 	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
