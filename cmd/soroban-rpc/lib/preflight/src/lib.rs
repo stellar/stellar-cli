@@ -3,10 +3,12 @@ mod ledger_storage;
 mod preflight;
 mod state_expiration;
 
+extern crate anyhow;
 extern crate base64;
 extern crate libc;
 extern crate sha2;
 extern crate soroban_env_host;
+use anyhow::Result;
 use ledger_storage::LedgerStorage;
 use preflight::PreflightResult;
 use sha2::{Digest, Sha256};
@@ -16,9 +18,9 @@ use soroban_env_host::xdr::{
 use soroban_env_host::LedgerInfo;
 use std::convert::{TryFrom, TryInto};
 use std::ffi::{CStr, CString};
+use std::mem;
 use std::panic;
 use std::ptr::null_mut;
-use std::{error, mem};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -35,9 +37,9 @@ pub struct CLedgerInfo {
 }
 
 impl TryFrom<CLedgerInfo> for LedgerInfo {
-    type Error = Box<dyn error::Error>;
+    type Error = anyhow::Error;
 
-    fn try_from(c: CLedgerInfo) -> Result<Self, Self::Error> {
+    fn try_from(c: CLedgerInfo) -> Result<Self> {
         let network_passphrase = from_c_string(c.network_passphrase)?;
         Ok(Self {
             protocol_version: c.protocol_version,
@@ -68,9 +70,9 @@ pub struct CPreflightResult {
 }
 
 impl TryFrom<PreflightResult> for CPreflightResult {
-    type Error = Box<dyn error::Error>;
+    type Error = anyhow::Error;
 
-    fn try_from(p: PreflightResult) -> Result<Self, Self::Error> {
+    fn try_from(p: PreflightResult) -> Result<Self> {
         let mut result = Self {
             error: null_mut(),
             auth: xdr_vec_to_base64_c_null_terminated_char_array(p.auth)?,
@@ -120,12 +122,10 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
-) -> Result<CPreflightResult, Box<dyn error::Error>> {
-    println!("gets to preflight_invoke_hf_op_or_maybe_panic");
+) -> Result<CPreflightResult> {
     let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(from_c_string(invoke_hf_op)?)?;
     let source_account = AccountId::from_xdr_base64(from_c_string(source_account)?)?;
     let ledger_storage = LedgerStorage::with_restore_tracking(handle, ledger_info.sequence_number)?;
-    println!("gets to invoking preflight::preflight_invoke_hf_op");
     let result = preflight::preflight_invoke_hf_op(
         ledger_storage,
         bucket_list_size,
@@ -133,7 +133,6 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         source_account,
         ledger_info.try_into()?,
     )?;
-    println!("returns from invoking preflight::preflight_invoke_hf_op");
     result.try_into()
 }
 
@@ -162,7 +161,7 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
     op_body: *const libc::c_char,
     footprint: *const libc::c_char,
     current_ledger_seq: u32,
-) -> Result<CPreflightResult, Box<dyn error::Error>> {
+) -> Result<CPreflightResult> {
     let op_body = OperationBody::from_xdr_base64(from_c_string(op_body)?)?;
     let footprint = LedgerFootprint::from_xdr_base64(from_c_string(footprint)?)?;
     let ledger_storage = &LedgerStorage::new(handle);
@@ -192,9 +191,7 @@ fn preflight_error(str: String) -> CPreflightResult {
     }
 }
 
-fn catch_preflight_panic(
-    op: Box<dyn Fn() -> Result<CPreflightResult, Box<dyn error::Error>>>,
-) -> *mut CPreflightResult {
+fn catch_preflight_panic(op: Box<dyn Fn() -> Result<CPreflightResult>>) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| op()));
@@ -213,17 +210,17 @@ fn catch_preflight_panic(
     Box::into_raw(Box::new(c_preflight_result))
 }
 
-fn xdr_to_base64_c(v: impl WriteXdr) -> Result<*mut libc::c_char, Box<dyn error::Error>> {
+fn xdr_to_base64_c(v: impl WriteXdr) -> Result<*mut libc::c_char> {
     string_to_c(v.to_xdr_base64()?)
 }
 
-fn string_to_c(str: String) -> Result<*mut libc::c_char, Box<dyn error::Error>> {
+fn string_to_c(str: String) -> Result<*mut libc::c_char> {
     Ok(CString::new(str)?.into_raw())
 }
 
 fn xdr_vec_to_base64_c_null_terminated_char_array(
     payloads: Vec<impl WriteXdr>,
-) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
+) -> Result<*mut *mut libc::c_char> {
     let xdr_base64_vec: Vec<String> = payloads
         .iter()
         .map(WriteXdr::to_xdr_base64)
@@ -231,9 +228,7 @@ fn xdr_vec_to_base64_c_null_terminated_char_array(
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
 
-fn string_vec_to_c_null_terminated_char_array(
-    v: Vec<String>,
-) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
+fn string_vec_to_c_null_terminated_char_array(v: Vec<String>) -> Result<*mut *mut libc::c_char> {
     let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
     for s in &v {
         let c_str = string_to_c(s.clone())?;
@@ -309,7 +304,7 @@ fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
         _ = Vec::from_raw_parts(array, i + 1, i + 1);
     }
 }
-fn from_c_string(str: *const libc::c_char) -> Result<String, Box<dyn error::Error>> {
+fn from_c_string(str: *const libc::c_char) -> Result<String> {
     let c_str = unsafe { CStr::from_ptr(str) };
     Ok(c_str.to_str()?.to_string())
 }

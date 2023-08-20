@@ -1,3 +1,4 @@
+use anyhow::{anyhow, bail, Result};
 use fees;
 use ledger_storage::LedgerStorage;
 use soroban_env_host::auth::RecordedAuthPayload;
@@ -11,7 +12,6 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
 use std::convert::{TryFrom, TryInto};
-use std::error;
 use std::iter::FromIterator;
 use std::rc::Rc;
 
@@ -37,7 +37,7 @@ pub(crate) fn preflight_invoke_hf_op(
     invoke_hf_op: InvokeHostFunctionOp,
     source_account: AccountId,
     ledger_info: LedgerInfo,
-) -> Result<PreflightResult, Box<dyn error::Error>> {
+) -> Result<PreflightResult> {
     let ledger_storage_rc = Rc::new(ledger_storage);
     let budget = get_budget_from_network_config_params(&ledger_storage_rc)?;
     let storage = Storage::with_recording_footprint(ledger_storage_rc.clone());
@@ -162,31 +162,23 @@ fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
     res
 }
 
-fn get_budget_from_network_config_params(
-    ledger_storage: &LedgerStorage,
-) -> Result<Budget, Box<dyn error::Error>> {
+fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Result<Budget> {
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
         else {
-            return Err(
-                "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
-            );
+            bail!("get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key");
         };
 
     let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage
         .get_configuration_setting(ConfigSettingId::ContractCostParamsCpuInstructions)?
         else {
-            return Err(
-                "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
-            );
+            bail!("get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key");
         };
 
     let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)?
         else {
-            return Err(
-                "get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key".into(),
-            );
+            bail!("get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key");
         };
 
     let budget = Budget::try_from_configs(
@@ -204,7 +196,7 @@ pub(crate) fn preflight_footprint_expiration_op(
     op_body: OperationBody,
     footprint: LedgerFootprint,
     current_ledger_seq: u32,
-) -> Result<PreflightResult, Box<dyn error::Error>> {
+) -> Result<PreflightResult> {
     match op_body {
         OperationBody::BumpFootprintExpiration(op) => preflight_bump_footprint_expiration(
             footprint,
@@ -219,11 +211,10 @@ pub(crate) fn preflight_footprint_expiration_op(
             bucket_list_size,
             current_ledger_seq,
         ),
-        op => Err(format!(
+        op => Err(anyhow!(
             "preflight_footprint_expiration_op(): unsupported operation type {}",
             op.name()
-        )
-        .into()),
+        )),
     }
 }
 
@@ -233,7 +224,7 @@ fn preflight_bump_footprint_expiration(
     ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
     current_ledger_seq: u32,
-) -> Result<PreflightResult, Box<dyn error::Error>> {
+) -> Result<PreflightResult> {
     let (transaction_data, min_fee) =
         fees::compute_bump_footprint_exp_transaction_data_and_min_fee(
             footprint,
@@ -259,7 +250,7 @@ fn preflight_restore_footprint(
     ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
     current_ledger_seq: u32,
-) -> Result<PreflightResult, Box<dyn error::Error>> {
+) -> Result<PreflightResult> {
     let (transaction_data, min_fee) = fees::compute_restore_footprint_transaction_data_and_min_fee(
         footprint,
         ledger_storage,

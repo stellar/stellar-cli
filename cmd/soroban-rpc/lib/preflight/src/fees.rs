@@ -1,3 +1,4 @@
+use anyhow::{bail, Result};
 use ledger_storage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
@@ -19,7 +20,6 @@ use soroban_env_host::xdr::{
 use state_expiration::{get_restored_ledger_sequence, ExpirableLedgerEntry};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
-use std::error;
 
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
@@ -29,7 +29,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     events: &Vec<DiagnosticEvent>,
     bucket_list_size: u64,
     current_ledger_seq: u32,
-) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+) -> Result<(SorobanTransactionData, i64)> {
     let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
     let soroban_resources = calculate_host_function_soroban_resources(
         &ledger_changes,
@@ -69,7 +69,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
 fn estimate_max_transaction_size_for_operation(
     op: &OperationBody,
     fp: &LedgerFootprint,
-) -> Result<u32, Box<dyn error::Error>> {
+) -> Result<u32> {
     let source = MuxedAccount::MuxedEd25519(MuxedAccountMed25519 {
         id: 0,
         ed25519: Uint256([0; 32]),
@@ -124,7 +124,7 @@ fn calculate_host_function_soroban_resources(
     footprint: &Footprint,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
-) -> Result<SorobanResources, Box<dyn error::Error>> {
+) -> Result<SorobanResources> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)?;
     let read_bytes: u32 = ledger_changes
         .iter()
@@ -157,54 +157,43 @@ fn calculate_host_function_soroban_resources(
 fn get_fee_configurations(
     ledger_storage: &ledger_storage::LedgerStorage,
     bucket_list_size: u64,
-) -> Result<(FeeConfiguration, RentFeeConfiguration), Box<dyn error::Error>> {
+) -> Result<(FeeConfiguration, RentFeeConfiguration)> {
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
     else {
-        return Err(
-            "get_fee_configuration(): unexpected config setting entry for ComputeV0 key".into(),
-        );
+        bail!("get_fee_configuration(): unexpected config setting entry for ComputeV0 key");
+
     };
 
     let ConfigSettingEntry::ContractLedgerCostV0(ledger_cost) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractLedgerCostV0)?
     else {
-        return Err(
-            "get_fee_configuration(): unexpected config setting entry for LedgerCostV0 key".into(),
-        );
+        bail!(
+           "get_fee_configuration(): unexpected config setting entry for LedgerCostV0 key");
     };
 
     let ConfigSettingEntry::ContractHistoricalDataV0(historical_data) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractHistoricalDataV0)?
     else {
-        return Err(
-            "get_fee_configuration(): unexpected config setting entry for HistoricalDataV0 key"
-                .into(),
-        );
+        bail!("get_fee_configuration(): unexpected config setting entry for HistoricalDataV0 key");
     };
 
     let ConfigSettingEntry::ContractEventsV0(events) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractEventsV0)?
     else {
-        return Err(
-            "get_fee_configuration(): unexpected config setting entry for ContractEventsV0 key".into(),
-        );
+        bail!("get_fee_configuration(): unexpected config setting entry for ContractEventsV0 key");
     };
 
     let ConfigSettingEntry::ContractBandwidthV0(bandwidth) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractBandwidthV0)?
     else {
-        return Err(
-            "get_fee_configuration(): unexpected config setting entry for BandwidthV0 key".into(),
-        );
+        bail!("get_fee_configuration(): unexpected config setting entry for BandwidthV0 key");
     };
 
     let ConfigSettingEntry::StateExpiration(state_expiration) =
         ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
         else {
-            return Err(
-                "get_fee_configuration(): unexpected config setting entry for StateExpiration key".into(),
-            );
+            bail!("get_fee_configuration(): unexpected config setting entry for StateExpiration key");
         };
 
     let write_fee_configuration = WriteFeeConfiguration {
@@ -239,7 +228,7 @@ fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &Vec<LedgerKey>,
     pre_storage: &ledger_storage::LedgerStorage,
     include_expired: bool,
-) -> Result<u32, Box<dyn error::Error>> {
+) -> Result<u32> {
     let mut res: usize = 0;
     for lk in ledger_entries {
         let key_size = lk.to_xdr()?.len();
@@ -249,7 +238,7 @@ fn calculate_unmodified_ledger_entry_bytes(
     Ok(res as u32)
 }
 
-fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32, Box<dyn error::Error>> {
+fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
     let mut res: u32 = 0;
     for e in events {
         let event_xdr = e.to_xdr()?;
@@ -280,7 +269,7 @@ fn finalize_transaction_data_and_min_fee(
     rent_changes: &Vec<LedgerEntryRentChange>,
     current_ledger_seq: u32,
     bucket_list_size: u64,
-) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+) -> Result<(SorobanTransactionData, i64)> {
     let (fee_configuration, rent_fee_configuration) =
         get_fee_configurations(pre_storage, bucket_list_size)?;
     let (non_refundable_fee, refundable_fee) =
@@ -304,12 +293,14 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     ledger_storage: &ledger_storage::LedgerStorage,
     bucket_list_size: u64,
     current_ledger_seq: u32,
-) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+) -> Result<(SorobanTransactionData, i64)> {
     let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage.get(key, false)?;
         let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry).try_into()?;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry)
+            .try_into()
+            .map_err(|e: String| anyhow::Error::msg(e.clone()))?;
         let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
         if new_expiration_ledger <= expirable_entry.expiration_ledger_seq() {
             // The bump would be ineffective
@@ -366,22 +357,21 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     ledger_storage: &ledger_storage::LedgerStorage,
     bucket_list_size: u64,
     current_ledger_seq: u32,
-) -> Result<(SorobanTransactionData, i64), Box<dyn error::Error>> {
+) -> Result<(SorobanTransactionData, i64)> {
     let ConfigSettingEntry::StateExpiration(state_expiration) =
         ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
         else {
-            return Err(
-                "get_fee_configuration(): unexpected config setting entry for StateExpiration key".into(),
-            );
+            bail!("get_fee_configuration(): unexpected config setting entry for StateExpiration key");
         };
     let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
     for key in footprint.read_write.as_vec() {
         let unmodified_entry = ledger_storage.get(key, true)?;
         let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry).try_into()?;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry)
+            .try_into()
+            .map_err(|e: String| anyhow::Error::msg(e.clone()))?;
         if expirable_entry.durability() != Persistent {
-            let err = format!("Non-persistent key ({:?}) in footprint", key).into();
-            return Err(err);
+            bail!("Non-persistent key ({:?}) in footprint", key);
         }
         if !expirable_entry.has_expired(current_ledger_seq) {
             // noop (the entry hadn't expired)
