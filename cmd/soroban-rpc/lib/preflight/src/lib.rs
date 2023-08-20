@@ -263,7 +263,6 @@ fn vec_to_c_array<T>(mut v: Vec<T>) -> *mut T {
 /// .
 #[no_mangle]
 pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
-    println!("gets to free_preflight_result");
     if result.is_null() {
         return;
     }
