@@ -195,16 +195,15 @@ fn preflight_error(str: String) -> CPreflightResult {
 fn catch_preflight_panic(op: Box<dyn Fn() -> Result<CPreflightResult>>) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
-    let res = panic::catch_unwind(panic::AssertUnwindSafe(|| op()));
+    let res: std::thread::Result<Result<CPreflightResult>> =
+        panic::catch_unwind(panic::AssertUnwindSafe(|| op()));
     let c_preflight_result = match res {
         Err(panic) => match panic.downcast::<String>() {
             Ok(panic_msg) => preflight_error(format!("panic during preflight() call: {panic_msg}")),
             Err(_) => preflight_error("panic during preflight() call: unknown cause".to_string()),
         },
-        Ok(r) => match r {
-            Ok(r2) => r2,
-            Err(e) => preflight_error(format!("{e}")),
-        },
+        // See https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations
+        Ok(r) => r.unwrap_or_else(|e| preflight_error(format!("{e:?}"))),
     };
     // transfer ownership to caller
     // caller needs to invoke free_preflight_result(result) when done
