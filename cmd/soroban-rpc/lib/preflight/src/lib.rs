@@ -289,19 +289,22 @@ fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
         return;
     }
     unsafe {
-        // Iterate until we find a null value
         let mut i: usize = 0;
         loop {
             let c_char_ptr = *array.add(i);
             if c_char_ptr.is_null() {
+                // Iterate until we find the ending null value
                 break;
             }
             // deallocate each string
             _ = CString::from_raw(c_char_ptr);
             i += 1;
         }
+        // convert the last (NULL) element's index to the vector's length
+        let len = i + 1;
         // deallocate the containing vector
-        _ = Vec::from_raw_parts(array, i + 1, i + 1);
+        // (for which vec_to_c_array() ensured the same length and capacity)
+        _ = Vec::from_raw_parts(array, len, len);
     }
 }
 fn from_c_string(str: *const libc::c_char) -> Result<String> {
