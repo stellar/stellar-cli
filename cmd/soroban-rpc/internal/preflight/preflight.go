@@ -132,6 +132,7 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 	defer handle.Delete()
 
 	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
+
 	if err != nil {
 		return Preflight{}, err
 	}
