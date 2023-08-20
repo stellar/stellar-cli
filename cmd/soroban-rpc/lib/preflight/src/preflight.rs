@@ -118,12 +118,12 @@ pub(crate) fn preflight_invoke_hf_op(
     Ok(PreflightResult {
         auth: auths.to_vec(),
         result: Some(result),
-        transaction_data: transaction_data,
+        transaction_data,
         min_fee,
         events: diagnostic_events,
         cpu_instructions: budget.get_cpu_insns_consumed()?,
         memory_bytes: budget.get_mem_bytes_consumed()?,
-        restore_preamble: restore_preamble,
+        restore_preamble,
     })
 }
 
