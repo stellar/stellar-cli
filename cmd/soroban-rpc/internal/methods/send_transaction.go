@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 	"github.com/stellar/go/network"
 	proto "github.com/stellar/go/protocols/stellarcore"
@@ -57,7 +56,7 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 		err := xdr.SafeUnmarshalBase64(request.Transaction, &envelope)
 		if err != nil {
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code:    code.InvalidParams,
+				Code:    jrpc2.InvalidParams,
 				Message: "invalid_xdr",
 			}
 		}
@@ -66,7 +65,7 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 		hash, err = network.HashTransactionInEnvelope(envelope, passphrase)
 		if err != nil {
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code:    code.InvalidParams,
+				Code:    jrpc2.InvalidParams,
 				Message: "invalid_hash",
 			}
 		}
@@ -78,7 +77,7 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 			logger.WithError(err).
 				WithField("tx", request.Transaction).Error("could not submit transaction")
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not submit transaction to stellar-core",
 			}
 		}
@@ -88,7 +87,7 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 			logger.WithField("exception", resp.Exception).
 				WithField("tx", request.Transaction).Error("received exception from stellar core")
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "received exception from stellar-core",
 			}
 		}
@@ -113,7 +112,7 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 			logger.WithField("status", resp.Status).
 				WithField("tx", request.Transaction).Error("Unrecognized stellar-core status response")
 			return SendTransactionResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "invalid status from stellar-core",
 			}
 		}

@@ -622,6 +622,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 	contractID := xdr.Hash{0xca, 0xfe}
 	done := make(chan struct{})
 	var wg sync.WaitGroup
+	logMessageCh := make(chan string, 1)
 	writer := func() {
 		defer wg.Done()
 		data := func(i int) xdr.ContractDataEntry {
@@ -658,7 +659,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 				assert.NoError(t, writer.UpsertLedgerEntry(entry))
 			}
 			assert.NoError(t, tx.Commit(ledgerSequence))
-			fmt.Printf("Wrote ledger %d\n", ledgerSequence)
+			logMessageCh <- fmt.Sprintf("Wrote ledger %d", ledgerSequence)
 			time.Sleep(time.Duration(rand.Int31n(30)) * time.Millisecond)
 		}
 		close(done)
@@ -695,7 +696,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 			} else {
 				// All entries should be found once the first write commit is done
 				assert.True(t, found)
-				fmt.Printf("reader %d: for ledger %d\n", keyVal, ledger)
+				logMessageCh <- fmt.Sprintf("reader %d: for ledger %d", keyVal, ledger)
 				assert.Equal(t, xdr.Uint32(keyVal), *ledgerEntry.Data.ContractData.Body.Data.Val.U32)
 			}
 			time.Sleep(time.Duration(rand.Int31n(30)) * time.Millisecond)
@@ -711,7 +712,22 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 		go reader(i)
 	}
 
-	wg.Wait()
+	workersExitCh := make(chan struct{})
+	go func() {
+		defer close(workersExitCh)
+		wg.Wait()
+	}()
+
+forloop:
+	for {
+		select {
+		case <-workersExitCh:
+			break forloop
+		case msg := <-logMessageCh:
+			t.Log(msg)
+		}
+	}
+
 }
 
 func BenchmarkLedgerUpdate(b *testing.B) {

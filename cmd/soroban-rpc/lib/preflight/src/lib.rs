@@ -1,5 +1,6 @@
 mod fees;
 mod ledger_storage;
+mod state_expiration;
 
 extern crate base64;
 extern crate libc;
@@ -14,12 +15,14 @@ use soroban_env_host::events::Events;
 use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
     AccountId, ConfigSettingEntry, ConfigSettingId, DiagnosticEvent, InvokeHostFunctionOp,
-    LedgerFootprint, OperationBody, ReadXdr, ScVal, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanCredentials, WriteXdr,
+    LedgerFootprint, LedgerKey, OperationBody, ReadXdr, ScVal, SorobanAddressCredentials,
+    SorobanAuthorizationEntry, SorobanCredentials, VecM, WriteXdr,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
+use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::ffi::{CStr, CString};
+use std::iter::FromIterator;
 use std::panic;
 use std::ptr::null_mut;
 use std::rc::Rc;
@@ -66,6 +69,8 @@ pub struct CPreflightResult {
     pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
+    pub pre_restore_transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64 for a prerequired RestoreFootprint operation
+    pub pre_restore_min_fee: i64, // Minimum recommended resource fee for a prerequired RestoreFootprint operation
 }
 
 fn preflight_error(str: String) -> *mut CPreflightResult {
@@ -81,6 +86,8 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
+        pre_restore_transaction_data: null_mut(),
+        pre_restore_min_fee: 0,
     }))
 }
 
@@ -114,22 +121,46 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(invoke_hf_op_cstr.to_str()?)?;
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
     let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str()?)?;
-    let storage = Storage::with_recording_footprint(Rc::new(LedgerStorage {
-        golang_handle: handle,
-    }));
-    let budget = get_budget_from_network_config_params(&LedgerStorage {
-        golang_handle: handle,
-    })?;
+    let ledger_storage = Rc::new(LedgerStorage::with_restore_tracking(
+        handle,
+        ledger_info.sequence_number,
+    )?);
+    let budget = get_budget_from_network_config_params(&ledger_storage)?;
+    let storage = Storage::with_recording_footprint(ledger_storage.clone());
     let host = Host::with_storage_and_budget(storage, budget);
 
-    host.switch_to_recording_auth()?;
+    // We make an assumption here:
+    // - if a transaction doesn't include any soroban authorization entries the client either
+    // doesn't know the authorization entries, or there are none. In either case it is best to
+    // record the authorization entries and return them to the client.
+    // - if a transaction *does* include soroban authorization entries, then the client *already*
+    // knows the needed entries, so we should try them in enforcing mode so that we can validate
+    // them, and return the correct fees and footprint.
+    let needs_auth_recording = invoke_hf_op.auth.is_empty();
+    if needs_auth_recording {
+        host.switch_to_recording_auth()?;
+    } else {
+        host.set_authorization_entries(invoke_hf_op.auth.to_vec())?;
+    }
+
     host.set_diagnostic_level(DiagnosticLevel::Debug)?;
     host.set_source_account(source_account)?;
     host.set_ledger_info(ledger_info.into())?;
 
     // Run the preflight.
     let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
-    let auths = host.get_recorded_auth_payloads()?;
+    let auths: VecM<SorobanAuthorizationEntry> = if needs_auth_recording {
+        let payloads = host.get_recorded_auth_payloads()?;
+        VecM::try_from(
+            payloads
+                .iter()
+                .map(recorded_auth_payload_to_xdr)
+                .collect::<Vec<_>>(),
+        )?
+    } else {
+        invoke_hf_op.auth
+    };
+
     let budget = host.budget_cloned();
     // Recover, convert and return the storage footprint and other values to C.
     let (storage, events) = host.try_finish()?;
@@ -138,27 +169,48 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let (transaction_data, min_fee) = fees::compute_host_function_transaction_data_and_min_fee(
         &InvokeHostFunctionOp {
             host_function: invoke_hf_op.host_function,
-            auth: Default::default(),
+            auth: auths.clone(),
         },
-        &LedgerStorage {
-            golang_handle: handle,
-        },
+        &ledger_storage,
         &storage,
         &budget,
         &diagnostic_events,
         bucket_list_size,
         ledger_info.sequence_number,
     )?;
+
+    let entries = ledger_storage.get_ledger_keys_requiring_restore();
+    let (pre_restore_transaction_data, pre_restore_min_fee) = if entries.len() > 0 {
+        let read_write_vec: Vec<LedgerKey> = Vec::from_iter(entries);
+        let restore_footprint = LedgerFootprint {
+            read_only: VecM::default(),
+            read_write: read_write_vec.try_into()?,
+        };
+        let (transaction_data, min_fee) =
+            fees::compute_restore_footprint_transaction_data_and_min_fee(
+                restore_footprint,
+                &ledger_storage,
+                bucket_list_size,
+                ledger_info.sequence_number,
+            )?;
+        let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
+        (transaction_data_cstr.into_raw(), min_fee)
+    } else {
+        (null_mut(), 0)
+    };
+
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),
-        auth: recorded_auth_payloads_to_c(auths)?,
+        auth: recorded_auth_payloads_to_c(auths.to_vec())?,
         result: CString::new(result.to_xdr_base64()?)?.into_raw(),
         transaction_data: transaction_data_cstr.into_raw(),
         min_fee,
         events: diagnostic_events_to_c(diagnostic_events)?,
         cpu_instructions: budget.get_cpu_insns_consumed()?,
         memory_bytes: budget.get_mem_bytes_consumed()?,
+        pre_restore_transaction_data,
+        pre_restore_min_fee,
     })
 }
 
@@ -228,9 +280,7 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
     let op_body = OperationBody::from_xdr_base64(op_body_cstr.to_str()?)?;
     let footprint_cstr = unsafe { CStr::from_ptr(footprint) };
     let ledger_footprint = LedgerFootprint::from_xdr_base64(footprint_cstr.to_str()?)?;
-    let ledger_storage = &ledger_storage::LedgerStorage {
-        golang_handle: handle,
-    };
+    let ledger_storage = &LedgerStorage::new(handle);
     match op_body {
         OperationBody::BumpFootprintExpiration(op) => preflight_bump_footprint_expiration(
             ledger_footprint,
@@ -278,6 +328,8 @@ fn preflight_bump_footprint_expiration(
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
+        pre_restore_transaction_data: null_mut(),
+        pre_restore_min_fee: 0,
     })
 }
 
@@ -303,6 +355,8 @@ fn preflight_restore_footprint(
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
+        pre_restore_transaction_data: null_mut(),
+        pre_restore_min_fee: 0,
     })
 }
 
@@ -327,11 +381,11 @@ fn catch_preflight_panic(
 }
 
 fn recorded_auth_payloads_to_c(
-    payloads: Vec<RecordedAuthPayload>,
+    payloads: Vec<SorobanAuthorizationEntry>,
 ) -> Result<*mut *mut libc::c_char, Box<dyn error::Error>> {
     let xdr_base64_vec: Vec<String> = payloads
         .iter()
-        .map(|p| recorded_auth_payload_to_xdr(p).to_xdr_base64())
+        .map(WriteXdr::to_xdr_base64)
         .collect::<Result<Vec<_>, _>>()?;
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
@@ -342,7 +396,7 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthori
             credentials: SorobanCredentials::Address(SorobanAddressCredentials {
                 address,
                 nonce,
-                // signature_args is left empty. This is where the client will put their signatures when
+                // signature is left empty. This is where the client will put their signatures when
                 // submitting the transaction.
                 signature_expiration_ledger: 0,
                 signature: ScVal::Void,
