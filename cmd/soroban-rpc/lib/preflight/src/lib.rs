@@ -16,7 +16,6 @@ use soroban_env_host::xdr::{
     AccountId, InvokeHostFunctionOp, LedgerFootprint, OperationBody, ReadXdr, WriteXdr,
 };
 use soroban_env_host::LedgerInfo;
-use std::convert::{TryFrom, TryInto};
 use std::ffi::{CStr, CString};
 use std::mem;
 use std::panic;
@@ -36,12 +35,10 @@ pub struct CLedgerInfo {
     pub autobump_ledgers: u32,
 }
 
-impl TryFrom<CLedgerInfo> for LedgerInfo {
-    type Error = anyhow::Error;
-
-    fn try_from(c: CLedgerInfo) -> Result<Self> {
-        let network_passphrase = from_c_string(c.network_passphrase)?;
-        Ok(Self {
+impl From<CLedgerInfo> for LedgerInfo {
+    fn from(c: CLedgerInfo) -> Self {
+        let network_passphrase = from_c_string(c.network_passphrase);
+        Self {
             protocol_version: c.protocol_version,
             sequence_number: c.sequence_number,
             timestamp: c.timestamp,
@@ -51,7 +48,7 @@ impl TryFrom<CLedgerInfo> for LedgerInfo {
             min_persistent_entry_expiration: c.min_persistent_entry_expiration,
             max_entry_expiration: c.max_entry_expiration,
             autobump_ledgers: c.autobump_ledgers,
-        })
+        }
     }
 }
 
@@ -69,20 +66,18 @@ pub struct CPreflightResult {
     pub pre_restore_min_fee: i64, // Minimum recommended resource fee for a prerequired RestoreFootprint operation
 }
 
-impl TryFrom<PreflightResult> for CPreflightResult {
-    type Error = anyhow::Error;
-
-    fn try_from(p: PreflightResult) -> Result<Self> {
+impl From<PreflightResult> for CPreflightResult {
+    fn from(p: PreflightResult) -> Self {
         let mut result = Self {
             error: null_mut(),
-            auth: xdr_vec_to_base64_c_null_terminated_char_array(p.auth)?,
+            auth: xdr_vec_to_base64_c_null_terminated_char_array(p.auth),
             result: match p.result {
                 None => null_mut(),
-                Some(v) => xdr_to_base64_c(v)?,
+                Some(v) => xdr_to_base64_c(v),
             },
-            transaction_data: xdr_to_base64_c(p.transaction_data)?,
+            transaction_data: xdr_to_base64_c(p.transaction_data),
             min_fee: p.min_fee,
-            events: xdr_vec_to_base64_c_null_terminated_char_array(p.events)?,
+            events: xdr_vec_to_base64_c_null_terminated_char_array(p.events),
             cpu_instructions: p.cpu_instructions,
             memory_bytes: p.memory_bytes,
             pre_restore_transaction_data: null_mut(),
@@ -90,9 +85,9 @@ impl TryFrom<PreflightResult> for CPreflightResult {
         };
         if let Some(p) = p.restore_preamble {
             result.pre_restore_min_fee = p.min_fee;
-            result.pre_restore_transaction_data = xdr_to_base64_c(p.transaction_data)?;
+            result.pre_restore_transaction_data = xdr_to_base64_c(p.transaction_data);
         };
-        Ok(result)
+        result
     }
 }
 
@@ -122,8 +117,8 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> Result<CPreflightResult> {
-    let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(from_c_string(invoke_hf_op)?)?;
-    let source_account = AccountId::from_xdr_base64(from_c_string(source_account)?)?;
+    let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(from_c_string(invoke_hf_op)).unwrap();
+    let source_account = AccountId::from_xdr_base64(from_c_string(source_account)).unwrap();
     let ledger_storage = LedgerStorage::with_restore_tracking(handle, ledger_info.sequence_number)
         .context("cannot create LedgerStorage")?;
     let result = preflight::preflight_invoke_hf_op(
@@ -131,9 +126,9 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         bucket_list_size,
         invoke_hf_op,
         source_account,
-        ledger_info.try_into()?,
+        LedgerInfo::from(ledger_info),
     )?;
-    result.try_into()
+    Ok(result.into())
 }
 
 #[no_mangle]
@@ -162,8 +157,8 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
     footprint: *const libc::c_char,
     current_ledger_seq: u32,
 ) -> Result<CPreflightResult> {
-    let op_body = OperationBody::from_xdr_base64(from_c_string(op_body)?)?;
-    let footprint = LedgerFootprint::from_xdr_base64(from_c_string(footprint)?)?;
+    let op_body = OperationBody::from_xdr_base64(from_c_string(op_body)).unwrap();
+    let footprint = LedgerFootprint::from_xdr_base64(from_c_string(footprint)).unwrap();
     let ledger_storage = &LedgerStorage::new(handle);
     let result = preflight::preflight_footprint_expiration_op(
         ledger_storage,
@@ -172,7 +167,7 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
         footprint,
         current_ledger_seq,
     )?;
-    result.try_into()
+    Ok(result.into())
 }
 
 fn preflight_error(str: String) -> CPreflightResult {
@@ -209,35 +204,35 @@ fn catch_preflight_panic(op: Box<dyn Fn() -> Result<CPreflightResult>>) -> *mut 
     Box::into_raw(Box::new(c_preflight_result))
 }
 
-fn xdr_to_base64_c(v: impl WriteXdr) -> Result<*mut libc::c_char> {
-    string_to_c(v.to_xdr_base64()?)
+fn xdr_to_base64_c(v: impl WriteXdr) -> *mut libc::c_char {
+    string_to_c(v.to_xdr_base64().unwrap())
 }
 
-fn string_to_c(str: String) -> Result<*mut libc::c_char> {
-    Ok(CString::new(str)?.into_raw())
+fn string_to_c(str: String) -> *mut libc::c_char {
+    CString::new(str).unwrap().into_raw()
 }
 
 fn xdr_vec_to_base64_c_null_terminated_char_array(
     payloads: Vec<impl WriteXdr>,
-) -> Result<*mut *mut libc::c_char> {
+) -> *mut *mut libc::c_char {
     let xdr_base64_vec: Vec<String> = payloads
         .iter()
-        .map(WriteXdr::to_xdr_base64)
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(|a| WriteXdr::to_xdr_base64(a).unwrap())
+        .collect();
     string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
 }
 
-fn string_vec_to_c_null_terminated_char_array(v: Vec<String>) -> Result<*mut *mut libc::c_char> {
+fn string_vec_to_c_null_terminated_char_array(v: Vec<String>) -> *mut *mut libc::c_char {
     let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
     for s in &v {
-        let c_str = string_to_c(s.clone())?;
+        let c_str = string_to_c(s.clone());
         out_vec.push(c_str);
     }
 
     // Add the ending NULL
     out_vec.push(null_mut());
 
-    Ok(vec_to_c_array(out_vec))
+    vec_to_c_array(out_vec)
 }
 
 fn vec_to_c_array<T>(mut v: Vec<T>) -> *mut T {
@@ -305,7 +300,7 @@ fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
         _ = Vec::from_raw_parts(array, len, len);
     }
 }
-fn from_c_string(str: *const libc::c_char) -> Result<String> {
+fn from_c_string(str: *const libc::c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(str) };
-    Ok(c_str.to_str()?.to_string())
+    c_str.to_str().unwrap().to_string()
 }
