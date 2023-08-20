@@ -5,7 +5,7 @@ use soroban_env_host::xdr::{
     ConfigSettingEntry, ConfigSettingId, Error as XdrError, LedgerEntry, LedgerEntryData,
     LedgerKey, LedgerKeyConfigSetting, ReadXdr, ScError, ScErrorCode, WriteXdr,
 };
-use soroban_env_host::{Host, HostError};
+use soroban_env_host::HostError;
 use state_expiration::{restore_ledger_entry, ExpirableLedgerEntry};
 use std::cell::RefCell;
 use std::collections::HashSet;

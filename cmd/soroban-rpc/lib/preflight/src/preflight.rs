@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use fees;
 use ledger_storage::LedgerStorage;
 use soroban_env_host::auth::RecordedAuthPayload;
@@ -39,7 +39,8 @@ pub(crate) fn preflight_invoke_hf_op(
     ledger_info: LedgerInfo,
 ) -> Result<PreflightResult> {
     let ledger_storage_rc = Rc::new(ledger_storage);
-    let budget = get_budget_from_network_config_params(&ledger_storage_rc)?;
+    let budget = get_budget_from_network_config_params(&ledger_storage_rc)
+        .context("cannot create budget")?;
     let storage = Storage::with_recording_footprint(ledger_storage_rc.clone());
     let host = Host::with_storage_and_budget(storage, budget);
 
@@ -52,17 +53,24 @@ pub(crate) fn preflight_invoke_hf_op(
     // them, and return the correct fees and footprint.
     let needs_auth_recording = invoke_hf_op.auth.is_empty();
     if needs_auth_recording {
-        host.switch_to_recording_auth()?;
+        host.switch_to_recording_auth()
+            .context("cannot switch auth to recording mode")?;
     } else {
-        host.set_authorization_entries(invoke_hf_op.auth.to_vec())?;
+        host.set_authorization_entries(invoke_hf_op.auth.to_vec())
+            .context("cannot set authorization entries")?;
     }
 
-    host.set_diagnostic_level(DiagnosticLevel::Debug)?;
-    host.set_source_account(source_account.clone())?;
-    host.set_ledger_info(ledger_info.clone())?;
+    host.set_diagnostic_level(DiagnosticLevel::Debug)
+        .context("cannot set debug diagnostic level")?;
+    host.set_source_account(source_account.clone())
+        .context("cannot set source account")?;
+    host.set_ledger_info(ledger_info.clone())
+        .context("cannot set ledger info")?;
 
     // Run the preflight.
-    let result = host.invoke_function(invoke_hf_op.host_function.clone())?;
+    let result = host
+        .invoke_function(invoke_hf_op.host_function.clone())
+        .context("host invocation failed")?;
     let auths: VecM<SorobanAuthorizationEntry> = if needs_auth_recording {
         let payloads = host.get_recorded_auth_payloads()?;
         VecM::try_from(
@@ -77,21 +85,23 @@ pub(crate) fn preflight_invoke_hf_op(
 
     let budget = host.budget_cloned();
     // Recover, convert and return the storage footprint and other values to C.
-    let (storage, events) = host.try_finish()?;
+    let (storage, events) = host.try_finish().context("cannot finish host invocation")?;
 
     let diagnostic_events = host_events_to_diagnostic_events(&events);
+    let invoke_host_function_with_auth = InvokeHostFunctionOp {
+        host_function: invoke_hf_op.host_function,
+        auth: auths.clone(),
+    };
     let (transaction_data, min_fee) = fees::compute_host_function_transaction_data_and_min_fee(
-        &InvokeHostFunctionOp {
-            host_function: invoke_hf_op.host_function,
-            auth: auths.clone(),
-        },
+        &invoke_host_function_with_auth,
         &ledger_storage_rc,
         &storage,
         &budget,
         &diagnostic_events,
         bucket_list_size,
         ledger_info.sequence_number,
-    )?;
+    )
+    .context("cannot compute resources and fees")?;
 
     let entries = ledger_storage_rc.get_ledger_keys_requiring_restore();
     let restore_preamble = if entries.len() > 0 {
@@ -106,7 +116,8 @@ pub(crate) fn preflight_invoke_hf_op(
                 &ledger_storage_rc,
                 bucket_list_size,
                 ledger_info.sequence_number,
-            )?;
+            )
+            .context("cannot compute restore preamble")?;
         Some(RestorePreamble {
             transaction_data,
             min_fee,
@@ -121,8 +132,12 @@ pub(crate) fn preflight_invoke_hf_op(
         transaction_data,
         min_fee,
         events: diagnostic_events,
-        cpu_instructions: budget.get_cpu_insns_consumed()?,
-        memory_bytes: budget.get_mem_bytes_consumed()?,
+        cpu_instructions: budget
+            .get_cpu_insns_consumed()
+            .context("cannot get cpu instructions")?,
+        memory_bytes: budget
+            .get_mem_bytes_consumed()
+            .context("cannot get consumed memory")?,
         restore_preamble,
     })
 }
@@ -166,19 +181,19 @@ fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Resu
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
         else {
-            bail!("get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key");
+            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
         };
 
     let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage
         .get_configuration_setting(ConfigSettingId::ContractCostParamsCpuInstructions)?
         else {
-            bail!("get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key");
+            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
         };
 
     let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)?
         else {
-            bail!("get_budget_from_network_config_params((): unexpected config setting entry for ComputeV0 key");
+            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
         };
 
     let budget = Budget::try_from_configs(
@@ -186,7 +201,8 @@ fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Resu
         compute.tx_memory_limit as u64,
         cost_params_cpu,
         cost_params_memory,
-    )?;
+    )
+    .context("cannot create budget from network configuration")?;
     Ok(budget)
 }
 

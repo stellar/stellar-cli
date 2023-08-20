@@ -8,7 +8,7 @@ extern crate base64;
 extern crate libc;
 extern crate sha2;
 extern crate soroban_env_host;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ledger_storage::LedgerStorage;
 use preflight::PreflightResult;
 use sha2::{Digest, Sha256};
@@ -125,7 +125,8 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 ) -> Result<CPreflightResult> {
     let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(from_c_string(invoke_hf_op)?)?;
     let source_account = AccountId::from_xdr_base64(from_c_string(source_account)?)?;
-    let ledger_storage = LedgerStorage::with_restore_tracking(handle, ledger_info.sequence_number)?;
+    let ledger_storage = LedgerStorage::with_restore_tracking(handle, ledger_info.sequence_number)
+        .context("cannot create LedgerStorage")?;
     let result = preflight::preflight_invoke_hf_op(
         ledger_storage,
         bucket_list_size,
