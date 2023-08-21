@@ -104,7 +104,9 @@ pub(crate) fn preflight_invoke_hf_op(
     .context("cannot compute resources and fees")?;
 
     let entries = ledger_storage_rc.get_ledger_keys_requiring_restore();
-    let restore_preamble = if entries.len() > 0 {
+    let restore_preamble = if entries.is_empty() {
+        None
+    } else {
         let read_write_vec: Vec<LedgerKey> = Vec::from_iter(entries);
         let restore_footprint = LedgerFootprint {
             read_only: VecM::default(),
@@ -122,8 +124,6 @@ pub(crate) fn preflight_invoke_hf_op(
             transaction_data,
             min_fee,
         })
-    } else {
-        None
     };
 
     Ok(PreflightResult {

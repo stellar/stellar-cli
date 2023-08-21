@@ -1,5 +1,4 @@
 use anyhow::{bail, ensure, Context, Error, Result};
-use ledger_storage;
 use ledger_storage::LedgerStorage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
@@ -24,7 +23,7 @@ use std::convert::{TryFrom, TryInto};
 
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
-    pre_storage: &ledger_storage::LedgerStorage,
+    pre_storage: &LedgerStorage,
     post_storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
@@ -60,7 +59,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     let rent_changes = extract_rent_changes(&ledger_changes);
 
     finalize_transaction_data_and_min_fee(
-        &pre_storage,
+        pre_storage,
         &transaction_resources,
         soroban_resources,
         &rent_changes,
@@ -138,7 +137,7 @@ fn calculate_host_function_soroban_resources(
     let write_bytes: u32 = ledger_changes
         .iter()
         .map(|c| {
-            c.encoded_key.len() as u32 + c.encoded_new_value.as_ref().map_or(0, |v| v.len()) as u32
+            c.encoded_key.len() as u32 + c.encoded_new_value.as_ref().map_or(0, Vec::len) as u32
         })
         .sum();
 
@@ -160,7 +159,7 @@ fn calculate_host_function_soroban_resources(
 }
 
 fn get_fee_configurations(
-    ledger_storage: &ledger_storage::LedgerStorage,
+    ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
 ) -> Result<(FeeConfiguration, RentFeeConfiguration)> {
     let ConfigSettingEntry::ContractComputeV0(compute) =
@@ -231,7 +230,7 @@ fn get_fee_configurations(
 
 fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &Vec<LedgerKey>,
-    pre_storage: &ledger_storage::LedgerStorage,
+    pre_storage: &LedgerStorage,
     include_expired: bool,
 ) -> Result<u32> {
     let mut res: usize = 0;
@@ -276,7 +275,7 @@ fn storage_footprint_to_ledger_footprint(foot: &Footprint) -> Result<LedgerFootp
 }
 
 fn finalize_transaction_data_and_min_fee(
-    pre_storage: &ledger_storage::LedgerStorage,
+    pre_storage: &LedgerStorage,
     transaction_resources: &TransactionResources,
     soroban_resources: SorobanResources,
     rent_changes: &Vec<LedgerEntryRentChange>,
@@ -304,7 +303,7 @@ fn finalize_transaction_data_and_min_fee(
 pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
     ledgers_to_expire: u32,
-    ledger_storage: &ledger_storage::LedgerStorage,
+    ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
@@ -331,7 +330,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
         &OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
             ext: ExtensionPoint::V0,
-            ledgers_to_expire: ledgers_to_expire,
+            ledgers_to_expire,
         }),
         &soroban_resources.footprint,
     )
@@ -437,7 +436,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         contract_events_size_bytes: 0,
     };
     finalize_transaction_data_and_min_fee(
-        &ledger_storage,
+        ledger_storage,
         &transaction_resources,
         soroban_resources,
         &rent_changes,

@@ -88,7 +88,7 @@ impl EntryRestoreTracker {
         self.ledger_keys_requiring_restore
             .borrow_mut()
             .insert(key.clone());
-        return true;
+        true
     }
 }
 
@@ -128,7 +128,7 @@ impl LedgerStorage {
             ledger_keys_requiring_restore: RefCell::new(HashSet::new()),
             min_persistent_entry_expiration: state_expiration.min_persistent_entry_expiration,
         });
-        return Ok(ledger_storage);
+        Ok(ledger_storage)
     }
 
     fn get_xdr_base64(&self, key: &LedgerKey, include_expired: bool) -> Result<String, Error> {

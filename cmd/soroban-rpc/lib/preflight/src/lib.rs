@@ -196,7 +196,7 @@ fn catch_preflight_panic(op: Box<dyn Fn() -> Result<CPreflightResult>>) -> *mut 
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
     let res: std::thread::Result<Result<CPreflightResult>> =
-        panic::catch_unwind(panic::AssertUnwindSafe(|| op()));
+        panic::catch_unwind(panic::AssertUnwindSafe(op));
     let c_preflight_result = match res {
         Err(panic) => match panic.downcast::<String>() {
             Ok(panic_msg) => preflight_error(format!("panic during preflight() call: {panic_msg}")),
