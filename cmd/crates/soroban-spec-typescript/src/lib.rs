@@ -6,15 +6,14 @@
 
 use std::{fs, io};
 
-use crate::types::{StructField, Type, UnionCase};
+use crate::types::Type;
 use heck::ToLowerCamelCase;
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
-use stellar_xdr::ScSpecEntry;
+use stellar_xdr::{ScSpecEntry, WriteXdr};
 
 use types::Entry;
 
-use crate::wrapper::type_to_js_xdr;
 use soroban_spec::read::{from_wasm, FromWasmError};
 
 pub mod boilerplate;
@@ -61,11 +60,20 @@ pub fn generate_from_wasm(wasm: &[u8]) -> Result<String, FromWasmError> {
     Ok(json)
 }
 
-fn generate_class(fns: &[Entry]) -> String {
+fn generate_class(fns: &[Entry], spec: &[ScSpecEntry]) -> String {
     let methods = fns.iter().map(entry_to_ts).join("\n\n    ");
+    let spec = spec
+        .iter()
+        .map(|s| format!("\"{}\"", s.to_xdr_base64().unwrap()))
+        .join(",\n        ");
     format!(
         r#"export class Contract {{
-    constructor(public readonly options: ClassOptions) {{}}
+            spec: ContractSpec;
+    constructor(public readonly options: ClassOptions) {{
+        this.spec = new ContractSpec([
+            {spec}
+            ]);
+    }}
     {methods}
 }}"#,
     )
@@ -84,7 +92,7 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
         .into_iter()
         .partition(|entry| matches!(entry, Entry::Function { .. }));
     let top = other.iter().map(entry_to_ts).join("\n");
-    let bottom = generate_class(&fns);
+    let bottom = generate_class(&fns, spec);
     format!("{top}\n\n{bottom}")
 }
 
@@ -142,15 +150,11 @@ pub fn entry_to_ts(entry: &Entry) -> String {
             inputs,
             outputs,
         } => {
-            let args = inputs
-                .iter()
-                .map(|i| format!("((i) => {})({})", type_to_js_xdr(&i.value), i.name))
-                .join(",\n        ");
+            let input_vals = inputs.iter().map(func_input_to_arg_name).join(", ");
             let input = (!inputs.is_empty())
                 .then(|| {
                     format!(
-                        "{{{}}}: {{{}}}, ",
-                        inputs.iter().map(func_input_to_arg_name).join(", "),
+                        "{{{input_vals}}}: {{{}}}, ",
                         inputs.iter().map(func_input_to_ts).join(", ")
                     )
                 })
@@ -179,13 +183,7 @@ pub fn entry_to_ts(entry: &Entry) -> String {
 
             let mut output = outputs
                 .get(0)
-                .map(|type_| {
-                    if let Type::Custom { name } = type_ {
-                        format!("{name}FromXdr(xdr)")
-                    } else {
-                        "scValStrToJs(xdr)".to_owned()
-                    }
-                })
+                .map(|_| format!("this.spec.funcResToNative(\"{name}\", xdr)"))
                 .unwrap_or_default();
             if is_result {
                 output = format!("new Ok({output})");
@@ -204,13 +202,12 @@ pub fn entry_to_ts(entry: &Entry) -> String {
             };
             let js_name = jsify_name(name);
             let options = method_options(&return_type);
-            let args = (!inputs.is_empty())
-                .then(|| format!("args: [{args}],\n            "))
-                .unwrap_or_default();
+            let args = format!("args: this.spec.funcArgsToScVals(\"{name}\", {{{input_vals}}}),");
             let mut body = format!(
                 r#"return await invoke({{
             method: '{name}',
-            {args}...options,
+            {args}
+            ...options,
             ...this.options,
             {parse_result_xdr},
         }});"#
@@ -237,37 +234,10 @@ pub fn entry_to_ts(entry: &Entry) -> String {
         }
         Entry::Struct { doc, name, fields } => {
             let docs = doc_to_ts_doc(doc);
-            let arg_name = name.to_lower_camel_case();
-            let encoded_fields = js_to_xdr_fields(&arg_name, fields);
-            let decoded_fields = js_from_xdr_fields(fields);
             let fields = fields.iter().map(field_to_ts).join("\n  ");
-            let void = type_to_js_xdr(&Type::Void);
             format!(
                 r#"{docs}export interface {name} {{
   {fields}
-}}
-
-function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
-    if (!{arg_name}) {{
-        return {void};
-    }}
-    let arr = [
-        {encoded_fields}
-        ];
-    return xdr.ScVal.scvMap(arr);
-}}
-
-
-function {name}FromXdr(base64Xdr: string): {name} {{
-    let scVal = strToScVal(base64Xdr);
-    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
-    let map = new Map<string, any>(obj);
-    if (!obj) {{
-        throw new Error('Invalid XDR');
-    }}
-    return {{
-        {decoded_fields}
-    }};
 }}
 "#
             )
@@ -275,65 +245,16 @@ function {name}FromXdr(base64Xdr: string): {name} {{
 
         Entry::TupleStruct { doc, name, fields } => {
             let docs = doc_to_ts_doc(doc);
-            let arg_name = name.to_lower_camel_case();
-            let encoded_fields = fields
-                .iter()
-                .enumerate()
-                .map(|(i, t)| format!("(i => {})({arg_name}[{i}])", type_to_js_xdr(t),))
-                .join(",\n        ");
             let fields = fields.iter().map(type_to_ts).join(",  ");
-            let void = type_to_js_xdr(&Type::Void);
-            format!(
-                r#"{docs}export type {name} = readonly [{fields}];
-
-function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
-    if (!{arg_name}) {{
-        return {void};
-    }}
-    let arr = [
-        {encoded_fields}
-        ];
-    return xdr.ScVal.scvVec(arr);
-}}
-
-
-function {name}FromXdr(base64Xdr: string): {name} {{
-    return scValStrToJs(base64Xdr) as {name};
-}}
-"#
-            )
+            format!("{docs}export type {name} = readonly [{fields}];")
         }
 
         Entry::Union { name, doc, cases } => {
             let doc = doc_to_ts_doc(doc);
-            let arg_name = name.to_lower_camel_case();
-            let encoded_cases = js_to_xdr_union_cases(&arg_name, cases);
             let cases = cases.iter().map(case_to_ts).join(" | ");
-            let void = type_to_js_xdr(&Type::Void);
 
             format!(
                 r#"{doc}export type {name} = {cases};
-
-function {name}ToXdr({arg_name}?: {name}): xdr.ScVal {{
-    if (!{arg_name}) {{
-        return {void};
-    }}
-    let res: xdr.ScVal[] = [];
-    switch ({arg_name}.tag) {{
-        {encoded_cases}
-    }}
-    return xdr.ScVal.scvVec(res);
-}}
-
-function {name}FromXdr(base64Xdr: string): {name} {{
-    type Tag = {name}["tag"];
-    type Value = {name}["values"];
-    let [tag, values] = strToScVal(base64Xdr).vec()!.map(scValToJs) as [Tag, Value];
-    if (!tag) {{
-        throw new Error('Missing enum tag when decoding {name} from XDR');
-    }}
-    return {{ tag, values }} as {name};
-}}
 "#
             )
         }
@@ -346,15 +267,6 @@ function {name}FromXdr(base64Xdr: string): {name} {{
             format!(
                 r#"{doc}export enum {name} {{
   {cases}
-}}
-
-function {name}FromXdr(base64Xdr: string): {name} {{
-    return  scValStrToJs(base64Xdr) as {name};
-}}
-
-
-function {name}ToXdr(val: {name}): xdr.ScVal {{
-    return  xdr.ScVal.scvI32(val);
 }}
 "#,
             )
@@ -372,38 +284,6 @@ function {name}ToXdr(val: {name}): xdr.ScVal {{
             )
         }
     }
-}
-
-fn js_to_xdr_fields(struct_name: &str, f: &[StructField]) -> String {
-    f.iter()
-        .map(|StructField {  name, value , .. }| {
-            format!(
-                r#"new xdr.ScMapEntry({{key: ((i)=>{})("{name}"), val: ((i)=>{})({struct_name}["{name}"])}})"#,
-                type_to_js_xdr(&Type::Symbol),
-                type_to_js_xdr(value),
-            )
-        })
-        .join(",\n        ")
-}
-
-fn js_to_xdr_union_cases(arg_name: &str, f: &[UnionCase]) -> String {
-    f.iter()
-        .map(|UnionCase { name, values, .. }| {
-            let mut rhs = format!(
-                "res.push(((i) => {})(\"{name}\"))",
-                type_to_js_xdr(&Type::Symbol)
-            );
-            if !values.is_empty() {
-                for (i, value) in values.iter().enumerate() {
-                    rhs = format!(
-                        "{rhs};\n            res.push(((i)=>{})({arg_name}.values[{i}]))",
-                        type_to_js_xdr(value)
-                    );
-                }
-            };
-            format!("case \"{name}\":\n            {rhs};\n            break;")
-        })
-        .join("\n    ")
 }
 
 fn enum_case_to_ts(case: &types::EnumCase) -> String {
@@ -478,15 +358,4 @@ pub fn type_to_ts(value: &types::Type) -> String {
         types::Type::Timepoint => "Timepoint".to_string(),
         types::Type::Duration => "Duration".to_string(),
     }
-}
-
-fn js_from_xdr_fields(f: &[StructField]) -> String {
-    f.iter()
-        .map(|StructField { name, value, .. }| {
-            format!(
-                r#"{name}: scValToJs(map.get("{name}")) as unknown as {}"#,
-                type_to_ts(value)
-            )
-        })
-        .join(",\n        ")
 }

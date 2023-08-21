@@ -1,6 +1,6 @@
-import * as SorobanClient from 'soroban-client';
-import type { Memo, MemoType, Operation, Transaction } from 'soroban-client';
-import type { ClassOptions, MethodOptions, ResponseTypes, Wallet } from './method-options.js';
+import * as SorobanClient from "soroban-client";
+import type { Memo, MemoType, Operation, Transaction, xdr } from "soroban-client";
+import type { ClassOptions, MethodOptions, ResponseTypes, Wallet } from "./method-options.js";
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
 export declare class NotImplementedError extends Error {
 }
@@ -12,7 +12,7 @@ type SomeRpcResponse = typeof someRpcResponse;
 type InvokeArgs<R extends ResponseTypes, T = string> = MethodOptions<R> & ClassOptions & {
     method: string;
     args?: any[];
-    parseResultXdr?: (xdr: string) => T;
+    parseResultXdr: (xdr: string | xdr.ScVal) => T;
 };
 /**
  * Invoke a method on the test_custom_types contract.

@@ -1,4 +1,5 @@
 import * as SorobanClient from 'soroban-client';
+import { ContractSpec, Address } from 'soroban-client';
 import { Buffer } from "buffer";
 import type { ResponseTypes, ClassOptions } from './method-options.js';
 export * from './invoke.js';
@@ -11,31 +12,31 @@ export type u128 = bigint;
 export type i128 = bigint;
 export type u256 = bigint;
 export type i256 = bigint;
-export type Address = string;
 export type Option<T> = T | undefined;
 export type Typepoint = bigint;
 export type Duration = bigint;
+export { Address };
 export interface Error_ {
     message: string;
 }
-export interface Result<T, E = Error_> {
+export interface Result<T, E extends Error_> {
     unwrap(): T;
     unwrapErr(): E;
     isOk(): boolean;
     isErr(): boolean;
 }
-export declare class Ok<T> implements Result<T> {
+export declare class Ok<T, E extends Error_ = Error_> implements Result<T, E> {
     readonly value: T;
     constructor(value: T);
-    unwrapErr(): Error_;
+    unwrapErr(): E;
     unwrap(): T;
     isOk(): boolean;
     isErr(): boolean;
 }
-export declare class Err<T> implements Result<T> {
-    readonly error: Error_;
-    constructor(error: Error_);
-    unwrapErr(): Error_;
+export declare class Err<E extends Error_ = Error_> implements Result<any, E> {
+    readonly error: E;
+    constructor(error: E);
+    unwrapErr(): E;
     unwrap(): never;
     isOk(): boolean;
     isErr(): boolean;
@@ -43,7 +44,7 @@ export declare class Err<T> implements Result<T> {
 export declare const networks: {
     readonly futurenet: {
         readonly networkPassphrase: "Test SDF Future Network ; October 2022";
-        readonly contractId: "CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4";
+        readonly contractId: "CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK";
     };
 };
 /**
@@ -88,6 +89,7 @@ export type ComplexEnum = {
 };
 export declare class Contract {
     readonly options: ClassOptions;
+    spec: ContractSpec;
     constructor(options: ClassOptions);
     hello<R extends ResponseTypes = undefined>({ hello }: {
         hello: string;
@@ -164,7 +166,7 @@ export declare class Contract {
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number;
-    }): Promise<Err<Error_> | (R extends undefined ? Err<Error_> | Ok<number> : R extends "simulated" ? SorobanClient.SorobanRpc.SimulateTransactionResponse : R extends "full" ? SorobanClient.SorobanRpc.SimulateTransactionResponse | SorobanClient.SorobanRpc.SendTransactionResponse | SorobanClient.SorobanRpc.GetTransactionResponse : Err<Error_> | Ok<number>)>;
+    }): Promise<Err<Error_> | (R extends undefined ? Err<Error_> | Ok<number, Error_> : R extends "simulated" ? SorobanClient.SorobanRpc.SimulateTransactionResponse : R extends "full" ? SorobanClient.SorobanRpc.SimulateTransactionResponse | SorobanClient.SorobanRpc.SendTransactionResponse | SorobanClient.SorobanRpc.GetTransactionResponse : Err<Error_> | Ok<number, Error_>)>;
     u32<R extends ResponseTypes = undefined>({ u32_ }: {
         u32_: u32;
     }, options?: {
@@ -327,7 +329,7 @@ export declare class Contract {
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number;
-    }): Promise<R extends undefined ? string : R extends "simulated" ? SorobanClient.SorobanRpc.SimulateTransactionResponse : R extends "full" ? SorobanClient.SorobanRpc.SimulateTransactionResponse | SorobanClient.SorobanRpc.SendTransactionResponse | SorobanClient.SorobanRpc.GetTransactionResponse : string>;
+    }): Promise<R extends undefined ? SorobanClient.Address : R extends "simulated" ? SorobanClient.SorobanRpc.SimulateTransactionResponse : R extends "full" ? SorobanClient.SorobanRpc.SimulateTransactionResponse | SorobanClient.SorobanRpc.SendTransactionResponse | SorobanClient.SorobanRpc.GetTransactionResponse : SorobanClient.Address>;
     bytes<R extends ResponseTypes = undefined>({ bytes }: {
         bytes: Buffer;
     }, options?: {
