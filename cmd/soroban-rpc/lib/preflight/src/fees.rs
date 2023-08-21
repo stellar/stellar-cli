@@ -259,8 +259,8 @@ fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
 }
 
 fn storage_footprint_to_ledger_footprint(foot: &Footprint) -> Result<LedgerFootprint, xdr::Error> {
-    let mut read_only: Vec<LedgerKey> = Vec::new();
-    let mut read_write: Vec<LedgerKey> = Vec::new();
+    let mut read_only: Vec<LedgerKey> = Vec::with_capacity(foot.0.len());
+    let mut read_write: Vec<LedgerKey> = Vec::with_capacity(foot.0.len());
     for (k, v) in &foot.0 {
         match v {
             AccessType::ReadOnly => read_only.push((**k).clone()),
@@ -359,7 +359,8 @@ fn compute_bump_footprint_rent_changes(
     ledgers_to_expire: u32,
     current_ledger_seq: u32,
 ) -> Result<Vec<LedgerEntryRentChange>> {
-    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
+    let mut rent_changes: Vec<LedgerEntryRentChange> =
+        Vec::with_capacity(footprint.read_only.len());
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage
             .get(key, false)
@@ -450,7 +451,8 @@ fn compute_restore_footprint_rent_changes(
     min_persistent_entry_expiration: u32,
     current_ledger_seq: u32,
 ) -> Result<Vec<LedgerEntryRentChange>> {
-    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
+    let mut rent_changes: Vec<LedgerEntryRentChange> =
+        Vec::with_capacity(footprint.read_write.len());
     for key in footprint.read_write.as_vec() {
         let unmodified_entry = ledger_storage
             .get(key, true)

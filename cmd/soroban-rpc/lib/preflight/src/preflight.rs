@@ -77,7 +77,7 @@ pub(crate) fn preflight_invoke_hf_op(
             payloads
                 .iter()
                 .map(recorded_auth_payload_to_xdr)
-                .collect::<Vec<_>>(),
+                .collect::<Result<Vec<_>>>()?,
         )?
     } else {
         invoke_hf_op.auth
@@ -142,8 +142,10 @@ pub(crate) fn preflight_invoke_hf_op(
     })
 }
 
-fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthorizationEntry {
-    match (payload.address.clone(), payload.nonce) {
+fn recorded_auth_payload_to_xdr(
+    payload: &RecordedAuthPayload,
+) -> Result<SorobanAuthorizationEntry> {
+    let result = match (payload.address.clone(), payload.nonce) {
         (Some(address), Some(nonce)) => SorobanAuthorizationEntry {
             credentials: SorobanCredentials::Address(SorobanAddressCredentials {
                 address,
@@ -161,12 +163,13 @@ fn recorded_auth_payload_to_xdr(payload: &RecordedAuthPayload) -> SorobanAuthori
         },
         // the address and the nonce can't be present independently
         (a,n) =>
-            panic!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
-    }
+            bail!("recorded_auth_payload_to_xdr: address and nonce present independently (address: {:?}, nonce: {:?})", a, n),
+    };
+    Ok(result)
 }
 
 fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
-    let mut res: Vec<DiagnosticEvent> = Vec::new();
+    let mut res: Vec<DiagnosticEvent> = Vec::with_capacity(events.0.len());
     for e in &events.0 {
         let diagnostic_event = DiagnosticEvent {
             in_successful_contract_call: !e.failed_call,
