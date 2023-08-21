@@ -172,8 +172,7 @@ fn get_fee_configurations(
     let ConfigSettingEntry::ContractLedgerCostV0(ledger_cost) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractLedgerCostV0)?
     else {
-        bail!(
-           "unexpected config setting entry for LedgerCostV0 key");
+        bail!("unexpected config setting entry for LedgerCostV0 key");
     };
 
     let ConfigSettingEntry::ContractHistoricalDataV0(historical_data) =
@@ -253,7 +252,7 @@ fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
     for e in events {
         let event_xdr = e
             .to_xdr()
-            .with_context(|| format!("cannot marshall event {e:?}"))?;
+            .with_context(|| format!("cannot marshal event {e:?}"))?;
         res += u32::try_from(event_xdr.len())?;
     }
     Ok(res)
@@ -313,7 +312,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         ledgers_to_expire,
         current_ledger_seq,
     )
-    .context("cannot compute rent changes")?;
+    .context("cannot compute bump rent changes")?;
     let read_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
         ledger_storage,
@@ -404,7 +403,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         state_expiration.min_persistent_entry_expiration,
         current_ledger_seq,
     )
-    .context("cannot compute rent changes")?;
+    .context("cannot compute restore rent changes")?;
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,

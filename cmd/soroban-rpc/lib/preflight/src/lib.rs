@@ -104,7 +104,6 @@ pub extern "C" fn preflight_invoke_hf_op(
     source_account: *const libc::c_char, // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
-    println!("gets to top preflight_invoke_hf_op");
     catch_preflight_panic(Box::new(move || {
         preflight_invoke_hf_op_or_maybe_panic(
             handle,
