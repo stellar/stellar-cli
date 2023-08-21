@@ -3,11 +3,10 @@ import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
 import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke } from './invoke.js';
-import type { ResponseTypes, Wallet } from './method-options.js'
+import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'
 
-export * from './constants.js'
-export * from './server.js'
 export * from './invoke.js'
+export * from './method-options.js'
 
 export type u32 = number;
 export type i32 = number;
@@ -73,21 +72,20 @@ if (typeof window !== 'undefined') {
     window.Buffer = window.Buffer || Buffer;
 }
 
-const regex = /ContractError\((\d+)\)/;
+const regex = /Error\(Contract, #(\d+)\)/;
 
-function getError(err: string): Err<Error_> | undefined {
-    const match = err.match(regex);
+function parseError(message: string): Err<Error_> | undefined {
+    const match = message.match(regex);
     if (!match) {
         return undefined;
     }
-    if (Errors == undefined) {
+    if (Errors === undefined) {
         return undefined;
     }
-    // @ts-ignore
     let i = parseInt(match[1], 10);
-    if (i < Errors.length) {
-        return new Err(Errors[i]!);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
     }
     return undefined;
 }
-

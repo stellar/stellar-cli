@@ -61,28 +61,6 @@ func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char, includeExpired C.
 	return C.CString(out)
 }
 
-// SnapshotSourceHas takes LedgerKey XDR in base64 and returns whether it exists
-// It's used by the Rust preflight code to obtain ledger entries.
-//
-//export SnapshotSourceHas
-func SnapshotSourceHas(handle C.uintptr_t, cLedgerKey *C.char) C.int {
-	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
-	ledgerKeyB64 := C.GoString(cLedgerKey)
-	var ledgerKey xdr.LedgerKey
-	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
-		panic(err)
-	}
-	present, _, err := h.readTx.GetLedgerEntry(ledgerKey, false)
-	if err != nil {
-		h.logger.WithError(err).Error("SnapshotSourceHas(): GetLedgerEntry() failed")
-		return 0
-	}
-	if present {
-		return 1
-	}
-	return 0
-}
-
 //export FreeGoCString
 func FreeGoCString(str *C.char) {
 	C.free(unsafe.Pointer(str))
@@ -99,13 +77,15 @@ type PreflightParameters struct {
 }
 
 type Preflight struct {
-	Events          []string // DiagnosticEvents XDR in base64
-	TransactionData string   // SorobanTransactionData XDR in base64
-	MinFee          int64
-	Result          string   // XDR SCVal in base64
-	Auth            []string // SorobanAuthorizationEntrys XDR in base64
-	CPUInstructions uint64
-	MemoryBytes     uint64
+	Events                    []string // DiagnosticEvents XDR in base64
+	TransactionData           string   // SorobanTransactionData XDR in base64
+	MinFee                    int64
+	Result                    string   // XDR SCVal in base64
+	Auth                      []string // SorobanAuthorizationEntrys XDR in base64
+	CPUInstructions           uint64
+	MemoryBytes               uint64
+	PreRestoreTransactionData string // SorobanTransactionData XDR in base64
+	PreRestoreMinFee          int64
 }
 
 // GoNullTerminatedStringSlice transforms a C NULL-terminated char** array to a Go string slice
@@ -151,7 +131,7 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
 
-	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
+	simulationLedgerSeq, err := getSimulationLedgerSeq(params.LedgerEntryReadTx)
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -161,13 +141,25 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 		C.uint64_t(params.BucketListSize),
 		opBodyCString,
 		footprintCString,
-		C.uint32_t(latestLedger),
+		C.uint32_t(simulationLedgerSeq),
 	)
 
 	C.free(unsafe.Pointer(opBodyCString))
 	C.free(unsafe.Pointer(footprintCString))
 
 	return GoPreflight(res)
+}
+
+func getSimulationLedgerSeq(readTx db.LedgerEntryReadTx) (uint32, error) {
+	latestLedger, err := readTx.GetLatestLedgerSequence()
+	if err != nil {
+		return 0, err
+	}
+	// It's of utmost importance to simulate the transactions like we were on the next ledger.
+	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
+	// transaction submission.
+	sequenceNumber := latestLedger + 1
+	return sequenceNumber, nil
 }
 
 func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, error) {
@@ -177,10 +169,6 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	}
 	invokeHostFunctionCString := C.CString(invokeHostFunctionB64)
 	sourceAccountB64, err := xdr.MarshalBase64(params.SourceAccount)
-	if err != nil {
-		return Preflight{}, err
-	}
-	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -198,14 +186,15 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		return Preflight{}, errors.New("state expiration config setting missing in ledger storage")
 	}
 
+	simulationLedgerSeq, err := getSimulationLedgerSeq(params.LedgerEntryReadTx)
+	if err != nil {
+		return Preflight{}, err
+	}
+
 	stateExpiration := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
-	// It's of utmost importance to simulate the transactions like we were on the next ledger.
-	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
-	// transaction submission.
-	sequenceNumber := latestLedger + 1
 	li := C.CLedgerInfo{
 		network_passphrase: C.CString(params.NetworkPassphrase),
-		sequence_number:    C.uint32_t(sequenceNumber),
+		sequence_number:    C.uint32_t(simulationLedgerSeq),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
@@ -240,13 +229,15 @@ func GoPreflight(result *C.CPreflightResult) (Preflight, error) {
 	}
 
 	preflight := Preflight{
-		Events:          GoNullTerminatedStringSlice(result.events),
-		TransactionData: C.GoString(result.transaction_data),
-		MinFee:          int64(result.min_fee),
-		Result:          C.GoString(result.result),
-		Auth:            GoNullTerminatedStringSlice(result.auth),
-		CPUInstructions: uint64(result.cpu_instructions),
-		MemoryBytes:     uint64(result.memory_bytes),
+		Events:                    GoNullTerminatedStringSlice(result.events),
+		TransactionData:           C.GoString(result.transaction_data),
+		MinFee:                    int64(result.min_fee),
+		Result:                    C.GoString(result.result),
+		Auth:                      GoNullTerminatedStringSlice(result.auth),
+		CPUInstructions:           uint64(result.cpu_instructions),
+		MemoryBytes:               uint64(result.memory_bytes),
+		PreRestoreTransactionData: C.GoString(result.pre_restore_transaction_data),
+		PreRestoreMinFee:          int64(result.pre_restore_min_fee),
 	}
 	return preflight, nil
 }
