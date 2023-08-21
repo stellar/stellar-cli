@@ -212,19 +212,19 @@ fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Resu
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
         else {
-            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
+            bail!("unexpected config setting entry for ComputeV0 key");
         };
 
     let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage
         .get_configuration_setting(ConfigSettingId::ContractCostParamsCpuInstructions)?
         else {
-            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
+            bail!("unexpected config setting entry for CostParamsCpuInstructions key");
         };
 
     let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)?
         else {
-            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
+            bail!("unexpected config setting entry for CostParamsMemoryBytes key");
         };
 
     let budget = Budget::try_from_configs(
