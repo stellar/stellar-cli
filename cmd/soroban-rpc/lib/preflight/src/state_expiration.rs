@@ -40,7 +40,7 @@ impl<'a> TryInto<Box<dyn ExpirableLedgerEntry + 'a>> for &'a LedgerEntry {
             LedgerEntryData::ContractData(d) => Ok(Box::new(d)),
             LedgerEntryData::ContractCode(c) => Ok(Box::new(c)),
             _ => Err(format!(
-                "Incorrect ledger entry type ({}) in footprint",
+                "ledger entry type ({}) is not expirable",
                 self.data.name()
             )),
         }

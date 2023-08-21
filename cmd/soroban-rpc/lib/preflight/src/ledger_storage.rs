@@ -42,9 +42,9 @@ pub(crate) enum Error {
     UnexpectedConfigLedgerEntry { setting_id: String },
 }
 
-impl Error {
-    fn to_host_error(&self) -> HostError {
-        match self {
+impl From<Error> for HostError {
+    fn from(value: Error) -> Self {
+        match value {
             Error::NotFound => ScError::Storage(ScErrorCode::MissingValue).into(),
             Error::Xdr(_) => ScError::Value(ScErrorCode::InvalidInput).into(),
             _ => ScError::Context(ScErrorCode::InternalError).into(),
@@ -88,7 +88,7 @@ impl EntryRestoreTracker {
         self.ledger_keys_requiring_restore
             .borrow_mut()
             .insert(key.clone());
-        return true;
+        true
     }
 }
 
@@ -128,7 +128,7 @@ impl LedgerStorage {
             ledger_keys_requiring_restore: RefCell::new(HashSet::new()),
             min_persistent_entry_expiration: state_expiration.min_persistent_entry_expiration,
         });
-        return Ok(ledger_storage);
+        Ok(ledger_storage)
     }
 
     fn get_xdr_base64(&self, key: &LedgerKey, include_expired: bool) -> Result<String, Error> {
@@ -193,8 +193,7 @@ impl LedgerStorage {
 
 impl SnapshotSource for LedgerStorage {
     fn get(&self, key: &Rc<LedgerKey>) -> Result<Rc<LedgerEntry>, HostError> {
-        let mut entry = <LedgerStorage>::get(self, key, self.restore_tracker.is_some())
-            .map_err(|e| Error::to_host_error(&e))?;
+        let mut entry = <LedgerStorage>::get(self, key, self.restore_tracker.is_some())?;
         if let Some(ref tracker) = self.restore_tracker {
             // If the entry expired, we modify it to make it seem like it was restored
             tracker.track_and_restore(key, &mut entry);
@@ -206,7 +205,7 @@ impl SnapshotSource for LedgerStorage {
         let entry = match <LedgerStorage>::get(self, key, self.restore_tracker.is_some()) {
             Err(e) => match e {
                 Error::NotFound => return Ok(false),
-                _ => return Err(Error::to_host_error(&e)),
+                _ => return Err(HostError::from(e)),
             },
             Ok(le) => le,
         };
