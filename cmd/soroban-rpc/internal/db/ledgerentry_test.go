@@ -357,17 +357,14 @@ func TestGetLedgerEntryHidesExpiredContractDataEntries(t *testing.T) {
 	}{
 		{21, true},
 		{22, true},
-		{23, false},
+		{23, true},
 		{24, false},
+		{25, false},
 	} {
 		// ffwd to the ledger sequence
 		tx, err := NewReadWriter(db, 0, 15).NewTx(context.Background())
 		assert.NoError(t, err)
-		// Close the ledger N
 		assert.NoError(t, tx.Commit(c.ledgerSequence))
-
-		// Now, ledger N is our latestClosedLedger, so any preflights should act as
-		// though it is currently ledger N+1
 
 		// Try to read the entry back, and check it disappears when expected
 		present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
@@ -407,17 +404,14 @@ func TestGetLedgerEntryHidesExpiredContractCodeEntries(t *testing.T) {
 	}{
 		{21, true},
 		{22, true},
-		{23, false},
+		{23, true},
 		{24, false},
+		{25, false},
 	} {
 		// ffwd to the ledger sequence
 		tx, err := NewReadWriter(db, 0, 15).NewTx(context.Background())
 		assert.NoError(t, err)
-		// Close the ledger N
 		assert.NoError(t, tx.Commit(c.ledgerSequence))
-
-		// Now, ledger N is our latestClosedLedger, so any preflights should act as
-		// though it is currently ledger N+1
 
 		// Try to read the entry back, and check it disappears when expected
 		present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)

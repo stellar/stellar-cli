@@ -253,8 +253,7 @@ func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired boo
 			if err != nil {
 				return false, xdr.LedgerEntry{}, err
 			}
-			currentLedger := latestClosedLedger + 1
-			if expirationLedgerSeq < xdr.Uint32(currentLedger) {
+			if expirationLedgerSeq < xdr.Uint32(latestClosedLedger) {
 				return false, xdr.LedgerEntry{}, nil
 			}
 		}
