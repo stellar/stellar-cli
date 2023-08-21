@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{bail, ensure, Context, Error, Result};
 use ledger_storage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
@@ -185,7 +185,7 @@ fn get_fee_configurations(
     let ConfigSettingEntry::ContractEventsV0(events) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractEventsV0)?
     else {
-        bail!("unexpected config setting entry for ContractEventsV0 key");
+        bail!("unexpected config setting entry for EventsV0 key");
     };
 
     let ConfigSettingEntry::ContractBandwidthV0(bandwidth) =
@@ -392,9 +392,10 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
             (&unmodified_entry).try_into().map_err(|e: String| {
                 Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
             })?;
-        if expirable_entry.durability() != Persistent {
-            bail!("non-persistent entry in footprint: key = {key:?}");
-        }
+        ensure!(
+            expirable_entry.durability() == Persistent,
+            "non-persistent entry in footprint: key = {key:?}"
+        );
         if !expirable_entry.has_expired(current_ledger_seq) {
             // noop (the entry hadn't expired)
             continue;
