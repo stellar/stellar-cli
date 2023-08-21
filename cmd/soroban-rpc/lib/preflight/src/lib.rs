@@ -1,5 +1,6 @@
 mod fees;
 mod ledger_storage;
+mod state_expiration;
 
 extern crate base64;
 extern crate libc;
@@ -14,13 +15,14 @@ use soroban_env_host::events::Events;
 use soroban_env_host::storage::Storage;
 use soroban_env_host::xdr::{
     AccountId, ConfigSettingEntry, ConfigSettingId, DiagnosticEvent, InvokeHostFunctionOp,
-    LedgerFootprint, OperationBody, ReadXdr, ScVal, SorobanAddressCredentials,
+    LedgerFootprint, LedgerKey, OperationBody, ReadXdr, ScVal, SorobanAddressCredentials,
     SorobanAuthorizationEntry, SorobanCredentials, VecM, WriteXdr,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::ffi::{CStr, CString};
+use std::iter::FromIterator;
 use std::panic;
 use std::ptr::null_mut;
 use std::rc::Rc;
@@ -67,6 +69,8 @@ pub struct CPreflightResult {
     pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
+    pub pre_restore_transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64 for a prerequired RestoreFootprint operation
+    pub pre_restore_min_fee: i64, // Minimum recommended resource fee for a prerequired RestoreFootprint operation
 }
 
 fn preflight_error(str: String) -> *mut CPreflightResult {
@@ -82,6 +86,8 @@ fn preflight_error(str: String) -> *mut CPreflightResult {
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
+        pre_restore_transaction_data: null_mut(),
+        pre_restore_min_fee: 0,
     }))
 }
 
@@ -115,12 +121,12 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(invoke_hf_op_cstr.to_str()?)?;
     let source_account_cstr = unsafe { CStr::from_ptr(source_account) };
     let source_account = AccountId::from_xdr_base64(source_account_cstr.to_str()?)?;
-    let storage = Storage::with_recording_footprint(Rc::new(LedgerStorage {
-        golang_handle: handle,
-    }));
-    let budget = get_budget_from_network_config_params(&LedgerStorage {
-        golang_handle: handle,
-    })?;
+    let ledger_storage = Rc::new(LedgerStorage::with_restore_tracking(
+        handle,
+        ledger_info.sequence_number,
+    )?);
+    let budget = get_budget_from_network_config_params(&ledger_storage)?;
+    let storage = Storage::with_recording_footprint(ledger_storage.clone());
     let host = Host::with_storage_and_budget(storage, budget);
 
     // We make an assumption here:
@@ -165,15 +171,34 @@ fn preflight_invoke_hf_op_or_maybe_panic(
             host_function: invoke_hf_op.host_function,
             auth: auths.clone(),
         },
-        &LedgerStorage {
-            golang_handle: handle,
-        },
+        &ledger_storage,
         &storage,
         &budget,
         &diagnostic_events,
         bucket_list_size,
         ledger_info.sequence_number,
     )?;
+
+    let entries = ledger_storage.get_ledger_keys_requiring_restore();
+    let (pre_restore_transaction_data, pre_restore_min_fee) = if entries.len() > 0 {
+        let read_write_vec: Vec<LedgerKey> = Vec::from_iter(entries);
+        let restore_footprint = LedgerFootprint {
+            read_only: VecM::default(),
+            read_write: read_write_vec.try_into()?,
+        };
+        let (transaction_data, min_fee) =
+            fees::compute_restore_footprint_transaction_data_and_min_fee(
+                restore_footprint,
+                &ledger_storage,
+                bucket_list_size,
+                ledger_info.sequence_number,
+            )?;
+        let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
+        (transaction_data_cstr.into_raw(), min_fee)
+    } else {
+        (null_mut(), 0)
+    };
+
     let transaction_data_cstr = CString::new(transaction_data.to_xdr_base64()?)?;
     Ok(CPreflightResult {
         error: null_mut(),
@@ -184,6 +209,8 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         events: diagnostic_events_to_c(diagnostic_events)?,
         cpu_instructions: budget.get_cpu_insns_consumed()?,
         memory_bytes: budget.get_mem_bytes_consumed()?,
+        pre_restore_transaction_data,
+        pre_restore_min_fee,
     })
 }
 
@@ -253,9 +280,7 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
     let op_body = OperationBody::from_xdr_base64(op_body_cstr.to_str()?)?;
     let footprint_cstr = unsafe { CStr::from_ptr(footprint) };
     let ledger_footprint = LedgerFootprint::from_xdr_base64(footprint_cstr.to_str()?)?;
-    let ledger_storage = &ledger_storage::LedgerStorage {
-        golang_handle: handle,
-    };
+    let ledger_storage = &LedgerStorage::new(handle);
     match op_body {
         OperationBody::BumpFootprintExpiration(op) => preflight_bump_footprint_expiration(
             ledger_footprint,
@@ -303,6 +328,8 @@ fn preflight_bump_footprint_expiration(
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
+        pre_restore_transaction_data: null_mut(),
+        pre_restore_min_fee: 0,
     })
 }
 
@@ -328,6 +355,8 @@ fn preflight_restore_footprint(
         events: null_mut(),
         cpu_instructions: 0,
         memory_bytes: 0,
+        pre_restore_transaction_data: null_mut(),
+        pre_restore_min_fee: 0,
     })
 }
 

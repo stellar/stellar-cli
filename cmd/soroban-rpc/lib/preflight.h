@@ -15,6 +15,7 @@ typedef struct CLedgerInfo {
   uint32_t auto_bump_ledgers;
 } CLedgerInfo;
 
+
 typedef struct CPreflightResult {
     char *error; // Error string in case of error, otherwise null
     char **auth; // NULL terminated array of XDR SorobanAuthorizationEntrys in base64
@@ -24,6 +25,8 @@ typedef struct CPreflightResult {
     char **events; // NULL terminated array of XDR DiagnosticEvents in base64
     uint64_t cpu_instructions;
     uint64_t memory_bytes;
+    char *pre_restore_transaction_data; // SorobanTransactionData XDR in base64 for a prerequired RestoreFootprint operation
+    int64_t pre_restore_min_fee; // Minimum recommended resource fee for a prerequired RestoreFootprint operation
 } CPreflightResult;
 
 CPreflightResult *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
@@ -40,9 +43,6 @@ CPreflightResult *preflight_footprint_expiration_op(uintptr_t handle, // Go Hand
 
 // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
 extern char *SnapshotSourceGet(uintptr_t handle, char *ledger_key, int include_expired);
-
-// LedgerKey XDR in base64 string to bool
-extern int SnapshotSourceHas(uintptr_t handle, char *ledger_key);
 
 void free_preflight_result(CPreflightResult *result);
 

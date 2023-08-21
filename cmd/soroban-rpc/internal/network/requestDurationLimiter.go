@@ -208,7 +208,7 @@ func MakeJrpcRequestDurationLimiter(
 func (q *rpcRequestDurationLimiter) Handle(ctx context.Context, req *jrpc2.Request) (interface{}, error) {
 	if q.limitThreshold == RequestDurationLimiterNoLimit {
 		// if specified max duration, pass-through
-		return q.jrpcDownstreamHandler.Handle(ctx, req)
+		return q.jrpcDownstreamHandler(ctx, req)
 	}
 	var warningCh <-chan time.Time
 	if q.warningThreshold != time.Duration(0) && q.warningThreshold < q.limitThreshold {
@@ -234,7 +234,7 @@ func (q *rpcRequestDurationLimiter) Handle(ctx context.Context, req *jrpc2.Reque
 			close(requestCompleted)
 		}()
 		var res requestResultOutput
-		res.data, res.err = q.jrpcDownstreamHandler.Handle(requestCtx, req)
+		res.data, res.err = q.jrpcDownstreamHandler(requestCtx, req)
 		requestCompleted <- res
 	}()
 

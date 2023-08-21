@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
@@ -25,7 +24,7 @@ func NewGetLatestLedgerHandler(ledgerEntryReader db.LedgerEntryReader, ledgerRea
 		tx, err := ledgerEntryReader.NewTx(ctx)
 		if err != nil {
 			return GetLatestLedgerResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not create read transaction",
 			}
 		}
@@ -36,7 +35,7 @@ func NewGetLatestLedgerHandler(ledgerEntryReader db.LedgerEntryReader, ledgerRea
 		latestSequence, err := tx.GetLatestLedgerSequence()
 		if err != nil {
 			return GetLatestLedgerResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not get latest ledger sequence",
 			}
 		}
@@ -44,7 +43,7 @@ func NewGetLatestLedgerHandler(ledgerEntryReader db.LedgerEntryReader, ledgerRea
 		latestLedger, found, err := ledgerReader.GetLedger(ctx, latestSequence)
 		if (err != nil) || (!found) {
 			return GetLatestLedgerResponse{}, &jrpc2.Error{
-				Code:    code.InternalError,
+				Code:    jrpc2.InternalError,
 				Message: "could not get latest ledger",
 			}
 		}

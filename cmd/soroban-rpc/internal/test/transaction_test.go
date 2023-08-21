@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/creachadair/jrpc2"
-	"github.com/creachadair/jrpc2/code"
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -221,7 +220,7 @@ func TestSendTransactionFailedInvalidXDR(t *testing.T) {
 	var response methods.SendTransactionResponse
 	jsonRPCErr := client.CallResult(context.Background(), "sendTransaction", request, &response).(*jrpc2.Error)
 	assert.Equal(t, "invalid_xdr", jsonRPCErr.Message)
-	assert.Equal(t, code.InvalidParams, jsonRPCErr.Code)
+	assert.Equal(t, jrpc2.InvalidParams, jsonRPCErr.Code)
 }
 
 func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, transaction *txnbuild.Transaction) methods.GetTransactionResponse {
