@@ -364,7 +364,7 @@ fn compute_bump_footprint_rent_changes(
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage
             .get(key, false)
-            .with_context(|| format!("cannot get ledger entry with key {key:?}"))?;
+            .with_context(|| format!("cannot find bump footprint ledger entry with key {key:?}"))?;
         let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
         let expirable_entry: Box<dyn ExpirableLedgerEntry> =
             (&unmodified_entry).try_into().map_err(|e: String| {
