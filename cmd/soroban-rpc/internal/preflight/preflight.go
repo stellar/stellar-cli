@@ -131,7 +131,7 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
 
-	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
+	simulationLedgerSeq, err := getSimulationLedgerSeq(params.LedgerEntryReadTx)
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -141,13 +141,25 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 		C.uint64_t(params.BucketListSize),
 		opBodyCString,
 		footprintCString,
-		C.uint32_t(latestLedger),
+		C.uint32_t(simulationLedgerSeq),
 	)
 
 	C.free(unsafe.Pointer(opBodyCString))
 	C.free(unsafe.Pointer(footprintCString))
 
 	return GoPreflight(res)
+}
+
+func getSimulationLedgerSeq(readTx db.LedgerEntryReadTx) (uint32, error) {
+	latestLedger, err := readTx.GetLatestLedgerSequence()
+	if err != nil {
+		return 0, err
+	}
+	// It's of utmost importance to simulate the transactions like we were on the next ledger.
+	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
+	// transaction submission.
+	sequenceNumber := latestLedger + 1
+	return sequenceNumber, nil
 }
 
 func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, error) {
@@ -157,10 +169,6 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	}
 	invokeHostFunctionCString := C.CString(invokeHostFunctionB64)
 	sourceAccountB64, err := xdr.MarshalBase64(params.SourceAccount)
-	if err != nil {
-		return Preflight{}, err
-	}
-	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -178,14 +186,15 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		return Preflight{}, errors.New("state expiration config setting missing in ledger storage")
 	}
 
+	simulationLedgerSeq, err := getSimulationLedgerSeq(params.LedgerEntryReadTx)
+	if err != nil {
+		return Preflight{}, err
+	}
+
 	stateExpiration := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
-	// It's of utmost importance to simulate the transactions like we were on the next ledger.
-	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
-	// transaction submission.
-	sequenceNumber := latestLedger + 1
 	li := C.CLedgerInfo{
 		network_passphrase: C.CString(params.NetworkPassphrase),
-		sequence_number:    C.uint32_t(sequenceNumber),
+		sequence_number:    C.uint32_t(simulationLedgerSeq),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
