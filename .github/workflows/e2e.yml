@@ -96,4 +96,5 @@ jobs:
           docker run --rm -t --name e2e_test stellar/system-test:dev \
           --VerboseOutput $SYSTEM_TEST_VERBOSE_OUTPUT  \
           --TestFilter "${{ matrix.scenario-filter }}" \
-          --SorobanExamplesGitHash $SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH
+          --SorobanExamplesGitHash $SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH \
+          --SorobanExamplesRepoURL $SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO
