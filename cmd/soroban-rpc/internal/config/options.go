@@ -16,6 +16,8 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
+const defaultHTTPEndpoint = "localhost:8000"
+
 func (cfg *Config) options() ConfigOptions {
 	if cfg.optionsCache != nil {
 		return *cfg.optionsCache
@@ -41,7 +43,7 @@ func (cfg *Config) options() ConfigOptions {
 			Name:         "endpoint",
 			Usage:        "Endpoint to listen and serve on",
 			ConfigKey:    &cfg.Endpoint,
-			DefaultValue: "localhost:8000",
+			DefaultValue: defaultHTTPEndpoint,
 		},
 		{
 			Name:      "admin-endpoint",
