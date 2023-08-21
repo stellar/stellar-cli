@@ -2,9 +2,8 @@ import { xdr } from 'soroban-client';
 import { Buffer } from "buffer";
 import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke } from './invoke.js';
-export * from './constants.js';
-export * from './server.js';
 export * from './invoke.js';
+export * from './method-options.js';
 ;
 ;
 export class Ok {
@@ -47,22 +46,28 @@ if (typeof window !== 'undefined') {
     //@ts-ignore Buffer exists
     window.Buffer = window.Buffer || Buffer;
 }
-const regex = /ContractError\((\d+)\)/;
-function getError(err) {
-    const match = err.match(regex);
+const regex = /Error\(Contract, #(\d+)\)/;
+function parseError(message) {
+    const match = message.match(regex);
     if (!match) {
         return undefined;
     }
-    if (Errors == undefined) {
+    if (Errors === undefined) {
         return undefined;
     }
-    // @ts-ignore
     let i = parseInt(match[1], 10);
-    if (i < Errors.length) {
-        return new Err(Errors[i]);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
     }
     return undefined;
 }
+export const networks = {
+    futurenet: {
+        networkPassphrase: "Test SDF Future Network ; October 2022",
+        contractId: "CB5T6MLZNWJBUBKEQAUVIG5JJWKYSYVVE2OVN25GMX3VX7CZ7OBAPAU4",
+    }
+};
 function TestToXdr(test) {
     if (!test) {
         return xdr.ScVal.scvVoid();
@@ -173,310 +178,342 @@ function ComplexEnumFromXdr(base64Xdr) {
     }
     return { tag, values };
 }
-const Errors = [
-    { message: "Unknown error has occurred" }
-];
-export async function hello({ hello }, options = {}) {
-    return await invoke({
-        method: 'hello',
-        args: [((i) => xdr.ScVal.scvSymbol(i))(hello)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function woid(options = {}) {
-    return await invoke({
-        method: 'woid',
-        ...options,
-        parseResultXdr: () => { },
-    });
-}
-export async function val(options = {}) {
-    return await invoke({
-        method: 'val',
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function u32FailOnEven({ u32_ }, options = {}) {
-    return await invoke({
-        method: 'u32_fail_on_even',
-        args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            try {
-                return new Ok(scValStrToJs(xdr));
-            }
-            catch (e) {
-                //@ts-ignore
-                let err = getError(e.message);
-                if (err) {
+const Errors = {
+    1: { message: "Please provide an odd number" }
+};
+export class Contract {
+    options;
+    constructor(options) {
+        this.options = options;
+    }
+    async hello({ hello }, options = {}) {
+        return await invoke({
+            method: 'hello',
+            args: [((i) => xdr.ScVal.scvSymbol(i))(hello)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async woid(options = {}) {
+        return await invoke({
+            method: 'woid',
+            ...options,
+            ...this.options,
+            parseResultXdr: () => { },
+        });
+    }
+    async val(options = {}) {
+        return await invoke({
+            method: 'val',
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async u32FailOnEven({ u32_ }, options = {}) {
+        try {
+            return await invoke({
+                method: 'u32_fail_on_even',
+                args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
+                ...options,
+                ...this.options,
+                parseResultXdr: (xdr) => {
+                    return new Ok(scValStrToJs(xdr));
+                },
+            });
+        }
+        catch (e) {
+            if (typeof e === 'string') {
+                let err = parseError(e);
+                if (err)
                     return err;
-                }
-                else {
-                    throw e;
-                }
             }
-        },
-    });
-}
-export async function u32({ u32_ }, options = {}) {
-    return await invoke({
-        method: 'u32_',
-        args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function i32({ i32_ }, options = {}) {
-    return await invoke({
-        method: 'i32_',
-        args: [((i) => xdr.ScVal.scvI32(i))(i32_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function i64({ i64_ }, options = {}) {
-    return await invoke({
-        method: 'i64_',
-        args: [((i) => xdr.ScVal.scvI64(xdr.Int64.fromString(i.toString())))(i64_)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-/**
+            throw e;
+        }
+    }
+    async u32({ u32_ }, options = {}) {
+        return await invoke({
+            method: 'u32_',
+            args: [((i) => xdr.ScVal.scvU32(i))(u32_)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async i32({ i32_ }, options = {}) {
+        return await invoke({
+            method: 'i32_',
+            args: [((i) => xdr.ScVal.scvI32(i))(i32_)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async i64({ i64_ }, options = {}) {
+        return await invoke({
+            method: 'i64_',
+            args: [((i) => xdr.ScVal.scvI64(xdr.Int64.fromString(i.toString())))(i64_)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    /**
  * Example contract method which takes a struct
  */
-export async function struktHel({ strukt }, options = {}) {
-    return await invoke({
-        method: 'strukt_hel',
-        args: [((i) => TestToXdr(i))(strukt)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function strukt({ strukt }, options = {}) {
-    return await invoke({
-        method: 'strukt',
-        args: [((i) => TestToXdr(i))(strukt)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return TestFromXdr(xdr);
-        },
-    });
-}
-export async function simple({ simple }, options = {}) {
-    return await invoke({
-        method: 'simple',
-        args: [((i) => SimpleEnumToXdr(i))(simple)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return SimpleEnumFromXdr(xdr);
-        },
-    });
-}
-export async function complex({ complex }, options = {}) {
-    return await invoke({
-        method: 'complex',
-        args: [((i) => ComplexEnumToXdr(i))(complex)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return ComplexEnumFromXdr(xdr);
-        },
-    });
-}
-export async function addresse({ addresse }, options = {}) {
-    return await invoke({
-        method: 'addresse',
-        args: [((i) => addressToScVal(i))(addresse)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function bytes({ bytes }, options = {}) {
-    return await invoke({
-        method: 'bytes',
-        args: [((i) => xdr.ScVal.scvBytes(i))(bytes)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function bytesN({ bytes_n }, options = {}) {
-    return await invoke({
-        method: 'bytes_n',
-        args: [((i) => xdr.ScVal.scvBytes(i))(bytes_n)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function card({ card }, options = {}) {
-    return await invoke({
-        method: 'card',
-        args: [((i) => RoyalCardToXdr(i))(card)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return RoyalCardFromXdr(xdr);
-        },
-    });
-}
-export async function booleanMethod({ boolean }, options = {}) {
-    return await invoke({
-        method: 'boolean',
-        args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-/**
+    async struktHel({ strukt }, options = {}) {
+        return await invoke({
+            method: 'strukt_hel',
+            args: [((i) => TestToXdr(i))(strukt)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async strukt({ strukt }, options = {}) {
+        return await invoke({
+            method: 'strukt',
+            args: [((i) => TestToXdr(i))(strukt)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return TestFromXdr(xdr);
+            },
+        });
+    }
+    async simple({ simple }, options = {}) {
+        return await invoke({
+            method: 'simple',
+            args: [((i) => SimpleEnumToXdr(i))(simple)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return SimpleEnumFromXdr(xdr);
+            },
+        });
+    }
+    async complex({ complex }, options = {}) {
+        return await invoke({
+            method: 'complex',
+            args: [((i) => ComplexEnumToXdr(i))(complex)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return ComplexEnumFromXdr(xdr);
+            },
+        });
+    }
+    async addresse({ addresse }, options = {}) {
+        return await invoke({
+            method: 'addresse',
+            args: [((i) => addressToScVal(i))(addresse)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async bytes({ bytes }, options = {}) {
+        return await invoke({
+            method: 'bytes',
+            args: [((i) => xdr.ScVal.scvBytes(i))(bytes)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async bytesN({ bytes_n }, options = {}) {
+        return await invoke({
+            method: 'bytes_n',
+            args: [((i) => xdr.ScVal.scvBytes(i))(bytes_n)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async card({ card }, options = {}) {
+        return await invoke({
+            method: 'card',
+            args: [((i) => RoyalCardToXdr(i))(card)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return RoyalCardFromXdr(xdr);
+            },
+        });
+    }
+    async boolean({ boolean }, options = {}) {
+        return await invoke({
+            method: 'boolean',
+            args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    /**
  * Negates a boolean value
  */
-export async function not({ boolean }, options = {}) {
-    return await invoke({
-        method: 'not',
-        args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function i128({ i128 }, options = {}) {
-    return await invoke({
-        method: 'i128',
-        args: [((i) => i128ToScVal(i))(i128)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function u128({ u128 }, options = {}) {
-    return await invoke({
-        method: 'u128',
-        args: [((i) => u128ToScVal(i))(u128)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function multiArgs({ a, b }, options = {}) {
-    return await invoke({
-        method: 'multi_args',
-        args: [((i) => xdr.ScVal.scvU32(i))(a),
-            ((i) => xdr.ScVal.scvBool(i))(b)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function map({ map }, options = {}) {
-    return await invoke({
-        method: 'map',
-        args: [((i) => xdr.ScVal.scvMap(Array.from(i.entries()).map(([key, value]) => {
-                return new xdr.ScMapEntry({
-                    key: ((i) => xdr.ScVal.scvU32(i))(key),
-                    val: ((i) => xdr.ScVal.scvBool(i))(value)
-                });
-            })))(map)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function vec({ vec }, options = {}) {
-    return await invoke({
-        method: 'vec',
-        args: [((i) => xdr.ScVal.scvVec(i.map((i) => xdr.ScVal.scvU32(i))))(vec)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function tuple({ tuple }, options = {}) {
-    return await invoke({
-        method: 'tuple',
-        args: [((i) => xdr.ScVal.scvVec([((i) => xdr.ScVal.scvSymbol(i))(i[0]),
-                ((i) => xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-/**
+    async not({ boolean }, options = {}) {
+        return await invoke({
+            method: 'not',
+            args: [((i) => xdr.ScVal.scvBool(i))(boolean)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async i128({ i128 }, options = {}) {
+        return await invoke({
+            method: 'i128',
+            args: [((i) => i128ToScVal(i))(i128)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async u128({ u128 }, options = {}) {
+        return await invoke({
+            method: 'u128',
+            args: [((i) => u128ToScVal(i))(u128)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async multiArgs({ a, b }, options = {}) {
+        return await invoke({
+            method: 'multi_args',
+            args: [((i) => xdr.ScVal.scvU32(i))(a),
+                ((i) => xdr.ScVal.scvBool(i))(b)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async map({ map }, options = {}) {
+        return await invoke({
+            method: 'map',
+            args: [((i) => xdr.ScVal.scvMap(Array.from(i.entries()).map(([key, value]) => {
+                    return new xdr.ScMapEntry({
+                        key: ((i) => xdr.ScVal.scvU32(i))(key),
+                        val: ((i) => xdr.ScVal.scvBool(i))(value)
+                    });
+                })))(map)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async vec({ vec }, options = {}) {
+        return await invoke({
+            method: 'vec',
+            args: [((i) => xdr.ScVal.scvVec(i.map((i) => xdr.ScVal.scvU32(i))))(vec)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async tuple({ tuple }, options = {}) {
+        return await invoke({
+            method: 'tuple',
+            args: [((i) => xdr.ScVal.scvVec([((i) => xdr.ScVal.scvSymbol(i))(i[0]),
+                    ((i) => xdr.ScVal.scvU32(i))(i[1])]))(tuple)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    /**
  * Example of an optional argument
  */
-export async function option({ option }, options = {}) {
-    return await invoke({
-        method: 'option',
-        args: [((i) => (!i) ? xdr.ScVal.scvVoid() : xdr.ScVal.scvU32(i))(option)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function u256({ u256 }, options = {}) {
-    return await invoke({
-        method: 'u256',
-        args: [((i) => i)(u256)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function i256({ i256 }, options = {}) {
-    return await invoke({
-        method: 'i256',
-        args: [((i) => i)(i256)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function string({ string }, options = {}) {
-    return await invoke({
-        method: 'string',
-        args: [((i) => xdr.ScVal.scvString(i))(string)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-export async function tupleStrukt({ tuple_strukt }, options = {}) {
-    return await invoke({
-        method: 'tuple_strukt',
-        args: [((i) => TupleStructToXdr(i))(tuple_strukt)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return TupleStructFromXdr(xdr);
-        },
-    });
+    async option({ option }, options = {}) {
+        return await invoke({
+            method: 'option',
+            args: [((i) => (!i) ? xdr.ScVal.scvVoid() : xdr.ScVal.scvU32(i))(option)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async u256({ u256 }, options = {}) {
+        return await invoke({
+            method: 'u256',
+            args: [((i) => i)(u256)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async i256({ i256 }, options = {}) {
+        return await invoke({
+            method: 'i256',
+            args: [((i) => i)(i256)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async string({ string }, options = {}) {
+        return await invoke({
+            method: 'string',
+            args: [((i) => xdr.ScVal.scvString(i))(string)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return scValStrToJs(xdr);
+            },
+        });
+    }
+    async tupleStrukt({ tuple_strukt }, options = {}) {
+        return await invoke({
+            method: 'tuple_strukt',
+            args: [((i) => TupleStructToXdr(i))(tuple_strukt)],
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return TupleStructFromXdr(xdr);
+            },
+        });
+    }
 }

@@ -1809,7 +1809,7 @@ dependencies = [
 name = "preflight"
 version = "0.9.4"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.21.2",
  "libc",
  "sha2 0.10.7",
  "soroban-env-host",
@@ -2433,7 +2433,7 @@ version = "0.9.4"
 dependencies = [
  "assert_cmd",
  "assert_fs",
- "base64 0.13.1",
+ "base64 0.21.2",
  "cargo_metadata",
  "chrono",
  "clap",
@@ -2664,7 +2664,7 @@ dependencies = [
 name = "soroban-spec-tools"
 version = "0.9.4"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.21.2",
  "ethnum",
  "hex",
  "itertools",
@@ -2682,7 +2682,7 @@ dependencies = [
 name = "soroban-spec-typescript"
 version = "0.9.4"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.21.2",
  "heck",
  "include_dir",
  "itertools",
@@ -2921,18 +2921,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.41"
+version = "1.0.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c16a64ba9387ef3fdae4f9c1a7f07a0997fce91985c0336f1ddc1822b3b37802"
+checksum = "d9207952ae1a003f42d3d5e892dac3c6ba42aa6ac0c79a6a91a2b5cb4253e75c"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.41"
+version = "1.0.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d14928354b01c4d6a4f0e549069adef399a284e7995c7ccca94e8a07a5346c59"
+checksum = "f1728216d3244de4f14f14f8c15c79be1a7c67867d28d69b719690e2a19fb445"
 dependencies = [
  "proc-macro2",
  "quote",

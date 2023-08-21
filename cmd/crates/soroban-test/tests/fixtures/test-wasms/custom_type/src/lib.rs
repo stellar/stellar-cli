@@ -49,8 +49,8 @@ pub enum ComplexEnum {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
-    /// Unknown error has occurred
-    OhNo = 1,
+    /// Please provide an odd number
+    NumberMustBeOdd = 1,
 }
 #[contractimpl]
 impl Contract {
@@ -70,7 +70,7 @@ impl Contract {
         if u32_ % 2 == 1 {
             Ok(u32_)
         } else {
-            Err(Error::OhNo)
+            Err(Error::NumberMustBeOdd)
         }
     }
 
