@@ -529,7 +529,6 @@ func TestSimulateTransactionError(t *testing.T) {
 	require.Len(t, result.Events, 1)
 	var event xdr.DiagnosticEvent
 	require.NoError(t, xdr.SafeUnmarshalBase64(result.Events[0], &event))
-	fmt.Println(event)
 }
 
 func TestSimulateTransactionMultipleOperations(t *testing.T) {
