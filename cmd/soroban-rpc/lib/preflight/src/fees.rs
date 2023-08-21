@@ -1,5 +1,6 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 use ledger_storage;
+use ledger_storage::LedgerStorage;
 use soroban_env_host::budget::Budget;
 use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
 use soroban_env_host::fees::{
@@ -307,30 +308,13 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
-    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
-    for key in (&footprint).read_only.as_vec() {
-        let unmodified_entry = ledger_storage
-            .get(key, false)
-            .with_context(|| format!("cannot get ledger entry with key {key:?}"))?;
-        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
-            (&unmodified_entry).try_into().map_err(|e: String| {
-                Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
-            })?;
-        let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
-        if new_expiration_ledger <= expirable_entry.expiration_ledger_seq() {
-            // The bump would be ineffective
-            continue;
-        }
-        let rent_change = LedgerEntryRentChange {
-            is_persistent: expirable_entry.durability() == Persistent,
-            old_size_bytes: size,
-            new_size_bytes: size,
-            old_expiration_ledger: expirable_entry.expiration_ledger_seq(),
-            new_expiration_ledger,
-        };
-        rent_changes.push(rent_change);
-    }
+    let rent_changes = compute_bump_footprint_rent_changes(
+        &footprint,
+        ledger_storage,
+        ledgers_to_expire,
+        current_ledger_seq,
+    )
+    .context("cannot compute rent changes")?;
     let read_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
         ledger_storage,
@@ -371,9 +355,42 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     )
 }
 
+fn compute_bump_footprint_rent_changes(
+    footprint: &LedgerFootprint,
+    ledger_storage: &LedgerStorage,
+    ledgers_to_expire: u32,
+    current_ledger_seq: u32,
+) -> Result<Vec<LedgerEntryRentChange>> {
+    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
+    for key in (&footprint).read_only.as_vec() {
+        let unmodified_entry = ledger_storage
+            .get(key, false)
+            .with_context(|| format!("cannot get ledger entry with key {key:?}"))?;
+        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
+            (&unmodified_entry).try_into().map_err(|e: String| {
+                Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
+            })?;
+        let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
+        if new_expiration_ledger <= expirable_entry.expiration_ledger_seq() {
+            // The bump would be ineffective
+            continue;
+        }
+        let rent_change = LedgerEntryRentChange {
+            is_persistent: expirable_entry.durability() == Persistent,
+            old_size_bytes: size,
+            new_size_bytes: size,
+            old_expiration_ledger: expirable_entry.expiration_ledger_seq(),
+            new_expiration_ledger,
+        };
+        rent_changes.push(rent_change);
+    }
+    Ok(rent_changes)
+}
+
 pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     footprint: LedgerFootprint,
-    ledger_storage: &ledger_storage::LedgerStorage,
+    ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
@@ -382,37 +399,13 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         else {
             bail!("get_fee_configuration(): unexpected config setting entry for StateExpiration key");
         };
-    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
-    for key in footprint.read_write.as_vec() {
-        let unmodified_entry = ledger_storage
-            .get(key, true)
-            .with_context(|| format!("cannot get ledger entry with key {key:?}"))?;
-        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
-            (&unmodified_entry).try_into().map_err(|e: String| {
-                Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
-            })?;
-        ensure!(
-            expirable_entry.durability() == Persistent,
-            "non-persistent entry in footprint: key = {key:?}"
-        );
-        if !expirable_entry.has_expired(current_ledger_seq) {
-            // noop (the entry hadn't expired)
-            continue;
-        }
-        let new_expiration_ledger = get_restored_ledger_sequence(
-            current_ledger_seq,
-            state_expiration.min_persistent_entry_expiration,
-        );
-        let rent_change = LedgerEntryRentChange {
-            is_persistent: true,
-            old_size_bytes: 0,
-            new_size_bytes: size,
-            old_expiration_ledger: 0,
-            new_expiration_ledger,
-        };
-        rent_changes.push(rent_change);
-    }
+    let rent_changes = compute_restore_footprint_rent_changes(
+        &footprint,
+        ledger_storage,
+        state_expiration.min_persistent_entry_expiration,
+        current_ledger_seq,
+    )
+    .context("cannot compute rent changes")?;
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,
@@ -451,4 +444,42 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         current_ledger_seq,
         bucket_list_size,
     )
+}
+
+fn compute_restore_footprint_rent_changes(
+    footprint: &LedgerFootprint,
+    ledger_storage: &LedgerStorage,
+    min_persistent_entry_expiration: u32,
+    current_ledger_seq: u32,
+) -> Result<Vec<LedgerEntryRentChange>> {
+    let mut rent_changes: Vec<LedgerEntryRentChange> = Vec::new();
+    for key in footprint.read_write.as_vec() {
+        let unmodified_entry = ledger_storage
+            .get(key, true)
+            .with_context(|| format!("cannot get ledger entry with key {key:?}"))?;
+        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
+            (&unmodified_entry).try_into().map_err(|e: String| {
+                Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
+            })?;
+        ensure!(
+            expirable_entry.durability() == Persistent,
+            "non-persistent entry in footprint: key = {key:?}"
+        );
+        if !expirable_entry.has_expired(current_ledger_seq) {
+            // noop (the entry hadn't expired)
+            continue;
+        }
+        let new_expiration_ledger =
+            get_restored_ledger_sequence(current_ledger_seq, min_persistent_entry_expiration);
+        let rent_change = LedgerEntryRentChange {
+            is_persistent: true,
+            old_size_bytes: 0,
+            new_size_bytes: size,
+            old_expiration_ledger: 0,
+            new_expiration_ledger,
+        };
+        rent_changes.push(rent_change);
+    }
+    Ok(rent_changes)
 }
