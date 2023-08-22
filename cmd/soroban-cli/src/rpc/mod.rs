@@ -216,7 +216,11 @@ pub struct SimulateTransactionResponse {
     pub results: Vec<SimulateHostFunctionResult>,
     #[serde(rename = "transactionData")]
     pub transaction_data: String,
-    #[serde(deserialize_with = "deserialize_default_from_null")]
+    #[serde(
+        deserialize_with = "deserialize_default_from_null",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     pub events: Vec<String>,
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -854,6 +858,19 @@ pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn simulation_transaction_response_parsing() {
+        let s = r#"{
+ "minResourceFee": "100000000",
+ "cost": { "cpuInsns": "1000", "memBytes": "1000" },
+ "transactionData": "",
+ "latestLedger": "1234"
+        }"#;
+
+        let resp: SimulateTransactionResponse = serde_json::from_str(s).unwrap();
+        assert_eq!(resp.min_resource_fee, 100_000_000);
+    }
 
     #[test]
     fn test_rpc_url_default_ports() {
