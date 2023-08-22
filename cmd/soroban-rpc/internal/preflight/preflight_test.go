@@ -276,6 +276,7 @@ func getPreflightParameters(t testing.TB, config benchmarkConfig) PreflightParam
 		err = tx.Commit(2)
 		require.NoError(t, err)
 		if config.useDB.restartDB {
+			// Restarting the DB resets the ledger entries write-through cache
 			dbInstance.Close()
 			dbInstance, err = db.OpenSQLiteDB(dbPath)
 			require.NoError(t, err)
