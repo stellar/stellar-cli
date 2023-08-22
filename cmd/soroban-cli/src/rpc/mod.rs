@@ -95,6 +95,8 @@ pub enum Error {
     Spec(#[from] soroban_spec::read::FromWasmError),
     #[error(transparent)]
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
+    #[error("Fee was too large {0}")]
+    LargeFee(u64),
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -204,25 +206,42 @@ pub struct SimulateHostFunctionResult {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct SimulateTransactionResponse {
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub error: Option<String>,
+    #[serde(
+        rename = "minResourceFee",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub min_resource_fee: u64,
+    pub cost: Cost,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub results: Vec<SimulateHostFunctionResult>,
     #[serde(rename = "transactionData")]
     pub transaction_data: String,
     #[serde(deserialize_with = "deserialize_default_from_null")]
     pub events: Vec<String>,
     #[serde(
-        rename = "minResourceFee",
-        deserialize_with = "deserialize_number_from_string"
+        skip_serializing_if = "Option::is_none",
+        default,
+        rename = "restorePreamble"
     )]
-    pub min_resource_fee: u32,
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub results: Vec<SimulateHostFunctionResult>,
-    pub cost: Cost,
+    pub restore_preamble: Option<RestorePreamble>,
     #[serde(
         rename = "latestLedger",
         deserialize_with = "deserialize_number_from_string"
     )]
-    pub latest_ledger: u32,
+    pub latest_ledger: u64,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub error: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct RestorePreamble {
+    #[serde(rename = "transactionData")]
+    pub transaction_data: String,
+    #[serde(
+        rename = "minResourceFee",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub min_resource_fee: u64,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
