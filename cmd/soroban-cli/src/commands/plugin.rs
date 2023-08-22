@@ -23,6 +23,7 @@ pub enum Error {
 
 const SUBCOMMAND_TOLERANCE: f64 = 0.75;
 const PLUGIN_TOLERANCE: f64 = 0.75;
+const MIN_LENGTH: usize = 4;
 
 /// Tries to run a plugin, if the plugin's name is similar enough to any of the current subcommands return Ok.
 /// Otherwise only errors can be returned because this process will exit with the plugin.
@@ -35,7 +36,8 @@ pub fn run() -> Result<(), Error> {
 
     if Root::command().get_subcommands().any(|c| {
         let sc_name = c.get_name();
-        sc_name.starts_with(&name) || strsim::jaro(sc_name, &name) >= SUBCOMMAND_TOLERANCE
+        sc_name.starts_with(&name)
+            || (name.len() >= MIN_LENGTH && strsim::jaro(sc_name, &name) >= SUBCOMMAND_TOLERANCE)
     }) {
         return Ok(());
     }
