@@ -235,6 +235,8 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 		// (after which don't process past config setting updates)
 		if key.Type == xdr.LedgerEntryTypeConfigSetting {
 			l.db.ledgerEntryCacheMutex.Lock()
+			// Only udpate the cache if the entry is missing, otherwise
+			// we may end up overwriting the entry with an older version
 			if _, ok := l.db.ledgerEntryCache.entries[encodedKey]; !ok {
 				l.db.ledgerEntryCache.entries[encodedKey] = result
 			}
