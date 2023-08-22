@@ -69,13 +69,16 @@ pub struct CPreflightResult {
 impl From<PreflightResult> for CPreflightResult {
     fn from(p: PreflightResult) -> Self {
         let mut result = Self {
-            error: null_mut(),
+            error: string_to_c(p.error),
             auth: xdr_vec_to_base64_c_null_terminated_char_array(p.auth),
             result: match p.result {
                 None => null_mut(),
                 Some(v) => xdr_to_base64_c(v),
             },
-            transaction_data: xdr_to_base64_c(p.transaction_data),
+            transaction_data: match p.transaction_data {
+                None => null_mut(),
+                Some(v) => xdr_to_base64_c(v),
+            },
             min_fee: p.min_fee,
             events: xdr_vec_to_base64_c_null_terminated_char_array(p.events),
             cpu_instructions: p.cpu_instructions,

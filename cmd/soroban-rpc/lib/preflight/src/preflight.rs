@@ -11,6 +11,7 @@ use soroban_env_host::xdr::{
     SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, VecM,
 };
 use soroban_env_host::{DiagnosticLevel, Host, LedgerInfo};
+use std::collections::HashSet;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
 use std::rc::Rc;
@@ -20,10 +21,12 @@ pub(crate) struct RestorePreamble {
     pub(crate) min_fee: i64,
 }
 
+#[derive(Default)]
 pub(crate) struct PreflightResult {
+    pub(crate) error: String,
     pub(crate) auth: Vec<SorobanAuthorizationEntry>,
     pub(crate) result: Option<ScVal>,
-    pub(crate) transaction_data: SorobanTransactionData,
+    pub(crate) transaction_data: Option<SorobanTransactionData>,
     pub(crate) min_fee: i64,
     pub(crate) events: Vec<DiagnosticEvent>,
     pub(crate) cpu_instructions: u64,
@@ -68,9 +71,9 @@ pub(crate) fn preflight_invoke_hf_op(
         .context("cannot set ledger info")?;
 
     // Run the preflight.
-    let result = host
+    let maybe_result = host
         .invoke_function(invoke_hf_op.host_function.clone())
-        .context("host invocation failed")?;
+        .context("host invocation failed");
     let auths: VecM<SorobanAuthorizationEntry> = if needs_auth_recording {
         let payloads = host.get_recorded_auth_payloads()?;
         VecM::try_from(
@@ -88,6 +91,19 @@ pub(crate) fn preflight_invoke_hf_op(
     let (storage, events) = host.try_finish().context("cannot finish host invocation")?;
 
     let diagnostic_events = host_events_to_diagnostic_events(&events);
+    let result = match maybe_result {
+        Ok(r) => r,
+        // If the invocation failed, try to at least add the diagnostic events
+        Err(e) => {
+            return Ok(PreflightResult {
+                // See https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations
+                error: format!("{e:?}"),
+                events: diagnostic_events,
+                ..Default::default()
+            });
+        }
+    };
+
     let invoke_host_function_with_auth = InvokeHostFunctionOp {
         host_function: invoke_hf_op.host_function,
         auth: auths.clone(),
@@ -103,33 +119,18 @@ pub(crate) fn preflight_invoke_hf_op(
     )
     .context("cannot compute resources and fees")?;
 
-    let entries = ledger_storage_rc.get_ledger_keys_requiring_restore();
-    let restore_preamble = if entries.is_empty() {
-        None
-    } else {
-        let read_write_vec: Vec<LedgerKey> = Vec::from_iter(entries);
-        let restore_footprint = LedgerFootprint {
-            read_only: VecM::default(),
-            read_write: read_write_vec.try_into()?,
-        };
-        let (transaction_data, min_fee) =
-            fees::compute_restore_footprint_transaction_data_and_min_fee(
-                restore_footprint,
-                &ledger_storage_rc,
-                bucket_list_size,
-                ledger_info.sequence_number,
-            )
-            .context("cannot compute restore preamble")?;
-        Some(RestorePreamble {
-            transaction_data,
-            min_fee,
-        })
-    };
+    let restore_preamble = compute_restore_preamble(
+        ledger_storage_rc.get_ledger_keys_requiring_restore(),
+        &ledger_storage_rc,
+        bucket_list_size,
+        ledger_info.sequence_number,
+    )
+    .context("cannot compute restore preamble")?;
 
     Ok(PreflightResult {
         auth: auths.to_vec(),
         result: Some(result),
-        transaction_data,
+        transaction_data: Some(transaction_data),
         min_fee,
         events: diagnostic_events,
         cpu_instructions: budget
@@ -139,6 +140,7 @@ pub(crate) fn preflight_invoke_hf_op(
             .get_mem_bytes_consumed()
             .context("cannot get consumed memory")?,
         restore_preamble,
+        ..Default::default()
     })
 }
 
@@ -168,6 +170,32 @@ fn recorded_auth_payload_to_xdr(
     Ok(result)
 }
 
+fn compute_restore_preamble(
+    entries: HashSet<LedgerKey>,
+    ledger_storage: &LedgerStorage,
+    bucket_list_size: u64,
+    current_ledger_seq: u32,
+) -> Result<Option<RestorePreamble>> {
+    if entries.is_empty() {
+        return Ok(None);
+    }
+    let read_write_vec: Vec<LedgerKey> = Vec::from_iter(entries);
+    let restore_footprint = LedgerFootprint {
+        read_only: VecM::default(),
+        read_write: read_write_vec.try_into()?,
+    };
+    let (transaction_data, min_fee) = fees::compute_restore_footprint_transaction_data_and_min_fee(
+        restore_footprint,
+        ledger_storage,
+        bucket_list_size,
+        current_ledger_seq,
+    )?;
+    Ok(Some(RestorePreamble {
+        transaction_data,
+        min_fee,
+    }))
+}
+
 fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
     let mut res: Vec<DiagnosticEvent> = Vec::with_capacity(events.0.len());
     for e in &events.0 {
@@ -184,19 +212,19 @@ fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Resu
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
         else {
-            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
+            bail!("unexpected config setting entry for ComputeV0 key");
         };
 
     let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage
         .get_configuration_setting(ConfigSettingId::ContractCostParamsCpuInstructions)?
         else {
-            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
+            bail!("unexpected config setting entry for CostParamsCpuInstructions key");
         };
 
     let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)?
         else {
-            bail!("get_budget_from_network_config_params(): unexpected config setting entry for ComputeV0 key");
+            bail!("unexpected config setting entry for CostParamsMemoryBytes key");
         };
 
     let budget = Budget::try_from_configs(
@@ -253,14 +281,9 @@ fn preflight_bump_footprint_expiration(
             current_ledger_seq,
         )?;
     Ok(PreflightResult {
-        auth: vec![],
-        result: None,
-        transaction_data,
+        transaction_data: Some(transaction_data),
         min_fee,
-        events: vec![],
-        cpu_instructions: 0,
-        memory_bytes: 0,
-        restore_preamble: None,
+        ..Default::default()
     })
 }
 
@@ -277,13 +300,8 @@ fn preflight_restore_footprint(
         current_ledger_seq,
     )?;
     Ok(PreflightResult {
-        auth: vec![],
-        result: None,
-        transaction_data,
+        transaction_data: Some(transaction_data),
         min_fee,
-        events: vec![],
-        cpu_instructions: 0,
-        memory_bytes: 0,
-        restore_preamble: None,
+        ..Default::default()
     })
 }
