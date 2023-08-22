@@ -56,7 +56,7 @@ pub(crate) fn preflight_invoke_hf_op(
     // them, and return the correct fees and footprint.
     let needs_auth_recording = invoke_hf_op.auth.is_empty();
     if needs_auth_recording {
-        host.switch_to_recording_auth(true)
+        host.switch_to_recording_auth()
             .context("cannot switch auth to recording mode")?;
     } else {
         host.set_authorization_entries(invoke_hf_op.auth.to_vec())
@@ -211,21 +211,21 @@ fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
 fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Result<Budget> {
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
-    else {
-        bail!("unexpected config setting entry for ComputeV0 key");
-    };
+        else {
+            bail!("unexpected config setting entry for ComputeV0 key");
+        };
 
     let ConfigSettingEntry::ContractCostParamsCpuInstructions(cost_params_cpu) = ledger_storage
         .get_configuration_setting(ConfigSettingId::ContractCostParamsCpuInstructions)?
-    else {
-        bail!("unexpected config setting entry for CostParamsCpuInstructions key");
-    };
+        else {
+            bail!("unexpected config setting entry for CostParamsCpuInstructions key");
+        };
 
     let ConfigSettingEntry::ContractCostParamsMemoryBytes(cost_params_memory) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractCostParamsMemoryBytes)?
-    else {
-        bail!("unexpected config setting entry for CostParamsMemoryBytes key");
-    };
+        else {
+            bail!("unexpected config setting entry for CostParamsMemoryBytes key");
+        };
 
     let budget = Budget::try_from_configs(
         compute.tx_max_instructions as u64,

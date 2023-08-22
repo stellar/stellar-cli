@@ -70,7 +70,7 @@ impl Cmd {
             state.min_persistent_entry_expiration,
         )?;
 
-        self.config.set_state(&state)?;
+        self.config.set_state(&mut state)?;
 
         Ok(wasm_hash)
     }

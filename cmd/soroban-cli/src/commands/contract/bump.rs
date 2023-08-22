@@ -164,6 +164,7 @@ impl Cmd {
                     instructions: 0,
                     read_bytes: 0,
                     write_bytes: 0,
+                    contract_events_size_bytes: 0,
                 },
                 refundable_fee: 0,
             }),
@@ -243,7 +244,7 @@ impl Cmd {
             })
             .collect::<Vec<_>>();
 
-        self.config.set_state(&state)?;
+        self.config.set_state(&mut state)?;
 
         let Some(new_expiration_ledger_seq) = expiration_ledger_seq else {
             return Err(Error::LedgerEntryNotFound);

@@ -151,7 +151,7 @@ impl Cmd {
             wasm_hash.0,
             state.min_persistent_entry_expiration,
         );
-        self.config.set_state(&state)?;
+        self.config.set_state(&mut state)?;
         Ok(stellar_strkey::Contract(contract_id).to_string())
     }
 

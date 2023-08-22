@@ -125,6 +125,7 @@ pub enum Type {
     Map { key: Box<Type>, value: Box<Type> },
     Option { value: Box<Type> },
     Result { value: Box<Type>, error: Box<Type> },
+    Set { element: Box<Type> },
     Vec { element: Box<Type> },
     BytesN { n: u32 },
     Tuple { elements: Vec<Type> },
@@ -176,6 +177,9 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::Result(res) => Type::Result {
                 value: Box::new(Type::from(res.ok_type.as_ref())),
                 error: Box::new(Type::from(res.error_type.as_ref())),
+            },
+            ScSpecTypeDef::Set(set) => Type::Set {
+                element: Box::new(Type::from(set.element_type.as_ref())),
             },
             ScSpecTypeDef::Tuple(tuple) => Type::Tuple {
                 elements: tuple.value_types.iter().map(Type::from).collect(),
