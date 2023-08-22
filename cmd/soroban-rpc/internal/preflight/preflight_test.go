@@ -252,15 +252,19 @@ func (m inMemoryLedgerEntryReadTx) Done() error {
 	return nil
 }
 
-func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
+type dbConfig struct {
+	noCache   bool
+	restartDB bool
+}
+type benchmarkConfig struct {
+	useDB *dbConfig
+}
+
+func getPreflightParameters(t testing.TB, config benchmarkConfig) PreflightParameters {
 	var ledgerEntryReadTx db.LedgerEntryReadTx
-	if inMemory {
-		var err error
-		ledgerEntryReadTx, err = newInMemoryLedgerEntryReadTx(mockLedgerEntries)
-		require.NoError(t, err)
-	} else {
-		d := t.TempDir()
-		dbInstance, err := db.OpenSQLiteDB(path.Join(d, "soroban_rpc.sqlite"))
+	if config.useDB != nil {
+		dbPath := path.Join(t.TempDir(), "soroban_rpc.sqlite")
+		dbInstance, err := db.OpenSQLiteDB(dbPath)
 		require.NoError(t, err)
 		readWriter := db.NewReadWriter(dbInstance, 100, 10000)
 		tx, err := readWriter.NewTx(context.Background())
@@ -271,7 +275,21 @@ func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
 		}
 		err = tx.Commit(2)
 		require.NoError(t, err)
-		ledgerEntryReadTx, err = db.NewLedgerEntryReader(dbInstance).NewCachedTx(context.Background())
+		if config.useDB.restartDB {
+			dbInstance.Close()
+			dbInstance, err = db.OpenSQLiteDB(dbPath)
+			require.NoError(t, err)
+		}
+		entryReader := db.NewLedgerEntryReader(dbInstance)
+		if config.useDB.noCache {
+			ledgerEntryReadTx, err = entryReader.NewTx(context.Background())
+		} else {
+			ledgerEntryReadTx, err = entryReader.NewCachedTx(context.Background())
+		}
+		require.NoError(t, err)
+	} else {
+		var err error
+		ledgerEntryReadTx, err = newInMemoryLedgerEntryReadTx(mockLedgerEntries)
 		require.NoError(t, err)
 	}
 	argSymbol := xdr.ScSymbol("world")
@@ -305,17 +323,21 @@ func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
 }
 
 func TestGetPreflight(t *testing.T) {
-	params := getPreflightParameters(t, false)
+	params := getPreflightParameters(t, benchmarkConfig{})
 	_, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)
 
-	params = getPreflightParameters(t, true)
+	params = getPreflightParameters(t, benchmarkConfig{useDB: &dbConfig{}})
+	_, err = GetPreflight(context.Background(), params)
+	require.NoError(t, err)
+
+	params = getPreflightParameters(t, benchmarkConfig{useDB: &dbConfig{restartDB: true}})
 	_, err = GetPreflight(context.Background(), params)
 	require.NoError(t, err)
 }
 
-func benchmark(b *testing.B, inMemory bool) {
-	params := getPreflightParameters(b, inMemory)
+func benchmark(b *testing.B, config benchmarkConfig) {
+	params := getPreflightParameters(b, config)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StartTimer()
@@ -326,6 +348,8 @@ func benchmark(b *testing.B, inMemory bool) {
 }
 
 func BenchmarkGetPreflight(b *testing.B) {
-	b.Run("In-memory storage", func(b *testing.B) { benchmark(b, true) })
-	b.Run("DB storage", func(b *testing.B) { benchmark(b, false) })
+	b.Run("In-memory storage", func(b *testing.B) { benchmark(b, benchmarkConfig{}) })
+	b.Run("DB storage", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &dbConfig{}}) })
+	b.Run("DB storage, restarting", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &dbConfig{restartDB: true}}) })
+	b.Run("DB storage, no cache", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &dbConfig{noCache: true}}) })
 }
