@@ -106,7 +106,7 @@ impl Args {
         Ok(self.ledger_file.read(&self.locator.config_dir()?)?)
     }
 
-    pub fn set_state(&self, state: &LedgerSnapshot) -> Result<(), Error> {
+    pub fn set_state(&self, state: &mut LedgerSnapshot) -> Result<(), Error> {
         Ok(self.ledger_file.write(state, &self.locator.config_dir()?)?)
     }
 

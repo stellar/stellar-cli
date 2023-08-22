@@ -117,11 +117,11 @@ impl LedgerStorage {
         let setting_id = ConfigSettingId::StateExpiration;
         let ConfigSettingEntry::StateExpiration(state_expiration) =
             ledger_storage.get_configuration_setting(setting_id)?
-        else {
-            return Err(Error::UnexpectedConfigLedgerEntry {
-                setting_id: setting_id.name().to_string(),
-            });
-        };
+            else {
+                return Err(
+                    Error::UnexpectedConfigLedgerEntry { setting_id: setting_id.name().to_string() }
+                );
+            };
         // Now that we have the state expiration config, we can build the tracker
         ledger_storage.restore_tracker = Some(EntryRestoreTracker {
             current_ledger_seq: current_ledger_sequence,

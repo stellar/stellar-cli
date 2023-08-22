@@ -55,9 +55,6 @@ pub fn generate_from_wasm(wasm: &[u8]) -> Result<String, FromWasmError> {
     Ok(json)
 }
 
-/// # Panics
-///
-/// If `serde_json::to_string_pretty` fails to serialize the spec entries.
 pub fn generate(spec: &[ScSpecEntry]) -> String {
     let collected: Vec<_> = spec.iter().map(Entry::from).collect();
     serde_json::to_string_pretty(&collected).expect("serialization of the spec entries should not have any failure cases as all keys are strings and the serialize implementations are derived")
