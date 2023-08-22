@@ -80,7 +80,7 @@ func TestBasicTomlWriting(t *testing.T) {
 
 	// Spot-check that the output looks right. Try to check one value for each
 	// type of option. (string, duration, uint, etc...)
-	assert.Contains(t, out, "NETWORK_PASSPHRASE = \"Test SDF Future Network ; October 2022\"")
+	assert.Contains(t, out, "ENDPOINT = \"localhost:8000\"")
 	assert.Contains(t, out, "STELLAR_CORE_TIMEOUT = \"2s\"")
 	assert.Contains(t, out, "STELLAR_CAPTIVE_CORE_HTTP_PORT = 11626")
 	assert.Contains(t, out, "LOG_LEVEL = \"info\"")
