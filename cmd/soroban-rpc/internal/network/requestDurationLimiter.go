@@ -2,7 +2,10 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/creachadair/jrpc2"
@@ -132,14 +135,37 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 	if q.limitThreshold != time.Duration(0) {
 		limitCh = time.NewTimer(q.limitThreshold).C
 	}
-	requestCompleted := make(chan interface{}, 1)
+	requestCompleted := make(chan []string, 1)
 	requestCtx, requestCtxCancel := context.WithTimeout(req.Context(), q.limitThreshold)
 	defer requestCtxCancel()
 	timeLimitedRequest := req.WithContext(requestCtx)
 	responseBuffer := makeBufferedResponseWriter(res)
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				var outStrings []string
+				outStrings = append(outStrings, fmt.Sprintf("%v", err))
+				// while we're within the recoverRoutine, the debug.Stack() would return the
+				// call stack where the panic took place.
+				callStackStrings := string(debug.Stack())
+				for i, callStackLine := range strings.FieldsFunc(callStackStrings, func(r rune) bool { return r == '\n' || r == '\t' }) {
+					// skip the first 5 entries, since these are the "debug.Stack()" entries, which aren't really useful.
+					if i < 5 {
+						continue
+					}
+					outStrings = append(outStrings, callStackLine)
+					// once we reached the limiter entry, stop.
+					if strings.Contains(callStackLine, "httpRequestDurationLimiter") {
+						break
+					}
+				}
+				requestCompleted <- outStrings
+			} else {
+				close(requestCompleted)
+			}
+		}()
 		q.httpDownstreamHandler.ServeHTTP(responseBuffer, timeLimitedRequest)
-		close(requestCompleted)
+
 	}()
 
 	warn := false
@@ -161,7 +187,7 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 				res.WriteHeader(http.StatusGatewayTimeout)
 			}
 			return
-		case <-requestCompleted:
+		case errStrings := <-requestCompleted:
 			if warn {
 				if q.warningCounter != nil {
 					q.warningCounter.Inc()
@@ -170,7 +196,16 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 					q.logger.Infof("Request processing for %s exceed warning threshold of %v", req.URL.Path, q.warningThreshold)
 				}
 			}
-			responseBuffer.WriteOut(req.Context(), res)
+			if len(errStrings) == 0 {
+				responseBuffer.WriteOut(req.Context(), res)
+			} else {
+				res.WriteHeader(http.StatusInternalServerError)
+				for _, errStr := range errStrings {
+					if q.logger != nil {
+						q.logger.Warn(errStr)
+					}
+				}
+			}
 			return
 		}
 	}

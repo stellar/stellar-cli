@@ -305,3 +305,35 @@ func TestJRPCRequestDurationLimiter_NoLimiting_Warn(t *testing.T) {
 	require.Equal(t, [7]int{0, 0, 0, 0, 1, 0, 0}, logCounter.writtenLogEntries)
 	shutdown()
 }
+
+func TestHTTPRequestDurationLimiter_Panicing(t *testing.T) {
+	addr, redirector, shutdown := createTestServer()
+	longExecutingHandler := &TestServerHandlerWrapper{
+		f: func(res http.ResponseWriter, req *http.Request) {
+			var panicWrite *int
+			*panicWrite = 1
+		},
+	}
+
+	logCounter := makeTestLogCounter()
+	redirector.f = MakeHTTPRequestDurationLimiter(
+		longExecutingHandler,
+		time.Second*10,
+		time.Second*10,
+		nil,
+		nil,
+		logCounter.Entry()).ServeHTTP
+
+	client := http.Client{}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+addr+"/", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	bytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	require.Equal(t, []byte{}, bytes)
+	require.Equal(t, [7]int{0, 0, 0, 8, 0, 0, 0}, logCounter.writtenLogEntries)
+	shutdown()
+}
