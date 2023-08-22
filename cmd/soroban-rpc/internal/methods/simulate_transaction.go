@@ -28,13 +28,19 @@ type SimulateHostFunctionResult struct {
 	XDR  string   `json:"xdr"`
 }
 
+type RestorePreamble struct {
+	TransactionData string `json:"transactionData"` // SorobanTransactionData XDR in base64
+	MinResourceFee  int64  `json:"minResourceFee,string"`
+}
+
 type SimulateTransactionResponse struct {
 	Error           string                       `json:"error,omitempty"`
-	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
-	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
-	MinResourceFee  int64                        `json:"minResourceFee,string"`
-	Results         []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
-	Cost            SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
+	TransactionData string                       `json:"transactionData,omitempty"` // SorobanTransactionData XDR in base64
+	MinResourceFee  int64                        `json:"minResourceFee,string,omitempty"`
+	Events          []string                     `json:"events,omitempty"`          // DiagnosticEvent XDR in base64
+	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
+	Cost            SimulateTransactionCost      `json:"cost,omitempty"`            // the effective cpu and memory cost of the invoked transaction execution.
+	RestorePreamble RestorePreamble              `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
 	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
@@ -114,13 +120,24 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
+		var results []SimulateHostFunctionResult
+		if result.Result != "" {
+			results = append(results, SimulateHostFunctionResult{
+				XDR:  result.Result,
+				Auth: result.Auth,
+			})
+		}
+		restorePreable := RestorePreamble{}
+		if result.PreRestoreTransactionData != "" {
+			restorePreable = RestorePreamble{
+				TransactionData: result.PreRestoreTransactionData,
+				MinResourceFee:  result.PreRestoreMinFee,
+			}
+		}
+
 		return SimulateTransactionResponse{
-			Results: []SimulateHostFunctionResult{
-				{
-					XDR:  result.Result,
-					Auth: result.Auth,
-				},
-			},
+			Error:           result.Error,
+			Results:         results,
 			Events:          result.Events,
 			TransactionData: result.TransactionData,
 			MinResourceFee:  result.MinFee,
@@ -128,7 +145,8 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
 			},
-			LatestLedger: int64(latestLedger),
+			LatestLedger:    int64(latestLedger),
+			RestorePreamble: restorePreable,
 		}
 	})
 }
