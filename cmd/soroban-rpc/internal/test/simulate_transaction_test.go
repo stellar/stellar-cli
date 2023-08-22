@@ -239,10 +239,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions:            73776,
-			ReadBytes:               40,
-			WriteBytes:              112,
-			ContractEventsSizeBytes: 0,
+			Instructions: 73776,
+			ReadBytes:    40,
+			WriteBytes:   112,
 		},
 		RefundableFee: 1,
 	}
@@ -439,7 +438,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotZero(t, obtainedTransactionData.RefundableFee)
-	assert.NotZero(t, obtainedTransactionData.Resources.ContractEventsSizeBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.Instructions)
 	assert.NotZero(t, obtainedTransactionData.Resources.ReadBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.WriteBytes)
