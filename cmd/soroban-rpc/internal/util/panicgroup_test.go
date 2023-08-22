@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMonitoredRoutineTrivial(t *testing.T) {
+func TestTrivialPanicGroup(t *testing.T) {
 	ch := make(chan int)
 
-	MonitoredRoutine(MonitoredRoutineConfiguration{}, func() { ch <- 1 })
+	panicGroup := panicGroup{}
+	panicGroup.Go(func() { ch <- 1 })
 
 	<-ch
 }
@@ -63,11 +64,12 @@ func IndirectPanicingFunctionC() {
 	IndirectPanicingFunctionB()
 }
 
-func TestMonitoredRoutineLog(t *testing.T) {
+func TestPanicGroupLog(t *testing.T) {
 	logCounter := makeTestLogCounter()
-	MonitoredRoutine(MonitoredRoutineConfiguration{
-		Log: logCounter.Entry(),
-	}, IndirectPanicingFunctionC)
+	panicGroup := panicGroup{
+		log: logCounter.Entry(),
+	}
+	panicGroup.Go(IndirectPanicingFunctionC)
 	// wait until we get all the log entries.
 	waitStarted := time.Now()
 	for time.Since(waitStarted) < 5*time.Second {
@@ -80,8 +82,8 @@ func TestMonitoredRoutineLog(t *testing.T) {
 	t.FailNow()
 }
 
-func TestMonitoredRoutineStdErr(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "TestMonitoredRoutine")
+func TestPanicGroupStdErr(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "TestPanicGroupStdErr")
 	require.NoError(t, err)
 	defaultStdErr := os.Stderr
 	os.Stderr = tmpFile
@@ -90,9 +92,11 @@ func TestMonitoredRoutineStdErr(t *testing.T) {
 		tmpFile.Close()
 		os.Remove(tmpFile.Name())
 	}()
-	MonitoredRoutine(MonitoredRoutineConfiguration{
-		LogPanicsToStdErr: true,
-	}, IndirectPanicingFunctionC)
+
+	panicGroup := panicGroup{
+		logPanicsToStdErr: true,
+	}
+	panicGroup.Go(IndirectPanicingFunctionC)
 	// wait until we get all the log entries.
 	waitStarted := time.Now()
 	for time.Since(waitStarted) < 5*time.Second {

@@ -82,11 +82,8 @@ func NewService(cfg Config) *Service {
 		ledgerStatsMetric:       ledgerStatsMetric,
 	}
 	service.wg.Add(1)
-	util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
-		Log:                cfg.Logger,
-		LogPanicsToStdErr:  true,
-		ExitProcessOnPanic: true,
-	}, func() {
+	panicGroup := util.UnrecoverablePanicGroup.Log(cfg.Logger)
+	panicGroup.Go(func() {
 		defer service.wg.Done()
 		// Retry running ingestion every second for 5 seconds.
 		constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
@@ -175,11 +172,8 @@ func (s *Service) maybeFillEntriesFromCheckpoint(ctx context.Context, archive hi
 		// DB is empty, let's fill it from the History Archive, using the latest available checkpoint
 		// Do it in parallel with the upcoming captive core preparation to save time
 		s.logger.Infof("found an empty database, creating ledger-entry baseline from the most recent checkpoint (%d). This can take up to 30 minutes, depending on the network", checkpointLedger)
-		util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
-			Log:                s.logger,
-			LogPanicsToStdErr:  true,
-			ExitProcessOnPanic: true,
-		}, func() {
+		panicGroup := util.UnrecoverablePanicGroup.Log(s.logger)
+		panicGroup.Go(func() {
 			checkPointFillErr <- s.fillEntriesFromCheckpoint(ctx, archive, checkpointLedger)
 		})
 		return checkpointLedger + 1, checkPointFillErr, nil

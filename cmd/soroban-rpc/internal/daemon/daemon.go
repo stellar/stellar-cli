@@ -282,10 +282,8 @@ func (d *Daemon) Run() {
 		"addr":    d.server.Addr,
 	}).Info("starting Soroban JSON RPC server")
 
-	util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
-		Log:                d.logger,
-		ExitProcessOnPanic: true,
-	}, func() {
+	panicGroup := util.UnrecoverablePanicGroup.Log(d.logger)
+	panicGroup.Go(func() {
 		if err := d.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Error starting or closing listener:
 			d.logger.WithError(err).Fatal("soroban JSON RPC server encountered fatal error")
@@ -293,10 +291,7 @@ func (d *Daemon) Run() {
 	})
 
 	if d.adminServer != nil {
-		util.MonitoredRoutine(util.MonitoredRoutineConfiguration{
-			Log:                d.logger,
-			ExitProcessOnPanic: true,
-		}, func() {
+		panicGroup.Go(func() {
 			if err := d.adminServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				d.logger.WithError(err).Error("soroban admin server encountered fatal error")
 			}
