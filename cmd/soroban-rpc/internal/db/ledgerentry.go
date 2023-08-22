@@ -178,8 +178,9 @@ func (l ledgerEntryWriter) flush() error {
 }
 
 type ledgerEntryReadTx struct {
+	db                     *DB
 	cachedLatestLedgerSeq  uint32
-	ledgerEntryCacheReadTx transactionalCacheReadTx
+	ledgerEntryCacheReadTx *transactionalCacheReadTx
 	tx                     db.SessionInterface
 	buffer                 *xdr.EncodingBuffer
 }
@@ -228,6 +229,16 @@ func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, strin
 		result := results[0]
 		if l.ledgerEntryCacheReadTx != nil {
 			l.ledgerEntryCacheReadTx.upsert(encodedKey, &result)
+		}
+		// Add missing config setting entries to the top cache.
+		// Otherwise, the write-through cache won't get updated on restarts
+		// (after which don't process past config setting updates)
+		if key.Type == xdr.LedgerEntryTypeConfigSetting {
+			l.db.ledgerEntryCacheMutex.Lock()
+			if _, ok := l.db.ledgerEntryCache.entries[encodedKey]; !ok {
+				l.db.ledgerEntryCache.entries[encodedKey] = result
+			}
+			defer l.db.ledgerEntryCacheMutex.Unlock()
 		}
 		return true, result, nil
 	default:
@@ -296,7 +307,8 @@ func (r ledgerEntryReader) NewCachedTx(ctx context.Context) (LedgerEntryReadTx, 
 	}
 	cacheReadTx := r.db.ledgerEntryCache.newReadTx()
 	return &ledgerEntryReadTx{
-		ledgerEntryCacheReadTx: cacheReadTx,
+		db:                     r.db,
+		ledgerEntryCacheReadTx: &cacheReadTx,
 		tx:                     txSession,
 		buffer:                 xdr.NewEncodingBuffer(),
 	}, nil
@@ -308,6 +320,7 @@ func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error)
 		return nil, err
 	}
 	return &ledgerEntryReadTx{
+		db:     r.db,
 		tx:     txSession,
 		buffer: xdr.NewEncodingBuffer(),
 	}, nil
