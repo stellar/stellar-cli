@@ -375,7 +375,7 @@ impl Cmd {
             budget.reset_unlimited()?;
         };
         let h = Host::with_storage_and_budget(storage, budget);
-        h.switch_to_recording_auth()?;
+        h.switch_to_recording_auth(true)?;
         h.set_source_account(source_account)?;
 
         let mut ledger_info = state.ledger_info();
@@ -438,7 +438,7 @@ impl Cmd {
         }
         utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
-        self.config.set_state(&mut state)?;
+        self.config.set_state(&state)?;
         if !events.0.is_empty() {
             self.events_file
                 .commit(&events.0, &state, &self.config.locator.config_dir()?)?;
@@ -570,7 +570,7 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
     let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
 
     cmd = cmd.about(Some(doc)).long_about(long_doc);
-    for (name, type_) in inputs_map.iter() {
+    for (name, type_) in inputs_map {
         let mut arg = clap::Arg::new(name);
         let file_arg_name = fmt_arg_file_name(name);
         let mut file_arg = clap::Arg::new(&file_arg_name);

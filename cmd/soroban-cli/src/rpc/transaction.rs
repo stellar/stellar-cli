@@ -126,7 +126,8 @@ pub fn sign_soroban_authorizations(
             let SorobanAuthorizationEntry {
                 credentials: SorobanCredentials::Address(ref mut credentials),
                 ..
-            } = auth else {
+            } = auth
+            else {
                 // Doesn't need special signing
                 return Ok(auth);
             };
@@ -184,7 +185,8 @@ pub fn sign_soroban_authorization_entry(
     let SorobanAuthorizationEntry {
         credentials: SorobanCredentials::Address(ref mut credentials),
         ..
-    } = auth else {
+    } = auth
+    else {
         // Doesn't need special signing
         return Ok(auth);
     };
@@ -259,7 +261,6 @@ mod tests {
                 instructions: 0,
                 read_bytes: 5,
                 write_bytes: 0,
-                contract_events_size_bytes: 0,
             },
             refundable_fee: 0,
             ext: ExtensionPoint::V0,
