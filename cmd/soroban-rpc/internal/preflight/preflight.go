@@ -77,6 +77,7 @@ type PreflightParameters struct {
 }
 
 type Preflight struct {
+	Error                     string
 	Events                    []string // DiagnosticEvents XDR in base64
 	TransactionData           string   // SorobanTransactionData XDR in base64
 	MinFee                    int64
@@ -147,7 +148,7 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 	C.free(unsafe.Pointer(opBodyCString))
 	C.free(unsafe.Pointer(footprintCString))
 
-	return GoPreflight(res)
+	return GoPreflight(res), nil
 }
 
 func getSimulationLedgerSeq(readTx db.LedgerEntryReadTx) (uint32, error) {
@@ -218,17 +219,14 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	C.free(unsafe.Pointer(invokeHostFunctionCString))
 	C.free(unsafe.Pointer(sourceAccountCString))
 
-	return GoPreflight(res)
+	return GoPreflight(res), nil
 }
 
-func GoPreflight(result *C.CPreflightResult) (Preflight, error) {
+func GoPreflight(result *C.CPreflightResult) Preflight {
 	defer C.free_preflight_result(result)
 
-	if result.error != nil {
-		return Preflight{}, errors.New(C.GoString(result.error))
-	}
-
 	preflight := Preflight{
+		Error:                     C.GoString(result.error),
 		Events:                    GoNullTerminatedStringSlice(result.events),
 		TransactionData:           C.GoString(result.transaction_data),
 		MinFee:                    int64(result.min_fee),
@@ -239,5 +237,5 @@ func GoPreflight(result *C.CPreflightResult) (Preflight, error) {
 		PreRestoreTransactionData: C.GoString(result.pre_restore_transaction_data),
 		PreRestoreMinFee:          int64(result.pre_restore_min_fee),
 	}
-	return preflight, nil
+	return preflight
 }
