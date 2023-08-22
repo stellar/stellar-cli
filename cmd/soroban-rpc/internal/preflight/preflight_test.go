@@ -305,7 +305,6 @@ func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
 }
 
 func TestGetPreflight(t *testing.T) {
-
 	params := getPreflightParameters(t, false)
 	_, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)

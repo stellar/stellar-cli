@@ -35,11 +35,11 @@ type RestorePreamble struct {
 
 type SimulateTransactionResponse struct {
 	Error           string                       `json:"error,omitempty"`
-	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
-	MinResourceFee  int64                        `json:"minResourceFee,string"`
+	TransactionData string                       `json:"transactionData,omitempty"` // SorobanTransactionData XDR in base64
+	MinResourceFee  int64                        `json:"minResourceFee,string,omitempty"`
 	Events          []string                     `json:"events,omitempty"`          // DiagnosticEvent XDR in base64
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
-	Cost            SimulateTransactionCost      `json:"cost"`                      // the effective cpu and memory cost of the invoked transaction execution.
+	Cost            SimulateTransactionCost      `json:"cost,omitempty"`            // the effective cpu and memory cost of the invoked transaction execution.
 	RestorePreamble RestorePreamble              `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
 	LatestLedger    int64                        `json:"latestLedger,string"`
 }
@@ -136,6 +136,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		}
 
 		return SimulateTransactionResponse{
+			Error:           result.Error,
 			Results:         results,
 			Events:          result.Events,
 			TransactionData: result.TransactionData,
