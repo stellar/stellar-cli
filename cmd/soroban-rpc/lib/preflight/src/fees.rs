@@ -364,7 +364,7 @@ fn compute_bump_footprint_rent_changes(
     for key in (&footprint).read_only.as_vec() {
         let unmodified_entry = ledger_storage
             .get(key, false)
-            .with_context(|| format!("cannot get ledger entry with key {key:?}"))?;
+            .with_context(|| format!("cannot find bump footprint ledger entry with key {key:?}"))?;
         let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
         let expirable_entry: Box<dyn ExpirableLedgerEntry> =
             (&unmodified_entry).try_into().map_err(|e: String| {
@@ -396,7 +396,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let ConfigSettingEntry::StateExpiration(state_expiration) =
         ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
         else {
-            bail!("get_fee_configuration(): unexpected config setting entry for StateExpiration key");
+            bail!("unexpected config setting entry for StateExpiration key");
         };
     let rent_changes = compute_restore_footprint_rent_changes(
         &footprint,
@@ -454,9 +454,9 @@ fn compute_restore_footprint_rent_changes(
     let mut rent_changes: Vec<LedgerEntryRentChange> =
         Vec::with_capacity(footprint.read_write.len());
     for key in footprint.read_write.as_vec() {
-        let unmodified_entry = ledger_storage
-            .get(key, true)
-            .with_context(|| format!("cannot get ledger entry with key {key:?}"))?;
+        let unmodified_entry = ledger_storage.get(key, true).with_context(|| {
+            format!("cannot find restore footprint ledger entry with key {key:?}")
+        })?;
         let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
         let expirable_entry: Box<dyn ExpirableLedgerEntry> =
             (&unmodified_entry).try_into().map_err(|e: String| {
