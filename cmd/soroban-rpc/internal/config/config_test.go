@@ -7,7 +7,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/stellar/go/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +47,7 @@ func TestConfigLoadDefaults(t *testing.T) {
 	require.NoError(t, cfg.loadDefaults())
 
 	// Check that the defaults are set
-	assert.Equal(t, network.FutureNetworkPassphrase, cfg.NetworkPassphrase)
+	assert.Equal(t, defaultHTTPEndpoint, cfg.Endpoint)
 	assert.Equal(t, uint(runtime.NumCPU()), cfg.PreflightWorkerCount)
 }
 

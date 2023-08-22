@@ -252,26 +252,47 @@ func (m inMemoryLedgerEntryReadTx) Done() error {
 	return nil
 }
 
-func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
+func getDB(t testing.TB, restartDB bool) *db.DB {
+	dbPath := path.Join(t.TempDir(), "soroban_rpc.sqlite")
+	dbInstance, err := db.OpenSQLiteDB(dbPath)
+	require.NoError(t, err)
+	readWriter := db.NewReadWriter(dbInstance, 100, 10000)
+	tx, err := readWriter.NewTx(context.Background())
+	require.NoError(t, err)
+	for _, e := range mockLedgerEntries {
+		err := tx.LedgerEntryWriter().UpsertLedgerEntry(e)
+		require.NoError(t, err)
+	}
+	err = tx.Commit(2)
+	require.NoError(t, err)
+	if restartDB {
+		// Restarting the DB resets the ledger entries write-through cache
+		dbInstance.Close()
+		dbInstance, err = db.OpenSQLiteDB(dbPath)
+		require.NoError(t, err)
+	}
+	return dbInstance
+}
+
+type preflightParametersDBConfig struct {
+	dbInstance   *db.DB
+	disableCache bool
+}
+
+func getPreflightParameters(t testing.TB, dbConfig *preflightParametersDBConfig) PreflightParameters {
 	var ledgerEntryReadTx db.LedgerEntryReadTx
-	if inMemory {
+	if dbConfig != nil {
+		entryReader := db.NewLedgerEntryReader(dbConfig.dbInstance)
 		var err error
-		ledgerEntryReadTx, err = newInMemoryLedgerEntryReadTx(mockLedgerEntries)
+		if dbConfig.disableCache {
+			ledgerEntryReadTx, err = entryReader.NewTx(context.Background())
+		} else {
+			ledgerEntryReadTx, err = entryReader.NewCachedTx(context.Background())
+		}
 		require.NoError(t, err)
 	} else {
-		d := t.TempDir()
-		dbInstance, err := db.OpenSQLiteDB(path.Join(d, "soroban_rpc.sqlite"))
-		require.NoError(t, err)
-		readWriter := db.NewReadWriter(dbInstance, 100, 10000)
-		tx, err := readWriter.NewTx(context.Background())
-		require.NoError(t, err)
-		for _, e := range mockLedgerEntries {
-			err := tx.LedgerEntryWriter().UpsertLedgerEntry(e)
-			require.NoError(t, err)
-		}
-		err = tx.Commit(2)
-		require.NoError(t, err)
-		ledgerEntryReadTx, err = db.NewLedgerEntryReader(dbInstance).NewCachedTx(context.Background())
+		var err error
+		ledgerEntryReadTx, err = newInMemoryLedgerEntryReadTx(mockLedgerEntries)
 		require.NoError(t, err)
 	}
 	argSymbol := xdr.ScSymbol("world")
@@ -305,27 +326,56 @@ func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
 }
 
 func TestGetPreflight(t *testing.T) {
-	params := getPreflightParameters(t, false)
+	// in-memory
+	params := getPreflightParameters(t, nil)
 	_, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)
 
-	params = getPreflightParameters(t, true)
+	// using a restarted db with caching and
+	getDB(t, true)
+	dbConfig := &preflightParametersDBConfig{
+		dbInstance:   getDB(t, true),
+		disableCache: false,
+	}
+	params = getPreflightParameters(t, dbConfig)
 	_, err = GetPreflight(context.Background(), params)
 	require.NoError(t, err)
 }
 
-func benchmark(b *testing.B, inMemory bool) {
-	params := getPreflightParameters(b, inMemory)
-	b.ResetTimer()
+type benchmarkDBConfig struct {
+	restart      bool
+	disableCache bool
+}
+
+type benchmarkConfig struct {
+	useDB *benchmarkDBConfig
+}
+
+func benchmark(b *testing.B, config benchmarkConfig) {
+	var dbConfig *preflightParametersDBConfig
+	if config.useDB != nil {
+		dbConfig = &preflightParametersDBConfig{
+			dbInstance:   getDB(b, config.useDB.restart),
+			disableCache: config.useDB.disableCache,
+		}
+	}
+	b.StopTimer()
 	for i := 0; i < b.N; i++ {
+		params := getPreflightParameters(b, dbConfig)
 		b.StartTimer()
 		_, err := GetPreflight(context.Background(), params)
 		b.StopTimer()
 		require.NoError(b, err)
+		params.LedgerEntryReadTx.Done()
+	}
+	if dbConfig != nil {
+		dbConfig.dbInstance.Close()
 	}
 }
 
 func BenchmarkGetPreflight(b *testing.B) {
-	b.Run("In-memory storage", func(b *testing.B) { benchmark(b, true) })
-	b.Run("DB storage", func(b *testing.B) { benchmark(b, false) })
+	b.Run("In-memory storage", func(b *testing.B) { benchmark(b, benchmarkConfig{}) })
+	b.Run("DB storage", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &benchmarkDBConfig{}}) })
+	b.Run("DB storage, restarting", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &benchmarkDBConfig{restart: true}}) })
+	b.Run("DB storage, no cache", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &benchmarkDBConfig{disableCache: true}}) })
 }

@@ -17,13 +17,28 @@ type ConfigOptions []*ConfigOption
 
 // Validate all the config options.
 func (options ConfigOptions) Validate() error {
+	var missingOptions []errMissingRequiredOption
 	for _, option := range options {
 		if option.Validate != nil {
 			err := option.Validate(option)
-			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("Invalid config value for %s", option.Name))
+			if err == nil {
+				continue
 			}
+			if missingOption, ok := err.(errMissingRequiredOption); ok {
+				missingOptions = append(missingOptions, missingOption)
+				continue
+			}
+			return errors.Wrap(err, fmt.Sprintf("Invalid config value for %s", option.Name))
 		}
+	}
+	if len(missingOptions) > 0 {
+		// we had one or more missing options, combine these all into a single error.
+		errString := "The following required configuration parameters are missing:"
+		for _, missingOpt := range missingOptions {
+			errString += "\n*\t" + missingOpt.strErr
+			errString += "\n \t" + missingOpt.usage
+		}
+		return &errMissingRequiredOption{strErr: errString}
 	}
 	return nil
 }
