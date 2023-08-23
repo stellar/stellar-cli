@@ -330,7 +330,7 @@ func TestGetPreflight(t *testing.T) {
 	params := getPreflightParameters(t, nil)
 	_, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)
-	params.LedgerEntryReadTx.Done()
+	require.NoError(t, params.LedgerEntryReadTx.Done())
 
 	// using a restarted db with caching and
 	getDB(t, true)
