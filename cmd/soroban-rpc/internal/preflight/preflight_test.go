@@ -362,6 +362,8 @@ func benchmark(b *testing.B, config benchmarkConfig) {
 			disableCache: config.useDB.disableCache,
 		}
 	}
+
+	b.ResetTimer()
 	b.StopTimer()
 	for i := 0; i < b.N; i++ {
 		params := getPreflightParameters(b, dbConfig)
