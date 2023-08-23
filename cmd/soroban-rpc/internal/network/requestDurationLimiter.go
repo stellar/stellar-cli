@@ -165,7 +165,6 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 			}
 		}()
 		q.httpDownstreamHandler.ServeHTTP(responseBuffer, timeLimitedRequest)
-
 	}()
 
 	warn := false
