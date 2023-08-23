@@ -330,6 +330,7 @@ func TestGetPreflight(t *testing.T) {
 	params := getPreflightParameters(t, nil)
 	_, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.NoError(t, params.LedgerEntryReadTx.Done())
 
 	// using a restarted db with caching and
 	getDB(t, true)
@@ -340,6 +341,8 @@ func TestGetPreflight(t *testing.T) {
 	params = getPreflightParameters(t, dbConfig)
 	_, err = GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.NoError(t, params.LedgerEntryReadTx.Done())
+	require.NoError(t, dbConfig.dbInstance.Close())
 }
 
 type benchmarkDBConfig struct {
@@ -366,10 +369,10 @@ func benchmark(b *testing.B, config benchmarkConfig) {
 		_, err := GetPreflight(context.Background(), params)
 		b.StopTimer()
 		require.NoError(b, err)
-		params.LedgerEntryReadTx.Done()
+		require.NoError(b, params.LedgerEntryReadTx.Done())
 	}
 	if dbConfig != nil {
-		dbConfig.dbInstance.Close()
+		require.NoError(b, dbConfig.dbInstance.Close())
 	}
 }
 
