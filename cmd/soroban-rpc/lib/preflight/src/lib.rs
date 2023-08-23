@@ -8,6 +8,7 @@ extern crate base64;
 extern crate libc;
 extern crate sha2;
 extern crate soroban_env_host;
+
 use anyhow::{Context, Result};
 use ledger_storage::LedgerStorage;
 use preflight::PreflightResult;
@@ -17,9 +18,9 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::LedgerInfo;
 use std::ffi::{CStr, CString};
-use std::mem;
 use std::panic;
 use std::ptr::null_mut;
+use std::{mem, slice};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -53,42 +54,75 @@ impl From<CLedgerInfo> for LedgerInfo {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
+pub struct CXDR {
+    pub xdr: *mut libc::c_uchar,
+    pub len: libc::size_t,
+}
+
+// It would be nicer to derive Default, but we can't. It errors with:
+// The trait bound `*mut u8: std::default::Default` is not satisfied
+fn get_default_c_xdr() -> CXDR {
+    CXDR {
+        xdr: null_mut(),
+        len: 0,
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct CXDRVector {
+    pub array: *mut CXDR,
+    pub len: libc::size_t,
+}
+
+fn get_default_c_xdr_vector() -> CXDRVector {
+    CXDRVector {
+        array: null_mut(),
+        len: 0,
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct CPreflightResult {
-    pub error: *mut libc::c_char, // Error string in case of error, otherwise null
-    pub auth: *mut *mut libc::c_char, // NULL terminated array of XDR SorobanAuthorizationEntrys in base64
-    pub result: *mut libc::c_char,    // XDR SCVal in base64
-    pub transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64
-    pub min_fee: i64,                 // Minimum recommended resource fee
-    pub events: *mut *mut libc::c_char, // NULL terminated array of XDR ContractEvents in base64
+    // Error string in case of error, otherwise null
+    pub error: *mut libc::c_char,
+    // Error string in case of error, otherwise null
+    pub auth: CXDRVector,
+    // XDR SCVal
+    pub result: CXDR,
+    // SorobanTransactionData XDR
+    pub transaction_data: CXDR,
+    // Minimum recommended resource fee
+    pub min_fee: i64,
+    // array of XDR ContractEvents
+    pub events: CXDRVector,
     pub cpu_instructions: u64,
     pub memory_bytes: u64,
-    pub pre_restore_transaction_data: *mut libc::c_char, // SorobanTransactionData XDR in base64 for a prerequired RestoreFootprint operation
-    pub pre_restore_min_fee: i64, // Minimum recommended resource fee for a prerequired RestoreFootprint operation
+    // SorobanTransactionData XDR for a prerequired RestoreFootprint operation
+    pub pre_restore_transaction_data: CXDR,
+    // Minimum recommended resource fee for a prerequired RestoreFootprint operation
+    pub pre_restore_min_fee: i64,
 }
 
 impl From<PreflightResult> for CPreflightResult {
     fn from(p: PreflightResult) -> Self {
         let mut result = Self {
             error: string_to_c(p.error),
-            auth: xdr_vec_to_base64_c_null_terminated_char_array(p.auth),
-            result: match p.result {
-                None => null_mut(),
-                Some(v) => xdr_to_base64_c(v),
-            },
-            transaction_data: match p.transaction_data {
-                None => null_mut(),
-                Some(v) => xdr_to_base64_c(v),
-            },
+            auth: xdr_vec_to_c(p.auth),
+            result: option_xdr_to_c(p.result),
+            transaction_data: option_xdr_to_c(p.transaction_data),
             min_fee: p.min_fee,
-            events: xdr_vec_to_base64_c_null_terminated_char_array(p.events),
+            events: xdr_vec_to_c(p.events),
             cpu_instructions: p.cpu_instructions,
             memory_bytes: p.memory_bytes,
-            pre_restore_transaction_data: null_mut(),
+            pre_restore_transaction_data: get_default_c_xdr(),
             pre_restore_min_fee: 0,
         };
         if let Some(p) = p.restore_preamble {
             result.pre_restore_min_fee = p.min_fee;
-            result.pre_restore_transaction_data = xdr_to_base64_c(p.transaction_data);
+            result.pre_restore_transaction_data = xdr_to_c(p.transaction_data);
         };
         result
     }
@@ -98,8 +132,8 @@ impl From<PreflightResult> for CPreflightResult {
 pub extern "C" fn preflight_invoke_hf_op(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
     bucket_list_size: u64,   // Bucket list size for current ledger
-    invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
-    source_account: *const libc::c_char, // AccountId XDR in base64
+    invoke_hf_op: CXDR,      // InvokeHostFunctionOp XDR in base64
+    source_account: CXDR,    // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
@@ -116,12 +150,12 @@ pub extern "C" fn preflight_invoke_hf_op(
 fn preflight_invoke_hf_op_or_maybe_panic(
     handle: libc::uintptr_t,
     bucket_list_size: u64, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
-    invoke_hf_op: *const libc::c_char, // InvokeHostFunctionOp XDR in base64
-    source_account: *const libc::c_char, // AccountId XDR in base64
+    invoke_hf_op: CXDR,    // InvokeHostFunctionOp XDR in base64
+    source_account: CXDR,  // AccountId XDR in base64
     ledger_info: CLedgerInfo,
 ) -> Result<CPreflightResult> {
-    let invoke_hf_op = InvokeHostFunctionOp::from_xdr_base64(from_c_string(invoke_hf_op)).unwrap();
-    let source_account = AccountId::from_xdr_base64(from_c_string(source_account)).unwrap();
+    let invoke_hf_op = InvokeHostFunctionOp::from_xdr(from_c_xdr(invoke_hf_op)).unwrap();
+    let source_account = AccountId::from_xdr(from_c_xdr(source_account)).unwrap();
     let ledger_storage = LedgerStorage::with_restore_tracking(handle, ledger_info.sequence_number)
         .context("cannot create LedgerStorage")?;
     let result = preflight::preflight_invoke_hf_op(
@@ -138,8 +172,8 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 pub extern "C" fn preflight_footprint_expiration_op(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
     bucket_list_size: u64,   // Bucket list size for current ledger
-    op_body: *const libc::c_char, // OperationBody XDR in base64
-    footprint: *const libc::c_char, // LedgerFootprint XDR in base64
+    op_body: CXDR,           // OperationBody XDR
+    footprint: CXDR,         // LedgerFootprint XDR
     current_ledger_seq: u32,
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
@@ -156,12 +190,12 @@ pub extern "C" fn preflight_footprint_expiration_op(
 fn preflight_footprint_expiration_op_or_maybe_panic(
     handle: libc::uintptr_t,
     bucket_list_size: u64,
-    op_body: *const libc::c_char,
-    footprint: *const libc::c_char,
+    op_body: CXDR,
+    footprint: CXDR,
     current_ledger_seq: u32,
 ) -> Result<CPreflightResult> {
-    let op_body = OperationBody::from_xdr_base64(from_c_string(op_body)).unwrap();
-    let footprint = LedgerFootprint::from_xdr_base64(from_c_string(footprint)).unwrap();
+    let op_body = OperationBody::from_xdr(from_c_xdr(op_body)).unwrap();
+    let footprint = LedgerFootprint::from_xdr(from_c_xdr(footprint)).unwrap();
     let ledger_storage = &LedgerStorage::new(handle);
     let result = preflight::preflight_footprint_expiration_op(
         ledger_storage,
@@ -177,14 +211,14 @@ fn preflight_error(str: String) -> CPreflightResult {
     let c_str = CString::new(str).unwrap();
     CPreflightResult {
         error: c_str.into_raw(),
-        auth: null_mut(),
-        result: null_mut(),
-        transaction_data: null_mut(),
+        auth: get_default_c_xdr_vector(),
+        result: get_default_c_xdr(),
+        transaction_data: get_default_c_xdr(),
         min_fee: 0,
-        events: null_mut(),
+        events: get_default_c_xdr_vector(),
         cpu_instructions: 0,
         memory_bytes: 0,
-        pre_restore_transaction_data: null_mut(),
+        pre_restore_transaction_data: get_default_c_xdr(),
         pre_restore_min_fee: 0,
     }
 }
@@ -207,49 +241,44 @@ fn catch_preflight_panic(op: Box<dyn Fn() -> Result<CPreflightResult>>) -> *mut 
     Box::into_raw(Box::new(c_preflight_result))
 }
 
-fn xdr_to_base64_c(v: impl WriteXdr) -> *mut libc::c_char {
-    string_to_c(v.to_xdr_base64().unwrap())
+fn xdr_to_c(v: impl WriteXdr) -> CXDR {
+    let (xdr, len) = vec_to_c_array(v.to_xdr().unwrap());
+    CXDR { xdr, len }
+}
+
+fn option_xdr_to_c(v: Option<impl WriteXdr>) -> CXDR {
+    v.map_or(
+        CXDR {
+            xdr: null_mut(),
+            len: 0,
+        },
+        xdr_to_c,
+    )
+}
+
+fn xdr_vec_to_c(v: Vec<impl WriteXdr>) -> CXDRVector {
+    let c_v = v.into_iter().map(xdr_to_c).collect();
+    let (array, len) = vec_to_c_array(c_v);
+    return CXDRVector { array, len };
 }
 
 fn string_to_c(str: String) -> *mut libc::c_char {
     CString::new(str).unwrap().into_raw()
 }
 
-fn xdr_vec_to_base64_c_null_terminated_char_array(
-    payloads: Vec<impl WriteXdr>,
-) -> *mut *mut libc::c_char {
-    let xdr_base64_vec: Vec<String> = payloads
-        .iter()
-        .map(|a| WriteXdr::to_xdr_base64(a).unwrap())
-        .collect();
-    string_vec_to_c_null_terminated_char_array(xdr_base64_vec)
-}
-
-fn string_vec_to_c_null_terminated_char_array(v: Vec<String>) -> *mut *mut libc::c_char {
-    let mut out_vec: Vec<*mut libc::c_char> = Vec::new();
-    for s in &v {
-        let c_str = string_to_c(s.clone());
-        out_vec.push(c_str);
-    }
-
-    // Add the ending NULL
-    out_vec.push(null_mut());
-
-    vec_to_c_array(out_vec)
-}
-
-fn vec_to_c_array<T>(mut v: Vec<T>) -> *mut T {
+fn vec_to_c_array<T>(mut v: Vec<T>) -> (*mut T, libc::size_t) {
     // Make sure length and capacity are the same
     // (this allows using the length as the capacity when deallocating the vector)
     v.shrink_to_fit();
-    assert_eq!(v.len(), v.capacity());
+    let len = v.len();
+    assert_eq!(len, v.capacity());
 
     // Get the pointer to our vector, we will deallocate it in free_c_null_terminated_char_array()
     // TODO: replace by `out_vec.into_raw_parts()` once the API stabilizes
     let ptr = v.as_mut_ptr();
     mem::forget(v);
 
-    ptr
+    (ptr, len)
 }
 
 /// .
@@ -264,11 +293,11 @@ pub unsafe extern "C" fn free_preflight_result(result: *mut CPreflightResult) {
     }
     let boxed = Box::from_raw(result);
     free_c_string(boxed.error);
-    free_c_null_terminated_char_array(boxed.auth);
-    free_c_string(boxed.result);
-    free_c_string(boxed.transaction_data);
-    free_c_null_terminated_char_array(boxed.events);
-    free_c_string(boxed.pre_restore_transaction_data);
+    free_c_xdr_array(boxed.auth);
+    free_c_xdr(boxed.result);
+    free_c_xdr(boxed.transaction_data);
+    free_c_xdr_array(boxed.events);
+    free_c_xdr(boxed.pre_restore_transaction_data);
 }
 
 fn free_c_string(str: *mut libc::c_char) {
@@ -280,30 +309,33 @@ fn free_c_string(str: *mut libc::c_char) {
     }
 }
 
-fn free_c_null_terminated_char_array(array: *mut *mut libc::c_char) {
-    if array.is_null() {
+fn free_c_xdr(xdr: CXDR) {
+    if xdr.xdr.is_null() {
         return;
     }
     unsafe {
-        let mut i: usize = 0;
-        loop {
-            let c_char_ptr = *array.add(i);
-            if c_char_ptr.is_null() {
-                // Iterate until we find the ending null value
-                break;
-            }
-            // deallocate each string
-            _ = CString::from_raw(c_char_ptr);
-            i += 1;
-        }
-        // convert the last (NULL) element's index to the vector's length
-        let len = i + 1;
-        // deallocate the containing vector
-        // (for which vec_to_c_array() ensured the same length and capacity)
-        _ = Vec::from_raw_parts(array, len, len);
+        let _ = Vec::from_raw_parts(xdr.xdr, xdr.len, xdr.len);
     }
 }
+
+fn free_c_xdr_array(xdr_array: CXDRVector) {
+    if xdr_array.array.is_null() {
+        return;
+    }
+    unsafe {
+        let v = Vec::from_raw_parts(xdr_array.array, xdr_array.len, xdr_array.len);
+        for xdr in v {
+            free_c_xdr(xdr);
+        }
+    }
+}
+
 fn from_c_string(str: *const libc::c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(str) };
     c_str.to_str().unwrap().to_string()
+}
+
+fn from_c_xdr(xdr: CXDR) -> Vec<u8> {
+    let s = unsafe { slice::from_raw_parts(xdr.xdr, xdr.len) };
+    s.to_vec()
 }
