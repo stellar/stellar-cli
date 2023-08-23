@@ -7,7 +7,7 @@ const SorobanClient = require("soroban-client");
  * selected in Freighter. If not connected to Freighter, return null.
  */
 async function getAccount(wallet, server) {
-    if (!await wallet.isConnected() || !await wallet.isAllowed()) {
+    if (!(await wallet.isConnected()) || !(await wallet.isAllowed())) {
         return null;
     }
     const { publicKey } = await wallet.getUserInfo();
@@ -22,11 +22,15 @@ exports.NotImplementedError = NotImplementedError;
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse;
 async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, rpcUrl, networkPassphrase, contractId, wallet, }) {
-    wallet = wallet ?? await Promise.resolve().then(() => require('@stellar/freighter-api'));
-    const server = new SorobanClient.Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') });
+    wallet = wallet ?? (await Promise.resolve().then(() => require("@stellar/freighter-api")));
+    let parse = parseResultXdr;
+    const server = new SorobanClient.Server(rpcUrl, {
+        allowHttp: rpcUrl.startsWith("http://"),
+    });
     const walletAccount = await getAccount(wallet, server);
     // use a placeholder null account if not yet connected to Freighter so that view calls can still work
-    const account = walletAccount ?? new SorobanClient.Account('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', '0');
+    const account = walletAccount ??
+        new SorobanClient.Account("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", "0");
     const contract = new SorobanClient.Contract(contractId);
     let tx = new SorobanClient.TransactionBuilder(account, {
         fee: fee.toString(10),
@@ -35,28 +39,32 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         .addOperation(contract.call(method, ...args))
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
+    console.log(method, args);
     const simulated = await server.simulateTransaction(tx);
+    console.log("---\n", simulated.result.retval, "\n----");
     if (simulated.error)
         throw simulated.error;
-    if (responseType === 'simulated')
+    if (responseType === "simulated")
         return simulated;
     // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
-    const auths = simulated.results?.[0]?.auth;
-    let authsCount = auths?.length ?? 0;
-    const writeLength = SorobanClient.xdr.SorobanTransactionData.fromXDR(simulated.transactionData, 'base64').resources().footprint().readWrite().length;
-    const parse = parseResultXdr ?? (xdr => xdr);
+    let authsCount = simulated.result.auth?.length ?? 0;
+    const writeLength = simulated.transactionData
+        .build()
+        .resources()
+        .footprint()
+        .readWrite().length;
     const isViewCall = authsCount === 0 && writeLength === 0;
     if (isViewCall) {
-        if (responseType === 'full')
+        if (responseType === "full")
             return simulated;
-        const { results } = simulated;
-        if (!results || results[0] === undefined) {
+        const retval = simulated.result?.retval;
+        if (!retval) {
             if (simulated.error) {
                 throw new Error(simulated.error);
             }
             throw new Error(`Invalid response from simulateTransaction:\n{simulated}`);
         }
-        return parse(results[0].xdr);
+        return parseResultXdr(retval);
     }
     if (authsCount > 1) {
         throw new NotImplementedError("Multiple auths not yet supported");
@@ -72,18 +80,18 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         // }
     }
     if (!walletAccount) {
-        throw new Error('Not connected to Freighter');
+        throw new Error("Not connected to Freighter");
     }
-    tx = await signTx(wallet, SorobanClient.assembleTransaction(tx, networkPassphrase, simulated), networkPassphrase);
+    tx = await signTx(wallet, SorobanClient.assembleTransaction(tx, networkPassphrase, simulated).build(), networkPassphrase);
     const raw = await sendTx(tx, secondsToWait, server);
-    if (responseType === 'full')
+    if (responseType === "full")
         return raw;
     // if `sendTx` awaited the inclusion of the tx in the ledger, it used
     // `getTransaction`, which has a `resultXdr` field
-    if ('resultXdr' in raw)
-        return parse(raw.resultXdr);
+    if ("resultXdr" in raw)
+        return parse(raw.resultXdr.result().toXDR("base64"));
     // otherwise, it returned the result of `sendTransaction`
-    if ('errorResultXdr' in raw)
+    if ("errorResultXdr" in raw)
         return parse(raw.errorResultXdr);
     // if neither of these are present, something went wrong
     console.error("Don't know how to parse result! Returning full RPC response.");
@@ -121,19 +129,20 @@ async function sendTx(tx, secondsToWait, server) {
         return sendTransactionResponse;
     }
     let getTransactionResponse = await server.getTransaction(sendTransactionResponse.hash);
-    const waitUntil = new Date((Date.now() + secondsToWait * 1000)).valueOf();
+    const waitUntil = new Date(Date.now() + secondsToWait * 1000).valueOf();
     let waitTime = 1000;
     let exponentialFactor = 1.5;
-    while ((Date.now() < waitUntil) && getTransactionResponse.status === "NOT_FOUND") {
+    while (Date.now() < waitUntil &&
+        getTransactionResponse.status === "NOT_FOUND") {
         // Wait a beat
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
         /// Exponential backoff
         waitTime = waitTime * exponentialFactor;
         // See if the transaction is complete
         getTransactionResponse = await server.getTransaction(sendTransactionResponse.hash);
     }
     if (getTransactionResponse.status === "NOT_FOUND") {
-        console.log(`Waited ${secondsToWait} seconds for transaction to complete, but it did not. Returning anyway. Check the transaction status manually. Info: ${JSON.stringify(sendTransactionResponse, null, 2)}`);
+        console.error(`Waited ${secondsToWait} seconds for transaction to complete, but it did not. Returning anyway. Check the transaction status manually. Info: ${JSON.stringify(sendTransactionResponse, null, 2)}`);
     }
     return getTransactionResponse;
 }
