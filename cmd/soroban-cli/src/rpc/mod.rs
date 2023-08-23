@@ -10,10 +10,10 @@ use soroban_env_host::{
     events::HostEvent,
     xdr::{
         self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
-        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Operation, OperationBody,
-        PublicKey, ReadXdr, SequenceNumber, SorobanAuthorizationEntry, Transaction,
-        TransactionEnvelope, TransactionMeta, TransactionMetaV3, TransactionResult,
-        TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
+        SequenceNumber, SorobanAuthorizationEntry, Transaction, TransactionEnvelope,
+        TransactionMeta, TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256,
+        VecM, WriteXdr,
     },
 };
 use soroban_sdk::token;
