@@ -3,6 +3,7 @@ import { Contract, Ok, Err, networks } from '../../fixtures/test_custom_types/di
 
 const rpcUrl = 'https://rpc-futurenet.stellar.org'
 const publicKey = 'GCBVOLOM32I7OD5TWZQCIXCXML3TK56MDY7ZMTAILIBQHHKPCVU42XYW'
+const addr = Address.fromString(publicKey)
 
 const contract = new Contract({
   ...networks.futurenet,
@@ -49,7 +50,7 @@ test("strukt_hel", async (t) => {
   t.deepEqual(await contract.struktHel({ strukt: test }), ["Hello", "world"])
 })
 
-test.failing("strukt", async (t) => {
+test("strukt", async (t) => {
   let test = { a: 0, b: true, c: "hello" }
   t.deepEqual(await contract.strukt({ strukt: test }), test)
 })
@@ -71,25 +72,25 @@ test('simple third', async t => {
 
 test('complex with struct', async t => {
   const arg = { tag: 'Struct', values: [{ a: 0, b: true, c: 'hello' }] } as const
-  const ret = { tag: 'Struct', values: { a: 0, b: true, c: 'hello' } }
+  const ret = { tag: 'Struct', values: [{ a: 0, b: true, c: 'hello' }] }
   t.deepEqual(await contract.complex({ complex: arg }), ret)
 })
 
 test('complex with tuple', async t => {
   const arg = { tag: 'Tuple', values: [[{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }]] } as const
-  const ret = { tag: 'Tuple', values: [{ a: 0, b: true, c: 'hello' }, ['First']] }
+  const ret = { tag: 'Tuple', values: [[{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }]] }
   t.deepEqual(await contract.complex({ complex: arg }), ret)
 })
 
 test('complex with enum', async t => {
   const arg = { tag: 'Enum', values: [{ tag: 'First', values: undefined }] } as const
-  const ret = { tag: 'Enum', values: ['First'] }
+  const ret = { tag: 'Enum', values: [{ tag: 'First', values: undefined }] }
   t.deepEqual(await contract.complex({ complex: arg }), ret)
 })
 
 test('complex with asset', async t => {
-  const arg = { tag: 'Asset', values: [publicKey, 1n] } as const
-  const ret = { tag: 'Asset', values: publicKey }
+  const arg = { tag: 'Asset', values: [addr, 1n] } as const
+  const ret = { tag: 'Asset', values: [addr, 1n] }
   t.deepEqual(await contract.complex({ complex: arg }), ret)
 })
 
@@ -99,7 +100,7 @@ test('complex with void', async t => {
 })
 
 test('addresse', async t => {
-  t.is(await contract.addresse({ addresse: publicKey }), publicKey)
+  t.deepEqual(await contract.addresse({ addresse: addr }), addr)
 })
 
 test('bytes', async t => {
@@ -107,12 +108,12 @@ test('bytes', async t => {
   t.deepEqual(await contract.bytes({ bytes }), bytes)
 })
 
-test.failing('bytes_n', async t => {
-  const bytes_n = Buffer.from('1') // what's the correct way to construct bytes_n?
+test('bytes_n', async t => {
+  const bytes_n = Buffer.from('123456789') // what's the correct way to construct bytes_n?
   t.deepEqual(await contract.bytesN({ bytes_n }), bytes_n)
 })
 
-test.failing('card', async t => {
+test('card', async t => {
   const card = 11
   t.is(await contract.card({ card }), card)
 })
@@ -143,7 +144,7 @@ test('map', async t => {
   map.set(1, true)
   map.set(2, false)
   // map.set(3, 'hahaha') // should throw an error
-  t.deepEqual(await contract.map({ map }), Object.fromEntries(map.entries()))
+  t.deepEqual(await contract.map({ map }), map)
 })
 
 test('vec', async t => {
@@ -156,24 +157,24 @@ test('tuple', async t => {
   t.deepEqual(await contract.tuple({ tuple }), tuple)
 })
 
-test.failing('option', async t => {
+test('option', async t => {
   // this makes sense
   t.deepEqual(await contract.option({ option: 1 }), 1)
 
   // this passes but shouldn't
-  t.deepEqual(await contract.option({ option: undefined }), 0)
+  t.deepEqual(await contract.option({ option: undefined }), undefined)
 
   // this is the behavior we probably want, but fails
   // t.deepEqual(await contract.option(), undefined) // typing and implementation require the object
   // t.deepEqual(await contract.option({}), undefined) // typing requires argument; implementation would be fine with this
-  t.deepEqual(await contract.option({ option: undefined }), undefined)
+  // t.deepEqual(await contract.option({ option: undefined }), undefined)
 })
 
-test.failing('u256', async t => {
+test('u256', async t => {
   t.is(await contract.u256({ u256: 1n }), 1n)
 })
 
-test.failing('i256', async t => {
+test('i256', async t => {
   t.is(await contract.i256({ i256: -1n }), -1n)
 })
 
@@ -183,6 +184,6 @@ test('string', async t => {
 
 test('tuple_strukt', async t => {
   const arg = [{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }] as const
-  const res = [{ a: 0, b: true, c: 'hello' }, ['First']]
+  const res = [{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }]
   t.deepEqual(await contract.tupleStrukt({ tuple_strukt: arg }), res)
 })

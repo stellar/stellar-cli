@@ -25,7 +25,7 @@ base64 = { workspace = true }
 
 [dependencies.stellar-xdr]
 workspace = true
-features = ["next", "std", "serde"]
+features = ["next", "std", "serde", "base64"]
 
 [dev_dependencies]
 temp-dir = "0.1.11"
