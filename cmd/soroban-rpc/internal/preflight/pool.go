@@ -127,12 +127,12 @@ type metricsLedgerEntryWrapper struct {
 	ledgerEntriesFetched uint32
 }
 
-func (m *metricsLedgerEntryWrapper) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
+func (m *metricsLedgerEntryWrapper) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
 	startTime := time.Now()
-	ok, entry, err := m.LedgerEntryReadTx.GetLedgerEntry(key, includeExpired)
+	entries, err := m.LedgerEntryReadTx.GetLedgerEntries(includeExpired, keys...)
 	atomic.AddUint64(&m.totalDurationMs, uint64(time.Since(startTime).Milliseconds()))
 	atomic.AddUint32(&m.ledgerEntriesFetched, 1)
-	return ok, entry, err
+	return entries, err
 }
 
 func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, bucketListSize uint64, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (Preflight, error) {
