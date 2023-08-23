@@ -35,11 +35,11 @@ jobs:
       # resolution options, using npm release or a gh ref:
       #
       # option #1, set the version of soroban-js-client based on a npm release version
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: 0.11.0
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: 
       # option #2, set the version of soroban-js-client used as a ref to a gh repo
       # if this value is present it takes precedence over any SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION
-      # SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO: stellar/js-soroban-client
-      # SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF: refs/pull/126/head
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO: stellar/js-soroban-client
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF: refs/pull/121/head
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
