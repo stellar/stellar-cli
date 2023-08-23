@@ -2,6 +2,7 @@ package methods
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/creachadair/jrpc2"
@@ -121,16 +122,16 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		}
 
 		var results []SimulateHostFunctionResult
-		if result.Result != "" {
+		if len(result.Result) != 0 {
 			results = append(results, SimulateHostFunctionResult{
-				XDR:  result.Result,
-				Auth: result.Auth,
+				XDR:  base64.StdEncoding.EncodeToString(result.Result),
+				Auth: base64EncodeSlice(result.Auth),
 			})
 		}
 		restorePreable := RestorePreamble{}
-		if result.PreRestoreTransactionData != "" {
+		if len(result.PreRestoreTransactionData) != 0 {
 			restorePreable = RestorePreamble{
-				TransactionData: result.PreRestoreTransactionData,
+				TransactionData: base64.StdEncoding.EncodeToString(result.PreRestoreTransactionData),
 				MinResourceFee:  result.PreRestoreMinFee,
 			}
 		}
@@ -138,8 +139,8 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		return SimulateTransactionResponse{
 			Error:           result.Error,
 			Results:         results,
-			Events:          result.Events,
-			TransactionData: result.TransactionData,
+			Events:          base64EncodeSlice(result.Events),
+			TransactionData: base64.StdEncoding.EncodeToString(result.TransactionData),
 			MinResourceFee:  result.MinFee,
 			Cost: SimulateTransactionCost{
 				CPUInstructions: result.CPUInstructions,
@@ -149,6 +150,14 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			RestorePreamble: restorePreable,
 		}
 	})
+}
+
+func base64EncodeSlice(in [][]byte) []string {
+	result := make([]string, len(in))
+	for i, v := range in {
+		result[i] = base64.StdEncoding.EncodeToString(v)
+	}
+	return result
 }
 
 func getBucketListSize(ctx context.Context, ledgerReader db.LedgerReader, latestLedger uint32) (uint64, error) {
