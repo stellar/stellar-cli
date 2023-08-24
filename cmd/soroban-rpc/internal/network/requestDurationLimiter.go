@@ -2,14 +2,14 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"runtime/debug"
-	"strings"
+	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/util"
 )
 
 const maxUint = ^uint64(0)         //18446744073709551615
@@ -143,23 +143,9 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				var outStrings []string
-				outStrings = append(outStrings, fmt.Sprintf("%v", err))
-				// while we're within the recoverRoutine, the debug.Stack() would return the
-				// call stack where the panic took place.
-				callStackStrings := string(debug.Stack())
-				for i, callStackLine := range strings.FieldsFunc(callStackStrings, func(r rune) bool { return r == '\n' || r == '\t' }) {
-					// skip the first 5 entries, since these are the "debug.Stack()" entries, which aren't really useful.
-					if i < 5 {
-						continue
-					}
-					outStrings = append(outStrings, callStackLine)
-					// once we reached the limiter entry, stop.
-					if strings.Contains(callStackLine, "httpRequestDurationLimiter") {
-						break
-					}
-				}
-				requestCompleted <- outStrings
+				functionName := runtime.FuncForPC(reflect.ValueOf(q.httpDownstreamHandler.ServeHTTP).Pointer()).Name()
+				callStack := util.CallStack(err, functionName, "(*httpRequestDurationLimiter).ServeHTTP.func1()", 8)
+				requestCompleted <- callStack
 			} else {
 				close(requestCompleted)
 			}

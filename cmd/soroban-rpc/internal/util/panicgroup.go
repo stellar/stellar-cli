@@ -61,17 +61,16 @@ func (pg *panicGroup) recoverRoutine(fn func()) {
 	if recoverRes == nil {
 		return
 	}
-	var cs []string
+	cs := getPanicCallStack(recoverRes, fn)
+	if len(cs) <= 0 {
+		return
+	}
 	if pg.log != nil {
-		cs = getPanicCallStack(fn)
 		for _, line := range cs {
 			pg.log.Warn(line)
 		}
 	}
 	if pg.logPanicsToStdErr {
-		if len(cs) == 0 {
-			cs = getPanicCallStack(fn)
-		}
 		for _, line := range cs {
 			fmt.Fprintln(os.Stderr, line)
 		}
@@ -85,22 +84,33 @@ func (pg *panicGroup) recoverRoutine(fn func()) {
 	}
 }
 
-func getPanicCallStack(fn func()) (outCallStack []string) {
+func getPanicCallStack(recoverRes any, fn func()) (outCallStack []string) {
 	functionName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
-	outCallStack = append(outCallStack, fmt.Sprintf("panicing root function '%s'", functionName))
+	return CallStack(recoverRes, functionName, "(*panicGroup).Go", 10)
+}
+
+// CallStack returns an array of strings representing the current call stack. The method is
+// tuned for the purpose of panic handler, and used as a helper in contructing the list of entries we want
+// to write to the log / stderr / telemetry.
+func CallStack(recoverRes any, topLevelFunctionName string, lastCallstackMethod string, unwindStackLines int) (callStack []string) {
+	if topLevelFunctionName != "" {
+		callStack = append(callStack, fmt.Sprintf("%v when calling %v", recoverRes, topLevelFunctionName))
+	} else {
+		callStack = append(callStack, fmt.Sprintf("%v", recoverRes))
+	}
 	// while we're within the recoverRoutine, the debug.Stack() would return the
 	// call stack where the panic took place.
 	callStackStrings := string(debug.Stack())
 	for i, callStackLine := range strings.FieldsFunc(callStackStrings, func(r rune) bool { return r == '\n' || r == '\t' }) {
-		// skip the first 5 entries, since these are the "debug.Stack()" entries, which aren't really useful.
-		if i < 5 {
+		// skip the first (unwindStackLines) entries, since these are the "debug.Stack()" entries, which aren't really useful.
+		if i < unwindStackLines {
 			continue
 		}
-		outCallStack = append(outCallStack, callStackLine)
-		// once we reached the panicGroup entry, stop.
-		if strings.Contains(callStackLine, "(*panicGroup).Go") {
+		callStack = append(callStack, callStackLine)
+		// once we reached the limiter entry, stop.
+		if strings.Contains(callStackLine, lastCallstackMethod) {
 			break
 		}
 	}
-	return outCallStack
+	return callStack
 }
