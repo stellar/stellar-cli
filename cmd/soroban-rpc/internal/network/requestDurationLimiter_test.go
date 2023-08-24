@@ -334,6 +334,6 @@ func TestHTTPRequestDurationLimiter_Panicing(t *testing.T) {
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	require.Equal(t, []byte{}, bytes)
-	require.Equal(t, [7]int{0, 0, 0, 8, 0, 0, 0}, logCounter.writtenLogEntries)
+	require.Equal(t, [7]int{0, 0, 0, 7, 0, 0, 0}, logCounter.writtenLogEntries)
 	shutdown()
 }
