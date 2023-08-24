@@ -208,9 +208,10 @@ func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]stri
 		keysToQueryInDB = make([]string, 0, len(keys))
 		for _, k := range keys {
 			entry, ok := l.ledgerEntryCacheReadTx.get(k)
-			if !ok || entry == nil {
+			if !ok {
 				keysToQueryInDB = append(keysToQueryInDB, k)
-			} else {
+			}
+			if entry != nil {
 				result[k] = *entry
 			}
 		}
