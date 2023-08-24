@@ -190,7 +190,7 @@ func (l *ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
 		return l.cachedLatestLedgerSeq, nil
 	}
 	latestLedgerSeq, err := getLatestLedgerSequence(context.Background(), l.tx)
-	if err != nil {
+	if err == nil {
 		l.cachedLatestLedgerSeq = latestLedgerSeq
 	}
 	return latestLedgerSeq, err
