@@ -238,7 +238,7 @@ pub fn sign_soroban_authorization_entry(
 mod tests {
     use super::*;
 
-    use super::super::{Cost, SimulateHostFunctionResult};
+    use super::super::SimulateHostFunctionResult;
     use soroban_env_host::xdr::{
         self, AccountId, ChangeTrustAsset, ChangeTrustOp, ExtensionPoint, Hash, HostFunction,
         InvokeContractArgs, InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation,
@@ -290,19 +290,13 @@ mod tests {
 
         SimulateTransactionResponse {
             min_resource_fee: 115,
-            cost: Cost {
-                cpu_insns: "0".to_string(),
-                mem_bytes: "0".to_string(),
-            },
+            latest_ledger: 3,
             results: vec![SimulateHostFunctionResult {
                 auth: vec![fn_auth.to_xdr_base64().unwrap()],
                 xdr: ScVal::U32(0).to_xdr_base64().unwrap(),
             }],
             transaction_data: transaction_data().to_xdr_base64().unwrap(),
-            events: Vec::default(),
-            restore_preamble: None,
-            latest_ledger: 3,
-            error: None,
+            ..Default::default()
         }
     }
 
@@ -411,16 +405,9 @@ mod tests {
             &txn,
             &SimulateTransactionResponse {
                 min_resource_fee: 115,
-                cost: Cost {
-                    cpu_insns: "0".to_string(),
-                    mem_bytes: "0".to_string(),
-                },
-                results: vec![],
                 transaction_data: transaction_data().to_xdr_base64().unwrap(),
-                events: Vec::default(),
-                restore_preamble: None,
                 latest_ledger: 3,
-                error: None,
+                ..Default::default()
             },
             None,
         );
@@ -439,16 +426,9 @@ mod tests {
             &txn,
             &SimulateTransactionResponse {
                 min_resource_fee: 115,
-                cost: Cost {
-                    cpu_insns: "0".to_string(),
-                    mem_bytes: "0".to_string(),
-                },
-                results: vec![],
                 transaction_data: transaction_data().to_xdr_base64().unwrap(),
-                events: Vec::default(),
-                restore_preamble: None,
                 latest_ledger: 3,
-                error: None,
+                ..Default::default()
             },
             None,
         );
