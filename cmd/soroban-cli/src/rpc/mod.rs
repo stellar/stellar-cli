@@ -508,8 +508,11 @@ soroban config identity fund {address} --helper-url <url>"#
                     TransactionResult::read_xdr_base64(&mut x.as_bytes())
                         .map_err(|_| Error::InvalidResponse)
                 })
-                .map(|r| r.result);
-            tracing::error!(?error);
+                .map(|r| r.result)
+                .map_err(|e| {
+                    crate::log::txn_error::txn_error(&e);
+                    e
+                });
             return Err(Error::TransactionSubmissionFailed(format!("{:#?}", error?)));
         }
         // even if status == "success" we need to query the transaction status in order to get the result
@@ -535,7 +538,7 @@ soroban config identity fund {address} --helper-url <url>"#
                     return Ok((result, meta, events));
                 }
                 "FAILED" => {
-                    tracing::error!(?response);
+                    crate::log::txn_response_error(&response);
                     // TODO: provide a more elaborate error
                     return Err(Error::TransactionSubmissionFailed(format!("{response:#?}")));
                 }

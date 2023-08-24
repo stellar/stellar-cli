@@ -547,7 +547,7 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
     let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
 
     cmd = cmd.about(Some(doc)).long_about(long_doc);
-    for (name, type_) in inputs_map.iter() {
+    for (name, type_) in inputs_map {
         let mut arg = clap::Arg::new(name);
         let file_arg_name = fmt_arg_file_name(name);
         let mut file_arg = clap::Arg::new(&file_arg_name);

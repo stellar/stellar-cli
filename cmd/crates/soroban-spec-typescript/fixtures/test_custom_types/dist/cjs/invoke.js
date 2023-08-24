@@ -39,9 +39,7 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         .addOperation(contract.call(method, ...args))
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
-    console.log(method, args);
     const simulated = await server.simulateTransaction(tx);
-    console.log("---\n", simulated.result.retval, "\n----");
     if (simulated.error)
         throw simulated.error;
     if (responseType === "simulated")
@@ -87,9 +85,9 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
     if (responseType === "full")
         return raw;
     // if `sendTx` awaited the inclusion of the tx in the ledger, it used
-    // `getTransaction`, which has a `resultXdr` field
-    if ("resultXdr" in raw)
-        return parse(raw.resultXdr.result().toXDR("base64"));
+    // `getTransaction`, which has a `returnValue` field
+    if ("returnValue" in raw)
+        return parse(raw.returnValue);
     // otherwise, it returned the result of `sendTransaction`
     if ("errorResultXdr" in raw)
         return parse(raw.errorResultXdr);

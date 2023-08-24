@@ -1,10 +1,11 @@
 use clap::{CommandFactory, Parser};
-use tracing_subscriber::{fmt, EnvFilter};
-
+use dotenv::dotenv;
 use soroban_cli::{commands::plugin, Root};
+use tracing_subscriber::{fmt, EnvFilter};
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
     let mut root = Root::try_parse().unwrap_or_else(|e| {
         use clap::error::ErrorKind;
         match e.kind() {

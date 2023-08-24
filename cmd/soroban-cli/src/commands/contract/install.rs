@@ -87,27 +87,26 @@ impl Cmd {
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
-
         let (tx_without_preflight, hash) =
             build_install_contract_code_tx(contract.clone(), sequence + 1, self.fee.fee, &key)?;
-
         // Currently internal errors are not returned if the contract code is expired
-        if let (
+        if let Ok((
             TransactionResult {
                 result: TransactionResultResult::TxInternalError,
                 ..
             },
+            meta,
             _,
-            _,
-        ) = client
+        )) = client
             .prepare_and_send_transaction(
                 &tx_without_preflight,
                 &key,
                 &network.network_passphrase,
                 None,
             )
-            .await?
+            .await
         {
+            tracing::trace!("{meta:#?}");
             // Now just need to restore it and don't have to install again
             restore::Cmd {
                 contract_id: None,

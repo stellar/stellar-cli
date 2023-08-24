@@ -165,8 +165,8 @@ export async function invoke<R extends ResponseTypes, T = string>({
   if (responseType === "full") return raw;
 
   // if `sendTx` awaited the inclusion of the tx in the ledger, it used
-  // `getTransaction`, which has a `resultXdr` field
-  if ("resultXdr" in raw) return parse(raw.resultXdr.result().toXDR("base64"));
+  // `getTransaction`, which has a `returnValue` field
+  if ("returnValue" in raw) return parse(raw.returnValue);
 
   // otherwise, it returned the result of `sendTransaction`
   if ("errorResultXdr" in raw) return parse(raw.errorResultXdr);

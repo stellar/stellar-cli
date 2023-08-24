@@ -1,0 +1,40 @@
+name: bindings typescript
+
+on: [push]
+
+jobs:
+  test:
+    name: test generated libraries
+    runs-on: ubuntu-20.04
+    services:
+      rpc:
+        image: stellar/quickstart:soroban-dev@sha256:a6b03cf6b0433c99f2f799b719f0faadbb79684b1b763e7674ba749fb0f648ee
+        ports:
+          - 8000:8000
+        env:
+          ENABLE_LOGS: true
+          NETWORK: standalone
+          ENABLE_SOROBAN_RPC: true
+        options: >-
+          --health-cmd "curl -X POST \"http://localhost:8000/soroban/rpc\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - run: echo $CARGO_TARGET_DIR
+    - uses: actions/checkout@v3
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - run: rustup update
+    - run: cargo build
+    - run: rustup target add wasm32-unknown-unknown
+    - run: make build-test-wasms
+    - run: npm ci && npm run test
+      working-directory: cmd/crates/soroban-spec-typescript/ts-tests
