@@ -292,9 +292,13 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.Le
 
 	result := make([]LedgerKeyAndEntry, 0, len(rawResult))
 
-	latestClosedLedger, err := l.GetLatestLedgerSequence()
-	if err != nil {
-		return nil, err
+	var latestClosedLedger uint32
+	if !includeExpired {
+		// We only need the latest ledger when excluding expired entries
+		latestClosedLedger, err = l.GetLatestLedgerSequence()
+		if err != nil {
+			return nil, err
+		}
 	}
 	for encodedKey, key := range encodedKeyToKey {
 		encodedEntry, ok := rawResult[encodedKey]
