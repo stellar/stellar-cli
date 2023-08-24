@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose::STANDARD as base64, DecodeError, Engine as _};
 use soroban_env_host::storage::SnapshotSource;
 use soroban_env_host::xdr::ContractDataDurability::Persistent;
 use soroban_env_host::xdr::{
@@ -10,20 +9,21 @@ use state_expiration::{restore_ledger_entry, ExpirableLedgerEntry};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::ffi::{CStr, CString, NulError};
+use std::ffi::NulError;
 use std::rc::Rc;
 use std::str::Utf8Error;
+use {from_c_xdr, CXDR};
 
 // Functions imported from Golang
 extern "C" {
     // Free Strings returned from Go functions
-    fn FreeGoCString(str: *const libc::c_char);
+    fn FreeGoXDR(xdr: CXDR);
     // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
     fn SnapshotSourceGet(
         handle: libc::uintptr_t,
-        ledger_key: *const libc::c_char,
+        ledger_key: CXDR,
         include_expired: libc::c_int,
-    ) -> *const libc::c_char;
+    ) -> CXDR;
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -34,8 +34,6 @@ pub(crate) enum Error {
     Xdr(#[from] XdrError),
     #[error("nul error: {0}")]
     NulError(#[from] NulError),
-    #[error("decode error: {0}")]
-    DecodeError(#[from] DecodeError),
     #[error("utf8 error: {0}")]
     Utf8Error(#[from] Utf8Error),
     #[error("unexpected config ledger entry for setting_id {setting_id}")]
@@ -117,11 +115,11 @@ impl LedgerStorage {
         let setting_id = ConfigSettingId::StateExpiration;
         let ConfigSettingEntry::StateExpiration(state_expiration) =
             ledger_storage.get_configuration_setting(setting_id)?
-            else {
-                return Err(
-                    Error::UnexpectedConfigLedgerEntry { setting_id: setting_id.name().to_string() }
-                );
-            };
+        else {
+            return Err(Error::UnexpectedConfigLedgerEntry {
+                setting_id: setting_id.name().to_string(),
+            });
+        };
         // Now that we have the state expiration config, we can build the tracker
         ledger_storage.restore_tracker = Some(EntryRestoreTracker {
             current_ledger_seq: current_ledger_sequence,
@@ -131,38 +129,26 @@ impl LedgerStorage {
         Ok(ledger_storage)
     }
 
-    fn get_xdr_base64(&self, key: &LedgerKey, include_expired: bool) -> Result<String, Error> {
-        let key_xdr = key.to_xdr_base64()?;
-        let key_cstr = CString::new(key_xdr)?;
-        let res = unsafe {
-            SnapshotSourceGet(
-                self.golang_handle,
-                key_cstr.as_ptr(),
-                include_expired.into(),
-            )
-        };
-        if res.is_null() {
-            return Err(Error::NotFound);
-        }
-        let unsafe_cstr = unsafe { CStr::from_ptr(res) };
-        // Make a safe copy of the string before freeing it
-        // Note: If we wanted more performance we should create an unsafe version of get_xdr_base64() which
-        //       returned a view of the C buffer as follows:
-        // return Ok((res, unsafe_cstr.to_bytes())); // we would later need to call FreeGoCString(res)
-        let str = String::from_utf8_lossy(unsafe_cstr.to_bytes()).to_string();
-        unsafe { FreeGoCString(res) };
-        Ok(str)
-    }
-
     pub(crate) fn get(&self, key: &LedgerKey, include_expired: bool) -> Result<LedgerEntry, Error> {
-        let base64_str = self.get_xdr_base64(key, include_expired)?;
-        let entry = LedgerEntry::from_xdr_base64(base64_str)?;
+        let xdr = self.get_xdr(key, include_expired)?;
+        let entry = LedgerEntry::from_xdr(xdr)?;
         Ok(entry)
     }
 
     pub(crate) fn get_xdr(&self, key: &LedgerKey, include_expired: bool) -> Result<Vec<u8>, Error> {
-        let base64_str = self.get_xdr_base64(key, include_expired)?;
-        Ok(base64.decode(base64_str)?)
+        let mut key_xdr = key.to_xdr()?;
+        let key_c_xdr = CXDR {
+            xdr: key_xdr.as_mut_ptr(),
+            len: key_xdr.len(),
+        };
+        let res =
+            unsafe { SnapshotSourceGet(self.golang_handle, key_c_xdr, include_expired.into()) };
+        if res.xdr.is_null() {
+            return Err(Error::NotFound);
+        }
+        let v = from_c_xdr(res.clone());
+        unsafe { FreeGoXDR(res) };
+        Ok(v)
     }
 
     pub(crate) fn get_configuration_setting(
