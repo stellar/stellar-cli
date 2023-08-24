@@ -166,7 +166,6 @@ fn get_fee_configurations(
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
     else {
         bail!("unexpected config setting entry for ComputeV0 key");
-
     };
 
     let ConfigSettingEntry::ContractLedgerCostV0(ledger_cost) =
@@ -195,9 +194,9 @@ fn get_fee_configurations(
 
     let ConfigSettingEntry::StateExpiration(state_expiration) =
         ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
-        else {
-            bail!("unexpected config setting entry for StateExpiration key");
-        };
+    else {
+        bail!("unexpected config setting entry for StateExpiration key");
+    };
 
     let write_fee_configuration = WriteFeeConfiguration {
         bucket_list_target_size_bytes: ledger_cost.bucket_list_target_size_bytes,
@@ -395,9 +394,9 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
 ) -> Result<(SorobanTransactionData, i64)> {
     let ConfigSettingEntry::StateExpiration(state_expiration) =
         ledger_storage.get_configuration_setting(ConfigSettingId::StateExpiration)?
-        else {
-            bail!("unexpected config setting entry for StateExpiration key");
-        };
+    else {
+        bail!("unexpected config setting entry for StateExpiration key");
+    };
     let rent_changes = compute_restore_footprint_rent_changes(
         &footprint,
         ledger_storage,
