@@ -183,18 +183,18 @@ pub struct GetLatestLedgerResponse {
     pub sequence: u32,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct Cost {
     #[serde(
         rename = "cpuInsns",
         deserialize_with = "deserialize_number_from_string"
     )]
-    pub cpu_insns: String,
+    pub cpu_insns: u64,
     #[serde(
         rename = "memBytes",
         deserialize_with = "deserialize_number_from_string"
     )]
-    pub mem_bytes: String,
+    pub mem_bytes: u64,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -204,17 +204,19 @@ pub struct SimulateHostFunctionResult {
     pub xdr: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct SimulateTransactionResponse {
     #[serde(
         rename = "minResourceFee",
-        deserialize_with = "deserialize_number_from_string"
+        deserialize_with = "deserialize_number_from_string",
+        default
     )]
     pub min_resource_fee: u64,
+    #[serde(default)]
     pub cost: Cost,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub results: Vec<SimulateHostFunctionResult>,
-    #[serde(rename = "transactionData")]
+    #[serde(rename = "transactionData", default)]
     pub transaction_data: String,
     #[serde(
         deserialize_with = "deserialize_default_from_null",
@@ -223,9 +225,9 @@ pub struct SimulateTransactionResponse {
     )]
     pub events: Vec<String>,
     #[serde(
+        rename = "restorePreamble",
         skip_serializing_if = "Option::is_none",
-        default,
-        rename = "restorePreamble"
+        default
     )]
     pub restore_preamble: Option<RestorePreamble>,
     #[serde(
@@ -870,6 +872,16 @@ mod tests {
 
         let resp: SimulateTransactionResponse = serde_json::from_str(s).unwrap();
         assert_eq!(resp.min_resource_fee, 100_000_000);
+    }
+
+    #[test]
+    fn simulation_transaction_response_parsing_mostly_empty() {
+        let s = r#"{
+ "latestLedger": "1234"
+        }"#;
+
+        let resp: SimulateTransactionResponse = serde_json::from_str(s).unwrap();
+        assert_eq!(resp.latest_ledger, 1_234);
     }
 
     #[test]
