@@ -40,10 +40,15 @@ type WriteTx interface {
 	Rollback() error
 }
 
+type dbCache struct {
+	latestLedgerSeq uint32
+	ledgerEntries   transactionalCache // Just like the DB: compress-encoded ledger key -> ledger entry XDR
+	sync.RWMutex
+}
+
 type DB struct {
 	db.SessionInterface
-	ledgerEntryCache      transactionalCache // Just like the DB: compress-encoded ledger key -> ledger entry XDR
-	ledgerEntryCacheMutex sync.RWMutex
+	cache dbCache
 }
 
 func openSQLiteDB(dbFilePath string) (*db.Session, error) {
@@ -70,7 +75,9 @@ func OpenSQLiteDBWithPrometheusMetrics(dbFilePath string, namespace string, sub 
 	}
 	result := DB{
 		SessionInterface: db.RegisterMetrics(session, namespace, sub, registry),
-		ledgerEntryCache: newTransactionalCache(),
+		cache: dbCache{
+			ledgerEntries: newTransactionalCache(),
+		},
 	}
 	return &result, nil
 }
@@ -82,12 +89,14 @@ func OpenSQLiteDB(dbFilePath string) (*DB, error) {
 	}
 	result := DB{
 		SessionInterface: session,
-		ledgerEntryCache: newTransactionalCache(),
+		cache: dbCache{
+			ledgerEntries: newTransactionalCache(),
+		},
 	}
 	return &result, nil
 }
 
-func getLatestLedgerSequence(ctx context.Context, q db.SessionInterface) (uint32, error) {
+func getLatestLedgerSequence(ctx context.Context, q db.SessionInterface, cache *dbCache) (uint32, error) {
 	sql := sq.Select("value").From(metaTableName).Where(sq.Eq{"key": latestLedgerSequenceMetaKey})
 	var results []string
 	if err := q.Select(ctx, &results, sql); err != nil {
@@ -106,7 +115,19 @@ func getLatestLedgerSequence(ctx context.Context, q db.SessionInterface) (uint32
 	if err != nil {
 		return 0, err
 	}
-	return uint32(latestLedger), nil
+	result := uint32(latestLedger)
+
+	// Add missing ledger sequence to the top cache.
+	// Otherwise, the write-through cache won't get updated until the first ingestion commit
+	cache.Lock()
+	if cache.latestLedgerSeq == 0 {
+		// Only update the cache if value is missing (0), otherwise
+		// we may end up overwriting the entry with an older version
+		cache.latestLedgerSeq = result
+	}
+	cache.Unlock()
+
+	return result, nil
 }
 
 type readWriter struct {
@@ -128,7 +149,7 @@ func NewReadWriter(db *DB, maxBatchSize int, ledgerRetentionWindow uint32) ReadW
 }
 
 func (rw *readWriter) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
-	return getLatestLedgerSequence(ctx, rw.db)
+	return getLatestLedgerSequence(ctx, rw.db, &rw.db.cache)
 }
 
 func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
@@ -139,7 +160,7 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 	stmtCache := sq.NewStmtCache(txSession.GetTx())
 	db := rw.db
 	return writeTx{
-		db: db,
+		globalCache: &db.cache,
 		postCommit: func() error {
 			_, err := db.ExecRaw(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			return err
@@ -151,7 +172,7 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 			stmtCache:               stmtCache,
 			buffer:                  xdr.NewEncodingBuffer(),
 			keyToEntryBatch:         make(map[string]*xdr.LedgerEntry, rw.maxBatchSize),
-			ledgerEntryCacheWriteTx: db.ledgerEntryCache.newWriteTx(rw.maxBatchSize),
+			ledgerEntryCacheWriteTx: db.cache.ledgerEntries.newWriteTx(rw.maxBatchSize),
 			maxBatchSize:            rw.maxBatchSize,
 		},
 		ledgerRetentionWindow: rw.ledgerRetentionWindow,
@@ -159,7 +180,7 @@ func (rw *readWriter) NewTx(ctx context.Context) (WriteTx, error) {
 }
 
 type writeTx struct {
-	db                    *DB
+	globalCache           *dbCache
 	postCommit            func() error
 	tx                    db.SessionInterface
 	stmtCache             *sq.StmtCache
@@ -194,16 +215,17 @@ func (w writeTx) Commit(ledgerSeq uint32) error {
 	// We need to make the cache update atomic with the transaction commit.
 	// Otherwise, the cache can be made inconsistent if a write transaction finishes
 	// in between, updating the cache in the wrong order.
-	commit := func() error {
-		w.db.ledgerEntryCacheMutex.Lock()
-		defer w.db.ledgerEntryCacheMutex.Unlock()
+	commitAndUpdateCache := func() error {
+		w.globalCache.Lock()
+		defer w.globalCache.Unlock()
 		if err = w.tx.Commit(); err != nil {
 			return err
 		}
+		w.globalCache.latestLedgerSeq = ledgerSeq
 		w.ledgerEntryWriter.ledgerEntryCacheWriteTx.commit()
 		return nil
 	}
-	if err := commit(); err != nil {
+	if err := commitAndUpdateCache(); err != nil {
 		return err
 	}
 

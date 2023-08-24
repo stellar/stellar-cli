@@ -846,6 +846,8 @@ func NewTestDB(tb testing.TB) *DB {
 	})
 	return &DB{
 		SessionInterface: db,
-		ledgerEntryCache: newTransactionalCache(),
+		cache: dbCache{
+			ledgerEntries: newTransactionalCache(),
+		},
 	}
 }
