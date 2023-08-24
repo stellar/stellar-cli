@@ -291,15 +291,6 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.Le
 	}
 
 	result := make([]LedgerKeyAndEntry, 0, len(rawResult))
-
-	var latestClosedLedger uint32
-	if !includeExpired {
-		// We only need the latest ledger when excluding expired entries
-		latestClosedLedger, err = l.GetLatestLedgerSequence()
-		if err != nil {
-			return nil, err
-		}
-	}
 	for encodedKey, key := range encodedKeyToKey {
 		encodedEntry, ok := rawResult[encodedKey]
 		if !ok {
@@ -313,6 +304,10 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.Le
 			// Disallow access to entries that have expired. Expiration excludes the
 			// "current" ledger, which we are building.
 			if expirationLedgerSeq, ok := entry.Data.ExpirationLedgerSeq(); ok {
+				latestClosedLedger, err := l.GetLatestLedgerSequence()
+				if err != nil {
+					return nil, err
+				}
 				currentLedger := latestClosedLedger + 1
 				if expirationLedgerSeq < xdr.Uint32(currentLedger) {
 					continue
