@@ -1,24 +1,10 @@
 import test from 'ava'
-import { Contract, Ok, Err, networks, Address } from '../../fixtures/test_custom_types/dist/esm/index.js'
+import { publicKey, rpcUrl, wallet } from './util.js'
+import { Contract, Ok, Err, networks, Address } from 'test-custom-types'
 
-const rpcUrl = 'https://rpc-futurenet.stellar.org'
-const publicKey = 'GCBVOLOM32I7OD5TWZQCIXCXML3TK56MDY7ZMTAILIBQHHKPCVU42XYW'
 const addr = Address.fromString(publicKey)
 
-const contract = new Contract({
-  ...networks.futurenet,
-  rpcUrl,
-  wallet: {
-    isConnected: () => Promise.resolve(true),
-    isAllowed: () => Promise.resolve(true),
-    getUserInfo: () => Promise.resolve({ publicKey }),
-    signTransaction: async (tx: string, opts?: {
-      network?: string,
-      networkPassphrase?: string,
-      accountToSign?: string,
-    }) => tx,
-  },
-})
+const contract = new Contract({ ...networks.standalone, rpcUrl, wallet});
 
 test('hello', async t => {
   t.is(await contract.hello({ hello: 'tests' }), 'tests')
@@ -28,6 +14,7 @@ test('woid', async t => {
   t.is(await contract.woid(), undefined)
 })
 
+// Bug in soroban client, will be fixed in next release
 test('u32_fail_on_even', async t => {
   t.deepEqual(await contract.u32FailOnEven({ u32_: 1 }), new Ok(1))
   t.deepEqual(await contract.u32FailOnEven({ u32_: 0 }), new Err({ message: "Please provide an odd number" }))

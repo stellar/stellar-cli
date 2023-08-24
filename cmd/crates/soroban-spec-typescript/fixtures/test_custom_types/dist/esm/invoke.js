@@ -18,7 +18,7 @@ export class NotImplementedError extends Error {
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse;
 export async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, rpcUrl, networkPassphrase, contractId, wallet, }) {
-    wallet = wallet ?? (await import("@stellar/freighter-api"));
+    wallet = wallet ?? (await import("@stellar/freighter-api")).default;
     let parse = parseResultXdr;
     const server = new SorobanClient.Server(rpcUrl, {
         allowHttp: rpcUrl.startsWith("http://"),
@@ -35,9 +35,7 @@ export async function invoke({ method, args = [], fee = 100, responseType, parse
         .addOperation(contract.call(method, ...args))
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
-    console.log(method, args);
     const simulated = await server.simulateTransaction(tx);
-    console.log("---\n", simulated.result.retval, "\n----");
     if (simulated.error)
         throw simulated.error;
     if (responseType === "simulated")
@@ -83,9 +81,9 @@ export async function invoke({ method, args = [], fee = 100, responseType, parse
     if (responseType === "full")
         return raw;
     // if `sendTx` awaited the inclusion of the tx in the ledger, it used
-    // `getTransaction`, which has a `resultXdr` field
-    if ("resultXdr" in raw)
-        return parse(raw.resultXdr.result().toXDR("base64"));
+    // `getTransaction`, which has a `returnValue` field
+    if ("returnValue" in raw)
+        return parse(raw.returnValue);
     // otherwise, it returned the result of `sendTransaction`
     if ("errorResultXdr" in raw)
         return parse(raw.errorResultXdr);

@@ -13,7 +13,7 @@ use super::generate;
 static PROJECT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src/project_template");
 
 const NETWORK_PASSPHRASE_FUTURENET: &str = "Test SDF Future Network ; October 2022";
-const NETWORK_PASSPHRASE_LOCALNET: &str = "Standalone Network ; February 2017";
+const NETWORK_PASSPHRASE_STANDALONE: &str = "Standalone Network ; February 2017";
 
 pub struct Project(PathBuf);
 
@@ -112,8 +112,8 @@ impl Project {
     fn format_networks_object(contract_id: &str, network_passphrase: &str) -> String {
         let network = if network_passphrase == NETWORK_PASSPHRASE_FUTURENET {
             "futurenet"
-        } else if network_passphrase == NETWORK_PASSPHRASE_LOCALNET {
-            "localnet"
+        } else if network_passphrase == NETWORK_PASSPHRASE_STANDALONE {
+            "standalone"
         } else {
             "unknown"
         };
