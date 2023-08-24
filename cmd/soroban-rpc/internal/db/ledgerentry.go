@@ -201,7 +201,7 @@ func (l *ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
 }
 
 // From compressed XDR keys to XDR entries (i.e. using the DB's representation)
-func (l *ledgerEntryReadTx) getLedgerRawLedgerEntries(keys ...string) (map[string]string, error) {
+func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]string, error) {
 	result := make(map[string]string, len(keys))
 	keysToQueryInDB := keys
 	if l.ledgerEntryCacheReadTx != nil {
@@ -285,7 +285,7 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.Le
 		encodedKeyToKey[encodedKey] = k
 	}
 
-	rawResult, err := l.getLedgerRawLedgerEntries(encodedKeys...)
+	rawResult, err := l.getRawLedgerEntries(encodedKeys...)
 	if err != nil {
 		return nil, err
 	}

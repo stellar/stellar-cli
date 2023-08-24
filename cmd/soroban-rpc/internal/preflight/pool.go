@@ -131,7 +131,7 @@ func (m *metricsLedgerEntryWrapper) GetLedgerEntries(includeExpired bool, keys .
 	startTime := time.Now()
 	entries, err := m.LedgerEntryReadTx.GetLedgerEntries(includeExpired, keys...)
 	atomic.AddUint64(&m.totalDurationMs, uint64(time.Since(startTime).Milliseconds()))
-	atomic.AddUint32(&m.ledgerEntriesFetched, 1)
+	atomic.AddUint32(&m.ledgerEntriesFetched, uint32(len(keys)))
 	return entries, err
 }
 
