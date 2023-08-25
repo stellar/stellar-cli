@@ -211,6 +211,7 @@ fn get_fee_configurations(
     };
     let rent_fee_configuration = RentFeeConfiguration {
         fee_per_write_1kb: write_fee_per_1kb,
+        fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
         persistent_rent_rate_denominator: state_expiration.persistent_rent_rate_denominator,
         temporary_rent_rate_denominator: state_expiration.temp_rent_rate_denominator,
     };
