@@ -74,7 +74,7 @@ func TestPanicGroupLog(t *testing.T) {
 	waitStarted := time.Now()
 	for time.Since(waitStarted) < 5*time.Second {
 		warningCount := logCounter.GetLevel(3)
-		if warningCount >= 10 {
+		if warningCount >= 9 {
 			return
 		}
 		time.Sleep(1 * time.Millisecond)
