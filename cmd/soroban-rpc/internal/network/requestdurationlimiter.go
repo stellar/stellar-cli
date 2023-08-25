@@ -3,10 +3,13 @@ package network
 import (
 	"context"
 	"net/http"
+	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/util"
 )
 
 const maxUint = ^uint64(0)         //18446744073709551615
@@ -132,14 +135,22 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 	if q.limitThreshold != time.Duration(0) {
 		limitCh = time.NewTimer(q.limitThreshold).C
 	}
-	requestCompleted := make(chan interface{}, 1)
+	requestCompleted := make(chan []string, 1)
 	requestCtx, requestCtxCancel := context.WithTimeout(req.Context(), q.limitThreshold)
 	defer requestCtxCancel()
 	timeLimitedRequest := req.WithContext(requestCtx)
 	responseBuffer := makeBufferedResponseWriter(res)
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				functionName := runtime.FuncForPC(reflect.ValueOf(q.httpDownstreamHandler.ServeHTTP).Pointer()).Name()
+				callStack := util.CallStack(err, functionName, "(*httpRequestDurationLimiter).ServeHTTP.func1()", 8)
+				requestCompleted <- callStack
+			} else {
+				close(requestCompleted)
+			}
+		}()
 		q.httpDownstreamHandler.ServeHTTP(responseBuffer, timeLimitedRequest)
-		close(requestCompleted)
 	}()
 
 	warn := false
@@ -161,7 +172,7 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 				res.WriteHeader(http.StatusGatewayTimeout)
 			}
 			return
-		case <-requestCompleted:
+		case errStrings := <-requestCompleted:
 			if warn {
 				if q.warningCounter != nil {
 					q.warningCounter.Inc()
@@ -170,7 +181,16 @@ func (q *httpRequestDurationLimiter) ServeHTTP(res http.ResponseWriter, req *htt
 					q.logger.Infof("Request processing for %s exceed warning threshold of %v", req.URL.Path, q.warningThreshold)
 				}
 			}
-			responseBuffer.WriteOut(req.Context(), res)
+			if len(errStrings) == 0 {
+				responseBuffer.WriteOut(req.Context(), res)
+			} else {
+				res.WriteHeader(http.StatusInternalServerError)
+				for _, errStr := range errStrings {
+					if q.logger != nil {
+						q.logger.Warn(errStr)
+					}
+				}
+			}
 			return
 		}
 	}
