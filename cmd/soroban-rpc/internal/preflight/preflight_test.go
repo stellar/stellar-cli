@@ -216,6 +216,26 @@ var helloWorldContract = func() []byte {
 
 type inMemoryLedgerEntryReadTx map[string]xdr.LedgerEntry
 
+func (m inMemoryLedgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
+	result := make([]db.LedgerKeyAndEntry, 0, len(keys))
+	for _, key := range keys {
+		serializedKey, err := key.MarshalBinaryBase64()
+		if err != nil {
+			return nil, err
+		}
+		entry, ok := m[serializedKey]
+		if !ok {
+			continue
+		}
+		// We don't check the expiration but that's ok for the test
+		result = append(result, db.LedgerKeyAndEntry{
+			Key:   key,
+			Entry: entry,
+		})
+	}
+	return result, nil
+}
+
 func newInMemoryLedgerEntryReadTx(entries []xdr.LedgerEntry) (inMemoryLedgerEntryReadTx, error) {
 	result := make(map[string]xdr.LedgerEntry, len(entries))
 	for _, entry := range entries {
@@ -234,18 +254,6 @@ func newInMemoryLedgerEntryReadTx(entries []xdr.LedgerEntry) (inMemoryLedgerEntr
 
 func (m inMemoryLedgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
 	return 2, nil
-}
-
-func (m inMemoryLedgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
-	serializedKey, err := key.MarshalBinaryBase64()
-	if err != nil {
-		return false, xdr.LedgerEntry{}, err
-	}
-	entry, ok := m[serializedKey]
-	if !ok {
-		return false, xdr.LedgerEntry{}, nil
-	}
-	return true, entry, nil
 }
 
 func (m inMemoryLedgerEntryReadTx) Done() error {
@@ -267,7 +275,7 @@ func getDB(t testing.TB, restartDB bool) *db.DB {
 	require.NoError(t, err)
 	if restartDB {
 		// Restarting the DB resets the ledger entries write-through cache
-		dbInstance.Close()
+		require.NoError(t, dbInstance.Close())
 		dbInstance, err = db.OpenSQLiteDB(dbPath)
 		require.NoError(t, err)
 	}
