@@ -6,7 +6,7 @@ defaults:
 
 on:
   push:
-    branches: [master]
+    branches: [main, release/**]
   pull_request:
 
 jobs:
