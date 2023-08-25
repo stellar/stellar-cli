@@ -182,20 +182,21 @@ func (l ledgerEntryWriter) flush() error {
 }
 
 type ledgerEntryReadTx struct {
-	db                     *DB
-	cachedLatestLedgerSeq  uint32
+	globalCache            *dbCache
+	stmtCache              *sq.StmtCache
+	latestLedgerSeqCache   uint32
 	ledgerEntryCacheReadTx *transactionalCacheReadTx
 	tx                     db.SessionInterface
 	buffer                 *xdr.EncodingBuffer
 }
 
 func (l *ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
-	if l.cachedLatestLedgerSeq != 0 {
-		return l.cachedLatestLedgerSeq, nil
+	if l.latestLedgerSeqCache != 0 {
+		return l.latestLedgerSeqCache, nil
 	}
-	latestLedgerSeq, err := getLatestLedgerSequence(context.Background(), l.tx)
+	latestLedgerSeq, err := getLatestLedgerSequence(context.Background(), l.tx, l.globalCache)
 	if err == nil {
-		l.cachedLatestLedgerSeq = latestLedgerSeq
+		l.latestLedgerSeqCache = latestLedgerSeq
 	}
 	return latestLedgerSeq, err
 }
@@ -221,37 +222,41 @@ func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]stri
 		return result, nil
 	}
 
-	sql := sq.Select("key", "entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": keysToQueryInDB})
-	type dbLedgerKeyEntry struct {
-		Key   string `db:"key"`
-		Entry string `db:"entry"`
+	builder := sq.StatementBuilder
+	if l.stmtCache != nil {
+		builder = builder.RunWith(l.stmtCache)
+	} else {
+		builder = builder.RunWith(l.tx.GetTx())
 	}
-	var dbResults []dbLedgerKeyEntry
-	if err := l.tx.Select(context.Background(), &dbResults, sql); err != nil {
-		return result, err
+	sql := builder.Select("key", "entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": keysToQueryInDB})
+	q, err := sql.Query()
+	if err != nil {
+		return nil, err
 	}
-
-	for _, r := range dbResults {
-		result[r.Key] = r.Entry
+	for q.Next() {
+		var key, entry string
+		if err = q.Scan(&key, &entry); err != nil {
+			return nil, err
+		}
+		result[key] = entry
 		if l.ledgerEntryCacheReadTx != nil {
-			entry := r.Entry
-			l.ledgerEntryCacheReadTx.upsert(r.Key, &entry)
+			l.ledgerEntryCacheReadTx.upsert(key, &entry)
 
 			// Add missing config setting entries to the top cache.
 			// Otherwise, the write-through cache won't get updated on restarts
 			// (after which we don't process past config setting updates)
-			keyType, err := xdr.GetBinaryCompressedLedgerKeyType([]byte(r.Key))
+			keyType, err := xdr.GetBinaryCompressedLedgerKeyType([]byte(key))
 			if err != nil {
 				return nil, err
 			}
 			if keyType == xdr.LedgerEntryTypeConfigSetting {
-				l.db.ledgerEntryCacheMutex.Lock()
-				// Only udpate the cache if the entry is missing, otherwise
+				l.globalCache.Lock()
+				// Only update the cache if the entry is missing, otherwise
 				// we may end up overwriting the entry with an older version
-				if _, ok := l.db.ledgerEntryCache.entries[r.Key]; !ok {
-					l.db.ledgerEntryCache.entries[r.Key] = r.Entry
+				if _, ok := l.globalCache.ledgerEntries.entries[key]; !ok {
+					l.globalCache.ledgerEntries.entries[key] = entry
 				}
-				defer l.db.ledgerEntryCacheMutex.Unlock()
+				defer l.globalCache.Unlock()
 			}
 		}
 	}
@@ -261,7 +266,7 @@ func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]stri
 func GetLedgerEntry(tx LedgerEntryReadTx, includeExpired bool, key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
 	keyEntries, err := tx.GetLedgerEntries(includeExpired, key)
 	if err != nil {
-		return false, xdr.LedgerEntry{}, nil
+		return false, xdr.LedgerEntry{}, err
 	}
 	switch len(keyEntries) {
 	case 0:
@@ -336,25 +341,28 @@ func NewLedgerEntryReader(db *DB) LedgerEntryReader {
 }
 
 func (r ledgerEntryReader) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
-	return getLatestLedgerSequence(ctx, r.db)
+	return getLatestLedgerSequence(ctx, r.db, &r.db.cache)
 }
 
+// NewCachedTx() caches all accessed ledger entries and select statements. If many ledger entries are accessed, it will grow without bounds.
 func (r ledgerEntryReader) NewCachedTx(ctx context.Context) (LedgerEntryReadTx, error) {
 	txSession := r.db.Clone()
 	// We need to copy the cached ledger entries locally when we start the transaction
 	// since otherwise we would break the consistency between the transaction and the cache.
 
-	// We need to make the cache snapshot atomic with the read transaction creation.
+	// We need to make the parent cache access atomic with the read transaction creation.
 	// Otherwise, the cache can be made inconsistent if a write transaction finishes
 	// in between, updating the cache.
-	r.db.ledgerEntryCacheMutex.RLock()
-	defer r.db.ledgerEntryCacheMutex.RUnlock()
+	r.db.cache.RLock()
+	defer r.db.cache.RUnlock()
 	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
-	cacheReadTx := r.db.ledgerEntryCache.newReadTx()
+	cacheReadTx := r.db.cache.ledgerEntries.newReadTx()
 	return &ledgerEntryReadTx{
-		db:                     r.db,
+		globalCache:            &r.db.cache,
+		stmtCache:              sq.NewStmtCache(txSession.GetTx()),
+		latestLedgerSeqCache:   r.db.cache.latestLedgerSeq,
 		ledgerEntryCacheReadTx: &cacheReadTx,
 		tx:                     txSession,
 		buffer:                 xdr.NewEncodingBuffer(),
@@ -366,10 +374,13 @@ func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error)
 	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
+	r.db.cache.RLock()
+	defer r.db.cache.RUnlock()
 	return &ledgerEntryReadTx{
-		db:     r.db,
-		tx:     txSession,
-		buffer: xdr.NewEncodingBuffer(),
+		globalCache:          &r.db.cache,
+		latestLedgerSeqCache: r.db.cache.latestLedgerSeq,
+		tx:                   txSession,
+		buffer:               xdr.NewEncodingBuffer(),
 	}, nil
 }
 
