@@ -299,7 +299,7 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.Le
 		}
 		var entry xdr.LedgerEntry
 		if err := xdr.SafeUnmarshal([]byte(encodedEntry), &entry); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "cannot decode ledger entry from DB")
 		}
 		if !includeExpired {
 			// Disallow access to entries that have expired. Expiration excludes the
