@@ -11,10 +11,10 @@ use soroban_env_host::storage::{AccessType, Footprint, Storage};
 use soroban_env_host::xdr;
 use soroban_env_host::xdr::ContractDataDurability::Persistent;
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
-    DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Memo,
-    MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
+    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, ContractEventType,
+    DecoratedSignature, DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint,
+    LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
+    RestoreFootprintOp, ScVal, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use state_expiration::{get_restored_ledger_sequence, ExpirableLedgerEntry};
@@ -27,6 +27,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     post_storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
+    invocation_result: &ScVal,
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
@@ -36,6 +37,12 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
             .context("cannot compute host function resources")?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
+
+    let contract_events_size =
+        calculate_contract_events_size_bytes(events).context("cannot calculate events size")?;
+    let invocation_return_size = u32::try_from(invocation_result.to_xdr()?.len())?;
+    // This is totally unintuitive, but it's what's expected by the library
+    let final_contract_events_size = contract_events_size + invocation_return_size;
 
     let transaction_resources = TransactionResources {
         instructions: soroban_resources.instructions,
@@ -50,8 +57,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
             &soroban_resources.footprint,
         )
         .context("cannot estimate maximum transaction size")?,
-        contract_events_size_bytes: calculate_event_size_bytes(events)
-            .context("cannot calculate events size")?,
+        contract_events_size_bytes: final_contract_events_size,
     };
     let rent_changes = extract_rent_changes(&ledger_changes);
 
@@ -238,9 +244,12 @@ fn calculate_unmodified_ledger_entry_bytes(
     Ok(res as u32)
 }
 
-fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
+fn calculate_contract_events_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
     let mut res: u32 = 0;
     for e in events {
+        if e.event.type_ != ContractEventType::Contract {
+            continue;
+        }
         let event_xdr = e
             .to_xdr()
             .with_context(|| format!("cannot marshal event {e:?}"))?;

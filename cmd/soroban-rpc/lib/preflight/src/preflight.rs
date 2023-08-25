@@ -114,6 +114,7 @@ pub(crate) fn preflight_invoke_hf_op(
         &storage,
         &budget,
         &diagnostic_events,
+        &result,
         bucket_list_size,
         ledger_info.sequence_number,
     )
