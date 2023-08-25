@@ -33,9 +33,7 @@ type GetLedgerEntriesResponse struct {
 	LatestLedger int64 `json:"latestLedger,string"`
 }
 
-const (
-	getLedgerEntriesMaxKeys = 200
-)
+const getLedgerEntriesMaxKeys = 200
 
 // NewGetLedgerEntriesHandler returns a JSON RPC handler to retrieve the specified ledger entries from Stellar Core.
 func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader) jrpc2.Handler {
