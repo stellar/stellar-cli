@@ -344,7 +344,7 @@ func (r ledgerEntryReader) GetLatestLedgerSequence(ctx context.Context) (uint32,
 	return getLatestLedgerSequence(ctx, r.db, &r.db.cache)
 }
 
-// NewCachedTx() catches all accessed ledger entries and selct statements. If many ledger entries are accessed, it will grow without bounds.
+// NewCachedTx() caches all accessed ledger entries and select statements. If many ledger entries are accessed, it will grow without bounds.
 func (r ledgerEntryReader) NewCachedTx(ctx context.Context) (LedgerEntryReadTx, error) {
 	txSession := r.db.Clone()
 	// We need to copy the cached ledger entries locally when we start the transaction
