@@ -191,10 +191,10 @@ func MustNew(cfg *config.Config) *Daemon {
 	//       but it's probably not worth the pain.
 	err = db.NewLedgerReader(dbConn).StreamAllLedgers(readTxMetaCtx, func(txmeta xdr.LedgerCloseMeta) (bool, error) {
 		if err := eventStore.IngestEvents(txmeta); err != nil {
-			logger.WithError(err).Fatal("could initialize event memory store")
+			logger.WithError(err).Fatal("could not initialize event memory store")
 		}
 		if err := transactionStore.IngestTransactions(txmeta); err != nil {
-			logger.WithError(err).Fatal("could initialize transaction memory store")
+			logger.WithError(err).Fatal("could not initialize transaction memory store")
 		}
 		return false, nil
 	})
