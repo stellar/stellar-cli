@@ -16,11 +16,12 @@ use soroban_env_host::{
     events::HostEvent,
     storage::Storage,
     xdr::{
-        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeContractArgs,
-        InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo,
-        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
-        ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber, SorobanAddressCredentials,
-        SorobanAuthorizationEntry, SorobanCredentials, Transaction, TransactionExt, Uint256, VecM,
+        self, AccountId, ContractCostType, Error as XdrError, Hash, HostFunction,
+        InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey,
+        LedgerKeyAccount, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
+        ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber,
+        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials, SorobanResources,
+        Transaction, TransactionExt, Uint256, VecM,
     },
     DiagnosticLevel, Host, HostError,
 };
@@ -316,6 +317,11 @@ impl Cmd {
                 &signers,
                 &network.network_passphrase,
                 Some(log_events),
+                if self.config.verbose || self.cost {
+                    Some(log_resources)
+                } else {
+                    None
+                },
             )
             .await?;
 
@@ -421,12 +427,24 @@ impl Cmd {
         let budget = h.budget_cloned();
         let (storage, events) = h.try_finish()?;
         let footprint = &create_ledger_footprint(&storage.footprint);
-        log_events(
+
+        // TODO: Check we are calculating this right
+        let contract_events_size_bytes = events
+            .iter()
+            .fold(0, |acc, event| acc + event.event.to_xdr()?.len())
+            .collect::<Result<u64, _>>()?;
+        let resources = SorobanResources {
             footprint,
-            &[contract_auth.try_into()?],
-            &events.0,
-            Some(&budget),
-        );
+            instructions: budget.cpu_insns.total_count,
+            // TODO: Check these are the right fields?
+            read_bytes: budget.mem_bytes.counts[ContractCostType::VmMemRead as usize],
+            write_bytes: budget.mem_bytes.counts[ContractCostType::VmMemWrite as usize],
+            contract_events_size_bytes,
+        };
+        log_events(footprint, &[contract_auth.try_into()?], &events.0);
+        if self.config.verbose || self.cost {
+            log_resources(&resources);
+        }
 
         let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
         let mut expiration_ledger_bumps: HashMap<LedgerKey, u32> = HashMap::new();
@@ -497,14 +515,14 @@ fn log_events(
     footprint: &LedgerFootprint,
     auth: &[VecM<SorobanAuthorizationEntry>],
     events: &[HostEvent],
-    budget: Option<&Budget>,
 ) {
     crate::log::auth(auth);
     crate::log::events(events);
     crate::log::footprint(footprint);
-    if let Some(budget) = budget {
-        crate::log::budget(budget);
-    }
+}
+
+fn log_resources(budget: &SorobanResources) {
+    crate::log::resources(resources);
 }
 
 pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<String, Error> {

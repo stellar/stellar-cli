@@ -11,8 +11,9 @@ use soroban_env_host::{
     xdr::{
         self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
         LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
-        SorobanAuthorizationEntry, Transaction, TransactionEnvelope, TransactionMeta,
-        TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope,
+        TransactionMeta, TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256,
+        VecM, WriteXdr,
     },
 };
 use soroban_sdk::token;
@@ -36,8 +37,9 @@ pub type LogEvents = fn(
     footprint: &LedgerFootprint,
     auth: &[VecM<SorobanAuthorizationEntry>],
     events: &[HostEvent],
-    budget: Option<&Budget>,
 ) -> ();
+
+pub type LogResources = fn(resources: &SorobanResources) -> ();
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -602,6 +604,7 @@ soroban config identity fund {address} --helper-url <url>"#
         &self,
         tx: &Transaction,
         log_events: Option<LogEvents>,
+        log_resources: Option<LogResources>,
     ) -> Result<Transaction, Error> {
         tracing::trace!(?tx);
         let sim_response = self
@@ -610,7 +613,7 @@ soroban config identity fund {address} --helper-url <url>"#
                 signatures: VecM::default(),
             }))
             .await?;
-        assemble(tx, &sim_response, log_events)
+        assemble(tx, &sim_response, log_events, log_resources)
     }
 
     pub async fn prepare_and_send_transaction(
@@ -620,10 +623,11 @@ soroban config identity fund {address} --helper-url <url>"#
         signers: &[ed25519_dalek::Keypair],
         network_passphrase: &str,
         log_events: Option<LogEvents>,
+        log_resources: Option<LogResources>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
         let unsigned_tx = self
-            .prepare_transaction(tx_without_preflight, log_events)
+            .prepare_transaction(tx_without_preflight, log_events, log_resources)
             .await?;
         let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
             &unsigned_tx,
@@ -636,7 +640,7 @@ soroban config identity fund {address} --helper-url <url>"#
             part_signed_tx
         } else {
             // re-simulate to calculate the new fees
-            self.prepare_transaction(&part_signed_tx, log_events)
+            self.prepare_transaction(&part_signed_tx, log_events, log_resources)
                 .await?
         };
         let tx = utils::sign_transaction(source_key, &fee_ready_txn, network_passphrase)?;

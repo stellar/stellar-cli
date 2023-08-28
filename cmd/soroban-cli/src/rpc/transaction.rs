@@ -7,7 +7,7 @@ use soroban_env_host::xdr::{
     SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
 };
 
-use crate::rpc::{Error, LogEvents, SimulateTransactionResponse};
+use crate::rpc::{Error, LogEvents, LogResources, SimulateTransactionResponse};
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
 // submission to the network.
@@ -15,6 +15,7 @@ pub fn assemble(
     raw: &Transaction,
     simulation: &SimulateTransactionResponse,
     log_events: Option<LogEvents>,
+    log_resources: Option<LogResources>,
 ) -> Result<Transaction, Error> {
     let mut tx = raw.clone();
 
@@ -76,7 +77,10 @@ pub fn assemble(
         _ => return Err(Error::UnsupportedOperationType),
     };
     if let Some(log) = log_events {
-        log(&transaction_data.resources.footprint, &auths, &[], None);
+        log(&transaction_data.resources.footprint, &auths, &[]);
+    }
+    if let Some(log) = log_resources {
+        log(&transaction_data.resources);
     }
 
     // update the fees of the actual transaction to meet the minimum resource fees.
