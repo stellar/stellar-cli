@@ -19,6 +19,7 @@ import (
 	"github.com/stellar/go/ingest/ledgerbackend"
 	supporthttp "github.com/stellar/go/support/http"
 	supportlog "github.com/stellar/go/support/log"
+	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -182,34 +183,33 @@ func MustNew(cfg *config.Config) *Daemon {
 		cfg.TransactionLedgerRetentionWindow,
 	)
 
+	// initialize the stores using what was on the DB
+	readTxMetaCtx, cancelReadTxMeta := context.WithTimeout(context.Background(), cfg.IngestionTimeout)
+	defer cancelReadTxMeta()
+	// NOTE: We could optimize this to avoid unnecessary ingestion calls
+	//       (the range of txmetads can be larger than the store retention windows)
+	//       but it's probably not worth the pain.
+	err = db.NewLedgerReader(dbConn).StreamAllLedgers(readTxMetaCtx, func(txmeta xdr.LedgerCloseMeta) error {
+		if err := eventStore.IngestEvents(txmeta); err != nil {
+			logger.WithError(err).Fatal("could not initialize event memory store")
+		}
+		if err := transactionStore.IngestTransactions(txmeta); err != nil {
+			logger.WithError(err).Fatal("could not initialize transaction memory store")
+		}
+		return nil
+	})
+	if err != nil {
+		logger.WithError(err).Fatal("could not obtain txmeta cache from the database")
+	}
+
+	onIngestionRetry := func(err error, dur time.Duration) {
+		logger.WithError(err).Error("could not run ingestion. Retrying")
+	}
 	maxRetentionWindow := cfg.EventLedgerRetentionWindow
 	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
 		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
 	} else if cfg.EventLedgerRetentionWindow == 0 && cfg.TransactionLedgerRetentionWindow > ledgerbucketwindow.DefaultEventLedgerRetentionWindow {
 		maxRetentionWindow = ledgerbucketwindow.DefaultEventLedgerRetentionWindow
-	}
-
-	// initialize the stores using what was on the DB
-	readTxMetaCtx, cancelReadTxMeta := context.WithTimeout(context.Background(), cfg.IngestionTimeout)
-	defer cancelReadTxMeta()
-	txmetas, err := db.NewLedgerReader(dbConn).GetAllLedgers(readTxMetaCtx)
-	if err != nil {
-		logger.WithError(err).Fatal("could not obtain txmeta cache from the database")
-	}
-	for _, txmeta := range txmetas {
-		// NOTE: We could optimize this to avoid unnecessary ingestion calls
-		//       (len(txmetas) can be larger than the store retention windows)
-		//       but it's probably not worth the pain.
-		if err := eventStore.IngestEvents(txmeta); err != nil {
-			logger.WithError(err).Fatal("could initialize event memory store")
-		}
-		if err := transactionStore.IngestTransactions(txmeta); err != nil {
-			logger.WithError(err).Fatal("could initialize transaction memory store")
-		}
-	}
-
-	onIngestionRetry := func(err error, dur time.Duration) {
-		logger.WithError(err).Error("could not run ingestion. Retrying")
 	}
 	ingestService := ingest.NewService(ingest.Config{
 		Logger:            logger,

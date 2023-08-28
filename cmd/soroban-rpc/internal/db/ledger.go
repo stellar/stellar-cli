@@ -13,9 +13,11 @@ const (
 	ledgerCloseMetaTableName = "ledger_close_meta"
 )
 
+type StreamLedgerFn func(xdr.LedgerCloseMeta) error
+
 type LedgerReader interface {
 	GetLedger(ctx context.Context, sequence uint32) (xdr.LedgerCloseMeta, bool, error)
-	GetAllLedgers(ctx context.Context) ([]xdr.LedgerCloseMeta, error)
+	StreamAllLedgers(ctx context.Context, f StreamLedgerFn) error
 }
 
 type LedgerWriter interface {
@@ -30,12 +32,24 @@ func NewLedgerReader(db *DB) LedgerReader {
 	return ledgerReader{db: db}
 }
 
-// GetAllLedgers returns all ledgers in the database.
-func (r ledgerReader) GetAllLedgers(ctx context.Context) ([]xdr.LedgerCloseMeta, error) {
-	var results []xdr.LedgerCloseMeta
+// StreamAllLedgers runs f over all the ledgers in the database (until f errors or signals it's done).
+func (r ledgerReader) StreamAllLedgers(ctx context.Context, f StreamLedgerFn) error {
 	sql := sq.Select("meta").From(ledgerCloseMetaTableName).OrderBy("sequence asc")
-	err := r.db.Select(ctx, &results, sql)
-	return results, err
+	q, err := r.db.Query(ctx, sql)
+	if err != nil {
+		return err
+	}
+	defer q.Close()
+	for q.Next() {
+		var closeMeta xdr.LedgerCloseMeta
+		if err = q.Scan(&closeMeta); err != nil {
+			return err
+		}
+		if err = f(closeMeta); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetLedger fetches a single ledger from the db.
