@@ -39,8 +39,9 @@ func (r ledgerReader) StreamAllLedgers(ctx context.Context, f StreamLedgerFn) er
 	if err != nil {
 		return err
 	}
-	var closeMeta xdr.LedgerCloseMeta
+	defer q.Close()
 	for q.Next() {
+		var closeMeta xdr.LedgerCloseMeta
 		if err = q.Scan(&closeMeta); err != nil {
 			return err
 		}
