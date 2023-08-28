@@ -28,7 +28,11 @@ func createLedger(ledgerSequence uint32) xdr.LedgerCloseMeta {
 }
 
 func assertLedgerRange(t *testing.T, reader LedgerReader, start, end uint32) {
-	allLedgers, err := reader.GetAllLedgers(context.Background())
+	var allLedgers []xdr.LedgerCloseMeta
+	err := reader.StreamAllLedgers(context.Background(), func(txmeta xdr.LedgerCloseMeta) (done bool, err error) {
+		allLedgers = append(allLedgers, txmeta)
+		return false, nil
+	})
 	assert.NoError(t, err)
 	for i := start - 1; i <= end+1; i++ {
 		ledger, exists, err := reader.GetLedger(context.Background(), i)
