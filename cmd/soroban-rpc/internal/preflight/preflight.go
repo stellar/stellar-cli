@@ -46,7 +46,7 @@ func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey C.xdr_t, includeExpired C.
 	if err := xdr.SafeUnmarshal(ledgerKeyXDR, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey, includeExpired != 0)
+	present, entry, err := db.GetLedgerEntry(h.readTx, includeExpired != 0, ledgerKey)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
 		return C.xdr_t{}
@@ -181,12 +181,12 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	}
 	sourceAccountCXDR := CXDR(sourceAccountXDR)
 
-	hasConfig, stateExpirationConfig, err := params.LedgerEntryReadTx.GetLedgerEntry(xdr.LedgerKey{
+	hasConfig, stateExpirationConfig, err := db.GetLedgerEntry(params.LedgerEntryReadTx, false, xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeConfigSetting,
 		ConfigSetting: &xdr.LedgerKeyConfigSetting{
 			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
 		},
-	}, false)
+	})
 	if err != nil {
 		return Preflight{}, err
 	}

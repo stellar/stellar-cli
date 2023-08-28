@@ -266,7 +266,7 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		Namespace: params.Daemon.MetricsNamespace(), Subsystem: "network", Name: "global_request_execution_duration_threshold_limit",
 		Help: "The metric measures the count of requests that surpassed the limit threshold for execution time",
 	})
-	durationLimitedBridge := network.MakeHTTPRequestDurationLimiter(
+	var handler http.Handler = network.MakeHTTPRequestDurationLimiter(
 		queueLimitedBridge,
 		cfg.RequestExecutionWarningThreshold,
 		cfg.MaxRequestExecutionDuration,
@@ -274,9 +274,12 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		globalQueueRequestExecutionDurationLimitCounter,
 		params.Logger)
 
+	// Limit request sizes to 10MB
+	handler = http.MaxBytesHandler(handler, 1024*1024*10)
+
 	return Handler{
 		bridge:  bridge,
 		logger:  params.Logger,
-		Handler: durationLimitedBridge,
+		Handler: handler,
 	}
 }

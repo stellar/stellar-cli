@@ -31,7 +31,7 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db *DB, key xdr.LedgerKey) (bo
 		return false, xdr.LedgerEntry{}, 0, err
 	}
 
-	present, entry, err := tx.GetLedgerEntry(key, false)
+	present, entry, err := GetLedgerEntry(tx, false, key)
 	if err != nil {
 		return false, xdr.LedgerEntry{}, 0, err
 	}
@@ -504,14 +504,14 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 
 	_, err = readTx1.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
-	present, _, err := readTx1.GetLedgerEntry(key, false)
+	present, _, err := GetLedgerEntry(readTx1, false, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
 	assert.NoError(t, readTx1.Done())
 
 	_, err = readTx2.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
-	present, _, err = readTx2.GetLedgerEntry(key, false)
+	present, _, err = GetLedgerEntry(readTx2, false, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
 	assert.NoError(t, readTx2.Done())
@@ -588,7 +588,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	for _, readTx := range []LedgerEntryReadTx{readTx1, readTx2, readTx3} {
 		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		present, _, err := readTx.GetLedgerEntry(key, false)
+		present, _, err := GetLedgerEntry(readTx, false, key)
 		assert.NoError(t, err)
 		assert.False(t, present)
 	}
@@ -600,7 +600,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	for _, readTx := range []LedgerEntryReadTx{readTx1, readTx2, readTx3} {
 		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		present, _, err := readTx.GetLedgerEntry(key, false)
+		present, _, err := GetLedgerEntry(readTx, false, key)
 		assert.NoError(t, err)
 		assert.False(t, present)
 	}
@@ -736,6 +736,65 @@ forloop:
 
 }
 
+func benchmarkLedgerEntry(b *testing.B, cached bool, includeExpired bool) {
+	db := NewTestDB(b)
+	keyUint32 := xdr.Uint32(0)
+	data := xdr.ContractDataEntry{
+		Contract: xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: &xdr.Hash{0xca, 0xfe},
+		},
+		Key: xdr.ScVal{
+			Type: xdr.ScValTypeScvU32,
+			U32:  &keyUint32,
+		},
+		Durability: xdr.ContractDataDurabilityPersistent,
+		Body: xdr.ContractDataEntryBody{
+			BodyType: xdr.ContractEntryBodyTypeDataEntry,
+			Data: &xdr.ContractDataEntryData{
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvU32,
+					U32:  &keyUint32,
+				},
+			},
+		},
+		ExpirationLedgerSeq: math.MaxUint32,
+	}
+	key, entry := getContractDataLedgerEntry(b, data)
+	tx, err := NewReadWriter(db, 150, 15).NewTx(context.Background())
+	assert.NoError(b, err)
+	assert.NoError(b, tx.LedgerEntryWriter().UpsertLedgerEntry(entry))
+	assert.NoError(b, tx.Commit(2))
+	reader := NewLedgerEntryReader(db)
+	const numQueriesPerOp = 15
+	b.ResetTimer()
+	b.StopTimer()
+	for i := 0; i < b.N; i++ {
+		var readTx LedgerEntryReadTx
+		var err error
+		if cached {
+			readTx, err = reader.NewCachedTx(context.Background())
+		} else {
+			readTx, err = reader.NewTx(context.Background())
+		}
+		assert.NoError(b, err)
+		for i := 0; i < numQueriesPerOp; i++ {
+			b.StartTimer()
+			found, _, err := GetLedgerEntry(readTx, includeExpired, key)
+			b.StopTimer()
+			assert.NoError(b, err)
+			assert.True(b, found)
+		}
+		assert.NoError(b, readTx.Done())
+	}
+}
+
+func BenchmarkGetLedgerEntry(b *testing.B) {
+	b.Run("With cache, include expired", func(b *testing.B) { benchmarkLedgerEntry(b, true, true) })
+	b.Run("With cache, exclude expired", func(b *testing.B) { benchmarkLedgerEntry(b, true, false) })
+	b.Run("Without cache, exclude expired", func(b *testing.B) { benchmarkLedgerEntry(b, false, false) })
+}
+
 func BenchmarkLedgerUpdate(b *testing.B) {
 	db := NewTestDB(b)
 	keyUint32 := xdr.Uint32(0)
@@ -773,7 +832,6 @@ func BenchmarkLedgerUpdate(b *testing.B) {
 		}
 		assert.NoError(b, tx.Commit(uint32(i+1)))
 	}
-	b.StopTimer()
 }
 
 func NewTestDB(tb testing.TB) *DB {
@@ -783,14 +841,13 @@ func NewTestDB(tb testing.TB) *DB {
 	if err != nil {
 		assert.NoError(tb, db.Close())
 	}
-	var ver []string
-	assert.NoError(tb, db.SelectRaw(context.Background(), &ver, "SELECT sqlite_version()"))
-	tb.Logf("using sqlite version: %v", ver)
 	tb.Cleanup(func() {
 		assert.NoError(tb, db.Close())
 	})
 	return &DB{
 		SessionInterface: db,
-		ledgerEntryCache: newTransactionalCache(),
+		cache: dbCache{
+			ledgerEntries: newTransactionalCache(),
+		},
 	}
 }
