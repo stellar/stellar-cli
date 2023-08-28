@@ -2,6 +2,7 @@ package methods
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/creachadair/jrpc2"
@@ -28,13 +29,19 @@ type SimulateHostFunctionResult struct {
 	XDR  string   `json:"xdr"`
 }
 
+type RestorePreamble struct {
+	TransactionData string `json:"transactionData"` // SorobanTransactionData XDR in base64
+	MinResourceFee  int64  `json:"minResourceFee,string"`
+}
+
 type SimulateTransactionResponse struct {
 	Error           string                       `json:"error,omitempty"`
-	TransactionData string                       `json:"transactionData"` // SorobanTransactionData XDR in base64
-	Events          []string                     `json:"events"`          // DiagnosticEvent XDR in base64
-	MinResourceFee  int64                        `json:"minResourceFee,string"`
-	Results         []SimulateHostFunctionResult `json:"results,omitempty"` // an array of the individual host function call results
-	Cost            SimulateTransactionCost      `json:"cost"`              // the effective cpu and memory cost of the invoked transaction execution.
+	TransactionData string                       `json:"transactionData,omitempty"` // SorobanTransactionData XDR in base64
+	MinResourceFee  int64                        `json:"minResourceFee,string,omitempty"`
+	Events          []string                     `json:"events,omitempty"`          // DiagnosticEvent XDR in base64
+	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
+	Cost            SimulateTransactionCost      `json:"cost,omitempty"`            // the effective cpu and memory cost of the invoked transaction execution.
+	RestorePreamble RestorePreamble              `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
 	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
@@ -114,23 +121,43 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
+		var results []SimulateHostFunctionResult
+		if len(result.Result) != 0 {
+			results = append(results, SimulateHostFunctionResult{
+				XDR:  base64.StdEncoding.EncodeToString(result.Result),
+				Auth: base64EncodeSlice(result.Auth),
+			})
+		}
+		restorePreable := RestorePreamble{}
+		if len(result.PreRestoreTransactionData) != 0 {
+			restorePreable = RestorePreamble{
+				TransactionData: base64.StdEncoding.EncodeToString(result.PreRestoreTransactionData),
+				MinResourceFee:  result.PreRestoreMinFee,
+			}
+		}
+
 		return SimulateTransactionResponse{
-			Results: []SimulateHostFunctionResult{
-				{
-					XDR:  result.Result,
-					Auth: result.Auth,
-				},
-			},
-			Events:          result.Events,
-			TransactionData: result.TransactionData,
+			Error:           result.Error,
+			Results:         results,
+			Events:          base64EncodeSlice(result.Events),
+			TransactionData: base64.StdEncoding.EncodeToString(result.TransactionData),
 			MinResourceFee:  result.MinFee,
 			Cost: SimulateTransactionCost{
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
 			},
-			LatestLedger: int64(latestLedger),
+			LatestLedger:    int64(latestLedger),
+			RestorePreamble: restorePreable,
 		}
 	})
+}
+
+func base64EncodeSlice(in [][]byte) []string {
+	result := make([]string, len(in))
+	for i, v := range in {
+		result[i] = base64.StdEncoding.EncodeToString(v)
+	}
+	return result
 }
 
 func getBucketListSize(ctx context.Context, ledgerReader db.LedgerReader, latestLedger uint32) (uint64, error) {

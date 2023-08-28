@@ -7,6 +7,7 @@ import (
 	"net/http/pprof" //nolint:gosec
 	"os"
 	"os/signal"
+	runtimePprof "runtime/pprof"
 	"sync"
 	"syscall"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/preflight"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/util"
 )
 
 const (
@@ -261,6 +263,11 @@ func MustNew(cfg *config.Config) *Daemon {
 		adminMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		adminMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		adminMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		// add the entry points for:
+		// goroutine, threadcreate, heap, allocs, block, mutex
+		for _, profile := range runtimePprof.Profiles() {
+			adminMux.Handle("/debug/pprof/"+profile.Name(), pprof.Handler(profile.Name()))
+		}
 		adminMux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 		daemon.adminServer = &http.Server{Addr: cfg.AdminEndpoint, Handler: adminMux}
 	}
@@ -275,19 +282,20 @@ func (d *Daemon) Run() {
 		"addr":    d.server.Addr,
 	}).Info("starting Soroban JSON RPC server")
 
-	go func() {
+	panicGroup := util.UnrecoverablePanicGroup.Log(d.logger)
+	panicGroup.Go(func() {
 		if err := d.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Error starting or closing listener:
 			d.logger.WithError(err).Fatal("soroban JSON RPC server encountered fatal error")
 		}
-	}()
+	})
 
 	if d.adminServer != nil {
-		go func() {
+		panicGroup.Go(func() {
 			if err := d.adminServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				d.logger.WithError(err).Error("soroban admin server encountered fatal error")
 			}
-		}()
+		})
 	}
 
 	// Shutdown gracefully when we receive an interrupt signal.

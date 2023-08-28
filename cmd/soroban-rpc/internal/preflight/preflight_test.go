@@ -216,6 +216,26 @@ var helloWorldContract = func() []byte {
 
 type inMemoryLedgerEntryReadTx map[string]xdr.LedgerEntry
 
+func (m inMemoryLedgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
+	result := make([]db.LedgerKeyAndEntry, 0, len(keys))
+	for _, key := range keys {
+		serializedKey, err := key.MarshalBinaryBase64()
+		if err != nil {
+			return nil, err
+		}
+		entry, ok := m[serializedKey]
+		if !ok {
+			continue
+		}
+		// We don't check the expiration but that's ok for the test
+		result = append(result, db.LedgerKeyAndEntry{
+			Key:   key,
+			Entry: entry,
+		})
+	}
+	return result, nil
+}
+
 func newInMemoryLedgerEntryReadTx(entries []xdr.LedgerEntry) (inMemoryLedgerEntryReadTx, error) {
 	result := make(map[string]xdr.LedgerEntry, len(entries))
 	for _, entry := range entries {
@@ -236,42 +256,51 @@ func (m inMemoryLedgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
 	return 2, nil
 }
 
-func (m inMemoryLedgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
-	serializedKey, err := key.MarshalBinaryBase64()
-	if err != nil {
-		return false, xdr.LedgerEntry{}, err
-	}
-	entry, ok := m[serializedKey]
-	if !ok {
-		return false, xdr.LedgerEntry{}, nil
-	}
-	return true, entry, nil
-}
-
 func (m inMemoryLedgerEntryReadTx) Done() error {
 	return nil
 }
 
-func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
+func getDB(t testing.TB, restartDB bool) *db.DB {
+	dbPath := path.Join(t.TempDir(), "soroban_rpc.sqlite")
+	dbInstance, err := db.OpenSQLiteDB(dbPath)
+	require.NoError(t, err)
+	readWriter := db.NewReadWriter(dbInstance, 100, 10000)
+	tx, err := readWriter.NewTx(context.Background())
+	require.NoError(t, err)
+	for _, e := range mockLedgerEntries {
+		err := tx.LedgerEntryWriter().UpsertLedgerEntry(e)
+		require.NoError(t, err)
+	}
+	err = tx.Commit(2)
+	require.NoError(t, err)
+	if restartDB {
+		// Restarting the DB resets the ledger entries write-through cache
+		require.NoError(t, dbInstance.Close())
+		dbInstance, err = db.OpenSQLiteDB(dbPath)
+		require.NoError(t, err)
+	}
+	return dbInstance
+}
+
+type preflightParametersDBConfig struct {
+	dbInstance   *db.DB
+	disableCache bool
+}
+
+func getPreflightParameters(t testing.TB, dbConfig *preflightParametersDBConfig) PreflightParameters {
 	var ledgerEntryReadTx db.LedgerEntryReadTx
-	if inMemory {
+	if dbConfig != nil {
+		entryReader := db.NewLedgerEntryReader(dbConfig.dbInstance)
 		var err error
-		ledgerEntryReadTx, err = newInMemoryLedgerEntryReadTx(mockLedgerEntries)
+		if dbConfig.disableCache {
+			ledgerEntryReadTx, err = entryReader.NewTx(context.Background())
+		} else {
+			ledgerEntryReadTx, err = entryReader.NewCachedTx(context.Background())
+		}
 		require.NoError(t, err)
 	} else {
-		d := t.TempDir()
-		dbInstance, err := db.OpenSQLiteDB(path.Join(d, "soroban_rpc.sqlite"))
-		require.NoError(t, err)
-		readWriter := db.NewReadWriter(dbInstance, 100, 10000)
-		tx, err := readWriter.NewTx(context.Background())
-		require.NoError(t, err)
-		for _, e := range mockLedgerEntries {
-			err := tx.LedgerEntryWriter().UpsertLedgerEntry(e)
-			require.NoError(t, err)
-		}
-		err = tx.Commit(2)
-		require.NoError(t, err)
-		ledgerEntryReadTx, err = db.NewLedgerEntryReader(dbInstance).NewCachedTx(context.Background())
+		var err error
+		ledgerEntryReadTx, err = newInMemoryLedgerEntryReadTx(mockLedgerEntries)
 		require.NoError(t, err)
 	}
 	argSymbol := xdr.ScSymbol("world")
@@ -305,27 +334,61 @@ func getPreflightParameters(t testing.TB, inMemory bool) PreflightParameters {
 }
 
 func TestGetPreflight(t *testing.T) {
-	params := getPreflightParameters(t, false)
+	// in-memory
+	params := getPreflightParameters(t, nil)
 	_, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.NoError(t, params.LedgerEntryReadTx.Done())
 
-	params = getPreflightParameters(t, true)
+	// using a restarted db with caching and
+	getDB(t, true)
+	dbConfig := &preflightParametersDBConfig{
+		dbInstance:   getDB(t, true),
+		disableCache: false,
+	}
+	params = getPreflightParameters(t, dbConfig)
 	_, err = GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.NoError(t, params.LedgerEntryReadTx.Done())
+	require.NoError(t, dbConfig.dbInstance.Close())
 }
 
-func benchmark(b *testing.B, inMemory bool) {
-	params := getPreflightParameters(b, inMemory)
+type benchmarkDBConfig struct {
+	restart      bool
+	disableCache bool
+}
+
+type benchmarkConfig struct {
+	useDB *benchmarkDBConfig
+}
+
+func benchmark(b *testing.B, config benchmarkConfig) {
+	var dbConfig *preflightParametersDBConfig
+	if config.useDB != nil {
+		dbConfig = &preflightParametersDBConfig{
+			dbInstance:   getDB(b, config.useDB.restart),
+			disableCache: config.useDB.disableCache,
+		}
+	}
+
 	b.ResetTimer()
+	b.StopTimer()
 	for i := 0; i < b.N; i++ {
+		params := getPreflightParameters(b, dbConfig)
 		b.StartTimer()
 		_, err := GetPreflight(context.Background(), params)
 		b.StopTimer()
 		require.NoError(b, err)
+		require.NoError(b, params.LedgerEntryReadTx.Done())
+	}
+	if dbConfig != nil {
+		require.NoError(b, dbConfig.dbInstance.Close())
 	}
 }
 
 func BenchmarkGetPreflight(b *testing.B) {
-	b.Run("In-memory storage", func(b *testing.B) { benchmark(b, true) })
-	b.Run("DB storage", func(b *testing.B) { benchmark(b, false) })
+	b.Run("In-memory storage", func(b *testing.B) { benchmark(b, benchmarkConfig{}) })
+	b.Run("DB storage", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &benchmarkDBConfig{}}) })
+	b.Run("DB storage, restarting", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &benchmarkDBConfig{restart: true}}) })
+	b.Run("DB storage, no cache", func(b *testing.B) { benchmark(b, benchmarkConfig{useDB: &benchmarkDBConfig{disableCache: true}}) })
 }

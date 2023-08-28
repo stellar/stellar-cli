@@ -16,6 +16,8 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
+const defaultHTTPEndpoint = "localhost:8000"
+
 func (cfg *Config) options() ConfigOptions {
 	if cfg.optionsCache != nil {
 		return *cfg.optionsCache
@@ -41,7 +43,7 @@ func (cfg *Config) options() ConfigOptions {
 			Name:         "endpoint",
 			Usage:        "Endpoint to listen and serve on",
 			ConfigKey:    &cfg.Endpoint,
-			DefaultValue: "localhost:8000",
+			DefaultValue: defaultHTTPEndpoint,
 		},
 		{
 			Name:      "admin-endpoint",
@@ -189,11 +191,10 @@ func (cfg *Config) options() ConfigOptions {
 			ConfigKey: &cfg.FriendbotURL,
 		},
 		{
-			Name:         "network-passphrase",
-			Usage:        "Network passphrase of the Stellar network transactions should be signed for",
-			ConfigKey:    &cfg.NetworkPassphrase,
-			DefaultValue: network.FutureNetworkPassphrase,
-			Validate:     required,
+			Name:      "network-passphrase",
+			Usage:     "Network passphrase of the Stellar network transactions should be signed for. Commonly used values are \"" + network.FutureNetworkPassphrase + "\", \"" + network.TestNetworkPassphrase + "\" and \"" + network.PublicNetworkPassphrase + "\"",
+			ConfigKey: &cfg.NetworkPassphrase,
+			Validate:  required,
 		},
 		{
 			Name:         "db-path",
@@ -399,9 +400,25 @@ func (cfg *Config) options() ConfigOptions {
 	return *cfg.optionsCache
 }
 
+type errMissingRequiredOption struct {
+	strErr string
+	usage  string
+}
+
+func (e errMissingRequiredOption) Error() string {
+	return e.strErr
+}
+
 func required(option *ConfigOption) error {
-	if !reflect.ValueOf(option.ConfigKey).Elem().IsZero() {
-		return nil
+	switch reflect.ValueOf(option.ConfigKey).Elem().Kind() {
+	case reflect.Slice:
+		if reflect.ValueOf(option.ConfigKey).Elem().Len() > 0 {
+			return nil
+		}
+	default:
+		if !reflect.ValueOf(option.ConfigKey).Elem().IsZero() {
+			return nil
+		}
 	}
 
 	waysToSet := []string{}
@@ -426,7 +443,7 @@ func required(option *ConfigOption) error {
 		advice = fmt.Sprintf(" Please %s, %s, or %s.", waysToSet[0], waysToSet[1], waysToSet[2])
 	}
 
-	return fmt.Errorf("%s is required.%s", option.Name, advice)
+	return errMissingRequiredOption{strErr: fmt.Sprintf("%s is required.%s", option.Name, advice), usage: option.Usage}
 }
 
 func positive(option *ConfigOption) error {

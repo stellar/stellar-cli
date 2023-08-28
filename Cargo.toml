@@ -63,7 +63,9 @@ rev = "4876e5eb20016caebbd13bcf6401626dc6073b8e"
 default-features = false
 
 [workspace.dependencies]
-base64 = "0.13.0"
+base64 = "0.21.2"
+thiserror = "1.0.46"
+sha2 = "0.10.7"
 ethnum = "1.3.2"
 hex = "0.4.3"
 itertools = "0.10.0"

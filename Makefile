@@ -103,10 +103,10 @@ lint:
 typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
 					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
-					--contract-name test_custom_types \
-					--contract-id CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE \
+					--contract-id CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK \
 					--network futurenet \
-					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures
+					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types \
+					--overwrite
 
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.

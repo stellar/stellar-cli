@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
@@ -24,9 +23,14 @@ type LedgerEntryReader interface {
 	NewCachedTx(ctx context.Context) (LedgerEntryReadTx, error)
 }
 
+type LedgerKeyAndEntry struct {
+	Key   xdr.LedgerKey
+	Entry xdr.LedgerEntry
+}
+
 type LedgerEntryReadTx interface {
 	GetLatestLedgerSequence() (uint32, error)
-	GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error)
+	GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error)
 	Done() error
 }
 
@@ -178,88 +182,148 @@ func (l ledgerEntryWriter) flush() error {
 }
 
 type ledgerEntryReadTx struct {
-	cachedLatestLedgerSeq  uint32
-	ledgerEntryCacheReadTx transactionalCacheReadTx
+	globalCache            *dbCache
+	stmtCache              *sq.StmtCache
+	latestLedgerSeqCache   uint32
+	ledgerEntryCacheReadTx *transactionalCacheReadTx
 	tx                     db.SessionInterface
 	buffer                 *xdr.EncodingBuffer
 }
 
 func (l *ledgerEntryReadTx) GetLatestLedgerSequence() (uint32, error) {
-	if l.cachedLatestLedgerSeq != 0 {
-		return l.cachedLatestLedgerSeq, nil
+	if l.latestLedgerSeqCache != 0 {
+		return l.latestLedgerSeqCache, nil
 	}
-	latestLedgerSeq, err := getLatestLedgerSequence(context.Background(), l.tx)
-	if err != nil {
-		l.cachedLatestLedgerSeq = latestLedgerSeq
+	latestLedgerSeq, err := getLatestLedgerSequence(context.Background(), l.tx, l.globalCache)
+	if err == nil {
+		l.latestLedgerSeqCache = latestLedgerSeq
 	}
 	return latestLedgerSeq, err
 }
 
-func (l *ledgerEntryReadTx) getBinaryLedgerEntry(key xdr.LedgerKey) (bool, string, error) {
-	encodedKey, err := encodeLedgerKey(l.buffer, key)
-	if err != nil {
-		return false, "", err
-	}
-
+// From compressed XDR keys to XDR entries (i.e. using the DB's representation)
+func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]string, error) {
+	result := make(map[string]string, len(keys))
+	keysToQueryInDB := keys
 	if l.ledgerEntryCacheReadTx != nil {
-		entry, ok := l.ledgerEntryCacheReadTx.get(encodedKey)
-		if ok {
+		keysToQueryInDB = make([]string, 0, len(keys))
+		for _, k := range keys {
+			entry, ok := l.ledgerEntryCacheReadTx.get(k)
+			if !ok {
+				keysToQueryInDB = append(keysToQueryInDB, k)
+			}
 			if entry != nil {
-				return true, *entry, nil
-			} else {
-				return false, "", nil
+				result[k] = *entry
 			}
 		}
 	}
 
-	sql := sq.Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey})
-	var results []string
-	if err = l.tx.Select(context.Background(), &results, sql); err != nil {
-		return false, "", err
+	if len(keysToQueryInDB) == 0 {
+		return result, nil
 	}
-	switch len(results) {
-	case 0:
-		if l.ledgerEntryCacheReadTx != nil {
-			l.ledgerEntryCacheReadTx.upsert(encodedKey, nil)
+
+	builder := sq.StatementBuilder
+	if l.stmtCache != nil {
+		builder = builder.RunWith(l.stmtCache)
+	} else {
+		builder = builder.RunWith(l.tx.GetTx())
+	}
+	sql := builder.Select("key", "entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": keysToQueryInDB})
+	q, err := sql.Query()
+	if err != nil {
+		return nil, err
+	}
+	for q.Next() {
+		var key, entry string
+		if err = q.Scan(&key, &entry); err != nil {
+			return nil, err
 		}
-		return false, "", nil
+		result[key] = entry
+		if l.ledgerEntryCacheReadTx != nil {
+			l.ledgerEntryCacheReadTx.upsert(key, &entry)
+
+			// Add missing config setting entries to the top cache.
+			// Otherwise, the write-through cache won't get updated on restarts
+			// (after which we don't process past config setting updates)
+			keyType, err := xdr.GetBinaryCompressedLedgerKeyType([]byte(key))
+			if err != nil {
+				return nil, err
+			}
+			if keyType == xdr.LedgerEntryTypeConfigSetting {
+				l.globalCache.Lock()
+				// Only update the cache if the entry is missing, otherwise
+				// we may end up overwriting the entry with an older version
+				if _, ok := l.globalCache.ledgerEntries.entries[key]; !ok {
+					l.globalCache.ledgerEntries.entries[key] = entry
+				}
+				defer l.globalCache.Unlock()
+			}
+		}
+	}
+	return result, nil
+}
+
+func GetLedgerEntry(tx LedgerEntryReadTx, includeExpired bool, key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+	keyEntries, err := tx.GetLedgerEntries(includeExpired, key)
+	if err != nil {
+		return false, xdr.LedgerEntry{}, err
+	}
+	switch len(keyEntries) {
+	case 0:
+		return false, xdr.LedgerEntry{}, nil
 	case 1:
 		// expected length
-		result := results[0]
-		if l.ledgerEntryCacheReadTx != nil {
-			l.ledgerEntryCacheReadTx.upsert(encodedKey, &result)
-		}
-		return true, result, nil
+		return true, keyEntries[0].Entry, nil
 	default:
-		return false, "", fmt.Errorf("multiple entries (%d) for key %q in table %q", len(results), hex.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName)
+		return false, xdr.LedgerEntry{}, fmt.Errorf("multiple entries (%d) for key %v", len(keyEntries), key)
 	}
 }
 
-func (l *ledgerEntryReadTx) GetLedgerEntry(key xdr.LedgerKey, includeExpired bool) (bool, xdr.LedgerEntry, error) {
-	found, ledgerEntryBin, err := l.getBinaryLedgerEntry(key)
-	if err != nil || !found {
-		return found, xdr.LedgerEntry{}, err
-	}
-	var result xdr.LedgerEntry
-	if err := xdr.SafeUnmarshal([]byte(ledgerEntryBin), &result); err != nil {
-		return false, xdr.LedgerEntry{}, err
+func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error) {
+	encodedKeys := make([]string, len(keys))
+	encodedKeyToKey := make(map[string]xdr.LedgerKey, len(keys))
+	for i, k := range keys {
+		encodedKey, err := encodeLedgerKey(l.buffer, k)
+		if err != nil {
+			return nil, err
+		}
+		encodedKeys[i] = encodedKey
+		encodedKeyToKey[encodedKey] = k
 	}
 
-	// Disallow access to entries that have expired. Expiration excludes the
-	// "current" ledger, which we are building.
-	if !includeExpired {
-		if expirationLedgerSeq, ok := result.Data.ExpirationLedgerSeq(); ok {
-			latestClosedLedger, err := l.GetLatestLedgerSequence()
-			if err != nil {
-				return false, xdr.LedgerEntry{}, err
-			}
-			if expirationLedgerSeq < xdr.Uint32(latestClosedLedger) {
-				return false, xdr.LedgerEntry{}, nil
+	rawResult, err := l.getRawLedgerEntries(encodedKeys...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]LedgerKeyAndEntry, 0, len(rawResult))
+	for encodedKey, key := range encodedKeyToKey {
+		encodedEntry, ok := rawResult[encodedKey]
+		if !ok {
+			continue
+		}
+		var entry xdr.LedgerEntry
+		if err := xdr.SafeUnmarshal([]byte(encodedEntry), &entry); err != nil {
+			return nil, errors.Wrap(err, "cannot decode ledger entry from DB")
+		}
+		if !includeExpired {
+			// Disallow access to entries that have expired. Expiration excludes the
+			// "current" ledger, which we are building.
+			if expirationLedgerSeq, ok := entry.Data.ExpirationLedgerSeq(); ok {
+				latestClosedLedger, err := l.GetLatestLedgerSequence()
+				if err != nil {
+					return nil, err
+				}
+				currentLedger := latestClosedLedger + 1
+				if expirationLedgerSeq < xdr.Uint32(currentLedger) {
+					continue
+				}
 			}
 		}
+		result = append(result, LedgerKeyAndEntry{key, entry})
 	}
 
-	return true, result, nil
+	return result, nil
 }
 
 func (l ledgerEntryReadTx) Done() error {
@@ -277,25 +341,29 @@ func NewLedgerEntryReader(db *DB) LedgerEntryReader {
 }
 
 func (r ledgerEntryReader) GetLatestLedgerSequence(ctx context.Context) (uint32, error) {
-	return getLatestLedgerSequence(ctx, r.db)
+	return getLatestLedgerSequence(ctx, r.db, &r.db.cache)
 }
 
+// NewCachedTx() caches all accessed ledger entries and select statements. If many ledger entries are accessed, it will grow without bounds.
 func (r ledgerEntryReader) NewCachedTx(ctx context.Context) (LedgerEntryReadTx, error) {
 	txSession := r.db.Clone()
 	// We need to copy the cached ledger entries locally when we start the transaction
 	// since otherwise we would break the consistency between the transaction and the cache.
 
-	// We need to make the cache snapshot atomic with the read transaction creation.
+	// We need to make the parent cache access atomic with the read transaction creation.
 	// Otherwise, the cache can be made inconsistent if a write transaction finishes
 	// in between, updating the cache.
-	r.db.ledgerEntryCacheMutex.RLock()
-	defer r.db.ledgerEntryCacheMutex.RUnlock()
+	r.db.cache.RLock()
+	defer r.db.cache.RUnlock()
 	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
-	cacheReadTx := r.db.ledgerEntryCache.newReadTx()
+	cacheReadTx := r.db.cache.ledgerEntries.newReadTx()
 	return &ledgerEntryReadTx{
-		ledgerEntryCacheReadTx: cacheReadTx,
+		globalCache:            &r.db.cache,
+		stmtCache:              sq.NewStmtCache(txSession.GetTx()),
+		latestLedgerSeqCache:   r.db.cache.latestLedgerSeq,
+		ledgerEntryCacheReadTx: &cacheReadTx,
 		tx:                     txSession,
 		buffer:                 xdr.NewEncodingBuffer(),
 	}, nil
@@ -306,9 +374,13 @@ func (r ledgerEntryReader) NewTx(ctx context.Context) (LedgerEntryReadTx, error)
 	if err := txSession.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
+	r.db.cache.RLock()
+	defer r.db.cache.RUnlock()
 	return &ledgerEntryReadTx{
-		tx:     txSession,
-		buffer: xdr.NewEncodingBuffer(),
+		globalCache:          &r.db.cache,
+		latestLedgerSeqCache: r.db.cache.latestLedgerSeq,
+		tx:                   txSession,
+		buffer:               xdr.NewEncodingBuffer(),
 	}, nil
 }
 

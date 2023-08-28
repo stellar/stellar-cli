@@ -39,53 +39,35 @@ type snapshotSourceHandle struct {
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceGet
-func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey *C.char, includeExpired C.int) *C.char {
+func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey C.xdr_t, includeExpired C.int) C.xdr_t {
 	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
-	ledgerKeyB64 := C.GoString(cLedgerKey)
+	ledgerKeyXDR := GoXDR(cLedgerKey)
 	var ledgerKey xdr.LedgerKey
-	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
+	if err := xdr.SafeUnmarshal(ledgerKeyXDR, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, entry, err := h.readTx.GetLedgerEntry(ledgerKey, includeExpired != 0)
+	present, entry, err := db.GetLedgerEntry(h.readTx, includeExpired != 0, ledgerKey)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
-		return nil
+		return C.xdr_t{}
 	}
 	if !present {
-		return nil
+		return C.xdr_t{}
 	}
-	out, err := xdr.MarshalBase64(entry)
+	out, err := entry.MarshalBinary()
 	if err != nil {
 		panic(err)
 	}
-	return C.CString(out)
+
+	return C.xdr_t{
+		xdr: (*C.uchar)(C.CBytes(out)),
+		len: C.size_t(len(out)),
+	}
 }
 
-// SnapshotSourceHas takes LedgerKey XDR in base64 and returns whether it exists
-// It's used by the Rust preflight code to obtain ledger entries.
-//
-//export SnapshotSourceHas
-func SnapshotSourceHas(handle C.uintptr_t, cLedgerKey *C.char) C.int {
-	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
-	ledgerKeyB64 := C.GoString(cLedgerKey)
-	var ledgerKey xdr.LedgerKey
-	if err := xdr.SafeUnmarshalBase64(ledgerKeyB64, &ledgerKey); err != nil {
-		panic(err)
-	}
-	present, _, err := h.readTx.GetLedgerEntry(ledgerKey, false)
-	if err != nil {
-		h.logger.WithError(err).Error("SnapshotSourceHas(): GetLedgerEntry() failed")
-		return 0
-	}
-	if present {
-		return 1
-	}
-	return 0
-}
-
-//export FreeGoCString
-func FreeGoCString(str *C.char) {
-	C.free(unsafe.Pointer(str))
+//export FreeGoXDR
+func FreeGoXDR(xdr C.xdr_t) {
+	C.free(unsafe.Pointer(xdr.xdr))
 }
 
 type PreflightParameters struct {
@@ -99,29 +81,34 @@ type PreflightParameters struct {
 }
 
 type Preflight struct {
-	Events          []string // DiagnosticEvents XDR in base64
-	TransactionData string   // SorobanTransactionData XDR in base64
-	MinFee          int64
-	Result          string   // XDR SCVal in base64
-	Auth            []string // SorobanAuthorizationEntrys XDR in base64
-	CPUInstructions uint64
-	MemoryBytes     uint64
+	Error                     string
+	Events                    [][]byte // DiagnosticEvents XDR
+	TransactionData           []byte   // SorobanTransactionData XDR
+	MinFee                    int64
+	Result                    []byte   // XDR SCVal in base64
+	Auth                      [][]byte // SorobanAuthorizationEntries XDR
+	CPUInstructions           uint64
+	MemoryBytes               uint64
+	PreRestoreTransactionData []byte // SorobanTransactionData XDR
+	PreRestoreMinFee          int64
 }
 
-// GoNullTerminatedStringSlice transforms a C NULL-terminated char** array to a Go string slice
-func GoNullTerminatedStringSlice(str **C.char) []string {
-	var result []string
-	if str != nil {
-		// CGo doesn't have an easy way to do pointer arithmetic so,
-		// we are better off transforming the memory buffer into a large slice
-		// and finding the NULL termination after that
-		for _, a := range unsafe.Slice(str, 1<<20) {
-			if a == nil {
-				// we found the ending nil
-				break
-			}
-			result = append(result, C.GoString(a))
-		}
+func CXDR(xdr []byte) C.xdr_t {
+	return C.xdr_t{
+		xdr: (*C.uchar)(C.CBytes(xdr)),
+		len: C.size_t(len(xdr)),
+	}
+}
+
+func GoXDR(xdr C.xdr_t) []byte {
+	return C.GoBytes(unsafe.Pointer(xdr.xdr), C.int(xdr.len))
+}
+
+func GoXDRVector(xdrVector C.xdr_vector_t) [][]byte {
+	result := make([][]byte, xdrVector.len)
+	inputSlice := unsafe.Slice(xdrVector.array, xdrVector.len)
+	for i, v := range inputSlice {
+		result[i] = GoXDR(v)
 	}
 	return result
 }
@@ -138,20 +125,20 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 }
 
 func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, error) {
-	opBodyB64, err := xdr.MarshalBase64(params.OpBody)
+	opBodyXDR, err := params.OpBody.MarshalBinary()
 	if err != nil {
 		return Preflight{}, err
 	}
-	opBodyCString := C.CString(opBodyB64)
-	footprintB64, err := xdr.MarshalBase64(params.Footprint)
+	opBodyCXDR := CXDR(opBodyXDR)
+	footprintXDR, err := params.Footprint.MarshalBinary()
 	if err != nil {
 		return Preflight{}, err
 	}
-	footprintCString := C.CString(footprintB64)
+	footprintCXDR := CXDR(footprintXDR)
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
 
-	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
+	simulationLedgerSeq, err := getSimulationLedgerSeq(params.LedgerEntryReadTx)
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -159,38 +146,47 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 	res := C.preflight_footprint_expiration_op(
 		C.uintptr_t(handle),
 		C.uint64_t(params.BucketListSize),
-		opBodyCString,
-		footprintCString,
-		C.uint32_t(latestLedger),
+		opBodyCXDR,
+		footprintCXDR,
+		C.uint32_t(simulationLedgerSeq),
 	)
 
-	C.free(unsafe.Pointer(opBodyCString))
-	C.free(unsafe.Pointer(footprintCString))
+	FreeGoXDR(opBodyCXDR)
+	FreeGoXDR(footprintCXDR)
 
-	return GoPreflight(res)
+	return GoPreflight(res), nil
+}
+
+func getSimulationLedgerSeq(readTx db.LedgerEntryReadTx) (uint32, error) {
+	latestLedger, err := readTx.GetLatestLedgerSequence()
+	if err != nil {
+		return 0, err
+	}
+	// It's of utmost importance to simulate the transactions like we were on the next ledger.
+	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
+	// transaction submission.
+	sequenceNumber := latestLedger + 1
+	return sequenceNumber, nil
 }
 
 func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, error) {
-	invokeHostFunctionB64, err := xdr.MarshalBase64(params.OpBody.MustInvokeHostFunctionOp())
+	invokeHostFunctionXDR, err := params.OpBody.MustInvokeHostFunctionOp().MarshalBinary()
 	if err != nil {
 		return Preflight{}, err
 	}
-	invokeHostFunctionCString := C.CString(invokeHostFunctionB64)
-	sourceAccountB64, err := xdr.MarshalBase64(params.SourceAccount)
+	invokeHostFunctionCXDR := CXDR(invokeHostFunctionXDR)
+	sourceAccountXDR, err := params.SourceAccount.MarshalBinary()
 	if err != nil {
 		return Preflight{}, err
 	}
-	latestLedger, err := params.LedgerEntryReadTx.GetLatestLedgerSequence()
-	if err != nil {
-		return Preflight{}, err
-	}
+	sourceAccountCXDR := CXDR(sourceAccountXDR)
 
-	hasConfig, stateExpirationConfig, err := params.LedgerEntryReadTx.GetLedgerEntry(xdr.LedgerKey{
+	hasConfig, stateExpirationConfig, err := db.GetLedgerEntry(params.LedgerEntryReadTx, false, xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeConfigSetting,
 		ConfigSetting: &xdr.LedgerKeyConfigSetting{
 			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
 		},
-	}, false)
+	})
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -198,14 +194,15 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		return Preflight{}, errors.New("state expiration config setting missing in ledger storage")
 	}
 
+	simulationLedgerSeq, err := getSimulationLedgerSeq(params.LedgerEntryReadTx)
+	if err != nil {
+		return Preflight{}, err
+	}
+
 	stateExpiration := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
-	// It's of utmost importance to simulate the transactions like we were on the next ledger.
-	// Otherwise, users would need to wait for an extra ledger to close in order to observe the effects of the latest ledger
-	// transaction submission.
-	sequenceNumber := latestLedger + 1
-	li := C.CLedgerInfo{
+	li := C.ledger_info_t{
 		network_passphrase: C.CString(params.NetworkPassphrase),
-		sequence_number:    C.uint32_t(sequenceNumber),
+		sequence_number:    C.uint32_t(simulationLedgerSeq),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
@@ -216,37 +213,35 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		auto_bump_ledgers:               C.uint(stateExpiration.AutoBumpLedgers),
 	}
 
-	sourceAccountCString := C.CString(sourceAccountB64)
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
 	res := C.preflight_invoke_hf_op(
 		C.uintptr_t(handle),
 		C.uint64_t(params.BucketListSize),
-		invokeHostFunctionCString,
-		sourceAccountCString,
+		invokeHostFunctionCXDR,
+		sourceAccountCXDR,
 		li,
 	)
-	C.free(unsafe.Pointer(invokeHostFunctionCString))
-	C.free(unsafe.Pointer(sourceAccountCString))
+	FreeGoXDR(invokeHostFunctionCXDR)
+	FreeGoXDR(sourceAccountCXDR)
 
-	return GoPreflight(res)
+	return GoPreflight(res), nil
 }
 
-func GoPreflight(result *C.CPreflightResult) (Preflight, error) {
+func GoPreflight(result *C.preflight_result_t) Preflight {
 	defer C.free_preflight_result(result)
 
-	if result.error != nil {
-		return Preflight{}, errors.New(C.GoString(result.error))
-	}
-
 	preflight := Preflight{
-		Events:          GoNullTerminatedStringSlice(result.events),
-		TransactionData: C.GoString(result.transaction_data),
-		MinFee:          int64(result.min_fee),
-		Result:          C.GoString(result.result),
-		Auth:            GoNullTerminatedStringSlice(result.auth),
-		CPUInstructions: uint64(result.cpu_instructions),
-		MemoryBytes:     uint64(result.memory_bytes),
+		Error:                     C.GoString(result.error),
+		Events:                    GoXDRVector(result.events),
+		TransactionData:           GoXDR(result.transaction_data),
+		MinFee:                    int64(result.min_fee),
+		Result:                    GoXDR(result.result),
+		Auth:                      GoXDRVector(result.auth),
+		CPUInstructions:           uint64(result.cpu_instructions),
+		MemoryBytes:               uint64(result.memory_bytes),
+		PreRestoreTransactionData: GoXDR(result.pre_restore_transaction_data),
+		PreRestoreMinFee:          int64(result.pre_restore_min_fee),
 	}
-	return preflight, nil
+	return preflight
 }

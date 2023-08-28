@@ -1,6 +1,6 @@
-import * as SorobanClient from 'soroban-client';
-import type { Memo, MemoType, Operation, Transaction } from 'soroban-client';
-import type { Options, ResponseTypes, Wallet } from './method-options.js';
+import * as SorobanClient from "soroban-client";
+import type { Memo, MemoType, Operation, Transaction, xdr } from "soroban-client";
+import type { ClassOptions, MethodOptions, ResponseTypes, Wallet } from "./method-options.js";
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
 export declare class NotImplementedError extends Error {
 }
@@ -9,10 +9,10 @@ type SendTx = SorobanClient.SorobanRpc.SendTransactionResponse;
 type GetTx = SorobanClient.SorobanRpc.GetTransactionResponse;
 declare let someRpcResponse: Simulation | SendTx | GetTx;
 type SomeRpcResponse = typeof someRpcResponse;
-type InvokeArgs<R extends ResponseTypes, T = string> = Options<R> & {
+type InvokeArgs<R extends ResponseTypes, T = string> = MethodOptions<R> & ClassOptions & {
     method: string;
     args?: any[];
-    parseResultXdr?: (xdr: string) => T;
+    parseResultXdr: (xdr: string | xdr.ScVal) => T;
 };
 /**
  * Invoke a method on the test_custom_types contract.
@@ -30,7 +30,7 @@ export declare function invoke<R extends ResponseTypes = undefined, T = string>(
  * or one of the exported contract methods, you may want to use this function
  * to sign the transaction with Freighter.
  */
-export declare function signTx(wallet: Wallet, tx: Tx): Promise<Tx>;
+export declare function signTx(wallet: Wallet, tx: Tx, networkPassphrase: string): Promise<Tx>;
 /**
  * Send a transaction to the Soroban network.
  *
@@ -41,5 +41,5 @@ export declare function signTx(wallet: Wallet, tx: Tx): Promise<Tx>;
  * function for its timeout/`secondsToWait` logic, rather than implementing
  * your own.
  */
-export declare function sendTx(tx: Tx, secondsToWait: number): Promise<SendTx | GetTx>;
+export declare function sendTx(tx: Tx, secondsToWait: number, server: SorobanClient.Server): Promise<SendTx | GetTx>;
 export {};

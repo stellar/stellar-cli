@@ -227,8 +227,8 @@ fn number_arg_return_err() {
             ])
             .unwrap_err();
         if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
-            assert_eq!(name, "OhNo");
-            assert_eq!(doc, "Unknown error has occurred");
+            assert_eq!(name, "NumberMustBeOdd");
+            assert_eq!(doc, "Please provide an odd number");
         };
         println!("{res:#?}");
     });

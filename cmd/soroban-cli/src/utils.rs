@@ -84,7 +84,7 @@ pub fn add_contract_code_to_ledger_entries(
         }),
         ext: LedgerEntryExt::V0,
     };
-    for (k, e) in entries.iter_mut() {
+    for (k, e) in &mut *entries {
         if **k == code_key {
             **e = code_entry;
             return Ok(hash);
@@ -125,7 +125,7 @@ pub fn add_contract_to_ledger_entries(
         }),
         ext: LedgerEntryExt::V0,
     };
-    for (k, e) in entries.iter_mut() {
+    for (k, e) in &mut *entries {
         if **k == contract_key {
             **e = contract_entry;
             return;
@@ -138,7 +138,7 @@ pub fn bump_ledger_entry_expirations<S: BuildHasher>(
     entries: &mut [(Box<LedgerKey>, Box<LedgerEntry>)],
     lookup: &HashMap<LedgerKey, u32, S>,
 ) {
-    for (k, e) in entries.iter_mut() {
+    for (k, e) in &mut *entries {
         if let Some(min_expiration) = lookup.get(k.as_ref()) {
             if let LedgerEntryData::ContractData(entry) = &mut e.data {
                 entry.expiration_ledger_seq = *min_expiration;
