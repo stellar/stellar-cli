@@ -13,7 +13,7 @@ const (
 	ledgerCloseMetaTableName = "ledger_close_meta"
 )
 
-type StreamLedgerFn func(xdr.LedgerCloseMeta) (done bool, err error)
+type StreamLedgerFn func(xdr.LedgerCloseMeta) error
 
 type LedgerReader interface {
 	GetLedger(ctx context.Context, sequence uint32) (xdr.LedgerCloseMeta, bool, error)
@@ -45,12 +45,8 @@ func (r ledgerReader) StreamAllLedgers(ctx context.Context, f StreamLedgerFn) er
 		if err = q.Scan(&closeMeta); err != nil {
 			return err
 		}
-		done, err := f(closeMeta)
-		if err != nil {
+		if err = f(closeMeta); err != nil {
 			return err
-		}
-		if done {
-			return nil
 		}
 	}
 	return nil

@@ -189,14 +189,14 @@ func MustNew(cfg *config.Config) *Daemon {
 	// NOTE: We could optimize this to avoid unnecessary ingestion calls
 	//       (the range of txmetads can be larger than the store retention windows)
 	//       but it's probably not worth the pain.
-	err = db.NewLedgerReader(dbConn).StreamAllLedgers(readTxMetaCtx, func(txmeta xdr.LedgerCloseMeta) (bool, error) {
+	err = db.NewLedgerReader(dbConn).StreamAllLedgers(readTxMetaCtx, func(txmeta xdr.LedgerCloseMeta) error {
 		if err := eventStore.IngestEvents(txmeta); err != nil {
 			logger.WithError(err).Fatal("could not initialize event memory store")
 		}
 		if err := transactionStore.IngestTransactions(txmeta); err != nil {
 			logger.WithError(err).Fatal("could not initialize transaction memory store")
 		}
-		return false, nil
+		return nil
 	})
 	if err != nil {
 		logger.WithError(err).Fatal("could not obtain txmeta cache from the database")
