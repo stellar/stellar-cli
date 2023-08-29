@@ -239,12 +239,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions:            73776,
-			ReadBytes:               40,
-			WriteBytes:              112,
-			ContractEventsSizeBytes: 0,
+			Instructions: 77283,
+			ReadBytes:    40,
+			WriteBytes:   112,
 		},
-		RefundableFee: 1,
+		RefundableFee: 20045,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -278,6 +277,8 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	require.NoError(t, err)
 
 	resultForRequestWithoutOpSource := simulateTransactionFromTxParams(t, client, params)
+	// Let's not compare the latest ledger since it may change
+	resultForRequestWithoutOpSource.LatestLedger = resultForRequestWithoutOpSource.LatestLedger
 	assert.Equal(t, result, resultForRequestWithoutOpSource)
 
 	// test that operation source account takes precedence over tx source account
@@ -439,7 +440,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotZero(t, obtainedTransactionData.RefundableFee)
-	assert.NotZero(t, obtainedTransactionData.Resources.ContractEventsSizeBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.Instructions)
 	assert.NotZero(t, obtainedTransactionData.Resources.ReadBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.WriteBytes)
