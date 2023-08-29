@@ -319,10 +319,7 @@ impl Cmd {
             .await?;
 
         tracing::debug!(?result);
-        if !events.is_empty() {
-            tracing::info!(?events);
-        }
-
+        crate::log::diagnostic_events(&events);
         let xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
             soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
             ..
@@ -420,7 +417,7 @@ impl Cmd {
         let budget = h.budget_cloned();
         let (storage, events) = h.try_finish()?;
         let footprint = &create_ledger_footprint(&storage.footprint);
-        crate::log::events(&events.0);
+        crate::log::host_events(&events.0);
         log_events(footprint, &[contract_auth.try_into()?], &[], Some(&budget));
 
         let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
@@ -495,7 +492,7 @@ fn log_events(
     budget: Option<&Budget>,
 ) {
     crate::log::auth(auth);
-    crate::log::simulation_events(events);
+    crate::log::diagnostic_events(events);
     crate::log::footprint(footprint);
     if let Some(budget) = budget {
         crate::log::budget(budget);
