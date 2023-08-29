@@ -233,6 +233,7 @@ func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]stri
 	if err != nil {
 		return nil, err
 	}
+	defer q.Close()
 	for q.Next() {
 		var key, entry string
 		if err = q.Scan(&key, &entry); err != nil {

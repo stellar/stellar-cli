@@ -7,7 +7,7 @@ import (
 // LedgerBucketWindow is a sequence of buckets associated to a ledger window.
 type LedgerBucketWindow[T any] struct {
 	// buckets is a circular buffer where each cell represents
-	// all events occurring within a specific ledger.
+	// the content stored for a specific ledger.
 	buckets []LedgerBucket[T]
 	// start is the index of the head in the circular buffer.
 	start uint32
