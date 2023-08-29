@@ -75,7 +75,7 @@ impl Root {
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Config(config) => config.run().await?,
-            Cmd::Contract(contract) => contract.run().await?,
+            Cmd::Contract(contract) => contract.run(self.global_args.clone()).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Lab(lab) => lab.run().await?,
             Cmd::Version(version) => version.run(),

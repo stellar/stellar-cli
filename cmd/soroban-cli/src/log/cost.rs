@@ -1,0 +1,42 @@
+use soroban_env_host::xdr::SorobanResources;
+use std::fmt::{Debug, Display};
+
+struct Cost<'a>(&'a SorobanResources);
+
+impl Debug for Cost<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // TODO: Should we output the footprint here?
+        writeln!(
+            f,
+            "Cpu used: {}",
+            self.0.instructions,
+        )?;
+        writeln!(
+            f,
+            "Bytes read: {}",
+            self.0.read_bytes,
+        )?;
+        writeln!(
+            f,
+            "Bytes written: {}",
+            self.0.write_bytes,
+        )?;
+        writeln!(
+            f,
+            "Events size: {}",
+            self.0.contract_events_size_bytes,
+        )?;
+        Ok(())
+    }
+}
+
+impl Display for Cost<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
+pub fn cost<'a>(resources: &'a SorobanResources) {
+    let cost = Cost(resources);
+    tracing::debug!(?cost);
+}

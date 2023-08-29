@@ -21,7 +21,7 @@ use soroban_env_host::{
         LedgerKeyAccount, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
         ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber,
         SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials, SorobanResources,
-        Transaction, TransactionExt, Uint256, VecM,
+        Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     DiagnosticLevel, Host, HostError,
 };
@@ -34,7 +34,7 @@ use super::super::{
     events,
 };
 use crate::{
-    commands::HEADING_SANDBOX,
+    commands::{ HEADING_SANDBOX, global },
     rpc::{self, Client},
     utils::{self, contract_spec, create_ledger_footprint, default_account_ledger_entry},
     Pwd,
@@ -264,21 +264,21 @@ impl Cmd {
         Ok((function.clone(), spec, invoke_args, signers))
     }
 
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.invoke().await?;
+    pub async fn run(&self, global_args: global::Args) -> Result<(), Error> {
+        let res = self.invoke(global_args).await?;
         println!("{res}");
         Ok(())
     }
 
-    pub async fn invoke(&self) -> Result<String, Error> {
+    pub async fn invoke(&self, global_args: global::Args) -> Result<String, Error> {
         if self.config.is_no_network() {
-            self.run_in_sandbox()
+            self.run_in_sandbox(global_args)
         } else {
-            self.run_against_rpc_server().await
+            self.run_against_rpc_server(global_args).await
         }
     }
 
-    pub async fn run_against_rpc_server(&self) -> Result<String, Error> {
+    pub async fn run_against_rpc_server(&self, global_args: global::Args) -> Result<String, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
@@ -317,7 +317,7 @@ impl Cmd {
                 &signers,
                 &network.network_passphrase,
                 Some(log_events),
-                if self.config.verbose || self.cost {
+                if global_args.verbose || global_args.very_verbose || self.cost {
                     Some(log_resources)
                 } else {
                     None
@@ -341,7 +341,7 @@ impl Cmd {
         output_to_string(&spec, &return_value, &function)
     }
 
-    pub fn run_in_sandbox(&self) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, global_args: global::Args) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file
@@ -430,19 +430,25 @@ impl Cmd {
 
         // TODO: Check we are calculating this right
         let contract_events_size_bytes = events
+            .0
             .iter()
-            .fold(0, |acc, event| acc + event.event.to_xdr()?.len())
-            .collect::<Result<u64, _>>()?;
+            // TODO: Error handling here
+            .map(|event| event.event.to_xdr().unwrap().len().try_into())
+            // TODO: Error handling here
+            .collect::<Result<Vec<u32>, _>>()
+            .unwrap()
+            .iter()
+            .fold(0, |acc, x| acc + x);
         let resources = SorobanResources {
-            footprint,
-            instructions: budget.cpu_insns.total_count,
-            // TODO: Check these are the right fields?
-            read_bytes: budget.mem_bytes.counts[ContractCostType::VmMemRead as usize],
-            write_bytes: budget.mem_bytes.counts[ContractCostType::VmMemWrite as usize],
+            footprint: footprint.clone(),
+            instructions: budget.get_cpu_insns_consumed()?.try_into().unwrap(),
+            // TODO: Figure out how to get these
+            read_bytes: 0,
+            write_bytes: 0,
             contract_events_size_bytes,
         };
         log_events(footprint, &[contract_auth.try_into()?], &events.0);
-        if self.config.verbose || self.cost {
+        if global_args.verbose || global_args.very_verbose || self.cost {
             log_resources(&resources);
         }
 
@@ -521,8 +527,8 @@ fn log_events(
     crate::log::footprint(footprint);
 }
 
-fn log_resources(budget: &SorobanResources) {
-    crate::log::resources(resources);
+fn log_resources(resources: &SorobanResources) {
+    crate::log::cost(resources);
 }
 
 pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<String, Error> {

@@ -6,7 +6,6 @@ use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::{
-    budget::Budget,
     events::HostEvent,
     xdr::{
         self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,

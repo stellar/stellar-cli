@@ -106,6 +106,7 @@ impl Cmd {
                 &[],
                 &network.network_passphrase,
                 None,
+                None,
             )
             .await?
         {
