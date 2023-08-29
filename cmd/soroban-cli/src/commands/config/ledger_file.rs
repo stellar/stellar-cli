@@ -37,7 +37,7 @@ impl Args {
             .map_err(|e| Error::CannotReadLedgerFile { filepath, error: e })
     }
 
-    pub fn write(&self, state: &mut LedgerSnapshot, pwd: &Path) -> Result<(), Error> {
+    pub fn write(&self, state: &LedgerSnapshot, pwd: &Path) -> Result<(), Error> {
         let filepath = self.path(pwd);
 
         state

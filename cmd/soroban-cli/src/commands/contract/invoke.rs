@@ -371,7 +371,7 @@ impl Cmd {
             budget.reset_unlimited()?;
         };
         let h = Host::with_storage_and_budget(storage, budget);
-        h.switch_to_recording_auth()?;
+        h.switch_to_recording_auth(true)?;
         h.set_source_account(source_account)?;
 
         let mut ledger_info = state.ledger_info();
@@ -430,7 +430,7 @@ impl Cmd {
         }
         utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
-        self.config.set_state(&mut state)?;
+        self.config.set_state(&state)?;
         if !events.0.is_empty() {
             self.events_file
                 .commit(&events.0, &state, &self.config.locator.config_dir()?)?;
