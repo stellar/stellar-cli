@@ -1,7 +1,11 @@
 use soroban_env_host::xdr::DiagnosticEvent;
 
-pub fn diagnostic_events(events: &[DiagnosticEvent]) {
+pub fn diagnostic_events(events: &[DiagnosticEvent], is_trace: bool) {
     for (i, event) in events.iter().enumerate() {
-        tracing::info!("{i}: {event:#?}");
+        if is_trace {
+            tracing::trace!("{i}: {event:#?}");
+        } else {
+            tracing::info!("{i}: {event:#?}");
+        }
     }
 }
