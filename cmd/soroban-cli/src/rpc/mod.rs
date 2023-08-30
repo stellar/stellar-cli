@@ -7,7 +7,6 @@ use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_
 use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::{
     budget::Budget,
-    events::HostEvent,
     xdr::{
         self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
         LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
@@ -35,7 +34,7 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 pub type LogEvents = fn(
     footprint: &LedgerFootprint,
     auth: &[VecM<SorobanAuthorizationEntry>],
-    events: &[HostEvent],
+    events: &[DiagnosticEvent],
     budget: Option<&Budget>,
 ) -> ();
 
@@ -617,7 +616,10 @@ soroban config identity fund {address} --helper-url <url>"#
         tracing::trace!(?response);
         match response.error {
             None => Ok(response),
-            Some(e) => Err(Error::TransactionSimulationFailed(e)),
+            Some(e) => {
+                crate::log::diagnostic_events(&response.events, tracing::Level::ERROR);
+                Err(Error::TransactionSimulationFailed(e))
+            }
         }
     }
 
