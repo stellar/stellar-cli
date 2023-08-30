@@ -2,6 +2,11 @@
 
 set -e
 
+SED=sed
+if [ -z "$(sed --version 2>&1 | grep GNU)" ]; then
+    SED=gsed
+fi
+
 CURL="curl -sL --fail-with-body"
 CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND='s/.*rev=\(.*\)#.*/\1/'
 
@@ -27,7 +32,7 @@ RS_STELLAR_XDR_REVISION=""
 STELLAR_XDR_REVISION_FROM_RUST=""
 
 if CARGO_OUTPUT=$(cargo tree --depth 0 -p stellar-xdr 2>&1); then
-  RS_STELLAR_XDR_REVISION=$(echo $CARGO_OUTPUT | head -n 1 | sed "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
+  RS_STELLAR_XDR_REVISION=$(echo $CARGO_OUTPUT | head -n 1 | $SED "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
   STELLAR_XDR_REVISION_FROM_RUST=$($CURL https://raw.githubusercontent.com/stellar/rs-stellar-xdr/${RS_STELLAR_XDR_REVISION}/xdr/next-version)
 else
   echo "The project depends on multiple versions of the Rust rs-stellar-xdr library"
@@ -41,7 +46,7 @@ fi
 
 # Now, lets compare the Rust and Go XDR revisions
 # TODO: The sed extraction below won't work for version tags
-GO_XDR_REVISION=$(go list -m -f '{{.Version}}' github.com/stellar/go | sed 's/.*-\(.*\)/\1/')
+GO_XDR_REVISION=$(go list -m -f '{{.Version}}' github.com/stellar/go | $SED 's/.*-\(.*\)/\1/')
 
 # revision of https://github.com/stellar/stellar-xdr/ used by the Go code
 STELLAR_XDR_REVISION_FROM_GO=$($CURL https://raw.githubusercontent.com/stellar/go/${GO_XDR_REVISION}/xdr/xdr_commit_generated.txt)
@@ -58,8 +63,8 @@ fi
 # on the same XDR revision
 
 # TODO: The sed extractions below won't work when the commit is not included in the Core image tag/debian packages version
-CORE_CONTAINER_REVISION=$(sed -n 's/.*\/stellar-core:.*\..*-[^\.]*\.\(.*\)\..*/\1/p' < cmd/soroban-rpc/internal/test/docker-compose.yml)
-CAPTIVE_CORE_PKG_REVISION=$(sed -n 's/.*DEBIAN_PKG_VERSION:.*\..*-[^\.]*\.\(.*\)\..*/\1/p' < .github/workflows/soroban-rpc.yml)
+CORE_CONTAINER_REVISION=$($SED -n 's/.*\/\(stellar-core\|unsafe-stellar-core-next\)\:.*\..*-[^\.]*\.\(.*\)\..*/\2/p' < cmd/soroban-rpc/internal/test/docker-compose.yml)
+CAPTIVE_CORE_PKG_REVISION=$($SED -n 's/.*DEBIAN_PKG_VERSION:.*\..*-[^\.]*\.\(.*\)\..*/\1/p' < .github/workflows/soroban-rpc.yml)
 
 if [ "$CORE_CONTAINER_REVISION" != "$CAPTIVE_CORE_PKG_REVISION" ]; then
   echo "Soroban RPC integration tests are using different versions of the Core container and Captive Core Debian package."
@@ -76,7 +81,7 @@ fi
 CORE_HOST_DEP_TREE_CURR=$($CURL https://raw.githubusercontent.com/stellar/stellar-core/${CORE_CONTAINER_REVISION}/src/rust/src/host-dep-tree-curr.txt)
 
 
-RS_STELLAR_XDR_REVISION_FROM_CORE=$(echo "$CORE_HOST_DEP_TREE_CURR" | grep stellar-xdr | head -n 1 | sed "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
+RS_STELLAR_XDR_REVISION_FROM_CORE=$(echo "$CORE_HOST_DEP_TREE_CURR" | grep stellar-xdr | head -n 1 | $SED "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
 if [ "$RS_STELLAR_XDR_REVISION" != "$RS_STELLAR_XDR_REVISION_FROM_CORE" ]; then
   echo "The Core revision used in integration tests (${CORE_CONTAINER_REVISION}) uses a different revision of https://github.com/stellar/rs-stellar-xdr"
   echo

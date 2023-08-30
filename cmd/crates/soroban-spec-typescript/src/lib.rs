@@ -336,7 +336,6 @@ pub fn type_to_ts(value: &types::Type) -> String {
         types::Type::Result { value, .. } => {
             format!("Result<{}>", type_to_ts(value))
         }
-        types::Type::Set { element } => format!("Set<{}>", type_to_ts(element)),
         types::Type::Vec { element } => format!("Array<{}>", type_to_ts(element)),
         types::Type::Tuple { elements } => {
             if elements.is_empty() {
