@@ -1,6 +1,9 @@
 name: bindings typescript
 
-on: [push]
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
 
 jobs:
   test:
