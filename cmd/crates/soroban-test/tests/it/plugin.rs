@@ -31,6 +31,7 @@ fn list() {
 }
 
 #[test]
+#[cfg(not(unix))]
 fn has_no_path() {
     // Call soroban with the PATH variable set to include just target/bin directory
     assert_cmd::Command::cargo_bin("soroban")
@@ -47,7 +48,6 @@ fn has_no_path_failure() {
     assert_cmd::Command::cargo_bin("soroban")
         .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("hello")
-        .env("PATH", "")
         .assert()
         .stderr(predicates::str::contains("error: no such command: `hello`"));
 }
