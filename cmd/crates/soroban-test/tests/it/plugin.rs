@@ -57,7 +57,10 @@ fn target_bin() -> PathBuf {
     let current_dir = std::env::current_dir().unwrap();
 
     // Create a path to the target/bin directory
-    current_dir.join("../../../target/bin")
+    current_dir
+        .join("../../../target/bin")
+        .canonicalize()
+        .unwrap()
 }
 
 fn get_paths() -> OsString {
