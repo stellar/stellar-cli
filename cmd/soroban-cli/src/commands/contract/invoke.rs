@@ -319,7 +319,7 @@ impl Cmd {
             .await?;
 
         tracing::debug!(?result);
-        crate::log::diagnostic_events(&events, false);
+        crate::log::diagnostic_events(&events, tracing::Level::INFO);
         let xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
             soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
             ..
@@ -492,7 +492,7 @@ fn log_events(
     budget: Option<&Budget>,
 ) {
     crate::log::auth(auth);
-    crate::log::diagnostic_events(events, true);
+    crate::log::diagnostic_events(events, tracing::Level::TRACE);
     crate::log::footprint(footprint);
     if let Some(budget) = budget {
         crate::log::budget(budget);

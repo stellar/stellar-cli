@@ -591,7 +591,10 @@ soroban config identity fund {address} --helper-url <url>"#
         tracing::trace!(?response);
         match response.error {
             None => Ok(response),
-            Some(e) => Err(Error::TransactionSimulationFailed(e)),
+            Some(e) => {
+                crate::log::diagnostic_events(&response.events, tracing::Level::ERROR);
+                Err(Error::TransactionSimulationFailed(e))
+            }
         }
     }
 
