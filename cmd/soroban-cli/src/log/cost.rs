@@ -22,11 +22,6 @@ impl Debug for Cost<'_> {
             "Bytes written: {}",
             self.0.write_bytes,
         )?;
-        writeln!(
-            f,
-            "Events size: {}",
-            self.0.contract_events_size_bytes,
-        )?;
         writeln!(f, "==============================================")?;
         Ok(())
     }

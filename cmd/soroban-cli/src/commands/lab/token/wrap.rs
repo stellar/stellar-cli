@@ -97,7 +97,7 @@ impl Cmd {
         let contract_id = vec_to_hash(&res)?;
 
         state.update(&h);
-        self.config.set_state(&mut state)?;
+        self.config.set_state(&state)?;
         Ok(stellar_strkey::Contract(contract_id.0).to_string())
     }
 

@@ -6,7 +6,7 @@ use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::{
-    events::HostEvent,
+    budget::Budget,
     xdr::{
         self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
         LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
@@ -35,7 +35,7 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 pub type LogEvents = fn(
     footprint: &LedgerFootprint,
     auth: &[VecM<SorobanAuthorizationEntry>],
-    events: &[HostEvent],
+    events: &[DiagnosticEvent],
 ) -> ();
 
 pub type LogResources = fn(resources: &SorobanResources) -> ();
@@ -593,7 +593,10 @@ soroban config identity fund {address} --helper-url <url>"#
         tracing::trace!(?response);
         match response.error {
             None => Ok(response),
-            Some(e) => Err(Error::TransactionSimulationFailed(e)),
+            Some(e) => {
+                crate::log::diagnostic_events(&response.events, tracing::Level::ERROR);
+                Err(Error::TransactionSimulationFailed(e))
+            }
         }
     }
 
@@ -602,7 +605,7 @@ soroban config identity fund {address} --helper-url <url>"#
     pub async fn prepare_transaction(
         &self,
         tx: &Transaction,
-    ) -> Result<(Transaction, Vec<HostEvent>), Error> {
+    ) -> Result<(Transaction, Vec<DiagnosticEvent>), Error> {
         tracing::trace!(?tx);
         let sim_response = self
             .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -615,13 +618,7 @@ soroban config identity fund {address} --helper-url <url>"#
             .events
             .iter()
             .map(DiagnosticEvent::from_xdr_base64)
-            .map_ok(|e| HostEvent{
-                failed_call: !e.in_successful_contract_call, event: e.event.clone()
-            })
             .collect::<Result<Vec<_>, _>>()?;
-        if !events.is_empty() {
-            tracing::debug!(simulation_events=?events);
-        }
 
         Ok((assemble(tx, &sim_response)?, events))
     }

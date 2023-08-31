@@ -1,7 +1,7 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
+    AccountId, DiagnosticEvent, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal,
     SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
     SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
@@ -26,6 +26,13 @@ pub fn assemble(
             count: tx.operations.len(),
         });
     }
+
+    // TODO: Should we keep this?
+    let events = simulation
+        .events
+        .iter()
+        .map(DiagnosticEvent::from_xdr_base64)
+        .collect::<Result<Vec<_>, _>>()?;
 
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
@@ -238,7 +245,6 @@ mod tests {
                 instructions: 0,
                 read_bytes: 5,
                 write_bytes: 0,
-                contract_events_size_bytes: 0,
             },
             refundable_fee: 0,
             ext: ExtensionPoint::V0,
