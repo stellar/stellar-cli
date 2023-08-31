@@ -21,4 +21,5 @@ jobs:
       - run: scripts/check-dependencies.bash
   validate-rust-git-rev-deps:
     steps:
+      - uses: actions/checkout@v3
       - uses: stellar/actions/rust-check-git-rev-deps@main
