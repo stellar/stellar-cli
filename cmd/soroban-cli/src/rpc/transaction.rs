@@ -400,8 +400,8 @@ mod tests {
         );
 
         match result {
-            Err(Error::UnsupportedOperationType) => {}
-            r => panic!("expected unsupportOperationType error, got: {r:#?}"),
+            Ok(_) => {},
+            Err(e) => panic!("expected assembled operation, got: {e:#?}")
         }
     }
 
