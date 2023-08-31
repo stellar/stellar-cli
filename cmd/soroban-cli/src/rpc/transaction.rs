@@ -34,9 +34,6 @@ pub fn assemble(
         .iter()
         .map(DiagnosticEvent::from_xdr_base64)
         .collect::<Result<Vec<_>, _>>()?;
-    if !events.is_empty() {
-        tracing::debug!(simulation_events=?events);
-    }
 
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
@@ -76,7 +73,7 @@ pub fn assemble(
         _ => return Err(Error::UnsupportedOperationType),
     };
     if let Some(log) = log_events {
-        log(&transaction_data.resources.footprint, &auths, &[], None);
+        log(&transaction_data.resources.footprint, &auths, &events, None);
     }
 
     // update the fees of the actual transaction to meet the minimum resource fees.
@@ -261,7 +258,6 @@ mod tests {
                 instructions: 0,
                 read_bytes: 5,
                 write_bytes: 0,
-                contract_events_size_bytes: 0,
             },
             refundable_fee: 0,
             ext: ExtensionPoint::V0,

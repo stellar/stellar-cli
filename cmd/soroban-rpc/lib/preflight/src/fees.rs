@@ -11,10 +11,10 @@ use soroban_env_host::storage::{AccessType, Footprint, Storage};
 use soroban_env_host::xdr;
 use soroban_env_host::xdr::ContractDataDurability::Persistent;
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, DecoratedSignature,
-    DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Memo,
-    MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
-    RestoreFootprintOp, SequenceNumber, Signature, SignatureHint, SorobanResources,
+    BumpFootprintExpirationOp, ConfigSettingEntry, ConfigSettingId, ContractEventType,
+    DecoratedSignature, DiagnosticEvent, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint,
+    LedgerKey, Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
+    RestoreFootprintOp, ScVal, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
 use state_expiration::{get_restored_ledger_sequence, ExpirableLedgerEntry};
@@ -27,19 +27,22 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     post_storage: &Storage,
     budget: &Budget,
     events: &Vec<DiagnosticEvent>,
+    invocation_result: &ScVal,
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
     let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
-    let soroban_resources = calculate_host_function_soroban_resources(
-        &ledger_changes,
-        &post_storage.footprint,
-        budget,
-        events,
-    )
-    .context("cannot compute host function resources")?;
+    let soroban_resources =
+        calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget)
+            .context("cannot compute host function resources")?;
 
     let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
+
+    let contract_events_size =
+        calculate_contract_events_size_bytes(events).context("cannot calculate events size")?;
+    let invocation_return_size = u32::try_from(invocation_result.to_xdr()?.len())?;
+    // This is totally unintuitive, but it's what's expected by the library
+    let final_contract_events_size = contract_events_size + invocation_return_size;
 
     let transaction_resources = TransactionResources {
         instructions: soroban_resources.instructions,
@@ -54,7 +57,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
             &soroban_resources.footprint,
         )
         .context("cannot estimate maximum transaction size")?,
-        contract_events_size_bytes: soroban_resources.contract_events_size_bytes,
+        contract_events_size_bytes: final_contract_events_size,
     };
     let rent_changes = extract_rent_changes(&ledger_changes);
 
@@ -104,7 +107,6 @@ fn estimate_max_transaction_size_for_operation(
                     instructions: 0,
                     read_bytes: 0,
                     write_bytes: 0,
-                    contract_events_size_bytes: 0,
                 },
                 refundable_fee: 0,
                 ext: ExtensionPoint::V0,
@@ -125,7 +127,6 @@ fn calculate_host_function_soroban_resources(
     ledger_changes: &Vec<LedgerEntryChange>,
     footprint: &Footprint,
     budget: &Budget,
-    events: &Vec<DiagnosticEvent>,
 ) -> Result<SorobanResources> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)
         .context("cannot convert storage footprint to ledger footprint")?;
@@ -141,20 +142,16 @@ fn calculate_host_function_soroban_resources(
         })
         .sum();
 
-    let contract_events_size_bytes =
-        calculate_event_size_bytes(events).context("cannot calculate events size")?;
-
-    // Add a 15% leeway with a minimum of 50k instructions
+    // Add a 20% leeway with a minimum of 50k instructions
     let budget_instructions = budget
         .get_cpu_insns_consumed()
         .context("cannot get instructions consumed")?;
-    let instructions = max(budget_instructions + 50000, budget_instructions * 115 / 100);
+    let instructions = max(budget_instructions + 50000, budget_instructions * 120 / 100);
     Ok(SorobanResources {
         footprint: ledger_footprint,
         instructions: u32::try_from(instructions)?,
         read_bytes,
         write_bytes,
-        contract_events_size_bytes,
     })
 }
 
@@ -220,6 +217,7 @@ fn get_fee_configurations(
     };
     let rent_fee_configuration = RentFeeConfiguration {
         fee_per_write_1kb: write_fee_per_1kb,
+        fee_per_write_entry: ledger_cost.fee_write_ledger_entry,
         persistent_rent_rate_denominator: state_expiration.persistent_rent_rate_denominator,
         temporary_rent_rate_denominator: state_expiration.temp_rent_rate_denominator,
     };
@@ -246,9 +244,12 @@ fn calculate_unmodified_ledger_entry_bytes(
     Ok(res as u32)
 }
 
-fn calculate_event_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
+fn calculate_contract_events_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
     let mut res: u32 = 0;
     for e in events {
+        if e.event.type_ != ContractEventType::Contract {
+            continue;
+        }
         let event_xdr = e
             .to_xdr()
             .with_context(|| format!("cannot marshal event {e:?}"))?;
@@ -323,7 +324,6 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         instructions: 0,
         read_bytes,
         write_bytes: 0,
-        contract_events_size_bytes: 0,
     };
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
         &OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
@@ -415,7 +415,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         instructions: 0,
         read_bytes: write_bytes,
         write_bytes,
-        contract_events_size_bytes: 0,
     };
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(

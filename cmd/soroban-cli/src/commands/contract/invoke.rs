@@ -13,7 +13,6 @@ use soroban_env_host::e2e_invoke::get_ledger_changes;
 use soroban_env_host::xdr::ReadXdr;
 use soroban_env_host::{
     budget::Budget,
-    events::HostEvent,
     storage::Storage,
     xdr::{
         self, AccountId, Error as XdrError, Hash, HostFunction, InvokeContractArgs,
@@ -320,10 +319,7 @@ impl Cmd {
             .await?;
 
         tracing::debug!(?result);
-        if !events.is_empty() {
-            tracing::debug!(?events);
-        }
-
+        crate::log::diagnostic_events(&events, tracing::Level::INFO);
         let xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
             soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
             ..
@@ -375,7 +371,7 @@ impl Cmd {
             budget.reset_unlimited()?;
         };
         let h = Host::with_storage_and_budget(storage, budget);
-        h.switch_to_recording_auth()?;
+        h.switch_to_recording_auth(true)?;
         h.set_source_account(source_account)?;
 
         let mut ledger_info = state.ledger_info();
@@ -421,12 +417,8 @@ impl Cmd {
         let budget = h.budget_cloned();
         let (storage, events) = h.try_finish()?;
         let footprint = &create_ledger_footprint(&storage.footprint);
-        log_events(
-            footprint,
-            &[contract_auth.try_into()?],
-            &events.0,
-            Some(&budget),
-        );
+        crate::log::host_events(&events.0);
+        log_events(footprint, &[contract_auth.try_into()?], &[], Some(&budget));
 
         let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
         let mut expiration_ledger_bumps: HashMap<LedgerKey, u32> = HashMap::new();
@@ -438,7 +430,7 @@ impl Cmd {
         }
         utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
-        self.config.set_state(&mut state)?;
+        self.config.set_state(&state)?;
         if !events.0.is_empty() {
             self.events_file
                 .commit(&events.0, &state, &self.config.locator.config_dir()?)?;
@@ -496,11 +488,11 @@ impl Cmd {
 fn log_events(
     footprint: &LedgerFootprint,
     auth: &[VecM<SorobanAuthorizationEntry>],
-    events: &[HostEvent],
+    events: &[xdr::DiagnosticEvent],
     budget: Option<&Budget>,
 ) {
     crate::log::auth(auth);
-    crate::log::events(events);
+    crate::log::diagnostic_events(events, tracing::Level::TRACE);
     crate::log::footprint(footprint);
     if let Some(budget) = budget {
         crate::log::budget(budget);

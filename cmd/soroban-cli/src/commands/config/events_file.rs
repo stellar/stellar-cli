@@ -123,7 +123,7 @@ impl Args {
                 }
             })?;
 
-            let dt: DateTime<Utc> = DateTime::from_utc(ndt, Utc);
+            let dt: DateTime<Utc> = DateTime::from_naive_utc_and_offset(ndt, Utc);
 
             let cereal_event = rpc::Event {
                 event_type: match contract_event.type_ {
