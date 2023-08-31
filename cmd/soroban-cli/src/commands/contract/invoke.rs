@@ -319,11 +319,8 @@ impl Cmd {
                 &signers,
                 &network.network_passphrase,
                 Some(log_events),
-                if global_args.verbose || global_args.very_verbose || self.cost {
-                    Some(log_resources)
-                } else {
-                    None
-                },
+                (global_args.verbose || global_args.very_verbose || self.cost)
+                    .then_some(log_resources),
             )
             .await?;
 
