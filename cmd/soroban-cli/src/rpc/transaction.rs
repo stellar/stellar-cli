@@ -400,8 +400,8 @@ mod tests {
         );
 
         match result {
-            Ok(_) => {},
-            Err(e) => panic!("expected assembled operation, got: {e:#?}")
+            Ok(_) => {}
+            Err(e) => panic!("expected assembled operation, got: {e:#?}"),
         }
     }
 
