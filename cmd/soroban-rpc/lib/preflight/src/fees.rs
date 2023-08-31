@@ -142,11 +142,11 @@ fn calculate_host_function_soroban_resources(
         })
         .sum();
 
-    // Add a 15% leeway with a minimum of 50k instructions
+    // Add a 20% leeway with a minimum of 50k instructions
     let budget_instructions = budget
         .get_cpu_insns_consumed()
         .context("cannot get instructions consumed")?;
-    let instructions = max(budget_instructions + 50000, budget_instructions * 115 / 100);
+    let instructions = max(budget_instructions + 50000, budget_instructions * 120 / 100);
     Ok(SorobanResources {
         footprint: ledger_footprint,
         instructions: u32::try_from(instructions)?,
