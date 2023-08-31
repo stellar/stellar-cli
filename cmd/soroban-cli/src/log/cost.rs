@@ -6,6 +6,7 @@ struct Cost<'a>(&'a SorobanResources);
 impl Debug for Cost<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Should we output the footprint here?
+        writeln!(f, "==================== Cost ====================")?;
         writeln!(
             f,
             "Cpu used: {}",
@@ -26,6 +27,7 @@ impl Debug for Cost<'_> {
             "Events size: {}",
             self.0.contract_events_size_bytes,
         )?;
+        writeln!(f, "==============================================")?;
         Ok(())
     }
 }

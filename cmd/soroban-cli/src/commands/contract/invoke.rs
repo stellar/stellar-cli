@@ -428,28 +428,9 @@ impl Cmd {
         let (storage, events) = h.try_finish()?;
         let footprint = &create_ledger_footprint(&storage.footprint);
 
-        // TODO: Check we are calculating this right
-        let contract_events_size_bytes = events
-            .0
-            .iter()
-            // TODO: Error handling here
-            .map(|event| event.event.to_xdr().unwrap().len().try_into())
-            // TODO: Error handling here
-            .collect::<Result<Vec<u32>, _>>()
-            .unwrap()
-            .iter()
-            .fold(0, |acc, x| acc + x);
-        let resources = SorobanResources {
-            footprint: footprint.clone(),
-            instructions: budget.get_cpu_insns_consumed()?.try_into().unwrap(),
-            // TODO: Figure out how to get these
-            read_bytes: 0,
-            write_bytes: 0,
-            contract_events_size_bytes,
-        };
         log_events(footprint, &[contract_auth.try_into()?], &events.0);
         if global_args.verbose || global_args.very_verbose || self.cost {
-            log_resources(&resources);
+            log_budget(&budget);
         }
 
         let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
@@ -525,6 +506,10 @@ fn log_events(
     crate::log::auth(auth);
     crate::log::events(events);
     crate::log::footprint(footprint);
+}
+
+fn log_budget(budget: &Budget) {
+    crate::log::budget(budget);
 }
 
 fn log_resources(resources: &SorobanResources) {
