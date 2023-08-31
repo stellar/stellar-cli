@@ -1,33 +1,20 @@
-use clap::{CommandFactory, Parser};
+use clap::CommandFactory;
 use dotenvy::dotenv;
-use soroban_cli::{commands::plugin, Root};
 use tracing_subscriber::{fmt, EnvFilter};
+
+use soroban_cli::{commands, Root};
 
 #[tokio::main]
 async fn main() {
     let _ = dotenv().unwrap_or_default();
-    let mut root = Root::try_parse().unwrap_or_else(|e| {
-        use clap::error::ErrorKind;
-        match e.kind() {
-            ErrorKind::InvalidSubcommand => {
-                if let Err(error) = plugin::run() {
-                    eprintln!("error: {error}");
-                    std::process::exit(1)
-                } else {
-                    std::process::exit(0)
-                }
-            }
-            ErrorKind::MissingSubcommand if std::env::args().any(|s| &s == "--list") => {
-                println!(
-                    "Installed Plugins:\n    {}",
-                    plugin::list().unwrap_or_default().join("\n    ")
-                );
-                std::process::exit(0);
-            }
-            _ => {
-                let mut cmd = Root::command();
-                e.format(&mut cmd).exit();
-            }
+    let mut root = Root::new().unwrap_or_else(|e| match e {
+        commands::Error::Clap(e) => {
+            let mut cmd = Root::command();
+            e.format(&mut cmd).exit();
+        }
+        e => {
+            eprintln!("{e}");
+            std::process::exit(1);
         }
     });
     // Now use root to setup the logger
