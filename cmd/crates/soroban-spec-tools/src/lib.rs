@@ -7,10 +7,10 @@ use stellar_xdr::{
     AccountId, BytesM, ContractExecutable, Error as XdrError, Hash, Int128Parts, Int256Parts,
     PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
     ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
-    ScSpecTypeSet, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
-    ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
-    ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
-    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
+    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
+    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
+    UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod utils;
@@ -107,7 +107,6 @@ impl Spec {
             | ScType::Result(_)
             | ScType::Vec(_)
             | ScType::Map(_)
-            | ScType::Set(_)
             | ScType::Tuple(_)
             | ScType::BytesN(_)
             | ScType::Symbol
@@ -315,9 +314,6 @@ impl Spec {
             // User defined types parsing
             (ScType::Udt(ScSpecTypeUdt { name }), _) => self.parse_udt(name, v)?,
 
-            // Set parsing
-            (ScType::Set(set), Value::Array(values)) => self.parse_set(set, values)?,
-
             // TODO: Implement the rest of these
             (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
         };
@@ -498,21 +494,6 @@ impl Spec {
             ScMap::sorted_from(parsed?).map_err(Error::Xdr)?,
         )))
     }
-
-    fn parse_set(&self, set: &ScSpecTypeSet, values: &[Value]) -> Result<ScVal, Error> {
-        let ScSpecTypeSet { element_type } = set;
-        let parsed: Result<Vec<_>, Error> = values
-            .iter()
-            .map(|v| {
-                let key = self.from_json(v, element_type)?;
-                let val = ScVal::Void;
-                Ok(ScMapEntry { key, val })
-            })
-            .collect();
-        Ok(ScVal::Map(Some(
-            ScMap::sorted_from(parsed?).map_err(Error::Xdr)?,
-        )))
-    }
 }
 
 impl Spec {
@@ -592,17 +573,6 @@ impl Spec {
             })
             .collect::<Result<serde_json::Map<String, Value>, Error>>()?;
         Ok(Value::Object(v))
-    }
-
-    /// # Errors
-    ///
-    /// Might return an error
-    pub fn sc_set_to_json(&self, sc_map: &ScMap, type_: &ScSpecTypeSet) -> Result<Value, Error> {
-        let v = sc_map
-            .iter()
-            .map(|ScMapEntry { key, .. }| self.xdr_to_json(key, &type_.element_type))
-            .collect::<Result<Vec<Value>, Error>>()?;
-        Ok(Value::Array(v))
     }
 
     /// # Errors
@@ -717,8 +687,6 @@ impl Spec {
             ) => self.udt_to_json(name, sc_obj)?,
 
             (ScVal::Map(Some(map)), ScType::Map(map_type)) => self.sc_map_to_json(map, map_type)?,
-
-            (ScVal::Map(Some(map)), ScType::Set(set_type)) => self.sc_set_to_json(map, set_type)?,
 
             (ScVal::U64(u64_), ScType::U64) => Value::Number(serde_json::Number::from(*u64_)),
 
@@ -1130,11 +1098,6 @@ impl Spec {
                 let inner = self.arg_value_name(element_type.as_ref(), depth + 1)?;
                 Some(format!("Array<{inner}>"))
             }
-            ScType::Set(val) => {
-                let ScSpecTypeSet { element_type } = val.as_ref();
-                let inner = self.arg_value_name(element_type.as_ref(), depth + 1)?;
-                Some(format!("Set<{inner}>"))
-            }
             ScType::Result(val) => {
                 let ScSpecTypeResult {
                     ok_type,
@@ -1273,11 +1236,6 @@ impl Spec {
             }
             ScType::Vec(val) => {
                 let ScSpecTypeVec { element_type } = val.as_ref();
-                let inner = self.example(element_type.as_ref())?;
-                Some(format!("[ {inner} ]"))
-            }
-            ScType::Set(val) => {
-                let ScSpecTypeSet { element_type } = val.as_ref();
                 let inner = self.example(element_type.as_ref())?;
                 Some(format!("[ {inner} ]"))
             }
