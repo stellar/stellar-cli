@@ -10,7 +10,6 @@ use clap::{arg, command, value_parser, Parser};
 use heck::ToKebabCase;
 use soroban_env_host::{
     budget::Budget,
-    events::HostEvent,
     storage::Storage,
     xdr::{
         self, AccountId, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
@@ -306,10 +305,7 @@ impl Cmd {
             .await?;
 
         tracing::debug!(?result);
-        if !events.is_empty() {
-            tracing::debug!(?events);
-        }
-
+        crate::log::diagnostic_events(&events, tracing::Level::INFO);
         let xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
             soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
             ..
@@ -406,12 +402,8 @@ impl Cmd {
             .collect();
         let (storage, budget, events, expiration_ledger_bumps) = h.try_finish().map_err(|h| h.1)?;
         let footprint = &create_ledger_footprint(&storage.footprint);
-        log_events(
-            footprint,
-            &[contract_auth.try_into()?],
-            &events.0,
-            Some(&budget),
-        );
+        crate::log::host_events(&events.0);
+        log_events(footprint, &[contract_auth.try_into()?], &[], Some(&budget));
 
         utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
 
@@ -473,11 +465,11 @@ impl Cmd {
 fn log_events(
     footprint: &LedgerFootprint,
     auth: &[VecM<SorobanAuthorizationEntry>],
-    events: &[HostEvent],
+    events: &[xdr::DiagnosticEvent],
     budget: Option<&Budget>,
 ) {
     crate::log::auth(auth);
-    crate::log::events(events);
+    crate::log::diagnostic_events(events, tracing::Level::TRACE);
     crate::log::footprint(footprint);
     if let Some(budget) = budget {
         crate::log::budget(budget);
