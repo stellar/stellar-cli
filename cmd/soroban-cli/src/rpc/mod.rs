@@ -5,15 +5,11 @@ use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use soroban_env_host::xdr::DepthLimitedRead;
-use soroban_env_host::{
-    budget::Budget,
-    xdr::{
-        self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
-        LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
-        SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope,
-        TransactionMeta, TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256,
-        VecM, WriteXdr,
-    },
+use soroban_env_host::xdr::{
+    self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
+    LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
+    SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope, TransactionMeta,
+    TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use soroban_sdk::token;
 use std::{
@@ -633,9 +629,7 @@ soroban config identity fund {address} --helper-url <url>"#
         log_resources: Option<LogResources>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
-        let (unsigned_tx, events) = self
-            .prepare_transaction(tx_without_preflight)
-            .await?;
+        let (unsigned_tx, events) = self.prepare_transaction(tx_without_preflight).await?;
         let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
             &unsigned_tx,
             source_key,
@@ -647,17 +641,24 @@ soroban config identity fund {address} --helper-url <url>"#
             (part_signed_tx, events)
         } else {
             // re-simulate to calculate the new fees
-            self.prepare_transaction(&part_signed_tx)
-                .await?
+            self.prepare_transaction(&part_signed_tx).await?
         };
 
         // Try logging stuff if requested
-        if let Transaction{
-            ext: xdr::TransactionExt::V1(xdr::SorobanTransactionData{resources, ..}),
+        if let Transaction {
+            ext: xdr::TransactionExt::V1(xdr::SorobanTransactionData { resources, .. }),
             ..
-        } = fee_ready_txn.clone() {
+        } = fee_ready_txn.clone()
+        {
             if let Some(log) = log_events {
-                if let xdr::Operation{ body: xdr::OperationBody::InvokeHostFunction(xdr::InvokeHostFunctionOp{auth, ..}), .. } = &fee_ready_txn.operations[0] {
+                if let xdr::Operation {
+                    body:
+                        xdr::OperationBody::InvokeHostFunction(xdr::InvokeHostFunctionOp {
+                            auth, ..
+                        }),
+                    ..
+                } = &fee_ready_txn.operations[0]
+                {
                     log(&resources.footprint, &vec![auth.clone()], &events);
                 }
             }

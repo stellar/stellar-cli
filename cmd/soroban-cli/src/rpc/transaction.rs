@@ -1,10 +1,10 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, DiagnosticEvent, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal,
-    SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
-    SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+    AccountId, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, OperationBody, PublicKey,
+    ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, SorobanAddressCredentials,
+    SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, Transaction,
+    TransactionExt, Uint256, VecM, WriteXdr,
 };
 
 use crate::rpc::{Error, SimulateTransactionResponse};
@@ -26,13 +26,6 @@ pub fn assemble(
             count: tx.operations.len(),
         });
     }
-
-    // TODO: Should we keep this?
-    let events = simulation
-        .events
-        .iter()
-        .map(DiagnosticEvent::from_xdr_base64)
-        .collect::<Result<Vec<_>, _>>()?;
 
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
