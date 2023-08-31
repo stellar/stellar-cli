@@ -311,7 +311,7 @@ mod tests {
     fn test_assemble_transaction_updates_tx_data_from_simulation_response() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, &sim, None) else {
+        let Ok(result) = assemble(&txn, &sim) else {
             panic!("assemble failed");
         };
 
@@ -327,7 +327,7 @@ mod tests {
     fn test_assemble_transaction_adds_the_auth_to_the_host_function() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, &sim, None) else {
+        let Ok(result) = assemble(&txn, &sim) else {
             panic!("assemble failed");
         };
 
@@ -397,7 +397,6 @@ mod tests {
                 },
                 latest_ledger: 3,
             },
-            None,
         );
 
         match result {
@@ -424,7 +423,6 @@ mod tests {
                 },
                 latest_ledger: 3,
             },
-            None,
         );
 
         match result {

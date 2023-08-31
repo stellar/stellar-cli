@@ -21,7 +21,7 @@ impl Display for Cost<'_> {
     }
 }
 
-pub fn cost<'a>(resources: &'a SorobanResources) {
+pub fn cost(resources: &SorobanResources) {
     let cost = Cost(resources);
     tracing::debug!(?cost);
 }

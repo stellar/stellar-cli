@@ -263,13 +263,13 @@ impl Cmd {
         Ok((function.clone(), spec, invoke_args, signers))
     }
 
-    pub async fn run(&self, global_args: global::Args) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.invoke(global_args).await?;
         println!("{res}");
         Ok(())
     }
 
-    pub async fn invoke(&self, global_args: global::Args) -> Result<String, Error> {
+    pub async fn invoke(&self, global_args: &global::Args) -> Result<String, Error> {
         if self.config.is_no_network() {
             self.run_in_sandbox(global_args)
         } else {
@@ -277,7 +277,10 @@ impl Cmd {
         }
     }
 
-    pub async fn run_against_rpc_server(&self, global_args: global::Args) -> Result<String, Error> {
+    pub async fn run_against_rpc_server(
+        &self,
+        global_args: &global::Args,
+    ) -> Result<String, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
@@ -337,7 +340,7 @@ impl Cmd {
         output_to_string(&spec, &return_value, &function)
     }
 
-    pub fn run_in_sandbox(&self, global_args: global::Args) -> Result<String, Error> {
+    pub fn run_in_sandbox(&self, global_args: &global::Args) -> Result<String, Error> {
         let contract_id = self.contract_id()?;
         // Initialize storage and host
         // TODO: allow option to separate input and output file

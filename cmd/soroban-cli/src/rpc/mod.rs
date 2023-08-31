@@ -659,7 +659,7 @@ soroban config identity fund {address} --helper-url <url>"#
                     ..
                 } = &fee_ready_txn.operations[0]
                 {
-                    log(&resources.footprint, &vec![auth.clone()], &events);
+                    log(&resources.footprint, &[auth.clone()], &events);
                 }
             }
             if let Some(log) = log_resources {
