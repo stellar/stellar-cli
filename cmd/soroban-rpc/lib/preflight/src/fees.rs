@@ -1,7 +1,9 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 use ledger_storage::LedgerStorage;
 use soroban_env_host::budget::Budget;
-use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
+use soroban_env_host::e2e_invoke::{
+    extract_rent_changes, get_ledger_changes, ExpirationEntryMap, LedgerEntryChange,
+};
 use soroban_env_host::fees::{
     compute_rent_fee, compute_transaction_resource_fee, compute_write_fee_per_1kb,
     FeeConfiguration, LedgerEntryRentChange, RentFeeConfiguration, TransactionResources,
@@ -31,7 +33,10 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
-    let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
+    // TODO: is this OK?
+    let init_expiration_entries = ExpirationEntryMap::new();
+    let ledger_changes =
+        get_ledger_changes(budget, post_storage, pre_storage, init_expiration_entries)?;
     let soroban_resources =
         calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget)
             .context("cannot compute host function resources")?;
