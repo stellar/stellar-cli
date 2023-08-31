@@ -602,9 +602,7 @@ soroban config identity fund {address} --helper-url <url>"#
     pub async fn prepare_transaction(
         &self,
         tx: &Transaction,
-        log_events: Option<LogEvents>,
-        log_resources: Option<LogResources>,
-    ) -> Result<Transaction, Error> {
+    ) -> Result<(Transaction, Vec<HostEvent>), Error> {
         tracing::trace!(?tx);
         let sim_response = self
             .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -612,7 +610,20 @@ soroban config identity fund {address} --helper-url <url>"#
                 signatures: VecM::default(),
             }))
             .await?;
-        assemble(tx, &sim_response, log_events, log_resources)
+
+        let events = sim_response
+            .events
+            .iter()
+            .map(DiagnosticEvent::from_xdr_base64)
+            .map_ok(|e| HostEvent{
+                failed_call: !e.in_successful_contract_call, event: e.event.clone()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if !events.is_empty() {
+            tracing::debug!(simulation_events=?events);
+        }
+
+        Ok((assemble(tx, &sim_response)?, events))
     }
 
     pub async fn prepare_and_send_transaction(
@@ -625,8 +636,8 @@ soroban config identity fund {address} --helper-url <url>"#
         log_resources: Option<LogResources>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
-        let unsigned_tx = self
-            .prepare_transaction(tx_without_preflight, log_events, log_resources)
+        let (unsigned_tx, events) = self
+            .prepare_transaction(tx_without_preflight)
             .await?;
         let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
             &unsigned_tx,
@@ -635,13 +646,29 @@ soroban config identity fund {address} --helper-url <url>"#
             sequence + 60, // ~5 minutes of ledgers
             network_passphrase,
         )?;
-        let fee_ready_txn = if signed_auth_entries.is_empty() {
-            part_signed_tx
+        let (fee_ready_txn, events) = if signed_auth_entries.is_empty() {
+            (part_signed_tx, events)
         } else {
             // re-simulate to calculate the new fees
-            self.prepare_transaction(&part_signed_tx, log_events, log_resources)
+            self.prepare_transaction(&part_signed_tx)
                 .await?
         };
+
+        // Try logging stuff if requested
+        if let Transaction{
+            ext: xdr::TransactionExt::V1(xdr::SorobanTransactionData{resources, ..}),
+            ..
+        } = fee_ready_txn.clone() {
+            if let Some(log) = log_events {
+                if let xdr::Operation{ body: xdr::OperationBody::InvokeHostFunction(xdr::InvokeHostFunctionOp{auth, ..}), .. } = &fee_ready_txn.operations[0] {
+                    log(&resources.footprint, &vec![auth.clone()], &events);
+                }
+            }
+            if let Some(log) = log_resources {
+                log(&resources);
+            }
+        }
+
         let tx = utils::sign_transaction(source_key, &fee_ready_txn, network_passphrase)?;
         self.send_transaction(&tx).await
     }

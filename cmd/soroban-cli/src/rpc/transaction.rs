@@ -1,21 +1,19 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, DiagnosticEvent, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
+    AccountId, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal,
     SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
     SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
 };
 
-use crate::rpc::{Error, LogEvents, LogResources, SimulateTransactionResponse};
+use crate::rpc::{Error, SimulateTransactionResponse};
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
 // submission to the network.
 pub fn assemble(
     raw: &Transaction,
     simulation: &SimulateTransactionResponse,
-    log_events: Option<LogEvents>,
-    log_resources: Option<LogResources>,
 ) -> Result<Transaction, Error> {
     let mut tx = raw.clone();
 
@@ -29,58 +27,33 @@ pub fn assemble(
         });
     }
 
-    // TODO: Should we keep this?
-    let events = simulation
-        .events
-        .iter()
-        .map(DiagnosticEvent::from_xdr_base64)
-        .collect::<Result<Vec<_>, _>>()?;
-    if !events.is_empty() {
-        tracing::debug!(simulation_events=?events);
-    }
-
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
     let mut op = tx.operations[0].clone();
-    let auths = match &mut op.body {
-        OperationBody::InvokeHostFunction(ref mut body) => {
-            if body.auth.is_empty() {
-                if simulation.results.len() != 1 {
-                    return Err(Error::UnexpectedSimulateTransactionResultSize {
-                        length: simulation.results.len(),
-                    });
-                }
+    if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
+        if body.auth.is_empty() {
+            if simulation.results.len() != 1 {
+                return Err(Error::UnexpectedSimulateTransactionResultSize {
+                    length: simulation.results.len(),
+                });
+            }
 
-                let auths = simulation
-                    .results
-                    .iter()
-                    .map(|r| {
-                        VecM::try_from(
-                            r.auth
-                                .iter()
-                                .map(SorobanAuthorizationEntry::from_xdr_base64)
-                                .collect::<Result<Vec<_>, _>>()?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                if !auths.is_empty() {
-                    body.auth = auths[0].clone();
-                }
-                auths
-            } else {
-                vec![body.auth.clone()]
+            let auths = simulation
+                .results
+                .iter()
+                .map(|r| {
+                    VecM::try_from(
+                        r.auth
+                            .iter()
+                            .map(SorobanAuthorizationEntry::from_xdr_base64)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if !auths.is_empty() {
+                body.auth = auths[0].clone();
             }
         }
-        OperationBody::BumpFootprintExpiration(_) | OperationBody::RestoreFootprint(_) => {
-            Vec::new()
-        }
-        _ => return Err(Error::UnsupportedOperationType),
-    };
-    if let Some(log) = log_events {
-        log(&transaction_data.resources.footprint, &auths, &[]);
-    }
-    if let Some(log) = log_resources {
-        log(&transaction_data.resources);
     }
 
     // update the fees of the actual transaction to meet the minimum resource fees.
