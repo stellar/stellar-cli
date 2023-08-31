@@ -44,22 +44,15 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 				Key: xdr.ScVal{
 					Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 				},
-				Durability:          xdr.ContractDataDurabilityPersistent,
-				ExpirationLedgerSeq: 100000,
-				Body: xdr.ContractDataEntryBody{
-					BodyType: xdr.ContractEntryBodyTypeDataEntry,
-					Data: &xdr.ContractDataEntryData{
-						Flags: 0,
-						Val: xdr.ScVal{
-							Type: xdr.ScValTypeScvContractInstance,
-							Instance: &xdr.ScContractInstance{
-								Executable: xdr.ContractExecutable{
-									Type:     xdr.ContractExecutableTypeContractExecutableWasm,
-									WasmHash: &mockContractHash,
-								},
-								Storage: nil,
-							},
+				Durability: xdr.ContractDataDurabilityPersistent,
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvContractInstance,
+					Instance: &xdr.ScContractInstance{
+						Executable: xdr.ContractExecutable{
+							Type:     xdr.ContractExecutableTypeContractExecutableWasm,
+							WasmHash: &mockContractHash,
 						},
+						Storage: nil,
 					},
 				},
 			},
@@ -71,11 +64,7 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 			Type: xdr.LedgerEntryTypeContractCode,
 			ContractCode: &xdr.ContractCodeEntry{
 				Hash: mockContractHash,
-				Body: xdr.ContractCodeEntryBody{
-					BodyType: xdr.ContractEntryBodyTypeDataEntry,
-					Code:     &helloWorldContract,
-				},
-				ExpirationLedgerSeq: 20000,
+				Code: helloWorldContract,
 			},
 		},
 	},
@@ -169,7 +158,6 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 					MaxEntryExpiration:             100,
 					MinTempEntryExpiration:         100,
 					MinPersistentEntryExpiration:   100,
-					AutoBumpLedgers:                100,
 					PersistentRentRateDenominator:  100,
 					TempRentRateDenominator:        100,
 					MaxEntriesToExpire:             100,
@@ -216,7 +204,7 @@ var helloWorldContract = func() []byte {
 
 type inMemoryLedgerEntryReadTx map[string]xdr.LedgerEntry
 
-func (m inMemoryLedgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
+func (m inMemoryLedgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
 	result := make([]db.LedgerKeyAndEntry, 0, len(keys))
 	for _, key := range keys {
 		serializedKey, err := key.MarshalBinaryBase64()

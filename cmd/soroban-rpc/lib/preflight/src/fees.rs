@@ -361,12 +361,13 @@ fn compute_bump_footprint_rent_changes(
     let mut rent_changes: Vec<LedgerEntryRentChange> =
         Vec::with_capacity(footprint.read_only.len());
     for key in (&footprint).read_only.as_vec() {
-        let unmodified_entry = ledger_storage
+        let unmodified_entry_and_expiration = ledger_storage
             .get(key, false)
             .with_context(|| format!("cannot find bump footprint ledger entry with key {key:?}"))?;
-        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
-            (&unmodified_entry).try_into().map_err(|e: String| {
+        let size = (key.to_xdr()?.len() + unmodified_entry_and_expiration.0.to_xdr()?.len()) as u32;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry_and_expiration)
+            .try_into()
+            .map_err(|e: String| {
                 Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
             })?;
         let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
@@ -452,12 +453,13 @@ fn compute_restore_footprint_rent_changes(
     let mut rent_changes: Vec<LedgerEntryRentChange> =
         Vec::with_capacity(footprint.read_write.len());
     for key in footprint.read_write.as_vec() {
-        let unmodified_entry = ledger_storage.get(key, true).with_context(|| {
+        let unmodified_entry_and_expiration = ledger_storage.get(key, true).with_context(|| {
             format!("cannot find restore footprint ledger entry with key {key:?}")
         })?;
-        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
-            (&unmodified_entry).try_into().map_err(|e: String| {
+        let size = (key.to_xdr()?.len() + unmodified_entry_and_expiration.0.to_xdr()?.len()) as u32;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry_and_expiration)
+            .try_into()
+            .map_err(|e: String| {
                 Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
             })?;
         ensure!(

@@ -8,43 +8,58 @@ pub(crate) trait ExpirableLedgerEntry {
     fn durability(&self) -> ContractDataDurability;
     fn expiration_ledger_seq(&self) -> u32;
     fn has_expired(&self, current_ledger_seq: u32) -> bool {
-        current_ledger_seq > self.expiration_ledger_seq()
+        has_expired(current_ledger_seq, self.expiration_ledger_seq())
     }
 }
 
-impl ExpirableLedgerEntry for &ContractCodeEntry {
+impl ExpirableLedgerEntry for (&ContractCodeEntry, u32) {
     fn durability(&self) -> ContractDataDurability {
         Persistent
     }
 
     fn expiration_ledger_seq(&self) -> u32 {
-        self.expiration_ledger_seq
+        self.1
     }
 }
 
-impl ExpirableLedgerEntry for &ContractDataEntry {
+impl ExpirableLedgerEntry for (&ContractDataEntry, u32) {
     fn durability(&self) -> ContractDataDurability {
-        self.durability
+        self.0.durability
     }
 
     fn expiration_ledger_seq(&self) -> u32 {
-        self.expiration_ledger_seq
+        self.1
     }
 }
 
-impl<'a> TryInto<Box<dyn ExpirableLedgerEntry + 'a>> for &'a LedgerEntry {
+// Convert a ledger entry and its expiration into an ExpirableLedgerEntry
+impl<'a> TryInto<Box<dyn ExpirableLedgerEntry + 'a>> for &'a (LedgerEntry, Option<u32>) {
     type Error = String;
 
     fn try_into(self) -> Result<Box<dyn ExpirableLedgerEntry + 'a>, Self::Error> {
-        match &self.data {
-            LedgerEntryData::ContractData(d) => Ok(Box::new(d)),
-            LedgerEntryData::ContractCode(c) => Ok(Box::new(c)),
+        match (&self.0.data, self.1) {
+            (LedgerEntryData::ContractData(d), Some(expiration_seq)) => {
+                Ok(Box::new((d, expiration_seq)))
+            }
+            (LedgerEntryData::ContractCode(c), Some(expiration_seq)) => {
+                Ok(Box::new((c, expiration_seq)))
+            }
+            (LedgerEntryData::ContractData(_) | LedgerEntryData::ContractCode(_), _) => {
+                Err(format!(
+                    "missing expiration for expirable ledger entry ({})",
+                    self.0.data.name()
+                ))
+            }
             _ => Err(format!(
                 "ledger entry type ({}) is not expirable",
-                self.data.name()
+                self.0.data.name()
             )),
         }
     }
+}
+
+pub(crate) fn has_expired(expiration_ledger_seq: u32, current_ledger_seq: u32) -> bool {
+    current_ledger_seq > expiration_ledger_seq
 }
 
 pub(crate) fn get_restored_ledger_sequence(
@@ -52,18 +67,4 @@ pub(crate) fn get_restored_ledger_sequence(
     min_persistent_entry_expiration: u32,
 ) -> u32 {
     return current_ledger_seq + min_persistent_entry_expiration - 1;
-}
-
-pub(crate) fn restore_ledger_entry(
-    ledger_entry: &mut LedgerEntry,
-    current_ledger_seq: u32,
-    min_persistent_entry_expiration: u32,
-) {
-    let new_ledger_seq =
-        get_restored_ledger_sequence(current_ledger_seq, min_persistent_entry_expiration);
-    match &mut ledger_entry.data {
-        LedgerEntryData::ContractData(d) => d.expiration_ledger_seq = new_ledger_seq,
-        LedgerEntryData::ContractCode(c) => c.expiration_ledger_seq = new_ledger_seq,
-        _ => (),
-    }
 }

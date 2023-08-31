@@ -42,7 +42,7 @@ func (entryReaderTx ConstantLedgerEntryReaderTx) GetLatestLedgerSequence() (uint
 	return expectedLatestLedgerSequence, nil
 }
 
-func (entryReaderTx ConstantLedgerEntryReaderTx) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
+func (entryReaderTx ConstantLedgerEntryReaderTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
 	return nil, nil
 }
 

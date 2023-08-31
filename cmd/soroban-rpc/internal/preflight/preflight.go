@@ -39,14 +39,14 @@ type snapshotSourceHandle struct {
 // It's used by the Rust preflight code to obtain ledger entries.
 //
 //export SnapshotSourceGet
-func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey C.xdr_t, includeExpired C.int) C.xdr_t {
+func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey C.xdr_t) C.xdr_t {
 	h := cgo.Handle(handle).Value().(snapshotSourceHandle)
 	ledgerKeyXDR := GoXDR(cLedgerKey)
 	var ledgerKey xdr.LedgerKey
 	if err := xdr.SafeUnmarshal(ledgerKeyXDR, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, entry, err := db.GetLedgerEntry(h.readTx, includeExpired != 0, ledgerKey)
+	present, entry, err := db.GetLedgerEntry(h.readTx, ledgerKey)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
 		return C.xdr_t{}
@@ -181,7 +181,7 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	}
 	sourceAccountCXDR := CXDR(sourceAccountXDR)
 
-	hasConfig, stateExpirationConfig, err := db.GetLedgerEntry(params.LedgerEntryReadTx, false, xdr.LedgerKey{
+	hasConfig, stateExpirationConfig, err := db.GetLedgerEntry(params.LedgerEntryReadTx, xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeConfigSetting,
 		ConfigSetting: &xdr.LedgerKeyConfigSetting{
 			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
@@ -210,7 +210,6 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		min_temp_entry_expiration:       C.uint(stateExpiration.MinTempEntryExpiration),
 		min_persistent_entry_expiration: C.uint(stateExpiration.MinPersistentEntryExpiration),
 		max_entry_expiration:            C.uint(stateExpiration.MaxEntryExpiration),
-		auto_bump_ledgers:               C.uint(stateExpiration.AutoBumpLedgers),
 	}
 
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
