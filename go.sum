@@ -190,6 +190,7 @@ github.com/stellar/go v0.0.0-20230825090709-76e07a4dbd21 h1:OqDQXwl/IvYX4WNJJSQX
 github.com/stellar/go v0.0.0-20230825090709-76e07a4dbd21/go.mod h1:5/qoLl0pexA5OPi0BZvDsOc3532CJlHuRg1dnBxbsGg=
 github.com/stellar/go v0.0.0-20230829095205-a541e69acb5f h1:bNIzaQjSYAOAkbAK9g2zY4dykWEltK5LCuEe4uEoygc=
 github.com/stellar/go v0.0.0-20230829095205-a541e69acb5f/go.mod h1:5/qoLl0pexA5OPi0BZvDsOc3532CJlHuRg1dnBxbsGg=
+github.com/stellar/go v0.0.0-20230831173646-edbaa5613179/go.mod h1:5/qoLl0pexA5OPi0BZvDsOc3532CJlHuRg1dnBxbsGg=
 github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee h1:fbVs0xmXpBvVS4GBeiRmAE3Le70ofAqFMch1GTiq/e8=
 github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee/go.mod h1:yoxyU/M8nl9LKeWIoBrbDPQ7Cy+4jxRcWcOayZ4BMps=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
