@@ -1,5 +1,5 @@
 use clap::arg;
-use soroban_env_host::xdr::{self, ContractEntryBodyType, LedgerKey, LedgerKeyContractCode};
+use soroban_env_host::xdr::{self, LedgerKey, LedgerKeyContractCode};
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -77,7 +77,6 @@ impl TryInto<LedgerKey> for Args {
     fn try_into(self) -> Result<LedgerKey, Self::Error> {
         Ok(LedgerKey::ContractCode(LedgerKeyContractCode {
             hash: utils::contract_hash(&self.read()?)?,
-            body_type: ContractEntryBodyType::DataEntry,
         }))
     }
 }

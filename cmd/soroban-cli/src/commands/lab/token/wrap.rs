@@ -3,11 +3,10 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        Asset, ContractDataDurability, ContractEntryBodyType, ContractExecutable,
-        ContractIdPreimage, CreateContractArgs, Error as XdrError, Hash, HostFunction,
-        InvokeHostFunctionOp, LedgerKey::ContractData, LedgerKeyContractData, Memo, MuxedAccount,
-        Operation, OperationBody, Preconditions, ScAddress, ScVal, SequenceNumber, Transaction,
-        TransactionExt, Uint256, VecM,
+        Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
+        Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
+        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
     },
     Host, HostError,
 };
@@ -162,7 +161,6 @@ fn build_wrap_token_tx(
             contract: contract.clone(),
             key: ScVal::LedgerKeyContractInstance,
             durability: ContractDataDurability::Persistent,
-            body_type: ContractEntryBodyType::DataEntry,
         }),
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),
@@ -170,7 +168,6 @@ fn build_wrap_token_tx(
                 vec![ScVal::Symbol("Metadata".try_into().unwrap())].try_into()?,
             )),
             durability: ContractDataDurability::Persistent,
-            body_type: ContractEntryBodyType::DataEntry,
         }),
     ];
     if asset != &Asset::Native {
@@ -180,7 +177,6 @@ fn build_wrap_token_tx(
                 vec![ScVal::Symbol("Admin".try_into().unwrap())].try_into()?,
             )),
             durability: ContractDataDurability::Persistent,
-            body_type: ContractEntryBodyType::DataEntry,
         }));
     }
 

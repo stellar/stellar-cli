@@ -354,7 +354,10 @@ impl Cmd {
         {
             state.ledger_entries.push((
                 Box::new(source_account_ledger_key),
-                Box::new(default_account_ledger_entry(source_account.clone())),
+                (
+                    Box::new(default_account_ledger_entry(source_account.clone())),
+                    None, // TODO: Should this be no expiry, or a value?
+                ),
             ));
         }
 
