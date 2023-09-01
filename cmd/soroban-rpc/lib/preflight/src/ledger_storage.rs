@@ -162,7 +162,7 @@ impl LedgerStorage {
                 let expiration_entry_xdr = self.get_xdr_internal(&mut expiration_key_xdr)?;
                 let expiration_entry = LedgerEntry::from_xdr(expiration_entry_xdr)?;
                 if let LedgerEntryData::Expiration(ExpirationEntry {
-                    expiration_ledger_seq: expiration_ledger_seq,
+                    expiration_ledger_seq,
                     ..
                 }) = expiration_entry.data
                 {
