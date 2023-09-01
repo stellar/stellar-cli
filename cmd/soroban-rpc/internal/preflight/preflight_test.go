@@ -2,6 +2,7 @@ package preflight
 
 import (
 	"context"
+	"crypto/sha256"
 	"os"
 	"path"
 	"runtime"
@@ -31,7 +32,7 @@ var contractCostParams = func() *xdr.ContractCostParams {
 	return &result
 }()
 
-var mockLedgerEntries = []xdr.LedgerEntry{
+var mockLedgerEntriesWithoutExpirations = []xdr.LedgerEntry{
 	{
 		LastModifiedLedgerSeq: 1,
 		Data: xdr.LedgerEntryData{
@@ -44,22 +45,15 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 				Key: xdr.ScVal{
 					Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 				},
-				Durability:          xdr.ContractDataDurabilityPersistent,
-				ExpirationLedgerSeq: 100000,
-				Body: xdr.ContractDataEntryBody{
-					BodyType: xdr.ContractEntryBodyTypeDataEntry,
-					Data: &xdr.ContractDataEntryData{
-						Flags: 0,
-						Val: xdr.ScVal{
-							Type: xdr.ScValTypeScvContractInstance,
-							Instance: &xdr.ScContractInstance{
-								Executable: xdr.ContractExecutable{
-									Type:     xdr.ContractExecutableTypeContractExecutableWasm,
-									WasmHash: &mockContractHash,
-								},
-								Storage: nil,
-							},
+				Durability: xdr.ContractDataDurabilityPersistent,
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvContractInstance,
+					Instance: &xdr.ScContractInstance{
+						Executable: xdr.ContractExecutable{
+							Type:     xdr.ContractExecutableTypeContractExecutableWasm,
+							WasmHash: &mockContractHash,
 						},
+						Storage: nil,
 					},
 				},
 			},
@@ -71,11 +65,7 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 			Type: xdr.LedgerEntryTypeContractCode,
 			ContractCode: &xdr.ContractCodeEntry{
 				Hash: mockContractHash,
-				Body: xdr.ContractCodeEntryBody{
-					BodyType: xdr.ContractEntryBodyTypeDataEntry,
-					Code:     &helloWorldContract,
-				},
-				ExpirationLedgerSeq: 20000,
+				Code: helloWorldContract,
 			},
 		},
 	},
@@ -169,7 +159,6 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 					MaxEntryExpiration:             100,
 					MinTempEntryExpiration:         100,
 					MinPersistentEntryExpiration:   100,
-					AutoBumpLedgers:                100,
 					PersistentRentRateDenominator:  100,
 					TempRentRateDenominator:        100,
 					MaxEntriesToExpire:             100,
@@ -203,6 +192,38 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 	},
 }
 
+// Adds expiration entries to mockLedgerEntriesWithoutExpirations
+var mockLedgerEntries = func() []xdr.LedgerEntry {
+	result := make([]xdr.LedgerEntry, 0, len(mockLedgerEntriesWithoutExpirations))
+	for _, entry := range mockLedgerEntriesWithoutExpirations {
+		result = append(result, entry)
+
+		if entry.Data.Type == xdr.LedgerEntryTypeContractData || entry.Data.Type == xdr.LedgerEntryTypeContractCode {
+			key, err := entry.LedgerKey()
+			if err != nil {
+				panic(err)
+			}
+			bin, err := key.MarshalBinary()
+			if err != nil {
+				panic(err)
+			}
+			expirationEntry := xdr.LedgerEntry{
+				LastModifiedLedgerSeq: entry.LastModifiedLedgerSeq,
+				Data: xdr.LedgerEntryData{
+					Type: xdr.LedgerEntryTypeExpiration,
+					Expiration: &xdr.ExpirationEntry{
+						KeyHash: sha256.Sum256(bin),
+						// Make sure it doesn't expire
+						ExpirationLedgerSeq: 1000,
+					},
+				},
+			}
+			result = append(result, expirationEntry)
+		}
+	}
+	return result
+}()
+
 var helloWorldContract = func() []byte {
 	_, filename, _, _ := runtime.Caller(0)
 	testDirName := path.Dir(filename)
@@ -216,7 +237,7 @@ var helloWorldContract = func() []byte {
 
 type inMemoryLedgerEntryReadTx map[string]xdr.LedgerEntry
 
-func (m inMemoryLedgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
+func (m inMemoryLedgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]db.LedgerKeyAndEntry, error) {
 	result := make([]db.LedgerKeyAndEntry, 0, len(keys))
 	for _, key := range keys {
 		serializedKey, err := key.MarshalBinaryBase64()
@@ -336,8 +357,9 @@ func getPreflightParameters(t testing.TB, dbConfig *preflightParametersDBConfig)
 func TestGetPreflight(t *testing.T) {
 	// in-memory
 	params := getPreflightParameters(t, nil)
-	_, err := GetPreflight(context.Background(), params)
+	result, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.Empty(t, result.Error)
 	require.NoError(t, params.LedgerEntryReadTx.Done())
 
 	// using a restarted db with caching and
@@ -347,8 +369,9 @@ func TestGetPreflight(t *testing.T) {
 		disableCache: false,
 	}
 	params = getPreflightParameters(t, dbConfig)
-	_, err = GetPreflight(context.Background(), params)
+	result, err = GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.Empty(t, result.Error)
 	require.NoError(t, params.LedgerEntryReadTx.Done())
 	require.NoError(t, dbConfig.dbInstance.Close())
 }
@@ -376,9 +399,10 @@ func benchmark(b *testing.B, config benchmarkConfig) {
 	for i := 0; i < b.N; i++ {
 		params := getPreflightParameters(b, dbConfig)
 		b.StartTimer()
-		_, err := GetPreflight(context.Background(), params)
+		result, err := GetPreflight(context.Background(), params)
 		b.StopTimer()
 		require.NoError(b, err)
+		require.Empty(b, result.Error)
 		require.NoError(b, params.LedgerEntryReadTx.Done())
 	}
 	if dbConfig != nil {

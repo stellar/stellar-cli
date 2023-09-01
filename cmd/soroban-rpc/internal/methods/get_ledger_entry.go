@@ -61,7 +61,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 			}
 		}
 
-		present, ledgerEntry, err := db.GetLedgerEntry(tx, false, key)
+		present, ledgerEntry, err := db.GetLedgerEntry(tx, key)
 		if err != nil {
 			logger.WithError(err).WithField("request", request).
 				Info("could not obtain ledger entry from storage")

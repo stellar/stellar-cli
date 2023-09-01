@@ -344,7 +344,6 @@ mod tests {
             max_entry_expiration: 6,
             min_persistent_entry_expiration: 7,
             min_temp_entry_expiration: 8,
-            autobump_ledgers: 16,
         };
 
         events_file.commit(&events, &ledger_info, &temp).unwrap();

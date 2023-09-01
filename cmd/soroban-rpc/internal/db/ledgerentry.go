@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
@@ -30,12 +29,11 @@ type LedgerKeyAndEntry struct {
 
 type LedgerEntryReadTx interface {
 	GetLatestLedgerSequence() (uint32, error)
-	GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error)
+	GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error)
 	Done() error
 }
 
 type LedgerEntryWriter interface {
-	ExtendLedgerEntry(key xdr.LedgerKey, expirationLedgerSeq xdr.Uint32) error
 	UpsertLedgerEntry(entry xdr.LedgerEntry) error
 	DeleteLedgerEntry(key xdr.LedgerKey) error
 }
@@ -47,52 +45,6 @@ type ledgerEntryWriter struct {
 	keyToEntryBatch         map[string]*xdr.LedgerEntry
 	ledgerEntryCacheWriteTx transactionalCacheWriteTx
 	maxBatchSize            int
-}
-
-func (l ledgerEntryWriter) ExtendLedgerEntry(key xdr.LedgerKey, expirationLedgerSeq xdr.Uint32) error {
-	// TODO: How do we figure out the current expiration? We might need to read
-	// from the DB, but in the case of creating a new entry and immediately
-	// extending it, or extending multiple times in the same ledger, the
-	// expirationLedgerSeq might be buffered but not flushed yet.
-	if key.Type != xdr.LedgerEntryTypeContractCode && key.Type != xdr.LedgerEntryTypeContractData {
-		panic("ExtendLedgerEntry can only be used for contract code and data")
-	}
-
-	encodedKey, err := encodeLedgerKey(l.buffer, key)
-	if err != nil {
-		return err
-	}
-
-	var entry xdr.LedgerEntry
-	// See if we have a pending (unflushed) update for this key
-	queued := l.keyToEntryBatch[encodedKey]
-	if queued != nil {
-		entry = *queued
-	} else {
-		var existing string
-		// Nothing in the flush buffer. Load the entry from the db
-		err = sq.StatementBuilder.RunWith(l.stmtCache).Select("entry").From(ledgerEntriesTableName).Where(sq.Eq{"key": encodedKey}).QueryRow().Scan(&existing)
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("no entry for key %q in table %q", base64.StdEncoding.EncodeToString([]byte(encodedKey)), ledgerEntriesTableName)
-		} else if err != nil {
-			return err
-		}
-		// Unmarshal the existing entry
-		if err := xdr.SafeUnmarshal([]byte(existing), &entry); err != nil {
-			return err
-		}
-	}
-
-	// Update the expiration
-	switch entry.Data.Type {
-	case xdr.LedgerEntryTypeContractData:
-		entry.Data.ContractData.ExpirationLedgerSeq = expirationLedgerSeq
-	case xdr.LedgerEntryTypeContractCode:
-		entry.Data.ContractCode.ExpirationLedgerSeq = expirationLedgerSeq
-	}
-
-	// Marshal the entry back and stage it
-	return l.UpsertLedgerEntry(entry)
 }
 
 func (l ledgerEntryWriter) UpsertLedgerEntry(entry xdr.LedgerEntry) error {
@@ -264,8 +216,8 @@ func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]stri
 	return result, nil
 }
 
-func GetLedgerEntry(tx LedgerEntryReadTx, includeExpired bool, key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
-	keyEntries, err := tx.GetLedgerEntries(includeExpired, key)
+func GetLedgerEntry(tx LedgerEntryReadTx, key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+	keyEntries, err := tx.GetLedgerEntries(key)
 	if err != nil {
 		return false, xdr.LedgerEntry{}, err
 	}
@@ -280,7 +232,7 @@ func GetLedgerEntry(tx LedgerEntryReadTx, includeExpired bool, key xdr.LedgerKey
 	}
 }
 
-func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error) {
+func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error) {
 	encodedKeys := make([]string, len(keys))
 	encodedKeyToKey := make(map[string]xdr.LedgerKey, len(keys))
 	for i, k := range keys {
@@ -306,20 +258,6 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(includeExpired bool, keys ...xdr.Le
 		var entry xdr.LedgerEntry
 		if err := xdr.SafeUnmarshal([]byte(encodedEntry), &entry); err != nil {
 			return nil, errors.Wrap(err, "cannot decode ledger entry from DB")
-		}
-		if !includeExpired {
-			// Disallow access to entries that have expired. Expiration excludes the
-			// "current" ledger, which we are building.
-			if expirationLedgerSeq, ok := entry.Data.ExpirationLedgerSeq(); ok {
-				latestClosedLedger, err := l.GetLatestLedgerSequence()
-				if err != nil {
-					return nil, err
-				}
-				currentLedger := latestClosedLedger + 1
-				if expirationLedgerSeq < xdr.Uint32(currentLedger) {
-					continue
-				}
-			}
 		}
 		result = append(result, LedgerKeyAndEntry{key, entry})
 	}

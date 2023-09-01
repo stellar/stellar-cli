@@ -1,7 +1,9 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 use ledger_storage::LedgerStorage;
 use soroban_env_host::budget::Budget;
-use soroban_env_host::e2e_invoke::{extract_rent_changes, get_ledger_changes, LedgerEntryChange};
+use soroban_env_host::e2e_invoke::{
+    extract_rent_changes, get_ledger_changes, ExpirationEntryMap, LedgerEntryChange,
+};
 use soroban_env_host::fees::{
     compute_rent_fee, compute_transaction_resource_fee, compute_write_fee_per_1kb,
     FeeConfiguration, LedgerEntryRentChange, RentFeeConfiguration, TransactionResources,
@@ -21,6 +23,10 @@ use state_expiration::{get_restored_ledger_sequence, ExpirableLedgerEntry};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 
+/// Estimate for any `ExpirationEntry` ledger entry, consisting of a 32-byte
+/// hash of the corresponding entry and 4 bytes for expiration ledger.
+const EXPIRATION_ENTRY_SIZE: u32 = 32 + 4;
+
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
     pre_storage: &LedgerStorage,
@@ -31,7 +37,10 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
-    let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage)?;
+    // TODO: is this OK?
+    let init_expiration_entries = ExpirationEntryMap::new();
+    let ledger_changes =
+        get_ledger_changes(budget, post_storage, pre_storage, init_expiration_entries)?;
     let soroban_resources =
         calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget)
             .context("cannot compute host function resources")?;
@@ -132,7 +141,15 @@ fn calculate_host_function_soroban_resources(
         .context("cannot convert storage footprint to ledger footprint")?;
     let read_bytes: u32 = ledger_changes
         .iter()
-        .map(|c| c.encoded_key.len() as u32 + c.old_entry_size_bytes)
+        .map(
+            |c| {
+                let mut size = c.encoded_key.len() as u32 + c.old_entry_size_bytes;
+                if c.expiration_change.is_some() {
+                    size += EXPIRATION_ENTRY_SIZE;
+                }
+                size
+            }, //size
+        )
         .sum();
 
     let write_bytes: u32 = ledger_changes
@@ -224,6 +241,17 @@ fn get_fee_configurations(
     Ok((fee_configuration, rent_fee_configuration))
 }
 
+// Calculate the implicit ExpirationEntry bytes that will be read for expirable LedgerEntries
+fn calculate_expiration_entry_bytes(ledger_entries: &Vec<LedgerKey>) -> Result<u32> {
+    Ok(ledger_entries
+        .iter()
+        .map(|lk| match lk {
+            LedgerKey::ContractData(_) | LedgerKey::ContractCode(_) => EXPIRATION_ENTRY_SIZE,
+            _ => 0,
+        })
+        .sum())
+}
+
 fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &Vec<LedgerKey>,
     pre_storage: &LedgerStorage,
@@ -313,16 +341,20 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         current_ledger_seq,
     )
     .context("cannot compute bump rent changes")?;
-    let read_bytes = calculate_unmodified_ledger_entry_bytes(
+
+    let expiration_bytes: u32 = calculate_expiration_entry_bytes(footprint.read_only.as_vec())?;
+
+    let unmodified_entry_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
         ledger_storage,
         false,
     )
     .context("cannot calculate read_bytes resource")?;
+
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        read_bytes,
+        read_bytes: unmodified_entry_bytes + expiration_bytes,
         write_bytes: 0,
     };
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
@@ -361,12 +393,13 @@ fn compute_bump_footprint_rent_changes(
     let mut rent_changes: Vec<LedgerEntryRentChange> =
         Vec::with_capacity(footprint.read_only.len());
     for key in (&footprint).read_only.as_vec() {
-        let unmodified_entry = ledger_storage
+        let unmodified_entry_and_expiration = ledger_storage
             .get(key, false)
             .with_context(|| format!("cannot find bump footprint ledger entry with key {key:?}"))?;
-        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
-            (&unmodified_entry).try_into().map_err(|e: String| {
+        let size = (key.to_xdr()?.len() + unmodified_entry_and_expiration.0.to_xdr()?.len()) as u32;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry_and_expiration)
+            .try_into()
+            .map_err(|e: String| {
                 Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
             })?;
         let new_expiration_ledger = current_ledger_seq + ledgers_to_expire;
@@ -404,6 +437,8 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         current_ledger_seq,
     )
     .context("cannot compute restore rent changes")?;
+
+    let expiration_bytes: u32 = calculate_expiration_entry_bytes(footprint.read_write.as_vec())?;
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,
@@ -413,7 +448,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        read_bytes: write_bytes,
+        read_bytes: write_bytes + expiration_bytes,
         write_bytes,
     };
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
@@ -452,12 +487,13 @@ fn compute_restore_footprint_rent_changes(
     let mut rent_changes: Vec<LedgerEntryRentChange> =
         Vec::with_capacity(footprint.read_write.len());
     for key in footprint.read_write.as_vec() {
-        let unmodified_entry = ledger_storage.get(key, true).with_context(|| {
+        let unmodified_entry_and_expiration = ledger_storage.get(key, true).with_context(|| {
             format!("cannot find restore footprint ledger entry with key {key:?}")
         })?;
-        let size = (key.to_xdr()?.len() + unmodified_entry.to_xdr()?.len()) as u32;
-        let expirable_entry: Box<dyn ExpirableLedgerEntry> =
-            (&unmodified_entry).try_into().map_err(|e: String| {
+        let size = (key.to_xdr()?.len() + unmodified_entry_and_expiration.0.to_xdr()?.len()) as u32;
+        let expirable_entry: Box<dyn ExpirableLedgerEntry> = (&unmodified_entry_and_expiration)
+            .try_into()
+            .map_err(|e: String| {
                 Error::msg(e.clone()).context("incorrect ledger entry type in footprint")
             })?;
         ensure!(

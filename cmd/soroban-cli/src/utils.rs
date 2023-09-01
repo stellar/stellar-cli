@@ -5,12 +5,10 @@ use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::{
-    budget::Budget,
-    storage::{AccessType, Footprint, Storage},
+    storage::{AccessType, Footprint},
     xdr::{
-        AccountEntry, AccountEntryExt, AccountId, Asset, ContractCodeEntry, ContractCodeEntryBody,
-        ContractDataDurability, ContractDataEntry, ContractDataEntryBody, ContractDataEntryData,
-        ContractEntryBodyType, ContractExecutable, ContractIdPreimage, DecoratedSignature,
+        AccountEntry, AccountEntryExt, AccountId, Asset, ContractCodeEntry, ContractDataDurability,
+        ContractDataEntry, ContractExecutable, ContractIdPreimage, DecoratedSignature,
         Error as XdrError, ExtensionPoint, Hash, HashIdPreimage, HashIdPreimageContractId,
         LedgerEntry, LedgerEntryData, LedgerEntryExt, LedgerFootprint, LedgerKey,
         LedgerKeyContractCode, LedgerKeyContractData, ScAddress, ScContractInstance, ScSpecEntry,
@@ -60,42 +58,43 @@ pub fn ledger_snapshot_read_or_default(
     }
 }
 
+type LedgerSnapshotEntries = Vec<(Box<LedgerKey>, (Box<LedgerEntry>, Option<u32>))>;
+
 /// # Errors
 ///
 /// Might return an error
 pub fn add_contract_code_to_ledger_entries(
-    entries: &mut Vec<(Box<LedgerKey>, Box<LedgerEntry>)>,
+    entries: &mut LedgerSnapshotEntries,
     contract: Vec<u8>,
     min_persistent_entry_expiration: u32,
 ) -> Result<Hash, XdrError> {
     // Install the code
     let hash = contract_hash(contract.as_slice())?;
-    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode {
-        hash: hash.clone(),
-        body_type: ContractEntryBodyType::DataEntry,
-    });
+    let code_key = LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() });
     let code_entry = LedgerEntry {
         last_modified_ledger_seq: 0,
         data: LedgerEntryData::ContractCode(ContractCodeEntry {
             ext: ExtensionPoint::V0,
             hash: hash.clone(),
-            body: ContractCodeEntryBody::DataEntry(contract.try_into()?),
-            expiration_ledger_seq: min_persistent_entry_expiration,
+            code: contract.try_into()?,
         }),
         ext: LedgerEntryExt::V0,
     };
     for (k, e) in &mut *entries {
         if **k == code_key {
-            **e = code_entry;
+            *e = (Box::new(code_entry), Some(min_persistent_entry_expiration));
             return Ok(hash);
         }
     }
-    entries.push((Box::new(code_key), Box::new(code_entry)));
+    entries.push((
+        Box::new(code_key),
+        (Box::new(code_entry), Some(min_persistent_entry_expiration)),
+    ));
     Ok(hash)
 }
 
 pub fn add_contract_to_ledger_entries(
-    entries: &mut Vec<(Box<LedgerKey>, Box<LedgerEntry>)>,
+    entries: &mut LedgerSnapshotEntries,
     contract_id: [u8; 32],
     wasm_hash: [u8; 32],
     min_persistent_entry_expiration: u32,
@@ -105,7 +104,6 @@ pub fn add_contract_to_ledger_entries(
         contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::LedgerKeyContractInstance,
         durability: ContractDataDurability::Persistent,
-        body_type: ContractEntryBodyType::DataEntry,
     });
 
     let contract_entry = LedgerEntry {
@@ -114,35 +112,39 @@ pub fn add_contract_to_ledger_entries(
             contract: ScAddress::Contract(contract_id.into()),
             key: ScVal::LedgerKeyContractInstance,
             durability: ContractDataDurability::Persistent,
-            body: ContractDataEntryBody::DataEntry(ContractDataEntryData {
-                flags: 0,
-                val: ScVal::ContractInstance(ScContractInstance {
-                    executable: ContractExecutable::Wasm(Hash(wasm_hash)),
-                    storage: None,
-                }),
+            val: ScVal::ContractInstance(ScContractInstance {
+                executable: ContractExecutable::Wasm(Hash(wasm_hash)),
+                storage: None,
             }),
-            expiration_ledger_seq: min_persistent_entry_expiration,
+            ext: ExtensionPoint::V0,
         }),
         ext: LedgerEntryExt::V0,
     };
     for (k, e) in &mut *entries {
         if **k == contract_key {
-            **e = contract_entry;
+            *e = (
+                Box::new(contract_entry),
+                Some(min_persistent_entry_expiration),
+            );
             return;
         }
     }
-    entries.push((Box::new(contract_key), Box::new(contract_entry)));
+    entries.push((
+        Box::new(contract_key),
+        (
+            Box::new(contract_entry),
+            Some(min_persistent_entry_expiration),
+        ),
+    ));
 }
 
 pub fn bump_ledger_entry_expirations<S: BuildHasher>(
-    entries: &mut [(Box<LedgerKey>, Box<LedgerEntry>)],
+    entries: &mut LedgerSnapshotEntries,
     lookup: &HashMap<LedgerKey, u32, S>,
 ) {
-    for (k, e) in &mut *entries {
+    for (k, (_, expiration)) in &mut *entries {
         if let Some(min_expiration) = lookup.get(k.as_ref()) {
-            if let LedgerEntryData::ContractData(entry) = &mut e.data {
-                entry.expiration_ledger_seq = *min_expiration;
-            }
+            *expiration = Some(*min_expiration);
         }
     }
 }
@@ -196,77 +198,76 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
         .map_err(|_| stellar_strkey::DecodeError::Invalid)
 }
 
+fn get_entry_from_snapshot(
+    key: &LedgerKey,
+    entries: &LedgerSnapshotEntries,
+) -> Option<(Box<LedgerEntry>, Option<u32>)> {
+    for (k, result) in entries {
+        if *key == **k {
+            return Some((*result).clone());
+        }
+    }
+    None
+}
+
 /// # Errors
 ///
 /// Might return an error
-pub fn get_contract_spec_from_storage(
-    storage: &mut Storage,
-    current_ledger_seq: &u32,
+pub fn get_contract_spec_from_state(
+    state: &LedgerSnapshot,
     contract_id: [u8; 32],
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
+    let current_ledger_seq = state.sequence_number;
     let key = LedgerKey::ContractData(LedgerKeyContractData {
         contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::LedgerKeyContractInstance,
-        body_type: ContractEntryBodyType::DataEntry,
         durability: ContractDataDurability::Persistent,
     });
-    match storage.get(&key.into(), &Budget::default()) {
-        Ok(rc) => match rc.as_ref() {
-            LedgerEntry {
-                data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        body:
-                            ContractDataEntryBody::DataEntry(ContractDataEntryData {
-                                val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
-                                ..
-                            }),
-                        expiration_ledger_seq,
+    let (entry, expiration_ledger_seq) = match get_entry_from_snapshot(&key, &state.ledger_entries)
+    {
+        // It's a contract data entry, so it should have an expiration if present
+        Some((entry, expiration)) => (entry, expiration.unwrap()),
+        None => return Err(FromWasmError::NotFound),
+    };
+    if expiration_ledger_seq <= current_ledger_seq {
+        return Err(FromWasmError::NotFound);
+    }
+
+    match *entry {
+        LedgerEntry {
+            data:
+                LedgerEntryData::ContractData(ContractDataEntry {
+                    val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
+                    ..
+                }),
+            ..
+        } => match executable {
+            ContractExecutable::Token => {
+                // TODO/FIXME: I don't think it will work for token contracts, since we don't store them in the state?
+                let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
+                res.map_err(FromWasmError::Parse)
+            }
+            ContractExecutable::Wasm(hash) => {
+                // It's a contract code entry, so it should have an expiration if present
+                let (entry, expiration_ledger_seq) = match get_entry_from_snapshot(
+                    &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() }),
+                    &state.ledger_entries,
+                ) {
+                    // It's a contract data entry, so it should have an expiration if present
+                    Some((entry, expiration)) => (entry, expiration.unwrap()),
+                    None => return Err(FromWasmError::NotFound),
+                };
+                if expiration_ledger_seq <= current_ledger_seq {
+                    return Err(FromWasmError::NotFound);
+                }
+                match *entry {
+                    LedgerEntry {
+                        data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
                         ..
-                    }),
-                ..
-            } => match executable {
-                ContractExecutable::Token => {
-                    if expiration_ledger_seq <= current_ledger_seq {
-                        return Err(FromWasmError::NotFound);
-                    }
-                    let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
-                    res.map_err(FromWasmError::Parse)
+                    } => soroban_spec::read::from_wasm(code.as_vec()),
+                    _ => Err(FromWasmError::NotFound),
                 }
-                ContractExecutable::Wasm(hash) => {
-                    if expiration_ledger_seq <= current_ledger_seq {
-                        return Err(FromWasmError::NotFound);
-                    }
-                    if let Ok(rc) = storage.get(
-                        &LedgerKey::ContractCode(LedgerKeyContractCode {
-                            hash: hash.clone(),
-                            body_type: ContractEntryBodyType::DataEntry,
-                        })
-                        .into(),
-                        &Budget::default(),
-                    ) {
-                        match rc.as_ref() {
-                            LedgerEntry {
-                                data:
-                                    LedgerEntryData::ContractCode(ContractCodeEntry {
-                                        body: ContractCodeEntryBody::DataEntry(code),
-                                        expiration_ledger_seq,
-                                        ..
-                                    }),
-                                ..
-                            } => {
-                                if expiration_ledger_seq <= current_ledger_seq {
-                                    return Err(FromWasmError::NotFound);
-                                }
-                                soroban_spec::read::from_wasm(code.as_vec())
-                            }
-                            _ => Err(FromWasmError::NotFound),
-                        }
-                    } else {
-                        Err(FromWasmError::NotFound)
-                    }
-                }
-            },
-            _ => Err(FromWasmError::NotFound),
+            }
         },
         _ => Err(FromWasmError::NotFound),
     }

@@ -33,7 +33,6 @@ pub struct CLedgerInfo {
     pub min_temp_entry_expiration: u32,
     pub min_persistent_entry_expiration: u32,
     pub max_entry_expiration: u32,
-    pub autobump_ledgers: u32,
 }
 
 impl From<CLedgerInfo> for LedgerInfo {
@@ -48,7 +47,6 @@ impl From<CLedgerInfo> for LedgerInfo {
             min_temp_entry_expiration: c.min_temp_entry_expiration,
             min_persistent_entry_expiration: c.min_persistent_entry_expiration,
             max_entry_expiration: c.max_entry_expiration,
-            autobump_ledgers: c.autobump_ledgers,
         }
     }
 }
@@ -196,7 +194,7 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
 ) -> Result<CPreflightResult> {
     let op_body = OperationBody::from_xdr(from_c_xdr(op_body)).unwrap();
     let footprint = LedgerFootprint::from_xdr(from_c_xdr(footprint)).unwrap();
-    let ledger_storage = &LedgerStorage::new(handle);
+    let ledger_storage = &LedgerStorage::new(handle, current_ledger_seq);
     let result = preflight::preflight_footprint_expiration_op(
         ledger_storage,
         bucket_list_size,

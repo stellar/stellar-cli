@@ -7,8 +7,7 @@ use std::{
 use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
-        self, ContractDataDurability, ContractDataEntry, ContractDataEntryBody,
-        ContractDataEntryData, ContractEntryBodyType, Error as XdrError, Hash, LedgerEntryData,
+        self, ContractDataDurability, ContractDataEntry, Error as XdrError, Hash, LedgerEntryData,
         LedgerKey, LedgerKeyContractData, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, WriteXdr,
     },
     HostError,
@@ -163,7 +162,6 @@ impl Cmd {
                 contract: ScAddress::Contract(Hash(contract_id)),
                 key: key.clone(),
                 durability: (*durability).into(),
-                body_type: ContractEntryBodyType::DataEntry,
             })
         })
         .collect::<Vec<_>>();
@@ -202,18 +200,10 @@ impl Cmd {
 
         Ok(ledger_entries
             .iter()
-            .map(|(k, v)| (k.as_ref().clone(), v.as_ref().clone()))
+            .map(|(k, v)| (k.as_ref().clone(), (v.0.as_ref().clone(), v.1)))
             .filter(|(k, _v)| {
                 if let LedgerKey::ContractData(LedgerKeyContractData { contract: c, .. }) = k {
                     if c == &contract {
-                        return true;
-                    }
-                }
-                false
-            })
-            .filter(|(k, _v)| {
-                if let LedgerKey::ContractData(LedgerKeyContractData { body_type, .. }) = k {
-                    if body_type == &ContractEntryBodyType::DataEntry {
                         return true;
                     }
                 }
@@ -241,7 +231,7 @@ impl Cmd {
                 }
                 false
             })
-            .map(|(k, v)| (k, v.data))
+            .map(|(k, (v, _))| (k, v.data))
             .collect::<Vec<_>>())
     }
 
@@ -249,12 +239,7 @@ impl Cmd {
         let entries = raw_entries
             .iter()
             .filter_map(|(_k, data)| {
-                if let LedgerEntryData::ContractData(ContractDataEntry {
-                    key,
-                    body: ContractDataEntryBody::DataEntry(ContractDataEntryData { val, .. }),
-                    ..
-                }) = &data
-                {
+                if let LedgerEntryData::ContractData(ContractDataEntry { key, val, .. }) = &data {
                     Some((key.clone(), val.clone()))
                 } else {
                     None
