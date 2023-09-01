@@ -198,7 +198,7 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
         .map_err(|_| stellar_strkey::DecodeError::Invalid)
 }
 
-fn get_entry_from_spanshot(
+fn get_entry_from_snapshot(
     key: &LedgerKey,
     entries: &LedgerSnapshotEntries,
 ) -> Option<(Box<LedgerEntry>, Option<u32>)> {
@@ -223,7 +223,7 @@ pub fn get_contract_spec_from_state(
         key: ScVal::LedgerKeyContractInstance,
         durability: ContractDataDurability::Persistent,
     });
-    let (entry, expiration_ledger_seq) = match get_entry_from_spanshot(&key, &state.ledger_entries)
+    let (entry, expiration_ledger_seq) = match get_entry_from_snapshot(&key, &state.ledger_entries)
     {
         // It's a contract data entry, so it should have an expiration if present
         Some((entry, expiration)) => (entry, expiration.unwrap()),
@@ -249,7 +249,7 @@ pub fn get_contract_spec_from_state(
             }
             ContractExecutable::Wasm(hash) => {
                 // It's a contract code entry, so it should have an expiration if present
-                let (entry, expiration_ledger_seq) = match get_entry_from_spanshot(
+                let (entry, expiration_ledger_seq) = match get_entry_from_snapshot(
                     &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() }),
                     &state.ledger_entries,
                 ) {
