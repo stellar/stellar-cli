@@ -362,11 +362,11 @@ impl Cmd {
         }
 
         let snap = Rc::new(state.clone());
-        let mut storage = Storage::with_recording_footprint(snap);
+        let storage = Storage::with_recording_footprint(snap);
         let spec_entries = if let Some(spec) = self.spec_entries()? {
             spec
         } else {
-            utils::get_contract_spec_from_storage(&mut storage, &state.sequence_number, contract_id)
+            utils::get_contract_spec_from_state(&state, contract_id)
                 .map_err(Error::CannotParseContractSpec)?
         };
         let budget = Budget::default();

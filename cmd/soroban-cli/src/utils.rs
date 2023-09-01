@@ -5,8 +5,7 @@ use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::{
-    budget::Budget,
-    storage::{AccessType, Footprint, Storage},
+    storage::{AccessType, Footprint},
     xdr::{
         AccountEntry, AccountEntryExt, AccountId, Asset, ContractCodeEntry, ContractDataDurability,
         ContractDataEntry, ContractExecutable, ContractIdPreimage, DecoratedSignature,
@@ -199,68 +198,76 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
         .map_err(|_| stellar_strkey::DecodeError::Invalid)
 }
 
+fn get_entry_from_spanshot(
+    key: &LedgerKey,
+    entries: &LedgerSnapshotEntries,
+) -> Option<(Box<LedgerEntry>, Option<u32>)> {
+    for (k, result) in entries {
+        if *key == **k {
+            return Some((*result).clone());
+        }
+    }
+    None
+}
+
 /// # Errors
 ///
 /// Might return an error
-pub fn get_contract_spec_from_storage(
-    storage: &mut Storage,
-    _current_ledger_seq: &u32,
+pub fn get_contract_spec_from_state(
+    state: &LedgerSnapshot,
     contract_id: [u8; 32],
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
+    let current_ledger_seq = state.sequence_number;
     let key = LedgerKey::ContractData(LedgerKeyContractData {
         contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::LedgerKeyContractInstance,
         durability: ContractDataDurability::Persistent,
     });
-    match storage.get(&key.into(), &Budget::default()) {
-        Ok(rc) => match rc.as_ref() {
-            LedgerEntry {
-                data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
+    let (entry, expiration_ledger_seq) = match get_entry_from_spanshot(&key, &state.ledger_entries)
+    {
+        // It's a contract data entry, so it should have an expiration if present
+        Some((entry, expiration)) => (entry, expiration.unwrap()),
+        None => return Err(FromWasmError::NotFound),
+    };
+    if expiration_ledger_seq <= current_ledger_seq {
+        return Err(FromWasmError::NotFound);
+    }
+
+    match *entry {
+        LedgerEntry {
+            data:
+                LedgerEntryData::ContractData(ContractDataEntry {
+                    val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
+                    ..
+                }),
+            ..
+        } => match executable {
+            ContractExecutable::Token => {
+                // TODO/FIXME: I don't think it will work for token contracts, since we don't store them in the state?
+                let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
+                res.map_err(FromWasmError::Parse)
+            }
+            ContractExecutable::Wasm(hash) => {
+                // It's a contract code entry, so it should have an expiration if present
+                let (entry, expiration_ledger_seq) = match get_entry_from_spanshot(
+                    &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() }),
+                    &state.ledger_entries,
+                ) {
+                    // It's a contract data entry, so it should have an expiration if present
+                    Some((entry, expiration)) => (entry, expiration.unwrap()),
+                    None => return Err(FromWasmError::NotFound),
+                };
+                if expiration_ledger_seq <= current_ledger_seq {
+                    return Err(FromWasmError::NotFound);
+                }
+                match *entry {
+                    LedgerEntry {
+                        data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
                         ..
-                    }),
-                ..
-            } => match executable {
-                ContractExecutable::Token => {
-                    // TODO: How to identify that an entry is expired now?
-                    //       I(fons) don't think that the storage contains expiration entries and I don't
-                    //       think we can get it from the state in all cases (e.g. Token contracts)
-                    // if expiration_ledger_seq <= current_ledger_seq {
-                    //     return Err(FromWasmError::NotFound);
-                    // }
-                    let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
-                    res.map_err(FromWasmError::Parse)
+                    } => soroban_spec::read::from_wasm(code.as_vec()),
+                    _ => Err(FromWasmError::NotFound),
                 }
-                ContractExecutable::Wasm(hash) => {
-                    // TODO: How to identify that entry is expired now?
-                    // if expiration_ledger_seq <= current_ledger_seq {
-                    //     return Err(FromWasmError::NotFound);
-                    // }
-                    if let Ok(rc) = storage.get(
-                        &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() })
-                            .into(),
-                        &Budget::default(),
-                    ) {
-                        match rc.as_ref() {
-                            LedgerEntry {
-                                data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
-                                ..
-                            } => {
-                                // TODO: How to identify that entry is expired now?
-                                // if expiration_ledger_seq <= current_ledger_seq {
-                                //     return Err(FromWasmError::NotFound);
-                                // }
-                                soroban_spec::read::from_wasm(code.as_vec())
-                            }
-                            _ => Err(FromWasmError::NotFound),
-                        }
-                    } else {
-                        Err(FromWasmError::NotFound)
-                    }
-                }
-            },
-            _ => Err(FromWasmError::NotFound),
+            }
         },
         _ => Err(FromWasmError::NotFound),
     }
