@@ -304,7 +304,7 @@ fn invoke_with_source(sandbox: &TestEnv, source: &str) {
     ]);
     assert_eq!(cmd.unwrap(), "[\"Hello\",\"world\"]");
 
-    // Invoke it again without providing the wasm
+    // Invoke it again without providing the contract, to exercise the deployment
     let cmd = sandbox.invoke(&[
         "--source-account",
         source,

@@ -25,7 +25,7 @@ use std::convert::{TryFrom, TryInto};
 
 /// Estimate for any `ExpirationEntry` ledger entry, consisting of a 32-byte
 /// hash of the corresponding entry and 4 bytes for expiration ledger.
-pub const EXPIRATION_ENTRY_SIZE: u32 = 32 + 4;
+const EXPIRATION_ENTRY_SIZE: u32 = 32 + 4;
 
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
@@ -344,18 +344,17 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
 
     let expiration_bytes: u32 = calculate_expiration_entry_bytes(footprint.read_only.as_vec())?;
 
-    let read_bytes = calculate_unmodified_ledger_entry_bytes(
+    let unmodified_entry_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
         ledger_storage,
         false,
     )
-    .context("cannot calculate read_bytes resource")?
-        + expiration_bytes;
+    .context("cannot calculate read_bytes resource")?;
 
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        read_bytes,
+        read_bytes: unmodified_entry_bytes + expiration_bytes,
         write_bytes: 0,
     };
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
