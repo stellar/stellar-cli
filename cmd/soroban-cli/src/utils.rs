@@ -59,11 +59,13 @@ pub fn ledger_snapshot_read_or_default(
     }
 }
 
+type LedgerSnapshotEntries = Vec<(Box<LedgerKey>, (Box<LedgerEntry>, Option<u32>))>;
+
 /// # Errors
 ///
 /// Might return an error
 pub fn add_contract_code_to_ledger_entries(
-    entries: &mut Vec<(Box<LedgerKey>, (Box<LedgerEntry>, Option<u32>))>,
+    entries: &mut LedgerSnapshotEntries,
     contract: Vec<u8>,
     min_persistent_entry_expiration: u32,
 ) -> Result<Hash, XdrError> {
@@ -93,7 +95,7 @@ pub fn add_contract_code_to_ledger_entries(
 }
 
 pub fn add_contract_to_ledger_entries(
-    entries: &mut Vec<(Box<LedgerKey>, (Box<LedgerEntry>, Option<u32>))>,
+    entries: &mut LedgerSnapshotEntries,
     contract_id: [u8; 32],
     wasm_hash: [u8; 32],
     min_persistent_entry_expiration: u32,
@@ -138,7 +140,7 @@ pub fn add_contract_to_ledger_entries(
 }
 
 pub fn bump_ledger_entry_expirations<S: BuildHasher>(
-    entries: &mut Vec<(Box<LedgerKey>, (Box<LedgerEntry>, Option<u32>))>,
+    entries: &mut LedgerSnapshotEntries,
     lookup: &HashMap<LedgerKey, u32, S>,
 ) {
     for (k, (_, expiration)) in &mut *entries {
