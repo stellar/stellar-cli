@@ -1,20 +1,19 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, DiagnosticEvent, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    OperationBody, PublicKey, ReadXdr, ScAddress, ScMap, ScSymbol, ScVal,
-    SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
-    SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+    AccountId, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, OperationBody, PublicKey,
+    ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, SorobanAddressCredentials,
+    SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, Transaction,
+    TransactionExt, Uint256, VecM, WriteXdr,
 };
 
-use crate::rpc::{Error, LogEvents, SimulateTransactionResponse};
+use crate::rpc::{Error, SimulateTransactionResponse};
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
 // submission to the network.
 pub fn assemble(
     raw: &Transaction,
     simulation: &SimulateTransactionResponse,
-    log_events: Option<LogEvents>,
 ) -> Result<Transaction, Error> {
     let mut tx = raw.clone();
 
@@ -28,52 +27,33 @@ pub fn assemble(
         });
     }
 
-    // TODO: Should we keep this?
-    let events = simulation
-        .events
-        .iter()
-        .map(DiagnosticEvent::from_xdr_base64)
-        .collect::<Result<Vec<_>, _>>()?;
-
     let transaction_data = SorobanTransactionData::from_xdr_base64(&simulation.transaction_data)?;
 
     let mut op = tx.operations[0].clone();
-    let auths = match &mut op.body {
-        OperationBody::InvokeHostFunction(ref mut body) => {
-            if body.auth.is_empty() {
-                if simulation.results.len() != 1 {
-                    return Err(Error::UnexpectedSimulateTransactionResultSize {
-                        length: simulation.results.len(),
-                    });
-                }
+    if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
+        if body.auth.is_empty() {
+            if simulation.results.len() != 1 {
+                return Err(Error::UnexpectedSimulateTransactionResultSize {
+                    length: simulation.results.len(),
+                });
+            }
 
-                let auths = simulation
-                    .results
-                    .iter()
-                    .map(|r| {
-                        VecM::try_from(
-                            r.auth
-                                .iter()
-                                .map(SorobanAuthorizationEntry::from_xdr_base64)
-                                .collect::<Result<Vec<_>, _>>()?,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                if !auths.is_empty() {
-                    body.auth = auths[0].clone();
-                }
-                auths
-            } else {
-                vec![body.auth.clone()]
+            let auths = simulation
+                .results
+                .iter()
+                .map(|r| {
+                    VecM::try_from(
+                        r.auth
+                            .iter()
+                            .map(SorobanAuthorizationEntry::from_xdr_base64)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if !auths.is_empty() {
+                body.auth = auths[0].clone();
             }
         }
-        OperationBody::BumpFootprintExpiration(_) | OperationBody::RestoreFootprint(_) => {
-            Vec::new()
-        }
-        _ => return Err(Error::UnsupportedOperationType),
-    };
-    if let Some(log) = log_events {
-        log(&transaction_data.resources.footprint, &auths, &events, None);
     }
 
     // update the fees of the actual transaction to meet the minimum resource fees.
@@ -331,7 +311,7 @@ mod tests {
     fn test_assemble_transaction_updates_tx_data_from_simulation_response() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, &sim, None) else {
+        let Ok(result) = assemble(&txn, &sim) else {
             panic!("assemble failed");
         };
 
@@ -347,7 +327,7 @@ mod tests {
     fn test_assemble_transaction_adds_the_auth_to_the_host_function() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, &sim, None) else {
+        let Ok(result) = assemble(&txn, &sim) else {
             panic!("assemble failed");
         };
 
@@ -417,12 +397,11 @@ mod tests {
                 },
                 latest_ledger: 3,
             },
-            None,
         );
 
         match result {
-            Err(Error::UnsupportedOperationType) => {}
-            r => panic!("expected unsupportOperationType error, got: {r:#?}"),
+            Ok(_) => {}
+            Err(e) => panic!("expected assembled operation, got: {e:#?}"),
         }
     }
 
@@ -444,7 +423,6 @@ mod tests {
                 },
                 latest_ledger: 3,
             },
-            None,
         );
 
         match result {
