@@ -153,6 +153,8 @@ impl LedgerStorage {
         let xdr = self.get_xdr_internal(&mut key_xdr)?;
 
         let expiration_seq = match key {
+            // TODO: it would probably be more efficient to do all of this in the Go side
+            //       (e.g. it would allow us to query multiple entries at once)
             LedgerKey::ContractData(_) | LedgerKey::ContractCode(_) => {
                 let key_hash: [u8; 32] = sha2::Sha256::digest(key_xdr).into();
                 let expiration_key = LedgerKey::Expiration(LedgerKeyExpiration {
