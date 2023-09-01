@@ -29,9 +29,8 @@ use assert_cmd::{assert::Assert, Command};
 use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
-pub use soroban_cli::commands::contract::invoke;
 use soroban_cli::{
-    commands::{config, contract},
+    commands::{config, contract, contract::invoke, global},
     CommandParser, Pwd,
 };
 
@@ -134,7 +133,17 @@ impl TestEnv {
     /// Invoke an already parsed invoke command
     pub fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, invoke::Error> {
         cmd.set_pwd(self.dir());
-        cmd.run_in_sandbox()
+        cmd.run_in_sandbox(&global::Args {
+            locator: config::locator::Args {
+                global: false,
+                config_dir: None,
+            },
+            filter_logs: Vec::default(),
+            quiet: false,
+            verbose: false,
+            very_verbose: false,
+            list: false,
+        })
     }
 
     /// Reference to current directory of the `TestEnv`.

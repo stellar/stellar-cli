@@ -10,6 +10,8 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 
+use crate::commands::global;
+
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
     /// Generate code client bindings for a contract
@@ -94,7 +96,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match &self {
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run()?,
@@ -102,7 +104,7 @@ impl Cmd {
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::Inspect(inspect) => inspect.run()?,
             Cmd::Install(install) => install.run().await?,
-            Cmd::Invoke(invoke) => invoke.run().await?,
+            Cmd::Invoke(invoke) => invoke.run(global_args).await?,
             Cmd::Optimize(optimize) => optimize.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
             Cmd::Read(read) => read.run().await?,
