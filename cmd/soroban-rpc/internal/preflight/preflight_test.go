@@ -2,6 +2,7 @@ package preflight
 
 import (
 	"context"
+	"crypto/sha256"
 	"os"
 	"path"
 	"runtime"
@@ -31,7 +32,7 @@ var contractCostParams = func() *xdr.ContractCostParams {
 	return &result
 }()
 
-var mockLedgerEntries = []xdr.LedgerEntry{
+var mockLedgerEntriesWithoutExpirations = []xdr.LedgerEntry{
 	{
 		LastModifiedLedgerSeq: 1,
 		Data: xdr.LedgerEntryData{
@@ -191,6 +192,38 @@ var mockLedgerEntries = []xdr.LedgerEntry{
 	},
 }
 
+// Adds expiration entries to mockLedgerEntriesWithoutExpirations
+var mockLedgerEntries = func() []xdr.LedgerEntry {
+	result := make([]xdr.LedgerEntry, 0, len(mockLedgerEntriesWithoutExpirations))
+	for _, entry := range mockLedgerEntriesWithoutExpirations {
+		result = append(result, entry)
+
+		if entry.Data.Type == xdr.LedgerEntryTypeContractData || entry.Data.Type == xdr.LedgerEntryTypeContractCode {
+			key, err := entry.LedgerKey()
+			if err != nil {
+				panic(err)
+			}
+			bin, err := key.MarshalBinary()
+			if err != nil {
+				panic(err)
+			}
+			expirationEntry := xdr.LedgerEntry{
+				LastModifiedLedgerSeq: entry.LastModifiedLedgerSeq,
+				Data: xdr.LedgerEntryData{
+					Type: xdr.LedgerEntryTypeExpiration,
+					Expiration: &xdr.ExpirationEntry{
+						KeyHash: sha256.Sum256(bin),
+						// Make sure it doesn't expire
+						ExpirationLedgerSeq: 1000,
+					},
+				},
+			}
+			result = append(result, expirationEntry)
+		}
+	}
+	return result
+}()
+
 var helloWorldContract = func() []byte {
 	_, filename, _, _ := runtime.Caller(0)
 	testDirName := path.Dir(filename)
@@ -324,8 +357,9 @@ func getPreflightParameters(t testing.TB, dbConfig *preflightParametersDBConfig)
 func TestGetPreflight(t *testing.T) {
 	// in-memory
 	params := getPreflightParameters(t, nil)
-	_, err := GetPreflight(context.Background(), params)
+	result, err := GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.Empty(t, result.Error)
 	require.NoError(t, params.LedgerEntryReadTx.Done())
 
 	// using a restarted db with caching and
@@ -335,8 +369,9 @@ func TestGetPreflight(t *testing.T) {
 		disableCache: false,
 	}
 	params = getPreflightParameters(t, dbConfig)
-	_, err = GetPreflight(context.Background(), params)
+	result, err = GetPreflight(context.Background(), params)
 	require.NoError(t, err)
+	require.Empty(t, result.Error)
 	require.NoError(t, params.LedgerEntryReadTx.Done())
 	require.NoError(t, dbConfig.dbInstance.Close())
 }
@@ -364,9 +399,10 @@ func benchmark(b *testing.B, config benchmarkConfig) {
 	for i := 0; i < b.N; i++ {
 		params := getPreflightParameters(b, dbConfig)
 		b.StartTimer()
-		_, err := GetPreflight(context.Background(), params)
+		result, err := GetPreflight(context.Background(), params)
 		b.StopTimer()
 		require.NoError(b, err)
+		require.Empty(b, result.Error)
 		require.NoError(b, params.LedgerEntryReadTx.Done())
 	}
 	if dbConfig != nil {
