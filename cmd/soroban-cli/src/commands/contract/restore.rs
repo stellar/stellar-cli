@@ -6,12 +6,12 @@ use std::{
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractCodeEntry, ContractDataDurability, ContractDataEntry, Error as XdrError,
-    ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
-    LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-    OperationBody, OperationMeta, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress,
-    ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
+    ContractDataDurability, Error as XdrError, ExpirationEntry, ExtensionPoint, Hash, LedgerEntry,
+    LedgerEntryChange, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyContractCode,
+    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
+    Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber,
+    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta,
+    TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -256,22 +256,25 @@ impl Cmd {
     }
 }
 
-// TODO: Replace Option<()> with bool.
 fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
     ops.get(0).and_then(|op| {
         op.changes.iter().find_map(|entry| match entry {
             LedgerEntryChange::Updated(LedgerEntry {
                 data:
-                    LedgerEntryData::ContractData(ContractDataEntry { .. })
-                    | LedgerEntryData::ContractCode(ContractCodeEntry { .. }),
+                    LedgerEntryData::Expiration(ExpirationEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
                 ..
             })
             | LedgerEntryChange::Created(LedgerEntry {
                 data:
-                    LedgerEntryData::ContractData(ContractDataEntry { .. })
-                    | LedgerEntryData::ContractCode(ContractCodeEntry { .. }),
+                    LedgerEntryData::Expiration(ExpirationEntry {
+                        expiration_ledger_seq,
+                        ..
+                    }),
                 ..
-            }) => Some(0), // TODO: How to get expiration now?
+            }) => Some(*expiration_ledger_seq),
             _ => None,
         })
     })

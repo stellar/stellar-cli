@@ -81,7 +81,7 @@ pub fn add_contract_code_to_ledger_entries(
     };
     for (k, e) in &mut *entries {
         if **k == code_key {
-            **e = code_entry;
+            *e = (Box::new(code_entry), Some(min_persistent_entry_expiration));
             return Ok(hash);
         }
     }
@@ -121,7 +121,10 @@ pub fn add_contract_to_ledger_entries(
     };
     for (k, e) in &mut *entries {
         if **k == contract_key {
-            **e = contract_entry;
+            *e = (
+                Box::new(contract_entry),
+                Some(min_persistent_entry_expiration),
+            );
             return;
         }
     }
@@ -135,15 +138,12 @@ pub fn add_contract_to_ledger_entries(
 }
 
 pub fn bump_ledger_entry_expirations<S: BuildHasher>(
-    entries: &mut [(Box<LedgerKey>, Box<LedgerEntry>)],
+    entries: &mut Vec<(Box<LedgerKey>, (Box<LedgerEntry>, Option<u32>))>,
     lookup: &HashMap<LedgerKey, u32, S>,
 ) {
-    for (k, e) in &mut *entries {
+    for (k, (_, expiration)) in &mut *entries {
         if let Some(min_expiration) = lookup.get(k.as_ref()) {
-            if let LedgerEntryData::ContractData(entry) = &mut e.data {
-                // TODO: How to update the expiration entry?
-                // entry.expiration_ledger_seq = *min_expiration;
-            }
+            *expiration = Some(*min_expiration);
         }
     }
 }
@@ -202,7 +202,7 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
 /// Might return an error
 pub fn get_contract_spec_from_storage(
     storage: &mut Storage,
-    current_ledger_seq: &u32,
+    _current_ledger_seq: &u32,
     contract_id: [u8; 32],
 ) -> Result<Vec<ScSpecEntry>, FromWasmError> {
     let key = LedgerKey::ContractData(LedgerKeyContractData {
@@ -221,7 +221,9 @@ pub fn get_contract_spec_from_storage(
                 ..
             } => match executable {
                 ContractExecutable::Token => {
-                    // TODO: How to identify that entry is expired now?
+                    // TODO: How to identify that an entry is expired now?
+                    //       I(fons) don't think that the storage contains expiration entries and I don't
+                    //       think we can get it from the state in all case (e.g. Token contracts)
                     // if expiration_ledger_seq <= current_ledger_seq {
                     //     return Err(FromWasmError::NotFound);
                     // }

@@ -6,12 +6,12 @@ use std::{
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, ContractCodeEntry, ContractDataEntry, Error as XdrError,
-    ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
-    LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber,
-    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta,
-    TransactionMetaV3, Uint256,
+    BumpFootprintExpirationOp, Error as XdrError, ExpirationEntry, ExtensionPoint, Hash,
+    LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint, LedgerKey,
+    LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, ReadXdr, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources,
+    SorobanTransactionData, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
+    Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -195,16 +195,19 @@ impl Cmd {
             return Err(Error::LedgerEntryNotFound);
         }
 
+        // TODO: double-check that this match is correct
         match (&operations[0].changes[0], &operations[0].changes[1]) {
             (
                 LedgerEntryChange::State(_),
                 LedgerEntryChange::Updated(LedgerEntry {
                     data:
-                        LedgerEntryData::ContractData(ContractDataEntry { .. })
-                        | LedgerEntryData::ContractCode(ContractCodeEntry { .. }),
+                        LedgerEntryData::Expiration(ExpirationEntry {
+                            expiration_ledger_seq,
+                            ..
+                        }),
                     ..
                 }),
-            ) => Ok(0), // TODO: How to get expiration ledger now?
+            ) => Ok(*expiration_ledger_seq), // TODO: How to get expiration ledger now?
             _ => Err(Error::LedgerEntryNotFound),
         }
     }
@@ -228,15 +231,15 @@ impl Cmd {
                 (
                     Box::new(new_k.clone()),
                     (
-                        Box::new(if needle == new_k {
-                            let (new_v, new_expiration) =
-                                bump_entry(&new_v, self.ledgers_to_expire);
-                            expiration_ledger_seq = Some(new_expiration);
-                            new_v
+                        Box::new(new_v),
+                        if needle == new_k {
+                            // It must have an expiration since it's a contract data entry
+                            let old_expiration = v.1.unwrap();
+                            expiration_ledger_seq = Some(old_expiration + self.ledgers_to_expire);
+                            expiration_ledger_seq
                         } else {
-                            new_v
-                        }),
-                        new_e,
+                            new_e
+                        },
                     ),
                 )
             })
@@ -284,19 +287,6 @@ impl Cmd {
             key,
         }))
     }
-}
-
-fn bump_entry(v: &LedgerEntry, ledgers_to_expire: u32) -> (LedgerEntry, u32) {
-    let mut new_v = v.clone();
-    let mut new_expiration_ledger_seq = 0;
-    if let LedgerEntryData::ContractData(ref mut data) = new_v.data {
-        data.expiration_ledger_seq += ledgers_to_expire;
-        new_expiration_ledger_seq = data.expiration_ledger_seq;
-    } else if let LedgerEntryData::ContractCode(ref mut code) = new_v.data {
-        code.expiration_ledger_seq += ledgers_to_expire;
-        new_expiration_ledger_seq = code.expiration_ledger_seq;
-    }
-    (new_v, new_expiration_ledger_seq)
 }
 
 fn contract_id(s: &str) -> Result<[u8; 32], Error> {

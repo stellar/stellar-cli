@@ -9,7 +9,7 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::{arg, command, value_parser, Parser};
 use ed25519_dalek::Keypair;
 use heck::ToKebabCase;
-use soroban_env_host::e2e_invoke::get_ledger_changes;
+use soroban_env_host::e2e_invoke::{get_ledger_changes, ExpirationEntryMap};
 use soroban_env_host::xdr::ReadXdr;
 use soroban_env_host::{
     budget::Budget,
@@ -356,7 +356,7 @@ impl Cmd {
                 Box::new(source_account_ledger_key),
                 (
                     Box::new(default_account_ledger_entry(source_account.clone())),
-                    None, // TODO: Should this be no expiry, or a value?
+                    None,
                 ),
             ));
         }
@@ -423,7 +423,8 @@ impl Cmd {
         crate::log::host_events(&events.0);
         log_events(footprint, &[contract_auth.try_into()?], &[], Some(&budget));
 
-        let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
+        let ledger_changes =
+            get_ledger_changes(&budget, &storage, &state, ExpirationEntryMap::new())?;
         let mut expiration_ledger_bumps: HashMap<LedgerKey, u32> = HashMap::new();
         for ledger_entry_change in ledger_changes {
             if let Some(exp_change) = ledger_entry_change.expiration_change {
