@@ -238,9 +238,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions: 77283,
-			ReadBytes:    40,
-			WriteBytes:   112,
+			Instructions: 79653,
+			ReadBytes:    36,
+			WriteBytes:   100,
 		},
 		RefundableFee: 20045,
 	}
@@ -487,7 +487,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"all\"} 3")
-	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 55")
+	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_entries_fetched_sum 93")
 }
 
 func TestSimulateTransactionError(t *testing.T) {
