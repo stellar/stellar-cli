@@ -8,7 +8,7 @@ pub(crate) trait ExpirableLedgerEntry {
     fn durability(&self) -> ContractDataDurability;
     fn expiration_ledger_seq(&self) -> u32;
     fn has_expired(&self, current_ledger_seq: u32) -> bool {
-        has_expired(current_ledger_seq, self.expiration_ledger_seq())
+        has_expired(self.expiration_ledger_seq(), current_ledger_seq)
     }
 }
 
