@@ -24,6 +24,8 @@ type LedgerEntryResult struct {
 	XDR string `json:"xdr"`
 	// Last modified ledger for this entry.
 	LastModifiedLedger int64 `json:"lastModifiedLedgerSeq,string"`
+	// The expiration ledger, available for entries that have expiration ledgers.
+	ExpirationLedger *uint32 `json:"expirationLedgerSeq,string,omitempty"`
 }
 
 type GetLedgerEntriesResponse struct {
@@ -103,6 +105,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				Key:                request.Keys[i],
 				XDR:                ledgerXDR,
 				LastModifiedLedger: int64(ledgerKeyAndEntry.Entry.LastModifiedLedgerSeq),
+				ExpirationLedger:   ledgerKeyAndEntry.ExpirationLedgerSeq,
 			})
 		}
 
