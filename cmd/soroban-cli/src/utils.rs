@@ -225,7 +225,7 @@ pub fn get_contract_spec_from_storage(
                 ContractExecutable::Token => {
                     // TODO: How to identify that an entry is expired now?
                     //       I(fons) don't think that the storage contains expiration entries and I don't
-                    //       think we can get it from the state in all case (e.g. Token contracts)
+                    //       think we can get it from the state in all cases (e.g. Token contracts)
                     // if expiration_ledger_seq <= current_ledger_seq {
                     //     return Err(FromWasmError::NotFound);
                     // }

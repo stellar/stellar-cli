@@ -207,7 +207,7 @@ impl Cmd {
                         }),
                     ..
                 }),
-            ) => Ok(*expiration_ledger_seq), // TODO: How to get expiration ledger now?
+            ) => Ok(*expiration_ledger_seq),
             _ => Err(Error::LedgerEntryNotFound),
         }
     }

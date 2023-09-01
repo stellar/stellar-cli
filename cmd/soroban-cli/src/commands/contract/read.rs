@@ -231,7 +231,7 @@ impl Cmd {
                 }
                 false
             })
-            .map(|(k, v)| (k, v.0.data))
+            .map(|(k, (v, _))| (k, v.data))
             .collect::<Vec<_>>())
     }
 
