@@ -23,6 +23,10 @@ use state_expiration::{get_restored_ledger_sequence, ExpirableLedgerEntry};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 
+/// Estimate for any `ExpirationEntry` ledger entry, consisting of a 32-byte
+/// hash of the corresponding entry and 4 bytes for expiration ledger.
+pub const EXPIRATION_ENTRY_SIZE: u32 = 32 + 4;
+
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
     pre_storage: &LedgerStorage,
@@ -137,7 +141,15 @@ fn calculate_host_function_soroban_resources(
         .context("cannot convert storage footprint to ledger footprint")?;
     let read_bytes: u32 = ledger_changes
         .iter()
-        .map(|c| c.encoded_key.len() as u32 + c.old_entry_size_bytes)
+        .map(
+            |c| {
+                let mut size = c.encoded_key.len() as u32 + c.old_entry_size_bytes;
+                if c.expiration_change.is_some() {
+                    size += EXPIRATION_ENTRY_SIZE;
+                }
+                size
+            }, //size
+        )
         .sum();
 
     let write_bytes: u32 = ledger_changes
@@ -229,6 +241,17 @@ fn get_fee_configurations(
     Ok((fee_configuration, rent_fee_configuration))
 }
 
+// Calculate the implicit ExpirationEntry bytes that will be read for expirable LedgerEntries
+fn calculate_expiration_entry_bytes(ledger_entries: &Vec<LedgerKey>) -> Result<u32> {
+    Ok(ledger_entries
+        .iter()
+        .map(|lk| match lk {
+            LedgerKey::ContractData(_) | LedgerKey::ContractCode(_) => EXPIRATION_ENTRY_SIZE,
+            _ => 0,
+        })
+        .sum())
+}
+
 fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &Vec<LedgerKey>,
     pre_storage: &LedgerStorage,
@@ -318,12 +341,17 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         current_ledger_seq,
     )
     .context("cannot compute bump rent changes")?;
+
+    let expiration_bytes: u32 = calculate_expiration_entry_bytes(footprint.read_only.as_vec())?;
+
     let read_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_vec(),
         ledger_storage,
         false,
     )
-    .context("cannot calculate read_bytes resource")?;
+    .context("cannot calculate read_bytes resource")?
+        + expiration_bytes;
+
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
@@ -410,6 +438,8 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         current_ledger_seq,
     )
     .context("cannot compute restore rent changes")?;
+
+    let expiration_bytes: u32 = calculate_expiration_entry_bytes(footprint.read_write.as_vec())?;
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,
@@ -419,7 +449,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        read_bytes: write_bytes,
+        read_bytes: write_bytes + expiration_bytes,
         write_bytes,
     };
     let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
