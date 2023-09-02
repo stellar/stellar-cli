@@ -110,7 +110,7 @@ jobs:
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.13.1-1458.431e4e324.focal~soroban~settings~override
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.13.1-1462.22b9bb384.focal~vnext
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3

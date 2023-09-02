@@ -9,7 +9,7 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::{arg, command, value_parser, Parser};
 use ed25519_dalek::Keypair;
 use heck::ToKebabCase;
-use soroban_env_host::e2e_invoke::get_ledger_changes;
+use soroban_env_host::e2e_invoke::{get_ledger_changes, ExpirationEntryMap};
 use soroban_env_host::xdr::ReadXdr;
 use soroban_env_host::{
     budget::Budget,
@@ -360,16 +360,19 @@ impl Cmd {
         {
             state.ledger_entries.push((
                 Box::new(source_account_ledger_key),
-                Box::new(default_account_ledger_entry(source_account.clone())),
+                (
+                    Box::new(default_account_ledger_entry(source_account.clone())),
+                    None,
+                ),
             ));
         }
 
         let snap = Rc::new(state.clone());
-        let mut storage = Storage::with_recording_footprint(snap);
+        let storage = Storage::with_recording_footprint(snap);
         let spec_entries = if let Some(spec) = self.spec_entries()? {
             spec
         } else {
-            utils::get_contract_spec_from_storage(&mut storage, &state.sequence_number, contract_id)
+            utils::get_contract_spec_from_state(&state, contract_id)
                 .map_err(Error::CannotParseContractSpec)?
         };
         let budget = Budget::default();
@@ -430,7 +433,8 @@ impl Cmd {
             log_budget(&budget);
         }
 
-        let ledger_changes = get_ledger_changes(&budget, &storage, &state)?;
+        let ledger_changes =
+            get_ledger_changes(&budget, &storage, &state, ExpirationEntryMap::new())?;
         let mut expiration_ledger_bumps: HashMap<LedgerKey, u32> = HashMap::new();
         for ledger_entry_change in ledger_changes {
             if let Some(exp_change) = ledger_entry_change.expiration_change {

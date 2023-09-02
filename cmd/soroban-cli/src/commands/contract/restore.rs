@@ -6,12 +6,12 @@ use std::{
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractCodeEntry, ContractDataDurability, ContractDataEntry, ContractEntryBodyType,
-    Error as XdrError, ExtensionPoint, Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Memo, MuxedAccount,
-    Operation, OperationBody, OperationMeta, Preconditions, ReadXdr, RestoreFootprintOp, ScAddress,
-    ScSpecTypeDef, ScVal, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
+    ContractDataDurability, Error as XdrError, ExpirationEntry, ExtensionPoint, Hash, LedgerEntry,
+    LedgerEntryChange, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyContractCode,
+    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
+    Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber,
+    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta,
+    TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
@@ -133,7 +133,6 @@ impl Cmd {
                     utils::contract_id_from_str(wasm_hash)
                         .map_err(|e| Error::CannotParseContractId(wasm_hash.clone(), e))?,
                 ),
-                body_type: ContractEntryBodyType::DataEntry,
             })]
         } else {
             let contract_id = self.contract_id()?;
@@ -250,7 +249,6 @@ impl Cmd {
                 LedgerKey::ContractData(LedgerKeyContractData {
                     contract: ScAddress::Contract(Hash(contract_id)),
                     durability: ContractDataDurability::Persistent,
-                    body_type: ContractEntryBodyType::DataEntry,
                     key: key.clone(),
                 })
             })
@@ -263,11 +261,7 @@ fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
         op.changes.iter().find_map(|entry| match entry {
             LedgerEntryChange::Updated(LedgerEntry {
                 data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        expiration_ledger_seq,
-                        ..
-                    })
-                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                    LedgerEntryData::Expiration(ExpirationEntry {
                         expiration_ledger_seq,
                         ..
                     }),
@@ -275,11 +269,7 @@ fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
             })
             | LedgerEntryChange::Created(LedgerEntry {
                 data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        expiration_ledger_seq,
-                        ..
-                    })
-                    | LedgerEntryData::ContractCode(ContractCodeEntry {
+                    LedgerEntryData::Expiration(ExpirationEntry {
                         expiration_ledger_seq,
                         ..
                     }),

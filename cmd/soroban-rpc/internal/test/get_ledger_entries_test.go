@@ -38,7 +38,6 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 			},
 			Durability: xdr.ContractDataDurabilityPersistent,
-			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -135,7 +134,6 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 			},
 			Durability: xdr.ContractDataDurabilityPersistent,
-			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -155,6 +153,6 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 
 	var firstEntry xdr.LedgerEntryData
 	require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
-	require.Equal(t, testContract, *firstEntry.MustContractCode().Body.Code)
+	require.Equal(t, testContract, firstEntry.MustContractCode().Code)
 	require.Equal(t, contractKeyB64, result.Entries[0].Key)
 }

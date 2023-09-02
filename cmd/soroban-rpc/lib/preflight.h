@@ -12,7 +12,6 @@ typedef struct ledger_info_t {
   uint32_t min_temp_entry_expiration;
   uint32_t min_persistent_entry_expiration;
   uint32_t max_entry_expiration;
-  uint32_t auto_bump_ledgers;
 } ledger_info_t;
 
 typedef struct xdr_t {
@@ -52,7 +51,7 @@ preflight_result_t *preflight_footprint_expiration_op(uintptr_t   handle, // Go 
 
 
 // LedgerKey XDR to LedgerEntry XDR
-extern xdr_t SnapshotSourceGet(uintptr_t handle, xdr_t ledger_key, int include_expired);
+extern xdr_t SnapshotSourceGet(uintptr_t handle, xdr_t ledger_key);
 
 void free_preflight_result(preflight_result_t *result);
 

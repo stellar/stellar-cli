@@ -78,7 +78,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 		}
 
 		ledgerEntryResults := make([]LedgerEntryResult, 0, len(ledgerKeys))
-		ledgerKeysAndEntries, err := tx.GetLedgerEntries(false, ledgerKeys...)
+		ledgerKeysAndEntries, err := tx.GetLedgerEntries(ledgerKeys...)
 		if err != nil {
 			logger.WithError(err).WithField("request", request).
 				Info("could not obtain ledger entryies from storage")

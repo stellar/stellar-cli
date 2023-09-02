@@ -37,7 +37,6 @@ func TestGetLedgerEntryNotFound(t *testing.T) {
 				Type: xdr.ScValTypeScvLedgerKeyContractInstance,
 			},
 			Durability: xdr.ContractDataDurabilityPersistent,
-			BodyType:   xdr.ContractEntryBodyTypeDataEntry,
 		},
 	})
 	require.NoError(t, err)
@@ -111,5 +110,5 @@ func TestGetLedgerEntrySucceeds(t *testing.T) {
 	assert.GreaterOrEqual(t, result.LatestLedger, result.LastModifiedLedger)
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(result.XDR, &entry))
-	assert.Equal(t, testContract, *entry.MustContractCode().Body.Code)
+	assert.Equal(t, testContract, entry.MustContractCode().Code)
 }

@@ -10,8 +10,7 @@ use soroban_env_host::{
     budget::Budget,
     storage::Storage,
     xdr::{
-        self, ContractCodeEntry, ContractCodeEntryBody, ContractDataDurability, ContractDataEntry,
-        ContractDataEntryBody, ContractDataEntryData, ContractEntryBodyType, ContractExecutable,
+        self, ContractCodeEntry, ContractDataDurability, ContractDataEntry, ContractExecutable,
         Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractCode,
         LedgerKeyContractData, ScAddress, ScContractInstance, ScVal,
     },
@@ -171,38 +170,26 @@ pub fn get_contract_wasm_from_storage(
         contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::LedgerKeyContractInstance,
         durability: ContractDataDurability::Persistent,
-        body_type: ContractEntryBodyType::DataEntry,
     });
     match storage.get(&key.into(), &Budget::default()) {
         Ok(rc) => match rc.as_ref() {
             xdr::LedgerEntry {
                 data:
                     LedgerEntryData::ContractData(ContractDataEntry {
-                        body:
-                            ContractDataEntryBody::DataEntry(ContractDataEntryData {
-                                val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
-                                ..
-                            }),
+                        val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
                         ..
                     }),
                 ..
             } => match executable {
                 ContractExecutable::Wasm(hash) => {
                     if let Ok(rc) = storage.get(
-                        &LedgerKey::ContractCode(LedgerKeyContractCode {
-                            hash: hash.clone(),
-                            body_type: ContractEntryBodyType::DataEntry,
-                        })
-                        .into(),
+                        &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() })
+                            .into(),
                         &Budget::default(),
                     ) {
                         match rc.as_ref() {
                             xdr::LedgerEntry {
-                                data:
-                                    LedgerEntryData::ContractCode(ContractCodeEntry {
-                                        body: ContractCodeEntryBody::DataEntry(code),
-                                        ..
-                                    }),
+                                data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
                                 ..
                             } => Ok(code.to_vec()),
                             _ => Err(FromWasmError::NotFound),

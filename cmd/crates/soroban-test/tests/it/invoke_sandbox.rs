@@ -184,6 +184,19 @@ fn invoke_auth() {
         .assert()
         .stdout(format!("\"{DEFAULT_PUB_KEY}\"\n"))
         .success();
+
+    // Invoke it again without providing the contract, to exercise the deployment
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--")
+        .arg("auth")
+        .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
+        .arg("--world=world")
+        .assert()
+        .stdout(format!("\"{DEFAULT_PUB_KEY}\"\n"))
+        .success();
 }
 
 #[tokio::test]
@@ -285,6 +298,17 @@ fn invoke_with_source(sandbox: &TestEnv, source: &str) {
         "--id=1",
         "--wasm",
         HELLO_WORLD.path().to_str().unwrap(),
+        "--",
+        "hello",
+        "--world=world",
+    ]);
+    assert_eq!(cmd.unwrap(), "[\"Hello\",\"world\"]");
+
+    // Invoke it again without providing the contract, to exercise the deployment
+    let cmd = sandbox.invoke(&[
+        "--source-account",
+        source,
+        "--id=1",
         "--",
         "hello",
         "--world=world",
