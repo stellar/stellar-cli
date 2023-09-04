@@ -126,6 +126,7 @@ func TestGoldenPath(t *testing.T) {
 
 	present, _, obtainedLedgerSequence, expSeq = getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.False(t, present)
+	assert.Nil(t, expSeq)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	obtainedLedgerSequence, err = NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
@@ -258,6 +259,7 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	present, _, expSeq, err = GetLedgerEntry(readTx2, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
+	assert.Nil(t, expSeq)
 	assert.NoError(t, readTx2.Done())
 
 	// Finish the write transaction and check that the results are present
@@ -272,6 +274,7 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
+	assert.NotNil(t, expSeq)
 }
 
 // Make sure that a write transaction can happen while multiple read transactions are ongoing,

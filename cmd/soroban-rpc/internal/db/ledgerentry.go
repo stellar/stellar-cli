@@ -316,7 +316,6 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKey
 		}
 		expSeq := uint32(expEntry.Data.Expiration.ExpirationLedgerSeq)
 		result = append(result, LedgerKeyAndEntry{key, entry, &expSeq})
-
 	}
 
 	return result, nil
