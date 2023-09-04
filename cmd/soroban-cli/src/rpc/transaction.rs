@@ -59,10 +59,11 @@ pub fn assemble(
     // update the fees of the actual transaction to meet the minimum resource fees.
     let classic_transaction_fees = crate::fee::Args::default().fee;
     // Pad the fees up by 15% for a bit of wiggle room.
-    tx.fee = (tx
-        .fee
-        .max(classic_transaction_fees + simulation.min_resource_fee)
-        * 115)
+    tx.fee = (tx.fee.max(
+        classic_transaction_fees
+            + u32::try_from(simulation.min_resource_fee)
+                .map_err(|_| Error::LargeFee(simulation.min_resource_fee))?,
+    ) * 115)
         / 100;
 
     tx.operations = vec![op].try_into()?;
@@ -216,7 +217,7 @@ pub fn sign_soroban_authorization_entry(
 mod tests {
     use super::*;
 
-    use super::super::{Cost, SimulateHostFunctionResult};
+    use super::super::SimulateHostFunctionResult;
     use soroban_env_host::xdr::{
         self, AccountId, ChangeTrustAsset, ChangeTrustOp, ExtensionPoint, Hash, HostFunction,
         InvokeContractArgs, InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation,
@@ -266,19 +267,14 @@ mod tests {
         };
 
         SimulateTransactionResponse {
-            error: None,
-            transaction_data: transaction_data().to_xdr_base64().unwrap(),
-            events: Vec::default(),
             min_resource_fee: 115,
+            latest_ledger: 3,
             results: vec![SimulateHostFunctionResult {
                 auth: vec![fn_auth.to_xdr_base64().unwrap()],
                 xdr: ScVal::U32(0).to_xdr_base64().unwrap(),
             }],
-            cost: Cost {
-                cpu_insns: "0".to_string(),
-                mem_bytes: "0".to_string(),
-            },
-            latest_ledger: 3,
+            transaction_data: transaction_data().to_xdr_base64().unwrap(),
+            ..Default::default()
         }
     }
 
@@ -386,16 +382,10 @@ mod tests {
         let result = assemble(
             &txn,
             &SimulateTransactionResponse {
-                error: None,
-                transaction_data: transaction_data().to_xdr_base64().unwrap(),
-                events: Vec::default(),
                 min_resource_fee: 115,
-                results: vec![],
-                cost: Cost {
-                    cpu_insns: "0".to_string(),
-                    mem_bytes: "0".to_string(),
-                },
+                transaction_data: transaction_data().to_xdr_base64().unwrap(),
                 latest_ledger: 3,
+                ..Default::default()
             },
         );
 
@@ -412,16 +402,10 @@ mod tests {
         let result = assemble(
             &txn,
             &SimulateTransactionResponse {
-                error: None,
-                transaction_data: transaction_data().to_xdr_base64().unwrap(),
-                events: Vec::default(),
                 min_resource_fee: 115,
-                results: vec![],
-                cost: Cost {
-                    cpu_insns: "0".to_string(),
-                    mem_bytes: "0".to_string(),
-                },
+                transaction_data: transaction_data().to_xdr_base64().unwrap(),
                 latest_ledger: 3,
+                ..Default::default()
             },
         );
 
