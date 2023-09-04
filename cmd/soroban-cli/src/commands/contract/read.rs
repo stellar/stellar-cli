@@ -94,6 +94,8 @@ pub enum Error {
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
     Host(#[from] HostError),
+    #[error("no ledger key was found for given contract")]
+    MissingLedgerKey,
 }
 
 impl Cmd {
@@ -247,6 +249,10 @@ impl Cmd {
             })
             .collect::<Vec<_>>();
 
+        if entries.is_empty() {
+            return Err(Error::MissingLedgerKey);
+        }
+
         let mut out = csv::Writer::from_writer(stdout());
         for (key, val) in entries {
             let output = match self.output {
@@ -281,7 +287,6 @@ impl Cmd {
         }
         out.flush()
             .map_err(|e| Error::CannotPrintFlush { error: e })?;
-
         Ok(())
     }
 }
