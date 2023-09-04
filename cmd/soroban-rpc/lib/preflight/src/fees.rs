@@ -23,9 +23,9 @@ use state_expiration::{get_restored_ledger_sequence, ExpirableLedgerEntry};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 
-/// Estimate for any `ExpirationEntry` ledger entry, consisting of a 32-byte
-/// hash of the corresponding entry and 4 bytes for expiration ledger.
-const EXPIRATION_ENTRY_SIZE: u32 = 32 + 4;
+// TODO: this should be imported from soroban_env_host::fees instead
+/// Serialize XDR size for any `ExpirationEntry` ledger entry.
+const EXPIRATION_ENTRY_SIZE: u32 = 48;
 
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
