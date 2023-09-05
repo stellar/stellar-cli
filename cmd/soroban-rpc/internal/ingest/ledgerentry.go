@@ -46,6 +46,28 @@ func (s *Service) ingestLedgerEntryChanges(ctx context.Context, reader ingest.Ch
 	return ctx.Err()
 }
 
+func (s *Service) ingestTempLedgerEntryEvictions(
+	ctx context.Context,
+	evictedTempLedgerKeys []xdr.LedgerKey,
+	tx db.WriteTx,
+) error {
+	startTime := time.Now()
+	writer := tx.LedgerEntryWriter()
+
+	for _, key := range evictedTempLedgerKeys {
+		if err := writer.DeleteLedgerEntry(key); err != nil {
+			return err
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+
+	s.ingestionDurationMetric.
+		With(prometheus.Labels{"type": "evicted_temp_ledger_entries"}).Observe(time.Since(startTime).Seconds())
+	return ctx.Err()
+}
+
 func ingestLedgerEntryChange(writer db.LedgerEntryWriter, change ingest.Change) error {
 	if change.Post == nil {
 		ledgerKey, err := xdr.GetLedgerKeyFromData(change.Pre.Data)

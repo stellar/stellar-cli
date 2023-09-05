@@ -247,6 +247,14 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 		return err
 	}
 
+	evictedTempLedgerKeys, err := ledgerCloseMeta.EvictedTemporaryLedgerKeys()
+	if err != nil {
+		return err
+	}
+	if err := s.ingestTempLedgerEntryEvictions(ctx, evictedTempLedgerKeys, tx); err != nil {
+		return err
+	}
+
 	if err := s.ingestLedgerCloseMeta(tx, ledgerCloseMeta); err != nil {
 		return err
 	}
