@@ -144,6 +144,12 @@ pub struct LedgerEntryResult {
     pub xdr: String,
     #[serde(rename = "lastModifiedLedgerSeq")]
     pub last_modified_ledger: String,
+    #[serde(
+        rename = "expirationLedgerSeq",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub expiration_ledger_seq: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
