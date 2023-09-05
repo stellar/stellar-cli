@@ -862,10 +862,9 @@ func TestCLI(t *testing.T) {
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 	binary, lookErr := exec.LookPath("cargo")
-	time.Sleep(40 * time.Second)
 	if lookErr != nil {
 		panic(lookErr)
 	}
