@@ -294,7 +294,7 @@ func (s *Service) evictLedgerEntries(tx db.WriteTx, ledgerCloseMeta xdr.LedgerCl
 	for i, entry := range ledgerCloseMeta.V2.EvictedPersistentLedgerEntries {
 		// TODO: we probably shouldn't be deleting evicted persistent ledger entries cold turkey.
 		//       Otherwise preflighting will fail for restoreFootprint.
-		//       For restoreFootPrint we need to confirm that the entry existed and its size (for the resource estimation).
+		//       For the restoreFootPrint preflighting we need to confirm that the entry existed and its size (for the resource estimation).
 		//       so maybe we should store that.
 		key, err := entry.LedgerKey()
 		if err != nil {
