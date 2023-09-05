@@ -103,8 +103,8 @@ fn doc_to_ts_doc(doc: &str) -> String {
         let doc = doc.split('\n').join("\n * ");
         format!(
             r#"/**
- * {doc}
- */
+     * {doc}
+     */
 "#,
         )
     }
@@ -226,7 +226,7 @@ pub fn entry_to_ts(entry: &Entry) -> String {
                 );
             }
             format!(
-                r#"{ts_doc}async {js_name}<R extends ResponseTypes = undefined>({input}options: {options} = {{}}) {{
+                r#"{ts_doc}{js_name} = async <R extends ResponseTypes = undefined>({input}options: {options} = {{}}) => {{
                     {body}
     }}
 "#

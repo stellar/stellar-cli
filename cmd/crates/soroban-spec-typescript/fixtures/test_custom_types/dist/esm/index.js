@@ -119,7 +119,7 @@ export class Contract {
             "AAAAAAAAAAAAAAAMdHVwbGVfc3RydWt0AAAAAQAAAAAAAAAMdHVwbGVfc3RydWt0AAAH0AAAAAtUdXBsZVN0cnVjdAAAAAABAAAH0AAAAAtUdXBsZVN0cnVjdAA="
         ]);
     }
-    async hello({ hello }, options = {}) {
+    hello = async ({ hello }, options = {}) => {
         return await invoke({
             method: 'hello',
             args: this.spec.funcArgsToScVals("hello", { hello }),
@@ -129,8 +129,8 @@ export class Contract {
                 return this.spec.funcResToNative("hello", xdr);
             },
         });
-    }
-    async woid(options = {}) {
+    };
+    woid = async (options = {}) => {
         return await invoke({
             method: 'woid',
             args: this.spec.funcArgsToScVals("woid", {}),
@@ -138,8 +138,8 @@ export class Contract {
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async val(options = {}) {
+    };
+    val = async (options = {}) => {
         return await invoke({
             method: 'val',
             args: this.spec.funcArgsToScVals("val", {}),
@@ -149,8 +149,8 @@ export class Contract {
                 return this.spec.funcResToNative("val", xdr);
             },
         });
-    }
-    async u32FailOnEven({ u32_ }, options = {}) {
+    };
+    u32FailOnEven = async ({ u32_ }, options = {}) => {
         try {
             return await invoke({
                 method: 'u32_fail_on_even',
@@ -170,8 +170,8 @@ export class Contract {
             }
             throw e;
         }
-    }
-    async u32({ u32_ }, options = {}) {
+    };
+    u32 = async ({ u32_ }, options = {}) => {
         return await invoke({
             method: 'u32_',
             args: this.spec.funcArgsToScVals("u32_", { u32_ }),
@@ -181,8 +181,8 @@ export class Contract {
                 return this.spec.funcResToNative("u32_", xdr);
             },
         });
-    }
-    async i32({ i32_ }, options = {}) {
+    };
+    i32 = async ({ i32_ }, options = {}) => {
         return await invoke({
             method: 'i32_',
             args: this.spec.funcArgsToScVals("i32_", { i32_ }),
@@ -192,8 +192,8 @@ export class Contract {
                 return this.spec.funcResToNative("i32_", xdr);
             },
         });
-    }
-    async i64({ i64_ }, options = {}) {
+    };
+    i64 = async ({ i64_ }, options = {}) => {
         return await invoke({
             method: 'i64_',
             args: this.spec.funcArgsToScVals("i64_", { i64_ }),
@@ -203,11 +203,11 @@ export class Contract {
                 return this.spec.funcResToNative("i64_", xdr);
             },
         });
-    }
+    };
     /**
- * Example contract method which takes a struct
- */
-    async struktHel({ strukt }, options = {}) {
+     * Example contract method which takes a struct
+     */
+    struktHel = async ({ strukt }, options = {}) => {
         return await invoke({
             method: 'strukt_hel',
             args: this.spec.funcArgsToScVals("strukt_hel", { strukt }),
@@ -217,8 +217,8 @@ export class Contract {
                 return this.spec.funcResToNative("strukt_hel", xdr);
             },
         });
-    }
-    async strukt({ strukt }, options = {}) {
+    };
+    strukt = async ({ strukt }, options = {}) => {
         return await invoke({
             method: 'strukt',
             args: this.spec.funcArgsToScVals("strukt", { strukt }),
@@ -228,8 +228,8 @@ export class Contract {
                 return this.spec.funcResToNative("strukt", xdr);
             },
         });
-    }
-    async simple({ simple }, options = {}) {
+    };
+    simple = async ({ simple }, options = {}) => {
         return await invoke({
             method: 'simple',
             args: this.spec.funcArgsToScVals("simple", { simple }),
@@ -239,8 +239,8 @@ export class Contract {
                 return this.spec.funcResToNative("simple", xdr);
             },
         });
-    }
-    async complex({ complex }, options = {}) {
+    };
+    complex = async ({ complex }, options = {}) => {
         return await invoke({
             method: 'complex',
             args: this.spec.funcArgsToScVals("complex", { complex }),
@@ -250,8 +250,8 @@ export class Contract {
                 return this.spec.funcResToNative("complex", xdr);
             },
         });
-    }
-    async addresse({ addresse }, options = {}) {
+    };
+    addresse = async ({ addresse }, options = {}) => {
         return await invoke({
             method: 'addresse',
             args: this.spec.funcArgsToScVals("addresse", { addresse }),
@@ -261,8 +261,8 @@ export class Contract {
                 return this.spec.funcResToNative("addresse", xdr);
             },
         });
-    }
-    async bytes({ bytes }, options = {}) {
+    };
+    bytes = async ({ bytes }, options = {}) => {
         return await invoke({
             method: 'bytes',
             args: this.spec.funcArgsToScVals("bytes", { bytes }),
@@ -272,8 +272,8 @@ export class Contract {
                 return this.spec.funcResToNative("bytes", xdr);
             },
         });
-    }
-    async bytesN({ bytes_n }, options = {}) {
+    };
+    bytesN = async ({ bytes_n }, options = {}) => {
         return await invoke({
             method: 'bytes_n',
             args: this.spec.funcArgsToScVals("bytes_n", { bytes_n }),
@@ -283,8 +283,8 @@ export class Contract {
                 return this.spec.funcResToNative("bytes_n", xdr);
             },
         });
-    }
-    async card({ card }, options = {}) {
+    };
+    card = async ({ card }, options = {}) => {
         return await invoke({
             method: 'card',
             args: this.spec.funcArgsToScVals("card", { card }),
@@ -294,8 +294,8 @@ export class Contract {
                 return this.spec.funcResToNative("card", xdr);
             },
         });
-    }
-    async boolean({ boolean }, options = {}) {
+    };
+    boolean = async ({ boolean }, options = {}) => {
         return await invoke({
             method: 'boolean',
             args: this.spec.funcArgsToScVals("boolean", { boolean }),
@@ -305,11 +305,11 @@ export class Contract {
                 return this.spec.funcResToNative("boolean", xdr);
             },
         });
-    }
+    };
     /**
- * Negates a boolean value
- */
-    async not({ boolean }, options = {}) {
+     * Negates a boolean value
+     */
+    not = async ({ boolean }, options = {}) => {
         return await invoke({
             method: 'not',
             args: this.spec.funcArgsToScVals("not", { boolean }),
@@ -319,8 +319,8 @@ export class Contract {
                 return this.spec.funcResToNative("not", xdr);
             },
         });
-    }
-    async i128({ i128 }, options = {}) {
+    };
+    i128 = async ({ i128 }, options = {}) => {
         return await invoke({
             method: 'i128',
             args: this.spec.funcArgsToScVals("i128", { i128 }),
@@ -330,8 +330,8 @@ export class Contract {
                 return this.spec.funcResToNative("i128", xdr);
             },
         });
-    }
-    async u128({ u128 }, options = {}) {
+    };
+    u128 = async ({ u128 }, options = {}) => {
         return await invoke({
             method: 'u128',
             args: this.spec.funcArgsToScVals("u128", { u128 }),
@@ -341,8 +341,8 @@ export class Contract {
                 return this.spec.funcResToNative("u128", xdr);
             },
         });
-    }
-    async multiArgs({ a, b }, options = {}) {
+    };
+    multiArgs = async ({ a, b }, options = {}) => {
         return await invoke({
             method: 'multi_args',
             args: this.spec.funcArgsToScVals("multi_args", { a, b }),
@@ -352,8 +352,8 @@ export class Contract {
                 return this.spec.funcResToNative("multi_args", xdr);
             },
         });
-    }
-    async map({ map }, options = {}) {
+    };
+    map = async ({ map }, options = {}) => {
         return await invoke({
             method: 'map',
             args: this.spec.funcArgsToScVals("map", { map }),
@@ -363,8 +363,8 @@ export class Contract {
                 return this.spec.funcResToNative("map", xdr);
             },
         });
-    }
-    async vec({ vec }, options = {}) {
+    };
+    vec = async ({ vec }, options = {}) => {
         return await invoke({
             method: 'vec',
             args: this.spec.funcArgsToScVals("vec", { vec }),
@@ -374,8 +374,8 @@ export class Contract {
                 return this.spec.funcResToNative("vec", xdr);
             },
         });
-    }
-    async tuple({ tuple }, options = {}) {
+    };
+    tuple = async ({ tuple }, options = {}) => {
         return await invoke({
             method: 'tuple',
             args: this.spec.funcArgsToScVals("tuple", { tuple }),
@@ -385,11 +385,11 @@ export class Contract {
                 return this.spec.funcResToNative("tuple", xdr);
             },
         });
-    }
+    };
     /**
- * Example of an optional argument
- */
-    async option({ option }, options = {}) {
+     * Example of an optional argument
+     */
+    option = async ({ option }, options = {}) => {
         return await invoke({
             method: 'option',
             args: this.spec.funcArgsToScVals("option", { option }),
@@ -399,8 +399,8 @@ export class Contract {
                 return this.spec.funcResToNative("option", xdr);
             },
         });
-    }
-    async u256({ u256 }, options = {}) {
+    };
+    u256 = async ({ u256 }, options = {}) => {
         return await invoke({
             method: 'u256',
             args: this.spec.funcArgsToScVals("u256", { u256 }),
@@ -410,8 +410,8 @@ export class Contract {
                 return this.spec.funcResToNative("u256", xdr);
             },
         });
-    }
-    async i256({ i256 }, options = {}) {
+    };
+    i256 = async ({ i256 }, options = {}) => {
         return await invoke({
             method: 'i256',
             args: this.spec.funcArgsToScVals("i256", { i256 }),
@@ -421,8 +421,8 @@ export class Contract {
                 return this.spec.funcResToNative("i256", xdr);
             },
         });
-    }
-    async string({ string }, options = {}) {
+    };
+    string = async ({ string }, options = {}) => {
         return await invoke({
             method: 'string',
             args: this.spec.funcArgsToScVals("string", { string }),
@@ -432,8 +432,8 @@ export class Contract {
                 return this.spec.funcResToNative("string", xdr);
             },
         });
-    }
-    async tupleStrukt({ tuple_strukt }, options = {}) {
+    };
+    tupleStrukt = async ({ tuple_strukt }, options = {}) => {
         return await invoke({
             method: 'tuple_strukt',
             args: this.spec.funcArgsToScVals("tuple_strukt", { tuple_strukt }),
@@ -443,5 +443,5 @@ export class Contract {
                 return this.spec.funcResToNative("tuple_strukt", xdr);
             },
         });
-    }
+    };
 }
