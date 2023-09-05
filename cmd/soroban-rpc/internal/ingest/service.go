@@ -43,6 +43,10 @@ type Config struct {
 }
 
 func NewService(cfg Config) *Service {
+	return newService(cfg, true)
+}
+
+func newService(cfg Config, start bool) *Service {
 	// ingestionDurationMetric is a metric for measuring the latency of ingestion
 	ingestionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
@@ -81,30 +85,34 @@ func NewService(cfg Config) *Service {
 		latestLedgerMetric:      latestLedgerMetric,
 		ledgerStatsMetric:       ledgerStatsMetric,
 	}
-	service.wg.Add(1)
-	panicGroup := util.UnrecoverablePanicGroup.Log(cfg.Logger)
-	panicGroup.Go(func() {
-		defer service.wg.Done()
-		// Retry running ingestion every second for 5 seconds.
-		constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
-		// Don't want to keep retrying if the context gets canceled.
-		contextBackoff := backoff.WithContext(constantBackoff, ctx)
-		err := backoff.RetryNotify(
-			func() error {
-				err := service.run(ctx, cfg.Archive)
-				if errors.Is(err, errEmptyArchives) {
-					// keep retrying until history archives are published
-					constantBackoff.Reset()
-				}
-				return err
-			},
-			contextBackoff,
-			cfg.OnIngestionRetry)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			service.logger.WithError(err).Fatal("could not run ingestion")
-		}
-	})
+	if start {
+		service.wg.Add(1)
+		panicGroup := util.UnrecoverablePanicGroup.Log(cfg.Logger)
+		panicGroup.Go(func() {
+			defer service.wg.Done()
+			// Retry running ingestion every second for 5 seconds.
+			constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
+			// Don't want to keep retrying if the context gets canceled.
+			contextBackoff := backoff.WithContext(constantBackoff, ctx)
+			err := backoff.RetryNotify(
+				func() error {
+					err := service.run(ctx, cfg.Archive)
+					if errors.Is(err, errEmptyArchives) {
+						// keep retrying until history archives are published
+						constantBackoff.Reset()
+					}
+					return err
+				},
+				contextBackoff,
+				cfg.OnIngestionRetry)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				service.logger.WithError(err).Fatal("could not run ingestion")
+			}
+		})
+	}
+
 	return service
+
 }
 
 type Service struct {
