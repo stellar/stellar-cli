@@ -43,6 +43,12 @@ type Config struct {
 }
 
 func NewService(cfg Config) *Service {
+	service := newService(cfg)
+	startService(service, cfg)
+	return service
+}
+
+func newService(cfg Config) *Service {
 	// ingestionDurationMetric is a metric for measuring the latency of ingestion
 	ingestionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
@@ -67,7 +73,6 @@ func NewService(cfg Config) *Service {
 
 	cfg.Daemon.MetricsRegistry().MustRegister(ingestionDurationMetric, latestLedgerMetric, ledgerStatsMetric)
 
-	ctx, done := context.WithCancel(context.Background())
 	service := &Service{
 		logger:                  cfg.Logger,
 		db:                      cfg.DB,
@@ -76,11 +81,17 @@ func NewService(cfg Config) *Service {
 		ledgerBackend:           cfg.LedgerBackend,
 		networkPassPhrase:       cfg.NetworkPassPhrase,
 		timeout:                 cfg.Timeout,
-		done:                    done,
 		ingestionDurationMetric: ingestionDurationMetric,
 		latestLedgerMetric:      latestLedgerMetric,
 		ledgerStatsMetric:       ledgerStatsMetric,
 	}
+
+	return service
+}
+
+func startService(service *Service, cfg Config) {
+	ctx, done := context.WithCancel(context.Background())
+	service.done = done
 	service.wg.Add(1)
 	panicGroup := util.UnrecoverablePanicGroup.Log(cfg.Logger)
 	panicGroup.Go(func() {
@@ -104,7 +115,6 @@ func NewService(cfg Config) *Service {
 			service.logger.WithError(err).Fatal("could not run ingestion")
 		}
 	})
-	return service
 }
 
 type Service struct {
@@ -244,6 +254,16 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 		return err
 	}
 	if err := reader.Close(); err != nil {
+		return err
+	}
+
+	// EvictedTemporaryLedgerKeys will include both temporary ledger keys which
+	// have been evicted and their corresponding expiration ledger entries
+	evictedTempLedgerKeys, err := ledgerCloseMeta.EvictedTemporaryLedgerKeys()
+	if err != nil {
+		return err
+	}
+	if err := s.ingestTempLedgerEntryEvictions(ctx, evictedTempLedgerKeys, tx); err != nil {
 		return err
 	}
 
