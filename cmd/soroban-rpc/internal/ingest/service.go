@@ -112,7 +112,6 @@ func newService(cfg Config, start bool) *Service {
 	}
 
 	return service
-
 }
 
 type Service struct {
