@@ -57,6 +57,14 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 					Message: fmt.Sprintf("cannot unmarshal key value %s at index %d", requestKey, i),
 				}
 			}
+			if ledgerKey.Type == xdr.LedgerEntryTypeExpiration {
+				logger.WithField("request", request).
+					Infof("could not provide ledger expiration entry %s at index %d from getLedgerEntries request", requestKey, i)
+				return GetLedgerEntriesResponse{}, &jrpc2.Error{
+					Code:    jrpc2.InvalidParams,
+					Message: "ledger expiration entries cannot be queried directly",
+				}
+			}
 			ledgerKeys = append(ledgerKeys, ledgerKey)
 		}
 
