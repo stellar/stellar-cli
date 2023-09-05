@@ -10,7 +10,6 @@ on:
   pull_request:
 
 jobs:
-
   test:
     name: Unit tests
     strategy:
@@ -25,7 +24,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           # We need to full history for git-restore-mtime to know what modification dates to use.
           # Otherwise, the Go test cache will fail (due to the modification time of fixtures changing).
-          fetch-depth: '0'
+          fetch-depth: "0"
       - uses: ./.github/actions/setup-go
         with:
           go-version: ${{ matrix.go }}
@@ -110,7 +109,7 @@ jobs:
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.13.1-1462.22b9bb384.focal~vnext
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.13.1-1469.76fed6ead.focal~soroban
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -119,7 +118,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           # We need to full history for git-restore-mtime to know what modification dates to use.
           # Otherwise, the Go test cache will fail (due to the modification time of fixtures changing).
-          fetch-depth: '0'
+          fetch-depth: "0"
 
       - uses: ./.github/actions/setup-go
         with:
@@ -127,9 +126,9 @@ jobs:
 
       - name: Build soroban contract fixtures
         run: |
-         rustup update
-         rustup target add wasm32-unknown-unknown
-         make build-test-wasms
+          rustup update
+          rustup target add wasm32-unknown-unknown
+          make build-test-wasms
 
       - name: Install Captive Core
         run: |
