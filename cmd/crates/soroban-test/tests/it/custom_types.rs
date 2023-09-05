@@ -40,11 +40,11 @@ fn generate_help() {
 }
 
 #[test]
-fn multi_arg() {
+fn multi_arg_failure() {
     invoke(&TestEnv::default(), "multi_args")
         .arg("--b")
         .assert()
-        .success()
+        .failure()
         .stderr("error: Missing argument a\n");
 }
 
@@ -258,22 +258,22 @@ fn i32() {
 }
 
 #[test]
-fn handle_arg_larger_than_i32() {
+fn handle_arg_larger_than_i32_failure() {
     invoke(&TestEnv::default(), "i32_")
         .arg("--i32_")
         .arg(u32::MAX.to_string())
         .assert()
-        .success()
+        .failure()
         .stderr(predicates::str::contains("value is not parseable"));
 }
 
 #[test]
-fn handle_arg_larger_than_i64() {
+fn handle_arg_larger_than_i64_failure() {
     invoke(&TestEnv::default(), "i64_")
         .arg("--i64_")
         .arg(u64::MAX.to_string())
         .assert()
-        .success()
+        .failure()
         .stderr(predicates::str::contains("value is not parseable"));
 }
 
