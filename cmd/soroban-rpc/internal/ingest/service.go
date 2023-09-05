@@ -43,10 +43,12 @@ type Config struct {
 }
 
 func NewService(cfg Config) *Service {
-	return newService(cfg, true)
+	service := newService(cfg)
+	startService(service, cfg)
+	return service
 }
 
-func newService(cfg Config, start bool) *Service {
+func newService(cfg Config) *Service {
 	// ingestionDurationMetric is a metric for measuring the latency of ingestion
 	ingestionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
@@ -71,7 +73,6 @@ func newService(cfg Config, start bool) *Service {
 
 	cfg.Daemon.MetricsRegistry().MustRegister(ingestionDurationMetric, latestLedgerMetric, ledgerStatsMetric)
 
-	ctx, done := context.WithCancel(context.Background())
 	service := &Service{
 		logger:                  cfg.Logger,
 		db:                      cfg.DB,
@@ -80,38 +81,40 @@ func newService(cfg Config, start bool) *Service {
 		ledgerBackend:           cfg.LedgerBackend,
 		networkPassPhrase:       cfg.NetworkPassPhrase,
 		timeout:                 cfg.Timeout,
-		done:                    done,
 		ingestionDurationMetric: ingestionDurationMetric,
 		latestLedgerMetric:      latestLedgerMetric,
 		ledgerStatsMetric:       ledgerStatsMetric,
 	}
-	if start {
-		service.wg.Add(1)
-		panicGroup := util.UnrecoverablePanicGroup.Log(cfg.Logger)
-		panicGroup.Go(func() {
-			defer service.wg.Done()
-			// Retry running ingestion every second for 5 seconds.
-			constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
-			// Don't want to keep retrying if the context gets canceled.
-			contextBackoff := backoff.WithContext(constantBackoff, ctx)
-			err := backoff.RetryNotify(
-				func() error {
-					err := service.run(ctx, cfg.Archive)
-					if errors.Is(err, errEmptyArchives) {
-						// keep retrying until history archives are published
-						constantBackoff.Reset()
-					}
-					return err
-				},
-				contextBackoff,
-				cfg.OnIngestionRetry)
-			if err != nil && !errors.Is(err, context.Canceled) {
-				service.logger.WithError(err).Fatal("could not run ingestion")
-			}
-		})
-	}
 
 	return service
+}
+
+func startService(service *Service, cfg Config) {
+	ctx, done := context.WithCancel(context.Background())
+	service.done = done
+	service.wg.Add(1)
+	panicGroup := util.UnrecoverablePanicGroup.Log(cfg.Logger)
+	panicGroup.Go(func() {
+		defer service.wg.Done()
+		// Retry running ingestion every second for 5 seconds.
+		constantBackoff := backoff.WithMaxRetries(backoff.NewConstantBackOff(1*time.Second), 5)
+		// Don't want to keep retrying if the context gets canceled.
+		contextBackoff := backoff.WithContext(constantBackoff, ctx)
+		err := backoff.RetryNotify(
+			func() error {
+				err := service.run(ctx, cfg.Archive)
+				if errors.Is(err, errEmptyArchives) {
+					// keep retrying until history archives are published
+					constantBackoff.Reset()
+				}
+				return err
+			},
+			contextBackoff,
+			cfg.OnIngestionRetry)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			service.logger.WithError(err).Fatal("could not run ingestion")
+		}
+	})
 }
 
 type Service struct {

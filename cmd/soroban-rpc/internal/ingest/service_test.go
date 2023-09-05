@@ -76,7 +76,7 @@ func TestIngestion(t *testing.T) {
 		NetworkPassPhrase: network.TestNetworkPassphrase,
 	}
 	sequence := uint32(3)
-	service := newService(config, false)
+	service := newService(config)
 	mockTx := &MockTx{}
 	mockLedgerEntryWriter := &MockLedgerEntryWriter{}
 	mockLedgerWriter := &MockLedgerWriter{}
