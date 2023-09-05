@@ -53,16 +53,22 @@ func (s *Service) ingestTempLedgerEntryEvictions(
 ) error {
 	startTime := time.Now()
 	writer := tx.LedgerEntryWriter()
+	counts := map[string]int{}
 
 	for _, key := range evictedTempLedgerKeys {
 		if err := writer.DeleteLedgerEntry(key); err != nil {
 			return err
 		}
+		counts["evicted_"+key.Type.String()]++
 		if ctx.Err() != nil {
-			break
+			return ctx.Err()
 		}
 	}
 
+	for evictionType, count := range counts {
+		s.ledgerStatsMetric.
+			With(prometheus.Labels{"type": evictionType}).Add(float64(count))
+	}
 	s.ingestionDurationMetric.
 		With(prometheus.Labels{"type": "evicted_temp_ledger_entries"}).Observe(time.Since(startTime).Seconds())
 	return ctx.Err()
