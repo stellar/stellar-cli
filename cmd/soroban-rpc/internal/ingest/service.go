@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
@@ -247,6 +248,10 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 		return err
 	}
 
+	if err := s.evictLedgerEntries(tx, ledgerCloseMeta); err != nil {
+		return err
+	}
+
 	if err := s.ingestLedgerCloseMeta(tx, ledgerCloseMeta); err != nil {
 		return err
 	}
@@ -276,6 +281,42 @@ func (s *Service) ingestLedgerCloseMeta(tx db.WriteTx, ledgerCloseMeta xdr.Ledge
 
 	if err := s.transactionStore.IngestTransactions(ledgerCloseMeta); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *Service) evictLedgerEntries(tx db.WriteTx, ledgerCloseMeta xdr.LedgerCloseMeta) error {
+	if ledgerCloseMeta.V != 2 {
+		return fmt.Errorf("unexpected close meta version: %d", ledgerCloseMeta.V)
+	}
+	keysToEvict := make([]xdr.LedgerKey, len(ledgerCloseMeta.V2.EvictedTemporaryLedgerKeys)+len(ledgerCloseMeta.V2.EvictedPersistentLedgerEntries))
+	l := copy(keysToEvict, ledgerCloseMeta.V2.EvictedTemporaryLedgerKeys)
+	for i, entry := range ledgerCloseMeta.V2.EvictedPersistentLedgerEntries {
+		key, err := entry.LedgerKey()
+		if err != nil {
+			return err
+		}
+		keysToEvict[l+i] = key
+	}
+	for _, key := range keysToEvict {
+		if err := tx.LedgerEntryWriter().DeleteLedgerEntry(key); err != nil {
+			return err
+		}
+		// Also delete the matching expiration ledger entry
+		bin, err := key.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		expirationKey := xdr.LedgerKey{
+			Type: xdr.LedgerEntryTypeExpiration,
+			Expiration: &xdr.LedgerKeyExpiration{
+				KeyHash: sha256.Sum256(bin),
+			},
+		}
+		if err := tx.LedgerEntryWriter().DeleteLedgerEntry(expirationKey); err != nil {
+			return err
+		}
+
 	}
 	return nil
 }

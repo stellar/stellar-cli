@@ -657,14 +657,14 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
 	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
-	invokeIncPresistentEntryParams := txnbuild.TransactionParams{
+	invokeIncPersistentEntryParams := txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
 			createInvokeHostOperation(
 				address,
 				contractID,
-				"inc",
+				"inc_persistent",
 			),
 		},
 		BaseFee: txnbuild.MinBaseFee,
@@ -672,7 +672,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},
 	}
-	params = preflightTransactionParams(t, client, invokeIncPresistentEntryParams)
+	params = preflightTransactionParams(t, client, invokeIncPersistentEntryParams)
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
@@ -707,11 +707,11 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 
 	keyB64, err := xdr.MarshalBase64(expirationKey)
 	require.NoError(t, err)
-	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
+	getLedgerEntryRequest := methods.GetLedgerEntryRequest{
 		Key: keyB64,
 	}
 	var getLedgerEntryResult methods.GetLedgerEntryResponse
-	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
+	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryRequest, &getLedgerEntryResult)
 	assert.NoError(t, err)
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
@@ -747,7 +747,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
+	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryRequest, &getLedgerEntryResult)
 	assert.NoError(t, err)
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
 	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
@@ -758,7 +758,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	waitForExpiration := func() {
 		expired := false
 		for i := 0; i < 50; i++ {
-			err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
+			err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryRequest, &getLedgerEntryResult)
 			assert.NoError(t, err)
 			assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
 			assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
@@ -806,7 +806,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	// Wait for expiration again and check the pre-restore field when trying to exec the contract again
 	waitForExpiration()
 
-	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPresistentEntryParams)
+	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPersistentEntryParams)
 	assert.NotZero(t, simulationResult.RestorePreamble)
 
 	params = preflightTransactionParamsLocally(t,
@@ -831,7 +831,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 
 	// Finally, we should be able to send the inc host function invocation now that we
 	// have pre-restored the entries
-	params = preflightTransactionParamsLocally(t, invokeIncPresistentEntryParams, simulationResult)
+	params = preflightTransactionParamsLocally(t, invokeIncPersistentEntryParams, simulationResult)
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
