@@ -865,9 +865,7 @@ func TestCLI(t *testing.T) {
 	require.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 	binary, lookErr := exec.LookPath("cargo")
-	if lookErr != nil {
-		panic(lookErr)
-	}
+	require.NoError(t, lookErr)
 
 	// args := []string{"cargo", "test", "--package", "soroban-test", "--test", "it", "--", "invoke_sandbox::from_go", "--exact", "--nocapture", "--ignored"}
 	args := []string{"cargo", "run", "--", "--vv", "contract", "install", "--wasm", "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm"}
