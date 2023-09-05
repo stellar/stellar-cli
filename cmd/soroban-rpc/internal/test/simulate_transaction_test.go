@@ -849,7 +849,7 @@ func TestCLI(t *testing.T) {
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
-			Sequence:  0,
+			Sequence:  1,
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{&txnbuild.CreateAccount{
@@ -869,11 +869,10 @@ func TestCLI(t *testing.T) {
 		panic(lookErr)
 	}
 
-	args := []string{"cargo", "test", "--package", "soroban-test", "--test", "it", "--", "invoke_sandbox::from_go", "--exact", "--nocapture", "--ignored"}
-
+	// args := []string{"cargo", "test", "--package", "soroban-test", "--test", "it", "--", "invoke_sandbox::from_go", "--exact", "--nocapture", "--ignored"}
+	args := []string{"cargo", "run", "--", "--vv", "contract", "install", "--wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm"}
 	env := os.Environ()
-	// env = append(env, "SOROBAN_RPC_URL=http://localhost:8000", "NETWORK_PASSPHRASE=Standalone Network ; February 2017")
-	env = append(env, "SOROBAN_RPC_URL=http://localhost:8000", "SOROBAN_NETWORK_PASSPHRASE=Standalone Network ; February 2017")
+	env = append(env, "SOROBAN_RPC_URL=http://localhost:8000/", "SOROBAN_NETWORK_PASSPHRASE=Standalone Network ; February 2017")
 
 	execErr := syscall.Exec(binary, args, env)
 	if execErr != nil {
