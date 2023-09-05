@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path"
 	"runtime"
-	"syscall"
 	"testing"
 	"time"
 
@@ -839,7 +838,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 }
 
-func TestCLI(t *testing.T) {
+func InstallContractWithCLI(t *testing.T) {
 	test := NewTest(t)
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
@@ -864,18 +863,11 @@ func TestCLI(t *testing.T) {
 	})
 	require.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-	binary, lookErr := exec.LookPath("cargo")
-	require.NoError(t, lookErr)
-
-	// args := []string{"cargo", "test", "--package", "soroban-test", "--test", "it", "--", "invoke_sandbox::from_go", "--exact", "--nocapture", "--ignored"}
-	args := []string{"cargo", "run", "--", "--vv", "contract", "install", "--wasm", "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm"}
-	env := os.Environ()
-	env = append(env, "SOROBAN_RPC_URL=http://localhost:8000/", "SOROBAN_NETWORK_PASSPHRASE=Standalone Network ; February 2017")
-
-	execErr := syscall.Exec(binary, args, env)
-	if execErr != nil {
-		panic(execErr)
-	}
+	cmd := exec.Command("cargo", "run", "--", "--vv", "contract", "install", "--wasm", "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm", "--rpc-url", "http://localhost:8000/", "--network-passphrase", "Standalone Network ; February 2017")
+	require.NoError(t, err)
+	res, err := cmd.Output()
+	require.NoError(t, err)
+	require.Equal(t, string(res), "c221ca07e2b9e4fc6a5f566dcd82551af5575c1de0057a8da7abab648c3ab849\n")
 
 }
 
