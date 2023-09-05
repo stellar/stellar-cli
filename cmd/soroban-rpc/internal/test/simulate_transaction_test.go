@@ -870,7 +870,7 @@ func TestCLI(t *testing.T) {
 	}
 
 	// args := []string{"cargo", "test", "--package", "soroban-test", "--test", "it", "--", "invoke_sandbox::from_go", "--exact", "--nocapture", "--ignored"}
-	args := []string{"cargo", "run", "--", "--vv", "contract", "install", "--wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm"}
+	args := []string{"cargo", "run", "--", "--vv", "contract", "install", "--wasm", "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm"}
 	env := os.Environ()
 	env = append(env, "SOROBAN_RPC_URL=http://localhost:8000/", "SOROBAN_NETWORK_PASSPHRASE=Standalone Network ; February 2017")
 
