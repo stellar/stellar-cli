@@ -836,3 +836,42 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 }
+
+func TestCLI(t *testing.T) {
+	test := NewTest(t)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
+
+	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount: &txnbuild.SimpleAccount{
+			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
+			Sequence:  0,
+		},
+		IncrementSequenceNum: false,
+		Operations: []txnbuild.Operation{&txnbuild.CreateAccount{
+			Destination: "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4",
+			Amount:      "100000",
+		}},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+	p, err := os.StartProcess("cargo", []string{"run", "--", "config", "identity", "address", "--hd-path", "1"}, nil)
+	assert.NoError(t, err)
+	res, err := p.Wait()
+	assert.NoError(t, err)
+	println(res.String())
+	// time.Sleep(5 * time.Hour)
+}
+
+// FundAccount(t, client, sourceAccount, "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4")
+// soroban config identity address --hd-path 1
+// FundAccount(t, client, sourceAccount, "GCKZUJVUNEFGD4HLFBUNVYM2QY2P5WQQZMGRA3DDL4HYVT5MW5KG3ODV")
+// soroban config identity address --hd-path 2
+// FundAccount(t, client, sourceAccount, "GCTS3CUJXL5M7B2JA6KTFV75PI4QFF4IV4RNO3SDZJRWXGZ36FUEBRC7")
