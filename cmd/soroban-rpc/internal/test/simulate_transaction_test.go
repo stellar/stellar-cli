@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -862,12 +864,23 @@ func TestCLI(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-	p, err := os.StartProcess("cargo", []string{"run", "--", "config", "identity", "address", "--hd-path", "1"}, nil)
-	assert.NoError(t, err)
-	res, err := p.Wait()
-	assert.NoError(t, err)
-	println(res.String())
-	// time.Sleep(5 * time.Hour)
+	binary, lookErr := exec.LookPath("cargo")
+	time.Sleep(40 * time.Second)
+	if lookErr != nil {
+		panic(lookErr)
+	}
+
+	args := []string{"cargo", "test", "--package", "soroban-test", "--test", "it", "--", "invoke_sandbox::from_go", "--exact", "--nocapture", "--ignored"}
+
+	env := os.Environ()
+	// env = append(env, "SOROBAN_RPC_URL=http://localhost:8000", "NETWORK_PASSPHRASE=Standalone Network ; February 2017")
+	env = append(env, "SOROBAN_RPC_URL=http://localhost:8000", "SOROBAN_NETWORK_PASSPHRASE=Standalone Network ; February 2017")
+
+	execErr := syscall.Exec(binary, args, env)
+	if execErr != nil {
+		panic(execErr)
+	}
+
 }
 
 // FundAccount(t, client, sourceAccount, "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4")
