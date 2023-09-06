@@ -243,6 +243,101 @@ fn invoke_auth_with_different_test_account() {
 }
 
 #[test]
+fn contract_data_read_failure() {
+    let hash = HELLO_WORLD.hash().unwrap();
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .assert()
+        .success()
+        .stdout(format!("{hash}\n"));
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("deploy")
+        .arg("--wasm-hash")
+        .arg(&format!("{hash}"))
+        .arg("--id=1")
+        .assert()
+        .success()
+        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("read")
+        .arg("--id=1")
+        .arg("--key=COUNTER")
+        .assert()
+        .failure()
+        .stderr(
+            "error: no matching contract data entries were found for the specified contract id\n",
+        );
+}
+
+#[test]
+fn contract_data_read() {
+    let hash = HELLO_WORLD.hash().unwrap();
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .assert()
+        .success()
+        .stdout(format!("{hash}\n"));
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("deploy")
+        .arg("--wasm-hash")
+        .arg(&format!("{hash}"))
+        .arg("--id=1")
+        .assert()
+        .success()
+        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--")
+        .arg("inc")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("read")
+        .arg("--id=1")
+        .arg("--key=COUNTER")
+        .assert()
+        .success()
+        .stdout("COUNTER,1\n");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id=1")
+        .arg("--")
+        .arg("inc")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("read")
+        .arg("--id=1")
+        .arg("--key=COUNTER")
+        .assert()
+        .success()
+        .stdout("COUNTER,2\n");
+}
+
+#[test]
 fn invoke_auth_with_different_test_account_fail() {
     let sandbox = TestEnv::default();
 
