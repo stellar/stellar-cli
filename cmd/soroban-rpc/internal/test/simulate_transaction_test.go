@@ -867,7 +867,7 @@ func TestInstallContractWithCLI(t *testing.T) {
 	require.NoError(t, err)
 	res, err := cmd.Output()
 	require.NoError(t, err)
-	require.Equal(t, string(res), "c221ca07e2b9e4fc6a5f566dcd82551af5575c1de0057a8da7abab648c3ab849\n")
+	require.Equal(t, string(res), "a3bb4d5479e7167f8221775f5ff6a3924c77ddd446dae0e7267b4ed74695bd6d\n")
 
 }
 
