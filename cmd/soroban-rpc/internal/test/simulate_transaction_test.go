@@ -838,7 +838,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 }
 
-func InstallContractWithCLI(t *testing.T) {
+func TestInstallContractWithCLI(t *testing.T) {
 	test := NewTest(t)
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
