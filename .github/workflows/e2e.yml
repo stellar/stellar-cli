@@ -22,7 +22,7 @@ jobs:
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci,
-      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#22b9bb38416e5ce058eb9c1fadfdd414a4661833
+      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#2b283bd9ef3958a3ef477af36a3ff113a86d535b
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests --enable-next-protocol-version-unsafe-for-production"
       # or can use option to pull a pre-compiled image instead
       # SYSTEM_TEST_CORE_IMAGE:
@@ -39,7 +39,7 @@ jobs:
       # option #2, set the version of soroban-js-client used as a ref to a gh repo
       # if this value is present it takes precedence over any SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION
       SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO: stellar/js-soroban-client
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF: refs/pull/132/head
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF: refs/pull/135/head
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
@@ -49,7 +49,7 @@ jobs:
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
       # the soroban test cases will compile various contracts from the examples repo
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "testnet"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "release/next"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v3
