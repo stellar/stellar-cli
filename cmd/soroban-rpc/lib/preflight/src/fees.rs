@@ -23,9 +23,9 @@ use state_expiration::{get_restored_ledger_sequence, ExpirableLedgerEntry};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 
-/// Estimate for any `ExpirationEntry` ledger entry, consisting of a 32-byte
-/// hash of the corresponding entry and 4 bytes for expiration ledger.
-const EXPIRATION_ENTRY_SIZE: u32 = 32 + 4;
+// TODO: this should be imported from soroban_env_host::fees instead
+/// Serialize XDR size for any `ExpirationEntry` ledger entry.
+const EXPIRATION_ENTRY_SIZE: u32 = 48;
 
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
@@ -37,10 +37,8 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
-    // TODO: is this OK?
-    let init_expiration_entries = ExpirationEntryMap::new();
     let ledger_changes =
-        get_ledger_changes(budget, post_storage, pre_storage, init_expiration_entries)?;
+        get_ledger_changes(budget, post_storage, pre_storage, ExpirationEntryMap::new())?;
     let soroban_resources =
         calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget)
             .context("cannot compute host function resources")?;
@@ -141,22 +139,17 @@ fn calculate_host_function_soroban_resources(
         .context("cannot convert storage footprint to ledger footprint")?;
     let read_bytes: u32 = ledger_changes
         .iter()
-        .map(
-            |c| {
-                let mut size = c.encoded_key.len() as u32 + c.old_entry_size_bytes;
-                if c.expiration_change.is_some() {
-                    size += EXPIRATION_ENTRY_SIZE;
-                }
-                size
-            }, //size
-        )
+        .map(|c| {
+            c.old_entry_size_bytes
+                + c.expiration_change
+                    .as_ref()
+                    .map_or(0, |_| EXPIRATION_ENTRY_SIZE)
+        })
         .sum();
 
     let write_bytes: u32 = ledger_changes
         .iter()
-        .map(|c| {
-            c.encoded_key.len() as u32 + c.encoded_new_value.as_ref().map_or(0, Vec::len) as u32
-        })
+        .map(|c| c.encoded_new_value.as_ref().map_or(0, Vec::len) as u32)
         .sum();
 
     // Add a 20% leeway with a minimum of 50k instructions
@@ -259,15 +252,11 @@ fn calculate_unmodified_ledger_entry_bytes(
 ) -> Result<u32> {
     let mut res: usize = 0;
     for lk in ledger_entries {
-        let key_xdr = lk
-            .to_xdr()
-            .with_context(|| format!("cannot marshall ledger key {lk:?}"))?;
-        let key_size = key_xdr.len();
         let entry_xdr = pre_storage
             .get_xdr(lk, include_expired)
             .with_context(|| format!("cannot get xdr of ledger entry with key {lk:?}"))?;
         let entry_size = entry_xdr.len();
-        res += key_size + entry_size;
+        res += entry_size;
     }
     Ok(res as u32)
 }
