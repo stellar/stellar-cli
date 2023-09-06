@@ -743,7 +743,8 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
 	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-	newExpirationSeq := entry.Expiration.ExpirationLedgerSeq
+	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
+	newExpirationSeq := *getLedgerEntryResult.ExpirationLedger
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 
 	// Wait until it expires
@@ -756,12 +757,13 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 			assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
 			// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
 			currentLedger := getLedgerEntryResult.LatestLedger + 1
-			if xdr.Uint32(currentLedger) > entry.Expiration.ExpirationLedgerSeq {
+			require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
+			if uint32(currentLedger) > *getLedgerEntryResult.ExpirationLedger {
 				expired = true
 				t.Logf("ledger entry expired")
 				break
 			}
-			t.Log("waiting for ledger entry to expire at ledger", entry.Expiration.ExpirationLedgerSeq)
+			t.Log("waiting for ledger entry to expire at ledger", *getLedgerEntryResult.ExpirationLedger)
 			time.Sleep(time.Second)
 		}
 		require.True(t, expired)
