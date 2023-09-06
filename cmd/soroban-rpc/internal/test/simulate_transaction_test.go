@@ -867,7 +867,9 @@ func TestInstallContractWithCLI(t *testing.T) {
 	require.NoError(t, err)
 	res, err := cmd.Output()
 	require.NoError(t, err)
-	require.Equal(t, string(res), "a3bb4d5479e7167f8221775f5ff6a3924c77ddd446dae0e7267b4ed74695bd6d\n")
+	wasm := getHelloWorldContract(t)
+	contractHash := xdr.Hash(sha256.Sum256(wasm))
+	require.Contains(t, string(res), contractHash.HexString())
 
 }
 
