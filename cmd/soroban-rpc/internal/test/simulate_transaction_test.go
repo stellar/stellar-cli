@@ -706,7 +706,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
+	assert.Equal(t, xdr.LedgerEntryTypeContractData, entry.Type)
 	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
 
 	initialExpirationSeq := *getLedgerEntryResult.ExpirationLedger
@@ -742,7 +742,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
 	assert.NoError(t, err)
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
+	assert.Equal(t, xdr.LedgerEntryTypeContractData, entry.Type)
 	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
 	newExpirationSeq := *getLedgerEntryResult.ExpirationLedger
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
