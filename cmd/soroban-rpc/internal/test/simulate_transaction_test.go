@@ -754,7 +754,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 			err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
 			assert.NoError(t, err)
 			assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-			assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
+			assert.Equal(t, xdr.LedgerEntryTypeContractData, entry.Type)
 			// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
 			currentLedger := getLedgerEntryResult.LatestLedger + 1
 			require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
