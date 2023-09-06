@@ -695,17 +695,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 		},
 	}
 
-	binKey, err := key.MarshalBinary()
-	assert.NoError(t, err)
-
-	expirationKey := xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeExpiration,
-		Expiration: &xdr.LedgerKeyExpiration{
-			KeyHash: sha256.Sum256(binKey),
-		},
-	}
-
-	keyB64, err := xdr.MarshalBase64(expirationKey)
+	keyB64, err := xdr.MarshalBase64(key)
 	require.NoError(t, err)
 	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
 		Key: keyB64,
@@ -713,11 +703,13 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	var getLedgerEntryResult methods.GetLedgerEntryResponse
 	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
 	assert.NoError(t, err)
+
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-
 	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-	initialExpirationSeq := entry.Expiration.ExpirationLedgerSeq
+	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
+
+	initialExpirationSeq := *getLedgerEntryResult.ExpirationLedger
 
 	// bump the initial expiration
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
