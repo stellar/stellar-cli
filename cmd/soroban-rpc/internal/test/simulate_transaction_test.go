@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"runtime"
 	"testing"
@@ -835,4 +836,38 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+}
+
+func TestInstallContractWithCLI(t *testing.T) {
+	test := NewTest(t)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
+
+	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount: &txnbuild.SimpleAccount{
+			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
+			Sequence:  1,
+		},
+		IncrementSequenceNum: false,
+		Operations: []txnbuild.Operation{&txnbuild.CreateAccount{
+			Destination: "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4",
+			Amount:      "100000",
+		}},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	require.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+	cmd := exec.Command("cargo", "run", "--", "--vv", "contract", "install", "--wasm", "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm", "--rpc-url", "http://localhost:8000/", "--network-passphrase", "Standalone Network ; February 2017")
+	require.NoError(t, err)
+	res, err := cmd.Output()
+	require.NoError(t, err)
+	wasm := getHelloWorldContract(t)
+	contractHash := xdr.Hash(sha256.Sum256(wasm))
+	require.Contains(t, string(res), contractHash.HexString())
 }

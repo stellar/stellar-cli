@@ -126,9 +126,10 @@ jobs:
 
       - name: Build soroban contract fixtures
         run: |
-          rustup update
-          rustup target add wasm32-unknown-unknown
-          make build-test-wasms
+         rustup update
+         rustup target add wasm32-unknown-unknown
+         make build_rust
+         make build-test-wasms
 
       - name: Install Captive Core
         run: |
