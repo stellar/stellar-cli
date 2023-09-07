@@ -18,7 +18,7 @@ export class NotImplementedError extends Error {
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse;
 export async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, rpcUrl, networkPassphrase, contractId, wallet, }) {
-    wallet = wallet ?? (await import("@stellar/freighter-api"));
+    wallet = wallet ?? (await import("@stellar/freighter-api")).default;
     let parse = parseResultXdr;
     const server = new SorobanClient.Server(rpcUrl, {
         allowHttp: rpcUrl.startsWith("http://"),

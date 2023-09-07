@@ -81,7 +81,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
   contractId,
   wallet,
 }: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
-  wallet = wallet ?? (await import("@stellar/freighter-api"));
+  wallet = wallet ?? (await import("@stellar/freighter-api")).default;
   let parse = parseResultXdr;
   const server = new SorobanClient.Server(rpcUrl, {
     allowHttp: rpcUrl.startsWith("http://"),
@@ -111,7 +111,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
   if (responseType === "simulated") return simulated;
 
   // is it possible for `auths` to be present but empty? Probably not, but let's be safe.
-  let authsCount = simulated.result.auth?.length ?? 0;
+  let authsCount = simulated.result!.auth?.length ?? 0;
 
   const writeLength = simulated.transactionData
     .build()
@@ -166,10 +166,10 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   // if `sendTx` awaited the inclusion of the tx in the ledger, it used
   // `getTransaction`, which has a `returnValue` field
-  if ("returnValue" in raw) return parse(raw.returnValue);
+  if ("returnValue" in raw) return parse(raw.returnValue!);
 
   // otherwise, it returned the result of `sendTransaction`
-  if ("errorResultXdr" in raw) return parse(raw.errorResultXdr);
+  if ("errorResultXdr" in raw) return parse(raw.errorResultXdr!);
 
   // if neither of these are present, something went wrong
   console.error("Don't know how to parse result! Returning full RPC response.");

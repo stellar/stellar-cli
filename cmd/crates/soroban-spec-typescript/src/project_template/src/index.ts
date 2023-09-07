@@ -2,7 +2,7 @@ import * as SorobanClient from 'soroban-client';
 import { ContractSpec, Address } from 'soroban-client';
 import { Buffer } from "buffer";
 import { invoke } from './invoke.js';
-import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'
+import type { ResponseTypes, ClassOptions } from './method-options.js'
 
 export * from './invoke.js'
 export * from './method-options.js'
