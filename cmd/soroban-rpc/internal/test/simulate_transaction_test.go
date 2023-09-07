@@ -870,11 +870,4 @@ func TestInstallContractWithCLI(t *testing.T) {
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	require.Contains(t, string(res), contractHash.HexString())
-
 }
-
-// FundAccount(t, client, sourceAccount, "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4")
-// soroban config identity address --hd-path 1
-// FundAccount(t, client, sourceAccount, "GCKZUJVUNEFGD4HLFBUNVYM2QY2P5WQQZMGRA3DDL4HYVT5MW5KG3ODV")
-// soroban config identity address --hd-path 2
-// FundAccount(t, client, sourceAccount, "GCTS3CUJXL5M7B2JA6KTFV75PI4QFF4IV4RNO3SDZJRWXGZ36FUEBRC7")

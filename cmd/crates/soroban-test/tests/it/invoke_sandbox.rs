@@ -444,17 +444,3 @@ async fn fetch() {
     cmd.run().await.unwrap();
     assert!(f.exists());
 }
-
-#[ignore]
-#[tokio::test]
-async fn from_go() {
-    TestEnv::with_default(|e| {
-        e.new_assert_cmd("contract")
-            .args(["install", "--wasm", HELLO_WORLD.path().to_str().unwrap()])
-            .assert()
-            .success()
-            .stdout(predicates::str::starts_with(
-                "c221ca07e2b9e4fc6a5f566dcd82551af5575c1de0057a8da7abab648c3ab849",
-            ));
-    });
-}
