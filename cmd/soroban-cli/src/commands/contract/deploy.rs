@@ -210,7 +210,7 @@ fn build_create_contract_tx(
     let contract_id = get_contract_id(contract_id_preimage.clone(), network_passphrase)?;
 
     let op = Operation {
-        source_account: None,
+        source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id_preimage,
