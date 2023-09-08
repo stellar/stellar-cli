@@ -13,20 +13,45 @@ import (
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestInstallContractWithCLI(t *testing.T) {
+func TestCLIContractInstall(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand(t, "contract install --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm")
-	require.NoError(t, err)
+	output, err := runCLICommand("contract install --wasm " + helloWorldContractPath)
+	assert.NoError(t, err)
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
-	require.Contains(t, string(output), contractHash.HexString())
+	require.Contains(t, output, contractHash.HexString())
 }
 
-func runCLICommand(t *testing.T, cmd string) ([]byte, error) {
-	baseCmdArgs := []string{"run", "--", "--vv"}
+func TestCLIContractDeploy(t *testing.T) {
+	NewCLITest(t)
+	output, err := runCLICommand("contract deploy --id 1 --wasm " + helloWorldContractPath)
+	assert.NoError(t, err)
+	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
+}
+
+func TestCLIContractInvokeWithWasm(t *testing.T) {
+	NewCLITest(t)
+	output, err := runCLICommand(fmt.Sprintf("contract invoke --id 1 --wasm %s -- hello --world=world", helloWorldContractPath))
+	assert.NoError(t, err)
+	require.Contains(t, output, `["Hello","world"]`)
+}
+
+func TestCLIContractDeployAndInvoke(t *testing.T) {
+	NewCLITest(t)
+	output, err := runCLICommand("contract deploy --id 1 --wasm " + helloWorldContractPath)
+	assert.NoError(t, err)
+	contractID := strings.TrimSpace(output)
+	output, err = runCLICommand(fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
+	assert.NoError(t, err)
+	require.Contains(t, output, `["Hello","world"]`)
+}
+
+func runCLICommand(cmd string) (string, error) {
+	baseCmdArgs := []string{"run", "-q", "--", "--vv"}
 	args := strings.Split(cmd, " ")
 	args = append(baseCmdArgs, args...)
 	c := exec.Command("cargo", args...)
@@ -34,7 +59,8 @@ func runCLICommand(t *testing.T, cmd string) ([]byte, error) {
 		fmt.Sprintf("RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("NETWORK_PASPRHASE=%s", StandaloneNetworkPassphrase),
 	)
-	return c.Output()
+	bin, err := c.CombinedOutput()
+	return string(bin), err
 }
 
 func NewCLITest(t *testing.T) *Test {
@@ -44,7 +70,7 @@ func NewCLITest(t *testing.T) *Test {
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
 
-	// Create default account used byt the CLI
+	// Create default account used by the CLI
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
