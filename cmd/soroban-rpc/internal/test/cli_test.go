@@ -46,10 +46,7 @@ func TestCLIContractDeployAndInvoke(t *testing.T) {
 
 func assertCmd(t *testing.T, cmd string) string {
 	res := runCLICommand(cmd)
-
-	stderr := res.Stderr()
-	println(stderr)
-	require.True(t, res.ExitCode == 0, stderr)
+	require.NoError(t, res.Error, res.Cmd.Stderr)
 	return res.Stdout()
 }
 
