@@ -28,7 +28,7 @@ func TestCLIContractInstall(t *testing.T) {
 
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand("contract deploy --id 1 --wasm " + helloWorldContractPath)
+	output, err := runCLICommand("contract deploy --salt 0 --wasm " + helloWorldContractPath)
 	assert.NoError(t, err)
 	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
 }
@@ -57,7 +57,7 @@ func runCLICommand(cmd string) (string, error) {
 	c := exec.Command("cargo", args...)
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
-		fmt.Sprintf("SOROBAN_NETWORK_PASPRHASE=%s", StandaloneNetworkPassphrase),
+		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
 	)
 	bin, err := c.CombinedOutput()
 	return string(bin), err
