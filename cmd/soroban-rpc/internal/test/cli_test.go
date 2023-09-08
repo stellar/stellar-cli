@@ -36,7 +36,7 @@ func TestCLIContractDeploy(t *testing.T) {
 
 func TestCLIContractInvokeWithWasm(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand(fmt.Sprintf("contract invoke --id 1 --wasm %s -- hello --world=world", helloWorldContractPath))
+	output, err := runCLICommand(fmt.Sprintf("contract invoke --salt=0 --wasm %s -- hello --world=world", helloWorldContractPath))
 	assert.NoError(t, err)
 	require.Contains(t, output, `["Hello","world"]`)
 }

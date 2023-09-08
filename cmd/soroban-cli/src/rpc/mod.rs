@@ -4,13 +4,13 @@ use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
     LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
     SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope, TransactionMeta,
     TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
+use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
 use std::{
     fmt::Display,
@@ -662,7 +662,12 @@ soroban config identity fund {address} --helper-url <url>"#
             sequence + 60, // ~5 minutes of ledgers
             network_passphrase,
         )?;
-        let (fee_ready_txn, events) = if signed_auth_entries.is_empty() {
+        let (fee_ready_txn, events) = if signed_auth_entries.is_empty()
+            || (signed_auth_entries.len() == 1
+                && matches!(
+                    signed_auth_entries[0].root_invocation.function,
+                    SorobanAuthorizedFunction::CreateContractHostFn(_)
+                )) {
             (part_signed_tx, events)
         } else {
             // re-simulate to calculate the new fees
