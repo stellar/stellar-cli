@@ -306,6 +306,66 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, result, resultForRequestWithDifferentTxSource)
 }
 
+func TestSimulateTransactionWithAuth(t *testing.T) {
+	test := NewTest(t)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
+	address := sourceAccount.Address()
+	account := txnbuild.NewSimpleAccount(address, 0)
+
+	helloWorldContract := getHelloWorldContract(t)
+
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(account.AccountID, helloWorldContract),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+
+	tx, err := txnbuild.NewTransaction(params)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	deployContractOp := createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase)
+	deployContractParams := txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			deployContractOp,
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	}
+	response := simulateTransactionFromTxParams(t, client, deployContractParams)
+	require.NotEmpty(t, response.Results)
+	require.NotEmpty(t, response.Results[0].Auth)
+	require.Empty(t, deployContractOp.Auth)
+
+	for _, b64 := range response.Results[0].Auth {
+		var a xdr.SorobanAuthorizationEntry
+		err := xdr.SafeUnmarshalBase64(b64, &a)
+		assert.NoError(t, err)
+		deployContractOp.Auth = append(deployContractOp.Auth, a)
+	}
+	deployContractParams.Operations = []txnbuild.Operation{deployContractOp}
+
+	// preflight deployContractOp with auth
+	deployContractParams = preflightTransactionParams(t, client, deployContractParams)
+	tx, err = txnbuild.NewTransaction(deployContractParams)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+}
+
 func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	test := NewTest(t)
 
