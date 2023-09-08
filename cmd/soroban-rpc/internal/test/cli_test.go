@@ -9,6 +9,7 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
+	"github.com/google/shlex"
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
@@ -45,14 +46,16 @@ func TestCLIContractDeployAndInvoke(t *testing.T) {
 }
 
 func assertCmd(t *testing.T, cmd string) string {
-	res := runCLICommand(cmd)
+	res := runCLICommand(t, cmd)
 	require.NoError(t, res.Error, res.Cmd.Stderr)
 	return res.Stdout()
 }
 
-func runCLICommand(cmd string) *icmd.Result {
+func runCLICommand(t *testing.T, cmd string) *icmd.Result {
 	args := []string{"run", "-q", "--", "--vv"}
-	args = append(args, strings.Split(cmd, " ")...)
+	parsedArgs, err := shlex.Split(cmd)
+	require.NoError(t, err)
+	args = append(args, parsedArgs...)
 	c := icmd.Command("cargo", args...)
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
