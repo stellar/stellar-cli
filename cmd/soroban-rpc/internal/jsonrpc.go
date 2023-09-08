@@ -13,6 +13,7 @@ import (
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/go-chi/chi/middleware"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/cors"
 	"github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -277,9 +278,15 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 	// Limit request sizes to 10MB
 	handler = http.MaxBytesHandler(handler, 1024*1024*10)
 
+	corsMiddleware := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedHeaders: []string{"*"},
+		AllowedMethods: []string{"GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+	})
+
 	return Handler{
 		bridge:  bridge,
 		logger:  params.Logger,
-		Handler: handler,
+		Handler: corsMiddleware.Handler(handler),
 	}
 }
