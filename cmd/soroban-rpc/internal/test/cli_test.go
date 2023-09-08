@@ -29,6 +29,7 @@ func TestCLIContractInstall(t *testing.T) {
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
 	output, err := runCLICommand("contract deploy --salt 0 --wasm " + helloWorldContractPath)
+	println(string(output))
 	assert.NoError(t, err)
 	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
 }
