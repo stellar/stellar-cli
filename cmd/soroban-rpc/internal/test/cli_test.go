@@ -18,7 +18,7 @@ import (
 
 func TestInstallContractWithCLI(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand(t, "contract install --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm")
+	output, err := runCLICommand(t, "contract install --wasm "+helloWorldContractPath)
 	require.NoError(t, err)
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))

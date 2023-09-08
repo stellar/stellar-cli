@@ -32,9 +32,10 @@ const (
 	goMonorepoGithubPath        = "github.com/stellar/go"
 	friendbotURL                = "http://localhost:8000/friendbot"
 	// Needed when Core is run with ARTIFICIALLY_ACCELERATE_TIME_FOR_TESTING=true
-	checkpointFrequency = 8
-	sorobanRPCPort      = 8000
-	adminPort           = 8080
+	checkpointFrequency    = 8
+	sorobanRPCPort         = 8000
+	adminPort              = 8080
+	helloWorldContractPath = "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm"
 )
 
 type Test struct {
