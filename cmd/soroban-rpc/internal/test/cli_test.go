@@ -56,8 +56,8 @@ func runCLICommand(cmd string) (string, error) {
 	args = append(baseCmdArgs, args...)
 	c := exec.Command("cargo", args...)
 	c.Env = append(os.Environ(),
-		fmt.Sprintf("RPC_URL=http://localhost:%d/", sorobanRPCPort),
-		fmt.Sprintf("NETWORK_PASPRHASE=%s", StandaloneNetworkPassphrase),
+		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
+		fmt.Sprintf("SOROBAN_NETWORK_PASPRHASE=%s", StandaloneNetworkPassphrase),
 	)
 	bin, err := c.CombinedOutput()
 	return string(bin), err
