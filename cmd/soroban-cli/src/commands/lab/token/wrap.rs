@@ -94,7 +94,6 @@ impl Cmd {
         }))?;
 
         let contract_id = vec_to_hash(&res)?;
-
         state.update(&h);
         self.config.set_state(&state)?;
         Ok(stellar_strkey::Contract(contract_id.0).to_string())
@@ -136,9 +135,9 @@ impl Cmd {
 ///
 /// Might return an error
 pub fn vec_to_hash(res: &ScVal) -> Result<Hash, XdrError> {
-    if let ScVal::Bytes(res_hash) = &res {
+    if let ScVal::Address(ScAddress::Contract(res_contract)) = &res {
         let mut hash_bytes: [u8; 32] = [0; 32];
-        for (i, b) in res_hash.iter().enumerate() {
+        for (i, b) in res_contract.0.iter().enumerate() {
             hash_bytes[i] = *b;
         }
         Ok(Hash(hash_bytes))

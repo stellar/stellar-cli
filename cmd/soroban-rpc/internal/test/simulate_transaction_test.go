@@ -36,7 +36,7 @@ var (
 func getHelloWorldContract(t *testing.T) []byte {
 	_, filename, _, _ := runtime.Caller(0)
 	testDirName := path.Dir(filename)
-	contractFile := path.Join(testDirName, "../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm")
+	contractFile := path.Join(testDirName, helloWorldContractPath)
 	ret, err := os.ReadFile(contractFile)
 	if err != nil {
 		t.Fatalf("unable to read test_hello_world.wasm (%v) please run `make build-test-wasms` at the project root directory", err)
@@ -304,6 +304,64 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	// apart from latest ledger the response should be the same
 	resultForRequestWithDifferentTxSource.LatestLedger = result.LatestLedger
 	assert.Equal(t, result, resultForRequestWithDifferentTxSource)
+}
+
+func TestSimulateTransactionWithAuth(t *testing.T) {
+	test := NewTest(t)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
+	address := sourceAccount.Address()
+	account := txnbuild.NewSimpleAccount(address, 0)
+
+	helloWorldContract := getHelloWorldContract(t)
+
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(account.AccountID, helloWorldContract),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+
+	tx, err := txnbuild.NewTransaction(params)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	deployContractOp := createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase)
+	deployContractParams := txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			deployContractOp,
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	}
+	response := simulateTransactionFromTxParams(t, client, deployContractParams)
+	require.NotEmpty(t, response.Results)
+	require.Len(t, response.Results[0].Auth, 1)
+	require.Empty(t, deployContractOp.Auth)
+
+	var auth xdr.SorobanAuthorizationEntry
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &auth))
+	require.Equal(t, auth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsSourceAccount)
+	deployContractOp.Auth = append(deployContractOp.Auth, auth)
+	deployContractParams.Operations = []txnbuild.Operation{deployContractOp}
+
+	// preflight deployContractOp with auth
+	deployContractParams = preflightTransactionParams(t, client, deployContractParams)
+	tx, err = txnbuild.NewTransaction(deployContractParams)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 }
 
 func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
