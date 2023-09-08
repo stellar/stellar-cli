@@ -348,15 +348,13 @@ func TestSimulateTransactionWithAuth(t *testing.T) {
 	}
 	response := simulateTransactionFromTxParams(t, client, deployContractParams)
 	require.NotEmpty(t, response.Results)
-	require.NotEmpty(t, response.Results[0].Auth)
+	require.Len(t, response.Results[0].Auth, 1)
 	require.Empty(t, deployContractOp.Auth)
 
-	for _, b64 := range response.Results[0].Auth {
-		var a xdr.SorobanAuthorizationEntry
-		err := xdr.SafeUnmarshalBase64(b64, &a)
-		assert.NoError(t, err)
-		deployContractOp.Auth = append(deployContractOp.Auth, a)
-	}
+	var auth xdr.SorobanAuthorizationEntry
+	assert.NoError(t, xdr.SafeUnmarshalBase64(response.Results[0].Auth[0], &auth))
+	require.Equal(t, auth.Credentials.Type, xdr.SorobanCredentialsTypeSorobanCredentialsSourceAccount)
+	deployContractOp.Auth = append(deployContractOp.Auth, auth)
 	deployContractParams.Operations = []txnbuild.Operation{deployContractOp}
 
 	// preflight deployContractOp with auth
