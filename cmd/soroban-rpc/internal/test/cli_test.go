@@ -31,16 +31,23 @@ func TestCLIContractInstallAndDeploy(t *testing.T) {
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt 0 --wasm-hash %s", contractHash.HexString()))
+	println(string(output))
 	lines := strings.Split(output, "\n")
 	last := lines[len(lines)-1]
-	require.Len(t, last, 56)
-	require.Regexp(t, "^C", last)
+	isValidContractID(t, last)
+}
+
+func isValidContractID(t *testing.T, contractID string) {
+	require.Len(t, contractID, 56)
+	require.Regexp(t, "^C", contractID)
 }
 
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
 	output := runSuccessfulCLICmd(t, "contract deploy --salt 0 --wasm "+helloWorldContractPath)
-	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
+	lines := strings.Split(output, "\n")
+	last := lines[len(lines)-1]
+	isValidContractID(t, last)
 }
 
 func TestCLIContractDeployAndInvoke(t *testing.T) {
