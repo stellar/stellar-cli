@@ -19,7 +19,7 @@ fn lab_xdr_decode() {
         .assert()
         .success();
     let stdout = String::from_utf8(cmd.get_output().clone().stdout).unwrap();
-    if ref_xdr.len() == 0 {
+    if ref_xdr.is_empty() {
         std::fs::write(ref_xdr_filename, stdout.clone()).unwrap();
     }
     assert_eq!(stdout, ref_xdr);
