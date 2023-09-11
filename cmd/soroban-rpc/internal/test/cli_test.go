@@ -42,7 +42,7 @@ func outputsContractIDInLastLine(t *testing.T, output string) {
 			nonEmptyLines = append(nonEmptyLines, l)
 		}
 	}
-	require.GreaterOrEqual(t, nonEmptyLines, 1)
+	require.GreaterOrEqual(t, len(nonEmptyLines), 1)
 	contractID := lines[len(lines)-1]
 	require.Len(t, contractID, 56)
 	require.Regexp(t, "^C", contractID)
