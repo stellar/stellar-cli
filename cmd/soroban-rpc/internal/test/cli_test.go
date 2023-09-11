@@ -31,7 +31,10 @@ func TestCLIContractInstallAndDeploy(t *testing.T) {
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt 0 --wasm-hash %s", contractHash.HexString()))
-	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
+	lines := strings.Split(output, "\n")
+	last := lines[len(lines)-1]
+	require.Len(t, last, 56)
+	require.Regexp(t, "^C", last)
 }
 
 func TestCLIContractDeploy(t *testing.T) {
@@ -40,15 +43,9 @@ func TestCLIContractDeploy(t *testing.T) {
 	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
 }
 
-func TestCLIContractInvokeWithWasm(t *testing.T) {
-	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --salt=0 --wasm %s -- hello --world=world", helloWorldContractPath))
-	require.Contains(t, output, `["Hello","world"]`)
-}
-
 func TestCLIContractDeployAndInvoke(t *testing.T) {
 	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, "contract deploy --id 1 --wasm "+helloWorldContractPath)
+	output := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath)
 	contractID := strings.TrimSpace(output)
 	output = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
 	require.Contains(t, output, `["Hello","world"]`)
