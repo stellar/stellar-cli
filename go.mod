@@ -11,6 +11,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/pelletier/go-toml v1.9.5
 	github.com/prometheus/client_golang v1.16.0
+	github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00
 	github.com/rubenv/sql-migrate v1.5.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
@@ -18,6 +19,7 @@ require (
 	github.com/stellar/go v0.0.0-20230905170723-6e18a2f2f583
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/mod v0.12.0
+	gotest.tools/v3 v3.5.0
 )
 
 require (
@@ -38,6 +40,8 @@ require (
 	github.com/go-git/go-billy/v5 v5.3.1 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -57,7 +61,6 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
-	github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00 // indirect
 	github.com/rs/xhandler v0.0.0-20160618193221-ed27b6fd6521 // indirect
 	github.com/segmentio/go-loggly v0.5.1-0.20171222203950-eb91657e62b2 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
