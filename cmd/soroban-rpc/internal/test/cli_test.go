@@ -32,9 +32,24 @@ func TestCLIContractInstallAndDeploy(t *testing.T) {
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt 0 --wasm-hash %s", contractHash.HexString()))
 	println(string(output))
-	lines := strings.Split(output, "\n")
+	lines := filterSlice(strings.Split(output, "\n"), nonEmpty)
 	last := lines[len(lines)-1]
 	isValidContractID(t, last)
+}
+
+func nonEmpty(s string) bool {
+	return s != ""
+}
+
+func filterSlice(slice []string, keep func(string) bool) []string {
+	newSlice := slice[:0]
+
+	for _, item := range slice {
+		if keep(item) {
+			newSlice = append(newSlice, item)
+		}
+	}
+	return newSlice
 }
 
 func isValidContractID(t *testing.T, contractID string) {
@@ -45,7 +60,7 @@ func isValidContractID(t *testing.T, contractID string) {
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
 	output := runSuccessfulCLICmd(t, "contract deploy --salt 0 --wasm "+helloWorldContractPath)
-	lines := strings.Split(output, "\n")
+	lines := filterSlice(strings.Split(output, "\n"), nonEmpty)
 	last := lines[len(lines)-1]
 	isValidContractID(t, last)
 }
