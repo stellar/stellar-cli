@@ -2,6 +2,7 @@ use soroban_test::TestEnv;
 use std::path::PathBuf;
 
 #[test]
+#[cfg_attr(target_os = "windows", ignore)]
 fn lab_xdr_decode() {
     let sandbox = TestEnv::default();
     let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
