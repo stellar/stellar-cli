@@ -4,7 +4,6 @@ use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
     LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
@@ -519,9 +518,8 @@ soroban config identity fund {address} --helper-url <url>"#
             ));
         }
         let ledger_entry = &entries[0];
-        let mut depth_limit_read = DepthLimitedRead::new(ledger_entry.xdr.as_bytes(), 100);
         if let LedgerEntryData::Account(entry) =
-            LedgerEntryData::read_xdr_base64(&mut depth_limit_read)?
+            LedgerEntryData::from_xdr_base64(ledger_entry.xdr.as_bytes())?
         {
             tracing::trace!(account=?entry);
             Ok(entry)
@@ -550,11 +548,8 @@ soroban config identity fund {address} --helper-url <url>"#
             let error = error_result_xdr
                 .ok_or(Error::MissingError)
                 .and_then(|x| {
-                    TransactionResult::read_xdr_base64(&mut DepthLimitedRead::new(
-                        x.as_bytes(),
-                        100,
-                    ))
-                    .map_err(|_| Error::InvalidResponse)
+                    TransactionResult::from_xdr_base64(x.as_bytes())
+                        .map_err(|_| Error::InvalidResponse)
                 })
                 .map(|r| r.result);
             tracing::error!(?error);
