@@ -25,6 +25,15 @@ func TestCLIContractInstall(t *testing.T) {
 	require.Contains(t, output, contractHash.HexString())
 }
 
+func TestCLIContractInstallAndDeploy(t *testing.T) {
+	NewCLITest(t)
+	runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)
+	wasm := getHelloWorldContract(t)
+	contractHash := xdr.Hash(sha256.Sum256(wasm))
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt 0 --wasm-hash %s", contractHash.HexString()))
+	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
+}
+
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
 	output := runSuccessfulCLICmd(t, "contract deploy --salt 0 --wasm "+helloWorldContractPath)
