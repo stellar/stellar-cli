@@ -3,7 +3,6 @@ package methods
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
@@ -73,7 +72,6 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 		txHash := hex.EncodeToString(hash[:])
 
 		ledgerInfo := store.GetLatestLedger()
-		fmt.Printf("\n\n\nTX: %s\n\n\n", txHash)
 		resp, err := submitter.SubmitTransaction(ctx, request.Transaction)
 		if err != nil {
 			logger.WithError(err).
