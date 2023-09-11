@@ -3,6 +3,7 @@ use soroban_cli::commands::{
     contract::{self, fetch},
 };
 use soroban_test::TestEnv;
+use std::path::PathBuf;
 
 use crate::util::{
     add_test_seed, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE,
@@ -443,4 +444,24 @@ async fn fetch() {
     ]);
     cmd.run().await.unwrap();
     assert!(f.exists());
+}
+
+#[test]
+fn build() {
+    let sandbox = TestEnv::default();
+
+    let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let hello_world_contract_path =
+        cargo_dir.join("tests/fixtures/test-wasms/hello_world/Cargo.toml");
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("build")
+        .arg("--manifest-path")
+        .arg(hello_world_contract_path)
+        .arg("--profile")
+        .arg("test-wasms")
+        .arg("--package")
+        .arg("test_hello_world")
+        .assert()
+        .success();
 }
