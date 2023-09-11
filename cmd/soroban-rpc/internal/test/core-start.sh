@@ -26,4 +26,4 @@ if [ "$1" = "standalone" ]; then
   popd
 fi
 
-exec stellar-core run --console
+exec stellar-core run --console --ll debug

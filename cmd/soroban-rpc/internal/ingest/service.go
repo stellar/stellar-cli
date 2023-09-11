@@ -232,14 +232,18 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 	startTime := time.Now()
 	s.logger.Infof("Ingesting ledger %d", sequence)
+	s.logger.Infof("Ingesting ledger %d (before GetLedger)", sequence)
 	ledgerCloseMeta, err := s.ledgerBackend.GetLedger(ctx, sequence)
 	if err != nil {
 		return err
 	}
+	s.logger.Infof("Ingesting ledger %d (after GetLedger)", sequence)
+	s.logger.Infof("Ingesting ledger %d (before NewLedgerChangeReaderFromLedgerCloseMeta)", sequence)
 	reader, err := ingest.NewLedgerChangeReaderFromLedgerCloseMeta(s.networkPassPhrase, ledgerCloseMeta)
 	if err != nil {
 		return err
 	}
+	s.logger.Infof("Ingesting ledger %d (before NexTx)", sequence)
 	tx, err := s.db.NewTx(ctx)
 	if err != nil {
 		return err
@@ -249,10 +253,12 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 			s.logger.WithError(err).Warn("could not rollback ingest write transactions")
 		}
 	}()
+	s.logger.Infof("Ingesting ledger %d (before ingestLedgerEntryChanges)", sequence)
 
 	if err := s.ingestLedgerEntryChanges(ctx, reader, tx, 0); err != nil {
 		return err
 	}
+	s.logger.Infof("Ingesting ledger %d (before reader.Close)", sequence)
 	if err := reader.Close(); err != nil {
 		return err
 	}
