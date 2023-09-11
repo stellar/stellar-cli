@@ -67,19 +67,19 @@ func TestCLIContractDeploy(t *testing.T) {
 
 func TestCLIContractDeployAndInvoke(t *testing.T) {
 	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath)
+	output := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath, true)
 	contractID := strings.TrimSpace(output)
 	output = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
 	require.Contains(t, output, `["Hello","world"]`)
 }
 
-func runSuccessfulCLICmd(t *testing.T, cmd string) string {
-	output, err := runCLICmd(t, cmd)
+func runSuccessfulCLICmd(t *testing.T, cmd string, rest ...bool) string {
+	output, err := runCLICmd(t, cmd, len(rest) > 0 && rest[0])
 	require.NoError(t, err, output)
 	return output
 }
 
-func runCLICmd(t *testing.T, cmd string) (string, error) {
+func runCLICmd(t *testing.T, cmd string, stdoutOnly bool) (string, error) {
 	args := []string{"run", "-q", "--", "--vv"}
 	parsedArgs, err := shlex.Split(cmd)
 	require.NoError(t, err)
@@ -89,8 +89,13 @@ func runCLICmd(t *testing.T, cmd string) (string, error) {
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
 	)
-	output, err := c.CombinedOutput()
-	return string(output), err
+	if stdoutOnly {
+		output, err := c.Output()
+		return string(output), err
+	} else {
+		output, err := c.CombinedOutput()
+		return string(output), err
+	}
 }
 
 func NewCLITest(t *testing.T) *Test {
