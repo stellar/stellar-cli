@@ -3,7 +3,6 @@ package test
 import (
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"testing"
@@ -32,28 +31,19 @@ func TestCLIContractInstallAndDeploy(t *testing.T) {
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt 0 --wasm-hash %s", contractHash.HexString()))
-	println(string(output))
-	lines := filterSlice(strings.Split(output, "\n"), nonEmpty)
-	last := lines[len(lines)-1]
-	isValidContractID(t, last)
+	outputsContractIDInLastLine(t, output)
 }
 
-func nonEmpty(s string) bool {
-	return s != ""
-}
-
-func filterSlice(slice []string, keep func(string) bool) []string {
-	newSlice := slice[:0]
-
-	for _, item := range slice {
-		if keep(item) {
-			newSlice = append(newSlice, item)
+func outputsContractIDInLastLine(t *testing.T, output string) {
+	lines := strings.Split(output, "\n")
+	nonEmptyLines := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if l != "" {
+			nonEmptyLines = append(nonEmptyLines, l)
 		}
 	}
-	return newSlice
-}
-
-func isValidContractID(t *testing.T, contractID string) {
+	require.GreaterOrEqual(t, nonEmptyLines, 1)
+	contractID := lines[len(lines)-1]
 	require.Len(t, contractID, 56)
 	require.Regexp(t, "^C", contractID)
 }
@@ -61,9 +51,7 @@ func isValidContractID(t *testing.T, contractID string) {
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
 	output := runSuccessfulCLICmd(t, "contract deploy --salt 0 --wasm "+helloWorldContractPath)
-	lines := filterSlice(strings.Split(output, "\n"), nonEmpty)
-	last := lines[len(lines)-1]
-	isValidContractID(t, last)
+	outputsContractIDInLastLine(t, output)
 }
 
 func TestCLIContractDeployAndInvoke(t *testing.T) {
@@ -76,10 +64,7 @@ func TestCLIContractDeployAndInvoke(t *testing.T) {
 
 func runSuccessfulCLICmd(t *testing.T, cmd string) string {
 	res := runCLICommand(t, cmd)
-	stderr := res.Stderr()
-	require.NoError(t, res.Error, stderr)
-	l := log.New(os.Stderr, "", 1)
-	l.Println(stderr)
+	require.NoError(t, res.Error, fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", res.Stderr(), res.Stdout()))
 	return res.Stdout()
 }
 
