@@ -1,8 +1,10 @@
 mod arg_parsing;
 mod config;
 
+mod contract_sandbox;
 mod custom_types;
 mod dotenv;
-mod invoke_sandbox;
+mod lab;
 mod plugin;
 mod util;
+mod version;

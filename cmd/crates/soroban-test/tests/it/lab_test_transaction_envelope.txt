@@ -1,0 +1,54 @@
+TransactionEnvelope(
+    Tx(
+        TransactionV1Envelope {
+            tx: Transaction {
+                source_account: Ed25519(
+                    Uint256(7376fde88e4cd61cc0fb294a1786b3f1d061f5f2f1ca57465faa932211b946d6),
+                ),
+                fee: 100,
+                seq_num: SequenceNumber(
+                    1,
+                ),
+                cond: Time(
+                    TimeBounds {
+                        min_time: TimePoint(
+                            0,
+                        ),
+                        max_time: TimePoint(
+                            0,
+                        ),
+                    },
+                ),
+                memo: None,
+                operations: VecM(
+                    [
+                        Operation {
+                            source_account: None,
+                            body: CreateAccount(
+                                CreateAccountOp {
+                                    destination: AccountId(
+                                        PublicKeyTypeEd25519(
+                                            Uint256(d18f0210ff6cc1f2dcf1301fbbd4c30ee11a075820684d471df89d0f1011ea28),
+                                        ),
+                                    ),
+                                    starting_balance: 1000000000000,
+                                },
+                            ),
+                        },
+                    ],
+                ),
+                ext: V0,
+            },
+            signatures: VecM(
+                [
+                    DecoratedSignature {
+                        hint: SignatureHint(11b946d6),
+                        signature: Signature(
+                            BytesM(a004a6e9b64c687f3f62b4fde3b1797c35786106e5f97f16dd9afe3ed850df87dd736390501f62726f7e99af4ec358a8fb281cab9f811a43989b8085dd312609),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+)
