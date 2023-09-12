@@ -4,63 +4,81 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
+	"github.com/google/shlex"
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/icmd"
 )
 
 func TestCLIContractInstall(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand("contract install --wasm " + helloWorldContractPath)
-	assert.NoError(t, err)
+	output := runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	require.Contains(t, output, contractHash.HexString())
 }
 
-func TestCLIContractDeploy(t *testing.T) {
+func TestCLIContractInstallAndDeploy(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand("contract deploy --id 1 --wasm " + helloWorldContractPath)
-	assert.NoError(t, err)
-	require.Contains(t, output, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM")
+	runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)
+	wasm := getHelloWorldContract(t)
+	contractHash := xdr.Hash(sha256.Sum256(wasm))
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt 0 --wasm-hash %s", contractHash.HexString()))
+	outputsContractIDInLastLine(t, output)
 }
 
-func TestCLIContractInvokeWithWasm(t *testing.T) {
+func outputsContractIDInLastLine(t *testing.T, output string) {
+	lines := strings.Split(output, "\n")
+	nonEmptyLines := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if l != "" {
+			nonEmptyLines = append(nonEmptyLines, l)
+		}
+	}
+	require.GreaterOrEqual(t, len(nonEmptyLines), 1)
+	contractID := nonEmptyLines[len(nonEmptyLines)-1]
+	require.Len(t, contractID, 56)
+	require.Regexp(t, "^C", contractID)
+}
+
+func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand(fmt.Sprintf("contract invoke --id 1 --wasm %s -- hello --world=world", helloWorldContractPath))
-	assert.NoError(t, err)
-	require.Contains(t, output, `["Hello","world"]`)
+	output := runSuccessfulCLICmd(t, "contract deploy --salt 0 --wasm "+helloWorldContractPath)
+	outputsContractIDInLastLine(t, output)
 }
 
 func TestCLIContractDeployAndInvoke(t *testing.T) {
 	NewCLITest(t)
-	output, err := runCLICommand("contract deploy --id 1 --wasm " + helloWorldContractPath)
-	assert.NoError(t, err)
+	output := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath)
 	contractID := strings.TrimSpace(output)
-	output, err = runCLICommand(fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
-	assert.NoError(t, err)
+	output = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
 	require.Contains(t, output, `["Hello","world"]`)
 }
 
-func runCLICommand(cmd string) (string, error) {
-	baseCmdArgs := []string{"run", "-q", "--", "--vv"}
-	args := strings.Split(cmd, " ")
-	args = append(baseCmdArgs, args...)
-	c := exec.Command("cargo", args...)
+func runSuccessfulCLICmd(t *testing.T, cmd string) string {
+	res := runCLICommand(t, cmd)
+	require.NoError(t, res.Error, fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", res.Stderr(), res.Stdout()))
+	return res.Stdout()
+}
+
+func runCLICommand(t *testing.T, cmd string) *icmd.Result {
+	args := []string{"run", "-q", "--", "--vv"}
+	parsedArgs, err := shlex.Split(cmd)
+	require.NoError(t, err, cmd)
+	args = append(args, parsedArgs...)
+	c := icmd.Command("cargo", args...)
 	c.Env = append(os.Environ(),
-		fmt.Sprintf("RPC_URL=http://localhost:%d/", sorobanRPCPort),
-		fmt.Sprintf("NETWORK_PASPRHASE=%s", StandaloneNetworkPassphrase),
+		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
+		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
 	)
-	bin, err := c.CombinedOutput()
-	return string(bin), err
+	return icmd.RunCmd(c)
 }
 
 func NewCLITest(t *testing.T) *Test {
