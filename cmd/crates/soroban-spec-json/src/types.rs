@@ -1,5 +1,5 @@
 use serde::Serialize;
-use stellar_xdr::{
+use stellar_xdr::curr::{
     ScSpecEntry, ScSpecFunctionInputV0, ScSpecTypeDef, ScSpecUdtEnumCaseV0,
     ScSpecUdtErrorEnumCaseV0, ScSpecUdtStructFieldV0, ScSpecUdtUnionCaseV0,
 };

@@ -6,7 +6,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
 };
-use stellar_xdr::ScSpecEntry;
+use stellar_xdr::curr::ScSpecEntry;
 
 use super::generate;
 

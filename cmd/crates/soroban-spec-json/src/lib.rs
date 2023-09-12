@@ -3,7 +3,7 @@ use std::{fs, io};
 pub mod types;
 
 use sha2::{Digest, Sha256};
-use stellar_xdr::ScSpecEntry;
+use stellar_xdr::curr::ScSpecEntry;
 
 use types::Entry;
 
@@ -16,7 +16,7 @@ pub enum GenerateFromFileError {
     #[error("sha256 does not match, expected: {expected}")]
     VerifySha256 { expected: String },
     #[error("parsing contract spec: {0}")]
-    Parse(stellar_xdr::Error),
+    Parse(stellar_xdr::curr::Error),
     #[error("getting contract spec: {0}")]
     GetSpec(FromWasmError),
 }

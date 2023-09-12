@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 use serde_json::{json, Value};
-use stellar_xdr::{
+use stellar_xdr::curr::{
     AccountId, BytesM, ContractExecutable, Error as XdrError, Hash, Int128Parts, Int256Parts,
     PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
     ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
@@ -1174,15 +1174,13 @@ impl Spec {
             .iter()
             .map(|f| {
                 Some(match f {
-                    stellar_xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                    stellar_xdr::curr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
                         name,
                         ..
                     }) => name.to_string_lossy(),
-                    stellar_xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
-                        name,
-                        type_,
-                        ..
-                    }) => format!(
+                    stellar_xdr::curr::ScSpecUdtUnionCaseV0::TupleV0(
+                        ScSpecUdtUnionCaseTupleV0 { name, type_, .. },
+                    ) => format!(
                         "{}({})",
                         name.to_string_lossy(),
                         type_
@@ -1326,33 +1324,32 @@ impl Spec {
     }
 
     fn example_union(&self, union: &ScSpecUdtUnionV0) -> Option<String> {
-        let res = union
-            .cases
-            .iter()
-            .map(|case| match case {
-                stellar_xdr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
-                    name,
-                    ..
-                }) => Some(format!("\"{}\"", name.to_string_lossy())),
-                stellar_xdr::ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
-                    name,
-                    type_,
-                    ..
-                }) => {
-                    if type_.len() == 1 {
-                        let single = self.example(&type_[0])?;
-                        Some(format!("{{\"{}\":{single}}}", name.to_string_lossy()))
-                    } else {
-                        let names = type_
-                            .iter()
-                            .map(|t| self.example(t))
-                            .collect::<Option<Vec<_>>>()?
-                            .join(", ");
-                        Some(format!("{{\"{}\":[{names}]}}", name.to_string_lossy()))
+        let res =
+            union
+                .cases
+                .iter()
+                .map(|case| match case {
+                    stellar_xdr::curr::ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                        name,
+                        ..
+                    }) => Some(format!("\"{}\"", name.to_string_lossy())),
+                    stellar_xdr::curr::ScSpecUdtUnionCaseV0::TupleV0(
+                        ScSpecUdtUnionCaseTupleV0 { name, type_, .. },
+                    ) => {
+                        if type_.len() == 1 {
+                            let single = self.example(&type_[0])?;
+                            Some(format!("{{\"{}\":{single}}}", name.to_string_lossy()))
+                        } else {
+                            let names = type_
+                                .iter()
+                                .map(|t| self.example(t))
+                                .collect::<Option<Vec<_>>>()?
+                                .join(", ");
+                            Some(format!("{{\"{}\":[{names}]}}", name.to_string_lossy()))
+                        }
                     }
-                }
-            })
-            .collect::<Option<Vec<_>>>()?;
+                })
+                .collect::<Option<Vec<_>>>()?;
         Some(res.join("|"))
     }
 }
@@ -1361,7 +1358,7 @@ impl Spec {
 mod tests {
     use super::*;
 
-    use stellar_xdr::ScSpecTypeBytesN;
+    use stellar_xdr::curr::ScSpecTypeBytesN;
 
     #[test]
     fn from_json_primitives_bytesn() {
