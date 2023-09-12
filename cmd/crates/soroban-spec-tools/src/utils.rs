@@ -5,7 +5,7 @@ use std::{
     io::{self, Cursor},
 };
 
-use stellar_xdr::curr::{
+use stellar_xdr::{
     DepthLimitedRead, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
     ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
     StringM,
@@ -33,7 +33,7 @@ pub enum Error {
         error: wasmparser::BinaryReaderError,
     },
     #[error("xdr processing error: {0}")]
-    Xdr(#[from] stellar_xdr::curr::Error),
+    Xdr(#[from] stellar_xdr::Error),
 
     #[error(transparent)]
     Parser(#[from] wasmparser::BinaryReaderError),
@@ -63,7 +63,7 @@ impl ContractSpec {
             let cursor = Cursor::new(env_meta);
             let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
             ScEnvMetaEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, stellar_xdr::curr::Error>>()?
+                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
         };
@@ -74,7 +74,7 @@ impl ContractSpec {
             let cursor = Cursor::new(meta);
             let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
             ScMetaEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, stellar_xdr::curr::Error>>()?
+                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
         };
@@ -85,7 +85,7 @@ impl ContractSpec {
             let cursor = Cursor::new(spec);
             let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
             ScSpecEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, stellar_xdr::curr::Error>>()?
+                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
         } else {
             vec![]
         };
