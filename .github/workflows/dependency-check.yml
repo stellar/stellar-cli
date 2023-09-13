@@ -20,6 +20,7 @@ jobs:
           go-version: 1.20.1
       - run: scripts/check-dependencies.bash
   validate-rust-git-rev-deps:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: stellar/actions/rust-check-git-rev-deps@main
