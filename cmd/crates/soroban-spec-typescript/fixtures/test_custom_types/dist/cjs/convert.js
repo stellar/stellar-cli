@@ -2,9 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.u128ToScVal = exports.i128ToScVal = exports.addressToScVal = exports.scValToJs = exports.scValStrToJs = exports.strToScVal = void 0;
 const soroban_client_1 = require("soroban-client");
-const buffer_1 = require("buffer");
 function strToScVal(base64Xdr) {
-    return soroban_client_1.xdr.ScVal.fromXDR(buffer_1.Buffer.from(base64Xdr, 'base64'));
+    return soroban_client_1.xdr.ScVal.fromXDR(base64Xdr);
 }
 exports.strToScVal = strToScVal;
 function scValStrToJs(base64Xdr) {
@@ -32,7 +31,7 @@ function scValToJs(val) {
         case soroban_client_1.xdr.ScValType.scvI128():
         case soroban_client_1.xdr.ScValType.scvU256():
         case soroban_client_1.xdr.ScValType.scvI256(): {
-            return (0, soroban_client_1.scValToBigInt)(val);
+            return soroban_client_1.scValToBigInt(val);
         }
         case soroban_client_1.xdr.ScValType.scvAddress(): {
             return soroban_client_1.Address.fromScVal(val).toString();
@@ -77,13 +76,10 @@ function scValToJs(val) {
             return res;
         }
         case soroban_client_1.xdr.ScValType.scvContractInstance():
-            return val.instance();
         case soroban_client_1.xdr.ScValType.scvLedgerKeyNonce():
-            return val.nonceKey();
         case soroban_client_1.xdr.ScValType.scvTimepoint():
-            return val.timepoint();
         case soroban_client_1.xdr.ScValType.scvDuration():
-            return val.duration();
+            return val.value();
         // TODO: Add this case when merged
         // case xdr.ScValType.scvError():
         default: {
@@ -94,8 +90,7 @@ function scValToJs(val) {
 }
 exports.scValToJs = scValToJs;
 function addressToScVal(addr) {
-    let addrObj = soroban_client_1.Address.fromString(addr);
-    return addrObj.toScVal();
+    return soroban_client_1.nativeToScVal(addr, { type: 'address' });
 }
 exports.addressToScVal = addressToScVal;
 function i128ToScVal(i) {

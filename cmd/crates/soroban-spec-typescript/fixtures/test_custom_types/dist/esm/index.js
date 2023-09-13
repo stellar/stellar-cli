@@ -7,7 +7,6 @@ export { Address };
 ;
 ;
 export class Ok {
-    value;
     constructor(value) {
         this.value = value;
     }
@@ -25,7 +24,6 @@ export class Ok {
     }
 }
 export class Err {
-    error;
     constructor(error) {
         this.error = error;
     }
@@ -78,8 +76,6 @@ const Errors = {
     1: { message: "Please provide an odd number" }
 };
 export class Contract {
-    options;
-    spec;
     constructor(options) {
         this.options = options;
         this.spec = new ContractSpec([
@@ -163,7 +159,6 @@ export class Contract {
             });
         }
         catch (e) {
-            console.log(e);
             if (typeof e === 'string') {
                 let err = parseError(e);
                 if (err)

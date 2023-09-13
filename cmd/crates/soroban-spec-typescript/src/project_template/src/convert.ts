@@ -100,7 +100,7 @@ type KeyType<T> = T extends Map<infer K, any> ? K : never;
 type ValueType<T> = T extends Map<any, infer V> ? V : never;
 
 export function addressToScVal(addr: string): xdr.ScVal {
-    return nativeToScVal(addr, { type: 'address' });
+    return nativeToScVal(addr, { type: 'address' } as any /* bug workaround */);
 }
 
 export function i128ToScVal(i: bigint): xdr.ScVal {

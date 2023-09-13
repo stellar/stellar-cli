@@ -1,6 +1,6 @@
 declare let responseTypes: 'simulated' | 'full' | undefined;
-export type ResponseTypes = typeof responseTypes;
-export type XDR_BASE64 = string;
+export declare type ResponseTypes = typeof responseTypes;
+export declare type XDR_BASE64 = string;
 export interface Wallet {
     isConnected: () => Promise<boolean>;
     isAllowed: () => Promise<boolean>;
@@ -13,7 +13,7 @@ export interface Wallet {
         accountToSign?: string;
     }) => Promise<XDR_BASE64>;
 }
-export type ClassOptions = {
+export declare type ClassOptions = {
     contractId: string;
     networkPassphrase: string;
     rpcUrl: string;
@@ -32,7 +32,7 @@ export type ClassOptions = {
      */
     wallet?: Wallet;
 };
-export type MethodOptions<R extends ResponseTypes> = {
+export declare type MethodOptions<R extends ResponseTypes> = {
     /**
      * The fee to pay for the transaction. Default: 100.
      */
