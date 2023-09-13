@@ -16,11 +16,13 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stellar/go v0.0.0-20230912144159-176a6f499a49
+	github.com/stellar/go v0.0.0-20230913112642-b19a4ceec268
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/mod v0.12.0
 	gotest.tools/v3 v3.5.0
 )
+
+require github.com/xdrpp/goxdr v0.1.1 // indirect
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect

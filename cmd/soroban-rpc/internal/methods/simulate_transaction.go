@@ -7,6 +7,7 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
+	"github.com/stellar/go/gxdr"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
@@ -53,6 +54,13 @@ type PreflightGetter interface {
 func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, ledgerReader db.LedgerReader, getter PreflightGetter) jrpc2.Handler {
 
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
+		if err := gxdr.ValidateTransactionEnvelope(request.Transaction, gxdr.DefaultMaxDepth); err != nil {
+			logger.WithError(err).WithField("request", request).
+				Info("could not validate simulate transaction envelope")
+			return SimulateTransactionResponse{
+				Error: "Could not unmarshal transaction",
+			}
+		}
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
 			logger.WithError(err).WithField("request", request).
