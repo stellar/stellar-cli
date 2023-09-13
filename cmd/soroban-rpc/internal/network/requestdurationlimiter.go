@@ -100,24 +100,20 @@ func (w *bufferedResponseWriter) WriteOut(ctx context.Context, rw http.ResponseW
 	for k, v := range w.header {
 		headers[k] = v
 	}
-	complete := make(chan interface{})
-	go func() {
-		if len(w.buffer) == 0 {
-			if w.statusCode != 0 {
-				rw.WriteHeader(w.statusCode)
-			}
-			return
-		}
+
+	if len(w.buffer) == 0 {
 		if w.statusCode != 0 {
 			rw.WriteHeader(w.statusCode)
 		}
+		return
+	}
+	if w.statusCode != 0 {
+		rw.WriteHeader(w.statusCode)
+	}
+
+	if ctx.Err() == nil {
 		// the following return size/error won't help us much at this point. The request is already finalized.
 		rw.Write(w.buffer) //nolint:errcheck
-		close(complete)
-	}()
-	select {
-	case <-complete:
-	case <-ctx.Done():
 	}
 }
 
