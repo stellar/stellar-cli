@@ -31,15 +31,15 @@ jobs:
       # test runtime environment, tests invoke rustc/cargo
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
 
-      # set the version of js-soroban-client to use, need to choose one of either
+      # set the version of js-soroban-client to use, need to choose one of either 
       # resolution options, using npm release or a gh ref:
       #
-      # option #1, set the version of js-soroban-client based on a npm release version
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: v1.0.0-beta.0
-      # option #2, set the version of js-soroban-client used as a ref to a gh repo
+      # option #1, set the version of soroban-js-client based on a npm release version
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: 
+      # option #2, set the version of soroban-js-client used as a ref to a gh repo
       # if this value is present it takes precedence over any SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO:
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF:
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO: stellar/js-soroban-client
+      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF: refs/pull/135/head
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
@@ -62,11 +62,11 @@ jobs:
         name: checkout soroban-tools
         with:
           path: soroban-tools
-      - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}
+      - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}   
         name: prepare local js-soroban-client
         run: |
           rm -rf $GITHUB_WORKSPACE/system-test/js-soroban-client;
-      - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}
+      - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}    
         uses: actions/checkout@v3
         with:
           repository: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}
@@ -80,7 +80,7 @@ jobs:
             JS_SOROBAN_CLIENT_REF="$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION"; \
           else \
             JS_SOROBAN_CLIENT_REF="file:/home/tester/js-soroban-client"; \
-          fi
+          fi 
           make \
             CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
             CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
