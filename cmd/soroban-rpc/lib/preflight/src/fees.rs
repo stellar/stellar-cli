@@ -437,7 +437,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         read_bytes: write_bytes + expiration_bytes,
         write_bytes,
     };
-    let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
         &OperationBody::RestoreFootprint(RestoreFootprintOp {
             ext: ExtensionPoint::V0,
@@ -447,8 +446,8 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     .context("cannot estimate maximum transaction size")?;
     let transaction_resources = TransactionResources {
         instructions: 0,
-        read_entries: entry_count,
-        write_entries: entry_count,
+        read_entries: 0,
+        write_entries: u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: soroban_resources.write_bytes,
         transaction_size_bytes,
