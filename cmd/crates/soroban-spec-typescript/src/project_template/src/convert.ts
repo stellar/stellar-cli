@@ -7,7 +7,7 @@ import {
 } from 'soroban-client';
 
 export function strToScVal(base64Xdr: string): xdr.ScVal {
-    return xdr.ScVal.fromXDR(base64Xdr);
+    return xdr.ScVal.fromXDR(base64Xdr, 'base64');
 }
 
 export function scValStrToJs<T>(base64Xdr: string): T {

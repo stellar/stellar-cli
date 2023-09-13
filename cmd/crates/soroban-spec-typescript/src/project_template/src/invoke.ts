@@ -103,6 +103,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
     fee: fee.toString(10),
     networkPassphrase,
   })
+    .setNetworkPassphrase(networkPassphrase)
     .addOperation(contract.call(method, ...args))
     .setTimeout(SorobanClient.TimeoutInfinite)
     .build();
@@ -113,20 +114,19 @@ export async function invoke<R extends ResponseTypes, T = string>({
   } else if (responseType === "simulated") {
     return simulated;
   } else if (!simulated.result) {
-    throw new Error(`invalid simulation: no result iN ${simulated}`);
+    throw new Error(`invalid simulation: no result in ${simulated}`);
   }
 
-  let authsCount = simulated.result!.auth.length ?? 0;
-
+  let authsCount = simulated.result.auth.length;
   const writeLength = simulated.transactionData.getReadWrite().length;
-  const isViewCall = authsCount === 0 && writeLength === 0;
+  const isViewCall = (authsCount === 0) && (writeLength === 0);
 
   if (isViewCall) {
     if (responseType === "full") {
       return simulated;
     }
 
-    return parseResultXdr(simulated.result!.retval);
+    return parseResultXdr(simulated.result.retval);
   }
 
   if (authsCount > 1) {

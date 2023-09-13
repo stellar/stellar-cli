@@ -1,6 +1,6 @@
 import { xdr, Address, nativeToScVal, scValToBigInt, ScInt } from 'soroban-client';
 export function strToScVal(base64Xdr) {
-    return xdr.ScVal.fromXDR(base64Xdr);
+    return xdr.ScVal.fromXDR(base64Xdr, 'base64');
 }
 export function scValStrToJs(base64Xdr) {
     return scValToJs(strToScVal(base64Xdr));
@@ -84,7 +84,7 @@ export function scValToJs(val) {
     ;
 }
 export function addressToScVal(addr) {
-    return nativeToScVal(addr, { type: 'address' });
+    return nativeToScVal(addr, { type: 'address' } /* bug workaround */);
 }
 export function i128ToScVal(i) {
     return new ScInt(i).toI128();

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.u128ToScVal = exports.i128ToScVal = exports.addressToScVal = exports.scValToJs = exports.scValStrToJs = exports.strToScVal = void 0;
 const soroban_client_1 = require("soroban-client");
 function strToScVal(base64Xdr) {
-    return soroban_client_1.xdr.ScVal.fromXDR(base64Xdr);
+    return soroban_client_1.xdr.ScVal.fromXDR(base64Xdr, 'base64');
 }
 exports.strToScVal = strToScVal;
 function scValStrToJs(base64Xdr) {
@@ -90,7 +90,7 @@ function scValToJs(val) {
 }
 exports.scValToJs = scValToJs;
 function addressToScVal(addr) {
-    return soroban_client_1.nativeToScVal(addr, { type: 'address' });
+    return soroban_client_1.nativeToScVal(addr, { type: 'address' } /* bug workaround */);
 }
 exports.addressToScVal = addressToScVal;
 function i128ToScVal(i) {

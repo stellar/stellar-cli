@@ -7,7 +7,7 @@ import {
 } from 'soroban-client';
 
 export function strToScVal(base64Xdr: string): xdr.ScVal {
-    return xdr.ScVal.fromXDR(base64Xdr);
+    return xdr.ScVal.fromXDR(base64Xdr, 'base64');
 }
 
 export function scValStrToJs<T>(base64Xdr: string): T {
@@ -100,7 +100,7 @@ type KeyType<T> = T extends Map<infer K, any> ? K : never;
 type ValueType<T> = T extends Map<any, infer V> ? V : never;
 
 export function addressToScVal(addr: string): xdr.ScVal {
-    return nativeToScVal(addr, { type: 'address' } as any);
+    return nativeToScVal(addr, { type: 'address' } as any /* bug workaround */);
 }
 
 export function i128ToScVal(i: bigint): xdr.ScVal {

@@ -37,6 +37,7 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         fee: fee.toString(10),
         networkPassphrase,
     })
+        .setNetworkPassphrase(networkPassphrase)
         .addOperation(contract.call(method, ...args))
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
@@ -48,11 +49,11 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         return simulated;
     }
     else if (!simulated.result) {
-        throw new Error(`invalid simulation: no result iN ${simulated}`);
+        throw new Error(`invalid simulation: no result in ${simulated}`);
     }
-    let authsCount = simulated.result.auth.length ?? 0;
+    let authsCount = simulated.result.auth.length;
     const writeLength = simulated.transactionData.getReadWrite().length;
-    const isViewCall = authsCount === 0 && writeLength === 0;
+    const isViewCall = (authsCount === 0) && (writeLength === 0);
     if (isViewCall) {
         if (responseType === "full") {
             return simulated;
