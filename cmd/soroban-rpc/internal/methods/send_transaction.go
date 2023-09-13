@@ -6,6 +6,7 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
+	"github.com/stellar/go/gxdr"
 	"github.com/stellar/go/network"
 	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/support/log"
@@ -48,17 +49,24 @@ type LatestLedgerStore interface {
 	GetLatestLedger() transactions.LedgerInfo
 }
 
+var invalidTransactionXdrError = &jrpc2.Error{
+	Code:    jrpc2.InvalidParams,
+	Message: "invalid_xdr",
+}
+
 // NewSendTransactionHandler returns a submit transaction json rpc handler
 func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, store LatestLedgerStore, passphrase string) jrpc2.Handler {
 	submitter := daemon.CoreClient()
 	return handler.New(func(ctx context.Context, request SendTransactionRequest) (SendTransactionResponse, error) {
+		if err := gxdr.ValidateTransactionEnvelope(request.Transaction, gxdr.DefaultMaxDepth); err != nil {
+			logger.WithError(err).WithField("request", request).
+				Info("could not validate send transaction envelope")
+			return SendTransactionResponse{}, invalidTransactionXdrError
+		}
 		var envelope xdr.TransactionEnvelope
 		err := xdr.SafeUnmarshalBase64(request.Transaction, &envelope)
 		if err != nil {
-			return SendTransactionResponse{}, &jrpc2.Error{
-				Code:    jrpc2.InvalidParams,
-				Message: "invalid_xdr",
-			}
+			return SendTransactionResponse{}, invalidTransactionXdrError
 		}
 
 		var hash [32]byte
