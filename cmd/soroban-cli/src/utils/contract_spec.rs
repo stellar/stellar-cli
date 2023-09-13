@@ -1,11 +1,14 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine as _};
-use std::{fmt::Display, io};
+use std::{
+    fmt::Display,
+    io::{self, Cursor},
+};
 
 use soroban_env_host::xdr::{
-    self, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0,
-    ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,
+    self, DepthLimitedRead, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
+    ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
+    StringM, WriteXdr,
 };
-use soroban_sdk::xdr::VecM;
 
 pub struct ContractSpec {
     pub env_meta_base64: Option<String>,
@@ -56,7 +59,10 @@ impl ContractSpec {
         let mut env_meta_base64 = None;
         let env_meta = if let Some(env_meta) = env_meta {
             env_meta_base64 = Some(base64.encode(env_meta));
-            VecM::<ScEnvMetaEntry>::from_xdr(env_meta)?.into()
+            let cursor = Cursor::new(env_meta);
+            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
+            ScEnvMetaEntry::read_xdr_iter(&mut depth_limit_read)
+                .collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
             vec![]
         };
@@ -64,7 +70,10 @@ impl ContractSpec {
         let mut meta_base64 = None;
         let meta = if let Some(meta) = meta {
             meta_base64 = Some(base64.encode(meta));
-            VecM::<ScMetaEntry>::from_xdr(meta)?.into()
+            let cursor = Cursor::new(meta);
+            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
+            ScMetaEntry::read_xdr_iter(&mut depth_limit_read)
+                .collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
             vec![]
         };
@@ -72,7 +81,10 @@ impl ContractSpec {
         let mut spec_base64 = None;
         let spec = if let Some(spec) = spec {
             spec_base64 = Some(base64.encode(spec));
-            VecM::<ScSpecEntry>::from_xdr(spec)?.into()
+            let cursor = Cursor::new(spec);
+            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
+            ScSpecEntry::read_xdr_iter(&mut depth_limit_read)
+                .collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
             vec![]
         };
