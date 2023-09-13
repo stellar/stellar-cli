@@ -6,6 +6,7 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
+	"github.com/stellar/go/gxdr"
 
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
@@ -47,6 +48,14 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 		var ledgerKeys []xdr.LedgerKey
 		for i, requestKey := range request.Keys {
 			var ledgerKey xdr.LedgerKey
+			if err := gxdr.ValidateLedgerKey(requestKey, gxdr.DefaultMaxDepth); err != nil {
+				logger.WithError(err).WithField("request", request).
+					Infof("could not validate ledgerKey at index %d from getLedgerEntries request", i)
+				return GetLedgerEntriesResponse{}, &jrpc2.Error{
+					Code:    jrpc2.InvalidParams,
+					Message: fmt.Sprintf("cannot unmarshal key value %s at index %d", requestKey, i),
+				}
+			}
 			if err := xdr.SafeUnmarshalBase64(requestKey, &ledgerKey); err != nil {
 				logger.WithError(err).WithField("request", request).
 					Infof("could not unmarshal requestKey %s at index %d from getLedgerEntries request", requestKey, i)

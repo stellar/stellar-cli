@@ -20,7 +20,7 @@ sha2 = "0.9.9"
 
 [dependencies.stellar-xdr]
 workspace = true
-features = ["next", "std", "serde"]
+features = ["curr", "std", "serde"]
 
 [dev_dependencies]
 pretty_assertions = "1.2.1"
