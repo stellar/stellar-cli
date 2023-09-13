@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"testing"
 	"time"
@@ -54,11 +55,12 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	address := kp.Address()
 	account := txnbuild.NewSimpleAccount(address, 0)
 
+	contractBinary := getHelloWorldContract(t)
 	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(account.AccountID, testContract),
+			createInstallContractCodeOperation(account.AccountID, contractBinary),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -77,8 +79,9 @@ func TestSendTransactionSucceedsWithResults(t *testing.T) {
 	invokeHostFunctionResult, ok := opResults[0].MustTr().GetInvokeHostFunctionResult()
 	assert.True(t, ok)
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
-	contractIDBytes := xdr.ScBytes(testContractId)
-	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractIDBytes}
+	contractHash := sha256.Sum256(contractBinary)
+	contractHashBytes := xdr.ScBytes(contractHash[:])
+	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractHashBytes}
 	var transactionMeta xdr.TransactionMeta
 	assert.NoError(t, xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &transactionMeta))
 	assert.True(t, expectedScVal.Equals(transactionMeta.V3.SorobanMeta.ReturnValue))
@@ -158,7 +161,7 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	address := kp.Address()
 	account := txnbuild.NewSimpleAccount(address, 0)
 
-	op := createInstallContractCodeOperation(account.AccountID, testContract)
+	op := createInstallContractCodeOperation(account.AccountID, getHelloWorldContract(t))
 	// without the presources the tx will fail
 	op.Ext = xdr.TransactionExt{
 		V:           1,
