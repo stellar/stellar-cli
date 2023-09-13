@@ -33,7 +33,7 @@ STELLAR_XDR_REVISION_FROM_RUST=""
 
 if CARGO_OUTPUT=$(cargo tree --depth 0 -p stellar-xdr 2>&1); then
   RS_STELLAR_XDR_REVISION=$(echo $CARGO_OUTPUT | head -n 1 | $SED "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
-  STELLAR_XDR_REVISION_FROM_RUST=$($CURL https://raw.githubusercontent.com/stellar/rs-stellar-xdr/${RS_STELLAR_XDR_REVISION}/xdr/next-version)
+  STELLAR_XDR_REVISION_FROM_RUST=$($CURL https://raw.githubusercontent.com/stellar/rs-stellar-xdr/${RS_STELLAR_XDR_REVISION}/xdr/curr-version)
 else
   echo "The project depends on multiple versions of the Rust rs-stellar-xdr library"
   echo "Make sure a single version of stellar-xdr is used"
