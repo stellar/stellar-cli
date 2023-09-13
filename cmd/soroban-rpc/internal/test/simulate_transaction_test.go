@@ -23,14 +23,7 @@ import (
 )
 
 var (
-	testContract   = []byte("a contract")
-	testSalt       = sha256.Sum256([]byte("a1"))
-	testContractId = []byte{
-		16, 98, 83, 23, 8, 235, 211, 5,
-		62, 173, 70, 33, 7, 31, 219, 59,
-		180, 75, 106, 249, 139, 196, 156, 192,
-		113, 17, 184, 51, 142, 142, 94, 40,
-	}
+	testSalt = sha256.Sum256([]byte("a1"))
 )
 
 func getHelloWorldContract(t *testing.T) []byte {
@@ -202,6 +195,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
+	contractBinary := getHelloWorldContract(t)
 	params := txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: sourceAccount,
@@ -209,7 +203,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(sourceAccount, testContract),
+			createInstallContractCodeOperation(sourceAccount, contractBinary),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -219,11 +213,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	}
 	result := simulateTransactionFromTxParams(t, client, params)
 
-	testContractIdBytes := xdr.ScBytes(testContractId)
-	expectedXdr := xdr.ScVal{
-		Type:  xdr.ScValTypeScvBytes,
-		Bytes: &testContractIdBytes,
-	}
+	contractHash := sha256.Sum256(contractBinary)
+	contractHashBytes := xdr.ScBytes(contractHash[:])
+	expectedXdr := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractHashBytes}
 	assert.Greater(t, result.LatestLedger, int64(0))
 	assert.Greater(t, result.Cost.CPUInstructions, uint64(0))
 	assert.Greater(t, result.Cost.MemoryBytes, uint64(0))
@@ -235,7 +227,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					{
 						Type: xdr.LedgerEntryTypeContractCode,
 						ContractCode: &xdr.LedgerKeyContractCode{
-							Hash: xdr.Hash(testContractId),
+							Hash: xdr.Hash(contractHash),
 						},
 					},
 				},
@@ -261,7 +253,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, expectedXdr, resultXdr)
 
 	// test operation which does not have a source account
-	withoutSourceAccountOp := createInstallContractCodeOperation("", testContract)
+	withoutSourceAccountOp := createInstallContractCodeOperation("", contractBinary)
 	params = txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: sourceAccount,
@@ -290,7 +282,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(sourceAccount, testContract),
+			createInstallContractCodeOperation(sourceAccount, contractBinary),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -597,6 +589,7 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
+	contractBinary := getHelloWorldContract(t)
 	params := txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
@@ -604,8 +597,8 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(sourceAccount, testContract),
-			createCreateContractOperation(t, sourceAccount, testContract, StandaloneNetworkPassphrase),
+			createInstallContractCodeOperation(sourceAccount, contractBinary),
+			createCreateContractOperation(t, sourceAccount, contractBinary, StandaloneNetworkPassphrase),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
