@@ -100,24 +100,33 @@ func (w *bufferedResponseWriter) WriteOut(ctx context.Context, rw http.ResponseW
 	for k, v := range w.header {
 		headers[k] = v
 	}
-	complete := make(chan interface{})
-	go func() {
-		if len(w.buffer) == 0 {
-			if w.statusCode != 0 {
-				rw.WriteHeader(w.statusCode)
-			}
-			return
-		}
+
+	if len(w.buffer) == 0 {
 		if w.statusCode != 0 {
 			rw.WriteHeader(w.statusCode)
 		}
-		// the following return size/error won't help us much at this point. The request is already finalized.
-		rw.Write(w.buffer) //nolint:errcheck
-		close(complete)
-	}()
-	select {
-	case <-complete:
-	case <-ctx.Done():
+		return
+	}
+	if w.statusCode != 0 {
+		rw.WriteHeader(w.statusCode)
+	}
+	// chunkSize defines the subset of the output buffer that we're going to attempt to write to the stream.
+	// we choose the typical ethernet MTU size here, to align with the expected transport layer characteristics.
+	const chunkSize = 1500
+	// iterate on the output buffer
+	for startChunkIdx := 0; startChunkIdx < len(w.buffer) && ctx.Err() == nil; {
+		// slice the output buffer into chunks.
+		chunkBuf := w.buffer[startChunkIdx:]
+		if len(chunkBuf) > chunkSize {
+			chunkBuf = chunkBuf[:chunkSize]
+		}
+		// write the chunk to the stream
+		n, err := rw.Write(chunkBuf)
+		// if we weren't able to write the chunk due to an error, abort writing.
+		if err != nil {
+			break
+		}
+		startChunkIdx += n
 	}
 }
 
