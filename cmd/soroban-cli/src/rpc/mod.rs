@@ -4,13 +4,13 @@ use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
+use soroban_env_host::xdr::SorobanAuthorizedFunction;
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
     LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
     SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope, TransactionMeta,
     TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
-use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
 use std::{
     fmt::Display,
