@@ -83,11 +83,12 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	kp := keypair.Root(StandaloneNetworkPassphrase)
 	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
 
+	contractBinary := getHelloWorldContract(t)
 	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createInstallContractCodeOperation(account.AccountID, testContract),
+			createInstallContractCodeOperation(account.AccountID, contractBinary),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -110,7 +111,7 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	txStatusResponse := getTransaction(t, client, sendTxResponse.Hash)
 	require.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
 
-	contractHash := sha256.Sum256(testContract)
+	contractHash := sha256.Sum256(contractBinary)
 	contractKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractCode,
 		ContractCode: &xdr.LedgerKeyContractCode{
@@ -153,6 +154,6 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 
 	var firstEntry xdr.LedgerEntryData
 	require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
-	require.Equal(t, testContract, firstEntry.MustContractCode().Code)
+	require.Equal(t, contractBinary, firstEntry.MustContractCode().Code)
 	require.Equal(t, contractKeyB64, result.Entries[0].Key)
 }
