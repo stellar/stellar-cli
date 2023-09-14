@@ -103,7 +103,6 @@ export async function invoke<R extends ResponseTypes, T = string>({
     fee: fee.toString(10),
     networkPassphrase,
   })
-    .setNetworkPassphrase(networkPassphrase)
     .addOperation(contract.call(method, ...args))
     .setTimeout(SorobanClient.TimeoutInfinite)
     .build();
