@@ -30,7 +30,7 @@ impl Contract {
         addr
     }
 
-    pub fn inc(env: Env) {
+    pub fn inc(env: Env) -> u32 {
         let mut count: u32 = env.storage().persistent().get(&COUNTER).unwrap_or(0); // Panic if the value of COUNTER is not u32.
         log!(&env, "count: {}", count);
 
@@ -39,6 +39,7 @@ impl Contract {
 
         // Save the count.
         env.storage().persistent().set(&COUNTER, &count);
+        count
     }
 
     #[allow(unused_variables)]

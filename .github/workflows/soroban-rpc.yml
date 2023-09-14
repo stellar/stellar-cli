@@ -123,7 +123,7 @@ jobs:
       - uses: ./.github/actions/setup-go
         with:
           go-version: ${{ matrix.go }}
-
+      - uses: stellar/actions/rust-cache@main
       - name: Build soroban contract fixtures
         run: |
           rustup update

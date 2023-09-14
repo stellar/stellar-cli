@@ -2,6 +2,7 @@ package test
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -11,8 +12,10 @@ import (
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/google/shlex"
 	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/icmd"
 )
@@ -30,7 +33,13 @@ func TestCLIContractInstallAndDeploy(t *testing.T) {
 	runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
-	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt 0 --wasm-hash %s", contractHash.HexString()))
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt %s --wasm-hash %s", hex.EncodeToString(testSalt[:]), contractHash.HexString()))
+	outputsContractIDInLastLine(t, output)
+}
+
+func TestCLIContractDeploy(t *testing.T) {
+	NewCLITest(t)
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt %s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	outputsContractIDInLastLine(t, output)
 }
 
@@ -48,24 +57,65 @@ func outputsContractIDInLastLine(t *testing.T, output string) {
 	require.Regexp(t, "^C", contractID)
 }
 
-func TestCLIContractDeploy(t *testing.T) {
-	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, "contract deploy --salt 0 --wasm "+helloWorldContractPath)
-	outputsContractIDInLastLine(t, output)
-}
-
 func TestCLIContractDeployAndInvoke(t *testing.T) {
 	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath)
-	contractID := strings.TrimSpace(output)
-	output = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
+	contractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
 	require.Contains(t, output, `["Hello","world"]`)
+}
+
+func TestCLIRestorePreamble(t *testing.T) {
+	test := NewCLITest(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "1", count)
+	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "2", count)
+
+	// Wait for the counter ledger entry to expire and successfully invoke the `inc` contract function again
+	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+	contractIDBytes := strkey.MustDecode(strkey.VersionByteContract, strkeyContractID)
+	require.Len(t, contractIDBytes, 32)
+	var contractID [32]byte
+	copy(contractID[:], contractIDBytes)
+	contractIDHash := xdr.Hash(contractID)
+	counterSym := xdr.ScSymbol("COUNTER")
+	key := xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeContractData,
+		ContractData: &xdr.LedgerKeyContractData{
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
+			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvSymbol,
+				Sym:  &counterSym,
+			},
+			Durability: xdr.ContractDataDurabilityPersistent,
+		},
+	}
+
+	binKey, err := key.MarshalBinary()
+	assert.NoError(t, err)
+
+	expiration := xdr.LedgerKeyExpiration{
+		KeyHash: sha256.Sum256(binKey),
+	}
+	waitForLedgerEntryToExpire(t, client, expiration)
+
+	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "3", count)
 }
 
 func runSuccessfulCLICmd(t *testing.T, cmd string) string {
 	res := runCLICommand(t, cmd)
-	require.NoError(t, res.Error, fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", res.Stderr(), res.Stdout()))
-	return res.Stdout()
+	stdout, stderr := res.Stdout(), res.Stderr()
+	outputs := fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", stderr, stdout)
+	require.NoError(t, res.Error, outputs)
+	fmt.Printf(outputs)
+	return strings.TrimSpace(stdout)
 }
 
 func runCLICommand(t *testing.T, cmd string) *icmd.Result {
@@ -81,14 +131,22 @@ func runCLICommand(t *testing.T, cmd string) *icmd.Result {
 	return icmd.RunCmd(c)
 }
 
+func getCLIDefaultAccount(t *testing.T) string {
+	return runSuccessfulCLICmd(t, "config identity address --hd-path 0")
+}
+
 func NewCLITest(t *testing.T) *Test {
 	test := NewTest(t)
+	fundAccount(t, test, getCLIDefaultAccount(t), "1000000")
+	return test
+}
+
+func fundAccount(t *testing.T, test *Test, account string, amount string) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
 	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
 
-	// Create default account used by the CLI
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount: &txnbuild.SimpleAccount{
 			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
@@ -96,8 +154,8 @@ func NewCLITest(t *testing.T) *Test {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{&txnbuild.CreateAccount{
-			Destination: "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4",
-			Amount:      "100000",
+			Destination: account,
+			Amount:      amount,
 		}},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -107,5 +165,4 @@ func NewCLITest(t *testing.T) *Test {
 	})
 	require.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-	return test
 }

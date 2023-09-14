@@ -7,8 +7,9 @@ use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
     LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
-    SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope, TransactionMeta,
-    TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope,
+    TransactionMeta, TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM,
+    WriteXdr,
 };
 use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
@@ -24,7 +25,7 @@ use tokio::time::sleep;
 use crate::utils::{self, contract_spec};
 
 mod transaction;
-use transaction::{assemble, sign_soroban_authorizations};
+use transaction::{assemble, build_restore_txn, sign_soroban_authorizations};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -231,12 +232,12 @@ pub struct SimulateTransactionResponse {
         rename = "latestLedger",
         deserialize_with = "deserialize_number_from_string"
     )]
-    pub latest_ledger: u64,
+    pub latest_ledger: u32,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct RestorePreamble {
     #[serde(rename = "transactionData")]
     pub transaction_data: String,
@@ -626,7 +627,7 @@ soroban config identity fund {address} --helper-url <url>"#
     pub async fn prepare_transaction(
         &self,
         tx: &Transaction,
-    ) -> Result<(Transaction, Vec<DiagnosticEvent>), Error> {
+    ) -> Result<(Transaction, Option<RestorePreamble>, Vec<DiagnosticEvent>), Error> {
         tracing::trace!(?tx);
         let sim_response = self
             .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -634,14 +635,16 @@ soroban config identity fund {address} --helper-url <url>"#
                 signatures: VecM::default(),
             }))
             .await?;
-
         let events = sim_response
             .events
             .iter()
             .map(DiagnosticEvent::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
-
-        Ok((assemble(tx, &sim_response)?, events))
+        Ok((
+            assemble(tx, &sim_response)?,
+            sim_response.restore_preamble,
+            events,
+        ))
     }
 
     pub async fn prepare_and_send_transaction(
@@ -654,7 +657,19 @@ soroban config identity fund {address} --helper-url <url>"#
         log_resources: Option<LogResources>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
-        let (unsigned_tx, events) = self.prepare_transaction(tx_without_preflight).await?;
+        let (mut unsigned_tx, restore_preamble, events) =
+            self.prepare_transaction(tx_without_preflight).await?;
+        if let Some(restore) = restore_preamble {
+            // Build and submit the restore transaction
+            self.send_transaction(&utils::sign_transaction(
+                source_key,
+                &build_restore_txn(&unsigned_tx, &restore)?,
+                network_passphrase,
+            )?)
+            .await?;
+            // Increment the original txn's seq_num so it doesn't conflict
+            unsigned_tx.seq_num = SequenceNumber(unsigned_tx.seq_num.0 + 1);
+        }
         let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
             &unsigned_tx,
             source_key,
@@ -671,7 +686,8 @@ soroban config identity fund {address} --helper-url <url>"#
             (part_signed_tx, events)
         } else {
             // re-simulate to calculate the new fees
-            self.prepare_transaction(&part_signed_tx).await?
+            let (tx, _, events) = self.prepare_transaction(&part_signed_tx).await?;
+            (tx, events)
         };
 
         // Try logging stuff if requested
