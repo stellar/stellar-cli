@@ -21,6 +21,22 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+func cargoTest(name string) *icmd.Result {
+	c := icmd.Command("cargo", "test", "--package", "soroban-test", "--test", "it", "--", name, "--exact", "--nocapture")
+	c.Env = append(os.Environ(),
+		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
+		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
+	)
+	return icmd.RunCmd(c)
+}
+
+func TestCLIWithCargo(t *testing.T) {
+	NewCLITest(t)
+	res := cargoTest("contract_sandbox::invoke_hello_world_with_deploy_first")
+	stdout, stderr := res.Stdout(), res.Stderr()
+	println(stdout, stderr)
+}
+
 func TestCLIContractInstall(t *testing.T) {
 	NewCLITest(t)
 	output := runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)

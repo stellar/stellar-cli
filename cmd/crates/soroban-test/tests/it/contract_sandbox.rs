@@ -7,13 +7,19 @@ use std::path::PathBuf;
 
 use crate::util::{
     add_test_seed, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE,
-    HELLO_WORLD,
+    HELLO_WORLD, TEST_SALT,
 };
 
 #[test]
 fn install_wasm_then_deploy_contract() {
-    let hash = HELLO_WORLD.hash().unwrap();
     let sandbox = TestEnv::default();
+    assert_eq!(deploy_hello(&sandbox), TEST_CONTRACT_ID);
+}
+
+const TEST_CONTRACT_ID: &str = "CBVTIVBYWAO2HNPNGKDCZW4OZYYESTKNGD7IPRTDGQSFJS4QBDQQJX3T";
+
+fn deploy_hello(sandbox: &TestEnv) -> String {
+    let hash = HELLO_WORLD.hash().unwrap();
     sandbox
         .new_assert_cmd("contract")
         .arg("install")
@@ -23,15 +29,18 @@ fn install_wasm_then_deploy_contract() {
         .success()
         .stdout(format!("{hash}\n"));
 
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--wasm-hash")
-        .arg(&format!("{hash}"))
-        .arg("--id=1")
-        .assert()
+    let mut cmd: &mut assert_cmd::Command = &mut sandbox.new_assert_cmd("contract");
+
+    cmd = cmd.arg("deploy").arg("--wasm-hash").arg(&format!("{hash}"));
+    if std::env::var("SOROBAN_RPC_URL").is_err() {
+        cmd = cmd.arg("--id").arg(TEST_CONTRACT_ID);
+    } else {
+        cmd = cmd.arg("--salt").arg(TEST_SALT);
+    }
+    cmd.assert()
         .success()
-        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+        .stdout(format!("{TEST_CONTRACT_ID}\n"));
+    TEST_CONTRACT_ID.to_string()
 }
 
 #[test]
@@ -53,6 +62,8 @@ fn invoke_hello_world_with_deploy_first() {
     let res = sandbox
         .new_assert_cmd("contract")
         .arg("deploy")
+        .arg("--salt")
+        .arg(TEST_SALT)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .assert()
