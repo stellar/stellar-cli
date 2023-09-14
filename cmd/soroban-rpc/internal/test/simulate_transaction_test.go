@@ -184,7 +184,7 @@ func preflightTransactionParamsLocally(t *testing.T, params txnbuild.Transaction
 func preflightTransactionParams(t *testing.T, client *jrpc2.Client, params txnbuild.TransactionParams) txnbuild.TransactionParams {
 	response := simulateTransactionFromTxParams(t, client, params)
 	// The preamble should be zero except for the special restore case
-	assert.Zero(t, response.RestorePreamble)
+	assert.Nil(t, response.RestorePreamble)
 	return preflightTransactionParamsLocally(t, params, response)
 }
 
@@ -858,6 +858,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	waitForExpiration()
 
 	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPresistentEntryParams)
+	require.NotNil(t, simulationResult.RestorePreamble)
 	assert.NotZero(t, simulationResult.RestorePreamble)
 
 	params = preflightTransactionParamsLocally(t,
