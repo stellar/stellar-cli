@@ -232,9 +232,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions: 4961700,
+			Instructions: 5007615,
 			ReadBytes:    48,
-			WriteBytes:   5468,
+			WriteBytes:   5532,
 		},
 		RefundableFee: 20056,
 	}
