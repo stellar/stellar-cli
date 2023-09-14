@@ -11,7 +11,7 @@ endif
 # Both cases should fallback to default of getting the version from git tag.
 ifeq ($(strip $(REPOSITORY_VERSION)),)
 	override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
-endif  
+endif
 REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
 BUILD_TIMESTAMP ?= $(shell date '+%Y-%m-%dT%H:%M:%S')
 GOLDFLAGS :=	-X 'github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config.Version=${REPOSITORY_VERSION}' \
@@ -62,12 +62,12 @@ build-libpreflight: Cargo.lock
 	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind
 
 build-test-wasms: Cargo.lock
-	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
+	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown --jobs 4
 
 build-test: build-test-wasms install_rust
 
 test: build-test
-	cargo test 
+	cargo test
 
 e2e-test:
 	cargo test --test it -- --ignored
@@ -88,7 +88,7 @@ clean:
 publish:
 	cargo workspaces publish --all --force '*' --from-git --yes
 
-# the build-soroban-rpc build target is an optimized build target used by 
+# the build-soroban-rpc build target is an optimized build target used by
 # https://github.com/stellar/pipelines/stellar-horizon/Jenkinsfile-soroban-rpc-package-builder
 # as part of the package building.
 build-soroban-rpc: build-libpreflight
@@ -101,7 +101,7 @@ lint:
 	golangci-lint run ./...
 
 typescript-bindings-fixtures: build-test-wasms
-	cargo run -- contract bindings typescript \
+	cargo run --jobs 4 -- contract bindings typescript \
 					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
 					--contract-id CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK \
 					--network futurenet \

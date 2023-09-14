@@ -42,7 +42,7 @@ type SimulateTransactionResponse struct {
 	Events          []string                     `json:"events,omitempty"`          // DiagnosticEvent XDR in base64
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
 	Cost            SimulateTransactionCost      `json:"cost,omitempty"`            // the effective cpu and memory cost of the invoked transaction execution.
-	RestorePreamble RestorePreamble              `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
+	RestorePreamble *RestorePreamble             `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
 	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
@@ -136,9 +136,9 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				Auth: base64EncodeSlice(result.Auth),
 			})
 		}
-		restorePreable := RestorePreamble{}
+		var restorePreamble *RestorePreamble = nil
 		if len(result.PreRestoreTransactionData) != 0 {
-			restorePreable = RestorePreamble{
+			restorePreamble = &RestorePreamble{
 				TransactionData: base64.StdEncoding.EncodeToString(result.PreRestoreTransactionData),
 				MinResourceFee:  result.PreRestoreMinFee,
 			}
@@ -155,7 +155,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				MemoryBytes:     result.MemoryBytes,
 			},
 			LatestLedger:    int64(latestLedger),
-			RestorePreamble: restorePreable,
+			RestorePreamble: restorePreamble,
 		}
 	})
 }
