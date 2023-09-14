@@ -109,15 +109,9 @@ func getAccountFromID(t *testing.T, id uint32) string {
 	return strings.Trim(runSuccessfulCLICmd(t, fmt.Sprintf("config identity address --hd-path %d", id)), "\n")
 }
 
-// func getTestContractIDFromAccountAndSalt(t *testing.T, id uint32) [32]byte {
-// 	return getContractID(t, getAccountFromID(t, id), testSalt, StandaloneNetworkPassphrase)
-// }
-
-const MILLION string = "1000000"
-
 func NewCLITest(t *testing.T) *Test {
 	test := NewTest(t)
-	fundAccount(t, test, getAccountFromID(t, 0), MILLION)
+	fundAccount(t, test, getAccountFromID(t, 0), "1000000")
 	return test
 }
 
