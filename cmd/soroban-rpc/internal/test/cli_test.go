@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
@@ -50,25 +51,37 @@ func outputsContractIDInLastLine(t *testing.T, output string) {
 
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, "contract deploy --salt 0 --wasm "+helloWorldContractPath)
+	output := deploy(t, helloWorldContractPath, 0)
 	outputsContractIDInLastLine(t, output)
 }
 
 func TestCLIContractDeployAndInvoke(t *testing.T) {
 	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath)
-	contractID := strings.TrimSpace(output)
-	output = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
+	contractID := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath)
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
 	require.Contains(t, output, `["Hello","world"]`)
 }
 
+func TestCLISimulateTransactionRestoreFromPreambleInFootprint(t *testing.T) {
+	NewCLITest(t)
+	strkeyContractID := runSuccessfulCLICmd(t, "contract deploy --salt=0 --wasm "+helloWorldContractPath)
+	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "1", count)
+	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "2", count)
+	time.Sleep(time.Second * 60)
+	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "3", count)
+}
 func runSuccessfulCLICmd(t *testing.T, cmd string) string {
 	res := runCLICommand(t, cmd)
-	require.NoError(t, res.Error, fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", res.Stderr(), res.Stdout()))
-	return res.Stdout()
+	stdout, stderr := res.Stdout(), res.Stderr()
+	require.NoError(t, res.Error, fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", stderr, stdout))
+	println(fmt.Sprintf("stderr:\n%s\nstdout:\n-------\n%s\n-----\n", stderr, stdout))
+	return strings.TrimSpace(stdout)
 }
 
-func runCLICommand(t *testing.T, cmd string) *icmd.Result {
+func cliCmd(t *testing.T, cmd string) icmd.Cmd {
 	args := []string{"run", "-q", "--", "--vv"}
 	parsedArgs, err := shlex.Split(cmd)
 	require.NoError(t, err, cmd)
@@ -78,11 +91,37 @@ func runCLICommand(t *testing.T, cmd string) *icmd.Result {
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
 	)
-	return icmd.RunCmd(c)
+	return c
 }
+
+func deploy(t *testing.T, wasmPath string, id uint32) string {
+	testSaltHex := "a1"
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --hd-path %d --salt %s --wasm %s", id, testSaltHex, wasmPath))
+	contractID := strings.TrimSpace(output)
+	return contractID
+}
+
+func runCLICommand(t *testing.T, cmd string) *icmd.Result {
+	return icmd.RunCmd(cliCmd(t, cmd))
+}
+
+func getAccountFromID(t *testing.T, id uint32) string {
+	return strings.Trim(runSuccessfulCLICmd(t, fmt.Sprintf("config identity address --hd-path %d", id)), "\n")
+}
+
+// func getTestContractIDFromAccountAndSalt(t *testing.T, id uint32) [32]byte {
+// 	return getContractID(t, getAccountFromID(t, id), testSalt, StandaloneNetworkPassphrase)
+// }
+
+const MILLION string = "1000000"
 
 func NewCLITest(t *testing.T) *Test {
 	test := NewTest(t)
+	fundAccount(t, test, getAccountFromID(t, 0), MILLION)
+	return test
+}
+
+func fundAccount(t *testing.T, test *Test, account string, amount string) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
@@ -96,8 +135,8 @@ func NewCLITest(t *testing.T) *Test {
 		},
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{&txnbuild.CreateAccount{
-			Destination: "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4",
-			Amount:      "100000",
+			Destination: account,
+			Amount:      amount,
 		}},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -107,5 +146,4 @@ func NewCLITest(t *testing.T) *Test {
 	})
 	require.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-	return test
 }
