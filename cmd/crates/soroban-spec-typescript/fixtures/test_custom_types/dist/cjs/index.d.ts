@@ -4,17 +4,17 @@ import { Buffer } from "buffer";
 import type { ResponseTypes, ClassOptions } from './method-options.js';
 export * from './invoke.js';
 export * from './method-options.js';
-export type u32 = number;
-export type i32 = number;
-export type u64 = bigint;
-export type i64 = bigint;
-export type u128 = bigint;
-export type i128 = bigint;
-export type u256 = bigint;
-export type i256 = bigint;
-export type Option<T> = T | undefined;
-export type Typepoint = bigint;
-export type Duration = bigint;
+export declare type u32 = number;
+export declare type i32 = number;
+export declare type u64 = bigint;
+export declare type i64 = bigint;
+export declare type u128 = bigint;
+export declare type i128 = bigint;
+export declare type u256 = bigint;
+export declare type i256 = bigint;
+export declare type Option<T> = T | undefined;
+export declare type Typepoint = bigint;
+export declare type Duration = bigint;
 export { Address };
 export interface Error_ {
     message: string;
@@ -55,7 +55,7 @@ export interface Test {
     b: boolean;
     c: string;
 }
-export type SimpleEnum = {
+export declare type SimpleEnum = {
     tag: "First";
     values: void;
 } | {
@@ -70,8 +70,8 @@ export declare enum RoyalCard {
     Queen = 12,
     King = 13
 }
-export type TupleStruct = readonly [Test, SimpleEnum];
-export type ComplexEnum = {
+export declare type TupleStruct = readonly [Test, SimpleEnum];
+export declare type ComplexEnum = {
     tag: "Struct";
     values: readonly [Test];
 } | {
