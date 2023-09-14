@@ -642,9 +642,7 @@ soroban config identity fund {address} --helper-url <url>"#
             .collect::<Result<Vec<_>, _>>()?;
         Ok((
             assemble(tx, &sim_response)?,
-            sim_response
-                .restore_preamble
-                .filter(|p| !p.transaction_data.is_empty()),
+            sim_response.restore_preamble,
             events,
         ))
     }
