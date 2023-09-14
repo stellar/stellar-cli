@@ -749,11 +749,12 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	binKey, err := key.MarshalBinary()
 	assert.NoError(t, err)
 
+	expiration := xdr.LedgerKeyExpiration{
+		KeyHash: sha256.Sum256(binKey),
+	}
 	expirationKey := xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeExpiration,
-		Expiration: &xdr.LedgerKeyExpiration{
-			KeyHash: sha256.Sum256(binKey),
-		},
+		Type:       xdr.LedgerEntryTypeExpiration,
+		Expiration: &expiration,
 	}
 
 	keyB64, err := xdr.MarshalBase64(expirationKey)
@@ -806,26 +807,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 
 	// Wait until it expires
-	waitForExpiration := func() {
-		expired := false
-		for i := 0; i < 50; i++ {
-			err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-			assert.NoError(t, err)
-			assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-			assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-			// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
-			currentLedger := getLedgerEntryResult.LatestLedger + 1
-			if xdr.Uint32(currentLedger) > entry.Expiration.ExpirationLedgerSeq {
-				expired = true
-				t.Logf("ledger entry expired")
-				break
-			}
-			t.Log("waiting for ledger entry to expire at ledger", entry.Expiration.ExpirationLedgerSeq)
-			time.Sleep(time.Second)
-		}
-		require.True(t, expired)
-	}
-	waitForExpiration()
+	waitForLedgerEntryToExpire(t, client, expiration)
 
 	// and restore it
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
@@ -855,7 +837,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
 	// Wait for expiration again and check the pre-restore field when trying to exec the contract again
-	waitForExpiration()
+	waitForLedgerEntryToExpire(t, client, expiration)
 
 	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPresistentEntryParams)
 	require.NotNil(t, simulationResult.RestorePreamble)
@@ -887,4 +869,36 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+}
+
+func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, expiration xdr.LedgerKeyExpiration) {
+	expirationKey := xdr.LedgerKey{
+		Type:       xdr.LedgerEntryTypeExpiration,
+		Expiration: &expiration,
+	}
+
+	keyB64, err := xdr.MarshalBase64(expirationKey)
+	require.NoError(t, err)
+	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
+		Key: keyB64,
+	}
+	expired := false
+	for i := 0; i < 50; i++ {
+		var getLedgerEntryResult methods.GetLedgerEntryResponse
+		var entry xdr.LedgerEntryData
+		err := client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
+		assert.NoError(t, err)
+		assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
+		assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
+		// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
+		currentLedger := getLedgerEntryResult.LatestLedger + 1
+		if xdr.Uint32(currentLedger) > entry.Expiration.ExpirationLedgerSeq {
+			expired = true
+			t.Logf("ledger entry expired")
+			break
+		}
+		t.Log("waiting for ledger entry to expire at ledger", entry.Expiration.ExpirationLedgerSeq)
+		time.Sleep(time.Second)
+	}
+	require.True(t, expired)
 }
