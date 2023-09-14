@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
@@ -237,7 +238,7 @@ func runSuccessfulCLICmd(t *testing.T, cmd string) string {
 	return strings.TrimSpace(stdout)
 }
 
-func runCLICommand(t *testing.T, cmd string) *icmd.Result {
+func cliCmd(t *testing.T, cmd string) icmd.Cmd {
 	args := []string{"run", "-q", "--", "--vv"}
 	parsedArgs, err := shlex.Split(cmd)
 	require.NoError(t, err, cmd)
@@ -247,7 +248,7 @@ func runCLICommand(t *testing.T, cmd string) *icmd.Result {
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
 	)
-	return icmd.RunCmd(c)
+	return c
 }
 
 func getCLIDefaultAccount(t *testing.T) string {
