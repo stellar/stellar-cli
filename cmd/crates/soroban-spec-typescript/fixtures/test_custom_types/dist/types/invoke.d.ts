@@ -1,15 +1,16 @@
 import * as SorobanClient from "soroban-client";
+import { SorobanRpc } from "soroban-client";
 import type { Memo, MemoType, Operation, Transaction, xdr } from "soroban-client";
 import type { ClassOptions, MethodOptions, ResponseTypes, Wallet } from "./method-options.js";
-export type Tx = Transaction<Memo<MemoType>, Operation[]>;
+export declare type Tx = Transaction<Memo<MemoType>, Operation[]>;
 export declare class NotImplementedError extends Error {
 }
-type Simulation = SorobanClient.SorobanRpc.SimulateTransactionResponse;
-type SendTx = SorobanClient.SorobanRpc.SendTransactionResponse;
-type GetTx = SorobanClient.SorobanRpc.GetTransactionResponse;
+declare type Simulation = SorobanRpc.SimulateTransactionResponse;
+declare type SendTx = SorobanRpc.SendTransactionResponse;
+declare type GetTx = SorobanRpc.GetTransactionResponse;
 declare let someRpcResponse: Simulation | SendTx | GetTx;
-type SomeRpcResponse = typeof someRpcResponse;
-type InvokeArgs<R extends ResponseTypes, T = string> = MethodOptions<R> & ClassOptions & {
+declare type SomeRpcResponse = typeof someRpcResponse;
+declare type InvokeArgs<R extends ResponseTypes, T = string> = MethodOptions<R> & ClassOptions & {
     method: string;
     args?: any[];
     parseResultXdr: (xdr: string | xdr.ScVal) => T;

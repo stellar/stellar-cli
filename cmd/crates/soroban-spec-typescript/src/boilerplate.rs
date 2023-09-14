@@ -145,7 +145,7 @@ mod test {
         p.init(
             "test_custom_types",
             "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
-            "https://rpc-futurenet.stellar.org:443/soroban/rpc",
+            "https://rpc-futurenet.stellar.org:443",
             "Test SDF Future Network ; October 2022",
             &spec,
         )
