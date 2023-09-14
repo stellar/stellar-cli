@@ -77,7 +77,7 @@ func runSuccessfulCLICmd(t *testing.T, cmd string) string {
 	res := runCLICommand(t, cmd)
 	stdout, stderr := res.Stdout(), res.Stderr()
 	require.NoError(t, res.Error, fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", stderr, stdout))
-	println(fmt.Sprintf("stderr:\n%s\nstdout:\n-------\n%s\n-----\n", stderr, stdout))
+	fmt.Printf("stderr:\n%s\nstdout:\n-------\n%s\n-----\n", stderr, stdout)
 	return strings.TrimSpace(stdout)
 }
 
