@@ -12,6 +12,7 @@ import (
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/google/shlex"
 	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/assert"
@@ -75,7 +76,10 @@ func TestCLIRestorePreamble(t *testing.T) {
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
-	contractID := getContractID(t, getCLIDefaultAccount(t), testSalt, StandaloneNetworkPassphrase)
+	contractIDBytes := strkey.MustDecode(strkey.VersionByteContract, strkeyContractID)
+	require.Len(t, contractIDBytes, 32)
+	var contractID [32]byte
+	copy(contractID[:], contractIDBytes)
 	contractIDHash := xdr.Hash(contractID)
 	counterSym := xdr.ScSymbol("COUNTER")
 	key := xdr.LedgerKey{
