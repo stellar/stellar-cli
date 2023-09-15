@@ -749,27 +749,14 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	binKey, err := key.MarshalBinary()
 	assert.NoError(t, err)
 
-	expiration := xdr.LedgerKeyExpiration{
-		KeyHash: sha256.Sum256(binKey),
-	}
 	expirationKey := xdr.LedgerKey{
-		Type:       xdr.LedgerEntryTypeExpiration,
-		Expiration: &expiration,
+		Type: xdr.LedgerEntryTypeExpiration,
+		Expiration: &xdr.LedgerKeyExpiration{
+			KeyHash: sha256.Sum256(binKey),
+		},
 	}
 
-	keyB64, err := xdr.MarshalBase64(expirationKey)
-	require.NoError(t, err)
-	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
-		Key: keyB64,
-	}
-	var getLedgerEntryResult methods.GetLedgerEntryResponse
-	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-	assert.NoError(t, err)
-	var entry xdr.LedgerEntryData
-	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-
-	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-	initialExpirationSeq := entry.Expiration.ExpirationLedgerSeq
+	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 
 	// bump the initial expiration
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
@@ -799,15 +786,11 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-	assert.NoError(t, err)
-	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-	newExpirationSeq := entry.Expiration.ExpirationLedgerSeq
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 
 	// Wait until it expires
-	waitForLedgerEntryToExpire(t, client, expiration)
+	waitForLedgerEntryToExpire(t, client, expirationKey)
 
 	// and restore it
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
@@ -837,7 +820,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
 	// Wait for expiration again and check the pre-restore field when trying to exec the contract again
-	waitForLedgerEntryToExpire(t, client, expiration)
+	waitForLedgerEntryToExpire(t, client, expirationKey)
 
 	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPresistentEntryParams)
 	require.NotNil(t, simulationResult.RestorePreamble)
@@ -871,12 +854,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 }
 
-func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, expiration xdr.LedgerKeyExpiration) {
-	expirationKey := xdr.LedgerKey{
-		Type:       xdr.LedgerEntryTypeExpiration,
-		Expiration: &expiration,
-	}
-
+func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, expirationKey xdr.LedgerKey) {
 	keyB64, err := xdr.MarshalBase64(expirationKey)
 	require.NoError(t, err)
 	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
