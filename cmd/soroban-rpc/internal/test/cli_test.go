@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -19,8 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/icmd"
-
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
 func TestCLIContractInstall(t *testing.T) {
@@ -79,7 +76,7 @@ func TestCLIRestorePreamble(t *testing.T) {
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
-	waitForLedgerEntryToExpire(t, client, expirationKey(t, counterLedgerKey(t, strkeyContractID)))
+	waitForLedgerEntryToExpire(t, client, getExpirationKeyForCounterLedgerEntry(t, strkeyContractID))
 
 	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "3", count)
@@ -94,7 +91,8 @@ func TestCLIBump(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey(t, counterLedgerKey(t, strkeyContractID)))
+	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 
 	bumpOutput := runSuccessfulCLICmd(
 		t,
@@ -104,7 +102,7 @@ func TestCLIBump(t *testing.T) {
 		),
 	)
 
-	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey(t, counterLedgerKey(t, strkeyContractID)))
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), bumpOutput)
 }
@@ -118,11 +116,11 @@ func TestCLIRestore(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey(t, counterLedgerKey(t, strkeyContractID)))
-
+	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 	// Wait for the counter ledger entry to expire and successfully invoke the `inc` contract function again
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
-	waitForLedgerEntryToExpire(t, client, expirationKey(t, counterLedgerKey(t, strkeyContractID)))
+	waitForLedgerEntryToExpire(t, client, expirationKey)
 
 	restoreOutput := runSuccessfulCLICmd(
 		t,
@@ -132,60 +130,21 @@ func TestCLIRestore(t *testing.T) {
 		),
 	)
 
-	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey(t, counterLedgerKey(t, strkeyContractID)))
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))))
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), restoreOutput)
 }
 
-func getExpirationForLedgerEntry(t *testing.T, client *jrpc2.Client, ledgerKey xdr.LedgerKey) xdr.Uint32 {
-	keyB64, err := xdr.MarshalBase64(ledgerKey)
-	require.NoError(t, err)
-	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
-		Key: keyB64,
-	}
-	var getLedgerEntryResult methods.GetLedgerEntryResponse
-	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-	assert.NoError(t, err)
-	var entry xdr.LedgerEntryData
-	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-
-	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-	return entry.Expiration.ExpirationLedgerSeq
+func getExpirationKeyForCounterLedgerEntry(t *testing.T, strkeyContractID string) xdr.LedgerKey {
+	return getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
 }
 
-func expirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
-	binKey, err := key.MarshalBinary()
-	assert.NoError(t, err)
-	return xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeExpiration,
-		Expiration: &xdr.LedgerKeyExpiration{
-			KeyHash: sha256.Sum256(binKey),
-		},
-	}
-}
-
-func counterLedgerKey(t *testing.T, strkeyContractID string) xdr.LedgerKey {
+func parseContractStrKey(t *testing.T, strkeyContractID string) [32]byte {
 	contractIDBytes := strkey.MustDecode(strkey.VersionByteContract, strkeyContractID)
-	require.Len(t, contractIDBytes, 32)
 	var contractID [32]byte
+	require.Len(t, contractIDBytes, len(contractID))
 	copy(contractID[:], contractIDBytes)
-	contractIDHash := xdr.Hash(contractID)
-	counterSym := xdr.ScSymbol("COUNTER")
-	key := xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeContractData,
-		ContractData: &xdr.LedgerKeyContractData{
-			Contract: xdr.ScAddress{
-				Type:       xdr.ScAddressTypeScAddressTypeContract,
-				ContractId: &contractIDHash,
-			},
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvSymbol,
-				Sym:  &counterSym,
-			},
-			Durability: xdr.ContractDataDurabilityPersistent,
-		},
-	}
-	return key
+	return contractID
 }
 
 func runSuccessfulCLICmd(t *testing.T, cmd string) string {

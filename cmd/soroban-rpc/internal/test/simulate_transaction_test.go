@@ -65,7 +65,7 @@ func createInstallContractCodeOperation(sourceAccount string, contractCode []byt
 	}
 }
 
-func createCreateContractOperation(t *testing.T, sourceAccount string, contractCode []byte, networkPassphrase string) *txnbuild.InvokeHostFunction {
+func createCreateContractOperation(sourceAccount string, contractCode []byte) *txnbuild.InvokeHostFunction {
 	saltParam := xdr.Uint256(testSalt)
 	contractHash := xdr.Hash(sha256.Sum256(contractCode))
 
@@ -271,7 +271,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 
 	resultForRequestWithoutOpSource := simulateTransactionFromTxParams(t, client, params)
 	// Let's not compare the latest ledger since it may change
-	resultForRequestWithoutOpSource.LatestLedger = resultForRequestWithoutOpSource.LatestLedger
+	result.LatestLedger = resultForRequestWithoutOpSource.LatestLedger
 	assert.Equal(t, result, resultForRequestWithoutOpSource)
 
 	// test that operation source account takes precedence over tx source account
@@ -326,7 +326,7 @@ func TestSimulateTransactionWithAuth(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	deployContractOp := createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase)
+	deployContractOp := createCreateContractOperation(address, helloWorldContract)
 	deployContractParams := txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
@@ -388,7 +388,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase),
+			createCreateContractOperation(address, helloWorldContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -598,7 +598,7 @@ func TestSimulateTransactionMultipleOperations(t *testing.T) {
 		IncrementSequenceNum: false,
 		Operations: []txnbuild.Operation{
 			createInstallContractCodeOperation(sourceAccount, contractBinary),
-			createCreateContractOperation(t, sourceAccount, contractBinary, StandaloneNetworkPassphrase),
+			createCreateContractOperation(sourceAccount, contractBinary),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Memo:    nil,
@@ -696,7 +696,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			createCreateContractOperation(t, address, helloWorldContract, StandaloneNetworkPassphrase),
+			createCreateContractOperation(address, helloWorldContract),
 		},
 		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
@@ -729,32 +729,8 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
 	// get the counter ledger entry expiration
-	contractIDHash := xdr.Hash(contractID)
-	counterSym := xdr.ScSymbol("COUNTER")
-	key := xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeContractData,
-		ContractData: &xdr.LedgerKeyContractData{
-			Contract: xdr.ScAddress{
-				Type:       xdr.ScAddressTypeScAddressTypeContract,
-				ContractId: &contractIDHash,
-			},
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvSymbol,
-				Sym:  &counterSym,
-			},
-			Durability: xdr.ContractDataDurabilityPersistent,
-		},
-	}
-
-	binKey, err := key.MarshalBinary()
-	assert.NoError(t, err)
-
-	expirationKey := xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeExpiration,
-		Expiration: &xdr.LedgerKeyExpiration{
-			KeyHash: sha256.Sum256(binKey),
-		},
-	}
+	key := getCounterLedgerKey(contractID)
+	expirationKey := getExpirationKey(t, key)
 
 	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 
@@ -852,6 +828,54 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+}
+
+func getExpirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
+	assert.True(t, key.Type == xdr.LedgerEntryTypeContractCode || key.Type == xdr.LedgerEntryTypeContractData)
+	binKey, err := key.MarshalBinary()
+	assert.NoError(t, err)
+	return xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeExpiration,
+		Expiration: &xdr.LedgerKeyExpiration{
+			KeyHash: sha256.Sum256(binKey),
+		},
+	}
+}
+
+func getCounterLedgerKey(contractID [32]byte) xdr.LedgerKey {
+	contractIDHash := xdr.Hash(contractID)
+	counterSym := xdr.ScSymbol("COUNTER")
+	key := xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeContractData,
+		ContractData: &xdr.LedgerKeyContractData{
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
+			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvSymbol,
+				Sym:  &counterSym,
+			},
+			Durability: xdr.ContractDataDurabilityPersistent,
+		},
+	}
+	return key
+}
+
+func getExpirationForLedgerEntry(t *testing.T, client *jrpc2.Client, expirationLedgerKey xdr.LedgerKey) xdr.Uint32 {
+	keyB64, err := xdr.MarshalBase64(expirationLedgerKey)
+	require.NoError(t, err)
+	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
+		Key: keyB64,
+	}
+	var getLedgerEntryResult methods.GetLedgerEntryResponse
+	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
+	assert.NoError(t, err)
+	var entry xdr.LedgerEntryData
+	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
+
+	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
+	return entry.Expiration.ExpirationLedgerSeq
 }
 
 func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, expirationKey xdr.LedgerKey) {
