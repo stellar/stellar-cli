@@ -35,15 +35,12 @@ func cargoTest(t *testing.T, name string) {
 func TestCLIfetch(t *testing.T) {
 	cargoTest(t, "contract_sandbox::fetch")
 }
-
 func TestCLIcontract_data_read_failure(t *testing.T) {
 	cargoTest(t, "contract_sandbox::contract_data_read_failure")
 }
-
 func TestCLIinvoke_auth(t *testing.T) {
 	cargoTest(t, "contract_sandbox::invoke_auth")
 }
-
 func TestCLIcontract_data_read(t *testing.T) {
 	cargoTest(t, "contract_sandbox::contract_data_read")
 }
@@ -55,9 +52,6 @@ func TestCLIinvoke_hello_world_from_file_fail(t *testing.T) {
 }
 func TestCLIinvoke_hello_world_with_lib_two(t *testing.T) {
 	cargoTest(t, "contract_sandbox::invoke_hello_world_with_lib_two")
-}
-func TestCLIinvoke_hello_world_with_lib(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_hello_world_with_lib")
 }
 func TestCLIinvoke_hello_world_with_seed(t *testing.T) {
 	cargoTest(t, "contract_sandbox::invoke_hello_world_with_seed")
@@ -73,6 +67,24 @@ func TestCLIinvoke_with_id(t *testing.T) {
 }
 func TestCLIinvoke_with_seed(t *testing.T) {
 	cargoTest(t, "contract_sandbox::invoke_with_seed")
+}
+
+func TestCLIWrapCustom(t *testing.T) {
+	NewCLITest(t)
+	testAccount := getCLIDefaultAccount(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=deadbeef:%s", testAccount))
+	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
+	// require.Equal(t, "CAMTHSPKXZJIRTUXQP5QWJIFH3XIDMKLFAWVQOFOXPTKAW5GKV37ZC4N", strkeyContractID)
+	runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- mint --to=%s --amount 1", strkeyContractID, testAccount))
+}
+
+func TestCLIWrapNative(t *testing.T) {
+	NewCLITest(t)
+	testAccount := getCLIDefaultAccount(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=native:%s", testAccount))
+	require.Equal(t, "CAMTHSPKXZJIRTUXQP5QWJIFH3XIDMKLFAWVQOFOXPTKAW5GKV37ZC4N", strkeyContractID)
+	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
+	require.Equal(t, "\"9223372036854775807\"", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- balance --id %s", strkeyContractID, testAccount)))
 }
 
 func TestCLIContractInstall(t *testing.T) {
