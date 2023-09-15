@@ -76,37 +76,75 @@ func TestCLIRestorePreamble(t *testing.T) {
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
-	contractIDBytes := strkey.MustDecode(strkey.VersionByteContract, strkeyContractID)
-	require.Len(t, contractIDBytes, 32)
-	var contractID [32]byte
-	copy(contractID[:], contractIDBytes)
-	contractIDHash := xdr.Hash(contractID)
-	counterSym := xdr.ScSymbol("COUNTER")
-	key := xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeContractData,
-		ContractData: &xdr.LedgerKeyContractData{
-			Contract: xdr.ScAddress{
-				Type:       xdr.ScAddressTypeScAddressTypeContract,
-				ContractId: &contractIDHash,
-			},
-			Key: xdr.ScVal{
-				Type: xdr.ScValTypeScvSymbol,
-				Sym:  &counterSym,
-			},
-			Durability: xdr.ContractDataDurabilityPersistent,
-		},
-	}
-
-	binKey, err := key.MarshalBinary()
-	assert.NoError(t, err)
-
-	expiration := xdr.LedgerKeyExpiration{
-		KeyHash: sha256.Sum256(binKey),
-	}
-	waitForLedgerEntryToExpire(t, client, expiration)
+	waitForLedgerEntryToExpire(t, client, getExpirationKeyForCounterLedgerEntry(t, strkeyContractID))
 
 	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "3", count)
+}
+
+func TestCLIBump(t *testing.T) {
+	test := NewCLITest(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "1", count)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+
+	bumpOutput := runSuccessfulCLICmd(
+		t,
+		fmt.Sprintf(
+			"contract bump --id %s --key COUNTER --durability persistent --ledgers-to-expire 20",
+			strkeyContractID,
+		),
+	)
+
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
+	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), bumpOutput)
+}
+
+func TestCLIRestore(t *testing.T) {
+	test := NewCLITest(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "1", count)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	// Wait for the counter ledger entry to expire and successfully invoke the `inc` contract function again
+	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
+	waitForLedgerEntryToExpire(t, client, expirationKey)
+
+	restoreOutput := runSuccessfulCLICmd(
+		t,
+		fmt.Sprintf(
+			"contract restore --id %s --key COUNTER",
+			strkeyContractID,
+		),
+	)
+
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))))
+	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
+	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), restoreOutput)
+}
+
+func getExpirationKeyForCounterLedgerEntry(t *testing.T, strkeyContractID string) xdr.LedgerKey {
+	return getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
+}
+
+func parseContractStrKey(t *testing.T, strkeyContractID string) [32]byte {
+	contractIDBytes := strkey.MustDecode(strkey.VersionByteContract, strkeyContractID)
+	var contractID [32]byte
+	require.Len(t, contractIDBytes, len(contractID))
+	copy(contractID[:], contractIDBytes)
+	return contractID
 }
 
 func runSuccessfulCLICmd(t *testing.T, cmd string) string {
@@ -114,7 +152,7 @@ func runSuccessfulCLICmd(t *testing.T, cmd string) string {
 	stdout, stderr := res.Stdout(), res.Stderr()
 	outputs := fmt.Sprintf("stderr:\n%s\nstdout:\n%s\n", stderr, stdout)
 	require.NoError(t, res.Error, outputs)
-	fmt.Printf(outputs)
+	fmt.Print(outputs)
 	return strings.TrimSpace(stdout)
 }
 

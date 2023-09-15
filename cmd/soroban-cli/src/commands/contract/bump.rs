@@ -195,7 +195,6 @@ impl Cmd {
             return Err(Error::LedgerEntryNotFound);
         }
 
-        // TODO: double-check that this match is correct
         match (&operations[0].changes[0], &operations[0].changes[1]) {
             (
                 LedgerEntryChange::State(_),
