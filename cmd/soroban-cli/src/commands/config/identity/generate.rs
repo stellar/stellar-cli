@@ -64,10 +64,10 @@ impl Cmd {
         self.config_locator.write_identity(&self.name, &secret)?;
         if !self.network.is_no_network() {
             let addr = secret.public_key(self.hd_path)?;
-            self.network
-                .get(&self.config_locator)?
-                .fund_address(&addr)
-                .await?;
+            let network = self.network.get(&self.config_locator)?;
+            network.fund_address(&addr).await.unwrap_or_else(|_| {
+                tracing::warn!("Failed to fund address: {addr} on at {}", network.rpc_url);
+            });
         }
         Ok(())
     }

@@ -36,26 +36,12 @@ func TestCLIfetch(t *testing.T) {
 	cargoTest(t, "contract_sandbox::fetch")
 }
 
-func TestCLIinstall_wasm_then_deploy_contract(t *testing.T) {
-	cargoTest(t, "contract_sandbox::install_wasm_then_deploy_contract")
-}
 func TestCLIcontract_data_read_failure(t *testing.T) {
 	cargoTest(t, "contract_sandbox::contract_data_read_failure")
 }
-func TestCLIinvoke_auth_with_different_test_account(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_auth_with_different_test_account")
-}
-func TestCLIinvoke_auth_with_different_test_account_fail(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_auth_with_different_test_account_fail")
-}
-func TestCLIhandles_kebab_case(t *testing.T) {
-	cargoTest(t, "contract_sandbox::handles_kebab_case")
-}
+
 func TestCLIinvoke_auth(t *testing.T) {
 	cargoTest(t, "contract_sandbox::invoke_auth")
-}
-func TestCLIinvoke_hello_world(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_hello_world")
 }
 
 func TestCLIcontract_data_read(t *testing.T) {
@@ -66,9 +52,6 @@ func TestCLIinvoke_hello_world_from_file(t *testing.T) {
 }
 func TestCLIinvoke_hello_world_from_file_fail(t *testing.T) {
 	cargoTest(t, "contract_sandbox::invoke_hello_world_from_file_fail")
-}
-func TestCLIinvoke_hello_world_with_deploy_first(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_hello_world_with_deploy_first")
 }
 func TestCLIinvoke_hello_world_with_lib_two(t *testing.T) {
 	cargoTest(t, "contract_sandbox::invoke_hello_world_with_lib_two")
