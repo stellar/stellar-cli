@@ -21,20 +21,75 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
-func cargoTest(name string) *icmd.Result {
+func cargoTest(t *testing.T, name string) {
+	NewCLITest(t)
 	c := icmd.Command("cargo", "test", "--package", "soroban-test", "--test", "it", "--", name, "--exact", "--nocapture")
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
 	)
-	return icmd.RunCmd(c)
+	res := icmd.RunCmd(c)
+	require.NoError(t, res.Error, res.Stdout(), res.Stderr())
 }
 
-func TestCLIWithCargo(t *testing.T) {
-	NewCLITest(t)
-	res := cargoTest("contract_sandbox::invoke_hello_world_with_deploy_first")
-	stdout, stderr := res.Stdout(), res.Stderr()
-	println(stdout, stderr)
+func TestCLIfetch(t *testing.T) {
+	cargoTest(t, "contract_sandbox::fetch")
+}
+
+func TestCLIinstall_wasm_then_deploy_contract(t *testing.T) {
+	cargoTest(t, "contract_sandbox::install_wasm_then_deploy_contract")
+}
+func TestCLIcontract_data_read_failure(t *testing.T) {
+	cargoTest(t, "contract_sandbox::contract_data_read_failure")
+}
+func TestCLIinvoke_auth_with_different_test_account(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_auth_with_different_test_account")
+}
+func TestCLIinvoke_auth_with_different_test_account_fail(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_auth_with_different_test_account_fail")
+}
+func TestCLIhandles_kebab_case(t *testing.T) {
+	cargoTest(t, "contract_sandbox::handles_kebab_case")
+}
+func TestCLIinvoke_auth(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_auth")
+}
+func TestCLIinvoke_hello_world(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_hello_world")
+}
+
+func TestCLIcontract_data_read(t *testing.T) {
+	cargoTest(t, "contract_sandbox::contract_data_read")
+}
+func TestCLIinvoke_hello_world_from_file(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_hello_world_from_file")
+}
+func TestCLIinvoke_hello_world_from_file_fail(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_hello_world_from_file_fail")
+}
+func TestCLIinvoke_hello_world_with_deploy_first(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_hello_world_with_deploy_first")
+}
+func TestCLIinvoke_hello_world_with_lib_two(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_hello_world_with_lib_two")
+}
+func TestCLIinvoke_hello_world_with_lib(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_hello_world_with_lib")
+}
+func TestCLIinvoke_hello_world_with_seed(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_hello_world_with_seed")
+}
+func TestCLIinvoke_with_sk(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_with_sk")
+}
+func TestCLIinvoke_auth_with_identity(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_auth_with_identity")
+}
+func TestCLIinvoke_with_id(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_with_id")
+}
+func TestCLIinvoke_with_seed(t *testing.T) {
+	cargoTest(t, "contract_sandbox::invoke_with_seed")
 }
 
 func TestCLIContractInstall(t *testing.T) {

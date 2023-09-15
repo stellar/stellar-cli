@@ -84,6 +84,10 @@ where
     });
 }
 
+pub fn is_rpc() -> bool {
+    std::env::var("SOROBAN_RPC_URL").is_ok()
+}
+
 pub const DEFAULT_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
 
@@ -92,3 +96,19 @@ pub const DEFAULT_SECRET_KEY: &str = "SC36BWNUOCZAO7DMEJNNKFV6BOTPJP7IG5PSHLUOLT
 
 pub const DEFAULT_PUB_KEY_1: &str = "GCKZUJVUNEFGD4HLFBUNVYM2QY2P5WQQZMGRA3DDL4HYVT5MW5KG3ODV";
 pub const TEST_SALT: &str = "f55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114";
+
+pub fn rpc_url() -> Option<String> {
+    std::env::var("SOROBAN_RPC_URL").ok()
+}
+
+pub fn rpc_url_arg() -> Option<String> {
+    rpc_url().map(|url| format!("--rpc-url={url}"))
+}
+
+pub fn network_passphrase() -> Option<String> {
+    std::env::var("SOROBAN_NETWORK_PASSPHRASE").ok()
+}
+
+pub fn network_passphrase_arg() -> Option<String> {
+    network_passphrase().map(|p| format!("--network-passphrase={p}"))
+}
