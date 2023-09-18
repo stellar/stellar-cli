@@ -74,7 +74,6 @@ func TestCLIWrapCustom(t *testing.T) {
 	testAccount := getCLIDefaultAccount(t)
 	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=deadbeef:%s", testAccount))
 	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
-	// require.Equal(t, "CAMTHSPKXZJIRTUXQP5QWJIFH3XIDMKLFAWVQOFOXPTKAW5GKV37ZC4N", strkeyContractID)
 	runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- mint --to=%s --amount 1", strkeyContractID, testAccount))
 }
 
