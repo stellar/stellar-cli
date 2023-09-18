@@ -112,3 +112,30 @@ pub fn network_passphrase() -> Option<String> {
 pub fn network_passphrase_arg() -> Option<String> {
     network_passphrase().map(|p| format!("--network-passphrase={p}"))
 }
+
+pub const TEST_CONTRACT_ID: &str = "CBVTIVBYWAO2HNPNGKDCZW4OZYYESTKNGD7IPRTDGQSFJS4QBDQQJX3T";
+
+pub fn deploy_hello(sandbox: &TestEnv) -> String {
+    let hash = HELLO_WORLD.hash().unwrap();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .assert()
+        .success()
+        .stdout(format!("{hash}\n"));
+
+    let mut cmd: &mut assert_cmd::Command = &mut sandbox.new_assert_cmd("contract");
+
+    cmd = cmd.arg("deploy").arg("--wasm-hash").arg(&format!("{hash}"));
+    if is_rpc() {
+        cmd = cmd.arg("--salt").arg(TEST_SALT);
+    } else {
+        cmd = cmd.arg("--id").arg(TEST_CONTRACT_ID);
+    }
+    cmd.assert()
+        .success()
+        .stdout(format!("{TEST_CONTRACT_ID}\n"));
+    TEST_CONTRACT_ID.to_string()
+}

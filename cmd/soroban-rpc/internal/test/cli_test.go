@@ -32,41 +32,16 @@ func cargoTest(t *testing.T, name string) {
 	require.NoError(t, res.Error, res.Stdout(), res.Stderr())
 }
 
-func TestCLIfetch(t *testing.T) {
-	cargoTest(t, "contract_sandbox::fetch")
-}
-func TestCLIcontract_data_read_failure(t *testing.T) {
-	cargoTest(t, "contract_sandbox::contract_data_read_failure")
-}
-func TestCLIinvoke_auth(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_auth")
-}
-func TestCLIcontract_data_read(t *testing.T) {
-	cargoTest(t, "contract_sandbox::contract_data_read")
-}
-func TestCLIinvoke_hello_world_from_file(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_hello_world_from_file")
-}
-func TestCLIinvoke_hello_world_from_file_fail(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_hello_world_from_file_fail")
-}
-func TestCLIinvoke_hello_world_with_lib_two(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_hello_world_with_lib_two")
-}
-func TestCLIinvoke_hello_world_with_seed(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_hello_world_with_seed")
-}
-func TestCLIinvoke_with_sk(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_with_sk")
-}
-func TestCLIinvoke_auth_with_identity(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_auth_with_identity")
-}
-func TestCLIinvoke_with_id(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_with_id")
-}
-func TestCLIinvoke_with_seed(t *testing.T) {
-	cargoTest(t, "contract_sandbox::invoke_with_seed")
+func TestCLICargoTest(t *testing.T) {
+	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration_and_sandbox::", "--package", "soroban-test", "--", "--list"))
+	input := names.Stdout()
+	lines := strings.Split(input, "\n")
+	for _, line := range lines {
+		testName := strings.TrimSuffix(line, ": test")
+		t.Run(testName, func(t *testing.T) {
+			cargoTest(t, testName)
+		})
+	}
 }
 
 func TestCLIWrapCustom(t *testing.T) {
