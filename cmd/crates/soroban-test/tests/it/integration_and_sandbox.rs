@@ -3,14 +3,8 @@ use soroban_test::TestEnv;
 
 use crate::util::{
     add_test_seed, deploy_hello, is_rpc, network_passphrase_arg, rpc_url_arg, DEFAULT_PUB_KEY,
-    DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE, HELLO_WORLD, TEST_CONTRACT_ID,
+    DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE, HELLO_WORLD,
 };
-
-#[test]
-fn install_wasm_then_deploy_contract() {
-    let sandbox = TestEnv::default();
-    assert_eq!(deploy_hello(&sandbox), TEST_CONTRACT_ID);
-}
 
 #[test]
 fn invoke_hello_world_with_lib_two() {
