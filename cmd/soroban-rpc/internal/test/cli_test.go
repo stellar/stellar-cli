@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -93,6 +94,25 @@ func TestCLIBump(t *testing.T) {
 
 	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
 	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+
+	// Bump the contract's instance
+	// Without error it is successful
+	initialContractExpirationSeq := runSuccessfulCLICmd(
+		t,
+		fmt.Sprintf(
+			"contract bump --expiration-ledger-only --id %s --durability persistent --ledgers-to-expire 15",
+			strkeyContractID,
+		),
+	)
+
+	newContractExpirationSeq := runSuccessfulCLICmd(
+		t,
+		fmt.Sprintf(
+			"contract bump --expiration-ledger-only --id %s --durability persistent --ledgers-to-expire 30",
+			strkeyContractID,
+		),
+	)
+	require.Greater(t, parseInt(t, newContractExpirationSeq), parseInt(t, initialContractExpirationSeq))
 
 	bumpOutput := runSuccessfulCLICmd(
 		t,
@@ -203,4 +223,10 @@ func fundAccount(t *testing.T, test *Test, account string, amount string) {
 	})
 	require.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+}
+
+func parseInt(t *testing.T, s string) uint64 {
+	i, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64)
+	require.NoError(t, err)
+	return i
 }

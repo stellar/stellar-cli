@@ -248,6 +248,7 @@ If no keys are specified the contract itself is bumped.
     Temporary
 
 * `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entries
+* `--expiration-ledger-only` — Only print the new expiration ledger
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config

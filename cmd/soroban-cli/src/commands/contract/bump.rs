@@ -65,6 +65,10 @@ pub struct Cmd {
     #[arg(long, required = true)]
     ledgers_to_expire: u32,
 
+    /// Only print the new expiration ledger
+    #[arg(long)]
+    expiration_ledger_only: bool,
+
     #[command(flatten)]
     config: config::Args,
     #[command(flatten)]
@@ -121,8 +125,11 @@ impl Cmd {
         } else {
             self.run_against_rpc_server().await?
         };
-
-        println!("New expiration ledger: {expiration_ledger_seq}");
+        if self.expiration_ledger_only {
+            println!("{expiration_ledger_seq}");
+        } else {
+            println!("New expiration ledger: {expiration_ledger_seq}");
+        }
 
         Ok(())
     }
