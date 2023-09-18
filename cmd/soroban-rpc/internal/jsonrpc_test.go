@@ -10,11 +10,9 @@ import (
 	"time"
 
 	"github.com/creachadair/jrpc2"
-	_ "github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
-	_ "github.com/creachadair/jrpc2/handler"
 	"github.com/creachadair/jrpc2/jhttp"
-	_ "github.com/creachadair/jrpc2/jhttp"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,7 +58,7 @@ func TestJRPCBatching(t *testing.T) {
 
 	// make http request to the endpoint, containing two entries.
 	client := http.Client{}
-	request, err := http.NewRequest("POST", "http://"+serverAddress, bytes.NewBufferString(`[{"jsonrpc": "2.0", "method": "dummyMethod", "id": "1"}, {"jsonrpc": "2.0", "method": "dummyMethod", "id": "2"}]`))
+	request, err := http.NewRequestWithContext(context.Background(), "POST", "http://"+serverAddress, bytes.NewBufferString(`[{"jsonrpc": "2.0", "method": "dummyMethod", "id": "1"}, {"jsonrpc": "2.0", "method": "dummyMethod", "id": "2"}]`))
 	require.NoError(t, err)
 	request.Header["Content-Type"] = []string{"application/json"}
 	response, err := client.Do(request)
@@ -69,10 +67,11 @@ func TestJRPCBatching(t *testing.T) {
 	responseBody, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.Equal(t, `[{"jsonrpc":"2.0","id":"1","result":"abc"},{"jsonrpc":"2.0","id":"2","result":"abc"}]`, string(responseBody))
+	require.NoError(t, response.Body.Close())
 
 	t.Skip("Skipping the rest of the test, since it would fail due to jrpc2 specs misaligment. ")
 	// repeat the request, this time with only a single item in the array.
-	request, err = http.NewRequest("POST", "http://"+serverAddress, bytes.NewBufferString(`[{"jsonrpc": "2.0", "method": "dummyMethod", "id": "3"}]`))
+	request, err = http.NewRequestWithContext(context.Background(), "POST", "http://"+serverAddress, bytes.NewBufferString(`[{"jsonrpc": "2.0", "method": "dummyMethod", "id": "3"}]`))
 	require.NoError(t, err)
 	request.Header["Content-Type"] = []string{"application/json"}
 	response, err = client.Do(request)
@@ -81,5 +80,5 @@ func TestJRPCBatching(t *testing.T) {
 	responseBody, err = io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.Equal(t, `[{"jsonrpc":"2.0","id":"3","result":"abc"}]`, string(responseBody))
-
+	require.NoError(t, response.Body.Close())
 }
