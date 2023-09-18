@@ -158,22 +158,11 @@ export async function invoke<R extends ResponseTypes, T = string>({
   }
 
   // if `sendTx` awaited the inclusion of the tx in the ledger, it used
-  // `getTransaction`, which has a `resultXdr` field
-  if ("resultXdr" in raw) {
-    const getResult = raw as SorobanRpc.GetTransactionResponse;
-    if (getResult.status !== SorobanRpc.GetTransactionStatus.SUCCESS) {
-      console.error('Transaction submission failed! Returning full RPC response.');
-      return raw;
-    }
-
-    return parse(raw.resultXdr.result().toXDR("base64"));
-  }
+  // `getTransaction`, which has a `returnValue` field
+  if ("returnValue" in raw) return parse(raw.returnValue!);
 
   // otherwise, it returned the result of `sendTransaction`
-  if ("errorResultXdr" in raw) {
-    const sendResult = raw as SorobanRpc.SendTransactionResponse;
-    return parse(sendResult.errorResultXdr);
-  }
+  if ("errorResultXdr" in raw) return parse(raw.errorResultXdr!);
 
   // if neither of these are present, something went wrong
   console.error("Don't know how to parse result! Returning full RPC response.");
