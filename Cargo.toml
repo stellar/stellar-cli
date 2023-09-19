@@ -14,9 +14,9 @@ exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 version = "20.0.0-rc2"
 
 [workspace.dependencies.soroban-env-host]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "f19ef13363a1e0cbff7b100c0599a1d63dea88a6"
+rev = "8c63bff68a15d79aca3a705ee6916a68db57b7e6"
 
 [workspace.dependencies.soroban-spec]
 version = "20.0.0-rc2"
