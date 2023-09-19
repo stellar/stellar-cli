@@ -11,49 +11,49 @@ default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.package]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 
 [workspace.dependencies.soroban-env-host]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "f19ef13363a1e0cbff7b100c0599a1d63dea88a6"
+rev = "8c63bff68a15d79aca3a705ee6916a68db57b7e6"
 
 [workspace.dependencies.soroban-spec]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "f743d6f9e49caa08924318907cd0588b60d7f187"
+rev = "0992413f9b05e5bfb1f872bce99e89d9129b2e61"
 # path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "f743d6f9e49caa08924318907cd0588b60d7f187"
+rev = "0992413f9b05e5bfb1f872bce99e89d9129b2e61"
 # path = "../rs-soroban-sdk/soroban-spec-rust"
 
 [workspace.dependencies.soroban-spec-json]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 path = "./cmd/crates/soroban-spec-json"
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "f743d6f9e49caa08924318907cd0588b60d7f187"
+rev = "0992413f9b05e5bfb1f872bce99e89d9129b2e61"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "f743d6f9e49caa08924318907cd0588b60d7f187"
+rev = "0992413f9b05e5bfb1f872bce99e89d9129b2e61"
 
 [workspace.dependencies.soroban-cli]
-version = "20.0.0-rc1"
+version = "20.0.0-rc2"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.stellar-xdr]
