@@ -52,7 +52,7 @@ pub(crate) fn preflight_invoke_hf_op(
         .context("cannot set debug diagnostic level")?;
     host.set_ledger_info(ledger_info.clone())
         .context("cannot set ledger info")?;
-    host.set_base_prng_seed([0; 32])
+    host.set_base_prng_seed(rand::Rng::gen(&mut rand::thread_rng()))
         .context("cannot set base prng seed")?;
 
     // We make an assumption here:

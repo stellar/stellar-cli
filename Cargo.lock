@@ -1862,6 +1862,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.4",
  "libc",
+ "rand 0.8.5",
  "sha2 0.10.7",
  "soroban-env-host",
  "thiserror",
