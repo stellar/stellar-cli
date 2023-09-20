@@ -42,6 +42,10 @@ impl Contract {
         count
     }
 
+    pub fn prng_u64_in_range(env: Env, low: u64, high: u64) -> u64 {
+        env.prng().u64_in_range(low..=high)
+    }
+
     #[allow(unused_variables)]
     pub fn multi_word_cmd(env: Env, contract_owner: String) {}
     /// Logs a string with `hello ` in front.

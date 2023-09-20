@@ -465,3 +465,29 @@ fn build() {
         .assert()
         .success();
 }
+
+#[test]
+fn invoke_prng_u64_in_range_test() {
+    let sandbox = TestEnv::default();
+    let res = sandbox
+        .new_assert_cmd("contract")
+        .arg("deploy")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
+    let id = stdout.trim_end();
+    println!("{id}");
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("prng_u64_in_range")
+        .arg("--low=0")
+        .arg("--high=100")
+        .assert()
+        .success();
+}
