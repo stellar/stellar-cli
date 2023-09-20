@@ -186,7 +186,17 @@ impl LedgerStorage {
         }
 
         let entry = LedgerEntry::from_xdr(xdr)?;
-        Ok((entry, expiration_seq))
+        let entry_and_expiration = (entry, expiration_seq);
+
+        if let Ok(expirable_entry) =
+            TryInto::<Box<dyn ExpirableLedgerEntry>>::try_into(&entry_and_expiration)
+        {
+            if expirable_entry.durability() != Persistent {
+                return Err(Error::NotFound);
+            }
+        }
+
+        Ok(entry_and_expiration)
     }
 
     pub(crate) fn get_xdr(&self, key: &LedgerKey, include_expired: bool) -> Result<Vec<u8>, Error> {
