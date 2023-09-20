@@ -189,24 +189,6 @@ impl LedgerStorage {
         Ok((entry, expiration_seq))
     }
 
-    fn get_including_persistent_expired(
-        &self,
-        key: &LedgerKey,
-    ) -> Result<(LedgerEntry, Option<u32>), Error> {
-        let entry_and_expiration = self.get(key, true)?;
-        // Explicitly discard temporary expired entries
-        if let Ok(expirable_entry) =
-            TryInto::<Box<dyn ExpirableLedgerEntry>>::try_into(&entry_and_expiration)
-        {
-            if expirable_entry.durability() == Temporary
-                && expirable_entry.has_expired(self.current_ledger_sequence)
-            {
-                return Err(Error::NotFound);
-            }
-        }
-        Ok(entry_and_expiration)
-    }
-
     pub(crate) fn get_xdr(&self, key: &LedgerKey, include_expired: bool) -> Result<Vec<u8>, Error> {
         // TODO: this can be optimized since for entry types other than ContractCode/ContractData,
         //       they don't need to be deserialized and serialized again
@@ -246,9 +228,17 @@ impl LedgerStorage {
 impl SnapshotSource for LedgerStorage {
     fn get(&self, key: &Rc<LedgerKey>) -> Result<(Rc<LedgerEntry>, Option<u32>), HostError> {
         if let Some(ref tracker) = self.restore_tracker {
-            let mut entry_and_expiration = self
-                .get_including_persistent_expired(key)
-                .map_err(HostError::from)?;
+            let mut entry_and_expiration = self.get(key, true)?;
+            // Explicitly discard temporary expired entries
+            if let Ok(expirable_entry) =
+                TryInto::<Box<dyn ExpirableLedgerEntry>>::try_into(&entry_and_expiration)
+            {
+                if expirable_entry.durability() == Temporary
+                    && expirable_entry.has_expired(self.current_ledger_sequence)
+                {
+                    return Err(HostError::from(Error::NotFound));
+                }
+            }
             // If the entry expired, we modify the expiration to make it seem like it was restored
             entry_and_expiration.1 =
                 tracker.track_and_restore(self.current_ledger_sequence, key, &entry_and_expiration);
