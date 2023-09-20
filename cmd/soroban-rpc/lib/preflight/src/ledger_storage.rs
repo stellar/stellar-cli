@@ -1,6 +1,6 @@
 use sha2::Digest;
 use soroban_env_host::storage::SnapshotSource;
-use soroban_env_host::xdr::ContractDataDurability::Persistent;
+use soroban_env_host::xdr::ContractDataDurability::{Persistent, Temporary};
 use soroban_env_host::xdr::{
     ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExpirationEntry, Hash, LedgerEntry,
     LedgerEntryData, LedgerKey, LedgerKeyConfigSetting, LedgerKeyExpiration, ReadXdr, ScError,
@@ -189,6 +189,24 @@ impl LedgerStorage {
         Ok((entry, expiration_seq))
     }
 
+    fn get_including_persistent_expired(
+        &self,
+        key: &LedgerKey,
+    ) -> Result<(LedgerEntry, Option<u32>), Error> {
+        let entry_and_expiration = self.get(key, true)?;
+        // Explicitly discard temporary expired entries
+        if let Ok(expirable_entry) =
+            TryInto::<Box<dyn ExpirableLedgerEntry>>::try_into(&entry_and_expiration)
+        {
+            if expirable_entry.durability() == Temporary
+                && expirable_entry.has_expired(self.current_ledger_sequence)
+            {
+                return Err(Error::NotFound);
+            }
+        }
+        Ok(entry_and_expiration)
+    }
+
     pub(crate) fn get_xdr(&self, key: &LedgerKey, include_expired: bool) -> Result<Vec<u8>, Error> {
         // TODO: this can be optimized since for entry types other than ContractCode/ContractData,
         //       they don't need to be deserialized and serialized again
@@ -227,28 +245,27 @@ impl LedgerStorage {
 
 impl SnapshotSource for LedgerStorage {
     fn get(&self, key: &Rc<LedgerKey>) -> Result<(Rc<LedgerEntry>, Option<u32>), HostError> {
-        let mut entry_and_expiration =
-            <LedgerStorage>::get(self, key, self.restore_tracker.is_some())?;
         if let Some(ref tracker) = self.restore_tracker {
+            let mut entry_and_expiration = self
+                .get_including_persistent_expired(key)
+                .map_err(HostError::from)?;
             // If the entry expired, we modify the expiration to make it seem like it was restored
             entry_and_expiration.1 =
                 tracker.track_and_restore(self.current_ledger_sequence, key, &entry_and_expiration);
+            return Ok((entry_and_expiration.0.into(), entry_and_expiration.1));
         }
-        Ok((entry_and_expiration.0.into(), entry_and_expiration.1))
+        let entry_and_expiration =
+            <LedgerStorage>::get(self, key, false).map_err(HostError::from)?;
+        return Ok((entry_and_expiration.0.into(), entry_and_expiration.1));
     }
 
     fn has(&self, key: &Rc<LedgerKey>) -> Result<bool, HostError> {
-        let entry_and_expiration =
-            match <LedgerStorage>::get(self, key, self.restore_tracker.is_some()) {
-                Err(e) => match e {
-                    Error::NotFound => return Ok(false),
-                    _ => return Err(HostError::from(e)),
-                },
-                Ok(le) => le,
-            };
-        if let Some(ref tracker) = self.restore_tracker {
-            _ = tracker.track_and_restore(self.current_ledger_sequence, key, &entry_and_expiration);
+        let result = <dyn SnapshotSource>::get(self, key);
+        if let Err(ref host_error) = result {
+            if host_error.error == HostError::from(Error::NotFound).error {
+                return Ok(false);
+            }
         }
-        Ok(true)
+        return result.map(|_| true);
     }
 }
