@@ -67,8 +67,8 @@ wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
 ed25519-dalek = "1.0.1"
-jsonrpsee-http-client = "0.18.1"
-jsonrpsee-core = "0.18.1"
+jsonrpsee-http-client = "0.20.1"
+jsonrpsee-core = "0.20.1"
 hyper   = "0.14.27"
 hyper-tls = "0.5"
 http = "0.2.9"
