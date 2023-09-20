@@ -382,6 +382,7 @@ impl Cmd {
         let h = Host::with_storage_and_budget(storage, budget);
         h.switch_to_recording_auth(true)?;
         h.set_source_account(source_account)?;
+        h.set_base_prng_seed(rand::Rng::gen(&mut rand::thread_rng()))?;
 
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
