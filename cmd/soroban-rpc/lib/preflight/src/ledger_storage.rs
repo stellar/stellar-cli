@@ -28,6 +28,8 @@ extern "C" {
 pub(crate) enum Error {
     #[error("not found")]
     NotFound,
+    #[error("entry expired")]
+    EntryExpired,
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
     #[error("nul error: {0}")]
@@ -43,7 +45,9 @@ pub(crate) enum Error {
 impl From<Error> for HostError {
     fn from(value: Error) -> Self {
         match value {
-            Error::NotFound => ScError::Storage(ScErrorCode::MissingValue).into(),
+            Error::NotFound | Error::EntryExpired => {
+                ScError::Storage(ScErrorCode::MissingValue).into()
+            }
             Error::Xdr(_) => ScError::Value(ScErrorCode::InvalidInput).into(),
             _ => ScError::Context(ScErrorCode::InternalError).into(),
         }
@@ -182,7 +186,7 @@ impl LedgerStorage {
             && expiration_seq.is_some()
             && has_expired(expiration_seq.unwrap(), self.current_ledger_sequence)
         {
-            return Err(Error::NotFound);
+            return Err(Error::EntryExpired);
         }
 
         let entry = LedgerEntry::from_xdr(xdr)?;
@@ -236,7 +240,7 @@ impl SnapshotSource for LedgerStorage {
                 if expirable_entry.durability() == Temporary
                     && expirable_entry.has_expired(self.current_ledger_sequence)
                 {
-                    return Err(HostError::from(Error::NotFound));
+                    return Err(HostError::from(Error::EntryExpired));
                 }
             }
             // If the entry expired, we modify the expiration to make it seem like it was restored
@@ -252,7 +256,7 @@ impl SnapshotSource for LedgerStorage {
     fn has(&self, key: &Rc<LedgerKey>) -> Result<bool, HostError> {
         let result = <dyn SnapshotSource>::get(self, key);
         if let Err(ref host_error) = result {
-            if host_error.error == HostError::from(Error::NotFound).error {
+            if host_error.error.is_code(ScErrorCode::MissingValue) {
                 return Ok(false);
             }
         }
