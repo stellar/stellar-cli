@@ -271,6 +271,7 @@ fn contract_data_read_failure() {
         .arg("read")
         .arg("--id=1")
         .arg("--key=COUNTER")
+        .arg("--durability=persistent")
         .assert()
         .failure()
         .stderr(
@@ -315,9 +316,10 @@ fn contract_data_read() {
         .arg("read")
         .arg("--id=1")
         .arg("--key=COUNTER")
+        .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,1\n");
+        .stdout("COUNTER,1,4096\n");
 
     sandbox
         .new_assert_cmd("contract")
@@ -333,9 +335,10 @@ fn contract_data_read() {
         .arg("read")
         .arg("--id=1")
         .arg("--key=COUNTER")
+        .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,2\n");
+        .stdout("COUNTER,2,4096\n");
 }
 
 #[test]

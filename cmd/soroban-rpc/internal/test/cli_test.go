@@ -166,7 +166,7 @@ func TestCLIRestore(t *testing.T) {
 	restoreOutput := runSuccessfulCLICmd(
 		t,
 		fmt.Sprintf(
-			"contract restore --id %s --key COUNTER",
+			"contract restore --id %s --key COUNTER --durability persistent",
 			strkeyContractID,
 		),
 	)
