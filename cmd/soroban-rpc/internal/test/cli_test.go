@@ -117,11 +117,11 @@ func TestCLIBumpTooLow(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
-	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	initialExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
 
 	bumpOutput := bump(t, strkeyContractID, "400", "--key COUNTER ")
 
-	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	newExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 	assert.Equal(t, newExpirationSeq, bumpOutput)
 
@@ -139,11 +139,11 @@ func TestCLIBumpTooHigh(t *testing.T) {
 	client := jrpc2.NewClient(ch, nil)
 
 	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
-	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	initialExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
 
 	bumpOutput := bump(t, strkeyContractID, "100000000", "--key COUNTER ")
 
-	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	newExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 	assert.Equal(t, newExpirationSeq, bumpOutput)
 }
