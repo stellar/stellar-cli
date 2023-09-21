@@ -1,15 +1,10 @@
-use std::{
-    fmt::Debug,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    ContractDataDurability, Error as XdrError, ExpirationEntry, ExtensionPoint, Hash, LedgerEntry,
-    LedgerEntryChange, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyContractCode,
-    LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
-    Preconditions, ReadXdr, RestoreFootprintOp, ScAddress, ScSpecTypeDef, ScVal, SequenceNumber,
+    Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry,
+    LedgerEntryChange, LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
+    Preconditions, RestoreFootprintOp, SequenceNumber,
     SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta,
     TransactionMetaV3, Uint256,
 };
@@ -17,47 +12,15 @@ use stellar_strkey::DecodeError;
 
 use crate::{
     commands::config::{self, locator},
-    rpc::{self, Client},
-    utils, wasm, Pwd,
+    key,
+    rpc::{self, Client}, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Contract ID to which owns the data entries.
-    /// If no keys provided the Contract's instance will be restored
-    #[arg(
-        long = "id",
-        required_unless_present = "wasm",
-        required_unless_present = "wasm_hash"
-    )]
-    pub contract_id: Option<String>,
-    /// Storage key (symbols only)
-    #[arg(long = "key")]
-    pub key: Vec<String>,
-    /// Storage key (base64-encoded XDR)
-    #[arg(long = "key-xdr")]
-    pub key_xdr: Vec<String>,
-    /// Path to Wasm file of contract code to restore
-    #[arg(
-        long,
-        conflicts_with = "key",
-        conflicts_with = "key_xdr",
-        conflicts_with = "contract_id",
-        conflicts_with = "wasm_hash"
-    )]
-    pub wasm: Option<PathBuf>,
-
-    /// Hash of contract code to restore
-    #[arg(
-        long = "wasm-hash",
-        conflicts_with = "key",
-        conflicts_with = "key_xdr",
-        conflicts_with = "contract_id",
-        conflicts_with = "wasm"
-    )]
-    pub wasm_hash: Option<String>,
-
+    #[command(flatten)]
+    pub key: key::Args,
     #[command(flatten)]
     pub config: config::Args,
     #[command(flatten)]
@@ -106,6 +69,8 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[error(transparent)]
+    Key(#[from] key::Error),
 }
 
 impl Cmd {
@@ -125,19 +90,7 @@ impl Cmd {
     pub async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
-        let entry_keys = if let Some(wasm) = &self.wasm {
-            vec![crate::wasm::Args { wasm: wasm.clone() }.try_into()?]
-        } else if let Some(wasm_hash) = &self.wasm_hash {
-            vec![LedgerKey::ContractCode(LedgerKeyContractCode {
-                hash: Hash(
-                    utils::contract_id_from_str(wasm_hash)
-                        .map_err(|e| Error::CannotParseContractId(wasm_hash.clone(), e))?,
-                ),
-            })]
-        } else {
-            let contract_id = self.contract_id()?;
-            self.parse_keys(contract_id)?
-        };
+        let entry_keys = self.key.parse_keys()?;
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
@@ -211,48 +164,6 @@ impl Cmd {
         // TODO: Implement this. This means we need to store ledger entries somewhere, and handle
         // eviction, and restoration with that evicted state store.
         todo!("Restoring ledger entries is not supported in the local sandbox mode");
-    }
-
-    fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(self.contract_id.as_ref().unwrap())
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone().unwrap(), e))
-    }
-
-    fn parse_keys(&self, contract_id: [u8; 32]) -> Result<Vec<LedgerKey>, Error> {
-        let mut keys: Vec<ScVal> = vec![];
-        for key in &self.key {
-            keys.push(
-                soroban_spec_tools::from_string_primitive(key, &ScSpecTypeDef::Symbol).map_err(
-                    |e| Error::CannotParseKey {
-                        key: key.clone(),
-                        error: e,
-                    },
-                )?,
-            );
-        }
-        for key in &self.key_xdr {
-            keys.push(
-                ScVal::from_xdr_base64(key).map_err(|e| Error::CannotParseXdrKey {
-                    key: key.clone(),
-                    error: e,
-                })?,
-            );
-        }
-
-        if keys.is_empty() {
-            keys.push(ScVal::LedgerKeyContractInstance);
-        };
-
-        Ok(keys
-            .iter()
-            .map(|key| {
-                LedgerKey::ContractData(LedgerKeyContractData {
-                    contract: ScAddress::Contract(Hash(contract_id)),
-                    durability: ContractDataDurability::Persistent,
-                    key: key.clone(),
-                })
-            })
-            .collect())
     }
 }
 
