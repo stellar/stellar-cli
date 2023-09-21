@@ -95,25 +95,6 @@ func TestCLIBump(t *testing.T) {
 	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
 	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 
-	// Bump the contract's instance
-	// Without error it is successful
-	initialContractExpirationSeq := runSuccessfulCLICmd(
-		t,
-		fmt.Sprintf(
-			"contract bump --expiration-ledger-only --id %s --durability persistent --ledgers-to-expire 15",
-			strkeyContractID,
-		),
-	)
-
-	newContractExpirationSeq := runSuccessfulCLICmd(
-		t,
-		fmt.Sprintf(
-			"contract bump --expiration-ledger-only --id %s --durability persistent --ledgers-to-expire 30",
-			strkeyContractID,
-		),
-	)
-	require.Greater(t, parseInt(t, newContractExpirationSeq), parseInt(t, initialContractExpirationSeq))
-
 	bumpOutput := runSuccessfulCLICmd(
 		t,
 		fmt.Sprintf(
@@ -125,6 +106,46 @@ func TestCLIBump(t *testing.T) {
 	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), bumpOutput)
+}
+func TestCLIBumpTooLow(t *testing.T) {
+	test := NewCLITest(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "1", count)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+
+	bumpOutput := bump(t, strkeyContractID, "400", "--key COUNTER ")
+
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
+	assert.Equal(t, newExpirationSeq, bumpOutput)
+
+	updatedExpirationSeq := bump(t, strkeyContractID, "15", "--key COUNTER")
+	assert.Equal(t, bumpOutput, updatedExpirationSeq)
+}
+
+func TestCLIBumpTooHigh(t *testing.T) {
+	test := NewCLITest(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
+	require.Equal(t, "1", count)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+
+	bumpOutput := bump(t, strkeyContractID, "100000000", "--key COUNTER ")
+
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
+	assert.Equal(t, newExpirationSeq, bumpOutput)
 }
 
 func TestCLIRestore(t *testing.T) {
@@ -229,4 +250,19 @@ func parseInt(t *testing.T, s string) uint64 {
 	i, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64)
 	require.NoError(t, err)
 	return i
+}
+
+func bump(t *testing.T, contractId string, amount string, rest string) uint64 {
+
+	res := runSuccessfulCLICmd(
+		t,
+		fmt.Sprintf(
+			"contract bump --expiration-ledger-only --id=%s --durability persistent --ledgers-to-expire=%s %s",
+			contractId,
+			amount,
+			rest,
+		),
+	)
+
+	return parseInt(t, res)
 }

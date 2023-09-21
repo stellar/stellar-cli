@@ -2,18 +2,21 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry,
-    LedgerEntryChange, LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
-    Preconditions, RestoreFootprintOp, SequenceNumber,
-    SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta,
-    TransactionMetaV3, Uint256,
+    Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry, LedgerEntryChange,
+    LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
+    Preconditions, RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
+    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
 };
 use stellar_strkey::DecodeError;
 
 use crate::{
-    commands::config::{self, locator},
+    commands::{
+        config::{self, locator},
+        contract::bump,
+    },
     key,
-    rpc::{self, Client}, wasm, Pwd,
+    rpc::{self, Client},
+    wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -21,6 +24,9 @@ use crate::{
 pub struct Cmd {
     #[command(flatten)]
     pub key: key::Args,
+    /// Number of ledgers to extend the entry
+    #[arg(long)]
+    pub ledgers_to_expire: Option<u32>,
     #[command(flatten)]
     pub config: config::Args,
     #[command(flatten)]
@@ -71,6 +77,8 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error(transparent)]
     Key(#[from] key::Error),
+    #[error(transparent)]
+    Bump(#[from] bump::Error),
 }
 
 impl Cmd {
@@ -82,7 +90,19 @@ impl Cmd {
             self.run_against_rpc_server().await?
         };
 
-        println!("New expiration ledger: {expiration_ledger_seq}");
+        if let Some(ledgers_to_expire) = self.ledgers_to_expire {
+            bump::Cmd {
+                key: self.key.clone(),
+                ledgers_to_expire,
+                config: self.config.clone(),
+                fee: self.fee.clone(),
+                expiration_ledger_only: false,
+            }
+            .run()
+            .await?;
+        } else {
+            println!("New expiration ledger: {expiration_ledger_seq}");
+        }
 
         Ok(())
     }

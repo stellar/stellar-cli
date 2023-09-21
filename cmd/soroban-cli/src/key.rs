@@ -2,9 +2,7 @@ use clap::arg;
 use soroban_env_host::xdr::{
     self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, ReadXdr, ScAddress, ScVal,
 };
-use std::{
-    path::{PathBuf},
-};
+use std::path::PathBuf;
 
 use crate::{
     commands::contract::Durability,
@@ -65,7 +63,6 @@ pub struct Args {
 }
 
 impl Args {
-    
     pub fn parse_keys(&self) -> Result<Vec<LedgerKey>, Error> {
         let keys = if let Some(keys) = &self.key {
             keys.iter()
@@ -78,7 +75,7 @@ impl Args {
                 .collect::<Result<Vec<_>, Error>>()?
         } else if let Some(keys) = &self.key_xdr {
             keys.iter()
-                .map(|s|Ok(ScVal::from_xdr_base64(s)?))
+                .map(|s| Ok(ScVal::from_xdr_base64(s)?))
                 .collect::<Result<Vec<_>, Error>>()?
         } else if let Some(wasm) = &self.wasm {
             return Ok(vec![crate::wasm::Args { wasm: wasm.clone() }.try_into()?]);

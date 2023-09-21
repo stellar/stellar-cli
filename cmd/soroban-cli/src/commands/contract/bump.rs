@@ -1,41 +1,38 @@
-use std::{
-    fmt::Debug,
-    path::{Path},
-    str::FromStr,
-};
+use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, Error as XdrError, ExpirationEntry, ExtensionPoint,
-    LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, SequenceNumber, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
-    Uint256,
+    BumpFootprintExpirationOp, Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry,
+    LedgerEntryChange, LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation,
+    OperationBody, Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData,
+    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
 };
-
 
 use crate::{
     commands::config,
-    rpc::{self, Client}, wasm, Pwd, key,
+    key,
+    rpc::{self, Client},
+    wasm, Pwd,
 };
+
+const MAX_LEDGERS_TO_EXPIRE: u32 = 535_679;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
-    ledgers_to_expire: u32,
+    pub ledgers_to_expire: u32,
 
     /// Only print the new expiration ledger
     #[arg(long)]
-    expiration_ledger_only: bool,
+    pub expiration_ledger_only: bool,
 
     #[command(flatten)]
     pub key: key::Args,
 
     #[command(flatten)]
-    config: config::Args,
+    pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
 }
@@ -100,6 +97,16 @@ impl Cmd {
         Ok(())
     }
 
+    fn ledgers_to_expire(&self) -> u32 {
+        let res = u32::min(self.ledgers_to_expire, MAX_LEDGERS_TO_EXPIRE);
+        if res < self.ledgers_to_expire {
+            tracing::warn!(
+                "Ledgers to expire is too large, using max value of {MAX_LEDGERS_TO_EXPIRE}"
+            );
+        }
+        res
+    }
+
     async fn run_against_rpc_server(&self) -> Result<u32, Error> {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
@@ -107,6 +114,7 @@ impl Cmd {
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
+        let ledgers_to_expire = self.ledgers_to_expire();
 
         // Get the account sequence number
         let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
@@ -123,7 +131,7 @@ impl Cmd {
                 source_account: None,
                 body: OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
                     ext: ExtensionPoint::V0,
-                    ledgers_to_expire: self.ledgers_to_expire,
+                    ledgers_to_expire,
                 }),
             }]
             .try_into()?,
@@ -131,7 +139,7 @@ impl Cmd {
                 ext: ExtensionPoint::V0,
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
-                        read_only: keys.try_into()?,
+                        read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
                     instructions: 0,
@@ -164,8 +172,12 @@ impl Cmd {
             return Err(Error::LedgerEntryNotFound);
         }
 
-        if operations[0].changes.len() != 2 {
-            return Err(Error::LedgerEntryNotFound);
+        if operations[0].changes.is_empty() {
+            let entry = client.get_full_ledger_entries(&keys).await?;
+            let expire = entry.entries[0].expiration.expiration_ledger_seq;
+            if entry.latest_ledger + i64::from(ledgers_to_expire) < i64::from(expire) {
+                return Ok(expire);
+            }
         }
 
         match (&operations[0].changes[0], &operations[0].changes[1]) {
@@ -226,5 +238,3 @@ impl Cmd {
         Ok(new_expiration_ledger_seq)
     }
 }
-
-

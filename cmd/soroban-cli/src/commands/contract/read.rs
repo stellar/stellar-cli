@@ -1,14 +1,15 @@
 use std::{
     convert::Into,
     fmt::Debug,
-    io::{self},
+    io::{self, stdout},
 };
 
 use clap::{command, Parser, ValueEnum};
 use sha2::{Digest, Sha256};
 use soroban_env_host::{
     xdr::{
-        Error as XdrError, ExpirationEntry, Hash, ScVal, WriteXdr,
+        ContractDataEntry, Error as XdrError, ExpirationEntry, Hash, LedgerEntryData, LedgerKey,
+        LedgerKeyContractData, ScVal, WriteXdr,
     },
     HostError,
 };
@@ -85,6 +86,8 @@ pub enum Error {
     NoContractDataEntryFoundForContractID,
     #[error(transparent)]
     Key(#[from] key::Error),
+    #[error("Only contract data and code keys are allowed")]
+    OnlyDataAllowed,
 }
 
 impl Cmd {
@@ -103,8 +106,7 @@ impl Cmd {
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let keys = self.key.parse_keys()?;
-        tracing::trace!("{keys:#?}");
-        Ok(client.get_full_ledger_entries(keys.as_slice()).await?)
+        Ok(client.get_full_ledger_entries(&keys).await?)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -134,57 +136,70 @@ impl Cmd {
         })
     }
 
-    fn output_entries(&self, raw_entries: &FullLedgerEntries) -> Result<(), Error> {
-        println!("{raw_entries:#?}");
-        // let entries = raw_entries
-        //     .iter()
-        //     .filter_map(|(_k, data)| {
-        //         if let LedgerEntryData::ContractData(ContractDataEntry { key, val, .. }) = &data {
-        //             Some((key.clone(), val.clone()))
-        //         } else {
-        //             None
-        //         }
-        //     })
-        //     .collect::<Vec<_>>();
+    fn output_entries(&self, entries: &FullLedgerEntries) -> Result<(), Error> {
+        if entries.entries.is_empty() {
+            return Err(Error::NoContractDataEntryFoundForContractID);
+        }
+        tracing::trace!("{entries:#?}");
+        let mut out = csv::Writer::from_writer(stdout());
+        for FullLedgerEntry {
+            key,
+            val,
+            expiration,
+        } in &entries.entries
+        {
+            let (
+                LedgerKey::ContractData(LedgerKeyContractData { key, .. }),
+                LedgerEntryData::ContractData(ContractDataEntry { val, .. }),
+            ) = (key, val)
+            else {
+                return Err(Error::OnlyDataAllowed);
+            };
+            let expiration = expiration.expiration_ledger_seq;
 
-        // if entries.is_empty() {
-        //     return Err(Error::NoContractDataEntryFoundForContractID);
-        // }
-
-        // let mut out = csv::Writer::from_writer(stdout());
-        // for (key, val) in entries {
-        //     let output = match self.output {
-        //         Output::String => [
-        //             soroban_spec_tools::to_string(&key).map_err(|e| Error::CannotPrintResult {
-        //                 result: key.clone(),
-        //                 error: e,
-        //             })?,
-        //             soroban_spec_tools::to_string(&val).map_err(|e| Error::CannotPrintResult {
-        //                 result: val.clone(),
-        //                 error: e,
-        //             })?,
-        //         ],
-        //         Output::Json => [
-        //             serde_json::to_string_pretty(&key).map_err(|e| {
-        //                 Error::CannotPrintJsonResult {
-        //                     result: key.clone(),
-        //                     error: e,
-        //                 }
-        //             })?,
-        //             serde_json::to_string_pretty(&val).map_err(|e| {
-        //                 Error::CannotPrintJsonResult {
-        //                     result: val.clone(),
-        //                     error: e,
-        //                 }
-        //             })?,
-        //         ],
-        //         Output::Xdr => [key.to_xdr_base64()?, val.to_xdr_base64()?],
-        //     };
-        //     out.write_record(output)
-        //         .map_err(|e| Error::CannotPrintAsCsv { error: e })?;
-        // }
-        // out.flush()
-        //     .map_err(|e| Error::CannotPrintFlush { error: e })?;
+            let output = match self.output {
+                Output::String => [
+                    soroban_spec_tools::to_string(key).map_err(|e| Error::CannotPrintResult {
+                        result: key.clone(),
+                        error: e,
+                    })?,
+                    soroban_spec_tools::to_string(val).map_err(|e| Error::CannotPrintResult {
+                        result: val.clone(),
+                        error: e,
+                    })?,
+                    expiration.to_string(),
+                ],
+                Output::Json => [
+                    serde_json::to_string_pretty(&key).map_err(|error| {
+                        Error::CannotPrintJsonResult {
+                            result: key.clone(),
+                            error,
+                        }
+                    })?,
+                    serde_json::to_string_pretty(&val).map_err(|error| {
+                        Error::CannotPrintJsonResult {
+                            result: val.clone(),
+                            error,
+                        }
+                    })?,
+                    serde_json::to_string_pretty(&expiration).map_err(|error| {
+                        Error::CannotPrintJsonResult {
+                            result: val.clone(),
+                            error,
+                        }
+                    })?,
+                ],
+                Output::Xdr => [
+                    key.to_xdr_base64()?,
+                    val.to_xdr_base64()?,
+                    expiration.to_xdr_base64()?,
+                ],
+            };
+            out.write_record(output)
+                .map_err(|e| Error::CannotPrintAsCsv { error: e })?;
+        }
+        out.flush()
+            .map_err(|e| Error::CannotPrintFlush { error: e })?;
         Ok(())
     }
 }

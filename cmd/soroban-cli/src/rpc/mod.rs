@@ -6,11 +6,11 @@ use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent,
-    Error as XdrError, ExpirationEntry, LedgerEntryData, LedgerFootprint, LedgerKey,
-    LedgerKeyAccount, LedgerKeyExpiration, PublicKey, ReadXdr, SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction,
-    TransactionEnvelope, TransactionMeta, TransactionMetaV3, TransactionResult,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
+    ExpirationEntry, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
+    LedgerKeyExpiration, PublicKey, ReadXdr, SequenceNumber, SorobanAuthorizationEntry,
+    SorobanResources, Transaction, TransactionEnvelope, TransactionMeta, TransactionMetaV3,
+    TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
@@ -153,7 +153,10 @@ pub struct LedgerEntryResult {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLedgerEntriesResponse {
     pub entries: Option<Vec<LedgerEntryResult>>,
-    #[serde(rename = "latestLedger", deserialize_with = "deserialize_number_from_string")]
+    #[serde(
+        rename = "latestLedger",
+        deserialize_with = "deserialize_number_from_string"
+    )]
     pub latest_ledger: i64,
 }
 
