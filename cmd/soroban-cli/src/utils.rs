@@ -164,7 +164,7 @@ pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u
 ///
 /// Might return an error
 pub fn sign_transaction(
-    key: &ed25519_dalek::Keypair,
+    key: &ed25519_dalek::SigningKey,
     tx: &Transaction,
     network_passphrase: &str,
 ) -> Result<TransactionEnvelope, XdrError> {
@@ -172,7 +172,7 @@ pub fn sign_transaction(
     let tx_signature = key.sign(&tx_hash);
 
     let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.public.to_bytes()[28..].try_into()?),
+        hint: SignatureHint(key.verifying_key().to_bytes()[28..].try_into()?),
         signature: Signature(tx_signature.to_bytes().try_into()?),
     };
 
@@ -336,20 +336,20 @@ pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path
     Ok(soroban_dir(&pwd))
 }
 
-pub(crate) fn into_key_pair(
+pub(crate) fn into_signing_key(
     key: &PrivateKey,
-) -> Result<ed25519_dalek::Keypair, ed25519_dalek::SignatureError> {
-    let secret = ed25519_dalek::SecretKey::from_bytes(&key.0)?;
-    let public = (&secret).into();
-    Ok(ed25519_dalek::Keypair { secret, public })
+) -> Result<ed25519_dalek::SigningKey, ed25519_dalek::SignatureError> {
+    let secret: ed25519_dalek::SecretKey;
+    secret = key.0;
+    Ok(ed25519_dalek::SigningKey::from_bytes(&secret))
 }
 
 /// Used in tests
 #[allow(unused)]
 pub(crate) fn parse_secret_key(
     s: &str,
-) -> Result<ed25519_dalek::Keypair, ed25519_dalek::SignatureError> {
-    into_key_pair(&PrivateKey::from_string(s).unwrap())
+) -> Result<ed25519_dalek::SigningKey, ed25519_dalek::SignatureError> {
+    into_signing_key(&PrivateKey::from_string(s).unwrap())
 }
 
 pub fn is_hex_string(s: &str) -> bool {

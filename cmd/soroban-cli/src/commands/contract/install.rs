@@ -84,7 +84,8 @@ impl Cmd {
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
@@ -132,12 +133,14 @@ pub(crate) fn build_install_contract_code_tx(
     source_code: Vec<u8>,
     sequence: i64,
     fee: u32,
-    key: &ed25519_dalek::Keypair,
+    key: &ed25519_dalek::SigningKey,
 ) -> Result<(Transaction, Hash), XdrError> {
     let hash = utils::contract_hash(&source_code)?;
 
     let op = Operation {
-        source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
+        source_account: Some(MuxedAccount::Ed25519(Uint256(
+            key.verifying_key().to_bytes(),
+        ))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
             auth: VecM::default(),
@@ -145,7 +148,7 @@ pub(crate) fn build_install_contract_code_tx(
     };
 
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

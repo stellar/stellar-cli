@@ -76,8 +76,8 @@ pub fn assemble(
 // transaction. If unable to sign, return an error.
 pub fn sign_soroban_authorizations(
     raw: &Transaction,
-    source_key: &ed25519_dalek::Keypair,
-    signers: &[ed25519_dalek::Keypair],
+    source_key: &ed25519_dalek::SigningKey,
+    signers: &[ed25519_dalek::SigningKey],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<(Transaction, Vec<SorobanAuthorizationEntry>), Error> {
@@ -95,7 +95,8 @@ pub fn sign_soroban_authorizations(
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
 
-    let source_address = source_key.public.as_bytes();
+    let verification_key = source_key.verifying_key();
+    let source_address = verification_key.as_bytes();
 
     let signed_auths = body
         .auth
@@ -125,7 +126,10 @@ pub fn sign_soroban_authorizations(
                     });
                 }
             };
-            let signer = if let Some(s) = signers.iter().find(|s| needle == s.public.as_bytes()) {
+            let signer = if let Some(s) = signers
+                .iter()
+                .find(|s| needle == s.verifying_key().as_bytes())
+            {
                 s
             } else if needle == source_address {
                 // This is the source address, so we can sign it
@@ -156,7 +160,7 @@ pub fn sign_soroban_authorizations(
 
 pub fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
-    signer: &ed25519_dalek::Keypair,
+    signer: &ed25519_dalek::SigningKey,
     signature_expiration_ledger: u32,
     network_id: &Hash,
 ) -> Result<SorobanAuthorizationEntry, Error> {
@@ -187,7 +191,7 @@ pub fn sign_soroban_authorization_entry(
             ScVal::Symbol(ScSymbol("public_key".try_into()?)),
             ScVal::Bytes(
                 signer
-                    .public
+                    .verifying_key()
                     .to_bytes()
                     .to_vec()
                     .try_into()

@@ -172,7 +172,8 @@ impl Cmd {
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
 
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
@@ -197,10 +198,10 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     salt: [u8; 32],
-    key: &ed25519_dalek::Keypair,
+    key: &ed25519_dalek::SigningKey,
 ) -> Result<(Transaction, Hash), Error> {
     let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
-        key.public.to_bytes().into(),
+        key.verifying_key().to_bytes().into(),
     ));
 
     let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
@@ -220,7 +221,7 @@ fn build_create_contract_tx(
         }),
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
