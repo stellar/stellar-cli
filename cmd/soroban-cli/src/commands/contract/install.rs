@@ -10,6 +10,7 @@ use soroban_env_host::xdr::{
 };
 
 use super::restore;
+use crate::key;
 use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 
@@ -113,13 +114,17 @@ impl Cmd {
         {
             // Now just need to restore it and don't have to install again
             restore::Cmd {
-                contract_id: None,
-                key: vec![],
-                key_xdr: vec![],
-                wasm: Some(self.wasm.wasm.clone()),
-                wasm_hash: None,
+                key: key::Args {
+                    contract_id: None,
+                    key: None,
+                    key_xdr: None,
+                    wasm: Some(self.wasm.wasm.clone()),
+                    wasm_hash: None,
+                    durability: super::Durability::Persistent,
+                },
                 config: self.config.clone(),
                 fee: self.fee.clone(),
+                ledgers_to_expire: None,
             }
             .run_against_rpc_server()
             .await?;

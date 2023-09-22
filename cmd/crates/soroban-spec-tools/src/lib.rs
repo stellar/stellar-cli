@@ -905,6 +905,7 @@ pub fn to_string(v: &ScVal) -> Result<String, Error> {
         ScVal::Symbol(v) => std::str::from_utf8(v.as_slice())
             .map_err(|_| Error::InvalidValue(Some(ScType::Symbol)))?
             .to_string(),
+        ScVal::LedgerKeyContractInstance => "LedgerKeyContractInstance".to_string(),
         _ => serde_json::to_string(&to_json(v)?)?,
     })
 }
@@ -918,7 +919,7 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
     let val: Value = match v {
         ScVal::Bool(b) => Value::Bool(*b),
         ScVal::Void => Value::Null,
-        ScVal::LedgerKeyContractInstance => return Err(Error::InvalidValue(None)),
+        ScVal::LedgerKeyContractInstance => Value::String("LedgerKeyContractInstance".to_string()),
         ScVal::U64(v) => Value::Number(serde_json::Number::from(*v)),
         ScVal::Timepoint(tp) => Value::Number(serde_json::Number::from(tp.0)),
         ScVal::Duration(d) => Value::Number(serde_json::Number::from(d.0)),
