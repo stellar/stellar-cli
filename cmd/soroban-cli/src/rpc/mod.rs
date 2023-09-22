@@ -669,8 +669,8 @@ soroban config identity fund {address} --helper-url <url>"#
     pub async fn prepare_and_send_transaction(
         &self,
         tx_without_preflight: &Transaction,
-        source_key: &ed25519_dalek::Keypair,
-        signers: &[ed25519_dalek::Keypair],
+        source_key: &ed25519_dalek::SigningKey,
+        signers: &[ed25519_dalek::SigningKey],
         network_passphrase: &str,
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,

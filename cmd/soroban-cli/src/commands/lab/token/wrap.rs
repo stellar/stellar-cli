@@ -108,7 +108,8 @@ impl Cmd {
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
@@ -152,7 +153,7 @@ fn build_wrap_token_tx(
     sequence: i64,
     fee: u32,
     _network_passphrase: &str,
-    key: &ed25519_dalek::Keypair,
+    key: &ed25519_dalek::SigningKey,
 ) -> Result<Transaction, Error> {
     let contract = ScAddress::Contract(contract_id.clone());
     let mut read_write = vec![
@@ -191,7 +192,7 @@ fn build_wrap_token_tx(
     };
 
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

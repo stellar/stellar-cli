@@ -105,12 +105,12 @@ impl Secret {
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
         let key = self.key_pair(index)?;
         Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-            key.public.as_bytes(),
+            key.verifying_key().as_bytes(),
         )?)
     }
 
-    pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::Keypair, Error> {
-        Ok(utils::into_key_pair(&self.private_key(index)?)?)
+    pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
+        Ok(utils::into_signing_key(&self.private_key(index)?))
     }
 
     pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {

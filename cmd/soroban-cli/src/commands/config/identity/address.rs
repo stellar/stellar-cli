@@ -35,7 +35,7 @@ impl Cmd {
         Ok(())
     }
 
-    pub fn private_key(&self) -> Result<ed25519_dalek::Keypair, Error> {
+    pub fn private_key(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         Ok(if let Some(name) = &self.name {
             self.locator.read_identity(name)?
         } else {
@@ -46,7 +46,7 @@ impl Cmd {
 
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-            self.private_key()?.public.as_bytes(),
+            self.private_key()?.verifying_key().as_bytes(),
         )?)
     }
 }

@@ -117,12 +117,13 @@ impl Cmd {
         let ledgers_to_expire = self.ledgers_to_expire();
 
         // Get the account sequence number
-        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
-            source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+            source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
