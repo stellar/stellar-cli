@@ -110,7 +110,7 @@ impl Secret {
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
-        Ok(utils::into_signing_key(&self.private_key(index)?)?)
+        Ok(utils::into_signing_key(&self.private_key(index)?))
     }
 
     pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {

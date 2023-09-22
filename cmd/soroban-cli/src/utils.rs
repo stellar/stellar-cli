@@ -336,20 +336,17 @@ pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path
     Ok(soroban_dir(&pwd))
 }
 
-pub(crate) fn into_signing_key(
-    key: &PrivateKey,
-) -> Result<ed25519_dalek::SigningKey, ed25519_dalek::SignatureError> {
-    let secret: ed25519_dalek::SecretKey;
-    secret = key.0;
-    Ok(ed25519_dalek::SigningKey::from_bytes(&secret))
+pub(crate) fn into_signing_key(key: &PrivateKey) -> ed25519_dalek::SigningKey {
+    let secret: ed25519_dalek::SecretKey = key.0;
+    ed25519_dalek::SigningKey::from_bytes(&secret)
 }
 
 /// Used in tests
 #[allow(unused)]
 pub(crate) fn parse_secret_key(
     s: &str,
-) -> Result<ed25519_dalek::SigningKey, ed25519_dalek::SignatureError> {
-    into_signing_key(&PrivateKey::from_string(s).unwrap())
+) -> Result<ed25519_dalek::SigningKey, stellar_strkey::DecodeError> {
+    Ok(into_signing_key(&PrivateKey::from_string(s)?))
 }
 
 pub fn is_hex_string(s: &str) -> bool {
