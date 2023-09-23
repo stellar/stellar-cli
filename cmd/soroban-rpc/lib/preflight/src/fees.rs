@@ -261,7 +261,9 @@ fn calculate_unmodified_ledger_entry_bytes(
 fn calculate_contract_events_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
     let mut res: u32 = 0;
     for e in events {
-        if e.event.type_ != ContractEventType::Contract {
+        if e.event.type_ != ContractEventType::Contract
+            || e.event.type_ != ContractEventType::System
+        {
             continue;
         }
         let event_xdr = e
