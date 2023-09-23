@@ -21,6 +21,46 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+func cargoTest(t *testing.T, name string) {
+	NewCLITest(t)
+	c := icmd.Command("cargo", "test", "--package", "soroban-test", "--test", "it", "--", name, "--exact", "--nocapture")
+	c.Env = append(os.Environ(),
+		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
+		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
+	)
+	res := icmd.RunCmd(c)
+	require.NoError(t, res.Error, res.Stdout(), res.Stderr())
+}
+
+func TestCLICargoTest(t *testing.T) {
+	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration_and_sandbox::", "--package", "soroban-test", "--", "--list"))
+	input := names.Stdout()
+	lines := strings.Split(input, "\n")
+	for _, line := range lines {
+		testName := strings.TrimSuffix(line, ": test")
+		t.Run(testName, func(t *testing.T) {
+			cargoTest(t, testName)
+		})
+	}
+}
+
+func TestCLIWrapCustom(t *testing.T) {
+	NewCLITest(t)
+	testAccount := getCLIDefaultAccount(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=deadbeef:%s", testAccount))
+	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
+	runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- mint --to=%s --amount 1", strkeyContractID, testAccount))
+}
+
+func TestCLIWrapNative(t *testing.T) {
+	NewCLITest(t)
+	testAccount := getCLIDefaultAccount(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=native:%s", testAccount))
+	require.Equal(t, "CAMTHSPKXZJIRTUXQP5QWJIFH3XIDMKLFAWVQOFOXPTKAW5GKV37ZC4N", strkeyContractID)
+	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
+	require.Equal(t, "\"9223372036854775807\"", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- balance --id %s", strkeyContractID, testAccount)))
+}
+
 func TestCLIContractInstall(t *testing.T) {
 	NewCLITest(t)
 	output := runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)
