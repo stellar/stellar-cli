@@ -262,7 +262,7 @@ fn calculate_contract_events_size_bytes(events: &Vec<DiagnosticEvent>) -> Result
     let mut res: u32 = 0;
     for e in events {
         if e.event.type_ != ContractEventType::Contract
-            || e.event.type_ != ContractEventType::System
+            && e.event.type_ != ContractEventType::System
         {
             continue;
         }
