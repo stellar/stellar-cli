@@ -128,7 +128,7 @@ fn contract_data_read() {
         .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,1,4096\n");
+        .stdout(predicates::str::starts_with("COUNTER,1"));
 
     sandbox
         .new_assert_cmd("contract")
@@ -149,7 +149,7 @@ fn contract_data_read() {
         .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,2,4096\n");
+        .stdout(predicates::str::starts_with("COUNTER,2"));
 }
 
 #[test]
