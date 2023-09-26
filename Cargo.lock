@@ -1870,7 +1870,7 @@ dependencies = [
 
 [[package]]
 name = "preflight"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "anyhow",
  "base64 0.21.4",
@@ -2454,7 +2454,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2580,7 +2580,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 
 [[package]]
 name = "soroban-ledger-snapshot"
@@ -2654,7 +2654,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-json"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "pretty_assertions",
  "serde",
@@ -2683,7 +2683,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "base64 0.21.4",
  "ethnum",
@@ -2701,7 +2701,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "base64 0.21.4",
  "heck",
@@ -2722,7 +2722,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2920,21 +2920,21 @@ checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
 name = "test_custom_types"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_udt"
-version = "20.0.0-rc3"
+version = "20.0.0-rc4"
 dependencies = [
  "soroban-sdk",
 ]
