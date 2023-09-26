@@ -232,9 +232,9 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions: 5733936,
+			Instructions: 6070660,
 			ReadBytes:    48,
-			WriteBytes:   6576,
+			WriteBytes:   7060,
 		},
 		RefundableFee: 20056,
 	}
@@ -1126,7 +1126,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, xdr.Int64(45), transactionData.RefundableFee)
-	assert.Equal(t, xdr.Uint32(2860), transactionData.Resources.ReadBytes)
+	assert.Equal(t, xdr.Uint32(7260), transactionData.Resources.ReadBytes)
 	assert.Equal(t, xdr.Uint32(104), transactionData.Resources.WriteBytes)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }
