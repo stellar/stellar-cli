@@ -1015,3 +1015,118 @@ func TestSimulateInvokePrng_u64_in_range(t *testing.T) {
 	require.LessOrEqual(t, uint64(*obtainedResult.U64), uint64(high))
 	require.GreaterOrEqual(t, uint64(*obtainedResult.U64), uint64(low))
 }
+
+func TestSimulateSystemEvent(t *testing.T) {
+	test := NewTest(t)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
+	address := sourceAccount.Address()
+	account := txnbuild.NewSimpleAccount(address, 0)
+
+	helloWorldContract := getHelloWorldContract(t)
+
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(account.AccountID, helloWorldContract),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+
+	tx, err := txnbuild.NewTransaction(params)
+	require.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createCreateContractOperation(address, helloWorldContract),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+
+	tx, err = txnbuild.NewTransaction(params)
+	require.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
+	authAddrArg := "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H"
+	tx, err = txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			&txnbuild.CreateAccount{
+				Destination:   authAddrArg,
+				Amount:        "100000",
+				SourceAccount: address,
+			},
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	require.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+
+	contractHash := sha256.Sum256(helloWorldContract)
+	byteSlice := xdr.ScBytes(contractHash[:])
+
+	params = txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: false,
+		Operations: []txnbuild.Operation{
+			createInvokeHostOperation(
+				address,
+				contractID,
+				"upgrade_contract",
+				xdr.ScVal{
+					Type:  xdr.ScValTypeScvBytes,
+					Bytes: &byteSlice,
+				},
+			),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	}
+	tx, err = txnbuild.NewTransaction(params)
+
+	require.NoError(t, err)
+
+	txB64, err := tx.Base64()
+	require.NoError(t, err)
+
+	request := methods.SimulateTransactionRequest{Transaction: txB64}
+	var response methods.SimulateTransactionResponse
+	err = client.CallResult(context.Background(), "simulateTransaction", request, &response)
+	require.NoError(t, err)
+	require.Empty(t, response.Error)
+
+	// check the result
+	require.Len(t, response.Results, 1)
+	var obtainedResult xdr.ScVal
+	err = xdr.SafeUnmarshalBase64(response.Results[0].XDR, &obtainedResult)
+	require.NoError(t, err)
+
+	var transactionData xdr.SorobanTransactionData
+	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
+	require.NoError(t, err)
+
+	assert.Equal(t, xdr.Int64(45), transactionData.RefundableFee)
+	assert.Equal(t, xdr.Uint32(2860), transactionData.Resources.ReadBytes)
+	assert.Equal(t, xdr.Uint32(104), transactionData.Resources.WriteBytes)
+	require.GreaterOrEqual(t, len(response.Events), 3)
+}
