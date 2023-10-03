@@ -36,7 +36,7 @@ func cargoTest(t *testing.T, name string) {
 }
 
 func TestCLICargoTest(t *testing.T) {
-	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration::", "--package", "soroban-test", "--", "--list"))
+	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration::", "--package", "soroban-test", "--features", "integration", "--", "--list"))
 	input := names.Stdout()
 	lines := strings.Split(input, "\n")
 	for _, line := range lines {
