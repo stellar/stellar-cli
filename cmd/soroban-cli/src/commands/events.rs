@@ -4,7 +4,7 @@ use std::io;
 use soroban_env_host::xdr::{self, ReadXdr};
 
 use super::config::{events_file, locator, network};
-use crate::{rpc, toid, utils};
+use crate::{rpc, utils};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -194,11 +194,7 @@ impl Cmd {
             })?;
         }
 
-        let response = if self.network.is_no_network() {
-            self.run_in_sandbox()
-        } else {
-            self.run_against_rpc_server().await
-        }?;
+        let response = self.run_against_rpc_server().await?;
 
         for event in &response.events {
             match self.output {
@@ -243,36 +239,6 @@ impl Cmd {
             )
             .await
             .map_err(Error::Rpc)
-    }
-
-    pub fn run_in_sandbox(&self) -> Result<rpc::GetEventsResponse, Error> {
-        let start = self.start()?;
-        let count: usize = if self.count == 0 {
-            std::usize::MAX
-        } else {
-            self.count
-        };
-
-        let start_cursor = match start {
-            rpc::EventStart::Ledger(l) => (toid::Toid::new(l, 0, 0).into(), -1),
-            rpc::EventStart::Cursor(c) => rpc::parse_cursor(&c)?,
-        };
-        let path = self.locator.config_dir()?;
-        let file = self.events_file.read(&path)?;
-
-        // Read the JSON events from disk and find the ones that match the
-        // contract ID filter(s) that were passed in.
-        Ok(rpc::GetEventsResponse {
-            events: events_file::Args::filter_events(
-                &file.events,
-                &path,
-                start_cursor,
-                &self.contract_ids,
-                &self.topic_filters,
-                count,
-            ),
-            latest_ledger: file.latest_ledger,
-        })
     }
 
     fn start(&self) -> Result<rpc::EventStart, Error> {

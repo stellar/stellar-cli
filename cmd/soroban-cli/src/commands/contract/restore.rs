@@ -84,11 +84,7 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = if self.config.is_no_network() {
-            self.run_in_sandbox()?
-        } else {
-            self.run_against_rpc_server().await?
-        };
+        let expiration_ledger_seq = self.run_against_rpc_server().await?;
 
         if let Some(ledgers_to_expire) = self.ledgers_to_expire {
             bump::Cmd {
@@ -181,11 +177,6 @@ impl Cmd {
         parse_operations(&operations).ok_or(Error::MissingOperationResult)
     }
 
-    pub fn run_in_sandbox(&self) -> Result<u32, Error> {
-        // TODO: Implement this. This means we need to store ledger entries somewhere, and handle
-        // eviction, and restoration with that evicted state store.
-        todo!("Restoring ledger entries is not supported in the local sandbox mode");
-    }
 }
 
 fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {

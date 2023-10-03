@@ -83,11 +83,7 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = if self.config.is_no_network() {
-            self.run_in_sandbox()?
-        } else {
-            self.run_against_rpc_server().await?
-        };
+        let expiration_ledger_seq = self.run_against_rpc_server().await?;
         if self.expiration_ledger_only {
             println!("{expiration_ledger_seq}");
         } else {
@@ -195,47 +191,5 @@ impl Cmd {
             ) => Ok(*expiration_ledger_seq),
             _ => Err(Error::LedgerEntryNotFound),
         }
-    }
-
-    fn run_in_sandbox(&self) -> Result<u32, Error> {
-        let keys = self.key.parse_keys()?;
-
-        // Initialize storage and host
-        // TODO: allow option to separate input and output file
-        let mut state = self.config.get_state()?;
-
-        // Update all matching entries
-        let mut expiration_ledger_seq = None;
-        state.ledger_entries = state
-            .ledger_entries
-            .iter()
-            .map(|(k, v)| {
-                let new_k = k.as_ref().clone();
-                let new_v = v.0.as_ref().clone();
-                let new_e = v.1;
-                (
-                    Box::new(new_k.clone()),
-                    (
-                        Box::new(new_v),
-                        if keys.contains(&new_k) {
-                            // It must have an expiration since it's a contract data entry
-                            let old_expiration = v.1.unwrap();
-                            expiration_ledger_seq = Some(old_expiration + self.ledgers_to_expire);
-                            expiration_ledger_seq
-                        } else {
-                            new_e
-                        },
-                    ),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        self.config.set_state(&state)?;
-
-        let Some(new_expiration_ledger_seq) = expiration_ledger_seq else {
-            return Err(Error::LedgerEntryNotFound);
-        };
-
-        Ok(new_expiration_ledger_seq)
     }
 }

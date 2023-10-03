@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fmt::Debug, fs, io, rc::Rc};
+use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
 use soroban_env_host::{
@@ -121,11 +121,7 @@ impl Cmd {
     }
 
     pub async fn get_bytes(&self) -> Result<Vec<u8>, Error> {
-        if self.network.is_no_network() {
-            self.run_in_sandbox()
-        } else {
-            self.run_against_rpc_server().await
-        }
+        self.run_against_rpc_server().await
     }
 
     pub fn network(&self) -> Result<Network, Error> {
@@ -146,14 +142,6 @@ impl Cmd {
 
     pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {
         Ok(self.ledger_file.read(&self.locator.config_dir()?)?)
-    }
-
-    pub fn run_in_sandbox(&self) -> Result<Vec<u8>, Error> {
-        let contract_id = self.contract_id()?;
-        // Initialize storage and host
-        let snap = Rc::new(self.get_state()?);
-        let mut storage = Storage::with_recording_footprint(snap);
-        Ok(get_contract_wasm_from_storage(&mut storage, contract_id)?)
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {

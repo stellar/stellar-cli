@@ -125,34 +125,7 @@ impl Cmd {
             }
         })?);
 
-        if self.config.is_no_network() {
-            self.run_in_sandbox(hash)
-        } else {
-            self.run_against_rpc_server(hash).await
-        }
-    }
-
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
-        let contract_id: [u8; 32] = match &self.contract_id {
-            Some(id) => {
-                utils::contract_id_from_str(id).map_err(|e| Error::CannotParseContractId {
-                    contract_id: self.contract_id.as_ref().unwrap().clone(),
-                    error: e,
-                })?
-            }
-            None => rand::thread_rng().gen::<[u8; 32]>(),
-        };
-
-        let mut state = self.config.get_state()?;
-        utils::add_contract_to_ledger_entries(
-            &mut state.ledger_entries,
-            contract_id,
-            wasm_hash.0,
-            state.min_persistent_entry_expiration,
-        );
-        self.config.set_state(&state)?;
-        Ok(stellar_strkey::Contract(contract_id).to_string())
+        self.run_against_rpc_server(hash).await
     }
 
     async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {
