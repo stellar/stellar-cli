@@ -276,6 +276,11 @@ impl Cmd {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
+        let spec_entries = self.spec_entries()?;
+        if let Some(spec_entries) = &spec_entries {
+            // For testing wasm arg parsing
+            let _ = self.build_host_function_parameters(contract_id, spec_entries)?;
+        }
         let client = Client::new(&network.rpc_url)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
@@ -289,11 +294,7 @@ impl Cmd {
         let sequence: i64 = account_details.seq_num.into();
 
         // Get the contract
-        let spec_entries = if let Some(spec) = self.spec_entries()? {
-            spec
-        } else {
-            client.get_remote_contract_spec(&contract_id).await?
-        };
+        let spec_entries = client.get_remote_contract_spec(&contract_id).await?;
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =

@@ -41,7 +41,7 @@ fn current_env_not_overwritten() {
             .arg("hello")
             .arg("--world=world")
             .assert()
-            .stderr("error: parsing contract spec: contract spec not found\n");
+            .stderr("error: Contract not found: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4\n");
     });
 }
 

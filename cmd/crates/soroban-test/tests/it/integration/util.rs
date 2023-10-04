@@ -1,7 +1,6 @@
-use std::{fmt::Display, path::Path};
-
-use assert_cmd::Command;
+use soroban_cli::commands::contract;
 use soroban_test::{TestEnv, Wasm};
+use std::{fmt::Display, path::Path};
 
 use crate::util::{add_identity, SecretKind};
 
@@ -19,34 +18,14 @@ pub fn add_test_seed(dir: &Path) -> String {
     name.to_owned()
 }
 
-pub fn invoke(sandbox: &TestEnv, func: &str) -> Command {
-    let mut s = sandbox.new_assert_cmd("contract");
-    s.arg("invoke")
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(CUSTOM_TYPES.path())
-        .arg("--")
-        .arg(func);
-    s
-}
-
-pub async fn invoke_with_roundtrip<D>(func: &str, data: D)
+pub async fn invoke_with_roundtrip<D>(e: &TestEnv, id: &str, func: &str, data: D)
 where
     D: Display,
 {
-    let e = TestEnv::default();
     let data = data.to_string();
     println!("{data}");
     let res = e
-        .invoke(&[
-            "--id=1",
-            "--wasm",
-            &CUSTOM_TYPES.to_string(),
-            "--",
-            func,
-            &format!("--{func}"),
-            &data,
-        ])
+        .invoke(&["--id", id, "--", func, &format!("--{func}"), &data])
         .await
         .unwrap();
     assert_eq!(res, data);
@@ -76,12 +55,20 @@ pub fn network_passphrase_arg() -> Option<String> {
 }
 
 pub fn deploy_hello(sandbox: &TestEnv) -> String {
-    let hash = HELLO_WORLD.hash().unwrap();
+    deploy_contract(sandbox, HELLO_WORLD)
+}
+
+pub fn deploy_custom(sandbox: &TestEnv) -> String {
+    deploy_contract(sandbox, CUSTOM_TYPES)
+}
+
+pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
+    let hash = wasm.hash().unwrap();
     sandbox
         .new_assert_cmd("contract")
         .arg("install")
         .arg("--wasm")
-        .arg(HELLO_WORLD.path())
+        .arg(wasm.path())
         .assert()
         .success()
         .stdout(format!("{hash}\n"));
@@ -97,4 +84,34 @@ pub fn deploy_hello(sandbox: &TestEnv) -> String {
         .success()
         .stdout(format!("{TEST_CONTRACT_ID}\n"));
     TEST_CONTRACT_ID.to_string()
+}
+
+pub async fn bump_contract(sandbox: &TestEnv, id: &str, wasm: &Wasm<'_>) {
+    bump(sandbox, id, None).await;
+    let cmd: contract::bump::Cmd = sandbox.cmd_arr(&[
+        "--wasm-hash",
+        wasm.hash().unwrap().to_string().as_str(),
+        "--durability",
+        "persistent",
+        "--ledgers-to-expire",
+        "100000",
+    ]);
+    cmd.run().await.unwrap();
+}
+
+pub async fn bump(sandbox: &TestEnv, id: &str, value: Option<&str>) {
+    let mut args = vec![
+        "--id",
+        id,
+        "--durability",
+        "persistent",
+        "--ledgers-to-expire",
+        "100000",
+        ];
+        if let Some(value) = value{
+            args.push("--key");
+            args.push(value);
+        }
+    let cmd: contract::bump::Cmd = sandbox.cmd_arr(&args);
+    cmd.run().await.unwrap();
 }

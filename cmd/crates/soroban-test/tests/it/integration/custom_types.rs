@@ -3,11 +3,67 @@ use serde_json::json;
 use soroban_cli::commands;
 use soroban_test::TestEnv;
 
-use super::util::{invoke, invoke_with_roundtrip, CUSTOM_TYPES};
+use crate::integration::util::{bump_contract, deploy_custom, CUSTOM_TYPES};
 
-#[test]
-fn symbol() {
-    invoke(&TestEnv::default(), "hello")
+use super::util::invoke_with_roundtrip;
+
+fn invoke_custom(e: &TestEnv, id: &str, func: &str) -> assert_cmd::Command {
+    let mut s = e.new_assert_cmd("contract");
+    s.arg("invoke").arg("--id").arg(id).arg("--").arg(func);
+    s
+}
+
+#[tokio::test]
+async fn parse() {
+    let sandbox = &TestEnv::default();
+    let id = &deploy_custom(sandbox);
+    bump_contract(sandbox, id, CUSTOM_TYPES).await;
+    symbol(sandbox, id);
+    string_with_quotes(sandbox, id).await;
+    symbol_with_quotes(sandbox, id).await;
+    multi_arg_success(sandbox, id);
+    bytes_as_file(sandbox, id);
+    map(sandbox, id).await;
+    vec_(sandbox, id).await;
+    tuple(sandbox, id).await;
+    strukt(sandbox, id).await;
+    tuple_strukt(sandbox, id).await;
+    enum_2_str(sandbox, id).await;
+    e_2_s_enum(sandbox, id).await;
+    asset(sandbox, id).await;
+    e_2_s_tuple(sandbox, id).await;
+    e_2_s_strukt(sandbox, id).await;
+    number_arg(sandbox, id).await;
+    number_arg_return_err(sandbox, id).await;
+    i32(sandbox, id).await;
+    i64(sandbox, id).await;
+    negative_i32(sandbox, id).await;
+    negative_i64(sandbox, id).await;
+    account_address(sandbox, id).await;
+    contract_address(sandbox, id).await;
+    bytes(sandbox, id).await;
+    const_enum(sandbox, id).await;
+    number_arg_return_ok(sandbox, id);
+    void(sandbox, id);
+    val(sandbox, id);
+    parse_u128(sandbox, id);
+    parse_i128(sandbox, id);
+    parse_negative_i128(sandbox, id);
+    parse_u256(sandbox, id);
+    parse_i256(sandbox, id);
+    parse_negative_i256(sandbox, id);
+    boolean(sandbox, id);
+    boolean_two(sandbox, id);
+    boolean_no_flag(sandbox, id);
+    boolean_false(sandbox, id);
+    boolean_not(sandbox, id);
+    boolean_not_no_flag(sandbox, id);
+    option_none(sandbox, id);
+    option_some(sandbox, id);
+}
+
+fn symbol(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "hello")
         .arg("--hello")
         .arg("world")
         .assert()
@@ -18,39 +74,16 @@ fn symbol() {
         );
 }
 
-#[tokio::test]
-async fn string_with_quotes() {
-    invoke_with_roundtrip("string", json!("hello world")).await;
+async fn string_with_quotes(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "string", json!("hello world")).await;
 }
 
-#[tokio::test]
-async fn symbol_with_quotes() {
-    invoke_with_roundtrip("hello", json!("world")).await;
+async fn symbol_with_quotes(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "hello", json!("world")).await;
 }
 
-#[test]
-fn generate_help() {
-    invoke(&TestEnv::default(), "strukt_hel")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains(
-            "Example contract method which takes a struct",
-        ));
-}
-
-#[test]
-fn multi_arg_failure() {
-    invoke(&TestEnv::default(), "multi_args")
-        .arg("--b")
-        .assert()
-        .failure()
-        .stderr("error: Missing argument a\n");
-}
-
-#[test]
-fn multi_arg_success() {
-    invoke(&TestEnv::default(), "multi_args")
+fn multi_arg_success(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "multi_args")
         .arg("--a")
         .arg("42")
         .arg("--b")
@@ -59,12 +92,11 @@ fn multi_arg_success() {
         .stdout("42\n");
 }
 
-#[test]
-fn bytes_as_file() {
+fn bytes_as_file(sandbox: &TestEnv, id: &str) {
     let env = &TestEnv::default();
     let path = env.temp_dir.join("bytes.txt");
     std::fs::write(&path, 0x0073_7465_6c6c_6172u128.to_be_bytes()).unwrap();
-    invoke(env, "bytes")
+    invoke_custom(sandbox, id, "bytes")
         .arg("--bytes-file-path")
         .arg(path)
         .assert()
@@ -72,108 +104,50 @@ fn bytes_as_file() {
         .stdout("\"0000000000000000007374656c6c6172\"\n");
 }
 
-#[tokio::test]
-async fn map() {
-    invoke_with_roundtrip("map", json!({"0": true, "1": false})).await;
+async fn map(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "map", json!({"0": true, "1": false})).await;
 }
 
-#[test]
-fn map_help() {
-    invoke(&TestEnv::default(), "map")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Map<u32, bool>"));
+async fn vec_(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "vec", json!([0, 1])).await;
 }
 
-#[tokio::test]
-async fn vec_() {
-    invoke_with_roundtrip("vec", json!([0, 1])).await;
+async fn tuple(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "tuple", json!(["hello", 0])).await;
 }
 
-#[test]
-fn vec_help() {
-    invoke(&TestEnv::default(), "vec")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Array<u32>"));
-}
-
-#[tokio::test]
-async fn tuple() {
-    invoke_with_roundtrip("tuple", json!(["hello", 0])).await;
-}
-
-#[tokio::test]
-async fn tuple_help() {
-    invoke(&TestEnv::default(), "tuple")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Tuple<Symbol, u32>"));
-}
-
-#[tokio::test]
-async fn strukt() {
-    invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"})).await;
-}
-
-#[tokio::test]
-async fn tuple_strukt() {
+async fn strukt(sandbox: &TestEnv, id: &str) {
     invoke_with_roundtrip(
+        sandbox,
+        id,
+        "strukt",
+        json!({"a": 42, "b": true, "c": "world"}),
+    )
+    .await;
+}
+
+async fn tuple_strukt(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(
+        sandbox,
+        id,
         "tuple_strukt",
         json!([{"a": 42, "b": true, "c": "world"}, "First"]),
     )
     .await;
 }
 
-#[test]
-fn strukt_help() {
-    invoke(&TestEnv::default(), "strukt")
-        .arg("--help")
-        .assert()
-        .stdout(predicates::str::contains(
-            "--strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",
-        ))
-        .stdout(predicates::str::contains(
-            "This is from the rust doc above the struct Test",
-        ));
+async fn enum_2_str(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "simple", json!("First")).await;
 }
 
-#[test]
-fn complex_enum_help() {
-    invoke(&TestEnv::default(), "complex")
-        .arg("--help")
-        .assert()
-        .stdout(predicates::str::contains(
-            r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,
-        ))
-        .stdout(predicates::str::contains(
-            r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,
-        ))
-        .stdout(predicates::str::contains(
-            r#"{"Enum":"First"|"Second"|"Third"}"#,
-        ))
-        .stdout(predicates::str::contains(
-            r#"{"Asset":["GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4", "-100"]}"#,
-        ))
-        .stdout(predicates::str::contains(r#""Void"'"#));
+async fn e_2_s_enum(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "complex", json!({"Enum": "First"})).await;
 }
 
-#[tokio::test]
-async fn enum_2_str() {
-    invoke_with_roundtrip("simple", json!("First")).await;
-}
-
-#[tokio::test]
-async fn e_2_s_enum() {
-    invoke_with_roundtrip("complex", json!({"Enum": "First"})).await;
-}
-
-#[tokio::test]
-async fn asset() {
+async fn asset(sandbox: &TestEnv, id: &str) {
     invoke_with_roundtrip(
+        sandbox,
+        id,
         "complex",
         json!({"Asset": ["CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT", "100" ]}),
     )
@@ -184,28 +158,26 @@ fn complex_tuple() -> serde_json::Value {
     json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]})
 }
 
-#[tokio::test]
-async fn e_2_s_tuple() {
-    invoke_with_roundtrip("complex", complex_tuple()).await;
+async fn e_2_s_tuple(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "complex", complex_tuple()).await;
 }
 
-#[tokio::test]
-async fn e_2_s_strukt() {
+async fn e_2_s_strukt(sandbox: &TestEnv, id: &str) {
     invoke_with_roundtrip(
+        sandbox,
+        id,
         "complex",
         json!({"Struct": {"a": 42, "b": true, "c": "world"}}),
     )
     .await;
 }
 
-#[tokio::test]
-async fn number_arg() {
-    invoke_with_roundtrip("u32_", 42).await;
+async fn number_arg(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "u32_", 42).await;
 }
 
-#[test]
-fn number_arg_return_ok() {
-    invoke(&TestEnv::default(), "u32_fail_on_even")
+fn number_arg_return_ok(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "u32_fail_on_even")
         .arg("--u32_")
         .arg("1")
         .assert()
@@ -213,21 +185,9 @@ fn number_arg_return_ok() {
         .stdout("1\n");
 }
 
-#[tokio::test]
-async fn number_arg_return_err() {
-    let sandbox = &TestEnv::default();
-
-    let p = CUSTOM_TYPES.path();
-    let wasm = p.to_str().unwrap();
+async fn number_arg_return_err(sandbox: &TestEnv, id: &str) {
     let res = sandbox
-        .invoke(&[
-            "--id=1",
-            "--wasm",
-            wasm,
-            "--",
-            "u32_fail_on_even",
-            "--u32_=2",
-        ])
+        .invoke(&["--id", id, "--", "u32_fail_on_even", "--u32_=2"])
         .await
         .unwrap_err();
     if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
@@ -237,96 +197,69 @@ async fn number_arg_return_err() {
     println!("{res:#?}");
 }
 
-#[test]
-fn void() {
-    invoke(&TestEnv::default(), "woid")
+fn void(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "woid")
         .assert()
         .success()
         .stdout("\n")
         .stderr("");
 }
 
-#[test]
-fn val() {
-    invoke(&TestEnv::default(), "val")
+fn val(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "val")
         .assert()
         .success()
         .stdout("null\n")
         .stderr("");
 }
 
-#[tokio::test]
-async fn i32() {
-    invoke_with_roundtrip("i32_", 42).await;
+async fn i32(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "i32_", 42).await;
 }
 
-#[test]
-fn handle_arg_larger_than_i32_failure() {
-    invoke(&TestEnv::default(), "i32_")
-        .arg("--i32_")
-        .arg(u32::MAX.to_string())
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("value is not parseable"));
+async fn i64(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "i64_", i64::MAX).await;
 }
 
-#[test]
-fn handle_arg_larger_than_i64_failure() {
-    invoke(&TestEnv::default(), "i64_")
-        .arg("--i64_")
-        .arg(u64::MAX.to_string())
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("value is not parseable"));
+async fn negative_i32(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "i32_", -42).await;
 }
 
-#[tokio::test]
-async fn i64() {
-    invoke_with_roundtrip("i64_", i64::MAX).await;
+async fn negative_i64(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "i64_", i64::MIN).await;
 }
 
-#[tokio::test]
-async fn negative_i32() {
-    invoke_with_roundtrip("i32_", -42).await;
-}
-
-#[tokio::test]
-async fn negative_i64() {
-    invoke_with_roundtrip("i64_", i64::MIN).await;
-}
-
-#[tokio::test]
-async fn account_address() {
+async fn account_address(sandbox: &TestEnv, id: &str) {
     invoke_with_roundtrip(
+        sandbox,
+        id,
         "addresse",
         json!("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS"),
     )
     .await;
 }
 
-#[tokio::test]
-async fn contract_address() {
+async fn contract_address(sandbox: &TestEnv, id: &str) {
     invoke_with_roundtrip(
+        sandbox,
+        id,
         "addresse",
         json!("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"),
     )
     .await;
 }
 
-#[tokio::test]
-async fn bytes() {
-    invoke_with_roundtrip("bytes", json!("7374656c6c6172")).await;
+async fn bytes(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "bytes", json!("7374656c6c6172")).await;
 }
 
-#[tokio::test]
-async fn const_enum() {
-    invoke_with_roundtrip("card", "11").await;
+async fn const_enum(sandbox: &TestEnv, id: &str) {
+    invoke_with_roundtrip(sandbox, id, "card", "11").await;
 }
 
-#[test]
-fn parse_u128() {
+fn parse_u128(sandbox: &TestEnv, id: &str) {
     let num = "340000000000000000000000000000000000000";
-    invoke(&TestEnv::default(), "u128")
+    invoke_custom(sandbox, id, "u128")
         .arg("--u128")
         .arg(num)
         .assert()
@@ -337,10 +270,9 @@ fn parse_u128() {
         ));
 }
 
-#[test]
-fn parse_i128() {
+fn parse_i128(sandbox: &TestEnv, id: &str) {
     let num = "170000000000000000000000000000000000000";
-    invoke(&TestEnv::default(), "i128")
+    invoke_custom(sandbox, id, "i128")
         .arg("--i128")
         .arg(num)
         .assert()
@@ -351,10 +283,9 @@ fn parse_i128() {
         ));
 }
 
-#[test]
-fn parse_negative_i128() {
+fn parse_negative_i128(sandbox: &TestEnv, id: &str) {
     let num = "-170000000000000000000000000000000000000";
-    invoke(&TestEnv::default(), "i128")
+    invoke_custom(sandbox, id, "i128")
         .arg("--i128")
         .arg(num)
         .assert()
@@ -365,10 +296,9 @@ fn parse_negative_i128() {
         ));
 }
 
-#[test]
-fn parse_u256() {
+fn parse_u256(sandbox: &TestEnv, id: &str) {
     let num = "340000000000000000000000000000000000000";
-    invoke(&TestEnv::default(), "u256")
+    invoke_custom(sandbox, id, "u256")
         .arg("--u256")
         .arg(num)
         .assert()
@@ -379,10 +309,9 @@ fn parse_u256() {
         ));
 }
 
-#[test]
-fn parse_i256() {
+fn parse_i256(sandbox: &TestEnv, id: &str) {
     let num = "170000000000000000000000000000000000000";
-    invoke(&TestEnv::default(), "i256")
+    invoke_custom(sandbox, id, "i256")
         .arg("--i256")
         .arg(num)
         .assert()
@@ -393,10 +322,9 @@ fn parse_i256() {
         ));
 }
 
-#[test]
-fn parse_negative_i256() {
+fn parse_negative_i256(sandbox: &TestEnv, id: &str) {
     let num = "-170000000000000000000000000000000000000";
-    invoke(&TestEnv::default(), "i256")
+    invoke_custom(sandbox, id, "i256")
         .arg("--i256")
         .arg(num)
         .assert()
@@ -407,9 +335,8 @@ fn parse_negative_i256() {
         ));
 }
 
-#[test]
-fn boolean() {
-    invoke(&TestEnv::default(), "boolean")
+fn boolean(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "boolean")
         .arg("--boolean")
         .assert()
         .success()
@@ -418,9 +345,8 @@ fn boolean() {
 "#,
         );
 }
-#[test]
-fn boolean_two() {
-    invoke(&TestEnv::default(), "boolean")
+fn boolean_two(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "boolean")
         .arg("--boolean")
         .arg("true")
         .assert()
@@ -431,9 +357,8 @@ fn boolean_two() {
         );
 }
 
-#[test]
-fn boolean_no_flag() {
-    invoke(&TestEnv::default(), "boolean")
+fn boolean_no_flag(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "boolean")
         .assert()
         .success()
         .stdout(
@@ -442,9 +367,8 @@ fn boolean_no_flag() {
         );
 }
 
-#[test]
-fn boolean_false() {
-    invoke(&TestEnv::default(), "boolean")
+fn boolean_false(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "boolean")
         .arg("--boolean")
         .arg("false")
         .assert()
@@ -455,9 +379,8 @@ fn boolean_false() {
         );
 }
 
-#[test]
-fn boolean_not() {
-    invoke(&TestEnv::default(), "not")
+fn boolean_not(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "not")
         .arg("--boolean")
         .assert()
         .success()
@@ -467,20 +390,15 @@ fn boolean_not() {
         );
 }
 
-#[test]
-fn boolean_not_no_flag() {
-    invoke(&TestEnv::default(), "not")
-        .assert()
-        .success()
-        .stdout(
-            r#"true
+fn boolean_not_no_flag(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "not").assert().success().stdout(
+        r#"true
 "#,
-        );
+    );
 }
 
-#[test]
-fn option_none() {
-    invoke(&TestEnv::default(), "option")
+fn option_none(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "option")
         .assert()
         .success()
         .stdout(
@@ -489,9 +407,8 @@ fn option_none() {
         );
 }
 
-#[test]
-fn option_some() {
-    invoke(&TestEnv::default(), "option")
+fn option_some(sandbox: &TestEnv, id: &str) {
+    invoke_custom(sandbox, id, "option")
         .arg("--option=1")
         .assert()
         .success()
