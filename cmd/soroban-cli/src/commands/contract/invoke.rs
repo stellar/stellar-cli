@@ -44,7 +44,7 @@ pub struct Cmd {
     #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
     pub contract_id: String,
     /// WASM file of the contract to invoke (if using sandbox will deploy this file)
-    #[arg(long)]
+    #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
 
     /// Output the cost execution to stderr

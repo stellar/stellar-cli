@@ -1,7 +1,9 @@
 use std::path::Path;
 
-use assert_cmd::Command;
-use soroban_cli::commands::config::{locator::KeyType, secret::Secret};
+use soroban_cli::commands::{
+    config::{locator::KeyType, secret::Secret},
+    contract,
+};
 use soroban_test::{TestEnv, Wasm};
 
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
@@ -43,22 +45,16 @@ pub const DEFAULT_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
 
 #[allow(dead_code)]
-pub fn invoke_custom<I, S>(sandbox: &TestEnv, id: &str, func: &str, args: I) -> Command
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<std::ffi::OsStr>,
-{
-    let mut s = sandbox.new_assert_cmd("contract");
-    s.env("SOROBAN_RPC_URL", "http://localhost:8000")
-        .env(
-            "SOROBAN_NETWORK_PASSPHRASE",
-            "Standalone Network ; February 2017",
-        )
-        .arg("invoke")
-        .arg("--id")
-        .arg(id)
-        .args(args)
-        .arg("--")
-        .arg(func);
-    s
+pub async fn invoke_custom(
+    sandbox: &TestEnv,
+    id: &str,
+    func: &str,
+    arg: &str,
+    wasm: &Path,
+) -> Result<String, contract::invoke::Error> {
+    let mut i: contract::invoke::Cmd = sandbox.cmd_arr(&["--id", id, "--", func, arg]);
+    i.wasm = Some(wasm.to_path_buf());
+    i.config.network.network = Some("futurenet".to_owned());
+    i.invoke(&soroban_cli::commands::global::Args::default())
+        .await
 }

@@ -1,101 +1,80 @@
-use std::path::PathBuf;
-
+use soroban_cli::commands::contract;
 use soroban_test::TestEnv;
 
 use crate::util::{invoke_custom as invoke, CUSTOM_TYPES};
 
-fn invoke_custom(e: &TestEnv, func: &str) -> assert_cmd::Command {
-    invoke(e, "1", func, [PathBuf::from("--wasm"), CUSTOM_TYPES.path()])
+async fn invoke_custom(func: &str, args: &str) -> Result<String, contract::invoke::Error> {
+    let e = &TestEnv::default();
+    invoke(e, "1", func, args, &CUSTOM_TYPES.path()).await
 }
 
-#[test]
-fn generate_help() {
-    invoke_custom(&TestEnv::default(), "strukt_hel")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains(
-            "Example contract method which takes a struct",
-        ));
-}
-#[test]
-fn vec_help() {
-    invoke_custom(&TestEnv::default(), "vec")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Array<u32>"));
+#[tokio::test]
+async fn generate_help() {
+    assert!(invoke_custom("strukt_hel", "--help")
+        .await
+        .unwrap()
+        .contains("Example contract method which takes a struct"));
 }
 
-#[test]
-fn tuple_help() {
-    invoke_custom(&TestEnv::default(), "tuple")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Tuple<Symbol, u32>"));
+#[tokio::test]
+async fn vec_help() {
+    assert!(invoke_custom("vec", "--help")
+        .await
+        .unwrap()
+        .contains("Array<u32>"));
 }
 
-#[test]
-fn strukt_help() {
-    invoke_custom(&TestEnv::default(), "strukt")
-        .arg("--help")
-        .assert()
-        .stdout(predicates::str::contains(
-            "--strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",
-        ))
-        .stdout(predicates::str::contains(
-            "This is from the rust doc above the struct Test",
-        ));
+#[tokio::test]
+async fn tuple_help() {
+    assert!(invoke_custom("tuple", "--help")
+        .await
+        .unwrap()
+        .contains("Tuple<Symbol, u32>"));
 }
 
-#[test]
-fn complex_enum_help() {
-    invoke_custom(&TestEnv::default(), "complex")
-        .arg("--help")
-        .assert()
-        .stdout(predicates::str::contains(
-            r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,
-        ))
-        .stdout(predicates::str::contains(
-            r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,
-        ))
-        .stdout(predicates::str::contains(
-            r#"{"Enum":"First"|"Second"|"Third"}"#,
-        ))
-        .stdout(predicates::str::contains(
-            r#"{"Asset":["GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4", "-100"]}"#,
-        ))
-        .stdout(predicates::str::contains(r#""Void"'"#));
+#[tokio::test]
+async fn strukt_help() {
+    let output = invoke_custom("strukt", "--help").await.unwrap();
+    assert!(output.contains("--strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",));
+    assert!(output.contains("This is from the rust doc above the struct Test",));
 }
 
-#[test]
-fn multi_arg_failure() {
-    invoke_custom(&TestEnv::default(), "multi_args")
-        .arg("--b")
-        .assert()
-        .failure()
-        .stderr("error: Missing argument a\n");
+#[tokio::test]
+async fn complex_enum_help() {
+    let output = invoke_custom("complex", "--help").await.unwrap();
+    assert!(output.contains(r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,));
+    assert!(output.contains(r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,));
+    assert!(output.contains(r#"{"Enum":"First"|"Second"|"Third"}"#,));
+    assert!(output.contains(
+        r#"{"Asset":["GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4", "-100"]}"#,
+    ));
+    assert!(output.contains(r#""Void"'"#));
 }
 
-#[test]
-fn handle_arg_larger_than_i32_failure() {
-    invoke_custom(&TestEnv::default(), "i32_")
-        .arg("--i32_")
-        .arg(u32::MAX.to_string())
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("value is not parseable"));
+#[tokio::test]
+async fn multi_arg_failure() {
+    assert!(matches!(
+        invoke_custom("multi_args", "--b").await.unwrap_err(),
+        contract::invoke::Error::MissingArgument(_)
+    ));
 }
 
-#[test]
-fn handle_arg_larger_than_i64_failure() {
-    invoke_custom(&TestEnv::default(), "i64_")
-        .arg("--i64_")
-        .arg(u64::MAX.to_string())
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("value is not parseable"));
+#[tokio::test]
+async fn handle_arg_larger_than_i32_failure() {
+    let res = invoke_custom("i32_", &format!("--i32_={}", u32::MAX)).await;
+    assert!(matches!(
+        res,
+        Err(contract::invoke::Error::CannotParseArg { .. })
+    ));
+}
+
+#[tokio::test]
+async fn handle_arg_larger_than_i64_failure() {
+    let res = invoke_custom("i64_", &format!("--i64_={}", u64::MAX)).await;
+    assert!(matches!(
+        res,
+        Err(contract::invoke::Error::CannotParseArg { .. })
+    ));
 }
 
 #[test]
