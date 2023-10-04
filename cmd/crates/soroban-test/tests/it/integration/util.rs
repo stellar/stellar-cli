@@ -107,11 +107,11 @@ pub async fn bump(sandbox: &TestEnv, id: &str, value: Option<&str>) {
         "persistent",
         "--ledgers-to-expire",
         "100000",
-        ];
-        if let Some(value) = value{
-            args.push("--key");
-            args.push(value);
-        }
+    ];
+    if let Some(value) = value {
+        args.push("--key");
+        args.push(value);
+    }
     let cmd: contract::bump::Cmd = sandbox.cmd_arr(&args);
     cmd.run().await.unwrap();
 }
