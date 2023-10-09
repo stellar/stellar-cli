@@ -14,6 +14,7 @@ use soroban_env_host::xdr::{
 };
 use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
+use std::collections::HashMap;
 use std::{
     fmt::Display,
     str::FromStr,
@@ -96,8 +97,8 @@ pub enum Error {
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
     #[error("Fee was too large {0}")]
     LargeFee(u64),
-    #[error("Failed to parse  LedgerEntryData")]
-    FailedParseLedgerEntryData,
+    #[error("Failed to parse  LedgerEntryData\nkey:{0:?}\nvalue:{1:?}\nexpiration:{2:?}")]
+    FailedParseLedgerEntryData(LedgerKey, LedgerEntryData, LedgerEntryData),
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -264,6 +265,12 @@ pub struct GetEventsResponse {
     )]
     pub latest_ledger: u32,
 }
+
+type LedgerEntryTemp = (
+    Option<LedgerEntryData>,
+    Option<ExpirationEntry>,
+    Option<LedgerKey>,
+);
 
 // Determines whether or not a particular filter matches a topic based on the
 // same semantics as the RPC server:
@@ -776,28 +783,34 @@ soroban config identity fund {address} --helper-url <url>"#
             latest_ledger,
         } = self.get_ledger_entries(&keys).await?;
         tracing::trace!(?entries);
-        let entries = entries
-            .as_deref()
-            .unwrap_or_default()
-            .iter()
-            .tuple_windows()
-            .map(|(key_res, entry_res)| {
-                let expiration = LedgerEntryData::from_xdr_base64(&entry_res.xdr)?;
-                if let LedgerEntryData::Expiration(expiration) = expiration {
-                    let key = LedgerKey::from_xdr_base64(&key_res.key)?;
-                    let val = LedgerEntryData::from_xdr_base64(&key_res.xdr)?;
-                    Ok(FullLedgerEntry {
-                        key,
-                        val,
-                        expiration,
-                    })
-                } else {
-                    Err(Error::FailedParseLedgerEntryData)
-                }
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
+        let mut table = HashMap::<xdr::Hash, LedgerEntryTemp>::new();
+        let mut full_entries = Vec::new();
+        for entry in entries.as_deref().unwrap_or_default() {
+            let xdr_data = LedgerEntryData::from_xdr_base64(&entry.xdr)?;
+            let key = LedgerKey::from_xdr_base64(&entry.key)?;
+            let key_hash = if let LedgerKey::Expiration(e) = &key {
+                e.key_hash.clone()
+            } else {
+                key_hash(&key)?
+            };
+            let data = table.get(&key_hash).unwrap_or(&(None, None, None));
+            let data = if let LedgerEntryData::Expiration(expiration) = xdr_data {
+                (data.0.clone(), Some(expiration), data.2.clone())
+            } else {
+                (Some(xdr_data), data.1.clone(), Some(key))
+            };
+            if let (Some(val), Some(expiration), Some(key)) = data {
+                full_entries.push(FullLedgerEntry {
+                    key,
+                    val,
+                    expiration,
+                });
+            } else {
+                table.insert(key_hash, data);
+            }
+        }
         Ok(FullLedgerEntries {
-            entries,
+            entries: full_entries,
             latest_ledger,
         })
     }
@@ -954,9 +967,13 @@ pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
 
 fn into_keys(key: LedgerKey) -> Result<[LedgerKey; 2], Error> {
     let expiration = LedgerKey::Expiration(LedgerKeyExpiration {
-        key_hash: xdr::Hash(Sha256::digest(key.to_xdr()?).into()),
+        key_hash: key_hash(&key)?,
     });
     Ok([key, expiration])
+}
+
+fn key_hash(key: &LedgerKey) -> Result<xdr::Hash, Error> {
+    Ok(xdr::Hash(Sha256::digest(key.to_xdr()?).into()))
 }
 
 #[cfg(test)]
