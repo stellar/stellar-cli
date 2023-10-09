@@ -1,4 +1,4 @@
-import { ContractSpec, Address } from 'stellar-sdk';
+import { ContractSpec, Address } from '@stellar/stellar-sdk';
 import { Buffer } from "buffer";
 import { AssembledTransaction, Ok, Err } from './assembled-tx.js';
 export * from './assembled-tx.js';
