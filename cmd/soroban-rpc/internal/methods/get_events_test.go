@@ -623,16 +623,14 @@ func TestGetEvents(t *testing.T) {
 			})
 			assert.NoError(t, err)
 			expected = append(expected, EventInfo{
-				EventType:      EventTypeContract,
-				Ledger:         1,
-				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
-				ID:             id,
-				PagingToken:    id,
-				Topic:          []string{value},
-				Value: EventInfoValue{
-					XDR: value,
-				},
+				EventType:                EventTypeContract,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{value},
+				Value:                    value,
 				InSuccessfulContractCall: true,
 			})
 		}
@@ -744,7 +742,7 @@ func TestGetEvents(t *testing.T) {
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr, value},
-				Value:                    EventInfoValue{XDR: value},
+				Value:                    value,
 				InSuccessfulContractCall: true,
 			},
 		}
@@ -838,7 +836,7 @@ func TestGetEvents(t *testing.T) {
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr, value},
-				Value:                    EventInfoValue{XDR: value},
+				Value:                    value,
 				InSuccessfulContractCall: true,
 			},
 		}
@@ -898,7 +896,7 @@ func TestGetEvents(t *testing.T) {
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr},
-				Value:                    EventInfoValue{XDR: counterXdr},
+				Value:                    counterXdr,
 				InSuccessfulContractCall: true,
 			},
 		}
@@ -946,16 +944,14 @@ func TestGetEvents(t *testing.T) {
 			value, err := xdr.MarshalBase64(txMeta[i].MustV3().SorobanMeta.Events[0].Body.MustV0().Data)
 			assert.NoError(t, err)
 			expected = append(expected, EventInfo{
-				EventType:      EventTypeContract,
-				Ledger:         1,
-				LedgerClosedAt: now.Format(time.RFC3339),
-				ContractID:     "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
-				ID:             id,
-				PagingToken:    id,
-				Topic:          []string{value},
-				Value: EventInfoValue{
-					XDR: value,
-				},
+				EventType:                EventTypeContract,
+				Ledger:                   1,
+				LedgerClosedAt:           now.Format(time.RFC3339),
+				ContractID:               "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+				ID:                       id,
+				PagingToken:              id,
+				Topic:                    []string{value},
+				Value:                    value,
 				InSuccessfulContractCall: true,
 			})
 		}
@@ -1039,7 +1035,7 @@ func TestGetEvents(t *testing.T) {
 				ID:                       id,
 				PagingToken:              id,
 				Topic:                    []string{counterXdr},
-				Value:                    EventInfoValue{XDR: expectedXdr},
+				Value:                    expectedXdr,
 				InSuccessfulContractCall: true,
 			})
 		}
