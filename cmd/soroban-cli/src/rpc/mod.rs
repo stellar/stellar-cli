@@ -304,7 +304,7 @@ pub struct Event {
     #[serde(rename = "contractId")]
     pub contract_id: String,
     pub topic: Vec<String>,
-    pub value: EventValue,
+    pub value: String,
 }
 
 impl Display for Event {
@@ -326,7 +326,7 @@ impl Display for Event {
             let scval = xdr::ScVal::from_xdr_base64(topic).map_err(|_| std::fmt::Error)?;
             writeln!(f, "            {scval:?}")?;
         }
-        let scval = xdr::ScVal::from_xdr_base64(&self.value.xdr).map_err(|_| std::fmt::Error)?;
+        let scval = xdr::ScVal::from_xdr_base64(&self.value).map_err(|_| std::fmt::Error)?;
         writeln!(f, "  Value:    {scval:?}")
     }
 }
@@ -374,7 +374,7 @@ impl Event {
 
         colored!(
             stdout,
-            "  Contract: {}0x{}{}\n",
+            "  Contract: {}{}{}\n",
             fg!(Some(Color::Green)),
             self.contract_id,
             reset!(),
@@ -392,7 +392,7 @@ impl Event {
             )?;
         }
 
-        let scval = xdr::ScVal::from_xdr_base64(&self.value.xdr)?;
+        let scval = xdr::ScVal::from_xdr_base64(&self.value)?;
         colored!(
             stdout,
             "  Value: {}{:?}{}\n",
@@ -403,11 +403,6 @@ impl Event {
 
         Ok(())
     }
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-pub struct EventValue {
-    pub xdr: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
