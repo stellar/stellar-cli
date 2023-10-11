@@ -501,11 +501,13 @@ impl Client {
 
     pub async fn verify_network_passphrase(&self, expected: Option<&str>) -> Result<String, Error> {
         let server = self.get_network().await?.passphrase;
-        if expected.is_some() && expected != Some(&server) {
-            return Err(Error::InvalidNetworkPassphrase {
-                expected: expected.unwrap().to_string(),
-                server,
-            });
+        if expected != Some(&server) {
+            if let Some(expected_val) = expected {
+                return Err(Error::InvalidNetworkPassphrase {
+                    expected: expected_val.to_string(),
+                    server,
+                });
+            }
         }
         Ok(server)
     }

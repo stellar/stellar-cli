@@ -72,7 +72,7 @@ impl Root {
             }
             match e.kind() {
                 ErrorKind::InvalidSubcommand => match plugin::run() {
-                    Ok(_) => Error::Clap(e),
+                    Ok(()) => Error::Clap(e),
                     Err(e) => Error::Plugin(e),
                 },
                 _ => Error::Clap(e),

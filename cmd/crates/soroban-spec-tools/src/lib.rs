@@ -696,7 +696,7 @@ impl Spec {
                 let v: u128 = int
                     .clone()
                     .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(ScType::U128)))?;
+                    .map_err(|()| Error::InvalidValue(Some(ScType::U128)))?;
                 Value::String(v.to_string())
             }
 
@@ -705,7 +705,7 @@ impl Spec {
                 let v: i128 = int
                     .clone()
                     .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(ScType::I128)))?;
+                    .map_err(|()| Error::InvalidValue(Some(ScType::I128)))?;
                 Value::String(v.to_string())
             }
 
