@@ -1,15 +1,13 @@
 use std::{
-    convert::Into,
     fmt::Debug,
     io::{self, stdout},
 };
 
 use clap::{command, Parser, ValueEnum};
-use sha2::{Digest, Sha256};
 use soroban_env_host::{
     xdr::{
-        ContractDataEntry, Error as XdrError, ExpirationEntry, Hash, LedgerEntryData, LedgerKey,
-        LedgerKeyContractData, ScVal, WriteXdr,
+        ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
+        ScVal, WriteXdr,
     },
     HostError,
 };
@@ -113,7 +111,7 @@ impl Cmd {
     fn run_in_sandbox(&self) -> Result<FullLedgerEntries, Error> {
         let state = self.config.get_state()?;
         let ledger_entries = &state.ledger_entries;
-
+        let latest_ledger = u32::try_from(state.ledger_entries.len()).unwrap();
         let keys = self.key.parse_keys()?;
         let entries = ledger_entries
             .iter()
@@ -121,10 +119,8 @@ impl Cmd {
             .filter(|(k, _v)| keys.contains(k))
             .map(|(key, (v, expiration))| {
                 Ok(FullLedgerEntry {
-                    expiration: ExpirationEntry {
-                        key_hash: Hash(Sha256::digest(key.to_xdr()?).into()),
-                        expiration_ledger_seq: expiration.unwrap_or_default(),
-                    },
+                    expiration_ledger_seq: expiration.unwrap_or_default(),
+                    last_modified_ledger: latest_ledger,
                     key,
                     val: v.data,
                 })
@@ -145,7 +141,8 @@ impl Cmd {
         for FullLedgerEntry {
             key,
             val,
-            expiration,
+            expiration_ledger_seq,
+            last_modified_ledger,
         } in &entries.entries
         {
             let (
@@ -155,8 +152,6 @@ impl Cmd {
             else {
                 return Err(Error::OnlyDataAllowed);
             };
-            let expiration = expiration.expiration_ledger_seq;
-
             let output = match self.output {
                 Output::String => [
                     soroban_spec_tools::to_string(key).map_err(|e| Error::CannotPrintResult {
@@ -167,7 +162,8 @@ impl Cmd {
                         result: val.clone(),
                         error: e,
                     })?,
-                    expiration.to_string(),
+                    last_modified_ledger.to_string(),
+                    expiration_ledger_seq.to_string(),
                 ],
                 Output::Json => [
                     serde_json::to_string_pretty(&key).map_err(|error| {
@@ -182,7 +178,13 @@ impl Cmd {
                             error,
                         }
                     })?,
-                    serde_json::to_string_pretty(&expiration).map_err(|error| {
+                    serde_json::to_string_pretty(&last_modified_ledger).map_err(|error| {
+                        Error::CannotPrintJsonResult {
+                            result: val.clone(),
+                            error,
+                        }
+                    })?,
+                    serde_json::to_string_pretty(&expiration_ledger_seq).map_err(|error| {
                         Error::CannotPrintJsonResult {
                             result: val.clone(),
                             error,
@@ -192,7 +194,8 @@ impl Cmd {
                 Output::Xdr => [
                     key.to_xdr_base64()?,
                     val.to_xdr_base64()?,
-                    expiration.to_xdr_base64()?,
+                    last_modified_ledger.to_xdr_base64()?,
+                    expiration_ledger_seq.to_xdr_base64()?,
                 ],
             };
             out.write_record(output)
