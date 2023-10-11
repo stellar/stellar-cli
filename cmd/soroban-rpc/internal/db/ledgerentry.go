@@ -26,7 +26,7 @@ type LedgerEntryReader interface {
 type LedgerKeyAndEntry struct {
 	Key                 xdr.LedgerKey
 	Entry               xdr.LedgerEntry
-	ExpirationLedgerSeq *uint32 // optional expiration ledger seq, whne applicable.
+	ExpirationLedgerSeq *uint32 // optional expiration ledger seq, when applicable.
 }
 
 type LedgerEntryReadTx interface {
