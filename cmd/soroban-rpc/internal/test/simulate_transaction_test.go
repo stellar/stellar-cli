@@ -730,7 +730,6 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 
 	// get the counter ledger entry expiration
 	key := getCounterLedgerKey(contractID)
-	expirationKey := getExpirationKey(t, key)
 
 	keyB64, err := xdr.MarshalBase64(key)
 	require.NoError(t, err)
@@ -835,7 +834,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
 	// Wait for expiration again and check the pre-restore field when trying to exec the contract again
-	waitForLedgerEntryToExpire(t, client, expirationKey)
+	waitForLedgerEntryToExpire(t, client, key)
 
 	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPresistentEntryParams)
 	require.NotNil(t, simulationResult.RestorePreamble)
@@ -867,18 +866,6 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	tx, err = txnbuild.NewTransaction(params)
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
-}
-
-func getExpirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
-	assert.True(t, key.Type == xdr.LedgerEntryTypeContractCode || key.Type == xdr.LedgerEntryTypeContractData)
-	binKey, err := key.MarshalBinary()
-	assert.NoError(t, err)
-	return xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeExpiration,
-		Expiration: &xdr.LedgerKeyExpiration{
-			KeyHash: sha256.Sum256(binKey),
-		},
-	}
 }
 
 func getCounterLedgerKey(contractID [32]byte) xdr.LedgerKey {
@@ -917,8 +904,8 @@ func getExpirationForLedgerEntry(t *testing.T, client *jrpc2.Client, expirationL
 	return entry.Expiration.ExpirationLedgerSeq
 }
 
-func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, expirationKey xdr.LedgerKey) {
-	keyB64, err := xdr.MarshalBase64(expirationKey)
+func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, ledgerKey xdr.LedgerKey) {
+	keyB64, err := xdr.MarshalBase64(ledgerKey)
 	require.NoError(t, err)
 	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
 		Key: keyB64,
