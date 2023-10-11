@@ -3,16 +3,24 @@ use soroban_cli::commands::{
     contract::{self, fetch},
 };
 use soroban_test::TestEnv;
+use std::path::PathBuf;
 
 use crate::util::{
-    add_test_seed, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE,
-    HELLO_WORLD,
+    add_test_seed, is_rpc, network_passphrase, network_passphrase_arg, rpc_url, rpc_url_arg,
+    DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE, HELLO_WORLD,
+    TEST_SALT,
 };
 
 #[test]
 fn install_wasm_then_deploy_contract() {
-    let hash = HELLO_WORLD.hash().unwrap();
     let sandbox = TestEnv::default();
+    assert_eq!(deploy_hello(&sandbox), TEST_CONTRACT_ID);
+}
+
+const TEST_CONTRACT_ID: &str = "CBVTIVBYWAO2HNPNGKDCZW4OZYYESTKNGD7IPRTDGQSFJS4QBDQQJX3T";
+
+fn deploy_hello(sandbox: &TestEnv) -> String {
+    let hash = HELLO_WORLD.hash().unwrap();
     sandbox
         .new_assert_cmd("contract")
         .arg("install")
@@ -22,19 +30,25 @@ fn install_wasm_then_deploy_contract() {
         .success()
         .stdout(format!("{hash}\n"));
 
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--wasm-hash")
-        .arg(&format!("{hash}"))
-        .arg("--id=1")
-        .assert()
+    let mut cmd: &mut assert_cmd::Command = &mut sandbox.new_assert_cmd("contract");
+
+    cmd = cmd.arg("deploy").arg("--wasm-hash").arg(&format!("{hash}"));
+    if is_rpc() {
+        cmd = cmd.arg("--salt").arg(TEST_SALT);
+    } else {
+        cmd = cmd.arg("--id").arg(TEST_CONTRACT_ID);
+    }
+    cmd.assert()
         .success()
-        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+        .stdout(format!("{TEST_CONTRACT_ID}\n"));
+    TEST_CONTRACT_ID.to_string()
 }
 
 #[test]
 fn deploy_contract_with_wasm_file() {
+    if is_rpc() {
+        return;
+    }
     TestEnv::default()
         .new_assert_cmd("contract")
         .arg("deploy")
@@ -49,15 +63,7 @@ fn deploy_contract_with_wasm_file() {
 #[test]
 fn invoke_hello_world_with_deploy_first() {
     let sandbox = TestEnv::default();
-    let res = sandbox
-        .new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .assert()
-        .success();
-    let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
-    let id = stdout.trim_end();
+    let id = deploy_hello(&sandbox);
     println!("{id}");
     sandbox
         .new_assert_cmd("contract")
@@ -75,10 +81,12 @@ fn invoke_hello_world_with_deploy_first() {
 #[test]
 fn invoke_hello_world() {
     let sandbox = TestEnv::default();
+    let id = deploy_hello(&sandbox);
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
@@ -94,10 +102,12 @@ fn invoke_hello_world_from_file() {
     let sandbox = TestEnv::default();
     let tmp_file = sandbox.temp_dir.join("world.txt");
     std::fs::write(&tmp_file, "world").unwrap();
+    let id = deploy_hello(&sandbox);
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
@@ -114,10 +124,12 @@ fn invoke_hello_world_from_file_fail() {
     let sandbox = TestEnv::default();
     let tmp_file = sandbox.temp_dir.join("world.txt");
     std::fs::write(&tmp_file, "world").unwrap();
+    let id = deploy_hello(&sandbox);
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
@@ -133,12 +145,16 @@ fn invoke_hello_world_from_file_fail() {
 #[test]
 fn invoke_hello_world_with_lib() {
     TestEnv::with_default(|e| {
-        let cmd = contract::invoke::Cmd {
-            contract_id: "1".to_string(),
-            wasm: Some(HELLO_WORLD.path()),
+        let id = deploy_hello(e);
+        let mut cmd = contract::invoke::Cmd {
+            contract_id: id,
             slop: vec!["hello".into(), "--world=world".into()],
             ..Default::default()
         };
+
+        cmd.config.network.rpc_url = rpc_url();
+        cmd.config.network.network_passphrase = network_passphrase();
+
         let res = e.invoke_cmd(cmd).unwrap();
         assert_eq!(res, r#"["Hello","world"]"#);
     });
@@ -147,16 +163,19 @@ fn invoke_hello_world_with_lib() {
 #[test]
 fn invoke_hello_world_with_lib_two() {
     TestEnv::with_default(|e| {
-        let res = e
-            .invoke(&[
-                "--id=1",
-                "--wasm",
-                &HELLO_WORLD.to_string(),
-                "--",
-                "hello",
-                "--world=world",
-            ])
-            .unwrap();
+        let id = deploy_hello(e);
+        let hello_world = HELLO_WORLD.to_string();
+        let mut invoke_args = vec!["--id", &id, "--wasm", hello_world.as_str()];
+        let args = vec!["--", "hello", "--world=world"];
+        let res = if let (Some(rpc), Some(network_passphrase)) =
+            (rpc_url_arg(), network_passphrase_arg())
+        {
+            invoke_args.push(&rpc);
+            invoke_args.push(&network_passphrase);
+            e.invoke(&[invoke_args, args].concat()).unwrap()
+        } else {
+            e.invoke(&[invoke_args, args].concat()).unwrap()
+        };
         assert_eq!(res, r#"["Hello","world"]"#);
     });
 }
@@ -171,10 +190,12 @@ fn invoke_hello_world_with_lib_two() {
 #[test]
 fn invoke_auth() {
     let sandbox = TestEnv::default();
+    let id = &deploy_hello(&sandbox);
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
@@ -189,7 +210,8 @@ fn invoke_auth() {
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--")
         .arg("auth")
         .arg(&format!("--addr={DEFAULT_PUB_KEY}"))
@@ -202,16 +224,17 @@ fn invoke_auth() {
 #[tokio::test]
 async fn invoke_auth_with_identity() {
     let sandbox = TestEnv::default();
-
     sandbox
         .cmd::<identity::generate::Cmd>("test -d ")
         .run()
         .await
         .unwrap();
+    let id = deploy_hello(&sandbox);
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
@@ -226,11 +249,13 @@ async fn invoke_auth_with_identity() {
 #[test]
 fn invoke_auth_with_different_test_account() {
     let sandbox = TestEnv::default();
+    let id = deploy_hello(&sandbox);
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
         .arg("--hd-path=1")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--wasm")
         .arg(HELLO_WORLD.path())
         .arg("--")
@@ -244,32 +269,16 @@ fn invoke_auth_with_different_test_account() {
 
 #[test]
 fn contract_data_read_failure() {
-    let hash = HELLO_WORLD.hash().unwrap();
     let sandbox = TestEnv::default();
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .assert()
-        .success()
-        .stdout(format!("{hash}\n"));
-
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--wasm-hash")
-        .arg(&format!("{hash}"))
-        .arg("--id=1")
-        .assert()
-        .success()
-        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+    let id = deploy_hello(&sandbox);
 
     sandbox
         .new_assert_cmd("contract")
         .arg("read")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--key=COUNTER")
+        .arg("--durability=persistent")
         .assert()
         .failure()
         .stderr(
@@ -279,31 +288,14 @@ fn contract_data_read_failure() {
 
 #[test]
 fn contract_data_read() {
-    let hash = HELLO_WORLD.hash().unwrap();
     let sandbox = TestEnv::default();
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .assert()
-        .success()
-        .stdout(format!("{hash}\n"));
-
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--wasm-hash")
-        .arg(&format!("{hash}"))
-        .arg("--id=1")
-        .assert()
-        .success()
-        .stdout("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\n");
+    let id = &deploy_hello(&sandbox);
 
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--")
         .arg("inc")
         .assert()
@@ -312,16 +304,19 @@ fn contract_data_read() {
     sandbox
         .new_assert_cmd("contract")
         .arg("read")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--key=COUNTER")
+        .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,1\n");
+        .stdout("COUNTER,1,4096\n");
 
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--")
         .arg("inc")
         .assert()
@@ -330,22 +325,27 @@ fn contract_data_read() {
     sandbox
         .new_assert_cmd("contract")
         .arg("read")
-        .arg("--id=1")
+        .arg("--id")
+        .arg(id)
         .arg("--key=COUNTER")
+        .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,2\n");
+        .stdout("COUNTER,2,4096\n");
 }
 
 #[test]
 fn invoke_auth_with_different_test_account_fail() {
     let sandbox = TestEnv::default();
-
+    let id = &deploy_hello(&sandbox);
     let res = sandbox.invoke(&[
         "--hd-path=1",
-        "--id=1",
+        "--id",
+        id,
         "--wasm",
         HELLO_WORLD.path().to_str().unwrap(),
+        &rpc_url_arg().unwrap_or_default(),
+        &network_passphrase_arg().unwrap_or_default(),
         "--",
         "auth",
         &format!("--addr={DEFAULT_PUB_KEY}"),
@@ -387,12 +387,16 @@ fn invoke_with_sk() {
 }
 
 fn invoke_with_source(sandbox: &TestEnv, source: &str) {
+    let id = &deploy_hello(sandbox);
     let cmd = sandbox.invoke(&[
         "--source-account",
         source,
-        "--id=1",
+        "--id",
+        id,
         "--wasm",
         HELLO_WORLD.path().to_str().unwrap(),
+        &rpc_url_arg().unwrap_or_default(),
+        &network_passphrase_arg().unwrap_or_default(),
         "--",
         "hello",
         "--world=world",
@@ -403,7 +407,8 @@ fn invoke_with_source(sandbox: &TestEnv, source: &str) {
     let cmd = sandbox.invoke(&[
         "--source-account",
         source,
-        "--id=1",
+        "--id",
+        id,
         "--",
         "hello",
         "--world=world",
@@ -413,9 +418,12 @@ fn invoke_with_source(sandbox: &TestEnv, source: &str) {
 
 #[test]
 fn handles_kebab_case() {
-    assert!(TestEnv::default()
+    let e = TestEnv::default();
+    let id = deploy_hello(&e);
+    assert!(e
         .invoke(&[
-            "--id=1",
+            "--id",
+            &id,
             "--wasm",
             HELLO_WORLD.path().to_str().unwrap(),
             "--",
@@ -425,22 +433,61 @@ fn handles_kebab_case() {
         .is_ok());
 }
 
-#[ignore]
 #[tokio::test]
 async fn fetch() {
-    // TODO: Currently this test fetches a live contract from futurenet. This obviously depends on
-    // futurenet for the test to work, which is not great. But also means that if we are upgrading
-    // the XDR ahead of a futurenet upgrade, this test will pass. Oof. :(
+    if !is_rpc() {
+        return;
+    }
     let e = TestEnv::default();
     let f = e.dir().join("contract.wasm");
-    let cmd = e.cmd_arr::<fetch::Cmd>(&[
-        "--id",
-        "bc074f0f03934d0189653bc15af9a83170411e103b4c48a63888306cfba41ac8",
-        "--network",
-        "futurenet",
-        "--out-file",
-        f.to_str().unwrap(),
-    ]);
+    let id = deploy_hello(&e);
+    let cmd = e.cmd_arr::<fetch::Cmd>(&["--id", &id, "--out-file", f.to_str().unwrap()]);
     cmd.run().await.unwrap();
     assert!(f.exists());
+}
+
+#[test]
+fn build() {
+    let sandbox = TestEnv::default();
+
+    let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let hello_world_contract_path =
+        cargo_dir.join("tests/fixtures/test-wasms/hello_world/Cargo.toml");
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("build")
+        .arg("--manifest-path")
+        .arg(hello_world_contract_path)
+        .arg("--profile")
+        .arg("test-wasms")
+        .arg("--package")
+        .arg("test_hello_world")
+        .assert()
+        .success();
+}
+
+#[test]
+fn invoke_prng_u64_in_range_test() {
+    let sandbox = TestEnv::default();
+    let res = sandbox
+        .new_assert_cmd("contract")
+        .arg("deploy")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(res.get_output().stdout.clone()).unwrap();
+    let id = stdout.trim_end();
+    println!("{id}");
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("prng_u64_in_range")
+        .arg("--low=0")
+        .arg("--high=100")
+        .assert()
+        .success();
 }

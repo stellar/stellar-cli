@@ -1,13 +1,14 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, OperationBody, PublicKey,
-    ReadXdr, ScAddress, ScMap, ScSymbol, ScVal, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanCredentials, SorobanTransactionData, Transaction,
-    TransactionExt, Uint256, VecM, WriteXdr,
+    AccountId, ExtensionPoint, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, Memo,
+    Operation, OperationBody, Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress,
+    ScMap, ScSymbol, ScVal, SorobanAddressCredentials, SorobanAuthorizationEntry,
+    SorobanCredentials, SorobanTransactionData, Transaction, TransactionExt, Uint256, VecM,
+    WriteXdr,
 };
 
-use crate::rpc::{Error, SimulateTransactionResponse};
+use crate::rpc::{Error, RestorePreamble, SimulateTransactionResponse};
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
 // submission to the network.
@@ -75,8 +76,8 @@ pub fn assemble(
 // transaction. If unable to sign, return an error.
 pub fn sign_soroban_authorizations(
     raw: &Transaction,
-    source_key: &ed25519_dalek::Keypair,
-    signers: &[ed25519_dalek::Keypair],
+    source_key: &ed25519_dalek::SigningKey,
+    signers: &[ed25519_dalek::SigningKey],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<(Transaction, Vec<SorobanAuthorizationEntry>), Error> {
@@ -94,7 +95,8 @@ pub fn sign_soroban_authorizations(
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
 
-    let source_address = source_key.public.as_bytes();
+    let verification_key = source_key.verifying_key();
+    let source_address = verification_key.as_bytes();
 
     let signed_auths = body
         .auth
@@ -124,7 +126,10 @@ pub fn sign_soroban_authorizations(
                     });
                 }
             };
-            let signer = if let Some(s) = signers.iter().find(|s| needle == s.public.as_bytes()) {
+            let signer = if let Some(s) = signers
+                .iter()
+                .find(|s| needle == s.verifying_key().as_bytes())
+            {
                 s
             } else if needle == source_address {
                 // This is the source address, so we can sign it
@@ -155,7 +160,7 @@ pub fn sign_soroban_authorizations(
 
 pub fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
-    signer: &ed25519_dalek::Keypair,
+    signer: &ed25519_dalek::SigningKey,
     signature_expiration_ledger: u32,
     network_id: &Hash,
 ) -> Result<SorobanAuthorizationEntry, Error> {
@@ -186,7 +191,7 @@ pub fn sign_soroban_authorization_entry(
             ScVal::Symbol(ScSymbol("public_key".try_into()?)),
             ScVal::Bytes(
                 signer
-                    .public
+                    .verifying_key()
                     .to_bytes()
                     .to_vec()
                     .try_into()
@@ -211,6 +216,35 @@ pub fn sign_soroban_authorization_entry(
     credentials.signature_expiration_ledger = signature_expiration_ledger;
     auth.credentials = SorobanCredentials::Address(credentials.clone());
     Ok(auth)
+}
+
+pub fn build_restore_txn(
+    parent: &Transaction,
+    restore: &RestorePreamble,
+) -> Result<Transaction, Error> {
+    let transaction_data =
+        SorobanTransactionData::from_xdr_base64(restore.transaction_data.clone())?;
+    let fee = u32::try_from(restore.min_resource_fee)
+        .map_err(|_| Error::LargeFee(restore.min_resource_fee))?;
+    Ok(Transaction {
+        source_account: parent.source_account.clone(),
+        fee: parent
+            .fee
+            .checked_add(fee)
+            .ok_or(Error::LargeFee(restore.min_resource_fee))?,
+        seq_num: parent.seq_num.clone(),
+        cond: Preconditions::None,
+        memo: Memo::None,
+        operations: vec![Operation {
+            source_account: None,
+            body: OperationBody::RestoreFootprint(RestoreFootprintOp {
+                ext: ExtensionPoint::V0,
+            }),
+        }]
+        .try_into()
+        .unwrap(),
+        ext: TransactionExt::V1(transaction_data),
+    })
 }
 
 #[cfg(test)]

@@ -1,8 +1,13 @@
-import { Address, xdr, scValToBigInt, ScInt } from 'soroban-client';
-import { Buffer } from "buffer";
+import {
+    xdr,
+    Address,
+    nativeToScVal,
+    scValToBigInt,
+    ScInt
+} from 'soroban-client';
 
 export function strToScVal(base64Xdr: string): xdr.ScVal {
-    return xdr.ScVal.fromXDR(Buffer.from(base64Xdr, 'base64'));
+    return xdr.ScVal.fromXDR(base64Xdr, 'base64');
 }
 
 export function scValStrToJs<T>(base64Xdr: string): T {
@@ -78,13 +83,10 @@ export function scValToJs<T>(val: xdr.ScVal): T {
             return res as unknown as T
         }
         case xdr.ScValType.scvContractInstance():
-            return val.instance() as unknown as T;
         case xdr.ScValType.scvLedgerKeyNonce():
-            return val.nonceKey() as unknown as T;
         case xdr.ScValType.scvTimepoint():
-            return val.timepoint() as unknown as T;
         case xdr.ScValType.scvDuration():
-            return val.duration() as unknown as T;
+            return val.value() as unknown as T;
         // TODO: Add this case when merged
         // case xdr.ScValType.scvError():
         default: {
@@ -98,8 +100,7 @@ type KeyType<T> = T extends Map<infer K, any> ? K : never;
 type ValueType<T> = T extends Map<any, infer V> ? V : never;
 
 export function addressToScVal(addr: string): xdr.ScVal {
-    let addrObj = Address.fromString(addr);
-    return addrObj.toScVal();
+    return nativeToScVal(addr, { type: 'address' } as any /* bug workaround */);
 }
 
 export function i128ToScVal(i: bigint): xdr.ScVal {

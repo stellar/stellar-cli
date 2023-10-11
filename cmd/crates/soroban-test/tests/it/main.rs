@@ -3,6 +3,9 @@ mod config;
 
 mod custom_types;
 mod dotenv;
-mod invoke_sandbox;
+mod hello_world;
+mod integration_and_sandbox;
+mod lab;
 mod plugin;
 mod util;
+mod version;

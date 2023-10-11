@@ -94,7 +94,6 @@ impl Cmd {
         }))?;
 
         let contract_id = vec_to_hash(&res)?;
-
         state.update(&h);
         self.config.set_state(&state)?;
         Ok(stellar_strkey::Contract(contract_id.0).to_string())
@@ -109,7 +108,8 @@ impl Cmd {
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
@@ -136,9 +136,9 @@ impl Cmd {
 ///
 /// Might return an error
 pub fn vec_to_hash(res: &ScVal) -> Result<Hash, XdrError> {
-    if let ScVal::Bytes(res_hash) = &res {
+    if let ScVal::Address(ScAddress::Contract(res_contract)) = &res {
         let mut hash_bytes: [u8; 32] = [0; 32];
-        for (i, b) in res_hash.iter().enumerate() {
+        for (i, b) in res_contract.0.iter().enumerate() {
             hash_bytes[i] = *b;
         }
         Ok(Hash(hash_bytes))
@@ -153,7 +153,7 @@ fn build_wrap_token_tx(
     sequence: i64,
     fee: u32,
     _network_passphrase: &str,
-    key: &ed25519_dalek::Keypair,
+    key: &ed25519_dalek::SigningKey,
 ) -> Result<Transaction, Error> {
     let contract = ScAddress::Contract(contract_id.clone());
     let mut read_write = vec![
@@ -192,7 +192,7 @@ fn build_wrap_token_tx(
     };
 
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

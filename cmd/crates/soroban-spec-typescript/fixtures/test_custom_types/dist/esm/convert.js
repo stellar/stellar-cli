@@ -1,7 +1,6 @@
-import { Address, xdr, scValToBigInt, ScInt } from 'soroban-client';
-import { Buffer } from "buffer";
+import { xdr, Address, nativeToScVal, scValToBigInt, ScInt } from 'soroban-client';
 export function strToScVal(base64Xdr) {
-    return xdr.ScVal.fromXDR(Buffer.from(base64Xdr, 'base64'));
+    return xdr.ScVal.fromXDR(base64Xdr, 'base64');
 }
 export function scValStrToJs(base64Xdr) {
     return scValToJs(strToScVal(base64Xdr));
@@ -72,13 +71,10 @@ export function scValToJs(val) {
             return res;
         }
         case xdr.ScValType.scvContractInstance():
-            return val.instance();
         case xdr.ScValType.scvLedgerKeyNonce():
-            return val.nonceKey();
         case xdr.ScValType.scvTimepoint():
-            return val.timepoint();
         case xdr.ScValType.scvDuration():
-            return val.duration();
+            return val.value();
         // TODO: Add this case when merged
         // case xdr.ScValType.scvError():
         default: {
@@ -88,8 +84,7 @@ export function scValToJs(val) {
     ;
 }
 export function addressToScVal(addr) {
-    let addrObj = Address.fromString(addr);
-    return addrObj.toScVal();
+    return nativeToScVal(addr, { type: 'address' } /* bug workaround */);
 }
 export function i128ToScVal(i) {
     return new ScInt(i).toI128();

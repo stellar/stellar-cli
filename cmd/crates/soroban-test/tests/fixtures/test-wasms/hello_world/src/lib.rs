@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, log, symbol_short, vec, Address, Env, String, Symbol, Vec,
+    contract, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String, Symbol, Vec,
 };
 
 const COUNTER: Symbol = symbol_short!("COUNTER");
@@ -30,7 +30,7 @@ impl Contract {
         addr
     }
 
-    pub fn inc(env: Env) {
+    pub fn inc(env: Env) -> u32 {
         let mut count: u32 = env.storage().persistent().get(&COUNTER).unwrap_or(0); // Panic if the value of COUNTER is not u32.
         log!(&env, "count: {}", count);
 
@@ -39,6 +39,15 @@ impl Contract {
 
         // Save the count.
         env.storage().persistent().set(&COUNTER, &count);
+        count
+    }
+
+    pub fn prng_u64_in_range(env: Env, low: u64, high: u64) -> u64 {
+        env.prng().u64_in_range(low..=high)
+    }
+
+    pub fn upgrade_contract(env: Env, hash: BytesN<32>) {
+        env.deployer().update_current_contract_wasm(hash);
     }
 
     #[allow(unused_variables)]

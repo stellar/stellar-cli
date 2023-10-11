@@ -84,6 +84,10 @@ where
     });
 }
 
+pub fn is_rpc() -> bool {
+    std::env::var("SOROBAN_RPC_URL").is_ok()
+}
+
 pub const DEFAULT_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
 
@@ -91,3 +95,47 @@ pub const DEFAULT_PUB_KEY: &str = "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2
 pub const DEFAULT_SECRET_KEY: &str = "SC36BWNUOCZAO7DMEJNNKFV6BOTPJP7IG5PSHLUOLT6DZFRU3D3XGIXW";
 
 pub const DEFAULT_PUB_KEY_1: &str = "GCKZUJVUNEFGD4HLFBUNVYM2QY2P5WQQZMGRA3DDL4HYVT5MW5KG3ODV";
+pub const TEST_SALT: &str = "f55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114";
+
+pub fn rpc_url() -> Option<String> {
+    std::env::var("SOROBAN_RPC_URL").ok()
+}
+
+pub fn rpc_url_arg() -> Option<String> {
+    rpc_url().map(|url| format!("--rpc-url={url}"))
+}
+
+pub fn network_passphrase() -> Option<String> {
+    std::env::var("SOROBAN_NETWORK_PASSPHRASE").ok()
+}
+
+pub fn network_passphrase_arg() -> Option<String> {
+    network_passphrase().map(|p| format!("--network-passphrase={p}"))
+}
+
+pub const TEST_CONTRACT_ID: &str = "CBVTIVBYWAO2HNPNGKDCZW4OZYYESTKNGD7IPRTDGQSFJS4QBDQQJX3T";
+
+pub fn deploy_hello(sandbox: &TestEnv) -> String {
+    let hash = HELLO_WORLD.hash().unwrap();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .arg("--wasm")
+        .arg(HELLO_WORLD.path())
+        .assert()
+        .success()
+        .stdout(format!("{hash}\n"));
+
+    let mut cmd: &mut assert_cmd::Command = &mut sandbox.new_assert_cmd("contract");
+
+    cmd = cmd.arg("deploy").arg("--wasm-hash").arg(&format!("{hash}"));
+    if is_rpc() {
+        cmd = cmd.arg("--salt").arg(TEST_SALT);
+    } else {
+        cmd = cmd.arg("--id").arg(TEST_CONTRACT_ID);
+    }
+    cmd.assert()
+        .success()
+        .stdout(format!("{TEST_CONTRACT_ID}\n"));
+    TEST_CONTRACT_ID.to_string()
+}

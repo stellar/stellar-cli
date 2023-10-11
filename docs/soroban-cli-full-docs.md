@@ -230,10 +230,12 @@ Extend the expiry ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is bumped.
 
-**Usage:** `soroban contract bump [OPTIONS] --durability <DURABILITY> --ledgers-to-expire <LEDGERS_TO_EXPIRE>`
+**Usage:** `soroban contract bump [OPTIONS] --ledgers-to-expire <LEDGERS_TO_EXPIRE> --durability <DURABILITY>`
 
 ###### **Options:**
 
+* `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entries
+* `--expiration-ledger-only` — Only print the new expiration ledger
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be bumped
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
@@ -247,7 +249,6 @@ If no keys are specified the contract itself is bumped.
   - `temporary`:
     Temporary
 
-* `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entries
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -408,20 +409,9 @@ Optimize a WASM file
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `soroban contract read [OPTIONS] --id <CONTRACT_ID>`
+**Usage:** `soroban contract read [OPTIONS] --durability <DURABILITY>`
 
 ###### **Options:**
-
-* `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--key <KEY>` — Storage key (symbols only)
-* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR ScVal)
-* `--durability <DURABILITY>` — Storage entry durability
-
-  Possible values:
-  - `persistent`:
-    Persistent
-  - `temporary`:
-    Temporary
 
 * `--output <OUTPUT>` — Type of output to generate
 
@@ -434,6 +424,19 @@ Print the current value of a contract-data ledger entry
     Json
   - `xdr`:
     XDR
+
+* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be bumped
+* `--key <KEY>` — Storage key (symbols only)
+* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--wasm <WASM>` — Path to Wasm file of contract code to bump
+* `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to bump
+* `--durability <DURABILITY>` — Storage entry durability
+
+  Possible values:
+  - `persistent`:
+    Persistent
+  - `temporary`:
+    Temporary
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -452,15 +455,24 @@ Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `soroban contract restore [OPTIONS]`
+**Usage:** `soroban contract restore [OPTIONS] --durability <DURABILITY>`
 
 ###### **Options:**
 
-* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be restored
+* `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be bumped
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
-* `--wasm <WASM>` — Path to Wasm file of contract code to restore
-* `--wasm-hash <WASM_HASH>` — Hash of contract code to restore
+* `--wasm <WASM>` — Path to Wasm file of contract code to bump
+* `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to bump
+* `--durability <DURABILITY>` — Storage entry durability
+
+  Possible values:
+  - `persistent`:
+    Persistent
+  - `temporary`:
+    Temporary
+
+* `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entry
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config

@@ -43,8 +43,6 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
         calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget)
             .context("cannot compute host function resources")?;
 
-    let read_write_entries = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
-
     let contract_events_size =
         calculate_contract_events_size_bytes(events).context("cannot calculate events size")?;
     let invocation_return_size = u32::try_from(invocation_result.to_xdr()?.len())?;
@@ -53,9 +51,8 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
 
     let transaction_resources = TransactionResources {
         instructions: soroban_resources.instructions,
-        read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?
-            + read_write_entries,
-        write_entries: read_write_entries,
+        read_entries: u32::try_from(soroban_resources.footprint.read_only.as_vec().len())?,
+        write_entries: u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: soroban_resources.write_bytes,
         // Note: we could get a better transaction size if the full transaction was passed down to libpreflight
@@ -264,7 +261,9 @@ fn calculate_unmodified_ledger_entry_bytes(
 fn calculate_contract_events_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
     let mut res: u32 = 0;
     for e in events {
-        if e.event.type_ != ContractEventType::Contract {
+        if e.event.type_ != ContractEventType::Contract
+            && e.event.type_ != ContractEventType::System
+        {
             continue;
         }
         let event_xdr = e
@@ -440,7 +439,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
         read_bytes: write_bytes + expiration_bytes,
         write_bytes,
     };
-    let entry_count = u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?;
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
         &OperationBody::RestoreFootprint(RestoreFootprintOp {
             ext: ExtensionPoint::V0,
@@ -450,8 +448,8 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     .context("cannot estimate maximum transaction size")?;
     let transaction_resources = TransactionResources {
         instructions: 0,
-        read_entries: entry_count,
-        write_entries: entry_count,
+        read_entries: 0,
+        write_entries: u32::try_from(soroban_resources.footprint.read_write.as_vec().len())?,
         read_bytes: soroban_resources.read_bytes,
         write_bytes: soroban_resources.write_bytes,
         transaction_size_bytes,

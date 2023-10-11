@@ -7,6 +7,7 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
+	"github.com/stellar/go/gxdr"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
@@ -41,7 +42,7 @@ type SimulateTransactionResponse struct {
 	Events          []string                     `json:"events,omitempty"`          // DiagnosticEvent XDR in base64
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
 	Cost            SimulateTransactionCost      `json:"cost,omitempty"`            // the effective cpu and memory cost of the invoked transaction execution.
-	RestorePreamble RestorePreamble              `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
+	RestorePreamble *RestorePreamble             `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
 	LatestLedger    int64                        `json:"latestLedger,string"`
 }
 
@@ -53,6 +54,13 @@ type PreflightGetter interface {
 func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, ledgerReader db.LedgerReader, getter PreflightGetter) jrpc2.Handler {
 
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
+		if err := gxdr.ValidateTransactionEnvelope(request.Transaction, gxdr.DefaultMaxDepth); err != nil {
+			logger.WithError(err).WithField("request", request).
+				Info("could not validate simulate transaction envelope")
+			return SimulateTransactionResponse{
+				Error: "Could not unmarshal transaction",
+			}
+		}
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
 			logger.WithError(err).WithField("request", request).
@@ -128,9 +136,9 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				Auth: base64EncodeSlice(result.Auth),
 			})
 		}
-		restorePreable := RestorePreamble{}
+		var restorePreamble *RestorePreamble = nil
 		if len(result.PreRestoreTransactionData) != 0 {
-			restorePreable = RestorePreamble{
+			restorePreamble = &RestorePreamble{
 				TransactionData: base64.StdEncoding.EncodeToString(result.PreRestoreTransactionData),
 				MinResourceFee:  result.PreRestoreMinFee,
 			}
@@ -147,7 +155,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				MemoryBytes:     result.MemoryBytes,
 			},
 			LatestLedger:    int64(latestLedger),
-			RestorePreamble: restorePreable,
+			RestorePreamble: restorePreamble,
 		}
 	})
 }

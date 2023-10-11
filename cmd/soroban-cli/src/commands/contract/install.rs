@@ -10,6 +10,7 @@ use soroban_env_host::xdr::{
 };
 
 use super::restore;
+use crate::key;
 use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 
@@ -84,7 +85,8 @@ impl Cmd {
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
@@ -112,13 +114,17 @@ impl Cmd {
         {
             // Now just need to restore it and don't have to install again
             restore::Cmd {
-                contract_id: None,
-                key: vec![],
-                key_xdr: vec![],
-                wasm: Some(self.wasm.wasm.clone()),
-                wasm_hash: None,
+                key: key::Args {
+                    contract_id: None,
+                    key: None,
+                    key_xdr: None,
+                    wasm: Some(self.wasm.wasm.clone()),
+                    wasm_hash: None,
+                    durability: super::Durability::Persistent,
+                },
                 config: self.config.clone(),
                 fee: self.fee.clone(),
+                ledgers_to_expire: None,
             }
             .run_against_rpc_server()
             .await?;
@@ -132,12 +138,14 @@ pub(crate) fn build_install_contract_code_tx(
     source_code: Vec<u8>,
     sequence: i64,
     fee: u32,
-    key: &ed25519_dalek::Keypair,
+    key: &ed25519_dalek::SigningKey,
 ) -> Result<(Transaction, Hash), XdrError> {
     let hash = utils::contract_hash(&source_code)?;
 
     let op = Operation {
-        source_account: Some(MuxedAccount::Ed25519(Uint256(key.public.to_bytes()))),
+        source_account: Some(MuxedAccount::Ed25519(Uint256(
+            key.verifying_key().to_bytes(),
+        ))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
             auth: VecM::default(),
@@ -145,7 +153,7 @@ pub(crate) fn build_install_contract_code_tx(
     };
 
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

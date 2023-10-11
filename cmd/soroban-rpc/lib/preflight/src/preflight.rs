@@ -46,6 +46,14 @@ pub(crate) fn preflight_invoke_hf_op(
         .context("cannot create budget")?;
     let storage = Storage::with_recording_footprint(ledger_storage_rc.clone());
     let host = Host::with_storage_and_budget(storage, budget);
+    host.set_source_account(source_account.clone())
+        .context("cannot set source account")?;
+    host.set_diagnostic_level(DiagnosticLevel::Debug)
+        .context("cannot set debug diagnostic level")?;
+    host.set_ledger_info(ledger_info.clone())
+        .context("cannot set ledger info")?;
+    host.set_base_prng_seed(rand::Rng::gen(&mut rand::thread_rng()))
+        .context("cannot set base prng seed")?;
 
     // We make an assumption here:
     // - if a transaction doesn't include any soroban authorization entries the client either
@@ -62,13 +70,6 @@ pub(crate) fn preflight_invoke_hf_op(
         host.set_authorization_entries(invoke_hf_op.auth.to_vec())
             .context("cannot set authorization entries")?;
     }
-
-    host.set_diagnostic_level(DiagnosticLevel::Debug)
-        .context("cannot set debug diagnostic level")?;
-    host.set_source_account(source_account.clone())
-        .context("cannot set source account")?;
-    host.set_ledger_info(ledger_info.clone())
-        .context("cannot set ledger info")?;
 
     // Run the preflight.
     let maybe_result = host

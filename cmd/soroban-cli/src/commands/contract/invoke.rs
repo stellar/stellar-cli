@@ -7,7 +7,7 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io, rc::Rc};
 
 use clap::{arg, command, value_parser, Parser};
-use ed25519_dalek::Keypair;
+use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 use soroban_env_host::e2e_invoke::{get_ledger_changes, ExpirationEntryMap};
 use soroban_env_host::xdr::ReadXdr;
@@ -173,7 +173,7 @@ impl Cmd {
         &self,
         contract_id: [u8; 32],
         spec_entries: &[ScSpecEntry],
-    ) -> Result<(String, Spec, InvokeContractArgs, Vec<Keypair>), Error> {
+    ) -> Result<(String, Spec, InvokeContractArgs, Vec<SigningKey>), Error> {
         let spec = Spec(Some(spec_entries.to_vec()));
         let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
@@ -189,7 +189,7 @@ impl Cmd {
 
         let func = spec.find_function(function)?;
         // create parsed_args in same order as the inputs to func
-        let mut signers: Vec<Keypair> = vec![];
+        let mut signers: Vec<SigningKey> = vec![];
         let parsed_args = func
             .inputs
             .iter()
@@ -291,7 +291,8 @@ impl Cmd {
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey = stellar_strkey::ed25519::PublicKey(key.public.to_bytes()).to_string();
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
@@ -348,7 +349,7 @@ impl Cmd {
 
         // Create source account, adding it to the ledger if not already present.
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
-            self.config.key_pair()?.public.to_bytes(),
+            self.config.key_pair()?.verifying_key().to_bytes(),
         )));
         let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
             account_id: source_account.clone(),
@@ -382,6 +383,7 @@ impl Cmd {
         let h = Host::with_storage_and_budget(storage, budget);
         h.switch_to_recording_auth(true)?;
         h.set_source_account(source_account)?;
+        h.set_base_prng_seed(rand::Rng::gen(&mut rand::thread_rng()))?;
 
         let mut ledger_info = state.ledger_info();
         ledger_info.sequence_number += 1;
@@ -535,7 +537,7 @@ fn build_invoke_contract_tx(
     parameters: InvokeContractArgs,
     sequence: i64,
     fee: u32,
-    key: &Keypair,
+    key: &SigningKey,
 ) -> Result<Transaction, Error> {
     let op = Operation {
         source_account: None,
@@ -545,7 +547,7 @@ fn build_invoke_contract_tx(
         }),
     };
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.public.to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

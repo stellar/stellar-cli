@@ -13,6 +13,7 @@ import (
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/go-chi/chi/middleware"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/cors"
 	"github.com/stellar/go/support/log"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
@@ -23,6 +24,11 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/network"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
+
+// maxHTTPRequestSize defines the largest request size that the http handler
+// would be willing to accept before dropping the request. The implementation
+// uses the default MaxBytesHandler to limit the request size.
+const maxHTTPRequestSize = 512 * 1024 // half a megabyte
 
 // Handler is the HTTP handler which serves the Soroban JSON RPC responses
 type Handler struct {
@@ -274,12 +280,17 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 		globalQueueRequestExecutionDurationLimitCounter,
 		params.Logger)
 
-	// Limit request sizes to 10MB
-	handler = http.MaxBytesHandler(handler, 1024*1024*10)
+	handler = http.MaxBytesHandler(handler, maxHTTPRequestSize)
+
+	corsMiddleware := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedHeaders: []string{"*"},
+		AllowedMethods: []string{"GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+	})
 
 	return Handler{
 		bridge:  bridge,
 		logger:  params.Logger,
-		Handler: handler,
+		Handler: corsMiddleware.Handler(handler),
 	}
 }

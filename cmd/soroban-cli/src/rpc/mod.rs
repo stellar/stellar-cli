@@ -4,13 +4,15 @@ use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
 use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use soroban_env_host::xdr::DepthLimitedRead;
+use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
-    LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
-    SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope, TransactionMeta,
-    TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    ExpirationEntry, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
+    LedgerKeyExpiration, PublicKey, ReadXdr, SequenceNumber, SorobanAuthorizationEntry,
+    SorobanResources, Transaction, TransactionEnvelope, TransactionMeta, TransactionMetaV3,
+    TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
+use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
 use std::{
     fmt::Display,
@@ -24,7 +26,7 @@ use tokio::time::sleep;
 use crate::utils::{self, contract_spec};
 
 mod transaction;
-use transaction::{assemble, sign_soroban_authorizations};
+use transaction::{assemble, build_restore_txn, sign_soroban_authorizations};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -38,7 +40,7 @@ pub type LogResources = fn(resources: &SorobanResources) -> ();
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("invalid address: {0}")]
+    #[error(transparent)]
     InvalidAddress(#[from] stellar_strkey::DecodeError),
     #[error("invalid response from server")]
     InvalidResponse,
@@ -94,6 +96,8 @@ pub enum Error {
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
     #[error("Fee was too large {0}")]
     LargeFee(u64),
+    #[error("Failed to parse  LedgerEntryData")]
+    FailedParseLedgerEntryData,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -155,8 +159,11 @@ pub struct LedgerEntryResult {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLedgerEntriesResponse {
     pub entries: Option<Vec<LedgerEntryResult>>,
-    #[serde(rename = "latestLedger")]
-    pub latest_ledger: String,
+    #[serde(
+        rename = "latestLedger",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub latest_ledger: i64,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -237,12 +244,12 @@ pub struct SimulateTransactionResponse {
         rename = "latestLedger",
         deserialize_with = "deserialize_number_from_string"
     )]
-    pub latest_ledger: u64,
+    pub latest_ledger: u32,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct RestorePreamble {
     #[serde(rename = "transactionData")]
     pub transaction_data: String,
@@ -420,6 +427,19 @@ pub enum EventType {
 pub enum EventStart {
     Ledger(u32),
     Cursor(String),
+}
+
+#[derive(Debug)]
+pub struct FullLedgerEntry {
+    pub key: LedgerKey,
+    pub val: LedgerEntryData,
+    pub expiration: ExpirationEntry,
+}
+
+#[derive(Debug)]
+pub struct FullLedgerEntries {
+    pub entries: Vec<FullLedgerEntry>,
+    pub latest_ledger: i64,
 }
 
 pub struct Client {
@@ -632,7 +652,7 @@ soroban config identity fund {address} --helper-url <url>"#
     pub async fn prepare_transaction(
         &self,
         tx: &Transaction,
-    ) -> Result<(Transaction, Vec<DiagnosticEvent>), Error> {
+    ) -> Result<(Transaction, Option<RestorePreamble>, Vec<DiagnosticEvent>), Error> {
         tracing::trace!(?tx);
         let sim_response = self
             .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -640,27 +660,41 @@ soroban config identity fund {address} --helper-url <url>"#
                 signatures: VecM::default(),
             }))
             .await?;
-
         let events = sim_response
             .events
             .iter()
             .map(DiagnosticEvent::from_xdr_base64)
             .collect::<Result<Vec<_>, _>>()?;
-
-        Ok((assemble(tx, &sim_response)?, events))
+        Ok((
+            assemble(tx, &sim_response)?,
+            sim_response.restore_preamble,
+            events,
+        ))
     }
 
     pub async fn prepare_and_send_transaction(
         &self,
         tx_without_preflight: &Transaction,
-        source_key: &ed25519_dalek::Keypair,
-        signers: &[ed25519_dalek::Keypair],
+        source_key: &ed25519_dalek::SigningKey,
+        signers: &[ed25519_dalek::SigningKey],
         network_passphrase: &str,
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
-        let (unsigned_tx, events) = self.prepare_transaction(tx_without_preflight).await?;
+        let (mut unsigned_tx, restore_preamble, events) =
+            self.prepare_transaction(tx_without_preflight).await?;
+        if let Some(restore) = restore_preamble {
+            // Build and submit the restore transaction
+            self.send_transaction(&utils::sign_transaction(
+                source_key,
+                &build_restore_txn(&unsigned_tx, &restore)?,
+                network_passphrase,
+            )?)
+            .await?;
+            // Increment the original txn's seq_num so it doesn't conflict
+            unsigned_tx.seq_num = SequenceNumber(unsigned_tx.seq_num.0 + 1);
+        }
         let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
             &unsigned_tx,
             source_key,
@@ -668,11 +702,17 @@ soroban config identity fund {address} --helper-url <url>"#
             sequence + 60, // ~5 minutes of ledgers
             network_passphrase,
         )?;
-        let (fee_ready_txn, events) = if signed_auth_entries.is_empty() {
+        let (fee_ready_txn, events) = if signed_auth_entries.is_empty()
+            || (signed_auth_entries.len() == 1
+                && matches!(
+                    signed_auth_entries[0].root_invocation.function,
+                    SorobanAuthorizedFunction::CreateContractHostFn(_)
+                )) {
             (part_signed_tx, events)
         } else {
             // re-simulate to calculate the new fees
-            self.prepare_transaction(&part_signed_tx).await?
+            let (tx, _, events) = self.prepare_transaction(&part_signed_tx).await?;
+            (tx, events)
         };
 
         // Try logging stuff if requested
@@ -725,6 +765,47 @@ soroban config identity fund {address} --helper-url <url>"#
             .client()?
             .request("getLedgerEntries", rpc_params![base64_keys])
             .await?)
+    }
+
+    pub async fn get_full_ledger_entries(
+        &self,
+        ledger_keys: &[LedgerKey],
+    ) -> Result<FullLedgerEntries, Error> {
+        let keys = ledger_keys
+            .iter()
+            .map(|key| Ok(into_keys(key.clone())?.into_iter()))
+            .flatten_ok()
+            .collect::<Result<Vec<_>, Error>>()?;
+        tracing::trace!("{keys:#?}");
+        let GetLedgerEntriesResponse {
+            entries,
+            latest_ledger,
+        } = self.get_ledger_entries(&keys).await?;
+        tracing::trace!(?entries);
+        let entries = entries
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .tuple_windows()
+            .map(|(key_res, entry_res)| {
+                let expiration = LedgerEntryData::from_xdr_base64(&entry_res.xdr)?;
+                if let LedgerEntryData::Expiration(expiration) = expiration {
+                    let key = LedgerKey::from_xdr_base64(&key_res.key)?;
+                    let val = LedgerEntryData::from_xdr_base64(&key_res.xdr)?;
+                    Ok(FullLedgerEntry {
+                        key,
+                        val,
+                        expiration,
+                    })
+                } else {
+                    Err(Error::FailedParseLedgerEntryData)
+                }
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(FullLedgerEntries {
+            entries,
+            latest_ledger,
+        })
     }
 
     pub async fn get_events(
@@ -875,6 +956,13 @@ pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
     let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
     let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
     Ok((toid_part, start_index))
+}
+
+fn into_keys(key: LedgerKey) -> Result<[LedgerKey; 2], Error> {
+    let expiration = LedgerKey::Expiration(LedgerKeyExpiration {
+        key_hash: xdr::Hash(Sha256::digest(key.to_xdr()?).into()),
+    });
+    Ok([key, expiration])
 }
 
 #[cfg(test)]

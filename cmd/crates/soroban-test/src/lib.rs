@@ -124,7 +124,11 @@ impl TestEnv {
     /// A convenience method for using the invoke command.
     pub fn invoke<I: AsRef<str>>(&self, command_str: &[I]) -> Result<String, invoke::Error> {
         let cmd = contract::invoke::Cmd::parse_arg_vec(
-            &command_str.iter().map(AsRef::as_ref).collect::<Vec<_>>(),
+            &command_str
+                .iter()
+                .map(AsRef::as_ref)
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>(),
         )
         .unwrap();
         self.invoke_cmd(cmd)

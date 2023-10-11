@@ -109,7 +109,7 @@ jobs:
     env:
       SOROBAN_RPC_INTEGRATION_TESTS_ENABLED: true
       SOROBAN_RPC_INTEGRATION_TESTS_CAPTIVE_CORE_BIN: /usr/bin/stellar-core
-      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.13.1-1469.76fed6ead.focal~soroban
+      PROTOCOL_20_CORE_DEBIAN_PKG_VERSION: 19.13.1-1481.3acf6dd26.focal
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -123,11 +123,12 @@ jobs:
       - uses: ./.github/actions/setup-go
         with:
           go-version: ${{ matrix.go }}
-
+      - uses: stellar/actions/rust-cache@main
       - name: Build soroban contract fixtures
         run: |
           rustup update
           rustup target add wasm32-unknown-unknown
+          make build_rust
           make build-test-wasms
 
       - name: Install Captive Core
