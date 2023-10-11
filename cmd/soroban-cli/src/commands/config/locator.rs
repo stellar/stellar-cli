@@ -293,7 +293,7 @@ impl KeyType {
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
-            .flat_map(|p| self.list(p).unwrap_or(vec![]))
+            .flat_map(|p| self.list(p).unwrap_or_default())
             .collect())
     }
 
