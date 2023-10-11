@@ -243,7 +243,7 @@ impl Cmd {
         let contract_address_arg = ScAddress::Contract(Hash(contract_id));
         let function_symbol_arg = function
             .try_into()
-            .map_err(|_| Error::FunctionNameTooLong(function.clone()))?;
+            .map_err(|()| Error::FunctionNameTooLong(function.clone()))?;
 
         let final_args =
             parsed_args
