@@ -209,7 +209,7 @@ fn host_events_to_diagnostic_events(events: &Events) -> Vec<DiagnosticEvent> {
     }
     res
 }
-
+#[allow(clippy::cast_sign_loss)]
 fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Result<Budget> {
     let ConfigSettingEntry::ContractComputeV0(compute) =
         ledger_storage.get_configuration_setting(ConfigSettingId::ContractComputeV0)?
@@ -228,10 +228,9 @@ fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Resu
     else {
         bail!("unexpected config setting entry for CostParamsMemoryBytes key");
     };
-
     let budget = Budget::try_from_configs(
         compute.tx_max_instructions as u64,
-        compute.tx_memory_limit as u64,
+        u64::from(compute.tx_memory_limit),
         cost_params_cpu,
         cost_params_memory,
     )

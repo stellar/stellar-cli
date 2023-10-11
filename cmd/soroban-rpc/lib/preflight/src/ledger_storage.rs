@@ -143,7 +143,7 @@ impl LedgerStorage {
         if res.xdr.is_null() {
             return Err(Error::NotFound);
         }
-        let v = from_c_xdr(res.clone());
+        let v = from_c_xdr(res);
         unsafe { FreeGoXDR(res) };
         Ok(v)
     }
@@ -250,7 +250,7 @@ impl SnapshotSource for LedgerStorage {
         }
         let entry_and_expiration =
             <LedgerStorage>::get(self, key, false).map_err(HostError::from)?;
-        return Ok((entry_and_expiration.0.into(), entry_and_expiration.1));
+        Ok((entry_and_expiration.0.into(), entry_and_expiration.1))
     }
 
     fn has(&self, key: &Rc<LedgerKey>) -> Result<bool, HostError> {
@@ -260,6 +260,6 @@ impl SnapshotSource for LedgerStorage {
                 return Ok(false);
             }
         }
-        return result.map(|_| true);
+        result.map(|_| true)
     }
 }
