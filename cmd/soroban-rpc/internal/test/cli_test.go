@@ -117,7 +117,7 @@ func TestCLIRestorePreamble(t *testing.T) {
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
-	waitForLedgerEntryToExpire(t, client, getExpirationKeyForCounterLedgerEntry(t, strkeyContractID))
+	waitForLedgerEntryToExpire(t, client, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
 
 	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "3", count)
@@ -132,7 +132,7 @@ func TestCLIBump(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 
 	bumpOutput := runSuccessfulCLICmd(
@@ -156,7 +156,7 @@ func TestCLIBumpTooLow(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 	initialExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
 
 	bumpOutput := bump(t, strkeyContractID, "400", "--key COUNTER ")
@@ -178,7 +178,7 @@ func TestCLIBumpTooHigh(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 	initialExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
 
 	bumpOutput := bump(t, strkeyContractID, "100000000", "--key COUNTER ")
@@ -197,7 +197,7 @@ func TestCLIRestore(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getExpirationKeyForCounterLedgerEntry(t, strkeyContractID)
+	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
 	// Wait for the counter ledger entry to expire and successfully invoke the `inc` contract function again
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
@@ -226,10 +226,6 @@ func getExpirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
 			KeyHash: sha256.Sum256(binKey),
 		},
 	}
-}
-
-func getExpirationKeyForCounterLedgerEntry(t *testing.T, strkeyContractID string) xdr.LedgerKey {
-	return getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 }
 
 func parseContractStrKey(t *testing.T, strkeyContractID string) [32]byte {

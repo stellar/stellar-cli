@@ -900,8 +900,9 @@ func getExpirationForLedgerEntry(t *testing.T, client *jrpc2.Client, expirationL
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
 
-	assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-	return entry.Expiration.ExpirationLedgerSeq
+	require.Contains(t, []xdr.LedgerEntryType{xdr.LedgerEntryTypeContractCode, xdr.LedgerEntryTypeContractData}, entry.Type)
+	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
+	return xdr.Uint32(*getLedgerEntryResult.ExpirationLedger)
 }
 
 func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, ledgerKey xdr.LedgerKey) {
