@@ -229,7 +229,7 @@ func getExpirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
 }
 
 func getExpirationKeyForCounterLedgerEntry(t *testing.T, strkeyContractID string) xdr.LedgerKey {
-	return getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
+	return getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 }
 
 func parseContractStrKey(t *testing.T, strkeyContractID string) [32]byte {
