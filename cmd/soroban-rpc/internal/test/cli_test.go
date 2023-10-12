@@ -211,21 +211,9 @@ func TestCLIRestore(t *testing.T) {
 		),
 	)
 
-	newExpirationSeq := getExpirationForLedgerEntry(t, client, getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))))
+	newExpirationSeq := getExpirationForLedgerEntry(t, client, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), restoreOutput)
-}
-
-func getExpirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
-	assert.True(t, key.Type == xdr.LedgerEntryTypeContractCode || key.Type == xdr.LedgerEntryTypeContractData)
-	binKey, err := key.MarshalBinary()
-	assert.NoError(t, err)
-	return xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeExpiration,
-		Expiration: &xdr.LedgerKeyExpiration{
-			KeyHash: sha256.Sum256(binKey),
-		},
-	}
 }
 
 func parseContractStrKey(t *testing.T, strkeyContractID string) [32]byte {

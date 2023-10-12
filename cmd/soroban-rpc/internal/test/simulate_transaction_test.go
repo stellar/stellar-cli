@@ -896,9 +896,9 @@ func getExpirationForLedgerEntry(t *testing.T, client *jrpc2.Client, expirationL
 	}
 	var getLedgerEntryResult methods.GetLedgerEntryResponse
 	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	var entry xdr.LedgerEntryData
-	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
+	require.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
 
 	require.Contains(t, []xdr.LedgerEntryType{xdr.LedgerEntryTypeContractCode, xdr.LedgerEntryTypeContractData}, entry.Type)
 	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
