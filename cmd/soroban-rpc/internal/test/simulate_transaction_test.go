@@ -915,11 +915,12 @@ func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, ledgerKey xd
 		var getLedgerEntryResult methods.GetLedgerEntryResponse
 		var entry xdr.LedgerEntryData
 		err := client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-		assert.NoError(t, err)
-		assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-		assert.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
+		require.NoError(t, err)
+		require.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
+		require.Equal(t, xdr.LedgerEntryTypeExpiration, entry.Type)
 		// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
 		currentLedger := getLedgerEntryResult.LatestLedger + 1
+		require.NotNil(t, entry.Expiration)
 		if xdr.Uint32(currentLedger) > entry.Expiration.ExpirationLedgerSeq {
 			expired = true
 			t.Logf("ledger entry expired")
