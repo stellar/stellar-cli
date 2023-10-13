@@ -50,46 +50,47 @@ This will generate a `soroban-rpc` binary in the working directory.
 
 ## Configuration
 - Stellar-Core requires a configuration file to run. Here is a sample configuration file for testnet:
-    ```toml
-    DATABASE = "sqlite3://stellar.db"
-    ENABLE_SOROBAN_DIAGNOSTIC_EVENTS = true
-    EXPERIMENTAL_BUCKETLIST_DB = true
-    EXPERIMENTAL_BUCKETLIST_DB_INDEX_PAGE_SIZE_EXPONENT = 12
-    FAILURE_SAFETY = -1
-    HTTP_PORT = 11626
-    LOG_FILE_PATH = ""
-    NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
-    UNSAFE_QUORUM = true
-    
-    [[HOME_DOMAINS]]
-    HOME_DOMAIN = "testnet.stellar.org"
-    QUALITY = "HIGH"
-    
-    [[VALIDATORS]]
-    ADDRESS = "core-testnet1.stellar.org"
-    HISTORY = "curl -sf http://history.stellar.org/prd/core-testnet/core_testnet_001/{0} -o {1}"
-    HOME_DOMAIN = "testnet.stellar.org"
-    NAME = "sdftest1"
-    PUBLIC_KEY = "GDKXE2OZMJIPOSLNA6N6F2BVCI3O777I2OOC4BV7VOYUEHYX7RTRYA7Y"
-    
-    [[VALIDATORS]]
-    ADDRESS = "core-testnet2.stellar.org"
-    HISTORY = "curl -sf http://history.stellar.org/prd/core-testnet/core_testnet_002/{0} -o {1}"
-    HOME_DOMAIN = "testnet.stellar.org"
-    NAME = "sdftest2"
-    PUBLIC_KEY = "GCUCJTIYXSOXKBSNFGNFWW5MUQ54HKRPGJUTQFJ5RQXZXNOLNXYDHRAP"
-    
-    [[VALIDATORS]]
-    ADDRESS = "core-testnet3.stellar.org"
-    HISTORY = "curl -sf http://history.stellar.org/prd/core-testnet/core_testnet_003/{0} -o {1}"
-    HOME_DOMAIN = "testnet.stellar.org"
-    NAME = "sdftest3"
-    PUBLIC_KEY = "GC2V2EFSXN6SQTWVYA5EPJPBWWIMSD2XQNKUOHGEKB535AQE2I6IXV2Z"
-    ```
+```toml
+DATABASE = "sqlite3://stellar.db"
+ENABLE_SOROBAN_DIAGNOSTIC_EVENTS = true
+EXPERIMENTAL_BUCKETLIST_DB = true
+EXPERIMENTAL_BUCKETLIST_DB_INDEX_PAGE_SIZE_EXPONENT = 12
+FAILURE_SAFETY = -1
+HTTP_PORT = 11626
+LOG_FILE_PATH = ""
+NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
+UNSAFE_QUORUM = true
+
+[[HOME_DOMAINS]]
+HOME_DOMAIN = "testnet.stellar.org"
+QUALITY = "HIGH"
+
+[[VALIDATORS]]
+ADDRESS = "core-testnet1.stellar.org"
+HISTORY = "curl -sf http://history.stellar.org/prd/core-testnet/core_testnet_001/{0} -o {1}"
+HOME_DOMAIN = "testnet.stellar.org"
+NAME = "sdftest1"
+PUBLIC_KEY = "GDKXE2OZMJIPOSLNA6N6F2BVCI3O777I2OOC4BV7VOYUEHYX7RTRYA7Y"
+
+[[VALIDATORS]]
+ADDRESS = "core-testnet2.stellar.org"
+HISTORY = "curl -sf http://history.stellar.org/prd/core-testnet/core_testnet_002/{0} -o {1}"
+HOME_DOMAIN = "testnet.stellar.org"
+NAME = "sdftest2"
+PUBLIC_KEY = "GCUCJTIYXSOXKBSNFGNFWW5MUQ54HKRPGJUTQFJ5RQXZXNOLNXYDHRAP"
+
+[[VALIDATORS]]
+ADDRESS = "core-testnet3.stellar.org"
+HISTORY = "curl -sf http://history.stellar.org/prd/core-testnet/core_testnet_003/{0} -o {1}"
+HOME_DOMAIN = "testnet.stellar.org"
+NAME = "sdftest3"
+PUBLIC_KEY = "GC2V2EFSXN6SQTWVYA5EPJPBWWIMSD2XQNKUOHGEKB535AQE2I6IXV2Z"
+```
+  
 - For production, we recommend running Soroban RPC with a TOML configuration file rather than CLI flags. There is a new subcommand `gen-config-file` which takes all the same arguments as the root command (or no arguments at all), and outputs the resulting config toml file to stdout. 
-    ```bash
-    ./soroban-rpc gen-config-file
-    ```
+```bash
+./soroban-rpc gen-config-file
+```
 - Paste the output to a file and save it as `.toml` file in any directory. Make sure to update the config values to testnet specific ones.
 
 ## Running RPC Server
