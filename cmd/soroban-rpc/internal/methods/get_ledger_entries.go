@@ -14,6 +14,8 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
+var ErrLedgerExpirationEntriesCannotBeQueriedDirectly = "ledger expiration entries cannot be queried directly"
+
 type GetLedgerEntriesRequest struct {
 	Keys []string `json:"keys"`
 }
@@ -71,7 +73,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 					Infof("could not provide ledger expiration entry %s at index %d from getLedgerEntries request", requestKey, i)
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
 					Code:    jrpc2.InvalidParams,
-					Message: "ledger expiration entries cannot be queried directly",
+					Message: ErrLedgerExpirationEntriesCannotBeQueriedDirectly,
 				}
 			}
 			ledgerKeys = append(ledgerKeys, ledgerKey)

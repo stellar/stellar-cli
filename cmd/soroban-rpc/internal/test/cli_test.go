@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/icmd"
@@ -214,6 +216,37 @@ func TestCLIRestore(t *testing.T) {
 	newExpirationSeq := getExpirationForLedgerEntry(t, client, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
 	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
 	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), restoreOutput)
+
+	// test to see that we get an error when requesting the expiration ledger entry explicitly.
+	ledgerExpirationEntry := getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
+	ledgerExpirationEntryB64, err := xdr.MarshalBase64(ledgerExpirationEntry)
+	require.NoError(t, err)
+	var getLedgerEntryResult methods.GetLedgerEntryResponse
+	err = client.CallResult(context.Background(), "getLedgerEntry", methods.GetLedgerEntryRequest{
+		Key: ledgerExpirationEntryB64,
+	}, &getLedgerEntryResult)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), methods.ErrLedgerExpirationEntriesCannotBeQueriedDirectly)
+
+	// repeat with getLedgerEntries
+	var getLedgerEntriesResult methods.GetLedgerEntriesResponse
+	err = client.CallResult(context.Background(), "getLedgerEntries", methods.GetLedgerEntriesRequest{
+		Keys: []string{ledgerExpirationEntryB64},
+	}, &getLedgerEntriesResult)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), methods.ErrLedgerExpirationEntriesCannotBeQueriedDirectly)
+}
+
+func getExpirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
+	assert.True(t, key.Type == xdr.LedgerEntryTypeContractCode || key.Type == xdr.LedgerEntryTypeContractData)
+	binKey, err := key.MarshalBinary()
+	assert.NoError(t, err)
+	return xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeExpiration,
+		Expiration: &xdr.LedgerKeyExpiration{
+			KeyHash: sha256.Sum256(binKey),
+		},
+	}
 }
 
 func parseContractStrKey(t *testing.T, strkeyContractID string) [32]byte {
