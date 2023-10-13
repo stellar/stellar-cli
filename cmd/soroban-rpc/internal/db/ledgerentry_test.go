@@ -15,10 +15,10 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-func getLedgerEntryAndLatestLedgerSequenceWithErr(db *DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, error) {
+func getLedgerEntryAndLatestLedgerSequenceWithErr(db *DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, *uint32, error) {
 	tx, err := NewLedgerEntryReader(db).NewTx(context.Background())
 	if err != nil {
-		return false, xdr.LedgerEntry{}, 0, err
+		return false, xdr.LedgerEntry{}, 0, nil, err
 	}
 	var doneErr error
 	defer func() {
@@ -27,21 +27,21 @@ func getLedgerEntryAndLatestLedgerSequenceWithErr(db *DB, key xdr.LedgerKey) (bo
 
 	latestSeq, err := tx.GetLatestLedgerSequence()
 	if err != nil {
-		return false, xdr.LedgerEntry{}, 0, err
+		return false, xdr.LedgerEntry{}, 0, nil, err
 	}
 
-	present, entry, err := GetLedgerEntry(tx, key)
+	present, entry, expSeq, err := GetLedgerEntry(tx, key)
 	if err != nil {
-		return false, xdr.LedgerEntry{}, 0, err
+		return false, xdr.LedgerEntry{}, 0, nil, err
 	}
 
-	return present, entry, latestSeq, doneErr
+	return present, entry, latestSeq, expSeq, doneErr
 }
 
-func getLedgerEntryAndLatestLedgerSequence(t require.TestingT, db *DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32) {
-	present, entry, latestSeq, err := getLedgerEntryAndLatestLedgerSequenceWithErr(db, key)
+func getLedgerEntryAndLatestLedgerSequence(t require.TestingT, db *DB, key xdr.LedgerKey) (bool, xdr.LedgerEntry, uint32, *uint32) {
+	present, entry, latestSeq, expSeq, err := getLedgerEntryAndLatestLedgerSequenceWithErr(db, key)
 	require.NoError(t, err)
-	return present, entry, latestSeq
+	return present, entry, latestSeq, expSeq
 }
 
 func TestGoldenPath(t *testing.T) {
@@ -74,12 +74,20 @@ func TestGoldenPath(t *testing.T) {
 	}
 	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(entry))
+
+	expLedgerKey, err := entryKeyToExpirationEntryKey(key)
+	assert.NoError(t, err)
+	expLegerEntry := getExpirationLedgerEntry(expLedgerKey)
+	assert.NoError(t, writer.UpsertLedgerEntry(expLegerEntry))
+
 	ledgerSequence := uint32(23)
 	assert.NoError(t, tx.Commit(ledgerSequence))
 
-	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
+	present, obtainedEntry, obtainedLedgerSequence, expSeq := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
+	require.NotNil(t, expSeq)
+	assert.Equal(t, uint32(expLegerEntry.Data.Expiration.ExpirationLedgerSeq), *expSeq)
 	assert.Equal(t, obtainedEntry.Data.Type, xdr.LedgerEntryTypeContractData)
 	assert.Equal(t, xdr.Hash{0xca, 0xfe}, *obtainedEntry.Data.ContractData.Contract.ContractId)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
@@ -100,8 +108,9 @@ func TestGoldenPath(t *testing.T) {
 	ledgerSequence = uint32(24)
 	assert.NoError(t, tx.Commit(ledgerSequence))
 
-	present, obtainedEntry, obtainedLedgerSequence = getLedgerEntryAndLatestLedgerSequence(t, db, key)
+	present, obtainedEntry, obtainedLedgerSequence, expSeq = getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
+	require.NotNil(t, expSeq)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, eight, *obtainedEntry.Data.ContractData.Val.U32)
 
@@ -115,8 +124,9 @@ func TestGoldenPath(t *testing.T) {
 	ledgerSequence = uint32(25)
 	assert.NoError(t, tx.Commit(ledgerSequence))
 
-	present, _, obtainedLedgerSequence = getLedgerEntryAndLatestLedgerSequence(t, db, key)
+	present, _, obtainedLedgerSequence, expSeq = getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.False(t, present)
+	assert.Nil(t, expSeq)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	obtainedLedgerSequence, err = NewLedgerEntryReader(db).GetLatestLedgerSequence(context.Background())
@@ -161,8 +171,9 @@ func TestDeleteNonExistentLedgerEmpty(t *testing.T) {
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
 	// And that the entry doesn't exist
-	present, _, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
+	present, _, obtainedLedgerSequence, expSeq := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.False(t, present)
+	require.Nil(t, expSeq)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 }
 
@@ -179,6 +190,16 @@ func getContractDataLedgerEntry(t require.TestingT, data xdr.ContractDataEntry) 
 	err := key.SetContractData(data.Contract, data.Key, data.Durability)
 	require.NoError(t, err)
 	return key, entry
+}
+
+func getExpirationLedgerEntry(key xdr.LedgerKey) xdr.LedgerEntry {
+	var expLegerEntry xdr.LedgerEntry
+	expLegerEntry.Data.Expiration = &xdr.ExpirationEntry{
+		KeyHash:             key.Expiration.KeyHash,
+		ExpirationLedgerSeq: 100,
+	}
+	expLegerEntry.Data.Type = key.Type
+	return expLegerEntry
 }
 
 // Make sure that (multiple, simultaneous) read transactions can happen while a write-transaction is ongoing,
@@ -214,6 +235,11 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(entry))
 
+	expLedgerKey, err := entryKeyToExpirationEntryKey(key)
+	assert.NoError(t, err)
+	expLegerEntry := getExpirationLedgerEntry(expLedgerKey)
+	assert.NoError(t, writer.UpsertLedgerEntry(expLegerEntry))
+
 	// Before committing the changes, make sure multiple concurrent transactions can query the DB
 	readTx1, err := NewLedgerEntryReader(db).NewTx(context.Background())
 	assert.NoError(t, err)
@@ -222,16 +248,18 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 
 	_, err = readTx1.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
-	present, _, err := GetLedgerEntry(readTx1, key)
+	present, _, expSeq, err := GetLedgerEntry(readTx1, key)
+	require.Nil(t, expSeq)
 	assert.NoError(t, err)
 	assert.False(t, present)
 	assert.NoError(t, readTx1.Done())
 
 	_, err = readTx2.GetLatestLedgerSequence()
 	assert.Equal(t, ErrEmptyDB, err)
-	present, _, err = GetLedgerEntry(readTx2, key)
+	present, _, expSeq, err = GetLedgerEntry(readTx2, key)
 	assert.NoError(t, err)
 	assert.False(t, present)
+	assert.Nil(t, expSeq)
 	assert.NoError(t, readTx2.Done())
 
 	// Finish the write transaction and check that the results are present
@@ -242,10 +270,11 @@ func TestReadTxsDuringWriteTx(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
-	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
+	present, obtainedEntry, obtainedLedgerSequence, expSeq := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
+	assert.NotNil(t, expSeq)
 }
 
 // Make sure that a write transaction can happen while multiple read transactions are ongoing,
@@ -292,6 +321,11 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	key, entry := getContractDataLedgerEntry(t, data)
 	assert.NoError(t, writer.UpsertLedgerEntry(entry))
 
+	expLedgerKey, err := entryKeyToExpirationEntryKey(key)
+	assert.NoError(t, err)
+	expLegerEntry := getExpirationLedgerEntry(expLedgerKey)
+	assert.NoError(t, writer.UpsertLedgerEntry(expLegerEntry))
+
 	// Third read transaction, after the first insert has happened in the write transaction
 	readTx3, err := NewLedgerEntryReader(db).NewTx(context.Background())
 	assert.NoError(t, err)
@@ -300,7 +334,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	for _, readTx := range []LedgerEntryReadTx{readTx1, readTx2, readTx3} {
 		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		present, _, err := GetLedgerEntry(readTx, key)
+		present, _, _, err := GetLedgerEntry(readTx, key)
 		assert.NoError(t, err)
 		assert.False(t, present)
 	}
@@ -312,7 +346,7 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	for _, readTx := range []LedgerEntryReadTx{readTx1, readTx2, readTx3} {
 		_, err = readTx.GetLatestLedgerSequence()
 		assert.Equal(t, ErrEmptyDB, err)
-		present, _, err := GetLedgerEntry(readTx, key)
+		present, _, _, err := GetLedgerEntry(readTx, key)
 		assert.NoError(t, err)
 		assert.False(t, present)
 	}
@@ -323,8 +357,9 @@ func TestWriteTxsDuringReadTxs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 
-	present, obtainedEntry, obtainedLedgerSequence := getLedgerEntryAndLatestLedgerSequence(t, db, key)
+	present, obtainedEntry, obtainedLedgerSequence, expSeq := getLedgerEntryAndLatestLedgerSequence(t, db, key)
 	assert.True(t, present)
+	require.NotNil(t, expSeq)
 	assert.Equal(t, ledgerSequence, obtainedLedgerSequence)
 	assert.Equal(t, six, *obtainedEntry.Data.ContractData.Val.U32)
 
@@ -367,8 +402,12 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 			assert.NoError(t, err)
 			writer := tx.LedgerEntryWriter()
 			for i := 0; i < 200; i++ {
-				_, entry := getContractDataLedgerEntry(t, data(i))
+				key, entry := getContractDataLedgerEntry(t, data(i))
 				assert.NoError(t, writer.UpsertLedgerEntry(entry))
+				expLedgerKey, err := entryKeyToExpirationEntryKey(key)
+				assert.NoError(t, err)
+				expLegerEntry := getExpirationLedgerEntry(expLedgerKey)
+				assert.NoError(t, writer.UpsertLedgerEntry(expLegerEntry))
 			}
 			assert.NoError(t, tx.Commit(ledgerSequence))
 			logMessageCh <- fmt.Sprintf("Wrote ledger %d", ledgerSequence)
@@ -399,7 +438,7 @@ func TestConcurrentReadersAndWriter(t *testing.T) {
 				return
 			default:
 			}
-			found, ledgerEntry, ledger, err := getLedgerEntryAndLatestLedgerSequenceWithErr(db, key)
+			found, ledgerEntry, ledger, _, err := getLedgerEntryAndLatestLedgerSequenceWithErr(db, key)
 			if err != nil {
 				if err != ErrEmptyDB {
 					t.Fatalf("reader %d failed with error %v\n", keyVal, err)
@@ -479,7 +518,7 @@ func benchmarkLedgerEntry(b *testing.B, cached bool, includeExpired bool) {
 		assert.NoError(b, err)
 		for i := 0; i < numQueriesPerOp; i++ {
 			b.StartTimer()
-			found, _, err := GetLedgerEntry(readTx, key)
+			found, _, _, err := GetLedgerEntry(readTx, key)
 			b.StopTimer()
 			assert.NoError(b, err)
 			assert.True(b, found)

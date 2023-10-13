@@ -46,7 +46,8 @@ func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey C.xdr_t) C.xdr_t {
 	if err := xdr.SafeUnmarshal(ledgerKeyXDR, &ledgerKey); err != nil {
 		panic(err)
 	}
-	present, entry, err := db.GetLedgerEntry(h.readTx, ledgerKey)
+	// TODO : the expiration sequence here is being ignored for now; it should be passed downstream.
+	present, entry, _, err := db.GetLedgerEntry(h.readTx, ledgerKey)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
 		return C.xdr_t{}
@@ -181,7 +182,7 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	}
 	sourceAccountCXDR := CXDR(sourceAccountXDR)
 
-	hasConfig, stateExpirationConfig, err := db.GetLedgerEntry(params.LedgerEntryReadTx, xdr.LedgerKey{
+	hasConfig, stateExpirationConfig, expSeq, err := db.GetLedgerEntry(params.LedgerEntryReadTx, xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeConfigSetting,
 		ConfigSetting: &xdr.LedgerKeyConfigSetting{
 			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
@@ -189,6 +190,9 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	})
 	if err != nil {
 		return Preflight{}, err
+	}
+	if expSeq != nil {
+		return Preflight{}, errors.New("configuration setting are not expected to be expiring, yet, an expiration ledger sequence was found for ledger entry")
 	}
 	if !hasConfig {
 		return Preflight{}, errors.New("state expiration config setting missing in ledger storage")

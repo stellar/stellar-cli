@@ -310,7 +310,7 @@ fn contract_data_read() {
         .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,1,4096\n");
+        .stdout("COUNTER,1,4,4096\n");
 
     sandbox
         .new_assert_cmd("contract")
@@ -331,7 +331,7 @@ fn contract_data_read() {
         .arg("--durability=persistent")
         .assert()
         .success()
-        .stdout("COUNTER,2,4096\n");
+        .stdout("COUNTER,2,4,4096\n");
 }
 
 #[test]
