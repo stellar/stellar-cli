@@ -25,11 +25,11 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
 use super::super::{
-    config::{self, events_file, locator},
+    config::{self, locator},
     events,
 };
 use crate::{
-    commands::{global, HEADING_SANDBOX},
+    commands::global,
     rpc::{self, Client},
     utils::{self, contract_spec},
     Pwd,
@@ -43,28 +43,17 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
     pub contract_id: String,
-    /// WASM file of the contract to invoke (if using sandbox will deploy this file)
+    // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-
     /// Output the cost execution to stderr
-    #[arg(long = "cost", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    #[arg(long = "cost")]
     pub cost: bool,
-    /// Run with an unlimited budget
-    #[arg(long = "unlimited-budget",
-          conflicts_with = "rpc_url",
-          conflicts_with = "network",
-          help_heading = HEADING_SANDBOX)]
-    pub unlimited_budget: bool,
-
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
-
     #[command(flatten)]
     pub config: config::Args,
-    #[command(flatten)]
-    pub events_file: events_file::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
 }
@@ -144,8 +133,6 @@ pub enum Error {
     MissingArgument(String),
     #[error(transparent)]
     Clap(#[from] clap::Error),
-    #[error(transparent)]
-    Events(#[from] events_file::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error("Contract Error\n{0}: {1}")]

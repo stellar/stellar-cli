@@ -17,7 +17,7 @@ use soroban_env_host::{
 };
 
 use crate::{
-    commands::{config, contract::install, HEADING_RPC, HEADING_SANDBOX},
+    commands::{config, contract::install, HEADING_RPC},
     rpc::{self, Client},
     utils, wasm,
 };
@@ -33,22 +33,12 @@ pub struct Cmd {
     /// WASM file to deploy
     #[arg(long, group = "wasm_src")]
     wasm: Option<std::path::PathBuf>,
-
     /// Hash of the already installed/deployed WASM file
     #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     wasm_hash: Option<String>,
-
-    /// Contract ID to deploy to
-    #[arg(
-        long = "id",
-        conflicts_with = "rpc_url",
-        help_heading = HEADING_SANDBOX,
-    )]
-    contract_id: Option<String>,
     /// Custom salt 32-byte salt for the token id
     #[arg(
         long,
-        conflicts_with_all = &["contract_id", "ledger_file"],
         help_heading = HEADING_RPC,
     )]
     salt: Option<String>,

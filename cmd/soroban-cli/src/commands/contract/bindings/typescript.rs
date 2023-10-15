@@ -7,7 +7,7 @@ use crate::wasm;
 use crate::{
     commands::{
         config::{
-            ledger_file, locator,
+            locator,
             network::{self, Network},
         },
         contract::{self, fetch},
@@ -21,22 +21,17 @@ pub struct Cmd {
     /// Path to optional wasm binary
     #[arg(long)]
     pub wasm: Option<std::path::PathBuf>,
-
     /// Where to place generated project
     #[arg(long)]
     output_dir: PathBuf,
-
     /// Whether to overwrite output directory if it already exists
     #[arg(long)]
     overwrite: bool,
-
     /// The contract ID/address on the network
     #[arg(long, visible_alias = "id")]
     contract_id: String,
-
     #[command(flatten)]
     locator: locator::Args,
-
     #[command(flatten)]
     network: network::Args,
 }
@@ -79,7 +74,6 @@ impl Cmd {
                 out_file: None,
                 locator: self.locator.clone(),
                 network: self.network.clone(),
-                ledger_file: ledger_file::Args::default(),
             };
             let bytes = fetch.get_bytes().await?;
             ContractSpec::new(&bytes)?.spec

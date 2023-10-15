@@ -16,12 +16,10 @@ use soroban_env_host::{
     },
 };
 
-use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
 use super::super::config::{self, locator};
-use crate::commands::config::ledger_file;
 use crate::commands::config::network::{self, Network};
 use crate::{
     rpc::{self, Client},
@@ -42,8 +40,6 @@ pub struct Cmd {
     pub locator: locator::Args,
     #[command(flatten)]
     pub network: network::Args,
-    #[command(flatten)]
-    pub ledger_file: ledger_file::Args,
 }
 
 impl FromStr for Cmd {
@@ -87,8 +83,6 @@ pub enum Error {
     NetworkNotProvided,
     #[error(transparent)]
     Network(#[from] network::Error),
-    #[error(transparent)]
-    Ledger(#[from] ledger_file::Error),
     #[error("cannot create contract directory for {0:?}")]
     CannotCreateContractDir(PathBuf),
 }
@@ -138,10 +132,6 @@ impl Cmd {
             .await?;
         // async closures are not yet stable
         Ok(client.get_remote_wasm(&contract_id).await?)
-    }
-
-    pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {
-        Ok(self.ledger_file.read(&self.locator.config_dir()?)?)
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
