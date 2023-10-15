@@ -10,16 +10,15 @@ use clap::{arg, command, value_parser, Parser};
 use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 
-
 use soroban_env_host::{
     xdr::{
-        self, Error as XdrError, Hash, HostFunction, InvokeContractArgs,
-        InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, Memo,
-        MuxedAccount, Operation, OperationBody, Preconditions, ScAddress, ScSpecEntry,
-        ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber,
-        SorobanAuthorizationEntry, SorobanResources, Transaction,
-        TransactionExt, Uint256, VecM,
-    }, HostError,
+        self, Error as XdrError, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
+        LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
+        Preconditions, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionExt,
+        Uint256, VecM,
+    },
+    HostError,
 };
 
 use soroban_spec::read::FromWasmError;

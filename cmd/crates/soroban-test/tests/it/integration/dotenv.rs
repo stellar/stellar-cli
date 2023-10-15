@@ -1,19 +1,6 @@
 use soroban_test::TestEnv;
 
-use crate::util::HELLO_WORLD;
-
-const SOROBAN_CONTRACT_ID: &str = "SOROBAN_CONTRACT_ID=1";
-
-fn deploy(e: &TestEnv, id: &str) {
-    e.new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .arg("--id")
-        .arg(id)
-        .assert()
-        .success();
-}
+use super::util::{deploy_hello, TEST_CONTRACT_ID};
 
 fn write_env_file(e: &TestEnv, contents: &str) {
     let env_file = e.dir().join(".env");
@@ -21,11 +8,15 @@ fn write_env_file(e: &TestEnv, contents: &str) {
     assert_eq!(contents, std::fs::read_to_string(env_file).unwrap());
 }
 
+fn contract_id() -> String {
+    format!("SOROBAN_CONTRACT_ID={TEST_CONTRACT_ID}")
+}
+
 #[test]
 fn can_read_file() {
     TestEnv::with_default(|e| {
-        deploy(e, "1");
-        write_env_file(e, SOROBAN_CONTRACT_ID);
+        deploy_hello(e);
+        write_env_file(e, &contract_id());
         e.new_assert_cmd("contract")
             .arg("invoke")
             .arg("--")
@@ -40,8 +31,8 @@ fn can_read_file() {
 #[test]
 fn current_env_not_overwritten() {
     TestEnv::with_default(|e| {
-        deploy(e, "1");
-        write_env_file(e, SOROBAN_CONTRACT_ID);
+        deploy_hello(e);
+        write_env_file(e, &contract_id());
 
         e.new_assert_cmd("contract")
             .env("SOROBAN_CONTRACT_ID", "2")
@@ -57,13 +48,13 @@ fn current_env_not_overwritten() {
 #[test]
 fn cli_args_have_priority() {
     TestEnv::with_default(|e| {
-        deploy(e, "2");
-        write_env_file(e, SOROBAN_CONTRACT_ID);
+        deploy_hello(e);
+        write_env_file(e, &contract_id());
         e.new_assert_cmd("contract")
-            .env("SOROBAN_CONTRACT_ID", "3")
+            .env("SOROBAN_CONTRACT_ID", "2")
             .arg("invoke")
             .arg("--id")
-            .arg("2")
+            .arg(TEST_CONTRACT_ID)
             .arg("--")
             .arg("hello")
             .arg("--world=world")

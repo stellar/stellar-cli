@@ -3,7 +3,7 @@ use serde_json::json;
 use soroban_cli::commands;
 use soroban_test::TestEnv;
 
-use crate::util::{invoke, invoke_with_roundtrip, CUSTOM_TYPES};
+use super::util::{invoke, invoke_with_roundtrip, CUSTOM_TYPES};
 
 #[test]
 fn symbol() {
@@ -18,14 +18,14 @@ fn symbol() {
         );
 }
 
-#[test]
-fn string_with_quotes() {
-    invoke_with_roundtrip("string", json!("hello world"));
+#[tokio::test]
+async fn string_with_quotes() {
+    invoke_with_roundtrip("string", json!("hello world")).await;
 }
 
-#[test]
-fn symbol_with_quotes() {
-    invoke_with_roundtrip("hello", json!("world"));
+#[tokio::test]
+async fn symbol_with_quotes() {
+    invoke_with_roundtrip("hello", json!("world")).await;
 }
 
 #[test]
@@ -72,9 +72,9 @@ fn bytes_as_file() {
         .stdout("\"0000000000000000007374656c6c6172\"\n");
 }
 
-#[test]
-fn map() {
-    invoke_with_roundtrip("map", json!({"0": true, "1": false}));
+#[tokio::test]
+async fn map() {
+    invoke_with_roundtrip("map", json!({"0": true, "1": false})).await;
 }
 
 #[test]
@@ -86,9 +86,9 @@ fn map_help() {
         .stdout(predicates::str::contains("Map<u32, bool>"));
 }
 
-#[test]
-fn vec_() {
-    invoke_with_roundtrip("vec", json!([0, 1]));
+#[tokio::test]
+async fn vec_() {
+    invoke_with_roundtrip("vec", json!([0, 1])).await;
 }
 
 #[test]
@@ -100,13 +100,13 @@ fn vec_help() {
         .stdout(predicates::str::contains("Array<u32>"));
 }
 
-#[test]
-fn tuple() {
-    invoke_with_roundtrip("tuple", json!(["hello", 0]));
+#[tokio::test]
+async fn tuple() {
+    invoke_with_roundtrip("tuple", json!(["hello", 0])).await;
 }
 
-#[test]
-fn tuple_help() {
+#[tokio::test]
+async fn tuple_help() {
     invoke(&TestEnv::default(), "tuple")
         .arg("--help")
         .assert()
@@ -114,17 +114,18 @@ fn tuple_help() {
         .stdout(predicates::str::contains("Tuple<Symbol, u32>"));
 }
 
-#[test]
-fn strukt() {
-    invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"}));
+#[tokio::test]
+async fn strukt() {
+    invoke_with_roundtrip("strukt", json!({"a": 42, "b": true, "c": "world"})).await;
 }
 
-#[test]
-fn tuple_strukt() {
+#[tokio::test]
+async fn tuple_strukt() {
     invoke_with_roundtrip(
         "tuple_strukt",
         json!([{"a": 42, "b": true, "c": "world"}, "First"]),
-    );
+    )
+    .await;
 }
 
 #[test]
@@ -160,44 +161,46 @@ fn complex_enum_help() {
         .stdout(predicates::str::contains(r#""Void"'"#));
 }
 
-#[test]
-fn enum_2_str() {
-    invoke_with_roundtrip("simple", json!("First"));
+#[tokio::test]
+async fn enum_2_str() {
+    invoke_with_roundtrip("simple", json!("First")).await;
 }
 
-#[test]
-fn e_2_s_enum() {
-    invoke_with_roundtrip("complex", json!({"Enum": "First"}));
+#[tokio::test]
+async fn e_2_s_enum() {
+    invoke_with_roundtrip("complex", json!({"Enum": "First"})).await;
 }
 
-#[test]
-fn asset() {
+#[tokio::test]
+async fn asset() {
     invoke_with_roundtrip(
         "complex",
         json!({"Asset": ["CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT", "100" ]}),
-    );
+    )
+    .await;
 }
 
 fn complex_tuple() -> serde_json::Value {
     json!({"Tuple": [{"a": 42, "b": true, "c": "world"}, "First"]})
 }
 
-#[test]
-fn e_2_s_tuple() {
-    invoke_with_roundtrip("complex", complex_tuple());
+#[tokio::test]
+async fn e_2_s_tuple() {
+    invoke_with_roundtrip("complex", complex_tuple()).await;
 }
 
-#[test]
-fn e_2_s_strukt() {
+#[tokio::test]
+async fn e_2_s_strukt() {
     invoke_with_roundtrip(
         "complex",
         json!({"Struct": {"a": 42, "b": true, "c": "world"}}),
-    );
+    )
+    .await;
 }
 
-#[test]
-fn number_arg() {
-    invoke_with_roundtrip("u32_", 42);
+#[tokio::test]
+async fn number_arg() {
+    invoke_with_roundtrip("u32_", 42).await;
 }
 
 #[test]
@@ -210,28 +213,28 @@ fn number_arg_return_ok() {
         .stdout("1\n");
 }
 
-#[test]
-fn number_arg_return_err() {
-    TestEnv::with_default(|sandbox| {
-        // matches!(res, commands::invoke::Error)
-        let p = CUSTOM_TYPES.path();
-        let wasm = p.to_str().unwrap();
-        let res = sandbox
-            .invoke(&[
-                "--id=1",
-                "--wasm",
-                wasm,
-                "--",
-                "u32_fail_on_even",
-                "--u32_=2",
-            ])
-            .unwrap_err();
-        if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
-            assert_eq!(name, "NumberMustBeOdd");
-            assert_eq!(doc, "Please provide an odd number");
-        };
-        println!("{res:#?}");
-    });
+#[tokio::test]
+async fn number_arg_return_err() {
+    let sandbox = &TestEnv::default();
+
+    let p = CUSTOM_TYPES.path();
+    let wasm = p.to_str().unwrap();
+    let res = sandbox
+        .invoke(&[
+            "--id=1",
+            "--wasm",
+            wasm,
+            "--",
+            "u32_fail_on_even",
+            "--u32_=2",
+        ])
+        .await
+        .unwrap_err();
+    if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
+        assert_eq!(name, "NumberMustBeOdd");
+        assert_eq!(doc, "Please provide an odd number");
+    };
+    println!("{res:#?}");
 }
 
 #[test]
@@ -252,9 +255,9 @@ fn val() {
         .stderr("");
 }
 
-#[test]
-fn i32() {
-    invoke_with_roundtrip("i32_", 42);
+#[tokio::test]
+async fn i32() {
+    invoke_with_roundtrip("i32_", 42).await;
 }
 
 #[test]
@@ -277,45 +280,47 @@ fn handle_arg_larger_than_i64_failure() {
         .stderr(predicates::str::contains("value is not parseable"));
 }
 
-#[test]
-fn i64() {
-    invoke_with_roundtrip("i64_", i64::MAX);
+#[tokio::test]
+async fn i64() {
+    invoke_with_roundtrip("i64_", i64::MAX).await;
 }
 
-#[test]
-fn negative_i32() {
-    invoke_with_roundtrip("i32_", -42);
+#[tokio::test]
+async fn negative_i32() {
+    invoke_with_roundtrip("i32_", -42).await;
 }
 
-#[test]
-fn negative_i64() {
-    invoke_with_roundtrip("i64_", i64::MIN);
+#[tokio::test]
+async fn negative_i64() {
+    invoke_with_roundtrip("i64_", i64::MIN).await;
 }
 
-#[test]
-fn account_address() {
+#[tokio::test]
+async fn account_address() {
     invoke_with_roundtrip(
         "addresse",
         json!("GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS"),
-    );
+    )
+    .await;
 }
 
-#[test]
-fn contract_address() {
+#[tokio::test]
+async fn contract_address() {
     invoke_with_roundtrip(
         "addresse",
         json!("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"),
-    );
+    )
+    .await;
 }
 
-#[test]
-fn bytes() {
-    invoke_with_roundtrip("bytes", json!("7374656c6c6172"));
+#[tokio::test]
+async fn bytes() {
+    invoke_with_roundtrip("bytes", json!("7374656c6c6172")).await;
 }
 
-#[test]
-fn const_enum() {
-    invoke_with_roundtrip("card", "11");
+#[tokio::test]
+async fn const_enum() {
+    invoke_with_roundtrip("card", "11").await;
 }
 
 #[test]

@@ -29,13 +29,14 @@ func cargoTest(t *testing.T, name string) {
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
+		"IGNORED=1",
 	)
 	res := icmd.RunCmd(c)
 	require.NoError(t, res.Error, res.Stdout(), res.Stderr())
 }
 
 func TestCLICargoTest(t *testing.T) {
-	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration_and_sandbox::", "--package", "soroban-test", "--", "--list"))
+	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration::", "--package", "soroban-test", "--", "--list"))
 	input := names.Stdout()
 	lines := strings.Split(input, "\n")
 	for _, line := range lines {

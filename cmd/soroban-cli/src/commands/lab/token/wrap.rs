@@ -5,7 +5,8 @@ use soroban_env_host::{
         Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
         ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
-    }, HostError,
+    },
+    HostError,
 };
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};

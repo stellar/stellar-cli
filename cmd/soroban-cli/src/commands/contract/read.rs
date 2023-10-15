@@ -6,8 +6,8 @@ use std::{
 use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
-        ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey,
-        LedgerKeyContractData, ScVal, WriteXdr,
+        ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
+        ScVal, WriteXdr,
     },
     HostError,
 };
