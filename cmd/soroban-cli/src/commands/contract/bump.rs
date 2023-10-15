@@ -175,7 +175,7 @@ impl Cmd {
 
         if operations[0].changes.is_empty() {
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let expire = entry.entries[0].expiration.expiration_ledger_seq;
+            let expire = entry.entries[0].expiration_ledger_seq;
             if entry.latest_ledger + i64::from(ledgers_to_expire) < i64::from(expire) {
                 return Ok(expire);
             }

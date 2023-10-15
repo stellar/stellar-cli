@@ -3,14 +3,16 @@ use itertools::Itertools;
 use jsonrpsee_core::params::ObjectParams;
 use jsonrpsee_core::{self, client::ClientT, rpc_params};
 use jsonrpsee_http_client::{HeaderMap, HttpClient, HttpClientBuilder};
-use serde_aux::prelude::{deserialize_default_from_null, deserialize_number_from_string};
-use sha2::{Digest, Sha256};
+use serde_aux::prelude::{
+    deserialize_default_from_null, deserialize_number_from_string,
+    deserialize_option_number_from_string,
+};
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
-    ExpirationEntry, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount,
-    LedgerKeyExpiration, PublicKey, ReadXdr, SequenceNumber, SorobanAuthorizationEntry,
-    SorobanResources, Transaction, TransactionEnvelope, TransactionMeta, TransactionMetaV3,
-    TransactionResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
+    SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope,
+    TransactionMeta, TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM,
+    WriteXdr,
 };
 use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
@@ -96,8 +98,8 @@ pub enum Error {
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
     #[error("Fee was too large {0}")]
     LargeFee(u64),
-    #[error("Failed to parse  LedgerEntryData")]
-    FailedParseLedgerEntryData,
+    #[error("Failed to parse LedgerEntryData\nkey:{0:?}\nvalue:{1:?}\nexpiration:{2:?}")]
+    FailedParseLedgerEntryData(LedgerKey, LedgerEntryData, LedgerEntryData),
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -146,8 +148,18 @@ pub struct GetTransactionResponse {
 pub struct LedgerEntryResult {
     pub key: String,
     pub xdr: String,
-    #[serde(rename = "lastModifiedLedgerSeq")]
-    pub last_modified_ledger: String,
+    #[serde(
+        rename = "lastModifiedLedgerSeq",
+        deserialize_with = "deserialize_number_from_string"
+    )]
+    pub last_modified_ledger: u32,
+    #[serde(
+        rename = "expirationLedgerSeq",
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_option_number_from_string",
+        default
+    )]
+    pub expiration_ledger_seq: Option<u32>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -427,7 +439,8 @@ pub enum EventStart {
 pub struct FullLedgerEntry {
     pub key: LedgerKey,
     pub val: LedgerEntryData,
-    pub expiration: ExpirationEntry,
+    pub last_modified_ledger: u32,
+    pub expiration_ledger_seq: u32,
 }
 
 #[derive(Debug)]
@@ -495,10 +508,10 @@ impl Client {
 
     pub async fn verify_network_passphrase(&self, expected: Option<&str>) -> Result<String, Error> {
         let server = self.get_network().await?.passphrase;
-        if expected != Some(&server) {
-            if let Some(expected_val) = expected {
+        if let Some(expected) = expected {
+            if expected != server {
                 return Err(Error::InvalidNetworkPassphrase {
-                    expected: expected_val.to_string(),
+                    expected: expected.to_string(),
                     server,
                 });
             }
@@ -769,35 +782,35 @@ soroban config identity fund {address} --helper-url <url>"#
     ) -> Result<FullLedgerEntries, Error> {
         let keys = ledger_keys
             .iter()
-            .map(|key| Ok(into_keys(key.clone())?.into_iter()))
-            .flatten_ok()
-            .collect::<Result<Vec<_>, Error>>()?;
-        tracing::trace!("{keys:#?}");
+            .filter(|key| !matches!(key, LedgerKey::Expiration(_)))
+            .map(Clone::clone)
+            .collect::<Vec<_>>();
+        tracing::trace!("keys: {keys:#?}");
         let GetLedgerEntriesResponse {
             entries,
             latest_ledger,
         } = self.get_ledger_entries(&keys).await?;
-        tracing::trace!(?entries);
+        tracing::trace!("raw: {entries:#?}");
         let entries = entries
-            .as_deref()
             .unwrap_or_default()
             .iter()
-            .tuple_windows()
-            .map(|(key_res, entry_res)| {
-                let expiration = LedgerEntryData::from_xdr_base64(&entry_res.xdr)?;
-                if let LedgerEntryData::Expiration(expiration) = expiration {
-                    let key = LedgerKey::from_xdr_base64(&key_res.key)?;
-                    let val = LedgerEntryData::from_xdr_base64(&key_res.xdr)?;
+            .map(
+                |LedgerEntryResult {
+                     key,
+                     xdr,
+                     last_modified_ledger,
+                     expiration_ledger_seq,
+                 }| {
                     Ok(FullLedgerEntry {
-                        key,
-                        val,
-                        expiration,
+                        key: LedgerKey::from_xdr_base64(key)?,
+                        val: LedgerEntryData::from_xdr_base64(xdr)?,
+                        expiration_ledger_seq: expiration_ledger_seq.unwrap_or_default(),
+                        last_modified_ledger: *last_modified_ledger,
                     })
-                } else {
-                    Err(Error::FailedParseLedgerEntryData)
-                }
-            })
+                },
+            )
             .collect::<Result<Vec<_>, Error>>()?;
+        tracing::trace!("parsed: {entries:#?}");
         Ok(FullLedgerEntries {
             entries,
             latest_ledger,
@@ -952,13 +965,6 @@ pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
     let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
     let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
     Ok((toid_part, start_index))
-}
-
-fn into_keys(key: LedgerKey) -> Result<[LedgerKey; 2], Error> {
-    let expiration = LedgerKey::Expiration(LedgerKeyExpiration {
-        key_hash: xdr::Hash(Sha256::digest(key.to_xdr()?).into()),
-    });
-    Ok([key, expiration])
 }
 
 #[cfg(test)]
