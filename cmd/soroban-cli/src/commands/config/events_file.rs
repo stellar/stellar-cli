@@ -14,6 +14,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use stellar_strkey::{Contract, Strkey};
 
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
@@ -136,19 +137,19 @@ impl Args {
                 id,
                 ledger: ledger_info.sequence_number.to_string(),
                 ledger_closed_at: dt.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
-                contract_id: hex::encode(
+                contract_id: Strkey::Contract(Contract(
                     contract_event
                         .contract_id
                         .as_ref()
-                        .unwrap_or(&xdr::Hash([0; 32])),
-                ),
+                        .unwrap_or(&xdr::Hash([0; 32]))
+                        .0,
+                ))
+                .to_string(),
                 topic,
-                value: rpc::EventValue {
-                    xdr: match &contract_event.body {
-                        xdr::ContractEventBody::V0(e) => &e.data,
-                    }
-                    .to_xdr_base64()?,
-                },
+                value: match &contract_event.body {
+                    xdr::ContractEventBody::V0(e) => &e.data,
+                }
+                .to_xdr_base64()?,
             };
 
             events.push(cereal_event);
