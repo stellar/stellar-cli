@@ -16,13 +16,11 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stellar/go v0.0.0-20230913112642-b19a4ceec268
+	github.com/stellar/go v0.0.0-20231016131404-dc8a5c304cce
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/mod v0.12.0
 	gotest.tools/v3 v3.5.0
 )
-
-require github.com/xdrpp/goxdr v0.1.1 // indirect
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
@@ -70,9 +68,10 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
 	github.com/spf13/viper v1.3.2 // indirect
-	github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee // indirect
+	github.com/stellar/go-xdr v0.0.0-20230919160922-6c7b68458206 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
+	github.com/xdrpp/goxdr v0.1.1 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/net v0.14.0 // indirect
