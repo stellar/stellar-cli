@@ -36,15 +36,11 @@ cd soroban-tools
 git fetch --tags
 git checkout tags/v20.0.0-rc4 -b soroban-testnet-release
 ```
-- Install the required go packages:
-```bash
-make install
-```
 - Build soroban-rpc target:
 ```bash
 make build-soroban-rpc
 ```
-This will generate a `soroban-rpc` binary in the working directory.
+This will install and build the required dependencies and generate a `soroban-rpc` binary in the working directory.
 
 ## Configuring and Running RPC Server
 - Both stellar-core and soroban-rpc require configuration files to run. 
