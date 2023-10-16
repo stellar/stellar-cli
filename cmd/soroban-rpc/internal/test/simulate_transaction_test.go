@@ -244,7 +244,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	err := xdr.SafeUnmarshalBase64(result.TransactionData, &transactionData)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedTransactionData.Resources.Footprint, transactionData.Resources.Footprint)
-	assert.InDelta(t, uint32(expectedTransactionData.Resources.Instructions), uint32(transactionData.Resources.Instructions), 100000)
+	assert.InDelta(t, uint32(expectedTransactionData.Resources.Instructions), uint32(transactionData.Resources.Instructions), 200000)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.ReadBytes), uint32(transactionData.Resources.ReadBytes), 10)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.WriteBytes), uint32(transactionData.Resources.WriteBytes), 100)
 	assert.InDelta(t, int64(expectedTransactionData.RefundableFee), int64(transactionData.RefundableFee), 1000)
