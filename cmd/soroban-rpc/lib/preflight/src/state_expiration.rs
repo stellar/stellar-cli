@@ -66,5 +66,5 @@ pub(crate) fn get_restored_ledger_sequence(
     current_ledger_seq: u32,
     min_persistent_entry_expiration: u32,
 ) -> u32 {
-    return current_ledger_seq + min_persistent_entry_expiration - 1;
+    current_ledger_seq + min_persistent_entry_expiration - 1
 }

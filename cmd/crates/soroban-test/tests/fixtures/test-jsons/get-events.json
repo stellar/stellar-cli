@@ -12,9 +12,7 @@
         "AAAABQAAAAdDT1VOVEVSAA==",
         "AAAABQAAAAlpbmNyZW1lbnQAAAA="
       ],
-      "value": {
-        "xdr": "AAAAAQAAAAE="
-      }
+      "value": "AAAAAQAAAAE="
     },
     {
       "type": "system",
@@ -27,9 +25,7 @@
         "AAAABQAAAAh0cmFuc2Zlcg==",
         "AAAAAQB6Mcc="
       ],
-      "value": {
-        "xdr": "AAAABQAAAApHaWJNb255UGxzAAA="
-      }
+      "value": "AAAABQAAAApHaWJNb255UGxzAAA="
     },
     {
       "type": "contract",
@@ -42,9 +38,7 @@
         "AAAABQAAAAh0cmFuc2Zlcg==",
         "AAAAAQB6Mcc="
       ],
-      "value": {
-        "xdr": "AAAABQAAAApHaWJNb255UGxzAAA="
-      }
+      "value": "AAAABQAAAApHaWJNb255UGxzAAA="
     },
     {
       "type": "system",
@@ -57,9 +51,7 @@
         "AAAABQAAAAh0cmFuc2Zlcg==",
         "AAAAAQB6Mcc="
       ],
-      "value": {
-        "xdr": "AAAABQAAAApHaWJNb255UGxzAAA="
-      }
+      "value": "AAAABQAAAApHaWJNb255UGxzAAA="
     }
   ]
 }
