@@ -669,7 +669,7 @@ func TestSimulateTransactionUnmarshalError(t *testing.T) {
 	)
 }
 
-func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
+func TestSimulateTransactionExtendAndRestoreFootprint(t *testing.T) {
 	test := NewTest(t)
 
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
@@ -751,7 +751,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 
 	initialLiveUntil := *getLedgerEntryResult.LiveUntilLedgerSeq
 
-	// bump the initial TTL
+	// Extend the initial TTL
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
