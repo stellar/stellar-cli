@@ -257,7 +257,7 @@ fn option_xdr_to_c(v: Option<impl WriteXdr>) -> CXDR {
 fn xdr_vec_to_c(v: Vec<impl WriteXdr>) -> CXDRVector {
     let c_v = v.into_iter().map(xdr_to_c).collect();
     let (array, len) = vec_to_c_array(c_v);
-    return CXDRVector { array, len };
+    CXDRVector { array, len }
 }
 
 fn string_to_c(str: String) -> *mut libc::c_char {

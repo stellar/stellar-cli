@@ -34,6 +34,7 @@ pub struct Contract;
 
 #[contractimpl]
 impl Contract {
+    #[allow(clippy::unnecessary_fold)]
     pub fn add(a: UdtEnum, b: UdtEnum) -> i64 {
         let a = match a {
             UdtEnum::UdtA => 0,
@@ -45,7 +46,7 @@ impl Contract {
             UdtEnum::UdtA => 0,
             UdtEnum::UdtB(udt) => udt.a + udt.b,
             UdtEnum::UdtC(val) => val as i64,
-            UdtEnum::UdtD(tup) => tup.0 + tup.1.iter().fold(0i64, |sum, i| sum + i),
+            UdtEnum::UdtD(tup) => tup.0 + tup.1.iter().sum::<i64>(),
         };
         a + b
     }
