@@ -1,15 +1,13 @@
 use std::{
-    convert::Into,
     fmt::Debug,
     io::{self, stdout},
 };
 
 use clap::{command, Parser, ValueEnum};
-use sha2::{Digest, Sha256};
 use soroban_env_host::{
     xdr::{
-        ContractDataEntry, Error as XdrError, ExpirationEntry, Hash, LedgerEntryData, LedgerKey,
-        LedgerKeyContractData, ScVal, WriteXdr,
+        ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
+        ScVal, WriteXdr,
     },
     HostError,
 };
