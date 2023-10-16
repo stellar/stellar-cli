@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stellar/go/network"
+
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/transactions"
 )
@@ -70,8 +71,8 @@ func txMeta(acctSeq uint32, successful bool) xdr.LedgerCloseMeta {
 		},
 	}
 	return xdr.LedgerCloseMeta{
-		V: 2,
-		V2: &xdr.LedgerCloseMetaV2{
+		V: 1,
+		V1: &xdr.LedgerCloseMetaV1{
 			LedgerHeader: xdr.LedgerHeaderHistoryEntry{
 				Header: xdr.LedgerHeader{
 					ScpValue: xdr.StellarValue{
@@ -134,11 +135,11 @@ func TestGetTransaction(t *testing.T) {
 	tx, err = GetTransaction(store, GetTransactionRequest{hash})
 	assert.NoError(t, err)
 
-	expectedTxResult, err := xdr.MarshalBase64(meta.V2.TxProcessing[0].Result.Result)
+	expectedTxResult, err := xdr.MarshalBase64(meta.V1.TxProcessing[0].Result.Result)
 	assert.NoError(t, err)
 	expectedEnvelope, err := xdr.MarshalBase64(txEnvelope(1))
 	assert.NoError(t, err)
-	expectedTxMeta, err := xdr.MarshalBase64(meta.V2.TxProcessing[0].TxApplyProcessing)
+	expectedTxMeta, err := xdr.MarshalBase64(meta.V1.TxProcessing[0].TxApplyProcessing)
 	assert.NoError(t, err)
 	assert.Equal(t, GetTransactionResponse{
 		Status:                TransactionStatusSuccess,
@@ -182,11 +183,11 @@ func TestGetTransaction(t *testing.T) {
 	xdrHash = txHash(2)
 	hash = hex.EncodeToString(xdrHash[:])
 
-	expectedTxResult, err = xdr.MarshalBase64(meta.V2.TxProcessing[0].Result.Result)
+	expectedTxResult, err = xdr.MarshalBase64(meta.V1.TxProcessing[0].Result.Result)
 	assert.NoError(t, err)
 	expectedEnvelope, err = xdr.MarshalBase64(txEnvelope(2))
 	assert.NoError(t, err)
-	expectedTxMeta, err = xdr.MarshalBase64(meta.V2.TxProcessing[0].TxApplyProcessing)
+	expectedTxMeta, err = xdr.MarshalBase64(meta.V1.TxProcessing[0].TxApplyProcessing)
 	assert.NoError(t, err)
 
 	tx, err = GetTransaction(store, GetTransactionRequest{hash})

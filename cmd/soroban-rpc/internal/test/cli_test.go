@@ -17,10 +17,11 @@ import (
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/icmd"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
 )
 
 func cargoTest(t *testing.T, name string) {
@@ -115,11 +116,11 @@ func TestCLIRestorePreamble(t *testing.T) {
 	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "2", count)
 
-	// Wait for the counter ledger entry to expire and successfully invoke the `inc` contract function again
+	// Wait for the counter ledger entry to ttl and successfully invoke the `inc` contract function again
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
-	waitForLedgerEntryToExpire(t, client, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
+	waitUntilLedgerEntryTTL(t, client, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
 
 	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "3", count)
@@ -134,8 +135,8 @@ func TestCLIBump(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
-	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
+	ttlKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
+	initialLiveUntilSeq := getLedgerEntryLiveUntil(t, client, ttlKey)
 
 	bumpOutput := runSuccessfulCLICmd(
 		t,
@@ -145,9 +146,9 @@ func TestCLIBump(t *testing.T) {
 		),
 	)
 
-	newExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
-	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
-	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), bumpOutput)
+	newLiveUntilSeq := getLedgerEntryLiveUntil(t, client, ttlKey)
+	assert.Greater(t, newLiveUntilSeq, initialLiveUntilSeq)
+	assert.Equal(t, fmt.Sprintf("New ttl ledger: %d", newLiveUntilSeq), bumpOutput)
 }
 func TestCLIBumpTooLow(t *testing.T) {
 	test := NewCLITest(t)
@@ -158,17 +159,17 @@ func TestCLIBumpTooLow(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
-	initialExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
+	ttlKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
+	initialLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
 
 	bumpOutput := bump(t, strkeyContractID, "400", "--key COUNTER ")
 
-	newExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
-	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
-	assert.Equal(t, newExpirationSeq, bumpOutput)
+	newLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
+	assert.Greater(t, newLiveUntilSeq, initialLiveUntilSeq)
+	assert.Equal(t, newLiveUntilSeq, bumpOutput)
 
-	updatedExpirationSeq := bump(t, strkeyContractID, "15", "--key COUNTER")
-	assert.Equal(t, bumpOutput, updatedExpirationSeq)
+	updatedLiveUntilSeq := bump(t, strkeyContractID, "15", "--key COUNTER")
+	assert.Equal(t, bumpOutput, updatedLiveUntilSeq)
 }
 
 func TestCLIBumpTooHigh(t *testing.T) {
@@ -180,14 +181,14 @@ func TestCLIBumpTooHigh(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
-	initialExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
+	ttlKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
+	initialLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
 
 	bumpOutput := bump(t, strkeyContractID, "100000000", "--key COUNTER ")
 
-	newExpirationSeq := parseInt(t, getExpirationForLedgerEntry(t, client, expirationKey).GoString())
-	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
-	assert.Equal(t, newExpirationSeq, bumpOutput)
+	newLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
+	assert.Greater(t, newLiveUntilSeq, initialLiveUntilSeq)
+	assert.Equal(t, newLiveUntilSeq, bumpOutput)
 }
 
 func TestCLIRestore(t *testing.T) {
@@ -199,11 +200,11 @@ func TestCLIRestore(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	expirationKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
-	initialExpirationSeq := getExpirationForLedgerEntry(t, client, expirationKey)
-	// Wait for the counter ledger entry to expire and successfully invoke the `inc` contract function again
+	ttlKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
+	initialLiveUntilSeq := getLedgerEntryLiveUntil(t, client, ttlKey)
+	// Wait for the counter ledger entry to ttl and successfully invoke the `inc` contract function again
 	// This ensures that the CLI restores the entry (using the RestorePreamble in the simulateTransaction response)
-	waitForLedgerEntryToExpire(t, client, expirationKey)
+	waitUntilLedgerEntryTTL(t, client, ttlKey)
 
 	restoreOutput := runSuccessfulCLICmd(
 		t,
@@ -213,37 +214,39 @@ func TestCLIRestore(t *testing.T) {
 		),
 	)
 
-	newExpirationSeq := getExpirationForLedgerEntry(t, client, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
-	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
-	assert.Equal(t, fmt.Sprintf("New expiration ledger: %d", newExpirationSeq), restoreOutput)
+	newLiveUntilSeq := getLedgerEntryLiveUntil(t, client, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
+	assert.Greater(t, newLiveUntilSeq, initialLiveUntilSeq)
+	assert.Equal(t, fmt.Sprintf("New ttl ledger: %d", newLiveUntilSeq), restoreOutput)
 
-	// test to see that we get an error when requesting the expiration ledger entry explicitly.
-	ledgerExpirationEntry := getExpirationKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
-	ledgerExpirationEntryB64, err := xdr.MarshalBase64(ledgerExpirationEntry)
+	// FIXME: the following checks shouldn't live here:
+
+	// test to see that we get an error when requesting the ttl ledger entry explicitly.
+	ledgerTTLEntry := getTtlKey(t, getCounterLedgerKey(parseContractStrKey(t, strkeyContractID)))
+	ledgerTTLEntryB64, err := xdr.MarshalBase64(ledgerTTLEntry)
 	require.NoError(t, err)
 	var getLedgerEntryResult methods.GetLedgerEntryResponse
 	err = client.CallResult(context.Background(), "getLedgerEntry", methods.GetLedgerEntryRequest{
-		Key: ledgerExpirationEntryB64,
+		Key: ledgerTTLEntryB64,
 	}, &getLedgerEntryResult)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), methods.ErrLedgerExpirationEntriesCannotBeQueriedDirectly)
+	require.Contains(t, err.Error(), methods.ErrLedgerTtlEntriesCannotBeQueriedDirectly)
 
 	// repeat with getLedgerEntries
 	var getLedgerEntriesResult methods.GetLedgerEntriesResponse
 	err = client.CallResult(context.Background(), "getLedgerEntries", methods.GetLedgerEntriesRequest{
-		Keys: []string{ledgerExpirationEntryB64},
+		Keys: []string{ledgerTTLEntryB64},
 	}, &getLedgerEntriesResult)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), methods.ErrLedgerExpirationEntriesCannotBeQueriedDirectly)
+	require.Contains(t, err.Error(), methods.ErrLedgerTtlEntriesCannotBeQueriedDirectly)
 }
 
-func getExpirationKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
+func getTtlKey(t *testing.T, key xdr.LedgerKey) xdr.LedgerKey {
 	assert.True(t, key.Type == xdr.LedgerEntryTypeContractCode || key.Type == xdr.LedgerEntryTypeContractData)
 	binKey, err := key.MarshalBinary()
 	assert.NoError(t, err)
 	return xdr.LedgerKey{
-		Type: xdr.LedgerEntryTypeExpiration,
-		Expiration: &xdr.LedgerKeyExpiration{
+		Type: xdr.LedgerEntryTypeTtl,
+		Ttl: &xdr.LedgerKeyTtl{
 			KeyHash: sha256.Sum256(binKey),
 		},
 	}
@@ -334,4 +337,21 @@ func bump(t *testing.T, contractId string, amount string, rest string) uint64 {
 	)
 
 	return parseInt(t, res)
+}
+
+func getLedgerEntryLiveUntil(t *testing.T, client *jrpc2.Client, ttlLedgerKey xdr.LedgerKey) xdr.Uint32 {
+	keyB64, err := xdr.MarshalBase64(ttlLedgerKey)
+	require.NoError(t, err)
+	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
+		Key: keyB64,
+	}
+	var getLedgerEntryResult methods.GetLedgerEntryResponse
+	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
+	require.NoError(t, err)
+	var entry xdr.LedgerEntryData
+	require.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
+
+	require.Contains(t, []xdr.LedgerEntryType{xdr.LedgerEntryTypeContractCode, xdr.LedgerEntryTypeContractData}, entry.Type)
+	require.NotNil(t, getLedgerEntryResult.LiveUntilLedgerSeq)
+	return xdr.Uint32(*getLedgerEntryResult.LiveUntilLedgerSeq)
 }

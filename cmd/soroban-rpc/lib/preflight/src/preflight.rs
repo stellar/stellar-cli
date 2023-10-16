@@ -238,7 +238,7 @@ fn get_budget_from_network_config_params(ledger_storage: &LedgerStorage) -> Resu
     Ok(budget)
 }
 
-pub(crate) fn preflight_footprint_expiration_op(
+pub(crate) fn preflight_footprint_ttl_op(
     ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
     op_body: OperationBody,
@@ -246,9 +246,9 @@ pub(crate) fn preflight_footprint_expiration_op(
     current_ledger_seq: u32,
 ) -> Result<PreflightResult> {
     match op_body {
-        OperationBody::BumpFootprintExpiration(op) => preflight_bump_footprint_expiration(
+        OperationBody::ExtendFootprintTtl(op) => preflight_extend_footprint_ttl(
             footprint,
-            op.ledgers_to_expire,
+            op.extend_to,
             ledger_storage,
             bucket_list_size,
             current_ledger_seq,
@@ -260,23 +260,23 @@ pub(crate) fn preflight_footprint_expiration_op(
             current_ledger_seq,
         ),
         op => Err(anyhow!(
-            "preflight_footprint_expiration_op(): unsupported operation type {}",
+            "preflight_footprint_ttl_op(): unsupported operation type {}",
             op.name()
         )),
     }
 }
 
-fn preflight_bump_footprint_expiration(
+fn preflight_extend_footprint_ttl(
     footprint: LedgerFootprint,
-    ledgers_to_expire: u32,
+    extend_to: u32,
     ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<PreflightResult> {
     let (transaction_data, min_fee) =
-        fees::compute_bump_footprint_exp_transaction_data_and_min_fee(
+        fees::compute_extend_footprint_ttl_transaction_data_and_min_fee(
             footprint,
-            ledgers_to_expire,
+            extend_to,
             ledger_storage,
             bucket_list_size,
             current_ledger_seq,

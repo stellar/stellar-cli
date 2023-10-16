@@ -46,7 +46,7 @@ func SnapshotSourceGet(handle C.uintptr_t, cLedgerKey C.xdr_t) C.xdr_t {
 	if err := xdr.SafeUnmarshal(ledgerKeyXDR, &ledgerKey); err != nil {
 		panic(err)
 	}
-	// TODO : the expiration sequence here is being ignored for now; it should be passed downstream.
+	// TODO : the live-until sequence here is being ignored for now; it should be passed downstream.
 	present, entry, _, err := db.GetLedgerEntry(h.readTx, ledgerKey)
 	if err != nil {
 		h.logger.WithError(err).Error("SnapshotSourceGet(): GetLedgerEntry() failed")
@@ -118,14 +118,14 @@ func GetPreflight(ctx context.Context, params PreflightParameters) (Preflight, e
 	switch params.OpBody.Type {
 	case xdr.OperationTypeInvokeHostFunction:
 		return getInvokeHostFunctionPreflight(params)
-	case xdr.OperationTypeBumpFootprintExpiration, xdr.OperationTypeRestoreFootprint:
-		return getFootprintExpirationPreflight(params)
+	case xdr.OperationTypeExtendFootprintTtl, xdr.OperationTypeRestoreFootprint:
+		return getFootprintTtlPreflight(params)
 	default:
 		return Preflight{}, fmt.Errorf("unsupported operation type: %s", params.OpBody.Type.String())
 	}
 }
 
-func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, error) {
+func getFootprintTtlPreflight(params PreflightParameters) (Preflight, error) {
 	opBodyXDR, err := params.OpBody.MarshalBinary()
 	if err != nil {
 		return Preflight{}, err
@@ -144,7 +144,7 @@ func getFootprintExpirationPreflight(params PreflightParameters) (Preflight, err
 		return Preflight{}, err
 	}
 
-	res := C.preflight_footprint_expiration_op(
+	res := C.preflight_footprint_ttl_op(
 		C.uintptr_t(handle),
 		C.uint64_t(params.BucketListSize),
 		opBodyCXDR,
@@ -182,20 +182,17 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 	}
 	sourceAccountCXDR := CXDR(sourceAccountXDR)
 
-	hasConfig, stateExpirationConfig, expSeq, err := db.GetLedgerEntry(params.LedgerEntryReadTx, xdr.LedgerKey{
+	hasConfig, stateArchivalConfig, _, err := db.GetLedgerEntry(params.LedgerEntryReadTx, xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeConfigSetting,
 		ConfigSetting: &xdr.LedgerKeyConfigSetting{
-			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateExpiration,
+			ConfigSettingId: xdr.ConfigSettingIdConfigSettingStateArchival,
 		},
 	})
 	if err != nil {
 		return Preflight{}, err
 	}
-	if expSeq != nil {
-		return Preflight{}, errors.New("configuration setting are not expected to be expiring, yet, an expiration ledger sequence was found for ledger entry")
-	}
 	if !hasConfig {
-		return Preflight{}, errors.New("state expiration config setting missing in ledger storage")
+		return Preflight{}, errors.New("state archival config setting missing in ledger storage")
 	}
 
 	simulationLedgerSeq, err := getSimulationLedgerSeq(params.LedgerEntryReadTx)
@@ -203,17 +200,17 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		return Preflight{}, err
 	}
 
-	stateExpiration := stateExpirationConfig.Data.MustConfigSetting().MustStateExpirationSettings()
+	stateArchival := stateArchivalConfig.Data.MustConfigSetting().MustStateArchivalSettings()
 	li := C.ledger_info_t{
 		network_passphrase: C.CString(params.NetworkPassphrase),
 		sequence_number:    C.uint32_t(simulationLedgerSeq),
 		protocol_version:   20,
 		timestamp:          C.uint64_t(time.Now().Unix()),
 		// Current base reserve is 0.5XLM (in stroops)
-		base_reserve:                    5_000_000,
-		min_temp_entry_expiration:       C.uint(stateExpiration.MinTempEntryExpiration),
-		min_persistent_entry_expiration: C.uint(stateExpiration.MinPersistentEntryExpiration),
-		max_entry_expiration:            C.uint(stateExpiration.MaxEntryExpiration),
+		base_reserve:             5_000_000,
+		min_temp_entry_ttl:       C.uint(stateArchival.MinTemporaryTtl),
+		min_persistent_entry_ttl: C.uint(stateArchival.MinPersistentTtl),
+		max_entry_ttl:            C.uint(stateArchival.MaxEntryTtl),
 	}
 
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})

@@ -5,8 +5,9 @@ import (
 
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/xdr"
-	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 	"github.com/stretchr/testify/require"
+
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 )
 
 func expectedTransaction(ledger uint32, feeBump bool) Transaction {
@@ -107,8 +108,8 @@ func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
 		},
 	}
 	return xdr.LedgerCloseMeta{
-		V: 2,
-		V2: &xdr.LedgerCloseMetaV2{
+		V: 1,
+		V1: &xdr.LedgerCloseMetaV1{
 			LedgerHeader: xdr.LedgerHeaderHistoryEntry{
 				Header: xdr.LedgerHeader{
 					ScpValue: xdr.StellarValue{

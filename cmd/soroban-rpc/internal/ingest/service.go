@@ -258,7 +258,7 @@ func (s *Service) ingest(ctx context.Context, sequence uint32) error {
 	}
 
 	// EvictedTemporaryLedgerKeys will include both temporary ledger keys which
-	// have been evicted and their corresponding expiration ledger entries
+	// have been evicted and their corresponding ttl ledger entries
 	evictedTempLedgerKeys, err := ledgerCloseMeta.EvictedTemporaryLedgerKeys()
 	if err != nil {
 		return err

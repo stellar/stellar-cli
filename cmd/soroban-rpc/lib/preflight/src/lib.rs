@@ -1,7 +1,7 @@
 mod fees;
 mod ledger_storage;
 mod preflight;
-mod state_expiration;
+mod state_ttl;
 
 extern crate anyhow;
 extern crate base64;
@@ -30,9 +30,9 @@ pub struct CLedgerInfo {
     pub timestamp: u64,
     pub network_passphrase: *const libc::c_char,
     pub base_reserve: u32,
-    pub min_temp_entry_expiration: u32,
-    pub min_persistent_entry_expiration: u32,
-    pub max_entry_expiration: u32,
+    pub min_temp_entry_ttl: u32,
+    pub min_persistent_entry_ttl: u32,
+    pub max_entry_ttl: u32,
 }
 
 impl From<CLedgerInfo> for LedgerInfo {
@@ -44,9 +44,9 @@ impl From<CLedgerInfo> for LedgerInfo {
             timestamp: c.timestamp,
             network_id: Sha256::digest(network_passphrase).into(),
             base_reserve: c.base_reserve,
-            min_temp_entry_expiration: c.min_temp_entry_expiration,
-            min_persistent_entry_expiration: c.min_persistent_entry_expiration,
-            max_entry_expiration: c.max_entry_expiration,
+            min_temp_entry_ttl: c.min_temp_entry_ttl,
+            min_persistent_entry_ttl: c.min_persistent_entry_ttl,
+            max_entry_ttl: c.max_entry_ttl,
         }
     }
 }
@@ -167,7 +167,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
 }
 
 #[no_mangle]
-pub extern "C" fn preflight_footprint_expiration_op(
+pub extern "C" fn preflight_footprint_ttl_op(
     handle: libc::uintptr_t, // Go Handle to forward to SnapshotSourceGet and SnapshotSourceHas
     bucket_list_size: u64,   // Bucket list size for current ledger
     op_body: CXDR,           // OperationBody XDR
@@ -175,7 +175,7 @@ pub extern "C" fn preflight_footprint_expiration_op(
     current_ledger_seq: u32,
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
-        preflight_footprint_expiration_op_or_maybe_panic(
+        preflight_footprint_ttl_op_or_maybe_panic(
             handle,
             bucket_list_size,
             op_body,
@@ -185,7 +185,7 @@ pub extern "C" fn preflight_footprint_expiration_op(
     }))
 }
 
-fn preflight_footprint_expiration_op_or_maybe_panic(
+fn preflight_footprint_ttl_op_or_maybe_panic(
     handle: libc::uintptr_t,
     bucket_list_size: u64,
     op_body: CXDR,
@@ -195,7 +195,7 @@ fn preflight_footprint_expiration_op_or_maybe_panic(
     let op_body = OperationBody::from_xdr(from_c_xdr(op_body)).unwrap();
     let footprint = LedgerFootprint::from_xdr(from_c_xdr(footprint)).unwrap();
     let ledger_storage = &LedgerStorage::new(handle, current_ledger_seq);
-    let result = preflight::preflight_footprint_expiration_op(
+    let result = preflight::preflight_footprint_ttl_op(
         ledger_storage,
         bucket_list_size,
         op_body,

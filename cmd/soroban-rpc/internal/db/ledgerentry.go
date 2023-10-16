@@ -24,9 +24,9 @@ type LedgerEntryReader interface {
 }
 
 type LedgerKeyAndEntry struct {
-	Key                 xdr.LedgerKey
-	Entry               xdr.LedgerEntry
-	ExpirationLedgerSeq *uint32 // optional expiration ledger seq, when applicable.
+	Key                xdr.LedgerKey
+	Entry              xdr.LedgerEntry
+	LiveUntilLedgerSeq *uint32 // optional live-until ledger seq, when applicable.
 }
 
 type LedgerEntryReadTx interface {
@@ -228,14 +228,14 @@ func GetLedgerEntry(tx LedgerEntryReadTx, key xdr.LedgerKey) (bool, xdr.LedgerEn
 		return false, xdr.LedgerEntry{}, nil, nil
 	case 1:
 		// expected length
-		return true, keyEntries[0].Entry, keyEntries[0].ExpirationLedgerSeq, nil
+		return true, keyEntries[0].Entry, keyEntries[0].LiveUntilLedgerSeq, nil
 	default:
 		return false, xdr.LedgerEntry{}, nil, fmt.Errorf("multiple entries (%d) for key %v", len(keyEntries), key)
 	}
 }
 
-// isExpirableKey check to see if the key type is expected to be accompanied by a LedgerExpirationEntry
-func isExpirableKey(key xdr.LedgerKey) bool {
+// hasTTLKey check to see if the key type is expected to be accompanied by a LedgerTTLEntry
+func hasTTLKey(key xdr.LedgerKey) bool {
 	switch key.Type {
 	case xdr.LedgerEntryTypeContractData:
 		return true
@@ -246,23 +246,23 @@ func isExpirableKey(key xdr.LedgerKey) bool {
 	return false
 }
 
-func entryKeyToExpirationEntryKey(key xdr.LedgerKey) (xdr.LedgerKey, error) {
+func entryKeyToTTLEntryKey(key xdr.LedgerKey) (xdr.LedgerKey, error) {
 	buf, err := key.MarshalBinary()
 	if err != nil {
 		return xdr.LedgerKey{}, err
 	}
-	var expirationEntry xdr.LedgerKey
-	err = expirationEntry.SetExpiration(xdr.Hash(sha256.Sum256(buf)))
+	var ttlEntry xdr.LedgerKey
+	err = ttlEntry.SetTtl(sha256.Sum256(buf))
 	if err != nil {
 		return xdr.LedgerKey{}, err
 	}
-	return expirationEntry, nil
+	return ttlEntry, nil
 }
 
 func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error) {
 	encodedKeys := make([]string, len(keys), 2*len(keys))
 	encodedKeyToKey := make(map[string]xdr.LedgerKey, len(keys))
-	encodedKeyToEncodedExpirationLedgerKey := make(map[string]string, len(keys))
+	encodedKeyToEncodedTTLLedgerKey := make(map[string]string, len(keys))
 	for _, k := range keys {
 		encodedKey, err := encodeLedgerKey(l.buffer, k)
 		if err != nil {
@@ -270,19 +270,19 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKey
 		}
 		encodedKeys = append(encodedKeys, encodedKey)
 		encodedKeyToKey[encodedKey] = k
-		if !isExpirableKey(k) {
+		if !hasTTLKey(k) {
 			continue
 		}
-		expirationEntryKey, err := entryKeyToExpirationEntryKey(k)
+		ttlEntryKey, err := entryKeyToTTLEntryKey(k)
 		if err != nil {
 			return nil, err
 		}
-		encodedExpirationKey, err := encodeLedgerKey(l.buffer, expirationEntryKey)
+		encodedTTLKey, err := encodeLedgerKey(l.buffer, ttlEntryKey)
 		if err != nil {
 			return nil, err
 		}
-		encodedKeyToEncodedExpirationLedgerKey[encodedKey] = encodedExpirationKey
-		encodedKeys = append(encodedKeys, encodedExpirationKey)
+		encodedKeyToEncodedTTLLedgerKey[encodedKey] = encodedTTLKey
+		encodedKeys = append(encodedKeys, encodedTTLKey)
 	}
 
 	rawResult, err := l.getRawLedgerEntries(encodedKeys...)
@@ -300,22 +300,22 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKey
 		if err := xdr.SafeUnmarshal([]byte(encodedEntry), &entry); err != nil {
 			return nil, errors.Wrap(err, "cannot decode ledger entry from DB")
 		}
-		encodedExpKey, has := encodedKeyToEncodedExpirationLedgerKey[encodedKey]
+		encodedExpKey, has := encodedKeyToEncodedTTLLedgerKey[encodedKey]
 		if !has {
 			result = append(result, LedgerKeyAndEntry{key, entry, nil})
 			continue
 		}
 		encodedExpEntry, ok := rawResult[encodedExpKey]
 		if !ok {
-			// missing expiration key. this should no happen.
-			return nil, errors.New("missing expiration key entry")
+			// missing ttl key. This should not happen.
+			return nil, errors.New("missing ttl key entry")
 		}
 		var expEntry xdr.LedgerEntry
 		if err := xdr.SafeUnmarshal([]byte(encodedExpEntry), &expEntry); err != nil {
-			return nil, errors.Wrap(err, "cannot decode expiration ledger entry from DB")
+			return nil, errors.Wrap(err, "cannot decode TTL ledger entry from DB")
 		}
-		expSeq := uint32(expEntry.Data.Expiration.ExpirationLedgerSeq)
-		result = append(result, LedgerKeyAndEntry{key, entry, &expSeq})
+		liveUntilSeq := uint32(expEntry.Data.Ttl.LiveUntilLedgerSeq)
+		result = append(result, LedgerKeyAndEntry{key, entry, &liveUntilSeq})
 	}
 
 	return result, nil

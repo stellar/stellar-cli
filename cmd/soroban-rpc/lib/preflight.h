@@ -9,9 +9,9 @@ typedef struct ledger_info_t {
   uint64_t timestamp;
   const char *network_passphrase;
   uint32_t base_reserve;
-  uint32_t min_temp_entry_expiration;
-  uint32_t min_persistent_entry_expiration;
-  uint32_t max_entry_expiration;
+  uint32_t min_temp_entry_ttl;
+  uint32_t min_persistent_entry_ttl;
+  uint32_t max_entry_ttl;
 } ledger_info_t;
 
 typedef struct xdr_t {
@@ -43,11 +43,11 @@ preflight_result_t *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to for
                                            const xdr_t source_account, // AccountId XDR
                                            const ledger_info_t ledger_info);
 
-preflight_result_t *preflight_footprint_expiration_op(uintptr_t   handle, // Go Handle to forward to SnapshotSourceGet
-                                                      uint64_t bucket_list_size, // Bucket list size of current ledger
-                                                      const xdr_t op_body, // OperationBody XDR
-                                                      const xdr_t footprint, // LedgerFootprint XDR
-                                                      uint32_t    current_ledger_seq); // Current ledger sequence
+preflight_result_t *preflight_footprint_ttl_op(uintptr_t   handle, // Go Handle to forward to SnapshotSourceGet
+                                               uint64_t bucket_list_size, // Bucket list size of current ledger
+                                               const xdr_t op_body, // OperationBody XDR
+                                               const xdr_t footprint, // LedgerFootprint XDR
+                                               uint32_t    current_ledger_seq); // Current ledger sequence
 
 
 // LedgerKey XDR to LedgerEntry XDR
