@@ -236,7 +236,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			ReadBytes:    48,
 			WriteBytes:   7048,
 		},
-		ResourceFee: 20056,
+		ResourceFee: 130498,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
