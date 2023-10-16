@@ -14,6 +14,8 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
+var ErrLedgerExpirationEntriesCannotBeQueriedDirectly = "ledger expiration entries cannot be queried directly"
+
 type GetLedgerEntriesRequest struct {
 	Keys []string `json:"keys"`
 }
@@ -25,6 +27,8 @@ type LedgerEntryResult struct {
 	XDR string `json:"xdr"`
 	// Last modified ledger for this entry.
 	LastModifiedLedger int64 `json:"lastModifiedLedgerSeq,string"`
+	// The expiration ledger, available for entries that have expiration ledgers.
+	ExpirationLedger *uint32 `json:"expirationLedgerSeq,string,omitempty"`
 }
 
 type GetLedgerEntriesResponse struct {
@@ -62,6 +66,14 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
 					Code:    jrpc2.InvalidParams,
 					Message: fmt.Sprintf("cannot unmarshal key value %s at index %d", requestKey, i),
+				}
+			}
+			if ledgerKey.Type == xdr.LedgerEntryTypeExpiration {
+				logger.WithField("request", request).
+					Infof("could not provide ledger expiration entry %s at index %d from getLedgerEntries request", requestKey, i)
+				return GetLedgerEntriesResponse{}, &jrpc2.Error{
+					Code:    jrpc2.InvalidParams,
+					Message: ErrLedgerExpirationEntriesCannotBeQueriedDirectly,
 				}
 			}
 			ledgerKeys = append(ledgerKeys, ledgerKey)
@@ -112,6 +124,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				Key:                request.Keys[i],
 				XDR:                ledgerXDR,
 				LastModifiedLedger: int64(ledgerKeyAndEntry.Entry.LastModifiedLedgerSeq),
+				ExpirationLedger:   ledgerKeyAndEntry.ExpirationLedgerSeq,
 			})
 		}
 

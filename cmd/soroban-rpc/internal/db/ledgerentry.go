@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 
@@ -23,8 +24,9 @@ type LedgerEntryReader interface {
 }
 
 type LedgerKeyAndEntry struct {
-	Key   xdr.LedgerKey
-	Entry xdr.LedgerEntry
+	Key                 xdr.LedgerKey
+	Entry               xdr.LedgerEntry
+	ExpirationLedgerSeq *uint32 // optional expiration ledger seq, when applicable.
 }
 
 type LedgerEntryReadTx interface {
@@ -216,32 +218,71 @@ func (l *ledgerEntryReadTx) getRawLedgerEntries(keys ...string) (map[string]stri
 	return result, nil
 }
 
-func GetLedgerEntry(tx LedgerEntryReadTx, key xdr.LedgerKey) (bool, xdr.LedgerEntry, error) {
+func GetLedgerEntry(tx LedgerEntryReadTx, key xdr.LedgerKey) (bool, xdr.LedgerEntry, *uint32, error) {
 	keyEntries, err := tx.GetLedgerEntries(key)
 	if err != nil {
-		return false, xdr.LedgerEntry{}, err
+		return false, xdr.LedgerEntry{}, nil, err
 	}
 	switch len(keyEntries) {
 	case 0:
-		return false, xdr.LedgerEntry{}, nil
+		return false, xdr.LedgerEntry{}, nil, nil
 	case 1:
 		// expected length
-		return true, keyEntries[0].Entry, nil
+		return true, keyEntries[0].Entry, keyEntries[0].ExpirationLedgerSeq, nil
 	default:
-		return false, xdr.LedgerEntry{}, fmt.Errorf("multiple entries (%d) for key %v", len(keyEntries), key)
+		return false, xdr.LedgerEntry{}, nil, fmt.Errorf("multiple entries (%d) for key %v", len(keyEntries), key)
 	}
 }
 
+// isExpirableKey check to see if the key type is expected to be accompanied by a LedgerExpirationEntry
+func isExpirableKey(key xdr.LedgerKey) bool {
+	switch key.Type {
+	case xdr.LedgerEntryTypeContractData:
+		return true
+	case xdr.LedgerEntryTypeContractCode:
+		return true
+	default:
+	}
+	return false
+}
+
+func entryKeyToExpirationEntryKey(key xdr.LedgerKey) (xdr.LedgerKey, error) {
+	buf, err := key.MarshalBinary()
+	if err != nil {
+		return xdr.LedgerKey{}, err
+	}
+	var expirationEntry xdr.LedgerKey
+	err = expirationEntry.SetExpiration(xdr.Hash(sha256.Sum256(buf)))
+	if err != nil {
+		return xdr.LedgerKey{}, err
+	}
+	return expirationEntry, nil
+}
+
 func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error) {
-	encodedKeys := make([]string, len(keys))
+	encodedKeys := make([]string, len(keys), 2*len(keys))
 	encodedKeyToKey := make(map[string]xdr.LedgerKey, len(keys))
-	for i, k := range keys {
+	encodedKeyToEncodedExpirationLedgerKey := make(map[string]string, len(keys))
+	for _, k := range keys {
 		encodedKey, err := encodeLedgerKey(l.buffer, k)
 		if err != nil {
 			return nil, err
 		}
-		encodedKeys[i] = encodedKey
+		encodedKeys = append(encodedKeys, encodedKey)
 		encodedKeyToKey[encodedKey] = k
+		if !isExpirableKey(k) {
+			continue
+		}
+		expirationEntryKey, err := entryKeyToExpirationEntryKey(k)
+		if err != nil {
+			return nil, err
+		}
+		encodedExpirationKey, err := encodeLedgerKey(l.buffer, expirationEntryKey)
+		if err != nil {
+			return nil, err
+		}
+		encodedKeyToEncodedExpirationLedgerKey[encodedKey] = encodedExpirationKey
+		encodedKeys = append(encodedKeys, encodedExpirationKey)
 	}
 
 	rawResult, err := l.getRawLedgerEntries(encodedKeys...)
@@ -259,7 +300,22 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKey
 		if err := xdr.SafeUnmarshal([]byte(encodedEntry), &entry); err != nil {
 			return nil, errors.Wrap(err, "cannot decode ledger entry from DB")
 		}
-		result = append(result, LedgerKeyAndEntry{key, entry})
+		encodedExpKey, has := encodedKeyToEncodedExpirationLedgerKey[encodedKey]
+		if !has {
+			result = append(result, LedgerKeyAndEntry{key, entry, nil})
+			continue
+		}
+		encodedExpEntry, ok := rawResult[encodedExpKey]
+		if !ok {
+			// missing expiration key. this should no happen.
+			return nil, errors.New("missing expiration key entry")
+		}
+		var expEntry xdr.LedgerEntry
+		if err := xdr.SafeUnmarshal([]byte(encodedExpEntry), &expEntry); err != nil {
+			return nil, errors.Wrap(err, "cannot decode expiration ledger entry from DB")
+		}
+		expSeq := uint32(expEntry.Data.Expiration.ExpirationLedgerSeq)
+		result = append(result, LedgerKeyAndEntry{key, entry, &expSeq})
 	}
 
 	return result, nil
