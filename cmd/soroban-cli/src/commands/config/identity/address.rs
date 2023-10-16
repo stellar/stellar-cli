@@ -45,8 +45,16 @@ impl Cmd {
     }
 
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-            self.private_key()?.verifying_key().as_bytes(),
-        )?)
+        if let Some(Ok(key)) = self
+            .name
+            .as_deref()
+            .map(stellar_strkey::ed25519::PublicKey::from_string)
+        {
+            Ok(key)
+        } else {
+            Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+                self.private_key()?.verifying_key().as_bytes(),
+            )?)
+        }
     }
 }
