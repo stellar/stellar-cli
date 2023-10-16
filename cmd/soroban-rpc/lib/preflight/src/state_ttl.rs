@@ -63,5 +63,5 @@ pub(crate) fn get_restored_ledger_sequence(
     current_ledger_seq: u32,
     min_persistent_ttl: u32,
 ) -> u32 {
-    current_ledger_seq + min_persistent_ttl - 1;
+    current_ledger_seq + min_persistent_ttl - 1
 }
