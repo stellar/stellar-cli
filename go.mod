@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/creachadair/jrpc2 v1.1.0
-	github.com/go-chi/chi v4.0.3+incompatible
+	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/pelletier/go-toml v1.9.5
