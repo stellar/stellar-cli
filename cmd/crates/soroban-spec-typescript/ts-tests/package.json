@@ -2,12 +2,21 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"postinstall": "npm run deploy && npm run bindings || { echo \"Make sure you're running standalone RPC network on localhost:8000\" && exit 1; }",
+		"fund": "./soroban config identity fund",
+		"bindings:custom-types": "./soroban contract bindings typescript --contract-id $(cat contract-id-custom-types.txt) --output-dir ./node_modules/test-custom-types --overwrite",
+		"bindings:hello-world": "./soroban contract bindings typescript --contract-id $(cat contract-id-hello-world.txt) --output-dir ./node_modules/test-hello-world --overwrite",
+		"bindings": "npm run bindings:custom-types && npm run bindings:hello-world",
+		"deploy:custom-types": "(./soroban contract deploy --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm) > contract-id-custom-types.txt",
+		"deploy:hello-world": "(./soroban contract deploy --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_hello_world.wasm) > contract-id-hello-world.txt",
+		"deploy": "npm run deploy:custom-types && npm run deploy:hello-world",
 		"test": "ava"
 	},
 	"devDependencies": {
 		"@ava/typescript": "^4.1.0",
 		"@types/node": "^20.4.9",
 		"ava": "^5.3.1",
+		"soroban-client": "1.0.0-beta.2",
 		"typescript": "^5.1.6"
 	},
 	"ava": {
@@ -17,5 +26,9 @@
 			},
 			"compile": "tsc"
 		}
-	}
+	},
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.8.1"
+  }
 }

@@ -3,5 +3,3 @@ captive-core/
 .soroban/
 !test.toml
 *.sqlite
-
-cmd/crates/soroban-spec-typescript/fixtures/ts/package-lock.json

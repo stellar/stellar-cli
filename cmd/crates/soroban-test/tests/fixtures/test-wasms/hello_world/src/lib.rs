@@ -30,6 +30,12 @@ impl Contract {
         addr
     }
 
+    // get current count
+    pub fn get_count(env: Env) -> u32 {
+        env.storage().persistent().get(&COUNTER).unwrap_or(0)
+    }
+
+    // increment count and return new one
     pub fn inc(env: Env) -> u32 {
         let mut count: u32 = env.storage().persistent().get(&COUNTER).unwrap_or(0); // Panic if the value of COUNTER is not u32.
         log!(&env, "count: {}", count);
