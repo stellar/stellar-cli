@@ -737,7 +737,7 @@ Watch the network for contract events
 * `-c`, `--count <COUNT>` — The maximum number of events to display (specify "0" to show all events when using sandbox, or to defer to the server-defined limit if using RPC)
 
   Default value: `10`
-* `--id <CONTRACT_IDS>` — A set of (up to 5) contract IDs to filter events on. This parameter can be passed multiple times, e.g. `--id abc --id def`, or passed with multiple parameters, e.g. `--id abd def`
+* `--id <CONTRACT_IDS>` — A set of (up to 5) contract IDs to filter events on. This parameter can be passed multiple times, e.g. `--id C123.. --id C456..`, or passed with multiple parameters, e.g. `--id C123 C456`
 * `--topic <TOPIC_FILTERS>` — A set of (up to 4) topic filters to filter event topics on. A single topic filter can contain 1-4 different segment filters, separated by commas, with an asterisk (* character) indicating a wildcard segment
 * `--type <EVENT_TYPE>` — Specifies which type of contract events to display
 

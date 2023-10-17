@@ -34,8 +34,8 @@ pub struct Cmd {
     count: usize,
 
     /// A set of (up to 5) contract IDs to filter events on. This parameter can
-    /// be passed multiple times, e.g. `--id abc --id def`, or passed with
-    /// multiple parameters, e.g. `--id abd def`.
+    /// be passed multiple times, e.g. `--id C123.. --id C456..`, or passed with
+    /// multiple parameters, e.g. `--id C123 C456`.
     ///
     /// Though the specification supports multiple filter objects (i.e.
     /// combinations of type, IDs, and topics), only one set can be specified on
@@ -352,8 +352,14 @@ mod tests {
         assert_eq!(file.events.len(), 2);
         assert_eq!(file.events[0].ledger, "2");
         assert_eq!(file.events[1].ledger, "2");
-        assert_eq!(file.events[0].contract_id, "0".repeat(64));
-        assert_eq!(file.events[1].contract_id, "01".repeat(32));
+        assert_eq!(
+            file.events[0].contract_id,
+            "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"
+        );
+        assert_eq!(
+            file.events[1].contract_id,
+            "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526"
+        );
         assert_eq!(file.latest_ledger, 2);
     }
 
