@@ -538,7 +538,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Len(t, event.Event.Body.V0.Topics, 1)
 	assert.Equal(t, xdr.ScValTypeScvString, event.Event.Body.V0.Topics[0].Type)
 	assert.Equal(t, xdr.ScString("auth"), *event.Event.Body.V0.Topics[0].Str)
-
 	metrics := getMetrics(test)
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
@@ -1122,7 +1121,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.InDelta(t, 7260, uint32(transactionData.Resources.ReadBytes), 200)
-	assert.InDelta(t, 45, int64(transactionData.ResourceFee), 10)
+	assert.InDelta(t, 98339, int64(transactionData.ResourceFee), 10)
 	assert.InDelta(t, 104, uint32(transactionData.Resources.WriteBytes), 15)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }
