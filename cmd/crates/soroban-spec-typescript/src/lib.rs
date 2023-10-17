@@ -103,8 +103,8 @@ fn doc_to_ts_doc(doc: &str) -> String {
         let doc = doc.split('\n').join("\n * ");
         format!(
             r#"/**
- * {doc}
- */
+     * {doc}
+     */
 "#,
         )
     }
@@ -202,7 +202,9 @@ pub fn entry_to_ts(entry: &Entry) -> String {
             };
             let js_name = jsify_name(name);
             let options = method_options(&return_type);
-            let args = format!("args: this.spec.funcArgsToScVals(\"{name}\", {{{input_vals}}}),");
+            let parsed_scvals = inputs.iter().map(parse_arg_to_scval).join(", ");
+            let args =
+                format!("args: this.spec.funcArgsToScVals(\"{name}\", {{{parsed_scvals}}}),");
             let mut body = format!(
                 r#"return await invoke({{
             method: '{name}',
@@ -217,16 +219,14 @@ pub fn entry_to_ts(entry: &Entry) -> String {
                     r#"try {{
             {body}
         }} catch (e) {{
-            if (typeof e === 'string') {{
-                let err = parseError(e);
-                if (err) return err;
-            }}
+            let err = parseError(e.toString());
+            if (err) return err;
             throw e;
         }}"#
                 );
             }
             format!(
-                r#"{ts_doc}async {js_name}<R extends ResponseTypes = undefined>({input}options: {options} = {{}}) {{
+                r#"{ts_doc}{js_name} = async <R extends ResponseTypes = undefined>({input}options: {options} = {{}}) => {{
                     {body}
     }}
 "#
@@ -319,6 +319,14 @@ pub fn func_input_to_arg_name(input: &types::FunctionInput) -> String {
     name.to_string()
 }
 
+pub fn parse_arg_to_scval(input: &types::FunctionInput) -> String {
+    let types::FunctionInput { name, value, .. } = input;
+    match value {
+        types::Type::Address => format!("{name}: new Address({name})"),
+        _ => name.to_string(),
+    }
+}
+
 pub fn type_to_ts(value: &types::Type) -> String {
     match value {
         types::Type::U64 => "u64".to_owned(),
@@ -349,7 +357,7 @@ pub fn type_to_ts(value: &types::Type) -> String {
         // ahalabs have added in the bindings, so.. maybe rename that?
         types::Type::Val => "any".to_owned(),
         types::Type::Error { .. } => "Error_".to_owned(),
-        types::Type::Address => "Address".to_string(),
+        types::Type::Address => "string".to_string(),
         types::Type::Bytes | types::Type::BytesN { .. } => "Buffer".to_string(),
         types::Type::Void => "void".to_owned(),
         types::Type::U256 => "u256".to_string(),
