@@ -830,6 +830,7 @@ func TestSimulateTransactionExtendAndRestoreFootprint(t *testing.T) {
 			Operations: []txnbuild.Operation{
 				&txnbuild.RestoreFootprint{},
 			},
+			BaseFee: txnbuild.MinBaseFee,
 			Preconditions: txnbuild.Preconditions{
 				TimeBounds: txnbuild.NewInfiniteTimeout(),
 			},
