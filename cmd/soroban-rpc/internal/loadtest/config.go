@@ -16,9 +16,11 @@ type Config struct {
 	HelloWorldContractPath string
 }
 
-func (cfg *Config) AddFlags(cmd *cobra.Command) {
+func (cfg *Config) AddFlags(cmd *cobra.Command) error {
 	cmd.Flags().StringVarP(&cfg.SorobanRPCURL, "soroban-rpc-url", "u", "", "Endpoint to send JSON RPC requests to")
-	cmd.MarkFlagRequired("soroban-rpc-url")
+	if err := cmd.MarkFlagRequired("soroban-rpc-url"); err != nil {
+		return err
+	}
 
 	cmd.Flags().StringVarP(&cfg.TestDuration, "duration", "d", "60s", "How long to generate load to the RPC server")
 	cmd.Flags().StringVarP(&cfg.SpecGenerator, "spec-generator", "g", "getHealth", "Which spec generator to use to generate load")
@@ -27,4 +29,5 @@ func (cfg *Config) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&cfg.NetworkPassphrase, "network-passphrase", "p", "Test SDF Network ; September 2015", "Network passphrase to use when simulating transactions")
 	cmd.Flags().Int32Var(&cfg.GetEventsStartLedger, "get-events-start-ledger", 1, "Start ledger to fetch events after in GetEventsGenerator")
 	cmd.Flags().StringVar(&cfg.HelloWorldContractPath, "hello-world-contract-path", "", "Location of hello world contract to use when simulating transactions")
+	return nil
 }

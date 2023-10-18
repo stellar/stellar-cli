@@ -89,7 +89,10 @@ func main() {
 
 	// Load testing flags.
 	// TODO: Load these from a configuration file like RPC server configs.
-	loadTestCfg.AddFlags(loadTestCmd)
+	if err := loadTestCfg.AddFlags(loadTestCmd); err != nil {
+		fmt.Fprintf(os.Stderr, "could not parse loadtest flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := cfg.AddFlags(rootCmd); err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)

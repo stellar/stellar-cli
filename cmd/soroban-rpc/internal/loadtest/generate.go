@@ -13,7 +13,6 @@ import (
 
 // Generates load to a soroban-rpc server based on configuration.
 func GenerateLoad(cfg *Config) error {
-
 	ch := jhttp.NewChannel(cfg.SorobanRPCURL, nil)
 	client := jrpc2.NewClient(ch, nil)
 
@@ -43,7 +42,7 @@ func GenerateLoad(cfg *Config) error {
 	}
 	var requestBatches [][]jrpc2.Spec
 	batchSize := int(float64(cfg.RequestsPerSecond) * batchIntervalDur.Seconds())
-	for i := 0; i < int(numBatches); i++ {
+	for i := 0; i < numBatches; i++ {
 		var currentBatch []jrpc2.Spec
 		for i := 0; i < batchSize; i++ {
 			spec, err := generator.GenerateSpec()
