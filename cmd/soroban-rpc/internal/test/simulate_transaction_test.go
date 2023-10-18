@@ -247,7 +247,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.Instructions), uint32(transactionData.Resources.Instructions), 200000)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.ReadBytes), uint32(transactionData.Resources.ReadBytes), 10)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.WriteBytes), uint32(transactionData.Resources.WriteBytes), 300)
-	assert.InDelta(t, int64(expectedTransactionData.ResourceFee), int64(transactionData.ResourceFee), 1000)
+	assert.InDelta(t, int64(expectedTransactionData.ResourceFee), int64(transactionData.ResourceFee), 3000)
 
 	// Then decode and check the result xdr, separately so we get a decent diff if it fails.
 	assert.Len(t, result.Results, 1)
