@@ -119,7 +119,7 @@ impl Cmd {
             .filter(|(k, _v)| keys.contains(k))
             .map(|(key, (v, expiration))| {
                 Ok(FullLedgerEntry {
-                    expiration_ledger_seq: expiration.unwrap_or_default(),
+                    live_until_ledger_seq: expiration.unwrap_or_default(),
                     last_modified_ledger: latest_ledger,
                     key,
                     val: v.data,
@@ -141,7 +141,7 @@ impl Cmd {
         for FullLedgerEntry {
             key,
             val,
-            expiration_ledger_seq,
+            live_until_ledger_seq: expiration_ledger_seq,
             last_modified_ledger,
         } in &entries.entries
         {

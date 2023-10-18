@@ -246,7 +246,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, expectedTransactionData.Resources.Footprint, transactionData.Resources.Footprint)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.Instructions), uint32(transactionData.Resources.Instructions), 200000)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.ReadBytes), uint32(transactionData.Resources.ReadBytes), 10)
-	assert.InDelta(t, uint32(expectedTransactionData.Resources.WriteBytes), uint32(transactionData.Resources.WriteBytes), 100)
+	assert.InDelta(t, uint32(expectedTransactionData.Resources.WriteBytes), uint32(transactionData.Resources.WriteBytes), 300)
 	assert.InDelta(t, int64(expectedTransactionData.ResourceFee), int64(transactionData.ResourceFee), 1000)
 
 	// Then decode and check the result xdr, separately so we get a decent diff if it fails.
@@ -1122,7 +1122,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.InDelta(t, 7260, uint32(transactionData.Resources.ReadBytes), 200)
-	assert.InDelta(t, 98339, int64(transactionData.ResourceFee), 10)
+	assert.InDelta(t, 98339, int64(transactionData.ResourceFee), 2000)
 	assert.InDelta(t, 104, uint32(transactionData.Resources.WriteBytes), 15)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }

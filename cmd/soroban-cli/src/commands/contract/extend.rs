@@ -91,7 +91,7 @@ impl Cmd {
         if self.expiration_ledger_only {
             println!("{expiration_ledger_seq}");
         } else {
-            println!("New expiration ledger: {expiration_ledger_seq}");
+            println!("New ttl ledger: {expiration_ledger_seq}");
         }
 
         Ok(())
@@ -175,7 +175,7 @@ impl Cmd {
 
         if operations[0].changes.is_empty() {
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let expire = entry.entries[0].expiration_ledger_seq;
+            let expire = entry.entries[0].live_until_ledger_seq;
             if entry.latest_ledger + i64::from(extend_to) < i64::from(expire) {
                 return Ok(expire);
             }
