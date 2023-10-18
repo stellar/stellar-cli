@@ -9,10 +9,12 @@ import (
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
+	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/loadtest"
 )
 
 func main() {
 	var cfg config.Config
+	var loadTestCfg loadtest.Config
 
 	rootCmd := &cobra.Command{
 		Use:   "soroban-rpc",
@@ -70,8 +72,24 @@ func main() {
 		},
 	}
 
+	loadTestCmd := &cobra.Command{
+		Use:   "loadtest",
+		Short: "Generates a configurable load to a Soroban RPC server",
+		Run: func(cmd *cobra.Command, _ []string) {
+			if err := loadtest.GenerateLoad(&loadTestCfg); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		},
+	}
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(genConfigFileCmd)
+	rootCmd.AddCommand(loadTestCmd)
+
+	// Load testing flags.
+	// TODO: Load these from a configuration file like RPC server configs.
+	loadTestCfg.AddFlags(loadTestCmd)
 
 	if err := cfg.AddFlags(rootCmd); err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse config options: %v\n", err)
