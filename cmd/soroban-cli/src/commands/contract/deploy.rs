@@ -149,7 +149,7 @@ impl Cmd {
             &mut state.ledger_entries,
             contract_id,
             wasm_hash.0,
-            state.min_persistent_entry_expiration,
+            state.min_persistent_entry_ttl,
         );
         self.config.set_state(&state)?;
         Ok(stellar_strkey::Contract(contract_id).to_string())

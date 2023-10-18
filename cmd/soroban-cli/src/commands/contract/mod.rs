@@ -1,7 +1,7 @@
 pub mod bindings;
 pub mod build;
-pub mod bump;
 pub mod deploy;
+pub mod extend;
 pub mod fetch;
 pub mod inspect;
 pub mod install;
@@ -22,8 +22,8 @@ pub enum Cmd {
 
     /// Extend the expiry ledger of a contract-data ledger entry.
     ///
-    /// If no keys are specified the contract itself is bumped.
-    Bump(bump::Cmd),
+    /// If no keys are specified the contract itself is extended.
+    Extend(extend::Cmd),
 
     /// Deploy a contract
     Deploy(deploy::Cmd),
@@ -68,7 +68,7 @@ pub enum Error {
     Build(#[from] build::Error),
 
     #[error(transparent)]
-    Bump(#[from] bump::Error),
+    Extend(#[from] extend::Error),
 
     #[error(transparent)]
     Deploy(#[from] deploy::Error),
@@ -100,7 +100,7 @@ impl Cmd {
         match &self {
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run()?,
-            Cmd::Bump(bump) => bump.run().await?,
+            Cmd::Extend(extend) => extend.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::Inspect(inspect) => inspect.run()?,
             Cmd::Install(install) => install.run().await?,

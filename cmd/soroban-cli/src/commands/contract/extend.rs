@@ -2,10 +2,10 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry,
-    LedgerEntryChange, LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
+    Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
+    LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
 };
 
 use crate::{
@@ -114,7 +114,7 @@ impl Cmd {
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
-        let ledgers_to_expire = self.ledgers_to_expire();
+        let extend_to = self.ledgers_to_expire();
 
         // Get the account sequence number
         let public_strkey =
@@ -130,9 +130,9 @@ impl Cmd {
             memo: Memo::None,
             operations: vec![Operation {
                 source_account: None,
-                body: OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
+                body: OperationBody::ExtendFootprintTtl(ExtendFootprintTtlOp {
                     ext: ExtensionPoint::V0,
-                    ledgers_to_expire,
+                    extend_to,
                 }),
             }]
             .try_into()?,
@@ -147,7 +147,7 @@ impl Cmd {
                     read_bytes: 0,
                     write_bytes: 0,
                 },
-                refundable_fee: 0,
+                resource_fee: 0,
             }),
         };
 
@@ -161,13 +161,13 @@ impl Cmd {
             tracing::info!("Events:\n {events:#?}");
         }
 
-        // The transaction from core will succeed regardless of whether it actually found & bumped
+        // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.
         let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
             return Err(Error::LedgerEntryNotFound);
         };
 
-        // Simply check if there is exactly one entry here. We only support bumping a single
+        // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
         if operations.len() == 0 {
             return Err(Error::LedgerEntryNotFound);
@@ -176,7 +176,7 @@ impl Cmd {
         if operations[0].changes.is_empty() {
             let entry = client.get_full_ledger_entries(&keys).await?;
             let expire = entry.entries[0].expiration_ledger_seq;
-            if entry.latest_ledger + i64::from(ledgers_to_expire) < i64::from(expire) {
+            if entry.latest_ledger + i64::from(extend_to) < i64::from(expire) {
                 return Ok(expire);
             }
         }
@@ -186,13 +186,13 @@ impl Cmd {
                 LedgerEntryChange::State(_),
                 LedgerEntryChange::Updated(LedgerEntry {
                     data:
-                        LedgerEntryData::Expiration(ExpirationEntry {
-                            expiration_ledger_seq,
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
                             ..
                         }),
                     ..
                 }),
-            ) => Ok(*expiration_ledger_seq),
+            ) => Ok(*live_until_ledger_seq),
             _ => Err(Error::LedgerEntryNotFound),
         }
     }

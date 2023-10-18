@@ -9,7 +9,7 @@ use std::{fmt::Debug, fs, io, rc::Rc};
 use clap::{arg, command, value_parser, Parser};
 use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
-use soroban_env_host::e2e_invoke::{get_ledger_changes, ExpirationEntryMap};
+use soroban_env_host::e2e_invoke::{get_ledger_changes, TtlEntryMap};
 use soroban_env_host::xdr::ReadXdr;
 use soroban_env_host::{
     budget::Budget,
@@ -435,16 +435,18 @@ impl Cmd {
             log_budget(&budget);
         }
 
-        let ledger_changes =
-            get_ledger_changes(&budget, &storage, &state, ExpirationEntryMap::new())?;
-        let mut expiration_ledger_bumps: HashMap<LedgerKey, u32> = HashMap::new();
+        let ledger_changes = get_ledger_changes(&budget, &storage, &state, TtlEntryMap::new())?;
+        let mut expiration_ledger_extensions: HashMap<LedgerKey, u32> = HashMap::new();
         for ledger_entry_change in ledger_changes {
-            if let Some(exp_change) = ledger_entry_change.expiration_change {
+            if let Some(exp_change) = ledger_entry_change.ttl_change {
                 let key = xdr::LedgerKey::from_xdr(ledger_entry_change.encoded_key)?;
-                expiration_ledger_bumps.insert(key, exp_change.new_expiration_ledger);
+                expiration_ledger_extensions.insert(key, exp_change.new_live_until_ledger);
             }
         }
-        utils::bump_ledger_entry_expirations(&mut state.ledger_entries, &expiration_ledger_bumps);
+        utils::extend_ledger_entry_expirations(
+            &mut state.ledger_entries,
+            &expiration_ledger_extensions,
+        );
 
         self.config.set_state(&state)?;
         if !events.0.is_empty() {
@@ -463,7 +465,7 @@ impl Cmd {
             let wasm_hash = utils::add_contract_code_to_ledger_entries(
                 &mut state.ledger_entries,
                 contract,
-                state.min_persistent_entry_expiration,
+                state.min_persistent_entry_ttl,
             )
             .map_err(Error::CannotAddContractToLedgerEntries)?
             .0;
@@ -471,7 +473,7 @@ impl Cmd {
                 &mut state.ledger_entries,
                 *contract_id,
                 wasm_hash,
-                state.min_persistent_entry_expiration,
+                state.min_persistent_entry_ttl,
             );
         }
         Ok(())

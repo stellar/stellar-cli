@@ -777,7 +777,7 @@ soroban config identity fund {address} --helper-url <url>"#
     ) -> Result<FullLedgerEntries, Error> {
         let keys = ledger_keys
             .iter()
-            .filter(|key| !matches!(key, LedgerKey::Expiration(_)))
+            .filter(|key| !matches!(key, LedgerKey::Ttl(_)))
             .map(Clone::clone)
             .collect::<Vec<_>>();
         tracing::trace!("keys: {keys:#?}");
@@ -920,7 +920,7 @@ soroban config identity fund {address} --helper-url <url>"#
             .map_err(Error::CouldNotParseContractSpec)?
             .spec),
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
-                executable: xdr::ContractExecutable::Token,
+                executable: xdr::ContractExecutable::StellarAsset,
                 ..
             }) => Ok(soroban_spec::read::parse_raw(
                 &token::StellarAssetSpec::spec_xdr(),

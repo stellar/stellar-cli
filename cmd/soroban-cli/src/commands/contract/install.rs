@@ -68,7 +68,7 @@ impl Cmd {
         let wasm_hash = utils::add_contract_code_to_ledger_entries(
             &mut state.ledger_entries,
             contract,
-            state.min_persistent_entry_expiration,
+            state.min_persistent_entry_ttl,
         )?;
 
         self.config.set_state(&state)?;

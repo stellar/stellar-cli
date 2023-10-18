@@ -5,7 +5,7 @@ use std::{
     io::{self, Cursor},
 };
 
-use stellar_xdr::{
+use stellar_xdr::curr::{
     DepthLimitedRead, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
     ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
     StringM,
@@ -33,7 +33,7 @@ pub enum Error {
         error: wasmparser::BinaryReaderError,
     },
     #[error("xdr processing error: {0}")]
-    Xdr(#[from] stellar_xdr::Error),
+    Xdr(#[from] stellar_xdr::curr::Error),
 
     #[error(transparent)]
     Parser(#[from] wasmparser::BinaryReaderError),
@@ -62,8 +62,7 @@ impl ContractSpec {
             env_meta_base64 = Some(base64.encode(env_meta));
             let cursor = Cursor::new(env_meta);
             let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScEnvMetaEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
+            ScEnvMetaEntry::read_xdr_iter(&mut depth_limit_read).collect::<Result<Vec<_>, _>>()?
         } else {
             vec![]
         };
@@ -73,8 +72,7 @@ impl ContractSpec {
             meta_base64 = Some(base64.encode(meta));
             let cursor = Cursor::new(meta);
             let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScMetaEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
+            ScMetaEntry::read_xdr_iter(&mut depth_limit_read).collect::<Result<Vec<_>, _>>()?
         } else {
             vec![]
         };
@@ -84,8 +82,7 @@ impl ContractSpec {
             spec_base64 = Some(base64.encode(spec));
             let cursor = Cursor::new(spec);
             let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScSpecEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, stellar_xdr::Error>>()?
+            ScSpecEntry::read_xdr_iter(&mut depth_limit_read).collect::<Result<Vec<_>, _>>()?
         } else {
             vec![]
         };

@@ -341,9 +341,9 @@ mod tests {
             network_id: [0x1; 32],
             base_reserve: 5,
             ledger_entries: vec![],
-            max_entry_expiration: 6,
-            min_persistent_entry_expiration: 7,
-            min_temp_entry_expiration: 8,
+            min_persistent_entry_ttl: 7,
+            min_temp_entry_ttl: 6,
+            max_entry_ttl: 8,
         };
 
         events_file.commit(&events, &ledger_info, &temp).unwrap();

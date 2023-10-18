@@ -247,7 +247,7 @@ impl SnapshotSource for LedgerStorage {
             return Ok((entry_and_ttl.0.into(), entry_and_ttl.1));
         }
         let entry_and_ttl = <LedgerStorage>::get(self, key, false).map_err(HostError::from)?;
-        return Ok((entry_and_ttl.0.into(), entry_and_ttl.1));
+        Ok((entry_and_ttl.0.into(), entry_and_ttl.1))
     }
 
     fn has(&self, key: &Rc<LedgerKey>) -> Result<bool, HostError> {

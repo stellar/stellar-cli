@@ -90,7 +90,7 @@ impl Cmd {
 
         let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
             contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
-            executable: ContractExecutable::Token,
+            executable: ContractExecutable::StellarAsset,
         }))?;
 
         let contract_id = vec_to_hash(&res)?;
@@ -185,7 +185,7 @@ fn build_wrap_token_tx(
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
-                executable: ContractExecutable::Token,
+                executable: ContractExecutable::StellarAsset,
             }),
             auth: VecM::default(),
         }),

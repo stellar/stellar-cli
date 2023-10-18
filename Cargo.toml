@@ -60,7 +60,7 @@ path = "cmd/soroban-cli"
 version = "20.0.0-rc1"
 git = "https://github.com/stellar/rs-stellar-xdr"
 rev = "9c97e4fa909a0b6455547a4f4a95800696b2a69a"
-default-features = false
+default-features = true
 
 [workspace.dependencies]
 base64 = "0.21.2"

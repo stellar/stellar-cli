@@ -2,17 +2,17 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-    LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
-    Preconditions, RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
+    Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+    LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta, Preconditions,
+    RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
 };
 use stellar_strkey::DecodeError;
 
 use crate::{
     commands::{
         config::{self, locator},
-        contract::bump,
+        contract::extend,
     },
     key,
     rpc::{self, Client},
@@ -78,7 +78,7 @@ pub enum Error {
     #[error(transparent)]
     Key(#[from] key::Error),
     #[error(transparent)]
-    Bump(#[from] bump::Error),
+    Extend(#[from] extend::Error),
 }
 
 impl Cmd {
@@ -91,7 +91,7 @@ impl Cmd {
         };
 
         if let Some(ledgers_to_expire) = self.ledgers_to_expire {
-            bump::Cmd {
+            extend::Cmd {
                 key: self.key.clone(),
                 ledgers_to_expire,
                 config: self.config.clone(),
@@ -101,7 +101,7 @@ impl Cmd {
             .run()
             .await?;
         } else {
-            println!("New expiration ledger: {expiration_ledger_seq}");
+            println!("New ttl ledger: {expiration_ledger_seq}");
         }
 
         Ok(())
@@ -145,7 +145,7 @@ impl Cmd {
                     read_bytes: 0,
                     write_bytes: 0,
                 },
-                refundable_fee: 0,
+                resource_fee: 0,
             }),
         };
 
@@ -166,7 +166,7 @@ impl Cmd {
         };
         tracing::debug!("Operations:\nlen:{}\n{operations:#?}", operations.len());
 
-        // Simply check if there is exactly one entry here. We only support bumping a single
+        // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
         if operations.len() == 0 {
             return Err(Error::LedgerEntryNotFound);
@@ -193,20 +193,20 @@ fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
         op.changes.iter().find_map(|entry| match entry {
             LedgerEntryChange::Updated(LedgerEntry {
                 data:
-                    LedgerEntryData::Expiration(ExpirationEntry {
-                        expiration_ledger_seq,
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
                         ..
                     }),
                 ..
             })
             | LedgerEntryChange::Created(LedgerEntry {
                 data:
-                    LedgerEntryData::Expiration(ExpirationEntry {
-                        expiration_ledger_seq,
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
                         ..
                     }),
                 ..
-            }) => Some(*expiration_ledger_seq),
+            }) => Some(*live_until_ledger_seq),
             _ => None,
         })
     })

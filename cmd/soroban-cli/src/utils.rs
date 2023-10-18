@@ -48,9 +48,9 @@ pub fn ledger_snapshot_read_or_default(
                 // rs-soroban-sdk, but if we don't have them the sandbox doesn't work right.
                 // Oof.
                 // TODO: Remove this hacky workaround.
-                min_persistent_entry_expiration: 4096,
-                min_temp_entry_expiration: 16,
-                max_entry_expiration: 6_312_000,
+                min_persistent_entry_ttl: 4096,
+                min_temp_entry_ttl: 16,
+                max_entry_ttl: 6_312_000,
                 ..Default::default()
             })
         }
@@ -138,7 +138,7 @@ pub fn add_contract_to_ledger_entries(
     ));
 }
 
-pub fn bump_ledger_entry_expirations<S: BuildHasher>(
+pub fn extend_ledger_entry_expirations<S: BuildHasher>(
     entries: &mut LedgerSnapshotEntries,
     lookup: &HashMap<LedgerKey, u32, S>,
 ) {
@@ -242,7 +242,7 @@ pub fn get_contract_spec_from_state(
                 }),
             ..
         } => match executable {
-            ContractExecutable::Token => {
+            ContractExecutable::StellarAsset => {
                 // TODO/FIXME: I don't think it will work for token contracts, since we don't store them in the state?
                 let res = soroban_spec::read::parse_raw(&token::StellarAssetSpec::spec_xdr());
                 res.map_err(FromWasmError::Parse)
