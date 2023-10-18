@@ -3,6 +3,7 @@ package loadtest
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/creachadair/jrpc2"
@@ -68,20 +69,32 @@ func GenerateLoad(cfg *Config) error {
 	now := time.Time{}
 	lastBatchSentTime := time.Time{}
 	currentBatchI := 0
+	var batchMu sync.Mutex
 	for now.Before(startTime.Add(loadTestDuration)) && currentBatchI < len(requestBatches) {
 		now = time.Now()
 		if now.After(lastBatchSentTime.Add(batchIntervalDur)) {
 			go func() {
 				// Ignore response content for now.
-				_, err := client.Batch(context.Background(), requestBatches[currentBatchI])
+				batchMu.Lock()
+				if currentBatchI >= len(requestBatches) {
+					batchMu.Unlock()
+					return
+				}
+				currentBatch := requestBatches[currentBatchI]
+				batchMu.Unlock()
+				_, err := client.Batch(context.Background(), currentBatch)
 				if err != nil {
 					fmt.Printf("Batch call failed: %v\n", err)
 					return
 				}
 			}()
-			numRequestsSent += len(requestBatches[currentBatchI])
 			lastBatchSentTime = now
+			numRequestsSent += batchSize
+
+			batchMu.Lock()
 			currentBatchI += 1
+			batchMu.Unlock()
+
 			fmt.Printf("Sent batch %d / %d\n", currentBatchI, len(requestBatches))
 		}
 	}
