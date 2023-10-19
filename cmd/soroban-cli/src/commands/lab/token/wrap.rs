@@ -1,17 +1,15 @@
 use clap::{arg, command, Parser};
 use soroban_env_host::{
-    budget::Budget,
-    storage::Storage,
     xdr::{
         Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
         Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
         LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
         ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
     },
-    Host, HostError,
+    HostError,
 };
 use std::convert::Infallible;
-use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError, rc::Rc};
+use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
 use crate::{
     commands::config,
@@ -63,40 +61,9 @@ impl Cmd {
         // Parse asset
         let asset = parse_asset(&self.asset)?;
 
-        let res_str = if self.config.is_no_network() {
-            self.run_in_sandbox(&asset)?
-        } else {
-            self.run_against_rpc_server(asset).await?
-        };
+        let res_str = self.run_against_rpc_server(asset).await?;
         println!("{res_str}");
         Ok(())
-    }
-
-    pub fn run_in_sandbox(&self, asset: &Asset) -> Result<String, Error> {
-        // Initialize storage and host
-        // TODO: allow option to separate input and output file
-        let mut state = self.config.get_state()?;
-
-        let snap = Rc::new(state.clone());
-        let h = Host::with_storage_and_budget(
-            Storage::with_recording_footprint(snap),
-            Budget::default(),
-        );
-
-        let mut ledger_info = state.ledger_info();
-        ledger_info.sequence_number += 1;
-        ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info)?;
-
-        let res = h.invoke_function(HostFunction::CreateContract(CreateContractArgs {
-            contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
-            executable: ContractExecutable::StellarAsset,
-        }))?;
-
-        let contract_id = vec_to_hash(&res)?;
-        state.update(&h);
-        self.config.set_state(&state)?;
-        Ok(stellar_strkey::Contract(contract_id.0).to_string())
     }
 
     async fn run_against_rpc_server(&self, asset: Asset) -> Result<String, Error> {

@@ -17,7 +17,7 @@ use soroban_env_host::{
 };
 
 use crate::{
-    commands::{config, contract::install, HEADING_RPC, HEADING_SANDBOX},
+    commands::{config, contract::install, HEADING_RPC},
     rpc::{self, Client},
     utils, wasm,
 };
@@ -33,22 +33,12 @@ pub struct Cmd {
     /// WASM file to deploy
     #[arg(long, group = "wasm_src")]
     wasm: Option<std::path::PathBuf>,
-
     /// Hash of the already installed/deployed WASM file
     #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     wasm_hash: Option<String>,
-
-    /// Contract ID to deploy to
-    #[arg(
-        long = "id",
-        conflicts_with = "rpc_url",
-        help_heading = HEADING_SANDBOX,
-    )]
-    contract_id: Option<String>,
     /// Custom salt 32-byte salt for the token id
     #[arg(
         long,
-        conflicts_with_all = &["contract_id", "ledger_file"],
         help_heading = HEADING_RPC,
     )]
     salt: Option<String>,
@@ -125,34 +115,7 @@ impl Cmd {
             }
         })?);
 
-        if self.config.is_no_network() {
-            self.run_in_sandbox(hash)
-        } else {
-            self.run_against_rpc_server(hash).await
-        }
-    }
-
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn run_in_sandbox(&self, wasm_hash: Hash) -> Result<String, Error> {
-        let contract_id: [u8; 32] = match &self.contract_id {
-            Some(id) => {
-                utils::contract_id_from_str(id).map_err(|e| Error::CannotParseContractId {
-                    contract_id: self.contract_id.as_ref().unwrap().clone(),
-                    error: e,
-                })?
-            }
-            None => rand::thread_rng().gen::<[u8; 32]>(),
-        };
-
-        let mut state = self.config.get_state()?;
-        utils::add_contract_to_ledger_entries(
-            &mut state.ledger_entries,
-            contract_id,
-            wasm_hash.0,
-            state.min_persistent_entry_ttl,
-        );
-        self.config.set_state(&state)?;
-        Ok(stellar_strkey::Contract(contract_id).to_string())
+        self.run_against_rpc_server(hash).await
     }
 
     async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {

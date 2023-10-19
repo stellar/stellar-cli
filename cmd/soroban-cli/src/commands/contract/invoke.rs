@@ -4,38 +4,34 @@ use std::ffi::OsString;
 use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fmt::Debug, fs, io, rc::Rc};
+use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, value_parser, Parser};
 use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
-use soroban_env_host::e2e_invoke::{get_ledger_changes, TtlEntryMap};
-use soroban_env_host::xdr::ReadXdr;
+
 use soroban_env_host::{
-    budget::Budget,
-    storage::Storage,
     xdr::{
-        self, AccountId, Error as XdrError, Hash, HostFunction, InvokeContractArgs,
-        InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Memo,
-        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry,
-        ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber, SorobanAddressCredentials,
-        SorobanAuthorizationEntry, SorobanCredentials, SorobanResources, Transaction,
-        TransactionExt, Uint256, VecM,
+        self, Error as XdrError, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
+        LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
+        Preconditions, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionExt,
+        Uint256, VecM,
     },
-    DiagnosticLevel, Host, HostError,
+    HostError,
 };
 
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
 use super::super::{
-    config::{self, events_file, locator},
+    config::{self, locator},
     events,
 };
 use crate::{
-    commands::{global, HEADING_SANDBOX},
+    commands::global,
     rpc::{self, Client},
-    utils::{self, contract_spec, create_ledger_footprint, default_account_ledger_entry},
+    utils::{self, contract_spec},
     Pwd,
 };
 use soroban_spec_tools::Spec;
@@ -47,28 +43,17 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
     pub contract_id: String,
-    /// WASM file of the contract to invoke (if using sandbox will deploy this file)
-    #[arg(long)]
+    // For testing only
+    #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-
     /// Output the cost execution to stderr
-    #[arg(long = "cost", conflicts_with = "rpc_url", conflicts_with="network", help_heading = HEADING_SANDBOX)]
+    #[arg(long = "cost")]
     pub cost: bool,
-    /// Run with an unlimited budget
-    #[arg(long = "unlimited-budget",
-          conflicts_with = "rpc_url",
-          conflicts_with = "network",
-          help_heading = HEADING_SANDBOX)]
-    pub unlimited_budget: bool,
-
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
-
     #[command(flatten)]
     pub config: config::Args,
-    #[command(flatten)]
-    pub events_file: events_file::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
 }
@@ -148,8 +133,6 @@ pub enum Error {
     MissingArgument(String),
     #[error(transparent)]
     Clap(#[from] clap::Error),
-    #[error(transparent)]
-    Events(#[from] events_file::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error("Contract Error\n{0}: {1}")]
@@ -270,11 +253,7 @@ impl Cmd {
     }
 
     pub async fn invoke(&self, global_args: &global::Args) -> Result<String, Error> {
-        if self.config.is_no_network() {
-            self.run_in_sandbox(global_args)
-        } else {
-            self.run_against_rpc_server(global_args).await
-        }
+        self.run_against_rpc_server(global_args).await
     }
 
     pub async fn run_against_rpc_server(
@@ -284,6 +263,11 @@ impl Cmd {
         let network = self.config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
+        let spec_entries = self.spec_entries()?;
+        if let Some(spec_entries) = &spec_entries {
+            // For testing wasm arg parsing
+            let _ = self.build_host_function_parameters(contract_id, spec_entries)?;
+        }
         let client = Client::new(&network.rpc_url)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
@@ -297,11 +281,7 @@ impl Cmd {
         let sequence: i64 = account_details.seq_num.into();
 
         // Get the contract
-        let spec_entries = if let Some(spec) = self.spec_entries()? {
-            spec
-        } else {
-            client.get_remote_contract_spec(&contract_id).await?
-        };
+        let spec_entries = client.get_remote_contract_spec(&contract_id).await?;
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
@@ -338,147 +318,6 @@ impl Cmd {
         output_to_string(&spec, &return_value, &function)
     }
 
-    pub fn run_in_sandbox(&self, global_args: &global::Args) -> Result<String, Error> {
-        let contract_id = self.contract_id()?;
-        // Initialize storage and host
-        // TODO: allow option to separate input and output file
-        let mut state = self.config.get_state()?;
-
-        // If a file is specified, deploy the contract to storage
-        self.deploy_contract_in_sandbox(&mut state, &contract_id)?;
-
-        // Create source account, adding it to the ledger if not already present.
-        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
-            self.config.key_pair()?.verifying_key().to_bytes(),
-        )));
-        let source_account_ledger_key = LedgerKey::Account(LedgerKeyAccount {
-            account_id: source_account.clone(),
-        });
-        if !state
-            .ledger_entries
-            .iter()
-            .any(|(k, _)| **k == source_account_ledger_key)
-        {
-            state.ledger_entries.push((
-                Box::new(source_account_ledger_key),
-                (
-                    Box::new(default_account_ledger_entry(source_account.clone())),
-                    None,
-                ),
-            ));
-        }
-
-        let snap = Rc::new(state.clone());
-        let storage = Storage::with_recording_footprint(snap);
-        let spec_entries = if let Some(spec) = self.spec_entries()? {
-            spec
-        } else {
-            utils::get_contract_spec_from_state(&state, contract_id)
-                .map_err(Error::CannotParseContractSpec)?
-        };
-        let budget = Budget::default();
-        if self.unlimited_budget {
-            budget.reset_unlimited()?;
-        };
-        let h = Host::with_storage_and_budget(storage, budget);
-        h.switch_to_recording_auth(true)?;
-        h.set_source_account(source_account)?;
-        h.set_base_prng_seed(rand::Rng::gen(&mut rand::thread_rng()))?;
-
-        let mut ledger_info = state.ledger_info();
-        ledger_info.sequence_number += 1;
-        ledger_info.timestamp += 5;
-        h.set_ledger_info(ledger_info.clone())?;
-
-        let (function, spec, host_function_params, _signers) =
-            self.build_host_function_parameters(contract_id, &spec_entries)?;
-        h.set_diagnostic_level(DiagnosticLevel::Debug)?;
-        let resv = h
-            .invoke_function(HostFunction::InvokeContract(host_function_params))
-            .map_err(|host_error| {
-                if let Ok(error) = spec.find_error_type(host_error.error.get_code()) {
-                    Error::ContractInvoke(error.name.to_string_lossy(), error.doc.to_string_lossy())
-                } else {
-                    host_error.into()
-                }
-            })?;
-
-        let res_str = output_to_string(&spec, &resv, &function)?;
-
-        state.update(&h);
-
-        let contract_auth: Vec<SorobanAuthorizationEntry> = h
-            .get_recorded_auth_payloads()?
-            .into_iter()
-            .map(|payload| SorobanAuthorizationEntry {
-                credentials: match (payload.address, payload.nonce) {
-                    (Some(address), Some(nonce)) => {
-                        SorobanCredentials::Address(SorobanAddressCredentials {
-                            address,
-                            nonce,
-                            signature_expiration_ledger: ledger_info.sequence_number + 1,
-                            signature: ScVal::Void,
-                        })
-                    }
-                    _ => SorobanCredentials::SourceAccount,
-                },
-                root_invocation: payload.invocation,
-            })
-            .collect();
-        let budget = h.budget_cloned();
-        let (storage, events) = h.try_finish()?;
-        let footprint = &create_ledger_footprint(&storage.footprint);
-
-        crate::log::host_events(&events.0);
-        log_events(footprint, &[contract_auth.try_into()?], &[]);
-        if global_args.verbose || global_args.very_verbose || self.cost {
-            log_budget(&budget);
-        }
-
-        let ledger_changes = get_ledger_changes(&budget, &storage, &state, TtlEntryMap::new())?;
-        let mut expiration_ledger_extensions: HashMap<LedgerKey, u32> = HashMap::new();
-        for ledger_entry_change in ledger_changes {
-            if let Some(exp_change) = ledger_entry_change.ttl_change {
-                let key = xdr::LedgerKey::from_xdr(ledger_entry_change.encoded_key)?;
-                expiration_ledger_extensions.insert(key, exp_change.new_live_until_ledger);
-            }
-        }
-        utils::extend_ledger_entry_expirations(
-            &mut state.ledger_entries,
-            &expiration_ledger_extensions,
-        );
-
-        self.config.set_state(&state)?;
-        if !events.0.is_empty() {
-            self.events_file
-                .commit(&events.0, &state, &self.config.locator.config_dir()?)?;
-        }
-        Ok(res_str)
-    }
-
-    pub fn deploy_contract_in_sandbox(
-        &self,
-        state: &mut soroban_ledger_snapshot::LedgerSnapshot,
-        contract_id: &[u8; 32],
-    ) -> Result<(), Error> {
-        if let Some(contract) = self.read_wasm()? {
-            let wasm_hash = utils::add_contract_code_to_ledger_entries(
-                &mut state.ledger_entries,
-                contract,
-                state.min_persistent_entry_ttl,
-            )
-            .map_err(Error::CannotAddContractToLedgerEntries)?
-            .0;
-            utils::add_contract_to_ledger_entries(
-                &mut state.ledger_entries,
-                *contract_id,
-                wasm_hash,
-                state.min_persistent_entry_ttl,
-            );
-        }
-        Ok(())
-    }
-
     pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
         Ok(if let Some(wasm) = self.wasm.as_ref() {
             Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile(wasm.clone(), e))?)
@@ -511,10 +350,6 @@ fn log_events(
     crate::log::auth(auth);
     crate::log::diagnostic_events(events, tracing::Level::TRACE);
     crate::log::footprint(footprint);
-}
-
-fn log_budget(budget: &Budget) {
-    crate::log::budget(budget);
 }
 
 fn log_resources(resources: &SorobanResources) {
