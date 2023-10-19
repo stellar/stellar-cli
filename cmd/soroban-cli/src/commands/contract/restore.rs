@@ -92,7 +92,7 @@ impl Cmd {
                 ledgers_to_extend,
                 config: self.config.clone(),
                 fee: self.fee.clone(),
-                expiration_ledger_only: false,
+                extension_ledger_only: false,
             }
             .run()
             .await?;

@@ -235,7 +235,7 @@ If no keys are specified the contract itself is extended.
 ###### **Options:**
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
-* `--expiration-ledger-only` — Only print the new expiration ledger
+* `--extension-ledger-only` — Only print the new TTL ledger
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)

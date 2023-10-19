@@ -3,7 +3,7 @@ use serde_json::json;
 use soroban_cli::commands;
 use soroban_test::TestEnv;
 
-use crate::integration::util::{bump_contract, deploy_custom, CUSTOM_TYPES};
+use crate::integration::util::{deploy_custom, extend_contract, CUSTOM_TYPES};
 
 use super::util::invoke_with_roundtrip;
 
@@ -17,7 +17,7 @@ fn invoke_custom(e: &TestEnv, id: &str, func: &str) -> assert_cmd::Command {
 async fn parse() {
     let sandbox = &TestEnv::default();
     let id = &deploy_custom(sandbox);
-    bump_contract(sandbox, id, CUSTOM_TYPES).await;
+    extend_contract(sandbox, id, CUSTOM_TYPES).await;
     symbol(sandbox, id);
     string_with_quotes(sandbox, id).await;
     symbol_with_quotes(sandbox, id).await;

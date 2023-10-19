@@ -98,8 +98,6 @@ pub enum Error {
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
     #[error("Fee was too large {0}")]
     LargeFee(u64),
-    #[error("Failed to parse LedgerEntryData\nkey:{0:?}\nvalue:{1:?}\nexpiration:{2:?}")]
-    FailedParseLedgerEntryData(LedgerKey, LedgerEntryData, LedgerEntryData),
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
