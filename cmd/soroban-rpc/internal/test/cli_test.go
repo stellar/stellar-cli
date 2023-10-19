@@ -142,7 +142,7 @@ func TestCLIExtend(t *testing.T) {
 	extendOutput := runSuccessfulCLICmd(
 		t,
 		fmt.Sprintf(
-			"contract extend --id %s --key COUNTER --durability persistent --ledgers-to-expire 20",
+			"contract extend --id %s --key COUNTER --durability persistent --ledgers-to-extend 20",
 			strkeyContractID,
 		),
 	)
@@ -330,7 +330,7 @@ func extend(t *testing.T, contractId string, amount string, rest string) uint64 
 	res := runSuccessfulCLICmd(
 		t,
 		fmt.Sprintf(
-			"contract extend --expiration-ledger-only --id=%s --durability persistent --ledgers-to-expire=%s %s",
+			"contract extend --expiration-ledger-only --id=%s --durability persistent --ledgers-to-extend=%s %s",
 			contractId,
 			amount,
 			rest,

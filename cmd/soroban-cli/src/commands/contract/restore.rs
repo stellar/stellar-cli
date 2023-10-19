@@ -26,7 +26,7 @@ pub struct Cmd {
     pub key: key::Args,
     /// Number of ledgers to extend the entry
     #[arg(long)]
-    pub ledgers_to_expire: Option<u32>,
+    pub ledgers_to_extend: Option<u32>,
     #[command(flatten)]
     pub config: config::Args,
     #[command(flatten)]
@@ -90,10 +90,10 @@ impl Cmd {
             self.run_against_rpc_server().await?
         };
 
-        if let Some(ledgers_to_expire) = self.ledgers_to_expire {
+        if let Some(ledgers_to_extend) = self.ledgers_to_extend {
             extend::Cmd {
                 key: self.key.clone(),
-                ledgers_to_expire,
+                ledgers_to_extend,
                 config: self.config.clone(),
                 fee: self.fee.clone(),
                 expiration_ledger_only: false,

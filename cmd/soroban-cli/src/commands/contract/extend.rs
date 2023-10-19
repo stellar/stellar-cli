@@ -15,14 +15,14 @@ use crate::{
     wasm, Pwd,
 };
 
-const MAX_LEDGERS_TO_EXPIRE: u32 = 535_679;
+const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
-    pub ledgers_to_expire: u32,
+    pub ledgers_to_extend: u32,
 
     /// Only print the new expiration ledger
     #[arg(long)]
@@ -97,11 +97,11 @@ impl Cmd {
         Ok(())
     }
 
-    fn ledgers_to_expire(&self) -> u32 {
-        let res = u32::min(self.ledgers_to_expire, MAX_LEDGERS_TO_EXPIRE);
-        if res < self.ledgers_to_expire {
+    fn ledgers_to_extend(&self) -> u32 {
+        let res = u32::min(self.ledgers_to_extend, MAX_LEDGERS_TO_EXTEND);
+        if res < self.ledgers_to_extend {
             tracing::warn!(
-                "Ledgers to expire is too large, using max value of {MAX_LEDGERS_TO_EXPIRE}"
+                "Ledgers to extend is too large, using max value of {MAX_LEDGERS_TO_EXTEND}"
             );
         }
         res
@@ -114,7 +114,7 @@ impl Cmd {
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
-        let extend_to = self.ledgers_to_expire();
+        let extend_to = self.ledgers_to_extend();
 
         // Get the account sequence number
         let public_strkey =
@@ -175,9 +175,9 @@ impl Cmd {
 
         if operations[0].changes.is_empty() {
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let expire = entry.entries[0].live_until_ledger_seq;
-            if entry.latest_ledger + i64::from(extend_to) < i64::from(expire) {
-                return Ok(expire);
+            let extension = entry.entries[0].live_until_ledger_seq;
+            if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
+                return Ok(extension);
             }
         }
 
@@ -220,7 +220,7 @@ impl Cmd {
                         if keys.contains(&new_k) {
                             // It must have an expiration since it's a contract data entry
                             let old_expiration = v.1.unwrap();
-                            expiration_ledger_seq = Some(old_expiration + self.ledgers_to_expire);
+                            expiration_ledger_seq = Some(old_expiration + self.ledgers_to_extend);
                             expiration_ledger_seq
                         } else {
                             new_e

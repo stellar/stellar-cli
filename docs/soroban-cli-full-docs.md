@@ -230,11 +230,11 @@ Extend the expiry ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `soroban contract extend [OPTIONS] --ledgers-to-expire <LEDGERS_TO_EXPIRE> --durability <DURABILITY>`
+**Usage:** `soroban contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --durability <DURABILITY>`
 
 ###### **Options:**
 
-* `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entries
+* `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
 * `--expiration-ledger-only` — Only print the new expiration ledger
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 * `--key <KEY>` — Storage key (symbols only)
@@ -472,7 +472,7 @@ If no keys are specificed the contract itself is restored.
   - `temporary`:
     Temporary
 
-* `--ledgers-to-expire <LEDGERS_TO_EXPIRE>` — Number of ledgers to extend the entry
+* `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
