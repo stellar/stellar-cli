@@ -1,6 +1,6 @@
 [package]
 name = "test_hello_world"
-version = "20.0.0-rc4"
+version = "20.0.0-rc.4.1"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
