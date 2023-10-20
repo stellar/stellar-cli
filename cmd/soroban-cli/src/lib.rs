@@ -7,7 +7,6 @@ pub mod commands;
 pub mod fee;
 pub mod key;
 pub mod log;
-pub mod network;
 pub mod rpc;
 pub mod toid;
 pub mod utils;

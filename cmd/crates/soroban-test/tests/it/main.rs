@@ -1,10 +1,8 @@
 mod arg_parsing;
 mod config;
-
-mod custom_types;
-mod dotenv;
-mod hello_world;
-mod integration_and_sandbox;
+mod help;
+#[cfg(feature = "integration")]
+mod integration;
 mod lab;
 mod plugin;
 mod util;

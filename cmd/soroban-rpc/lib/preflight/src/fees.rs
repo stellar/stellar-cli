@@ -27,12 +27,14 @@ use std::convert::{TryFrom, TryInto};
 /// Serialize XDR size for any `ExpirationEntry` ledger entry.
 const EXPIRATION_ENTRY_SIZE: u32 = 48;
 
+// TODO: this should perhaps be an new type
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
     pre_storage: &LedgerStorage,
     post_storage: &Storage,
     budget: &Budget,
-    events: &Vec<DiagnosticEvent>,
+    events: &[DiagnosticEvent],
     invocation_result: &ScVal,
     bucket_list_size: u64,
     current_ledger_seq: u32,
@@ -127,8 +129,9 @@ fn estimate_max_transaction_size_for_operation(
     Ok(u32::try_from(envelope_size)?)
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn calculate_host_function_soroban_resources(
-    ledger_changes: &Vec<LedgerEntryChange>,
+    ledger_changes: &[LedgerEntryChange],
     footprint: &Footprint,
     budget: &Budget,
 ) -> Result<SorobanResources> {
@@ -162,6 +165,7 @@ fn calculate_host_function_soroban_resources(
     })
 }
 
+#[allow(clippy::cast_possible_wrap)]
 fn get_fee_configurations(
     ledger_storage: &LedgerStorage,
     bucket_list_size: u64,
@@ -232,18 +236,19 @@ fn get_fee_configurations(
 }
 
 // Calculate the implicit ExpirationEntry bytes that will be read for expirable LedgerEntries
-fn calculate_expiration_entry_bytes(ledger_entries: &Vec<LedgerKey>) -> Result<u32> {
-    Ok(ledger_entries
+fn calculate_expiration_entry_bytes(ledger_entries: &[LedgerKey]) -> u32 {
+    ledger_entries
         .iter()
         .map(|lk| match lk {
             LedgerKey::ContractData(_) | LedgerKey::ContractCode(_) => EXPIRATION_ENTRY_SIZE,
             _ => 0,
         })
-        .sum())
+        .sum()
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn calculate_unmodified_ledger_entry_bytes(
-    ledger_entries: &Vec<LedgerKey>,
+    ledger_entries: &[LedgerKey],
     pre_storage: &LedgerStorage,
     include_expired: bool,
 ) -> Result<u32> {
@@ -258,7 +263,7 @@ fn calculate_unmodified_ledger_entry_bytes(
     Ok(res as u32)
 }
 
-fn calculate_contract_events_size_bytes(events: &Vec<DiagnosticEvent>) -> Result<u32> {
+fn calculate_contract_events_size_bytes(events: &[DiagnosticEvent]) -> Result<u32> {
     let mut res: u32 = 0;
     for e in events {
         if e.event.type_ != ContractEventType::Contract
@@ -302,7 +307,7 @@ fn finalize_transaction_data_and_min_fee(
             .context("failed to obtain configuration settings from the network")?;
     let (non_refundable_fee, refundable_fee) =
         compute_transaction_resource_fee(transaction_resources, &fee_configuration);
-    let rent_fee = compute_rent_fee(&rent_changes, &rent_fee_configuration, current_ledger_seq);
+    let rent_fee = compute_rent_fee(rent_changes, &rent_fee_configuration, current_ledger_seq);
     let transaction_data = SorobanTransactionData {
         resources: soroban_resources,
         refundable_fee: refundable_fee + rent_fee,
@@ -330,10 +335,10 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     )
     .context("cannot compute bump rent changes")?;
 
-    let expiration_bytes: u32 = calculate_expiration_entry_bytes(footprint.read_only.as_vec())?;
+    let expiration_bytes = calculate_expiration_entry_bytes(footprint.read_only.as_slice());
 
     let unmodified_entry_bytes = calculate_unmodified_ledger_entry_bytes(
-        footprint.read_only.as_vec(),
+        footprint.read_only.as_slice(),
         ledger_storage,
         false,
     )
@@ -363,7 +368,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
         contract_events_size_bytes: 0,
     };
     finalize_transaction_data_and_min_fee(
-        &ledger_storage,
+        ledger_storage,
         &transaction_resources,
         soroban_resources,
         &rent_changes,
@@ -372,6 +377,7 @@ pub(crate) fn compute_bump_footprint_exp_transaction_data_and_min_fee(
     )
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn compute_bump_footprint_rent_changes(
     footprint: &LedgerFootprint,
     ledger_storage: &LedgerStorage,
@@ -380,7 +386,7 @@ fn compute_bump_footprint_rent_changes(
 ) -> Result<Vec<LedgerEntryRentChange>> {
     let mut rent_changes: Vec<LedgerEntryRentChange> =
         Vec::with_capacity(footprint.read_only.len());
-    for key in (&footprint).read_only.as_vec() {
+    for key in footprint.read_only.as_slice() {
         let unmodified_entry_and_expiration = ledger_storage
             .get(key, false)
             .with_context(|| format!("cannot find bump footprint ledger entry with key {key:?}"))?;
@@ -426,7 +432,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     )
     .context("cannot compute restore rent changes")?;
 
-    let expiration_bytes: u32 = calculate_expiration_entry_bytes(footprint.read_write.as_vec())?;
+    let expiration_bytes = calculate_expiration_entry_bytes(footprint.read_write.as_vec());
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,
@@ -465,6 +471,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     )
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn compute_restore_footprint_rent_changes(
     footprint: &LedgerFootprint,
     ledger_storage: &LedgerStorage,
