@@ -1,24 +1,8 @@
 import test from 'ava'
-import { Contract, Ok, Err, networks, Address } from '../../fixtures/test_custom_types/dist/esm/index.js'
+import { publicKey, rpcUrl, wallet } from './util.js'
+import { Contract, Ok, Err, networks, Address } from 'test-custom-types'
 
-const rpcUrl = 'https://rpc-futurenet.stellar.org'
-const publicKey = 'GCBVOLOM32I7OD5TWZQCIXCXML3TK56MDY7ZMTAILIBQHHKPCVU42XYW'
-const addr = Address.fromString(publicKey)
-
-const contract = new Contract({
-  ...networks.futurenet,
-  rpcUrl,
-  wallet: {
-    isConnected: () => Promise.resolve(true),
-    isAllowed: () => Promise.resolve(true),
-    getUserInfo: () => Promise.resolve({ publicKey }),
-    signTransaction: async (tx: string, opts?: {
-      network?: string,
-      networkPassphrase?: string,
-      accountToSign?: string,
-    }) => tx,
-  },
-})
+const contract = new Contract({ ...networks.standalone, rpcUrl, wallet});
 
 test('hello', async t => {
   t.is(await contract.hello({ hello: 'tests' }), 'tests')
@@ -89,8 +73,8 @@ test('complex with enum', async t => {
 })
 
 test('complex with asset', async t => {
-  const arg = { tag: 'Asset', values: [addr, 1n] } as const
-  const ret = { tag: 'Asset', values: [addr, 1n] }
+  const arg = { tag: 'Asset', values: [publicKey, 1n] } as const
+  const ret = { tag: 'Asset', values: [new Address(publicKey), 1n] }
   t.deepEqual(await contract.complex({ complex: arg }), ret)
 })
 
@@ -100,7 +84,7 @@ test('complex with void', async t => {
 })
 
 test('addresse', async t => {
-  t.deepEqual(await contract.addresse({ addresse: addr }), addr)
+  t.deepEqual(await contract.addresse({ addresse: publicKey }), Address.fromString(publicKey))
 })
 
 test('bytes', async t => {
