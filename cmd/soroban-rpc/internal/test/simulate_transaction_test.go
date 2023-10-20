@@ -1130,7 +1130,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, xdr.Int64(45), transactionData.RefundableFee)
-	assert.Equal(t, xdr.Uint32(7260), transactionData.Resources.ReadBytes)
+	assert.Equal(t, xdr.Uint32(7448), transactionData.Resources.ReadBytes)
 	assert.Equal(t, xdr.Uint32(104), transactionData.Resources.WriteBytes)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }
