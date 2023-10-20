@@ -1,8 +1,6 @@
 module github.com/stellar/soroban-tools
 
-go 1.21
-
-toolchain go1.21.0
+go 1.20
 
 require (
 	github.com/Masterminds/squirrel v1.5.4
