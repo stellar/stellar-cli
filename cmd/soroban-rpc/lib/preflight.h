@@ -2,6 +2,7 @@
 // this header automatically from your Rust code.  But for now, we'll just write it by hand.
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef struct ledger_info_t {
   uint32_t protocol_version;
@@ -41,7 +42,8 @@ preflight_result_t *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to for
                                            uint64_t bucket_list_size, // Bucket list size of current ledger
                                            const xdr_t invoke_hf_op, // InvokeHostFunctionOp XDR
                                            const xdr_t source_account, // AccountId XDR
-                                           const ledger_info_t ledger_info);
+                                           const ledger_info_t ledger_info,
+                                           bool enable_debug);
 
 preflight_result_t *preflight_footprint_expiration_op(uintptr_t   handle, // Go Handle to forward to SnapshotSourceGet
                                                       uint64_t bucket_list_size, // Bucket list size of current ledger

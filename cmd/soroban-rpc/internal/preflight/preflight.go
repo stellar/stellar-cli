@@ -79,6 +79,7 @@ type PreflightParameters struct {
 	NetworkPassphrase string
 	LedgerEntryReadTx db.LedgerEntryReadTx
 	BucketListSize    uint64
+	EnableDebug       bool
 }
 
 type Preflight struct {
@@ -224,6 +225,7 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 		invokeHostFunctionCXDR,
 		sourceAccountCXDR,
 		li,
+		C.bool(params.EnableDebug),
 	)
 	FreeGoXDR(invokeHostFunctionCXDR)
 	FreeGoXDR(sourceAccountCXDR)

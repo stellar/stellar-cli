@@ -326,6 +326,7 @@ func getPreflightParameters(t testing.TB, dbConfig *preflightParametersDBConfig)
 	}
 	argSymbol := xdr.ScSymbol("world")
 	params := PreflightParameters{
+		EnableDebug:   true,
 		Logger:        log.New(),
 		SourceAccount: xdr.MustAddress("GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H"),
 		OpBody: xdr.OperationBody{Type: xdr.OperationTypeInvokeHostFunction,
