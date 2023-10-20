@@ -11,7 +11,6 @@ pub mod lab;
 pub mod plugin;
 pub mod version;
 
-pub const HEADING_SANDBOX: &str = "Options (Sandbox)";
 pub const HEADING_RPC: &str = "Options (RPC)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
@@ -33,11 +32,13 @@ Commands that relate to smart contract interactions are organized under the `con
 
 A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. `soroban contract invoke` makes use of this:
 
-    soroban contract invoke --id 1 --source alice -- --help
+    soroban contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
+                            --help
 
 Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    soroban contract invoke --id 1 --source alice -- hello --to world
+    soroban contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
+                            hello --to world
 
 Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md";
 

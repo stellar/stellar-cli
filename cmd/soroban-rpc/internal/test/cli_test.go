@@ -23,7 +23,7 @@ import (
 
 func cargoTest(t *testing.T, name string) {
 	NewCLITest(t)
-	c := icmd.Command("cargo", "test", "--package", "soroban-test", "--test", "it", "--", name, "--exact", "--nocapture")
+	c := icmd.Command("cargo", "test", "--features", "integration", "--package", "soroban-test", "--test", "it", "--", name, "--exact", "--nocapture")
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
@@ -33,9 +33,9 @@ func cargoTest(t *testing.T, name string) {
 }
 
 func TestCLICargoTest(t *testing.T) {
-	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration_and_sandbox::", "--package", "soroban-test", "--", "--list"))
+	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration::", "--package", "soroban-test", "--features", "integration", "--", "--list"))
 	input := names.Stdout()
-	lines := strings.Split(input, "\n")
+	lines := strings.Split(strings.TrimSpace(input), "\n")
 	for _, line := range lines {
 		testName := strings.TrimSuffix(line, ": test")
 		t.Run(testName, func(t *testing.T) {

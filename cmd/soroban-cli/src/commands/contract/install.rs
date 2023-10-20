@@ -55,28 +55,10 @@ impl Cmd {
     }
 
     pub async fn run_and_get_hash(&self) -> Result<Hash, Error> {
-        let contract = self.wasm.read()?;
-        if self.config.is_no_network() {
-            self.run_in_sandbox(contract)
-        } else {
-            self.run_against_rpc_server(contract).await
-        }
+        self.run_against_rpc_server(&self.wasm.read()?).await
     }
 
-    pub fn run_in_sandbox(&self, contract: Vec<u8>) -> Result<Hash, Error> {
-        let mut state = self.config.get_state()?;
-        let wasm_hash = utils::add_contract_code_to_ledger_entries(
-            &mut state.ledger_entries,
-            contract,
-            state.min_persistent_entry_expiration,
-        )?;
-
-        self.config.set_state(&state)?;
-
-        Ok(wasm_hash)
-    }
-
-    async fn run_against_rpc_server(&self, contract: Vec<u8>) -> Result<Hash, Error> {
+    async fn run_against_rpc_server(&self, contract: &[u8]) -> Result<Hash, Error> {
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         client
@@ -91,7 +73,7 @@ impl Cmd {
         let sequence: i64 = account_details.seq_num.into();
 
         let (tx_without_preflight, hash) =
-            build_install_contract_code_tx(contract.clone(), sequence + 1, self.fee.fee, &key)?;
+            build_install_contract_code_tx(contract, sequence + 1, self.fee.fee, &key)?;
 
         // Currently internal errors are not returned if the contract code is expired
         if let (
@@ -135,12 +117,12 @@ impl Cmd {
 }
 
 pub(crate) fn build_install_contract_code_tx(
-    source_code: Vec<u8>,
+    source_code: &[u8],
     sequence: i64,
     fee: u32,
     key: &ed25519_dalek::SigningKey,
 ) -> Result<(Transaction, Hash), XdrError> {
-    let hash = utils::contract_hash(&source_code)?;
+    let hash = utils::contract_hash(source_code)?;
 
     let op = Operation {
         source_account: Some(MuxedAccount::Ed25519(Uint256(
@@ -172,7 +154,7 @@ mod tests {
     #[test]
     fn test_build_install_contract_code() {
         let result = build_install_contract_code_tx(
-            b"foo".to_vec(),
+            b"foo",
             300,
             1,
             &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")

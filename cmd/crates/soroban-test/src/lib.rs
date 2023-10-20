@@ -71,7 +71,7 @@ impl TestEnv {
     /// ```rust,no_run
     /// use soroban_test::TestEnv;
     /// TestEnv::with_default(|env| {
-    ///     env.invoke(&["--id", "1", "--", "hello", "--world=world"]).unwrap();
+    ///     env.new_assert_cmd("contract").args(&["invoke", "--id", "1", "--", "hello", "--world=world"]).assert().success();
     /// });
     /// ```
     ///
@@ -122,7 +122,7 @@ impl TestEnv {
     }
 
     /// A convenience method for using the invoke command.
-    pub fn invoke<I: AsRef<str>>(&self, command_str: &[I]) -> Result<String, invoke::Error> {
+    pub async fn invoke<I: AsRef<str>>(&self, command_str: &[I]) -> Result<String, invoke::Error> {
         let cmd = contract::invoke::Cmd::parse_arg_vec(
             &command_str
                 .iter()
@@ -131,13 +131,13 @@ impl TestEnv {
                 .collect::<Vec<_>>(),
         )
         .unwrap();
-        self.invoke_cmd(cmd)
+        self.invoke_cmd(cmd).await
     }
 
     /// Invoke an already parsed invoke command
-    pub fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, invoke::Error> {
+    pub async fn invoke_cmd(&self, mut cmd: invoke::Cmd) -> Result<String, invoke::Error> {
         cmd.set_pwd(self.dir());
-        cmd.run_in_sandbox(&global::Args {
+        cmd.run_against_rpc_server(&global::Args {
             locator: config::locator::Args {
                 global: false,
                 config_dir: None,
@@ -148,6 +148,7 @@ impl TestEnv {
             very_verbose: false,
             list: false,
         })
+        .await
     }
 
     /// Reference to current directory of the `TestEnv`.

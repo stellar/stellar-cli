@@ -28,7 +28,7 @@ pub enum Cmd {
     /// Deploy a contract
     Deploy(deploy::Cmd),
 
-    /// Fetch a contract's Wasm binary from a network or local sandbox
+    /// Fetch a contract's Wasm binary
     Fetch(fetch::Cmd),
 
     /// Inspect a WASM file listing contract functions, meta, etc
