@@ -98,8 +98,6 @@ pub enum Error {
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
     #[error("Fee was too large {0}")]
     LargeFee(u64),
-    #[error("Failed to parse LedgerEntryData\nkey:{0:?}\nvalue:{1:?}\nexpiration:{2:?}")]
-    FailedParseLedgerEntryData(LedgerKey, LedgerEntryData, LedgerEntryData),
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -154,12 +152,12 @@ pub struct LedgerEntryResult {
     )]
     pub last_modified_ledger: u32,
     #[serde(
-        rename = "expirationLedgerSeq",
+        rename = "liveUntilLedgerSeqLedgerSeq",
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_option_number_from_string",
         default
     )]
-    pub expiration_ledger_seq: Option<u32>,
+    pub live_until_ledger_seq_ledger_seq: Option<u32>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -435,7 +433,7 @@ pub struct FullLedgerEntry {
     pub key: LedgerKey,
     pub val: LedgerEntryData,
     pub last_modified_ledger: u32,
-    pub expiration_ledger_seq: u32,
+    pub live_until_ledger_seq: u32,
 }
 
 #[derive(Debug)]
@@ -777,7 +775,7 @@ soroban config identity fund {address} --helper-url <url>"#
     ) -> Result<FullLedgerEntries, Error> {
         let keys = ledger_keys
             .iter()
-            .filter(|key| !matches!(key, LedgerKey::Expiration(_)))
+            .filter(|key| !matches!(key, LedgerKey::Ttl(_)))
             .map(Clone::clone)
             .collect::<Vec<_>>();
         tracing::trace!("keys: {keys:#?}");
@@ -794,12 +792,12 @@ soroban config identity fund {address} --helper-url <url>"#
                      key,
                      xdr,
                      last_modified_ledger,
-                     expiration_ledger_seq,
+                     live_until_ledger_seq_ledger_seq,
                  }| {
                     Ok(FullLedgerEntry {
                         key: LedgerKey::from_xdr_base64(key)?,
                         val: LedgerEntryData::from_xdr_base64(xdr)?,
-                        expiration_ledger_seq: expiration_ledger_seq.unwrap_or_default(),
+                        live_until_ledger_seq: live_until_ledger_seq_ledger_seq.unwrap_or_default(),
                         last_modified_ledger: *last_modified_ledger,
                     })
                 },
@@ -920,7 +918,7 @@ soroban config identity fund {address} --helper-url <url>"#
             .map_err(Error::CouldNotParseContractSpec)?
             .spec),
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
-                executable: xdr::ContractExecutable::Token,
+                executable: xdr::ContractExecutable::StellarAsset,
                 ..
             }) => Ok(soroban_spec::read::parse_raw(
                 &token::StellarAssetSpec::spec_xdr(),

@@ -274,7 +274,7 @@ mod tests {
                 read_bytes: 5,
                 write_bytes: 0,
             },
-            refundable_fee: 0,
+            resource_fee: 0,
             ext: ExtensionPoint::V0,
         }
     }

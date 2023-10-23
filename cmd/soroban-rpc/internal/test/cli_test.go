@@ -26,7 +26,7 @@ import (
 
 func cargoTest(t *testing.T, name string) {
 	NewCLITest(t)
-	c := icmd.Command("cargo", "test", "--package", "soroban-test", "--test", "it", "--", name, "--exact", "--nocapture")
+	c := icmd.Command("cargo", "test", "--features", "integration", "--package", "soroban-test", "--test", "it", "--", name, "--exact", "--nocapture")
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
@@ -36,10 +36,9 @@ func cargoTest(t *testing.T, name string) {
 }
 
 func TestCLICargoTest(t *testing.T) {
-	result := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration_and_sandbox::", "--package", "soroban-test", "--", "--list"))
-	require.NoError(t, result.Error)
-	input := result.Stdout()
-	lines := strings.Split(input, "\n")
+	names := icmd.RunCmd(icmd.Command("cargo", "-q", "test", "integration::", "--package", "soroban-test", "--features", "integration", "--", "--list"))
+	input := names.Stdout()
+	lines := strings.Split(strings.TrimSpace(input), "\n")
 	for _, line := range lines {
 		testName := strings.TrimSuffix(line, ": test")
 		t.Run(testName, func(t *testing.T) {
@@ -127,7 +126,7 @@ func TestCLIRestorePreamble(t *testing.T) {
 	require.Equal(t, "3", count)
 }
 
-func TestCLIBump(t *testing.T) {
+func TestCLIExtend(t *testing.T) {
 	test := NewCLITest(t)
 	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
@@ -139,19 +138,19 @@ func TestCLIBump(t *testing.T) {
 	ttlKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 	initialLiveUntilSeq := getLedgerEntryLiveUntil(t, client, ttlKey)
 
-	bumpOutput := runSuccessfulCLICmd(
+	extendOutput := runSuccessfulCLICmd(
 		t,
 		fmt.Sprintf(
-			"contract bump --id %s --key COUNTER --durability persistent --ledgers-to-expire 20",
+			"contract extend --id %s --key COUNTER --durability persistent --ledgers-to-extend 20",
 			strkeyContractID,
 		),
 	)
 
 	newLiveUntilSeq := getLedgerEntryLiveUntil(t, client, ttlKey)
 	assert.Greater(t, newLiveUntilSeq, initialLiveUntilSeq)
-	assert.Equal(t, fmt.Sprintf("New ttl ledger: %d", newLiveUntilSeq), bumpOutput)
+	assert.Equal(t, fmt.Sprintf("New ttl ledger: %d", newLiveUntilSeq), extendOutput)
 }
-func TestCLIBumpTooLow(t *testing.T) {
+func TestCLIExtendTooLow(t *testing.T) {
 	test := NewCLITest(t)
 	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
@@ -163,17 +162,17 @@ func TestCLIBumpTooLow(t *testing.T) {
 	ttlKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 	initialLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
 
-	bumpOutput := bump(t, strkeyContractID, "400", "--key COUNTER ")
+	extendOutput := extend(t, strkeyContractID, "400", "--key COUNTER ")
 
 	newLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
 	assert.Greater(t, newLiveUntilSeq, initialLiveUntilSeq)
-	assert.Equal(t, newLiveUntilSeq, bumpOutput)
+	assert.Equal(t, newLiveUntilSeq, extendOutput)
 
-	updatedLiveUntilSeq := bump(t, strkeyContractID, "15", "--key COUNTER")
-	assert.Equal(t, bumpOutput, updatedLiveUntilSeq)
+	updatedLiveUntilSeq := extend(t, strkeyContractID, "15", "--key COUNTER")
+	assert.Equal(t, extendOutput, updatedLiveUntilSeq)
 }
 
-func TestCLIBumpTooHigh(t *testing.T) {
+func TestCLIExtendTooHigh(t *testing.T) {
 	test := NewCLITest(t)
 	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
@@ -185,11 +184,11 @@ func TestCLIBumpTooHigh(t *testing.T) {
 	ttlKey := getCounterLedgerKey(parseContractStrKey(t, strkeyContractID))
 	initialLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
 
-	bumpOutput := bump(t, strkeyContractID, "100000000", "--key COUNTER ")
+	extendOutput := extend(t, strkeyContractID, "100000000", "--key COUNTER ")
 
 	newLiveUntilSeq := parseInt(t, getLedgerEntryLiveUntil(t, client, ttlKey).GoString())
 	assert.Greater(t, newLiveUntilSeq, initialLiveUntilSeq)
-	assert.Equal(t, newLiveUntilSeq, bumpOutput)
+	assert.Equal(t, newLiveUntilSeq, extendOutput)
 }
 
 func TestCLIRestore(t *testing.T) {
@@ -325,12 +324,12 @@ func parseInt(t *testing.T, s string) uint64 {
 	return i
 }
 
-func bump(t *testing.T, contractId string, amount string, rest string) uint64 {
+func extend(t *testing.T, contractId string, amount string, rest string) uint64 {
 
 	res := runSuccessfulCLICmd(
 		t,
 		fmt.Sprintf(
-			"contract bump --expiration-ledger-only --id=%s --durability persistent --ledgers-to-expire=%s %s",
+			"contract extend --extension-ledger-only --id=%s --durability persistent --ledgers-to-extend=%s %s",
 			contractId,
 			amount,
 			rest,

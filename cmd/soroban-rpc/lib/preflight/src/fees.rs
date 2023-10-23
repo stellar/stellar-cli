@@ -23,6 +23,7 @@ use state_ttl::{get_restored_ledger_sequence, TTLLedgerEntry};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
     pre_storage: &LedgerStorage,
@@ -224,7 +225,7 @@ fn get_fee_configurations(
 }
 
 // Calculate the implicit TTLEntry bytes that will be read for TTLLedgerEntries
-fn calculate_ttl_entry_bytes(ledger_entries: &Vec<LedgerKey>) -> u32 {
+fn calculate_ttl_entry_bytes(ledger_entries: &[LedgerKey]) -> u32 {
     ledger_entries
         .iter()
         .map(|lk| match lk {
@@ -319,7 +320,7 @@ pub(crate) fn compute_extend_footprint_ttl_transaction_data_and_min_fee(
         extend_to,
         current_ledger_seq,
     )
-    .context("cannot compute bump rent changes")?;
+    .context("cannot compute extend rent changes")?;
 
     let ttl_bytes: u32 = calculate_ttl_entry_bytes(footprint.read_only.as_vec());
 
@@ -372,10 +373,10 @@ fn compute_extend_footprint_rent_changes(
 ) -> Result<Vec<LedgerEntryRentChange>> {
     let mut rent_changes: Vec<LedgerEntryRentChange> =
         Vec::with_capacity(footprint.read_only.len());
-    for key in (&footprint).read_only.as_slice() {
-        let unmodified_entry_and_ttl = ledger_storage
-            .get(key, false)
-            .with_context(|| format!("cannot find bump footprint ledger entry with key {key:?}"))?;
+    for key in footprint.read_only.as_slice() {
+        let unmodified_entry_and_ttl = ledger_storage.get(key, false).with_context(|| {
+            format!("cannot find extend footprint ledger entry with key {key:?}")
+        })?;
         let size = (key.to_xdr()?.len() + unmodified_entry_and_ttl.0.to_xdr()?.len()) as u32;
         let ttl_entry: Box<dyn TTLLedgerEntry> =
             (&unmodified_entry_and_ttl)
@@ -385,7 +386,7 @@ fn compute_extend_footprint_rent_changes(
                 })?;
         let new_live_until_ledger = current_ledger_seq + extend_to;
         if new_live_until_ledger <= ttl_entry.live_until_ledger_seq() {
-            // The bump would be ineffective
+            // The extend would be ineffective
             continue;
         }
         let rent_change = LedgerEntryRentChange {

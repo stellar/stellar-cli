@@ -2,10 +2,10 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    BumpFootprintExpirationOp, Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry,
-    LedgerEntryChange, LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
+    Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
+    LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
 };
 
 use crate::{
@@ -15,22 +15,19 @@ use crate::{
     wasm, Pwd,
 };
 
-const MAX_LEDGERS_TO_EXPIRE: u32 = 535_679;
+const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
-    pub ledgers_to_expire: u32,
-
-    /// Only print the new expiration ledger
+    pub ledgers_to_extend: u32,
+    /// Only print the new TTL ledger
     #[arg(long)]
-    pub expiration_ledger_only: bool,
-
+    pub extension_ledger_only: bool,
     #[command(flatten)]
     pub key: key::Args,
-
     #[command(flatten)]
     pub config: config::Args,
     #[command(flatten)]
@@ -83,25 +80,21 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = if self.config.is_no_network() {
-            self.run_in_sandbox()?
-        } else {
-            self.run_against_rpc_server().await?
-        };
-        if self.expiration_ledger_only {
+        let expiration_ledger_seq = self.run_against_rpc_server().await?;
+        if self.extension_ledger_only {
             println!("{expiration_ledger_seq}");
         } else {
-            println!("New expiration ledger: {expiration_ledger_seq}");
+            println!("New ttl ledger: {expiration_ledger_seq}");
         }
 
         Ok(())
     }
 
-    fn ledgers_to_expire(&self) -> u32 {
-        let res = u32::min(self.ledgers_to_expire, MAX_LEDGERS_TO_EXPIRE);
-        if res < self.ledgers_to_expire {
+    fn ledgers_to_extend(&self) -> u32 {
+        let res = u32::min(self.ledgers_to_extend, MAX_LEDGERS_TO_EXTEND);
+        if res < self.ledgers_to_extend {
             tracing::warn!(
-                "Ledgers to expire is too large, using max value of {MAX_LEDGERS_TO_EXPIRE}"
+                "Ledgers to extend is too large, using max value of {MAX_LEDGERS_TO_EXTEND}"
             );
         }
         res
@@ -114,7 +107,7 @@ impl Cmd {
         let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = self.config.key_pair()?;
-        let ledgers_to_expire = self.ledgers_to_expire();
+        let extend_to = self.ledgers_to_extend();
 
         // Get the account sequence number
         let public_strkey =
@@ -130,9 +123,9 @@ impl Cmd {
             memo: Memo::None,
             operations: vec![Operation {
                 source_account: None,
-                body: OperationBody::BumpFootprintExpiration(BumpFootprintExpirationOp {
+                body: OperationBody::ExtendFootprintTtl(ExtendFootprintTtlOp {
                     ext: ExtensionPoint::V0,
-                    ledgers_to_expire,
+                    extend_to,
                 }),
             }]
             .try_into()?,
@@ -147,7 +140,7 @@ impl Cmd {
                     read_bytes: 0,
                     write_bytes: 0,
                 },
-                refundable_fee: 0,
+                resource_fee: 0,
             }),
         };
 
@@ -161,13 +154,13 @@ impl Cmd {
             tracing::info!("Events:\n {events:#?}");
         }
 
-        // The transaction from core will succeed regardless of whether it actually found & bumped
+        // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.
         let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
             return Err(Error::LedgerEntryNotFound);
         };
 
-        // Simply check if there is exactly one entry here. We only support bumping a single
+        // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
         if operations.len() == 0 {
             return Err(Error::LedgerEntryNotFound);
@@ -175,9 +168,9 @@ impl Cmd {
 
         if operations[0].changes.is_empty() {
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let expire = entry.entries[0].expiration_ledger_seq;
-            if entry.latest_ledger + i64::from(ledgers_to_expire) < i64::from(expire) {
-                return Ok(expire);
+            let extension = entry.entries[0].live_until_ledger_seq;
+            if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
+                return Ok(extension);
             }
         }
 
@@ -186,56 +179,14 @@ impl Cmd {
                 LedgerEntryChange::State(_),
                 LedgerEntryChange::Updated(LedgerEntry {
                     data:
-                        LedgerEntryData::Expiration(ExpirationEntry {
-                            expiration_ledger_seq,
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
                             ..
                         }),
                     ..
                 }),
-            ) => Ok(*expiration_ledger_seq),
+            ) => Ok(*live_until_ledger_seq),
             _ => Err(Error::LedgerEntryNotFound),
         }
-    }
-
-    fn run_in_sandbox(&self) -> Result<u32, Error> {
-        let keys = self.key.parse_keys()?;
-
-        // Initialize storage and host
-        // TODO: allow option to separate input and output file
-        let mut state = self.config.get_state()?;
-
-        // Update all matching entries
-        let mut expiration_ledger_seq = None;
-        state.ledger_entries = state
-            .ledger_entries
-            .iter()
-            .map(|(k, v)| {
-                let new_k = k.as_ref().clone();
-                let new_v = v.0.as_ref().clone();
-                let new_e = v.1;
-                (
-                    Box::new(new_k.clone()),
-                    (
-                        Box::new(new_v),
-                        if keys.contains(&new_k) {
-                            // It must have an expiration since it's a contract data entry
-                            let old_expiration = v.1.unwrap();
-                            expiration_ledger_seq = Some(old_expiration + self.ledgers_to_expire);
-                            expiration_ledger_seq
-                        } else {
-                            new_e
-                        },
-                    ),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        self.config.set_state(&state)?;
-
-        let Some(new_expiration_ledger_seq) = expiration_ledger_seq else {
-            return Err(Error::LedgerEntryNotFound);
-        };
-
-        Ok(new_expiration_ledger_seq)
     }
 }

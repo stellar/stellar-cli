@@ -69,7 +69,7 @@ func ParseCursor(input string) (Cursor, error) {
 	parsed := toid.Parse(idInt)
 
 	// Parse the second part (event order)
-	eventOrder, err := strconv.ParseInt(parts[1], 10, 64) //lint:ignore gomnd
+	eventOrder, err := strconv.ParseUint(parts[1], 10, 32) //lint:ignore gomnd
 	if err != nil {
 		return Cursor{}, fmt.Errorf("invalid event id %s: %w", input, err)
 	}

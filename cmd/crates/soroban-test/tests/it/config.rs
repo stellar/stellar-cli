@@ -1,8 +1,8 @@
 use assert_fs::TempDir;
-use soroban_test::{temp_ledger_file, TestEnv};
+use soroban_test::TestEnv;
 use std::{fs, path::Path};
 
-use crate::util::{add_identity, add_test_id, SecretKind, DEFAULT_SEED_PHRASE, HELLO_WORLD};
+use crate::util::{add_identity, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
 use soroban_cli::commands::config::network;
 
 const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
@@ -203,26 +203,6 @@ fn seed_phrase() {
         .arg("ls")
         .assert()
         .stdout("test_seed\n");
-}
-
-#[test]
-fn use_different_ledger_file() {
-    let sandbox = TestEnv::default();
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("invoke")
-        .arg("--id=1")
-        .arg("--wasm")
-        .arg(HELLO_WORLD.path())
-        .arg("--ledger-file")
-        .arg(temp_ledger_file())
-        .arg("--")
-        .arg("hello")
-        .arg("--world=world")
-        .assert()
-        .stdout("[\"Hello\",\"world\"]\n")
-        .success();
-    assert!(fs::read(sandbox.dir().join(".soroban/ledger.json")).is_err());
 }
 
 #[test]

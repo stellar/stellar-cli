@@ -90,11 +90,7 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let entries = if self.config.is_no_network() {
-            self.run_in_sandbox()?
-        } else {
-            self.run_against_rpc_server().await?
-        };
+        let entries = self.run_against_rpc_server().await?;
         self.output_entries(&entries)
     }
 
@@ -107,31 +103,6 @@ impl Cmd {
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
 
-    #[allow(clippy::too_many_lines)]
-    fn run_in_sandbox(&self) -> Result<FullLedgerEntries, Error> {
-        let state = self.config.get_state()?;
-        let ledger_entries = &state.ledger_entries;
-        let latest_ledger = u32::try_from(state.ledger_entries.len()).unwrap();
-        let keys = self.key.parse_keys()?;
-        let entries = ledger_entries
-            .iter()
-            .map(|(k, v)| (k.as_ref().clone(), (v.0.as_ref().clone(), v.1)))
-            .filter(|(k, _v)| keys.contains(k))
-            .map(|(key, (v, expiration))| {
-                Ok(FullLedgerEntry {
-                    expiration_ledger_seq: expiration.unwrap_or_default(),
-                    last_modified_ledger: latest_ledger,
-                    key,
-                    val: v.data,
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-        Ok(FullLedgerEntries {
-            entries,
-            latest_ledger: 0,
-        })
-    }
-
     fn output_entries(&self, entries: &FullLedgerEntries) -> Result<(), Error> {
         if entries.entries.is_empty() {
             return Err(Error::NoContractDataEntryFoundForContractID);
@@ -141,7 +112,7 @@ impl Cmd {
         for FullLedgerEntry {
             key,
             val,
-            expiration_ledger_seq,
+            live_until_ledger_seq,
             last_modified_ledger,
         } in &entries.entries
         {
@@ -163,7 +134,7 @@ impl Cmd {
                         error: e,
                     })?,
                     last_modified_ledger.to_string(),
-                    expiration_ledger_seq.to_string(),
+                    live_until_ledger_seq.to_string(),
                 ],
                 Output::Json => [
                     serde_json::to_string_pretty(&key).map_err(|error| {
@@ -184,7 +155,7 @@ impl Cmd {
                             error,
                         }
                     })?,
-                    serde_json::to_string_pretty(&expiration_ledger_seq).map_err(|error| {
+                    serde_json::to_string_pretty(&live_until_ledger_seq).map_err(|error| {
                         Error::CannotPrintJsonResult {
                             result: val.clone(),
                             error,
@@ -195,7 +166,7 @@ impl Cmd {
                     key.to_xdr_base64()?,
                     val.to_xdr_base64()?,
                     last_modified_ledger.to_xdr_base64()?,
-                    expiration_ledger_seq.to_xdr_base64()?,
+                    live_until_ledger_seq.to_xdr_base64()?,
                 ],
             };
             out.write_record(output)

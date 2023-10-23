@@ -2,17 +2,17 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, ExpirationEntry, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-    LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
-    Preconditions, RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, Uint256,
+    Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+    LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta, Preconditions,
+    RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
 };
 use stellar_strkey::DecodeError;
 
 use crate::{
     commands::{
         config::{self, locator},
-        contract::bump,
+        contract::extend,
     },
     key,
     rpc::{self, Client},
@@ -26,7 +26,7 @@ pub struct Cmd {
     pub key: key::Args,
     /// Number of ledgers to extend the entry
     #[arg(long)]
-    pub ledgers_to_expire: Option<u32>,
+    pub ledgers_to_extend: Option<u32>,
     #[command(flatten)]
     pub config: config::Args,
     #[command(flatten)]
@@ -78,30 +78,26 @@ pub enum Error {
     #[error(transparent)]
     Key(#[from] key::Error),
     #[error(transparent)]
-    Bump(#[from] bump::Error),
+    Extend(#[from] extend::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = if self.config.is_no_network() {
-            self.run_in_sandbox()?
-        } else {
-            self.run_against_rpc_server().await?
-        };
+        let expiration_ledger_seq = self.run_against_rpc_server().await?;
 
-        if let Some(ledgers_to_expire) = self.ledgers_to_expire {
-            bump::Cmd {
+        if let Some(ledgers_to_extend) = self.ledgers_to_extend {
+            extend::Cmd {
                 key: self.key.clone(),
-                ledgers_to_expire,
+                ledgers_to_extend,
                 config: self.config.clone(),
                 fee: self.fee.clone(),
-                expiration_ledger_only: false,
+                extension_ledger_only: false,
             }
             .run()
             .await?;
         } else {
-            println!("New expiration ledger: {expiration_ledger_seq}");
+            println!("New ttl ledger: {expiration_ledger_seq}");
         }
 
         Ok(())
@@ -145,7 +141,7 @@ impl Cmd {
                     read_bytes: 0,
                     write_bytes: 0,
                 },
-                refundable_fee: 0,
+                resource_fee: 0,
             }),
         };
 
@@ -166,7 +162,7 @@ impl Cmd {
         };
         tracing::debug!("Operations:\nlen:{}\n{operations:#?}", operations.len());
 
-        // Simply check if there is exactly one entry here. We only support bumping a single
+        // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
         if operations.len() == 0 {
             return Err(Error::LedgerEntryNotFound);
@@ -180,12 +176,6 @@ impl Cmd {
         }
         parse_operations(&operations).ok_or(Error::MissingOperationResult)
     }
-
-    pub fn run_in_sandbox(&self) -> Result<u32, Error> {
-        // TODO: Implement this. This means we need to store ledger entries somewhere, and handle
-        // eviction, and restoration with that evicted state store.
-        todo!("Restoring ledger entries is not supported in the local sandbox mode");
-    }
 }
 
 fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
@@ -193,20 +183,20 @@ fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
         op.changes.iter().find_map(|entry| match entry {
             LedgerEntryChange::Updated(LedgerEntry {
                 data:
-                    LedgerEntryData::Expiration(ExpirationEntry {
-                        expiration_ledger_seq,
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
                         ..
                     }),
                 ..
             })
             | LedgerEntryChange::Created(LedgerEntry {
                 data:
-                    LedgerEntryData::Expiration(ExpirationEntry {
-                        expiration_ledger_seq,
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
                         ..
                     }),
                 ..
-            }) => Some(*expiration_ledger_seq),
+            }) => Some(*live_until_ledger_seq),
             _ => None,
         })
     })

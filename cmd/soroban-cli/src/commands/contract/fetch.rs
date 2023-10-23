@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fmt::Debug, fs, io, rc::Rc};
+use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
 use soroban_env_host::{
@@ -16,12 +16,10 @@ use soroban_env_host::{
     },
 };
 
-use soroban_ledger_snapshot::LedgerSnapshot;
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
 use super::super::config::{self, locator};
-use crate::commands::config::ledger_file;
 use crate::commands::config::network::{self, Network};
 use crate::{
     rpc::{self, Client},
@@ -42,8 +40,6 @@ pub struct Cmd {
     pub locator: locator::Args,
     #[command(flatten)]
     pub network: network::Args,
-    #[command(flatten)]
-    pub ledger_file: ledger_file::Args,
 }
 
 impl FromStr for Cmd {
@@ -87,8 +83,6 @@ pub enum Error {
     NetworkNotProvided,
     #[error(transparent)]
     Network(#[from] network::Error),
-    #[error(transparent)]
-    Ledger(#[from] ledger_file::Error),
     #[error("cannot create contract directory for {0:?}")]
     CannotCreateContractDir(PathBuf),
 }
@@ -121,11 +115,7 @@ impl Cmd {
     }
 
     pub async fn get_bytes(&self) -> Result<Vec<u8>, Error> {
-        if self.network.is_no_network() {
-            self.run_in_sandbox()
-        } else {
-            self.run_against_rpc_server().await
-        }
+        self.run_against_rpc_server().await
     }
 
     pub fn network(&self) -> Result<Network, Error> {
@@ -142,18 +132,6 @@ impl Cmd {
             .await?;
         // async closures are not yet stable
         Ok(client.get_remote_wasm(&contract_id).await?)
-    }
-
-    pub fn get_state(&self) -> Result<LedgerSnapshot, Error> {
-        Ok(self.ledger_file.read(&self.locator.config_dir()?)?)
-    }
-
-    pub fn run_in_sandbox(&self) -> Result<Vec<u8>, Error> {
-        let contract_id = self.contract_id()?;
-        // Initialize storage and host
-        let snap = Rc::new(self.get_state()?);
-        let mut storage = Storage::with_recording_footprint(snap);
-        Ok(get_contract_wasm_from_storage(&mut storage, contract_id)?)
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
@@ -198,7 +176,7 @@ pub fn get_contract_wasm_from_storage(
                         Err(FromWasmError::NotFound)
                     }
                 }
-                ContractExecutable::Token => todo!(),
+                ContractExecutable::StellarAsset => todo!(),
             },
             _ => Err(FromWasmError::NotFound),
         },

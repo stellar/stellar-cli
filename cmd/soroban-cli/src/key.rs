@@ -26,7 +26,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// Contract ID to which owns the data entries.
-    /// If no keys provided the Contract's instance will be bumped
+    /// If no keys provided the Contract's instance will be extended
     #[arg(
         long = "id",
         required_unless_present = "wasm",
@@ -39,7 +39,7 @@ pub struct Args {
     /// Storage key (base64-encoded XDR)
     #[arg(long = "key-xdr", conflicts_with = "key")]
     pub key_xdr: Option<Vec<String>>,
-    /// Path to Wasm file of contract code to bump
+    /// Path to Wasm file of contract code to extend
     #[arg(
         long,
         conflicts_with = "contract_id",
@@ -48,7 +48,7 @@ pub struct Args {
         conflicts_with = "wasm_hash"
     )]
     pub wasm: Option<PathBuf>,
-    /// Path to Wasm file of contract code to bump
+    /// Path to Wasm file of contract code to extend
     #[arg(
         long,
         conflicts_with = "contract_id",
