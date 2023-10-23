@@ -377,6 +377,28 @@ func TestGetPreflight(t *testing.T) {
 	require.NoError(t, dbConfig.dbInstance.Close())
 }
 
+func TestGetPreflightDebug(t *testing.T) {
+	params := getPreflightParameters(t, nil)
+	// Cause an error
+	params.OpBody.InvokeHostFunctionOp.HostFunction.InvokeContract.FunctionName = "bar"
+
+	resultWithDebug, err := GetPreflight(context.Background(), params)
+	require.NoError(t, err)
+	require.NotZero(t, resultWithDebug.Error)
+	require.Contains(t, resultWithDebug.Error, "Backtrace")
+	require.Contains(t, resultWithDebug.Error, "Event log")
+	require.NotContains(t, resultWithDebug.Error, "DebugInfo not available")
+
+	// Disable debug
+	params.EnableDebug = false
+	resultWithoutDebug, err := GetPreflight(context.Background(), params)
+	require.NoError(t, err)
+	require.NotZero(t, resultWithoutDebug.Error)
+	require.NotContains(t, resultWithoutDebug.Error, "Backtrace")
+	require.NotContains(t, resultWithoutDebug.Error, "Event log")
+	require.Contains(t, resultWithoutDebug.Error, "DebugInfo not available")
+}
+
 type benchmarkDBConfig struct {
 	restart      bool
 	disableCache bool
