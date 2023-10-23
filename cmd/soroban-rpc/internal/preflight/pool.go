@@ -29,6 +29,7 @@ type workerRequest struct {
 type PreflightWorkerPool struct {
 	ledgerEntryReader          db.LedgerEntryReader
 	networkPassphrase          string
+	enableDebug                bool
 	logger                     *log.Entry
 	isClosed                   atomic.Bool
 	requestChan                chan workerRequest
@@ -39,10 +40,11 @@ type PreflightWorkerPool struct {
 	wg                         sync.WaitGroup
 }
 
-func NewPreflightWorkerPool(daemon interfaces.Daemon, workerCount uint, jobQueueCapacity uint, ledgerEntryReader db.LedgerEntryReader, networkPassphrase string, logger *log.Entry) *PreflightWorkerPool {
+func NewPreflightWorkerPool(daemon interfaces.Daemon, workerCount uint, jobQueueCapacity uint, enableDebug bool, ledgerEntryReader db.LedgerEntryReader, networkPassphrase string, logger *log.Entry) *PreflightWorkerPool {
 	preflightWP := PreflightWorkerPool{
 		ledgerEntryReader: ledgerEntryReader,
 		networkPassphrase: networkPassphrase,
+		enableDebug:       enableDebug,
 		logger:            logger,
 		requestChan:       make(chan workerRequest, jobQueueCapacity),
 	}
@@ -150,6 +152,7 @@ func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.Ledg
 		LedgerEntryReadTx: &wrappedTx,
 		BucketListSize:    bucketListSize,
 		Footprint:         footprint,
+		EnableDebug:       pwp.enableDebug,
 	}
 	resultC := make(chan workerResult)
 	select {

@@ -40,6 +40,7 @@ pub(crate) fn preflight_invoke_hf_op(
     invoke_hf_op: InvokeHostFunctionOp,
     source_account: AccountId,
     ledger_info: LedgerInfo,
+    enable_debug: bool,
 ) -> Result<PreflightResult> {
     let ledger_storage_rc = Rc::new(ledger_storage);
     let budget = get_budget_from_network_config_params(&ledger_storage_rc)
@@ -48,8 +49,10 @@ pub(crate) fn preflight_invoke_hf_op(
     let host = Host::with_storage_and_budget(storage, budget);
     host.set_source_account(source_account.clone())
         .context("cannot set source account")?;
-    host.set_diagnostic_level(DiagnosticLevel::Debug)
-        .context("cannot set debug diagnostic level")?;
+    if enable_debug {
+        host.set_diagnostic_level(DiagnosticLevel::Debug)
+            .context("cannot set debug diagnostic level")?;
+    }
     host.set_ledger_info(ledger_info.clone())
         .context("cannot set ledger info")?;
     host.set_base_prng_seed(rand::Rng::gen(&mut rand::thread_rng()))

@@ -13,6 +13,7 @@ import (
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/strutils"
+
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
@@ -272,6 +273,12 @@ func (cfg *Config) options() ConfigOptions {
 			ConfigKey:    &cfg.PreflightWorkerQueueSize,
 			DefaultValue: uint(runtime.NumCPU()),
 			Validate:     positive,
+		},
+		{
+			Name:         "preflight-enable-debug",
+			Usage:        "Enable debug information in preflighting (provides more detailed errors). It should not be enabled in production deployments.",
+			ConfigKey:    &cfg.PreflightEnableDebug,
+			DefaultValue: false,
 		},
 		{
 			TomlKey:      strutils.KebabToConstantCase("request-backlog-global-queue-limit"),
