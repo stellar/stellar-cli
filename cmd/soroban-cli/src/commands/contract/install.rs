@@ -107,6 +107,7 @@ impl Cmd {
                 config: self.config.clone(),
                 fee: self.fee.clone(),
                 ledgers_to_extend: None,
+                ttl_ledger_only: true,
             }
             .run_against_rpc_server()
             .await?;

@@ -20,7 +20,7 @@ pub enum Cmd {
 
     Build(build::Cmd),
 
-    /// Extend the expiry ledger of a contract-data ledger entry.
+    /// Extend the time to live ledger of a contract-data ledger entry.
     ///
     /// If no keys are specified the contract itself is extended.
     Extend(extend::Cmd),

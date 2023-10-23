@@ -23,9 +23,9 @@ pub struct Cmd {
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
     pub ledgers_to_extend: u32,
-    /// Only print the new TTL ledger
+    /// Only print the new Time To Live ledger
     #[arg(long)]
-    pub extension_ledger_only: bool,
+    pub ttl_ledger_only: bool,
     #[command(flatten)]
     pub key: key::Args,
     #[command(flatten)]
@@ -80,11 +80,11 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = self.run_against_rpc_server().await?;
-        if self.extension_ledger_only {
-            println!("{expiration_ledger_seq}");
+        let ttl_ledger = self.run_against_rpc_server().await?;
+        if self.ttl_ledger_only {
+            println!("{ttl_ledger}");
         } else {
-            println!("New ttl ledger: {expiration_ledger_seq}");
+            println!("New ttl ledger: {ttl_ledger}");
         }
 
         Ok(())

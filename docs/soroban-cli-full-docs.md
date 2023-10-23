@@ -127,7 +127,7 @@ Tools for smart contract developers
 
 * `bindings` — Generate code client bindings for a contract
 * `build` — Build a contract from source
-* `extend` — Extend the expiry ledger of a contract-data ledger entry
+* `extend` — Extend the time to live ledger of a contract-data ledger entry
 * `deploy` — Deploy a contract
 * `fetch` — Fetch a contract's Wasm binary
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
@@ -226,7 +226,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 ## `soroban contract extend`
 
-Extend the expiry ledger of a contract-data ledger entry.
+Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
@@ -235,7 +235,7 @@ If no keys are specified the contract itself is extended.
 ###### **Options:**
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
-* `--extension-ledger-only` — Only print the new TTL ledger
+* `--ttl-ledger-only` — Only print the new Time To Live ledger
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
@@ -463,6 +463,7 @@ If no keys are specificed the contract itself is restored.
     Temporary
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
+* `--ttl-ledger-only` — Only print the new Time To Live ledger
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config

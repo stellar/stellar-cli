@@ -27,6 +27,9 @@ pub struct Cmd {
     /// Number of ledgers to extend the entry
     #[arg(long)]
     pub ledgers_to_extend: Option<u32>,
+    /// Only print the new Time To Live ledger
+    #[arg(long)]
+    pub ttl_ledger_only: bool,
     #[command(flatten)]
     pub config: config::Args,
     #[command(flatten)]
@@ -92,7 +95,7 @@ impl Cmd {
                 ledgers_to_extend,
                 config: self.config.clone(),
                 fee: self.fee.clone(),
-                extension_ledger_only: false,
+                ttl_ledger_only: false,
             }
             .run()
             .await?;
