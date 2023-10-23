@@ -37,6 +37,7 @@ type Config struct {
 	NetworkPassphrase                           string
 	PreflightWorkerCount                        uint
 	PreflightWorkerQueueSize                    uint
+	PreflightEnableDebug                        bool
 	SQLiteDBPath                                string
 	TransactionLedgerRetentionWindow            uint32
 	RequestBacklogGlobalQueueLimit              uint

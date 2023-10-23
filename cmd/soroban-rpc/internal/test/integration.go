@@ -131,6 +131,7 @@ func (i *Test) launchDaemon(coreBinaryPath string) {
 	config.EventLedgerRetentionWindow = ledgerbucketwindow.DefaultEventLedgerRetentionWindow
 	config.CheckpointFrequency = checkpointFrequency
 	config.MaxHealthyLedgerLatency = time.Second * 10
+	config.PreflightEnableDebug = true
 
 	i.daemon = daemon.MustNew(&config)
 	go i.daemon.Run()

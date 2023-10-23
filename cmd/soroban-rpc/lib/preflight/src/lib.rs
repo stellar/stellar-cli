@@ -133,6 +133,7 @@ pub extern "C" fn preflight_invoke_hf_op(
     invoke_hf_op: CXDR,      // InvokeHostFunctionOp XDR in base64
     source_account: CXDR,    // AccountId XDR in base64
     ledger_info: CLedgerInfo,
+    enable_debug: bool,
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
         preflight_invoke_hf_op_or_maybe_panic(
@@ -141,6 +142,7 @@ pub extern "C" fn preflight_invoke_hf_op(
             invoke_hf_op,
             source_account,
             ledger_info,
+            enable_debug,
         )
     }))
 }
@@ -151,6 +153,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     invoke_hf_op: CXDR,    // InvokeHostFunctionOp XDR in base64
     source_account: CXDR,  // AccountId XDR in base64
     ledger_info: CLedgerInfo,
+    enable_debug: bool,
 ) -> Result<CPreflightResult> {
     let invoke_hf_op = InvokeHostFunctionOp::from_xdr(from_c_xdr(invoke_hf_op)).unwrap();
     let source_account = AccountId::from_xdr(from_c_xdr(source_account)).unwrap();
@@ -162,6 +165,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         invoke_hf_op,
         source_account,
         LedgerInfo::from(ledger_info),
+        enable_debug,
     )?;
     Ok(result.into())
 }

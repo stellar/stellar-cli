@@ -229,6 +229,7 @@ func MustNew(cfg *config.Config) *Daemon {
 		daemon,
 		cfg.PreflightWorkerCount,
 		cfg.PreflightWorkerQueueSize,
+		cfg.PreflightEnableDebug,
 		ledgerEntryReader,
 		cfg.NetworkPassphrase,
 		logger,
