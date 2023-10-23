@@ -86,32 +86,32 @@ pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
     TEST_CONTRACT_ID.to_string()
 }
 
-pub async fn bump_contract(sandbox: &TestEnv, id: &str, wasm: &Wasm<'_>) {
-    bump(sandbox, id, None).await;
-    let cmd: contract::bump::Cmd = sandbox.cmd_arr(&[
+pub async fn extend_contract(sandbox: &TestEnv, id: &str, wasm: &Wasm<'_>) {
+    extend(sandbox, id, None).await;
+    let cmd: contract::extend::Cmd = sandbox.cmd_arr(&[
         "--wasm-hash",
         wasm.hash().unwrap().to_string().as_str(),
         "--durability",
         "persistent",
-        "--ledgers-to-expire",
+        "--ledgers-to-extend",
         "100000",
     ]);
     cmd.run().await.unwrap();
 }
 
-pub async fn bump(sandbox: &TestEnv, id: &str, value: Option<&str>) {
+pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
     let mut args = vec![
         "--id",
         id,
         "--durability",
         "persistent",
-        "--ledgers-to-expire",
+        "--ledgers-to-extend",
         "100000",
     ];
     if let Some(value) = value {
         args.push("--key");
         args.push(value);
     }
-    let cmd: contract::bump::Cmd = sandbox.cmd_arr(&args);
+    let cmd: contract::extend::Cmd = sandbox.cmd_arr(&args);
     cmd.run().await.unwrap();
 }

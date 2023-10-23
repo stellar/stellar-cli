@@ -159,7 +159,7 @@ func preflightTransactionParamsLocally(t *testing.T, params txnbuild.Transaction
 			auth = append(auth, a)
 		}
 		v.Auth = auth
-	case *txnbuild.BumpFootprintExpiration:
+	case *txnbuild.ExtendFootprintTtl:
 		require.Len(t, response.Results, 0)
 		v.Ext = xdr.TransactionExt{
 			V:           1,
@@ -236,7 +236,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			ReadBytes:    48,
 			WriteBytes:   7048,
 		},
-		RefundableFee: 20056,
+		ResourceFee: 130498,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -246,8 +246,8 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, expectedTransactionData.Resources.Footprint, transactionData.Resources.Footprint)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.Instructions), uint32(transactionData.Resources.Instructions), 200000)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.ReadBytes), uint32(transactionData.Resources.ReadBytes), 10)
-	assert.InDelta(t, uint32(expectedTransactionData.Resources.WriteBytes), uint32(transactionData.Resources.WriteBytes), 500)
-	assert.InDelta(t, int64(expectedTransactionData.RefundableFee), int64(transactionData.RefundableFee), 2000)
+	assert.InDelta(t, uint32(expectedTransactionData.Resources.WriteBytes), uint32(transactionData.Resources.WriteBytes), 300)
+	assert.InDelta(t, int64(expectedTransactionData.ResourceFee), int64(transactionData.ResourceFee), 3000)
 
 	// Then decode and check the result xdr, separately so we get a decent diff if it fails.
 	assert.Len(t, result.Results, 1)
@@ -494,7 +494,7 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Equal(t, xdr.Hash(contractHash), ro2.ContractCode.Hash)
 	assert.NoError(t, err)
 
-	assert.NotZero(t, obtainedTransactionData.RefundableFee)
+	assert.NotZero(t, obtainedTransactionData.ResourceFee)
 	assert.NotZero(t, obtainedTransactionData.Resources.Instructions)
 	assert.NotZero(t, obtainedTransactionData.Resources.ReadBytes)
 	assert.NotZero(t, obtainedTransactionData.Resources.WriteBytes)
@@ -538,7 +538,6 @@ func TestSimulateInvokeContractTransactionSucceeds(t *testing.T) {
 	assert.Len(t, event.Event.Body.V0.Topics, 1)
 	assert.Equal(t, xdr.ScValTypeScvString, event.Event.Body.V0.Topics[0].Type)
 	assert.Equal(t, xdr.ScString("auth"), *event.Event.Body.V0.Topics[0].Str)
-
 	metrics := getMetrics(test)
 	require.Contains(t, metrics, "soroban_rpc_json_rpc_request_duration_seconds_count{endpoint=\"simulateTransaction\",status=\"ok\"} 3")
 	require.Contains(t, metrics, "soroban_rpc_preflight_pool_request_ledger_get_duration_seconds_count{status=\"ok\",type=\"db\"} 3")
@@ -669,7 +668,7 @@ func TestSimulateTransactionUnmarshalError(t *testing.T) {
 	)
 }
 
-func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
+func TestSimulateTransactionExtendAndRestoreFootprint(t *testing.T) {
 	test := NewTest(t)
 
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
@@ -732,7 +731,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	// get the counter ledger entry expiration
+	// get the counter ledger entry TTL
 	key := getCounterLedgerKey(contractID)
 
 	keyB64, err := xdr.MarshalBase64(key)
@@ -747,17 +746,17 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	var entry xdr.LedgerEntryData
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, entry.Type)
-	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
+	require.NotNil(t, getLedgerEntryResult.LiveUntilLedgerSeq)
 
-	initialExpirationSeq := *getLedgerEntryResult.ExpirationLedger
+	initialLiveUntil := *getLedgerEntryResult.LiveUntilLedgerSeq
 
-	// bump the initial expiration
+	// Extend the initial TTL
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			&txnbuild.BumpFootprintExpiration{
-				LedgersToExpire: 20,
+			&txnbuild.ExtendFootprintTtl{
+				ExtendTo: 20,
 				Ext: xdr.TransactionExt{
 					V: 1,
 					SorobanData: &xdr.SorobanTransactionData{
@@ -783,32 +782,12 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
 	assert.Equal(t, xdr.LedgerEntryTypeContractData, entry.Type)
-	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
-	newExpirationSeq := *getLedgerEntryResult.ExpirationLedger
-	assert.Greater(t, newExpirationSeq, initialExpirationSeq)
+	require.NotNil(t, getLedgerEntryResult.LiveUntilLedgerSeq)
+	newLiveUntilSeq := *getLedgerEntryResult.LiveUntilLedgerSeq
+	assert.Greater(t, newLiveUntilSeq, initialLiveUntil)
 
-	// Wait until it expires
-	waitForExpiration := func() {
-		expired := false
-		for i := 0; i < 50; i++ {
-			err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-			assert.NoError(t, err)
-			assert.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-			assert.Equal(t, xdr.LedgerEntryTypeContractData, entry.Type)
-			// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
-			currentLedger := getLedgerEntryResult.LatestLedger + 1
-			require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
-			if uint32(currentLedger) > *getLedgerEntryResult.ExpirationLedger {
-				expired = true
-				t.Logf("ledger entry expired")
-				break
-			}
-			t.Log("waiting for ledger entry to expire at ledger", *getLedgerEntryResult.ExpirationLedger)
-			time.Sleep(time.Second)
-		}
-		require.True(t, expired)
-	}
-	waitForExpiration()
+	// Wait until it is not live anymore
+	waitUntilLedgerEntryTTL(t, client, key)
 
 	// and restore it
 	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
@@ -837,8 +816,8 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 	assert.NoError(t, err)
 	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	// Wait for expiration again and check the pre-restore field when trying to exec the contract again
-	waitForLedgerEntryToExpire(t, client, key)
+	// Wait for TTL again and check the pre-restore field when trying to exec the contract again
+	waitUntilLedgerEntryTTL(t, client, key)
 
 	simulationResult := simulateTransactionFromTxParams(t, client, invokeIncPresistentEntryParams)
 	require.NotNil(t, simulationResult.RestorePreamble)
@@ -851,6 +830,7 @@ func TestSimulateTransactionBumpAndRestoreFootprint(t *testing.T) {
 			Operations: []txnbuild.Operation{
 				&txnbuild.RestoreFootprint{},
 			},
+			BaseFee: txnbuild.MinBaseFee,
 			Preconditions: txnbuild.Preconditions{
 				TimeBounds: txnbuild.NewInfiniteTimeout(),
 			},
@@ -892,30 +872,13 @@ func getCounterLedgerKey(contractID [32]byte) xdr.LedgerKey {
 	return key
 }
 
-func getExpirationForLedgerEntry(t *testing.T, client *jrpc2.Client, expirationLedgerKey xdr.LedgerKey) xdr.Uint32 {
-	keyB64, err := xdr.MarshalBase64(expirationLedgerKey)
-	require.NoError(t, err)
-	getLedgerEntryrequest := methods.GetLedgerEntryRequest{
-		Key: keyB64,
-	}
-	var getLedgerEntryResult methods.GetLedgerEntryResponse
-	err = client.CallResult(context.Background(), "getLedgerEntry", getLedgerEntryrequest, &getLedgerEntryResult)
-	require.NoError(t, err)
-	var entry xdr.LedgerEntryData
-	require.NoError(t, xdr.SafeUnmarshalBase64(getLedgerEntryResult.XDR, &entry))
-
-	require.Contains(t, []xdr.LedgerEntryType{xdr.LedgerEntryTypeContractCode, xdr.LedgerEntryTypeContractData}, entry.Type)
-	require.NotNil(t, getLedgerEntryResult.ExpirationLedger)
-	return xdr.Uint32(*getLedgerEntryResult.ExpirationLedger)
-}
-
-func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, ledgerKey xdr.LedgerKey) {
+func waitUntilLedgerEntryTTL(t *testing.T, client *jrpc2.Client, ledgerKey xdr.LedgerKey) {
 	keyB64, err := xdr.MarshalBase64(ledgerKey)
 	require.NoError(t, err)
 	request := methods.GetLedgerEntriesRequest{
 		Keys: []string{keyB64},
 	}
-	expired := false
+	ttled := false
 	for i := 0; i < 50; i++ {
 		var result methods.GetLedgerEntriesResponse
 		var entry xdr.LedgerEntryData
@@ -923,19 +886,19 @@ func waitForLedgerEntryToExpire(t *testing.T, client *jrpc2.Client, ledgerKey xd
 		require.NoError(t, err)
 		require.NotEmpty(t, result.Entries)
 		require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &entry))
-		require.NotEqual(t, xdr.LedgerEntryTypeExpiration, entry.Type)
-		expirationLedgerSeq := xdr.Uint32(*result.Entries[0].ExpirationLedger)
+		require.NotEqual(t, xdr.LedgerEntryTypeTtl, entry.Type)
+		liveUntilLedgerSeq := xdr.Uint32(*result.Entries[0].LiveUntilLedgerSeq)
 		// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
 		currentLedger := result.LatestLedger + 1
-		if xdr.Uint32(currentLedger) > expirationLedgerSeq {
-			expired = true
-			t.Logf("ledger entry expired")
+		if xdr.Uint32(currentLedger) > liveUntilLedgerSeq {
+			ttled = true
+			t.Logf("ledger entry ttl'ed")
 			break
 		}
-		t.Log("waiting for ledger entry to expire at ledger", expirationLedgerSeq)
+		t.Log("waiting for ledger entry to ttl at ledger", liveUntilLedgerSeq)
 		time.Sleep(time.Second)
 	}
-	require.True(t, expired)
+	require.True(t, ttled)
 }
 
 func TestSimulateInvokePrng_u64_in_range(t *testing.T) {
@@ -1158,8 +1121,8 @@ func TestSimulateSystemEvent(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
 	require.NoError(t, err)
 
-	assert.InDelta(t, 7260, uint32(transactionData.Resources.ReadBytes), 200)
-	assert.InDelta(t, 45, int64(transactionData.RefundableFee), 10)
+	assert.InDelta(t, 7464, uint32(transactionData.Resources.ReadBytes), 200)
+	assert.InDelta(t, 98339, int64(transactionData.ResourceFee), 2000)
 	assert.InDelta(t, 104, uint32(transactionData.Resources.WriteBytes), 15)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }

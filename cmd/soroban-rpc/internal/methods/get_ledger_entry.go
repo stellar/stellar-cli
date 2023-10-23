@@ -26,8 +26,8 @@ type GetLedgerEntryResponse struct {
 	XDR                string `json:"xdr"`
 	LastModifiedLedger int64  `json:"lastModifiedLedgerSeq,string"`
 	LatestLedger       int64  `json:"latestLedger,string"`
-	// The expiration ledger, available for entries that have expiration ledgers.
-	ExpirationLedger *uint32 `json:"expirationLedgerSeq,string,omitempty"`
+	// The ledger sequence until the entry is live, available for entries that have associated ttl ledger entries.
+	LiveUntilLedgerSeq *uint32 `json:"LiveUntilLedgerSeq,string,omitempty"`
 }
 
 var invalidLedgerKeyXdrError = &jrpc2.Error{
@@ -52,10 +52,10 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 			return GetLedgerEntryResponse{}, invalidLedgerKeyXdrError
 		}
 
-		if key.Type == xdr.LedgerEntryTypeExpiration {
+		if key.Type == xdr.LedgerEntryTypeTtl {
 			return GetLedgerEntryResponse{}, &jrpc2.Error{
 				Code:    jrpc2.InvalidParams,
-				Message: ErrLedgerExpirationEntriesCannotBeQueriedDirectly,
+				Message: ErrLedgerTtlEntriesCannotBeQueriedDirectly,
 			}
 		}
 
@@ -78,7 +78,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 			}
 		}
 
-		present, ledgerEntry, ledgerExpirationSeq, err := db.GetLedgerEntry(tx, key)
+		present, ledgerEntry, liveUntilLedgerSeq, err := db.GetLedgerEntry(tx, key)
 		if err != nil {
 			logger.WithError(err).WithField("request", request).
 				Info("could not obtain ledger entry from storage")
@@ -98,7 +98,7 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 		response := GetLedgerEntryResponse{
 			LastModifiedLedger: int64(ledgerEntry.LastModifiedLedgerSeq),
 			LatestLedger:       int64(latestLedger),
-			ExpirationLedger:   ledgerExpirationSeq,
+			LiveUntilLedgerSeq: liveUntilLedgerSeq,
 		}
 		if response.XDR, err = xdr.MarshalBase64(ledgerEntry.Data); err != nil {
 			logger.WithError(err).WithField("request", request).

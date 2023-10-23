@@ -112,7 +112,7 @@ impl Cmd {
         for FullLedgerEntry {
             key,
             val,
-            expiration_ledger_seq,
+            live_until_ledger_seq,
             last_modified_ledger,
         } in &entries.entries
         {
@@ -134,7 +134,7 @@ impl Cmd {
                         error: e,
                     })?,
                     last_modified_ledger.to_string(),
-                    expiration_ledger_seq.to_string(),
+                    live_until_ledger_seq.to_string(),
                 ],
                 Output::Json => [
                     serde_json::to_string_pretty(&key).map_err(|error| {
@@ -155,7 +155,7 @@ impl Cmd {
                             error,
                         }
                     })?,
-                    serde_json::to_string_pretty(&expiration_ledger_seq).map_err(|error| {
+                    serde_json::to_string_pretty(&live_until_ledger_seq).map_err(|error| {
                         Error::CannotPrintJsonResult {
                             result: val.clone(),
                             error,
@@ -166,7 +166,7 @@ impl Cmd {
                     key.to_xdr_base64()?,
                     val.to_xdr_base64()?,
                     last_modified_ledger.to_xdr_base64()?,
-                    expiration_ledger_seq.to_xdr_base64()?,
+                    live_until_ledger_seq.to_xdr_base64()?,
                 ],
             };
             out.write_record(output)

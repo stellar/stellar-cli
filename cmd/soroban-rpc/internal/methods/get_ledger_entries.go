@@ -7,14 +7,13 @@ import (
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
 	"github.com/stellar/go/gxdr"
-
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/db"
 )
 
-var ErrLedgerExpirationEntriesCannotBeQueriedDirectly = "ledger expiration entries cannot be queried directly"
+var ErrLedgerTtlEntriesCannotBeQueriedDirectly = "ledger ttl entries cannot be queried directly"
 
 type GetLedgerEntriesRequest struct {
 	Keys []string `json:"keys"`
@@ -27,8 +26,8 @@ type LedgerEntryResult struct {
 	XDR string `json:"xdr"`
 	// Last modified ledger for this entry.
 	LastModifiedLedger int64 `json:"lastModifiedLedgerSeq,string"`
-	// The expiration ledger, available for entries that have expiration ledgers.
-	ExpirationLedger *uint32 `json:"expirationLedgerSeq,string,omitempty"`
+	// The ledger sequence until the entry is live, available for entries that have associated ttl ledger entries.
+	LiveUntilLedgerSeq *uint32 `json:"liveUntilLedgerSeqLedgerSeq,string,omitempty"`
 }
 
 type GetLedgerEntriesResponse struct {
@@ -68,12 +67,12 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 					Message: fmt.Sprintf("cannot unmarshal key value %s at index %d", requestKey, i),
 				}
 			}
-			if ledgerKey.Type == xdr.LedgerEntryTypeExpiration {
+			if ledgerKey.Type == xdr.LedgerEntryTypeTtl {
 				logger.WithField("request", request).
-					Infof("could not provide ledger expiration entry %s at index %d from getLedgerEntries request", requestKey, i)
+					Infof("could not provide ledger ttl entry %s at index %d from getLedgerEntries request", requestKey, i)
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
 					Code:    jrpc2.InvalidParams,
-					Message: ErrLedgerExpirationEntriesCannotBeQueriedDirectly,
+					Message: ErrLedgerTtlEntriesCannotBeQueriedDirectly,
 				}
 			}
 			ledgerKeys = append(ledgerKeys, ledgerKey)
@@ -102,10 +101,10 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 		ledgerKeysAndEntries, err := tx.GetLedgerEntries(ledgerKeys...)
 		if err != nil {
 			logger.WithError(err).WithField("request", request).
-				Info("could not obtain ledger entryies from storage")
+				Info("could not obtain ledger entries from storage")
 			return GetLedgerEntriesResponse{}, &jrpc2.Error{
 				Code:    jrpc2.InternalError,
-				Message: "could not obtain ledger entryies from storage",
+				Message: "could not obtain ledger entries from storage",
 			}
 		}
 
@@ -124,7 +123,7 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 				Key:                request.Keys[i],
 				XDR:                ledgerXDR,
 				LastModifiedLedger: int64(ledgerKeyAndEntry.Entry.LastModifiedLedgerSeq),
-				ExpirationLedger:   ledgerKeyAndEntry.ExpirationLedgerSeq,
+				LiveUntilLedgerSeq: ledgerKeyAndEntry.LiveUntilLedgerSeq,
 			})
 		}
 

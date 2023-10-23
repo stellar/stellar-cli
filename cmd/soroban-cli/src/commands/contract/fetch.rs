@@ -176,7 +176,7 @@ pub fn get_contract_wasm_from_storage(
                         Err(FromWasmError::NotFound)
                     }
                 }
-                ContractExecutable::Token => todo!(),
+                ContractExecutable::StellarAsset => todo!(),
             },
             _ => Err(FromWasmError::NotFound),
         },

@@ -86,10 +86,10 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		footprint := xdr.LedgerFootprint{}
 		switch op.Body.Type {
 		case xdr.OperationTypeInvokeHostFunction:
-		case xdr.OperationTypeBumpFootprintExpiration, xdr.OperationTypeRestoreFootprint:
+		case xdr.OperationTypeExtendFootprintTtl, xdr.OperationTypeRestoreFootprint:
 			if txEnvelope.Type != xdr.EnvelopeTypeEnvelopeTypeTx && txEnvelope.V1.Tx.Ext.V != 1 {
 				return SimulateTransactionResponse{
-					Error: "To perform a SimulateTransaction for BumpFootprintExpiration or RestoreFootprint operations, SorobanTransactionData must be provided",
+					Error: "To perform a SimulateTransaction for ExtendFootprintTtl or RestoreFootprint operations, SorobanTransactionData must be provided",
 				}
 			}
 			footprint = txEnvelope.V1.Tx.Ext.SorobanData.Resources.Footprint
@@ -177,8 +177,8 @@ func getBucketListSize(ctx context.Context, ledgerReader db.LedgerReader, latest
 	if !ok {
 		return 0, fmt.Errorf("missing meta for latest ledger (%d)", latestLedger)
 	}
-	if closeMeta.V != 2 {
+	if closeMeta.V != 1 {
 		return 0, fmt.Errorf("latest ledger (%d) meta has unexpected verion (%d)", latestLedger, closeMeta.V)
 	}
-	return uint64(closeMeta.V2.TotalByteSizeOfBucketList), nil
+	return uint64(closeMeta.V1.TotalByteSizeOfBucketList), nil
 }

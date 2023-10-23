@@ -176,8 +176,8 @@ func TestIngestion(t *testing.T) {
 		},
 	}
 	ledger := xdr.LedgerCloseMeta{
-		V: 2,
-		V2: &xdr.LedgerCloseMetaV2{
+		V: 1,
+		V1: &xdr.LedgerCloseMetaV1{
 			LedgerHeader: xdr.LedgerHeaderHistoryEntry{Header: xdr.LedgerHeader{LedgerVersion: 10}},
 			TxSet: xdr.GeneralizedTransactionSet{
 				V: 1,

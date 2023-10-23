@@ -60,8 +60,8 @@ func (ledgerReader *ConstantLedgerReader) StreamAllLedgers(ctx context.Context, 
 
 func createLedger(ledgerSequence uint32, protocolVersion uint32, hash byte) xdr.LedgerCloseMeta {
 	return xdr.LedgerCloseMeta{
-		V: 2,
-		V2: &xdr.LedgerCloseMetaV2{
+		V: 1,
+		V1: &xdr.LedgerCloseMetaV1{
 			LedgerHeader: xdr.LedgerHeaderHistoryEntry{
 				Hash: xdr.Hash{hash},
 				Header: xdr.LedgerHeader{

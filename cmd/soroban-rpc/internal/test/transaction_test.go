@@ -161,19 +161,19 @@ func TestSendTransactionFailedInLedger(t *testing.T) {
 	address := kp.Address()
 	account := txnbuild.NewSimpleAccount(address, 0)
 
-	op := createInstallContractCodeOperation(account.AccountID, getHelloWorldContract(t))
-	// without the presources the tx will fail
-	op.Ext = xdr.TransactionExt{
-		V:           1,
-		SorobanData: &xdr.SorobanTransactionData{},
-	}
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
 		SourceAccount:        &account,
 		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{
-			op,
+			&txnbuild.Payment{
+				// Destination doesn't exist, making the transaction fail
+				Destination:   "GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ",
+				Amount:        "100000.0000000",
+				Asset:         txnbuild.NativeAsset{},
+				SourceAccount: "",
+			},
 		},
-		BaseFee: txnbuild.MinBaseFee * 1000,
+		BaseFee: txnbuild.MinBaseFee,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(),
 		},

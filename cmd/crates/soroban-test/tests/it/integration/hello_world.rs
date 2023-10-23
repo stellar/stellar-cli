@@ -4,10 +4,10 @@ use soroban_cli::commands::{
 };
 use soroban_test::TestEnv;
 
-use crate::{integration::util::bump_contract, util::DEFAULT_SEED_PHRASE};
+use crate::{integration::util::extend_contract, util::DEFAULT_SEED_PHRASE};
 
 use super::util::{
-    add_test_seed, bump, deploy_hello, network_passphrase, network_passphrase_arg, rpc_url,
+    add_test_seed, deploy_hello, extend, network_passphrase, network_passphrase_arg, rpc_url,
     rpc_url_arg, DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY, HELLO_WORLD,
 };
 
@@ -16,7 +16,7 @@ use super::util::{
 async fn invoke() {
     let sandbox = &TestEnv::default();
     let id = &deploy_hello(sandbox);
-    bump_contract(sandbox, id, HELLO_WORLD).await;
+    extend_contract(sandbox, id, HELLO_WORLD).await;
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
     invoke_hello_world_with_lib(sandbox, id).await;
@@ -193,7 +193,7 @@ async fn contract_data_read() {
     let id = &deploy_hello(sandbox);
     let res = sandbox.invoke(&["--id", id, "--", "inc"]).await.unwrap();
     assert_eq!(res.trim(), "1");
-    bump(sandbox, id, Some(KEY)).await;
+    extend(sandbox, id, Some(KEY)).await;
 
     sandbox
         .new_assert_cmd("contract")

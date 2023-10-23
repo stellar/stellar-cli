@@ -11,8 +11,8 @@ import (
 
 func createLedger(ledgerSequence uint32) xdr.LedgerCloseMeta {
 	return xdr.LedgerCloseMeta{
-		V: 2,
-		V2: &xdr.LedgerCloseMetaV2{
+		V: 1,
+		V1: &xdr.LedgerCloseMetaV1{
 			LedgerHeader: xdr.LedgerHeaderHistoryEntry{
 				Hash: xdr.Hash{},
 				Header: xdr.LedgerHeader{

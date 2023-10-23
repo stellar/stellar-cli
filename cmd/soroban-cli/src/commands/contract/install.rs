@@ -106,7 +106,7 @@ impl Cmd {
                 },
                 config: self.config.clone(),
                 fee: self.fee.clone(),
-                ledgers_to_expire: None,
+                ledgers_to_extend: None,
             }
             .run_against_rpc_server()
             .await?;
