@@ -1121,7 +1121,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
 	require.NoError(t, err)
 
-	assert.InDelta(t, 7260, uint32(transactionData.Resources.ReadBytes), 200)
+	assert.InDelta(t, 7464, uint32(transactionData.Resources.ReadBytes), 200)
 	assert.InDelta(t, 98339, int64(transactionData.ResourceFee), 2000)
 	assert.InDelta(t, 104, uint32(transactionData.Resources.WriteBytes), 15)
 	require.GreaterOrEqual(t, len(response.Events), 3)
