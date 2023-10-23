@@ -283,10 +283,9 @@ func NewJSONRPCHandler(cfg *config.Config, params HandlerParams) Handler {
 	handler = http.MaxBytesHandler(handler, maxHTTPRequestSize)
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:         []string{},
-		AllowOriginRequestFunc: func(*http.Request, string) bool { return true },
-		AllowedHeaders:         []string{"*"},
-		AllowedMethods:         []string{"GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowedOrigins: []string{"*"},
+		AllowedHeaders: []string{"*"},
+		AllowedMethods: []string{"GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 	})
 
 	return Handler{
