@@ -329,7 +329,7 @@ func extend(t *testing.T, contractId string, amount string, rest string) uint64 
 	res := runSuccessfulCLICmd(
 		t,
 		fmt.Sprintf(
-			"contract extend --extension-ledger-only --id=%s --durability persistent --ledgers-to-extend=%s %s",
+			"contract extend --ttl-ledger-only --id=%s --durability persistent --ledgers-to-extend=%s %s",
 			contractId,
 			amount,
 			rest,
