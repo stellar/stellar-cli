@@ -17,7 +17,7 @@ jobs:
       - run: rustup update
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.20.1
+          go-version: 1.21
       - run: scripts/check-dependencies.bash
   validate-rust-git-rev-deps:
     runs-on: ubuntu-latest
