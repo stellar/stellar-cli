@@ -7,14 +7,14 @@ use serde_aux::prelude::{
     deserialize_default_from_null, deserialize_number_from_string,
     deserialize_option_number_from_string,
 };
+use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
     LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
-    SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionEnvelope,
-    TransactionMeta, TransactionMetaV3, TransactionResult, TransactionV1Envelope, Uint256, VecM,
+    SorobanAuthorizationEntry, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionEnvelope, TransactionMeta, TransactionMetaV3, TransactionResult, Uint256, VecM,
     WriteXdr,
 };
-use soroban_env_host::xdr::{DepthLimitedRead, SorobanAuthorizedFunction};
 use soroban_sdk::token;
 use std::{
     fmt::Display,
@@ -25,10 +25,9 @@ use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
 
-use crate::utils::{self, contract_spec};
+use crate::utils::contract_spec;
 
-mod transaction;
-use transaction::{assemble, build_restore_txn, sign_soroban_authorizations};
+mod txn;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -98,6 +97,8 @@ pub enum Error {
     SpecBase64(#[from] soroban_spec::read::ParseSpecBase64Error),
     #[error("Fee was too large {0}")]
     LargeFee(u64),
+    #[error("Cannot authorize raw transactions")]
+    CannotAuthorizeRawTransaction,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -212,10 +213,16 @@ pub struct Cost {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct SimulateHostFunctionResult {
+pub struct SimulateHostFunctionResultRaw {
     #[serde(deserialize_with = "deserialize_default_from_null")]
     pub auth: Vec<String>,
     pub xdr: String,
+}
+
+#[derive(Debug)]
+pub struct SimulateHostFunctionResult {
+    pub auth: Vec<SorobanAuthorizationEntry>,
+    pub xdr: xdr::ScVal,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
@@ -229,7 +236,7 @@ pub struct SimulateTransactionResponse {
     #[serde(default)]
     pub cost: Cost,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub results: Vec<SimulateHostFunctionResult>,
+    pub results: Vec<SimulateHostFunctionResultRaw>,
     #[serde(rename = "transactionData", default)]
     pub transaction_data: String,
     #[serde(
@@ -251,6 +258,37 @@ pub struct SimulateTransactionResponse {
     pub latest_ledger: u32,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
+}
+
+impl SimulateTransactionResponse {
+    pub fn results(&self) -> Result<Vec<SimulateHostFunctionResult>, Error> {
+        self.results
+            .iter()
+            .map(|r| {
+                Ok(SimulateHostFunctionResult {
+                    auth: r
+                        .auth
+                        .iter()
+                        .map(|a| Ok(SorobanAuthorizationEntry::from_xdr_base64(a)?))
+                        .collect::<Result<_, Error>>()?,
+                    xdr: xdr::ScVal::from_xdr_base64(&r.xdr)?,
+                })
+            })
+            .collect()
+    }
+
+    pub fn events(&self) -> Result<Vec<DiagnosticEvent>, Error> {
+        self.events
+            .iter()
+            .map(|e| Ok(DiagnosticEvent::from_xdr_base64(e)?))
+            .collect()
+    }
+
+    pub fn transaction_data(&self) -> Result<SorobanTransactionData, Error> {
+        Ok(SorobanTransactionData::from_xdr_base64(
+            &self.transaction_data,
+        )?)
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
@@ -649,31 +687,6 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
-    // Simulate a transaction, then assemble the result of the simulation into the envelope, so it
-    // is ready for sending to the network.
-    pub async fn prepare_transaction(
-        &self,
-        tx: &Transaction,
-    ) -> Result<(Transaction, Option<RestorePreamble>, Vec<DiagnosticEvent>), Error> {
-        tracing::trace!(?tx);
-        let sim_response = self
-            .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
-                tx: tx.clone(),
-                signatures: VecM::default(),
-            }))
-            .await?;
-        let events = sim_response
-            .events
-            .iter()
-            .map(DiagnosticEvent::from_xdr_base64)
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok((
-            assemble(tx, &sim_response)?,
-            sim_response.restore_preamble,
-            events,
-        ))
-    }
-
     pub async fn prepare_and_send_transaction(
         &self,
         tx_without_preflight: &Transaction,
@@ -683,64 +696,17 @@ soroban config identity fund {address} --helper-url <url>"#
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
-        let GetLatestLedgerResponse { sequence, .. } = self.get_latest_ledger().await?;
-        let (mut unsigned_tx, restore_preamble, events) =
-            self.prepare_transaction(tx_without_preflight).await?;
-        if let Some(restore) = restore_preamble {
-            // Build and submit the restore transaction
-            self.send_transaction(&utils::sign_transaction(
-                source_key,
-                &build_restore_txn(&unsigned_tx, &restore)?,
-                network_passphrase,
-            )?)
+        let raw = txn::Handler::new(tx_without_preflight.clone());
+        let simulation = raw.simulate(self).await?;
+        let seq_num = simulation.latest_ledger;
+        let authorized = raw
+            .handle_restore(self, &simulation, source_key, network_passphrase)
+            .await?
+            .assemble(simulation)?
+            .authorize(self, source_key, signers, seq_num, network_passphrase)
             .await?;
-            // Increment the original txn's seq_num so it doesn't conflict
-            unsigned_tx.seq_num = SequenceNumber(unsigned_tx.seq_num.0 + 1);
-        }
-        let (part_signed_tx, signed_auth_entries) = sign_soroban_authorizations(
-            &unsigned_tx,
-            source_key,
-            signers,
-            sequence + 60, // ~5 minutes of ledgers
-            network_passphrase,
-        )?;
-        let (fee_ready_txn, events) = if signed_auth_entries.is_empty()
-            || (signed_auth_entries.len() == 1
-                && matches!(
-                    signed_auth_entries[0].root_invocation.function,
-                    SorobanAuthorizedFunction::CreateContractHostFn(_)
-                )) {
-            (part_signed_tx, events)
-        } else {
-            // re-simulate to calculate the new fees
-            let (tx, _, events) = self.prepare_transaction(&part_signed_tx).await?;
-            (tx, events)
-        };
-
-        // Try logging stuff if requested
-        if let Transaction {
-            ext: xdr::TransactionExt::V1(xdr::SorobanTransactionData { resources, .. }),
-            ..
-        } = fee_ready_txn.clone()
-        {
-            if let Some(log) = log_events {
-                if let xdr::Operation {
-                    body:
-                        xdr::OperationBody::InvokeHostFunction(xdr::InvokeHostFunctionOp {
-                            auth, ..
-                        }),
-                    ..
-                } = &fee_ready_txn.operations[0]
-                {
-                    log(&resources.footprint, &[auth.clone()], &events);
-                }
-            }
-            if let Some(log) = log_resources {
-                log(&resources);
-            }
-        }
-
-        let tx = utils::sign_transaction(source_key, &fee_ready_txn, network_passphrase)?;
+        authorized.log(log_events, log_resources)?;
+        let tx = authorized.sign(source_key, network_passphrase)?;
         self.send_transaction(&tx).await
     }
 
