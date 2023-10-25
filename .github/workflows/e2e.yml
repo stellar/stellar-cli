@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run
-      SYSTEM_TEST_GIT_REF: 352cc1d4ea96af8cfb2c2b7335c3b51da000f889
+      SYSTEM_TEST_GIT_REF: 30a86b035d588e282895fa14970c346d53cb16ea
 
       # the soroban tools source code to compile and run from system test
       # refers to checked out source of current git hub ref context
