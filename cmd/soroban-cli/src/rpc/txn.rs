@@ -139,11 +139,10 @@ impl Handler {
                         network_passphrase,
                     )?,
                     state: State::Raw,
-                }
-                .bump_seq_num();
+                };
                 let sim = txn.simulate(client).await?;
                 Ok(Self {
-                    txn: txn.txn,
+                    txn: assemble(&txn.txn, &sim)?,
                     state: State::Authorized(sim),
                 })
             }

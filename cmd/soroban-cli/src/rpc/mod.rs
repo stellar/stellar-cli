@@ -124,7 +124,7 @@ pub struct SendTransactionResponse {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct GetTransactionResponse {
+pub struct GetTransactionResponseRaw {
     pub status: String,
     #[serde(
         rename = "envelopeXdr",
@@ -141,6 +141,33 @@ pub struct GetTransactionResponse {
     )]
     pub result_meta_xdr: Option<String>,
     // TODO: add ledger info and application order
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct GetTransactionResponse {
+    pub status: String,
+    pub envelope: Option<xdr::TransactionEnvelope>,
+    pub result: Option<xdr::TransactionResult>,
+    pub result_meta: Option<xdr::TransactionMeta>,
+}
+
+impl TryInto<GetTransactionResponse> for GetTransactionResponseRaw {
+    type Error = xdr::Error;
+
+    fn try_into(self) -> Result<GetTransactionResponse, Self::Error> {
+        Ok(GetTransactionResponse {
+            status: self.status,
+            envelope: self
+                .envelope_xdr
+                .map(ReadXdr::from_xdr_base64)
+                .transpose()?,
+            result: self.result_xdr.map(ReadXdr::from_xdr_base64).transpose()?,
+            result_meta: self
+                .result_meta_xdr
+                .map(ReadXdr::from_xdr_base64)
+                .transpose()?,
+        })
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -601,7 +628,7 @@ soroban config identity fund {address} --helper-url <url>"#
         tx: &TransactionEnvelope,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let client = self.client()?;
-        tracing::trace!(?tx);
+        tracing::trace!("Sending:\n{tx:#?}");
         let SendTransactionResponse {
             hash,
             error_result_xdr,
@@ -610,7 +637,9 @@ soroban config identity fund {address} --helper-url <url>"#
         } = client
             .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
             .await
-            .map_err(|err| Error::TransactionSubmissionFailed(format!("{err:#?}")))?;
+            .map_err(|err| {
+                Error::TransactionSubmissionFailed(format!("No status yet:\n {err:#?}"))
+            })?;
 
         if status == "ERROR" {
             let error = error_result_xdr
@@ -623,7 +652,7 @@ soroban config identity fund {address} --helper-url <url>"#
                     .map_err(|_| Error::InvalidResponse)
                 })
                 .map(|r| r.result);
-            tracing::error!(?error);
+            tracing::error!("TXN failed:\n {error:#?}");
             return Err(Error::TransactionSubmissionFailed(format!("{:#?}", error?)));
         }
         // even if status == "success" we need to query the transaction status in order to get the result
@@ -631,27 +660,27 @@ soroban config identity fund {address} --helper-url <url>"#
         // Poll the transaction status
         let start = Instant::now();
         loop {
-            let response = self.get_transaction(&hash).await?;
+            let response: GetTransactionResponse = self.get_transaction(&hash).await?.try_into()?;
             match response.status.as_str() {
                 "SUCCESS" => {
                     // TODO: the caller should probably be printing this
-                    tracing::trace!(?response);
-                    let result = TransactionResult::from_xdr_base64(
-                        response.result_xdr.clone().ok_or(Error::MissingResult)?,
-                    )?;
-                    let meta = TransactionMeta::from_xdr_base64(
-                        response
-                            .result_meta_xdr
-                            .clone()
-                            .ok_or(Error::MissingResult)?,
-                    )?;
+                    tracing::trace!("{response:#?}");
+                    let GetTransactionResponse {
+                        result,
+                        result_meta,
+                        ..
+                    } = response;
+                    let meta = result_meta.ok_or(Error::MissingResult)?;
                     let events = extract_events(&meta);
-                    return Ok((result, meta, events));
+                    return Ok((result.ok_or(Error::MissingResult)?, meta, events));
                 }
                 "FAILED" => {
-                    tracing::error!(?response);
+                    tracing::error!("{response:#?}");
                     // TODO: provide a more elaborate error
-                    return Err(Error::TransactionSubmissionFailed(format!("{response:#?}")));
+                    return Err(Error::TransactionSubmissionFailed(format!(
+                        "{:#?}",
+                        response.result
+                    )));
                 }
                 "NOT_FOUND" => (),
                 _ => {
@@ -671,13 +700,13 @@ soroban config identity fund {address} --helper-url <url>"#
         &self,
         tx: &TransactionEnvelope,
     ) -> Result<SimulateTransactionResponse, Error> {
-        tracing::trace!(?tx);
+        tracing::trace!("Simulating:\n{tx:#?}");
         let base64_tx = tx.to_xdr_base64()?;
         let response: SimulateTransactionResponse = self
             .client()?
             .request("simulateTransaction", rpc_params![base64_tx])
             .await?;
-        tracing::trace!(?response);
+        tracing::trace!("Simulation response:\n {response:#?}");
         match response.error {
             None => Ok(response),
             Some(e) => {
@@ -698,7 +727,7 @@ soroban config identity fund {address} --helper-url <url>"#
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let raw = txn::Handler::new(tx_without_preflight.clone());
         let simulation = raw.simulate(self).await?;
-        let seq_num = simulation.latest_ledger;
+        let seq_num = simulation.latest_ledger + 60; //5 min;
         let authorized = raw
             .handle_restore(self, &simulation, source_key, network_passphrase)
             .await?
@@ -710,7 +739,7 @@ soroban config identity fund {address} --helper-url <url>"#
         self.send_transaction(&tx).await
     }
 
-    pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponse, Error> {
+    pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponseRaw, Error> {
         Ok(self
             .client()?
             .request("getTransaction", rpc_params![tx_id])
