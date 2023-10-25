@@ -27,7 +27,7 @@ type LedgerEntryResult struct {
 	// Last modified ledger for this entry.
 	LastModifiedLedger int64 `json:"lastModifiedLedgerSeq,string"`
 	// The ledger sequence until the entry is live, available for entries that have associated ttl ledger entries.
-	LiveUntilLedgerSeq *uint32 `json:"liveUntilLedgerSeqLedgerSeq,string,omitempty"`
+	LiveUntilLedgerSeq *uint32 `json:"liveUntilLedgerSeq,string,omitempty"`
 }
 
 type GetLedgerEntriesResponse struct {

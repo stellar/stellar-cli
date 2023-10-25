@@ -152,7 +152,7 @@ pub struct LedgerEntryResult {
     )]
     pub last_modified_ledger: u32,
     #[serde(
-        rename = "liveUntilLedgerSeqLedgerSeq",
+        rename = "liveUntilLedgerSeq",
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_option_number_from_string",
         default
