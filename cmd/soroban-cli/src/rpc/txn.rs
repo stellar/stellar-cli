@@ -2,37 +2,28 @@ use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, ExtensionPoint, Hash, HashIdPreimage,
-    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, LedgerFootprint, Memo, Operation,
-    OperationBody, Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress, ScMap,
-    ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanCredentials,
-    SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Memo, Operation, OperationBody,
+    Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress, ScMap, ScSymbol, ScVal,
+    Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
+    SorobanAuthorizedFunction, SorobanCredentials, SorobanResources, SorobanTransactionData,
+    Transaction, TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 
 use crate::rpc::{Client, Error, RestorePreamble, SimulateTransactionResponse};
 
 use super::{LogEvents, LogResources};
 
-pub enum State {
-    Raw,
-    Assemebled(SimulateTransactionResponse),
-    AuthRequired,
-    Authorized(SimulateTransactionResponse),
-}
-
-pub struct Handler {
+pub struct Assembled {
     txn: Transaction,
-    state: State,
+    sim_res: SimulateTransactionResponse,
 }
 
-impl Handler {
-    pub fn new(txn: Transaction) -> Self {
-        Self {
-            txn,
-            state: State::Raw,
-        }
+impl Assembled {
+    pub async fn new(txn: &Transaction, client: &Client) -> Result<Self, Error> {
+        let sim_res = Self::simulate(txn, client).await?;
+        let txn = assemble(txn, &sim_res)?;
+        Ok(Self { txn, sim_res })
     }
 
     pub fn hash(&self, network_passphrase: &str) -> Result<[u8; 32], xdr::Error> {
@@ -48,7 +39,7 @@ impl Handler {
         key: &ed25519_dalek::SigningKey,
         network_passphrase: &str,
     ) -> Result<TransactionEnvelope, xdr::Error> {
-        let tx = self.inner_txn();
+        let tx = self.txn();
         let tx_hash = self.hash(network_passphrase)?;
         let tx_signature = key.sign(&tx_hash);
 
@@ -63,10 +54,13 @@ impl Handler {
         }))
     }
 
-    pub async fn simulate(&self, client: &Client) -> Result<SimulateTransactionResponse, Error> {
+    pub async fn simulate(
+        tx: &Transaction,
+        client: &Client,
+    ) -> Result<SimulateTransactionResponse, Error> {
         client
             .simulate_transaction(&TransactionEnvelope::Tx(TransactionV1Envelope {
-                tx: self.inner_txn().clone(),
+                tx: tx.clone(),
                 signatures: VecM::default(),
             }))
             .await
@@ -75,15 +69,15 @@ impl Handler {
     pub async fn handle_restore(
         self,
         client: &Client,
-        simulation: &SimulateTransactionResponse,
         source_key: &ed25519_dalek::SigningKey,
         network_passphrase: &str,
     ) -> Result<Self, Error> {
-        if let Some(restore_preamble) = &simulation.restore_preamble {
+        if let Some(restore_preamble) = &self.sim_res.restore_preamble {
             // Build and submit the restore transaction
             client
                 .send_transaction(
-                    &Handler::new(restore(self.inner_txn(), restore_preamble)?)
+                    &Assembled::new(&restore(self.txn(), restore_preamble)?, client)
+                        .await?
                         .sign(source_key, network_passphrase)?,
                 )
                 .await?;
@@ -93,26 +87,12 @@ impl Handler {
         }
     }
 
-    pub fn inner_txn(&self) -> &Transaction {
+    pub fn txn(&self) -> &Transaction {
         &self.txn
     }
 
-    pub fn assemble(&self, sim: SimulateTransactionResponse) -> Result<Self, Error> {
-        let txn = assemble(self.inner_txn(), &sim)?;
-        let state = match txn.operations.as_slice() {
-            [Operation {
-                body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-                ..
-            }] if matches!(
-                auth.get(0).map(|x| &x.root_invocation.function),
-                Some(&SorobanAuthorizedFunction::ContractFn(_))
-            ) =>
-            {
-                State::AuthRequired
-            }
-            _ => State::Assemebled(sim),
-        };
-        Ok(Self { txn, state })
+    pub fn sim_res(&self) -> &SimulateTransactionResponse {
+        &self.sim_res
     }
 
     pub async fn authorize(
@@ -123,30 +103,16 @@ impl Handler {
         seq_num: u32,
         network_passphrase: &str,
     ) -> Result<Self, Error> {
-        match self.state {
-            State::Raw => Err(Error::CannotAuthorizeRawTransaction),
-            State::Assemebled(sim) => Ok(Self {
-                txn: self.txn,
-                state: State::Authorized(sim),
-            }),
-            State::AuthRequired => {
-                let txn = Self {
-                    txn: sign_soroban_authorizations(
-                        self.inner_txn(),
-                        source_key,
-                        signers,
-                        seq_num,
-                        network_passphrase,
-                    )?,
-                    state: State::Raw,
-                };
-                let sim = txn.simulate(client).await?;
-                Ok(Self {
-                    txn: assemble(&txn.txn, &sim)?,
-                    state: State::Authorized(sim),
-                })
-            }
-            State::Authorized(_) => Ok(self),
+        if let Some(txn) = sign_soroban_authorizations(
+            self.txn(),
+            source_key,
+            signers,
+            seq_num,
+            network_passphrase,
+        )? {
+            Self::new(&txn, client).await
+        } else {
+            Ok(self)
         }
     }
 
@@ -159,9 +125,13 @@ impl Handler {
         self.txn
             .operations
             .get(0)
-            .map(|op| match op.body {
-                OperationBody::InvokeHostFunction(ref body) => body.auth.clone(),
-                _ => VecM::default(),
+            .and_then(|op| match op.body {
+                OperationBody::InvokeHostFunction(ref body) => (matches!(
+                    body.auth.get(0).map(|x| &x.root_invocation.function),
+                    Some(&SorobanAuthorizedFunction::ContractFn(_))
+                ))
+                .then_some(body.auth.clone()),
+                _ => None,
             })
             .unwrap_or_default()
     }
@@ -171,23 +141,18 @@ impl Handler {
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,
     ) -> Result<(), Error> {
-        let mut soroban_resources = None;
-        let footprint =
-            if let TransactionExt::V1(SorobanTransactionData { resources, .. }) = &self.txn.ext {
-                soroban_resources = Some(resources.clone());
-                resources.footprint.clone()
-            } else {
-                LedgerFootprint {
-                    read_only: VecM::default(),
-                    read_write: VecM::default(),
-                }
+        if let TransactionExt::V1(SorobanTransactionData {
+            resources: resources @ SorobanResources { footprint, .. },
+            ..
+        }) = &self.txn.ext
+        {
+            if let Some(log) = log_resources {
+                log(resources);
+            }
+            if let Some(log) = log_events {
+                log(footprint, &[self.auth()], &self.sim_res.events()?);
             };
-        if let (Some(log), State::Authorized(sim)) = (log_events, &self.state) {
-            log(&footprint, &[self.auth()], &sim.events()?);
-        };
-        if let (Some(log), Some(resources)) = (log_resources, soroban_resources) {
-            log(&resources);
-        };
+        }
         Ok(())
     }
 }
@@ -262,17 +227,28 @@ fn sign_soroban_authorizations(
     signers: &[ed25519_dalek::SigningKey],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
-) -> Result<Transaction, Error> {
+) -> Result<Option<Transaction>, Error> {
     let mut tx = raw.clone();
+    let mut op = match tx.operations.as_slice() {
+        [op @ Operation {
+            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
+            ..
+        }] if matches!(
+            auth.get(0).map(|x| &x.root_invocation.function),
+            Some(&SorobanAuthorizedFunction::ContractFn(_))
+        ) =>
+        {
+            op.clone()
+        }
+        _ => return Ok(None),
+    };
 
-    if tx.operations.len() != 1 {
-        // This must not be an invokeHostFunction operation, so nothing to do
-        return Ok(tx);
-    }
-
-    let mut op = tx.operations[0].clone();
-    let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body else {
-        return Ok(tx);
+    let Operation {
+        body: OperationBody::InvokeHostFunction(ref mut body),
+        ..
+    } = op
+    else {
+        return Ok(None);
     };
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
@@ -282,6 +258,7 @@ fn sign_soroban_authorizations(
 
     let signed_auths = body
         .auth
+        .as_slice()
         .iter()
         .map(|raw_auth| {
             let mut auth = raw_auth.clone();
@@ -337,7 +314,7 @@ fn sign_soroban_authorizations(
 
     body.auth = signed_auths.try_into()?;
     tx.operations = vec![op].try_into()?;
-    Ok(tx)
+    Ok(Some(tx))
 }
 
 fn sign_soroban_authorization_entry(

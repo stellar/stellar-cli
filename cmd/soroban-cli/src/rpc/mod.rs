@@ -725,13 +725,11 @@ soroban config identity fund {address} --helper-url <url>"#
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
-        let raw = txn::Handler::new(tx_without_preflight.clone());
-        let simulation = raw.simulate(self).await?;
-        let seq_num = simulation.latest_ledger + 60; //5 min;
-        let authorized = raw
-            .handle_restore(self, &simulation, source_key, network_passphrase)
+        let txn = txn::Assembled::new(tx_without_preflight, self).await?;
+        let seq_num = txn.sim_res().latest_ledger + 60; //5 min;
+        let authorized = txn
+            .handle_restore(self, source_key, network_passphrase)
             .await?
-            .assemble(simulation)?
             .authorize(self, source_key, signers, seq_num, network_passphrase)
             .await?;
         authorized.log(log_events, log_resources)?;
