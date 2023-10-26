@@ -211,11 +211,11 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 	}
 	transactionCommitted := false
 	defer func() {
-		if transactionCommitted == false {
+		if !transactionCommitted {
 			// Internally, we might already have rolled back the transaction. We should
 			// not generate benign error/warning here in case the transaction was already rolled back.
-			if err := tx.Rollback(); err != nil && err != supportdb.ErrAlreadyRolledback {
-				s.logger.WithError(err).Warn("could not rollback fillEntriesFromCheckpoint write transactions")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil && rollbackErr != supportdb.ErrAlreadyRolledback {
+				s.logger.WithError(rollbackErr).Warn("could not rollback fillEntriesFromCheckpoint write transactions")
 			}
 		}
 	}()
