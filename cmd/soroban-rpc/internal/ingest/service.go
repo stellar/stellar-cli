@@ -53,7 +53,8 @@ func newService(cfg Config) *Service {
 	// ingestionDurationMetric is a metric for measuring the latency of ingestion
 	ingestionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
-		Help: "ledger ingestion durations, sliding window = 10m",
+		Help:       "ledger ingestion durations, sliding window = 10m",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	},
 		[]string{"type"},
 	)
