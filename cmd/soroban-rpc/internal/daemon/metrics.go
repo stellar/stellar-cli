@@ -57,11 +57,13 @@ type CoreClientWithMetrics struct {
 func newCoreClientWithMetrics(client stellarcore.Client, registry *prometheus.Registry) *CoreClientWithMetrics {
 	submitMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: prometheusNamespace, Subsystem: "txsub", Name: "submission_duration_seconds",
-		Help: "submission durations to Stellar-Core, sliding window = 10m",
+		Help:       "submission durations to Stellar-Core, sliding window = 10m",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	}, []string{"status"})
 	opCountMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: prometheusNamespace, Subsystem: "txsub", Name: "operation_count",
-		Help: "number of operations included in a transaction, sliding window = 10m",
+		Help:       "number of operations included in a transaction, sliding window = 10m",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	}, []string{"status"})
 	registry.MustRegister(submitMetric, opCountMetric)
 
