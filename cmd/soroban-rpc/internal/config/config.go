@@ -26,7 +26,6 @@ type Config struct {
 	CheckpointFrequency                         uint32
 	CoreRequestTimeout                          time.Duration
 	DefaultEventsLimit                          uint
-	EventLedgerRetentionWindow                  uint32
 	FriendbotURL                                string
 	HistoryArchiveURLs                          []string
 	IngestionTimeout                            time.Duration
@@ -39,7 +38,7 @@ type Config struct {
 	PreflightWorkerQueueSize                    uint
 	PreflightEnableDebug                        bool
 	SQLiteDBPath                                string
-	TransactionLedgerRetentionWindow            uint32
+	LedgerRetentionWindow                       uint32
 	RequestBacklogGlobalQueueLimit              uint
 	RequestBacklogGetHealthQueueLimit           uint
 	RequestBacklogGetEventsQueueLimit           uint

@@ -175,12 +175,12 @@ func MustNew(cfg *config.Config) *Daemon {
 	eventStore := events.NewMemoryStore(
 		daemon,
 		cfg.NetworkPassphrase,
-		cfg.EventLedgerRetentionWindow,
+		cfg.LedgerRetentionWindow,
 	)
 	transactionStore := transactions.NewMemoryStore(
 		daemon,
 		cfg.NetworkPassphrase,
-		cfg.TransactionLedgerRetentionWindow,
+		cfg.LedgerRetentionWindow,
 	)
 
 	// initialize the stores using what was on the DB
@@ -205,11 +205,9 @@ func MustNew(cfg *config.Config) *Daemon {
 	onIngestionRetry := func(err error, dur time.Duration) {
 		logger.WithError(err).Error("could not run ingestion. Retrying")
 	}
-	maxRetentionWindow := cfg.EventLedgerRetentionWindow
-	if cfg.TransactionLedgerRetentionWindow > maxRetentionWindow {
-		maxRetentionWindow = cfg.TransactionLedgerRetentionWindow
-	} else if cfg.EventLedgerRetentionWindow == 0 && cfg.TransactionLedgerRetentionWindow > ledgerbucketwindow.DefaultEventLedgerRetentionWindow {
-		maxRetentionWindow = ledgerbucketwindow.DefaultEventLedgerRetentionWindow
+	maxRetentionWindow := cfg.LedgerRetentionWindow
+	if maxRetentionWindow == 0 {
+		maxRetentionWindow = ledgerbucketwindow.DefaultLedgerRetentionWindow
 	}
 	ingestService := ingest.NewService(ingest.Config{
 		Logger:            logger,
