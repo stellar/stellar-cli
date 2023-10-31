@@ -10,8 +10,8 @@ use soroban_env_host::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
         HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation, OperationBody,
-        Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction,
-        TransactionExt, Uint256, VecM, WriteXdr,
+        Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
+        VecM, WriteXdr,
     },
     HostError,
 };
@@ -100,7 +100,7 @@ impl Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
                 config: self.config.clone(),
                 fee: self.fee.clone(),
-                ignore_checks: self.ignore_checks
+                ignore_checks: self.ignore_checks,
             }
             .run_and_get_hash()
             .await?;

@@ -5,8 +5,8 @@ use std::num::ParseIntError;
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt, TransactionResult,
-    TransactionResultResult, Uint256, VecM,
+    OperationBody, Preconditions, ScMetaEntry, ScMetaV0, SequenceNumber, Transaction,
+    TransactionExt, TransactionResult, TransactionResultResult, Uint256, VecM,
 };
 
 use super::restore;
