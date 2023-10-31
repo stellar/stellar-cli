@@ -49,6 +49,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub fee: crate::fee::Args,
     #[arg(long, short = 'i')]
+    /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
 }
 
@@ -205,7 +206,7 @@ fn get_contract_meta_sdk_version(wasm_spec: &utils::contract_spec::ContractSpec)
             }
         }
     }
-    return None;
+    None
 }
 
 fn build_create_contract_tx(
