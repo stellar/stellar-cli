@@ -92,7 +92,7 @@ impl Cmd {
         )?;
 
         client
-            .prepare_and_send_transaction(&tx, &key, &[], network_passphrase, None, None)
+            .prepare_and_send_transaction(&tx, &key, &[], network_passphrase, None, None, true)
             .await?;
 
         Ok(stellar_strkey::Contract(contract_id.0).to_string())

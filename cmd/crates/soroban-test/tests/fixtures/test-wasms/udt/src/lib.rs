@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(clippy::ignored_unit_patterns)]
 use soroban_sdk::{contract, contractimpl, contracttype, Vec};
 
 #[contracttype]

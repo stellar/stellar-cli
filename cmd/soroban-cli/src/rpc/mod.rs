@@ -99,6 +99,11 @@ pub enum Error {
     LargeFee(u64),
     #[error("Cannot authorize raw transactions")]
     CannotAuthorizeRawTransaction,
+
+    #[error("Missing result for tnx")]
+    MissingOp,
+    #[error("A simulation is not a transaction")]
+    NotSignedTransaction,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -611,10 +616,7 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
-    pub async fn send_transaction(
-        &self,
-        tx: &TransactionEnvelope,
-    ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
+    pub async fn send_transaction(&self, tx: &TransactionEnvelope) -> Result<txn::Finished, Error> {
         let client = self.client()?;
         tracing::trace!("Sending:\n{tx:#?}");
         let SendTransactionResponse {
@@ -656,14 +658,8 @@ soroban config identity fund {address} --helper-url <url>"#
                 "SUCCESS" => {
                     // TODO: the caller should probably be printing this
                     tracing::trace!("{response:#?}");
-                    let GetTransactionResponse {
-                        result,
-                        result_meta,
-                        ..
-                    } = response;
-                    let meta = result_meta.ok_or(Error::MissingResult)?;
-                    let events = extract_events(&meta);
-                    return Ok((result.ok_or(Error::MissingResult)?, meta, events));
+
+                    return Ok(txn::Finished::signed(response));
                 }
                 "FAILED" => {
                     tracing::error!("{response:#?}");
@@ -709,6 +705,7 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn prepare_and_send_transaction(
         &self,
         tx_without_preflight: &Transaction,
@@ -717,7 +714,8 @@ soroban config identity fund {address} --helper-url <url>"#
         network_passphrase: &str,
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,
-    ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
+        always_submit: bool,
+    ) -> Result<txn::Finished, Error> {
         let txn = txn::Assembled::new(tx_without_preflight, self).await?;
         let seq_num = txn.sim_res().latest_ledger + 60; //5 min;
         let authorized = txn
@@ -726,8 +724,12 @@ soroban config identity fund {address} --helper-url <url>"#
             .authorize(self, source_key, signers, seq_num, network_passphrase)
             .await?;
         authorized.log(log_events, log_resources)?;
-        let tx = authorized.sign(source_key, network_passphrase)?;
-        self.send_transaction(&tx).await
+        if always_submit || authorized.requires_auth() {
+            let tx = authorized.sign(source_key, network_passphrase)?;
+            self.send_transaction(&tx).await
+        } else {
+            Ok(authorized.finish_simulation())
+        }
     }
 
     pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponseRaw, Error> {

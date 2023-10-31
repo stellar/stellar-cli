@@ -300,7 +300,7 @@ impl Cmd {
             &key,
         )?;
 
-        let (result, meta, events) = client
+        let res = client
             .prepare_and_send_transaction(
                 &tx,
                 &key,
@@ -309,20 +309,11 @@ impl Cmd {
                 Some(log_events),
                 (global_args.verbose || global_args.very_verbose || self.cost)
                     .then_some(log_resources),
+                false,
             )
             .await?;
-
-        tracing::debug!(?result);
-        crate::log::diagnostic_events(&events, tracing::Level::INFO);
-        let xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
-            soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
-            ..
-        }) = meta
-        else {
-            return Err(Error::MissingOperationResult);
-        };
-
-        output_to_string(&spec, &return_value, &function)
+        crate::log::diagnostic_events(&res.events()?, tracing::Level::INFO);
+        output_to_string(&spec, &res.return_value()?, &function)
     }
 
     pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {

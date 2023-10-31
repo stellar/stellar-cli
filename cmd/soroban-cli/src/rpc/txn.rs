@@ -15,6 +15,9 @@ use crate::rpc::{Client, Error, RestorePreamble, SimulateTransactionResponse};
 
 use super::{LogEvents, LogResources};
 
+mod finished;
+pub use finished::*;
+
 pub struct Assembled {
     txn: Transaction,
     sim_res: SimulateTransactionResponse,
@@ -156,6 +159,14 @@ impl Assembled {
         }
         Ok(())
     }
+
+    pub fn requires_auth(&self) -> bool {
+        requires_auth(&self.txn)
+    }
+
+    pub fn finish_simulation(self) -> Finished {
+        Finished::simulated(self.sim_res)
+    }
 }
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
@@ -220,6 +231,20 @@ pub fn assemble(
     Ok(tx)
 }
 
+fn requires_auth(txn: &Transaction) -> bool {
+    let [Operation {
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
+        ..
+    }] = txn.operations.as_slice()
+    else {
+        return false;
+    };
+    matches!(
+        auth.get(0).map(|x| &x.root_invocation.function),
+        Some(&SorobanAuthorizedFunction::ContractFn(_))
+    )
+}
+
 // Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
 // transaction. If unable to sign, return an error.
 fn sign_soroban_authorizations(
@@ -230,18 +255,10 @@ fn sign_soroban_authorizations(
     network_passphrase: &str,
 ) -> Result<Option<Transaction>, Error> {
     let mut tx = raw.clone();
-    let mut op = match tx.operations.as_slice() {
-        [op @ Operation {
-            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-            ..
-        }] if matches!(
-            auth.first().map(|x| &x.root_invocation.function),
-            Some(&SorobanAuthorizedFunction::ContractFn(_))
-        ) =>
-        {
-            op.clone()
-        }
-        _ => return Ok(None),
+    let mut op = if requires_auth(&tx) {
+        tx.operations[0].clone()
+    } else {
+        return Ok(None);
     };
 
     let Operation {
