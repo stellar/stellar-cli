@@ -77,7 +77,6 @@ pub enum Error {
         wasm_hash: String,
         error: stellar_strkey::DecodeError,
     },
-    
     #[error("Must provide either --wasm or --wash-hash")]
     WasmNotProvided,
     #[error(transparent)]
@@ -159,7 +158,6 @@ impl Cmd {
         Ok(stellar_strkey::Contract(contract_id.0).to_string())
     }
 }
-
 
 fn build_create_contract_tx(
     hash: Hash,
