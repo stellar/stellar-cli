@@ -11,7 +11,7 @@ use soroban_env_host::{
         CreateContractArgs, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
         HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation, OperationBody,
         Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
-        VecM, WriteXdr,
+        VecM, WriteXdr, ScMetaV0, ScMetaEntry,
     },
     HostError,
 };
@@ -21,6 +21,8 @@ use crate::{
     rpc::{self, Client},
     utils, wasm,
 };
+
+const CONTRACT_META_SDK_KEY: &str = "rssdkver";
 
 #[derive(Parser, Debug, Clone)]
 #[command(group(
@@ -46,6 +48,8 @@ pub struct Cmd {
     config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
+    #[arg(long, short = 'i')]
+    pub ignore_checks: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -74,8 +78,18 @@ pub enum Error {
         wasm_hash: String,
         error: stellar_strkey::DecodeError,
     },
+    #[error("cannot parse WASM file {wasm}: {error}")]
+    CannotParseWasm {
+        wasm: std::path::PathBuf,
+        error: wasm::Error
+    },
     #[error("Must provide either --wasm or --wash-hash")]
     WasmNotProvided,
+    #[error("the deployed smart contract {wasm} was built with Soroban Rust SDK v{version}, a release candidate version not intended for use with the Stellar Public Network. To deploy anyway, use --ignore-checks")]
+    ContractCompiledWithReleaseCandidateSdk {
+        wasm: std::path::PathBuf,
+        version: String
+    },
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
@@ -92,6 +106,25 @@ impl Cmd {
     }
 
     pub async fn run_and_get_contract_id(&self) -> Result<String, Error> {
+        if let Some(wasm_path) = &self.wasm {
+            let wasm_args = wasm::Args { wasm: wasm_path.clone() };
+            let wasm_spec = wasm_args.parse().map_err(|e| {
+                Error::CannotParseWasm {
+                    wasm: wasm_path.clone(),
+                    error: e
+                }
+            })?;
+            if let Some(rs_sdk_ver) = get_contract_meta_sdk_version(&wasm_spec) {
+                if rs_sdk_ver.contains("rc") && !self.ignore_checks {
+                    return Err(Error::ContractCompiledWithReleaseCandidateSdk { 
+                        wasm: wasm_path.clone(),
+                        version: rs_sdk_ver
+                    });
+                } else if rs_sdk_ver.contains("rc") {
+                    tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = wasm_path.display());
+                }
+            }
+        }
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let hash = install::Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
@@ -153,6 +186,28 @@ impl Cmd {
             .await?;
         Ok(stellar_strkey::Contract(contract_id.0).to_string())
     }
+}
+
+fn get_contract_meta_sdk_version(wasm_spec: &utils::contract_spec::ContractSpec) -> Option<String> {
+    let rs_sdk_version_option = if let Some(_meta) = &wasm_spec.meta_base64 {
+        wasm_spec.meta.iter().find(|entry| {
+            match entry {
+                ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) => {
+                    key.to_string_lossy().contains(CONTRACT_META_SDK_KEY)
+                }
+            }
+        })
+    } else {
+        None
+    };
+    if let Some(rs_sdk_version_entry) = &rs_sdk_version_option {
+        match rs_sdk_version_entry {
+            ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) => {
+                return Some(val.to_string_lossy());
+            }
+        }
+    }
+    return None;
 }
 
 fn build_create_contract_tx(
