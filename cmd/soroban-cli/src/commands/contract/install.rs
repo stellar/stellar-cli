@@ -74,7 +74,7 @@ impl Cmd {
             wasm: self.wasm.wasm.clone(),
             error: e,
         })?;
-        if let Some(rs_sdk_ver) = get_contract_meta_sdk_version(&wasm_spec) {
+        if let Some(rs_sdk_ver) = get_contract_meta_sdk_version(wasm_spec) {
             if rs_sdk_ver.contains("rc") && !self.ignore_checks {
                 return Err(Error::ContractCompiledWithReleaseCandidateSdk {
                     wasm: self.wasm.wasm.clone(),
