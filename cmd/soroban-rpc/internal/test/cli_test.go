@@ -66,7 +66,7 @@ func TestCLIWrapNative(t *testing.T) {
 
 func TestCLIContractInstall(t *testing.T) {
 	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract install --wasm %s --ignore-checks", helloWorldContractPath))
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	require.Contains(t, output, contractHash.HexString())
@@ -74,7 +74,7 @@ func TestCLIContractInstall(t *testing.T) {
 
 func TestCLIContractInstallAndDeploy(t *testing.T) {
 	NewCLITest(t)
-	runSuccessfulCLICmd(t, "contract install --wasm "+helloWorldContractPath)
+	runSuccessfulCLICmd(t, fmt.Sprintf("contract install --wasm %s --ignore-checks", helloWorldContractPath))
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
 	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt %s --wasm-hash %s --ignore-checks", hex.EncodeToString(testSalt[:]), contractHash.HexString()))
