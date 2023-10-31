@@ -283,6 +283,7 @@ Deploy a contract
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
 
 
