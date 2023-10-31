@@ -285,6 +285,8 @@ Deploy a contract
   Default value: `100`
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
+  Default value: `false`
+
 
 
 ## `soroban contract fetch`
@@ -350,6 +352,9 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `100`
 * `--wasm <WASM>` — Path to wasm binary
+* `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
+
+  Default value: `false`
 
 
 
