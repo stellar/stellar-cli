@@ -82,7 +82,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
   contractId,
   wallet,
 }: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
-  wallet = wallet ?? (await import("@stellar/freighter-api"));
+  wallet = wallet ?? (await import("@stellar/freighter-api")).default;
   let parse = parseResultXdr;
   const server = new SorobanClient.Server(rpcUrl, {
     allowHttp: rpcUrl.startsWith("http://"),
