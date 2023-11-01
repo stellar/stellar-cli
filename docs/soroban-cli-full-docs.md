@@ -283,6 +283,9 @@ Deploy a contract
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
+
+  Default value: `false`
 
 
 
@@ -349,6 +352,9 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `100`
 * `--wasm <WASM>` — Path to wasm binary
+* `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
+
+  Default value: `false`
 
 
 
