@@ -69,6 +69,7 @@ pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
         .arg("install")
         .arg("--wasm")
         .arg(wasm.path())
+        .arg("--ignore-checks")
         .assert()
         .success()
         .stdout(format!("{hash}\n"));
@@ -80,6 +81,7 @@ pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
         .arg(&format!("{hash}"))
         .arg("--salt")
         .arg(TEST_SALT)
+        .arg("--ignore-checks")
         .assert()
         .success()
         .stdout(format!("{TEST_CONTRACT_ID}\n"));
