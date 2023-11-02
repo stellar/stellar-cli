@@ -1,7 +1,12 @@
 package transactions
 
 import (
+	"encoding/hex"
+	"fmt"
+	"math"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/xdr"
@@ -86,13 +91,72 @@ func transactionResult(ledgerSequence uint32, feeBump bool) xdr.TransactionResul
 
 func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
 	envelope := txEnvelope(ledgerSequence, feeBump)
-
+	persistentKey := xdr.ScSymbol("TEMPVAL")
+	contractIDBytes, _ := hex.DecodeString("df06d62447fd25da07c0135eed7557e5a5497ee7d15b7fe345bd47e191d8f577")
+	var contractID xdr.Hash
+	copy(contractID[:], contractIDBytes)
+	contractAddress := xdr.ScAddress{
+		Type:       xdr.ScAddressTypeScAddressTypeContract,
+		ContractId: &contractID,
+	}
+	xdrTrue := true
+	operationChanges := xdr.LedgerEntryChanges{
+		{
+			Type: xdr.LedgerEntryChangeTypeLedgerEntryState,
+			State: &xdr.LedgerEntry{
+				LastModifiedLedgerSeq: xdr.Uint32(ledgerSequence - 1),
+				Data: xdr.LedgerEntryData{
+					Type: xdr.LedgerEntryTypeContractData,
+					ContractData: &xdr.ContractDataEntry{
+						Contract: contractAddress,
+						Key: xdr.ScVal{
+							Type: xdr.ScValTypeScvSymbol,
+							Sym:  &persistentKey,
+						},
+						Durability: xdr.ContractDataDurabilityPersistent,
+						Val: xdr.ScVal{
+							Type: xdr.ScValTypeScvBool,
+							B:    &xdrTrue,
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: xdr.LedgerEntryChangeTypeLedgerEntryUpdated,
+			Updated: &xdr.LedgerEntry{
+				LastModifiedLedgerSeq: xdr.Uint32(ledgerSequence - 1),
+				Data: xdr.LedgerEntryData{
+					Type: xdr.LedgerEntryTypeContractData,
+					ContractData: &xdr.ContractDataEntry{
+						Contract: xdr.ScAddress{
+							Type:       xdr.ScAddressTypeScAddressTypeContract,
+							ContractId: &contractID,
+						},
+						Key: xdr.ScVal{
+							Type: xdr.ScValTypeScvSymbol,
+							Sym:  &persistentKey,
+						},
+						Durability: xdr.ContractDataDurabilityPersistent,
+						Val: xdr.ScVal{
+							Type: xdr.ScValTypeScvBool,
+							B:    &xdrTrue,
+						},
+					},
+				},
+			},
+		},
+	}
 	txProcessing := []xdr.TransactionResultMeta{
 		{
 			TxApplyProcessing: xdr.TransactionMeta{
-				V:          3,
-				Operations: &[]xdr.OperationMeta{},
-				V3:         &xdr.TransactionMetaV3{},
+				V: 3,
+				Operations: &[]xdr.OperationMeta{
+					{
+						Changes: operationChanges,
+					},
+				},
+				V3: &xdr.TransactionMetaV3{},
 			},
 			Result: xdr.TransactionResultPair{
 				TransactionHash: txHash(ledgerSequence, feeBump),
@@ -245,4 +309,67 @@ func TestIngestTransactions(t *testing.T) {
 	require.Equal(t, expectedStoreRange(3, 5), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
 	require.Len(t, store.transactions, 3)
+}
+
+func stableHeapInUse() int64 {
+	var (
+		m         = runtime.MemStats{}
+		prevInUse uint64
+		prevNumGC uint32
+	)
+
+	for {
+		runtime.GC()
+
+		// Sleeping to allow GC to run a few times and collect all temporary data.
+		time.Sleep(100 * time.Millisecond)
+
+		runtime.ReadMemStats(&m)
+
+		// Considering heap stable if recent cycle collected less than 10KB.
+		if prevNumGC != 0 && m.NumGC > prevNumGC && math.Abs(float64(m.HeapInuse-prevInUse)) < 10*1024 {
+			break
+		}
+
+		prevInUse = m.HeapInuse
+		prevNumGC = m.NumGC
+	}
+
+	return int64(m.HeapInuse)
+}
+
+func ByteCountBinary(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func TestIngestTransactionsMemory(t *testing.T) {
+	roundsNumber := uint32(100000)
+	// Use a small retention window to test eviction
+	store := NewMemoryStore(interfaces.MakeNoOpDeamon(), "passphrase", roundsNumber)
+
+	heapSizeBefore := stableHeapInUse()
+
+	for i := uint32(0); i < roundsNumber; i++ {
+		// Insert ledger i
+		store.IngestTransactions(txMeta(i, false))
+	}
+	heapSizeAfter := stableHeapInUse()
+	t.Logf("Memory consumption for %d transactions %v", roundsNumber, ByteCountBinary(heapSizeAfter-heapSizeBefore))
+
+	// we want to generate 500*20000 transactions total, to cover the expected daily amount of transactions.
+	projectedTransactionCount := int64(500 * 20000)
+	projectedMemoryUtiliztion := (heapSizeAfter - heapSizeBefore) * projectedTransactionCount / int64(roundsNumber)
+	t.Logf("Projected memory consumption for %d transactions %v", projectedTransactionCount, ByteCountBinary(projectedMemoryUtiliztion))
+
+	// add another call to store to prevent the GC from collecting.
+	store.GetTransaction(xdr.Hash{})
 }
