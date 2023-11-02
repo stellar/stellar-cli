@@ -70,7 +70,7 @@ csv = "1.1.6"
 ed25519-dalek = "=2.0.0"
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
-hyper   = "0.14.27"
+hyper = "0.14.27"
 hyper-tls = "0.5"
 http = "0.2.9"
 regex = "1.6.0"
@@ -93,6 +93,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 cargo_metadata = "0.15.4"
 pathdiff = "0.2.1"
 dotenvy = "0.15.7"
+directories = { workspace = true }
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10.55", features = ["vendored"] }
