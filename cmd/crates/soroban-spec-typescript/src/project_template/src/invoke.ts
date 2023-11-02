@@ -17,6 +17,7 @@ import type {
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
 
+export class SendFailedError extends Error { }
 /**
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
@@ -162,7 +163,11 @@ export async function invoke<R extends ResponseTypes, T = string>({
   if ("returnValue" in raw) return parse(raw.returnValue!);
 
   // otherwise, it returned the result of `sendTransaction`
-  if ("errorResultXdr" in raw) return parse(raw.errorResultXdr!);
+  if ("errorResult" in raw) {
+    throw new SendFailedError(
+      `errorResult.result(): ${JSON.stringify(raw.errorResult?.result())}`
+    )
+  }
 
   // if neither of these are present, something went wrong
   console.error("Don't know how to parse result! Returning full RPC response.");
