@@ -69,16 +69,18 @@ func NewPreflightWorkerPool(daemon interfaces.Daemon, workerCount uint, jobQueue
 		Help:      "number of preflight full queue errors",
 	})
 	preflightWP.durationMetric = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Namespace: daemon.MetricsNamespace(),
-		Subsystem: "preflight_pool",
-		Name:      "request_ledger_get_duration_seconds",
-		Help:      "preflight request duration broken down by status",
+		Namespace:  daemon.MetricsNamespace(),
+		Subsystem:  "preflight_pool",
+		Name:       "request_ledger_get_duration_seconds",
+		Help:       "preflight request duration broken down by status",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	}, []string{"status", "type"})
 	preflightWP.ledgerEntriesFetchedMetric = prometheus.NewSummary(prometheus.SummaryOpts{
-		Namespace: daemon.MetricsNamespace(),
-		Subsystem: "preflight_pool",
-		Name:      "request_ledger_entries_fetched",
-		Help:      "ledger entries fetched by simulate transaction calls",
+		Namespace:  daemon.MetricsNamespace(),
+		Subsystem:  "preflight_pool",
+		Name:       "request_ledger_entries_fetched",
+		Help:       "ledger entries fetched by simulate transaction calls",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	})
 	daemon.MetricsRegistry().MustRegister(
 		requestQueueMetric,
