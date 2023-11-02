@@ -10,19 +10,24 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon/interfaces"
 )
 
-func expectedTransaction(ledger uint32, feeBump bool) Transaction {
-	return Transaction{
-		Result: transactionResult(ledger, feeBump),
-		Meta: xdr.TransactionMeta{
-			V:          3,
-			Operations: &[]xdr.OperationMeta{},
-			V3:         &xdr.TransactionMetaV3{},
-		},
-		Envelope:         txEnvelope(ledger, feeBump),
+func expectedTransaction(t *testing.T, ledger uint32, feeBump bool) Transaction {
+	tx := Transaction{
 		FeeBump:          feeBump,
 		ApplicationOrder: 1,
 		Ledger:           expectedLedgerInfo(ledger),
 	}
+	var err error
+	tx.Result, err = transactionResult(ledger, feeBump).MarshalBinary()
+	require.NoError(t, err)
+	tx.Meta, err = xdr.TransactionMeta{
+		V:          3,
+		Operations: &[]xdr.OperationMeta{},
+		V3:         &xdr.TransactionMetaV3{},
+	}.MarshalBinary()
+	require.NoError(t, err)
+	tx.Envelope, err = txEnvelope(ledger, feeBump).MarshalBinary()
+	require.NoError(t, err)
+	return tx
 }
 
 func expectedLedgerInfo(ledgerSequence uint32) LedgerInfo {
@@ -173,12 +178,12 @@ func txEnvelope(ledgerSequence uint32, feeBump bool) xdr.TransactionEnvelope {
 func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequence, firstSequence, lastSequence uint32) {
 	tx, ok, storeRange := store.GetTransaction(txHash(ledgerSequence, false))
 	require.True(t, ok)
-	require.Equal(t, expectedTransaction(ledgerSequence, feeBump), tx)
+	require.Equal(t, expectedTransaction(t, ledgerSequence, feeBump), tx)
 	require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
 	if feeBump {
 		tx, ok, storeRange = store.GetTransaction(txHash(ledgerSequence, true))
 		require.True(t, ok)
-		require.Equal(t, expectedTransaction(ledgerSequence, feeBump), tx)
+		require.Equal(t, expectedTransaction(t, ledgerSequence, feeBump), tx)
 		require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
 	}
 }
