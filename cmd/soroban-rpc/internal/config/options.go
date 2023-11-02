@@ -270,7 +270,7 @@ func (cfg *Config) options() ConfigOptions {
 			Name:         "preflight-enable-debug",
 			Usage:        "Enable debug information in preflighting (provides more detailed errors). It should not be enabled in production deployments.",
 			ConfigKey:    &cfg.PreflightEnableDebug,
-			DefaultValue: false,
+			DefaultValue: true,
 		},
 		{
 			TomlKey:      strutils.KebabToConstantCase("request-backlog-global-queue-limit"),

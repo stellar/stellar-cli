@@ -46,6 +46,9 @@ pub struct Cmd {
     config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
+    #[arg(long, short = 'i', default_value = "false")]
+    /// Whether to ignore safety checks when deploying contracts
+    pub ignore_checks: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -97,6 +100,7 @@ impl Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
                 config: self.config.clone(),
                 fee: self.fee.clone(),
+                ignore_checks: self.ignore_checks,
             }
             .run_and_get_hash()
             .await?;
