@@ -57,10 +57,11 @@ type HandlerParams struct {
 
 func decorateHandlers(daemon interfaces.Daemon, logger *log.Entry, m handler.Map) handler.Map {
 	requestMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Namespace: daemon.MetricsNamespace(),
-		Subsystem: "json_rpc",
-		Name:      "request_duration_seconds",
-		Help:      "JSON RPC request duration",
+		Namespace:  daemon.MetricsNamespace(),
+		Subsystem:  "json_rpc",
+		Name:       "request_duration_seconds",
+		Help:       "JSON RPC request duration",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	}, []string{"endpoint", "status"})
 	decorated := handler.Map{}
 	for endpoint, h := range m {

@@ -48,13 +48,15 @@ func NewMemoryStore(daemon interfaces.Daemon, networkPassphrase string, retentio
 	// transactionDurationMetric is a metric for measuring latency of transaction store operations
 	transactionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: daemon.MetricsNamespace(), Subsystem: "transactions", Name: "operation_duration_seconds",
-		Help: "transaction store operation durations, sliding window = 10m",
+		Help:       "transaction store operation durations, sliding window = 10m",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	},
 		[]string{"operation"},
 	)
 	transactionCountMetric := prometheus.NewSummary(prometheus.SummaryOpts{
 		Namespace: daemon.MetricsNamespace(), Subsystem: "transactions", Name: "count",
-		Help: "count of transactions ingested, sliding window = 10m",
+		Help:       "count of transactions ingested, sliding window = 10m",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	})
 	daemon.MetricsRegistry().MustRegister(transactionDurationMetric, transactionCountMetric)
 

@@ -12,6 +12,7 @@ import (
 	"github.com/stellar/go/historyarchive"
 	"github.com/stellar/go/ingest"
 	backends "github.com/stellar/go/ingest/ledgerbackend"
+	supportdb "github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
@@ -52,7 +53,8 @@ func newService(cfg Config) *Service {
 	// ingestionDurationMetric is a metric for measuring the latency of ingestion
 	ingestionDurationMetric := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: cfg.Daemon.MetricsNamespace(), Subsystem: "ingest", Name: "ledger_ingestion_duration_seconds",
-		Help: "ledger ingestion durations, sliding window = 10m",
+		Help:       "ledger ingestion durations, sliding window = 10m",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	},
 		[]string{"type"},
 	)
@@ -208,9 +210,14 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 	if err != nil {
 		return err
 	}
+	transactionCommitted := false
 	defer func() {
-		if err := tx.Rollback(); err != nil {
-			s.logger.WithError(err).Warn("could not rollback fillEntriesFromCheckpoint write transactions")
+		if !transactionCommitted {
+			// Internally, we might already have rolled back the transaction. We should
+			// not generate benign error/warning here in case the transaction was already rolled back.
+			if rollbackErr := tx.Rollback(); rollbackErr != nil && rollbackErr != supportdb.ErrAlreadyRolledback {
+				s.logger.WithError(rollbackErr).Warn("could not rollback fillEntriesFromCheckpoint write transactions")
+			}
 		}
 	}()
 
@@ -222,9 +229,12 @@ func (s *Service) fillEntriesFromCheckpoint(ctx context.Context, archive history
 	}
 
 	s.logger.Info("committing checkpoint ledger entries")
-	if err := tx.Commit(checkpointLedger); err != nil {
+	err = tx.Commit(checkpointLedger)
+	transactionCommitted = true
+	if err != nil {
 		return err
 	}
+
 	s.logger.Info("finished checkpoint processing")
 	return nil
 }
