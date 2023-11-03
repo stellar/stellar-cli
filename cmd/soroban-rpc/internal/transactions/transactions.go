@@ -148,7 +148,7 @@ type Transaction struct {
 	Envelope         []byte // XDR encoded xdr.TransactionEnvelope
 	FeeBump          bool
 	ApplicationOrder int32
-	Successfull      bool
+	Successful       bool
 	Ledger           LedgerInfo
 }
 
@@ -200,7 +200,7 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 		Meta:             internalTx.meta,
 		Envelope:         internalTx.envelope,
 		FeeBump:          internalTx.feeBump,
-		Successfull:      internalTx.successful,
+		Successful:       internalTx.successful,
 		ApplicationOrder: internalTx.applicationOrder,
 		Ledger: LedgerInfo{
 			Sequence:  internalTx.bucket.LedgerSeq,

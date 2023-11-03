@@ -338,7 +338,7 @@ func stableHeapInUse() int64 {
 	return int64(m.HeapInuse)
 }
 
-func ByteCountBinary(b int64) string {
+func byteCountBinary(b int64) string {
 	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
@@ -351,8 +351,8 @@ func ByteCountBinary(b int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-func TestIngestTransactionsMemory(t *testing.T) {
-	roundsNumber := uint32(100000)
+func BenchmarkIngestTransactionsMemory(b *testing.B) {
+	roundsNumber := uint32(b.N * 100000)
 	// Use a small retention window to test eviction
 	store := NewMemoryStore(interfaces.MakeNoOpDeamon(), "passphrase", roundsNumber)
 
@@ -363,12 +363,14 @@ func TestIngestTransactionsMemory(t *testing.T) {
 		store.IngestTransactions(txMeta(i, false))
 	}
 	heapSizeAfter := stableHeapInUse()
-	t.Logf("Memory consumption for %d transactions %v", roundsNumber, ByteCountBinary(heapSizeAfter-heapSizeBefore))
+	b.ReportMetric(float64(heapSizeAfter), "bytes/100k_transactions")
+	b.Logf("Memory consumption for %d transactions %v", roundsNumber, byteCountBinary(heapSizeAfter-heapSizeBefore))
 
 	// we want to generate 500*20000 transactions total, to cover the expected daily amount of transactions.
 	projectedTransactionCount := int64(500 * 20000)
 	projectedMemoryUtiliztion := (heapSizeAfter - heapSizeBefore) * projectedTransactionCount / int64(roundsNumber)
-	t.Logf("Projected memory consumption for %d transactions %v", projectedTransactionCount, ByteCountBinary(projectedMemoryUtiliztion))
+	b.Logf("Projected memory consumption for %d transactions %v", projectedTransactionCount, byteCountBinary(projectedMemoryUtiliztion))
+	b.ReportMetric(float64(projectedMemoryUtiliztion), "bytes/10M_transactions")
 
 	// add another call to store to prevent the GC from collecting.
 	store.GetTransaction(xdr.Hash{})
