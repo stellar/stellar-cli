@@ -40,8 +40,8 @@ jobs:
       # option #2, set the version of stellar-sdk used as a ref to a gh repo if
       # a value is set on SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO, it takes
       # precedence over any SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION
-      SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO:
-      SYSTEM_TEST_JS_STELLAR_SDK_GH_REF: 8501ad58f36854adeecf41b317f19d5c250c398d
+      SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO: https://github.com/stellar/js-stellar-sdk
+      SYSTEM_TEST_JS_STELLAR_SDK_GH_REF: f000a810aaeb0200b4b4d616dd2d5f67387b5127
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
