@@ -360,7 +360,7 @@ func BenchmarkIngestTransactionsMemory(b *testing.B) {
 
 	for i := uint32(0); i < roundsNumber; i++ {
 		// Insert ledger i
-		store.IngestTransactions(txMeta(i, false))
+		require.NoError(b, store.IngestTransactions(txMeta(i, false)))
 	}
 	heapSizeAfter := stableHeapInUse()
 	b.ReportMetric(float64(heapSizeAfter), "bytes/100k_transactions")
