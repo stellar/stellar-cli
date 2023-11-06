@@ -161,14 +161,19 @@ impl Cmd {
         let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
             .term_width(300)
+            // .help
             .max_term_width(300);
 
         for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
             cmd = cmd.subcommand(build_custom_cmd(&name.to_string_lossy(), &spec)?);
         }
         cmd.build();
+        let long_help = cmd.render_long_help();
         let mut matches_ = cmd.get_matches_from(&self.slop);
-        let (function, matches_) = &matches_.remove_subcommand().unwrap();
+        let Some((function, matches_)) = &matches_.remove_subcommand() else {
+            println!("{long_help}");
+            std::process::exit(1);
+        };
 
         let func = spec.find_function(function)?;
         // create parsed_args in same order as the inputs to func
@@ -177,7 +182,7 @@ impl Cmd {
             .inputs
             .iter()
             .map(|i| {
-                let name = i.name.to_string().unwrap();
+                let name = i.name.to_string()?;
                 if let Some(mut val) = matches_.get_raw(&name) {
                     let mut s = val.next().unwrap().to_string_lossy().to_string();
                     if matches!(i.type_, ScSpecTypeDef::Address) {
@@ -205,7 +210,10 @@ impl Cmd {
                             &std::fs::read(arg_path)
                                 .map_err(|_| Error::MissingFileArg(arg_path.clone()))?,
                         )
-                        .unwrap())
+                        .map_err(|()| Error::CannotParseArg {
+                            arg: name.clone(),
+                            error: soroban_spec_tools::Error::Unknown,
+                        })?)
                     } else {
                         let file_contents = std::fs::read_to_string(arg_path)
                             .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
@@ -414,7 +422,6 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
     if kebab_name != name {
         cmd = cmd.alias(kebab_name);
     }
-    let func = spec.find_function(name).unwrap();
     let doc: &'static str = Box::leak(func.doc.to_string_lossy().into_boxed_str());
     let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
 
@@ -428,7 +435,7 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
             .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
-            .long_help(spec.doc(name, type_).unwrap());
+            .long_help(spec.doc(name, type_)?);
 
         file_arg = file_arg
             .long(&file_arg_name)

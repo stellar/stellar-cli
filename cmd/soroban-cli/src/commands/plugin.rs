@@ -19,6 +19,8 @@ pub enum Error {
     ExecutableNotFound(String, String),
     #[error(transparent)]
     Which(#[from] which::Error),
+    #[error(transparent)]
+    Regex(#[from] regex::Error),
 }
 
 const SUBCOMMAND_TOLERANCE: f64 = 0.75;
@@ -82,7 +84,7 @@ pub fn list() -> Result<Vec<String>, Error> {
     } else {
         r"^soroban-.*"
     };
-    let re = regex::Regex::new(re_str).unwrap();
+    let re = regex::Regex::new(re_str)?;
     Ok(which::which_re(re)?
         .filter_map(|b| {
             let s = b.file_name()?.to_str()?;
