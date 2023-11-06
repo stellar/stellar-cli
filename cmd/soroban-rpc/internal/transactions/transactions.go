@@ -14,10 +14,11 @@ import (
 
 type transaction struct {
 	bucket           *ledgerbucketwindow.LedgerBucket[[]xdr.Hash]
-	result           xdr.TransactionResult
-	meta             xdr.TransactionMeta
-	envelope         xdr.TransactionEnvelope
+	result           []byte // encoded XDR of xdr.TransactionResult
+	meta             []byte // encoded XDR of xdr.TransactionMeta
+	envelope         []byte // encoded XDR of xdr.TransactionEnvelope
 	feeBump          bool
+	successful       bool
 	applicationOrder int32
 }
 
@@ -92,11 +93,18 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 		}
 		transactions[i] = transaction{
 			bucket:           &bucket,
-			result:           tx.Result.Result,
-			meta:             tx.UnsafeMeta,
-			envelope:         tx.Envelope,
 			feeBump:          tx.Envelope.IsFeeBump(),
 			applicationOrder: int32(tx.Index),
+			successful:       tx.Result.Result.Successful(),
+		}
+		if transactions[i].result, err = tx.Result.Result.MarshalBinary(); err != nil {
+			return err
+		}
+		if transactions[i].meta, err = tx.UnsafeMeta.MarshalBinary(); err != nil {
+			return err
+		}
+		if transactions[i].envelope, err = tx.Envelope.MarshalBinary(); err != nil {
+			return err
 		}
 		if transactions[i].feeBump {
 			innerHash := tx.Result.InnerHash()
@@ -135,11 +143,12 @@ type LedgerInfo struct {
 }
 
 type Transaction struct {
-	Result           xdr.TransactionResult
-	Meta             xdr.TransactionMeta
-	Envelope         xdr.TransactionEnvelope
+	Result           []byte // XDR encoded xdr.TransactionResult
+	Meta             []byte // XDR encoded xdr.TransactionMeta
+	Envelope         []byte // XDR encoded xdr.TransactionEnvelope
 	FeeBump          bool
 	ApplicationOrder int32
+	Successful       bool
 	Ledger           LedgerInfo
 }
 
@@ -191,6 +200,7 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 		Meta:             internalTx.meta,
 		Envelope:         internalTx.envelope,
 		FeeBump:          internalTx.feeBump,
+		Successful:       internalTx.successful,
 		ApplicationOrder: internalTx.applicationOrder,
 		Ledger: LedgerInfo{
 			Sequence:  internalTx.bucket.LedgerSeq,

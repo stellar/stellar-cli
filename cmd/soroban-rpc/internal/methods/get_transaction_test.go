@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stellar/go/xdr"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/go/network"
 
@@ -115,33 +115,33 @@ func txEnvelope(acctSeq uint32) xdr.TransactionEnvelope {
 func TestGetTransaction(t *testing.T) {
 	store := transactions.NewMemoryStore(interfaces.MakeNoOpDeamon(), "passphrase", 100)
 	_, err := GetTransaction(store, GetTransactionRequest{"ab"})
-	assert.EqualError(t, err, "[-32602] unexpected hash length (2)")
+	require.EqualError(t, err, "[-32602] unexpected hash length (2)")
 	_, err = GetTransaction(store, GetTransactionRequest{"foo                                                              "})
-	assert.EqualError(t, err, "[-32602] incorrect hash: encoding/hex: invalid byte: U+006F 'o'")
+	require.EqualError(t, err, "[-32602] incorrect hash: encoding/hex: invalid byte: U+006F 'o'")
 
 	hash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	tx, err := GetTransaction(store, GetTransactionRequest{hash})
-	assert.NoError(t, err)
-	assert.Equal(t, GetTransactionResponse{
+	require.NoError(t, err)
+	require.Equal(t, GetTransactionResponse{
 		Status: TransactionStatusNotFound,
 	}, tx)
 
 	meta := txMeta(1, true)
 	err = store.IngestTransactions(meta)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	xdrHash := txHash(1)
 	hash = hex.EncodeToString(xdrHash[:])
 	tx, err = GetTransaction(store, GetTransactionRequest{hash})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	expectedTxResult, err := xdr.MarshalBase64(meta.V1.TxProcessing[0].Result.Result)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expectedEnvelope, err := xdr.MarshalBase64(txEnvelope(1))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expectedTxMeta, err := xdr.MarshalBase64(meta.V1.TxProcessing[0].TxApplyProcessing)
-	assert.NoError(t, err)
-	assert.Equal(t, GetTransactionResponse{
+	require.NoError(t, err)
+	require.Equal(t, GetTransactionResponse{
 		Status:                TransactionStatusSuccess,
 		LatestLedger:          101,
 		LatestLedgerCloseTime: 2625,
@@ -159,12 +159,12 @@ func TestGetTransaction(t *testing.T) {
 	// ingest another (failed) transaction
 	meta = txMeta(2, false)
 	err = store.IngestTransactions(meta)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// the first transaction should still be there
 	tx, err = GetTransaction(store, GetTransactionRequest{hash})
-	assert.NoError(t, err)
-	assert.Equal(t, GetTransactionResponse{
+	require.NoError(t, err)
+	require.Equal(t, GetTransactionResponse{
 		Status:                TransactionStatusSuccess,
 		LatestLedger:          102,
 		LatestLedgerCloseTime: 2650,
@@ -184,16 +184,16 @@ func TestGetTransaction(t *testing.T) {
 	hash = hex.EncodeToString(xdrHash[:])
 
 	expectedTxResult, err = xdr.MarshalBase64(meta.V1.TxProcessing[0].Result.Result)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expectedEnvelope, err = xdr.MarshalBase64(txEnvelope(2))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expectedTxMeta, err = xdr.MarshalBase64(meta.V1.TxProcessing[0].TxApplyProcessing)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tx, err = GetTransaction(store, GetTransactionRequest{hash})
-	assert.NoError(t, err)
-	assert.NoError(t, err)
-	assert.Equal(t, GetTransactionResponse{
+	require.NoError(t, err)
+	require.NoError(t, err)
+	require.Equal(t, GetTransactionResponse{
 		Status:                TransactionStatusFailed,
 		LatestLedger:          102,
 		LatestLedgerCloseTime: 2650,

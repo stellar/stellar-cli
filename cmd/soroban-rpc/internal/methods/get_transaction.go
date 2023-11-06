@@ -2,6 +2,7 @@ package methods
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 
@@ -99,25 +100,11 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	response.FeeBump = tx.FeeBump
 	response.Ledger = int64(tx.Ledger.Sequence)
 	response.LedgerCloseTime = tx.Ledger.CloseTime
-	if response.ResultXdr, err = xdr.MarshalBase64(tx.Result); err != nil {
-		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    jrpc2.InternalError,
-			Message: err.Error(),
-		}
-	}
-	if response.EnvelopeXdr, err = xdr.MarshalBase64(tx.Envelope); err != nil {
-		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    jrpc2.InternalError,
-			Message: err.Error(),
-		}
-	}
-	if response.ResultMetaXdr, err = xdr.MarshalBase64(tx.Meta); err != nil {
-		return GetTransactionResponse{}, &jrpc2.Error{
-			Code:    jrpc2.InternalError,
-			Message: err.Error(),
-		}
-	}
-	if tx.Result.Successful() {
+
+	response.ResultXdr = base64.StdEncoding.EncodeToString(tx.Result)
+	response.EnvelopeXdr = base64.StdEncoding.EncodeToString(tx.Envelope)
+	response.ResultMetaXdr = base64.StdEncoding.EncodeToString(tx.Meta)
+	if tx.Successful {
 		response.Status = TransactionStatusSuccess
 	} else {
 		response.Status = TransactionStatusFailed
