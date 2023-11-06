@@ -131,6 +131,8 @@ pub mod parsing {
         CannotParseAccountId { account_id: String },
         #[error("cannot parse asset: {asset}")]
         CannotParseAsset { asset: String },
+        #[error(transparent)]
+        Regex(#[from] regex::Error),
     }
 
     pub fn parse_asset(str: &str) -> Result<Asset, Error> {
@@ -145,7 +147,7 @@ pub mod parsing {
         }
         let code = split[0];
         let issuer = split[1];
-        let re = Regex::new("^[[:alnum:]]{1,12}$").unwrap();
+        let re = Regex::new("^[[:alnum:]]{1,12}$")?;
         if !re.is_match(code) {
             return Err(Error::InvalidAssetCode {
                 asset: str.to_string(),

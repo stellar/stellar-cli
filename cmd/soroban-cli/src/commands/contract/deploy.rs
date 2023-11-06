@@ -85,6 +85,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
+    Infallible(#[from] std::convert::Infallible),
 }
 
 impl Cmd {
@@ -204,11 +206,7 @@ fn get_contract_id(
     contract_id_preimage: ContractIdPreimage,
     network_passphrase: &str,
 ) -> Result<Hash, Error> {
-    let network_id = Hash(
-        Sha256::digest(network_passphrase.as_bytes())
-            .try_into()
-            .unwrap(),
-    );
+    let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).try_into()?);
     let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
         contract_id_preimage,
