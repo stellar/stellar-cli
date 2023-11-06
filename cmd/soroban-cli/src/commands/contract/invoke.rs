@@ -161,7 +161,6 @@ impl Cmd {
         let mut cmd = clap::Command::new(self.contract_id.clone())
             .no_binary_name(true)
             .term_width(300)
-            // .help
             .max_term_width(300);
 
         for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
