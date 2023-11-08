@@ -1,4 +1,4 @@
-all: check build test
+all: build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
@@ -61,7 +61,7 @@ build: build_rust build_go
 build-libpreflight: Cargo.lock
 	cd cmd/soroban-rpc/lib/preflight && cargo build --target $(CARGO_BUILD_TARGET) --profile release-with-panic-unwind
 
-build-test-wasms: Cargo.lock
+build-test-wasms:
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
 
 build-test: build-test-wasms install_rust
