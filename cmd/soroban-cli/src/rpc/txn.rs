@@ -2,7 +2,7 @@ use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, ExtensionPoint, Hash, HashIdPreimage,
-    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Memo, Operation,
+    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, LedgerFootprint, Memo, Operation,
     OperationBody, Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress, ScMap,
     ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
     SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanCredentials, SorobanResources,
@@ -166,6 +166,23 @@ impl Assembled {
 
     pub fn finish_simulation(self) -> Finished {
         Finished::simulated(self.sim_res)
+    }
+
+    pub fn is_view(&self) -> bool {
+        if let TransactionExt::V1(SorobanTransactionData {
+            resources:
+                SorobanResources {
+                    footprint: LedgerFootprint { read_write, .. },
+                    ..
+                },
+            ..
+        }) = &self.txn.ext
+        {
+            if read_write.is_empty() {
+                return true;
+            }
+        };
+        !self.requires_auth()
     }
 }
 

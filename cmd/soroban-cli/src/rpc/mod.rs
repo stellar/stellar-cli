@@ -724,7 +724,7 @@ soroban config identity fund {address} --helper-url <url>"#
             .authorize(self, source_key, signers, seq_num, network_passphrase)
             .await?;
         authorized.log(log_events, log_resources)?;
-        if always_submit || authorized.requires_auth() {
+        if always_submit || !authorized.is_view() {
             let tx = authorized.sign(source_key, network_passphrase)?;
             self.send_transaction(&tx).await
         } else {
