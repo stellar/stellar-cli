@@ -1,4 +1,4 @@
-use soroban_env_host::xdr::{self, DiagnosticEvent, ScVal};
+use soroban_env_host::xdr::{self, ContractEventType, DiagnosticEvent, ScVal};
 
 use super::Error;
 use crate::rpc::{extract_events, GetTransactionResponse, SimulateTransactionResponse};
@@ -54,6 +54,14 @@ impl Finished {
             }) => Ok(extract_events(meta)),
             Kind::Signed(_) => Err(Error::MissingOp),
         }
+    }
+
+    pub fn contract_events(&self) -> Result<Vec<DiagnosticEvent>, Error> {
+        Ok(self
+            .events()?
+            .into_iter()
+            .filter(|e| matches!(e.event.type_, ContractEventType::Contract))
+            .collect::<Vec<_>>())
     }
 
     pub fn as_signed(&self) -> Result<&GetTransactionResponse, Error> {

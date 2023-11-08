@@ -312,7 +312,7 @@ impl Cmd {
                 false,
             )
             .await?;
-        crate::log::diagnostic_events(&res.events()?, tracing::Level::INFO);
+        crate::log::diagnostic_events(&res.contract_events()?, tracing::Level::INFO);
         output_to_string(&spec, &res.return_value()?, &function)
     }
 
