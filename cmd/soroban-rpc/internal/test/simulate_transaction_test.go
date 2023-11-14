@@ -233,7 +233,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 				},
 			},
 			Instructions: 6062311,
-			ReadBytes:    48,
+			ReadBytes:    0,
 			WriteBytes:   7048,
 		},
 		ResourceFee: 130498,

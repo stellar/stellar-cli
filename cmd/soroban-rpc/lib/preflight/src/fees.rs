@@ -7,7 +7,7 @@ use soroban_env_host::e2e_invoke::{
 use soroban_env_host::fees::{
     compute_rent_fee, compute_transaction_resource_fee, compute_write_fee_per_1kb,
     FeeConfiguration, LedgerEntryRentChange, RentFeeConfiguration, TransactionResources,
-    WriteFeeConfiguration, TTL_ENTRY_SIZE,
+    WriteFeeConfiguration,
 };
 use soroban_env_host::storage::{AccessType, Footprint, Storage};
 use soroban_env_host::xdr;
@@ -131,10 +131,7 @@ fn calculate_host_function_soroban_resources(
 ) -> Result<SorobanResources> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)
         .context("cannot convert storage footprint to ledger footprint")?;
-    let read_bytes: u32 = ledger_changes
-        .iter()
-        .map(|c| c.old_entry_size_bytes + c.ttl_change.as_ref().map_or(0, |_| TTL_ENTRY_SIZE))
-        .sum();
+    let read_bytes: u32 = ledger_changes.iter().map(|c| c.old_entry_size_bytes).sum();
 
     let write_bytes: u32 = ledger_changes
         .iter()
@@ -224,17 +221,6 @@ fn get_fee_configurations(
     Ok((fee_configuration, rent_fee_configuration))
 }
 
-// Calculate the implicit TTLEntry bytes that will be read for TTLLedgerEntries
-fn calculate_ttl_entry_bytes(ledger_entries: &[LedgerKey]) -> u32 {
-    ledger_entries
-        .iter()
-        .map(|lk| match lk {
-            LedgerKey::ContractData(_) | LedgerKey::ContractCode(_) => TTL_ENTRY_SIZE,
-            _ => 0,
-        })
-        .sum()
-}
-
 #[allow(clippy::cast_possible_truncation)]
 fn calculate_unmodified_ledger_entry_bytes(
     ledger_entries: &[LedgerKey],
@@ -322,8 +308,6 @@ pub(crate) fn compute_extend_footprint_ttl_transaction_data_and_min_fee(
     )
     .context("cannot compute extend rent changes")?;
 
-    let ttl_bytes: u32 = calculate_ttl_entry_bytes(footprint.read_only.as_vec());
-
     let unmodified_entry_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_only.as_slice(),
         ledger_storage,
@@ -334,7 +318,7 @@ pub(crate) fn compute_extend_footprint_ttl_transaction_data_and_min_fee(
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        read_bytes: unmodified_entry_bytes + ttl_bytes,
+        read_bytes: unmodified_entry_bytes,
         write_bytes: 0,
     };
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
@@ -420,7 +404,6 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     )
     .context("cannot compute restore rent changes")?;
 
-    let ttl_bytes: u32 = calculate_ttl_entry_bytes(footprint.read_write.as_vec());
     let write_bytes = calculate_unmodified_ledger_entry_bytes(
         footprint.read_write.as_vec(),
         ledger_storage,
@@ -430,7 +413,7 @@ pub(crate) fn compute_restore_footprint_transaction_data_and_min_fee(
     let soroban_resources = SorobanResources {
         footprint,
         instructions: 0,
-        read_bytes: write_bytes + ttl_bytes,
+        read_bytes: write_bytes,
         write_bytes,
     };
     let transaction_size_bytes = estimate_max_transaction_size_for_operation(
