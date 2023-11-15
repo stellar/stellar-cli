@@ -89,28 +89,40 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 		ledgerEntryResults := make([]LedgerEntryResult, 0, len(ledgerKeys))
 		ledgerKeysAndEntries, err := tx.GetLedgerEntries(ledgerKeys...)
 		if err != nil {
-			logger.WithError(err).WithField("request", request).
-				Info("could not obtain ledger entryies from storage")
+			message := "could not obtain ledger entries from storage"
+			logger.WithError(err).WithField("request", request).Info(message)
 			return GetLedgerEntriesResponse{}, &jrpc2.Error{
 				Code:    jrpc2.InternalError,
-				Message: "could not obtain ledger entryies from storage",
+				Message: message,
 			}
 		}
 
-		for i, ledgerKeyAndEntry := range ledgerKeysAndEntries {
-			ledgerXDR, err := xdr.MarshalBase64(ledgerKeyAndEntry.Entry.Data)
+		for _, ledgerKeyAndEntry := range ledgerKeysAndEntries {
+			entryXdr, err := xdr.MarshalBase64(ledgerKeyAndEntry.Entry.Data)
 			if err != nil {
-				logger.WithError(err).WithField("request", request).
-					Infof("could not serialize ledger entry data for ledger entry %v", ledgerKeyAndEntry.Entry)
+				message := fmt.Sprintf(
+					"could not serialize ledger entry data for ledger entry %v",
+					ledgerKeyAndEntry.Entry)
+				logger.WithError(err).WithField("request", request).Info(message)
 				return GetLedgerEntriesResponse{}, &jrpc2.Error{
 					Code:    jrpc2.InternalError,
-					Message: fmt.Sprintf("could not serialize ledger entry data for ledger entry %v", ledgerKeyAndEntry.Entry),
+					Message: message,
+				}
+			}
+
+			keyXdr, err := xdr.MarshalBase64(ledgerKeyAndEntry.Key)
+			if err != nil {
+				message := fmt.Sprintf("could not serialize ledger key %v", ledgerKeyAndEntry.Key)
+				logger.WithError(err).WithField("request", request).Infof(message)
+				return GetLedgerEntriesResponse{}, &jrpc2.Error{
+					Code:    jrpc2.InternalError,
+					Message: message,
 				}
 			}
 
 			ledgerEntryResults = append(ledgerEntryResults, LedgerEntryResult{
-				Key:                request.Keys[i],
-				XDR:                ledgerXDR,
+				Key:                keyXdr,
+				XDR:                entryXdr,
 				LastModifiedLedger: int64(ledgerKeyAndEntry.Entry.LastModifiedLedgerSeq),
 			})
 		}
