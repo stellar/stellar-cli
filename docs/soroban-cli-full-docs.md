@@ -21,20 +21,15 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract optimize`↴](#soroban-contract-optimize)
 * [`soroban contract read`↴](#soroban-contract-read)
 * [`soroban contract restore`↴](#soroban-contract-restore)
-* [`soroban config`↴](#soroban-config)
-* [`soroban config identity`↴](#soroban-config-identity)
-* [`soroban config identity add`↴](#soroban-config-identity-add)
-* [`soroban config identity address`↴](#soroban-config-identity-address)
-* [`soroban config identity fund`↴](#soroban-config-identity-fund)
-* [`soroban config identity generate`↴](#soroban-config-identity-generate)
-* [`soroban config identity ls`↴](#soroban-config-identity-ls)
-* [`soroban config identity rm`↴](#soroban-config-identity-rm)
-* [`soroban config identity show`↴](#soroban-config-identity-show)
-* [`soroban config network`↴](#soroban-config-network)
-* [`soroban config network add`↴](#soroban-config-network-add)
-* [`soroban config network rm`↴](#soroban-config-network-rm)
-* [`soroban config network ls`↴](#soroban-config-network-ls)
 * [`soroban events`↴](#soroban-events)
+* [`soroban identity`↴](#soroban-identity)
+* [`soroban identity add`↴](#soroban-identity-add)
+* [`soroban identity address`↴](#soroban-identity-address)
+* [`soroban identity fund`↴](#soroban-identity-fund)
+* [`soroban identity generate`↴](#soroban-identity-generate)
+* [`soroban identity ls`↴](#soroban-identity-ls)
+* [`soroban identity rm`↴](#soroban-identity-rm)
+* [`soroban identity show`↴](#soroban-identity-show)
 * [`soroban lab`↴](#soroban-lab)
 * [`soroban lab token`↴](#soroban-lab-token)
 * [`soroban lab token wrap`↴](#soroban-lab-token-wrap)
@@ -46,6 +41,10 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban lab xdr decode`↴](#soroban-lab-xdr-decode)
 * [`soroban lab xdr encode`↴](#soroban-lab-xdr-encode)
 * [`soroban lab xdr version`↴](#soroban-lab-xdr-version)
+* [`soroban network`↴](#soroban-network)
+* [`soroban network add`↴](#soroban-network-add)
+* [`soroban network rm`↴](#soroban-network-rm)
+* [`soroban network ls`↴](#soroban-network-ls)
 * [`soroban version`↴](#soroban-version)
 
 ## `soroban`
@@ -81,9 +80,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 
 * `completion` — Print shell completion code for the specified shell
 * `contract` — Tools for smart contract developers
-* `config` — Read and update config
 * `events` — Watch the network for contract events
+* `identity` — Create and manage identities including keys and addresses
 * `lab` — Experiment with early features and expert tools
+* `network` — Start and configure networks
 * `version` — Print version information
 
 ###### **Options:**
@@ -488,231 +488,6 @@ If no keys are specificed the contract itself is restored.
 
 
 
-## `soroban config`
-
-Read and update config
-
-**Usage:** `soroban config <COMMAND>`
-
-###### **Subcommands:**
-
-* `identity` — Configure different identities to sign transactions
-* `network` — Configure different networks
-
-
-
-## `soroban config identity`
-
-Configure different identities to sign transactions
-
-**Usage:** `soroban config identity <COMMAND>`
-
-###### **Subcommands:**
-
-* `add` — Add a new identity (keypair, ledger, macOS keychain)
-* `address` — Given an identity return its address (public key)
-* `fund` — Fund an identity on a test network
-* `generate` — Generate a new identity with a seed phrase, currently 12 words
-* `ls` — List identities
-* `rm` — Remove an identity
-* `show` — Given an identity return its private key
-
-
-
-## `soroban config identity add`
-
-Add a new identity (keypair, ledger, macOS keychain)
-
-**Usage:** `soroban config identity add [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity
-
-###### **Options:**
-
-* `--secret-key` — Add using secret_key Can provide with SOROBAN_SECRET_KEY
-* `--seed-phrase` — Add using 12 word seed phrase to generate secret_key
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config identity address`
-
-Given an identity return its address (public key)
-
-**Usage:** `soroban config identity address [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
-
-###### **Options:**
-
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config identity fund`
-
-Fund an identity on a test network
-
-**Usage:** `soroban config identity fund [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config identity generate`
-
-Generate a new identity with a seed phrase, currently 12 words
-
-**Usage:** `soroban config identity generate [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity
-
-###### **Options:**
-
-* `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
-* `-s`, `--as-secret` — Output the generated identity as a secret key
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-* `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
-* `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-
-
-
-## `soroban config identity ls`
-
-List identities
-
-**Usage:** `soroban config identity ls [OPTIONS]`
-
-###### **Options:**
-
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config identity rm`
-
-Remove an identity
-
-**Usage:** `soroban config identity rm [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Identity to remove
-
-###### **Options:**
-
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config identity show`
-
-Given an identity return its private key
-
-**Usage:** `soroban config identity show [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity to lookup, default is test identity
-
-###### **Options:**
-
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config network`
-
-Configure different networks
-
-**Usage:** `soroban config network <COMMAND>`
-
-###### **Subcommands:**
-
-* `add` — Add a new network
-* `rm` — Remove a network
-* `ls` — List networks
-
-
-
-## `soroban config network add`
-
-Add a new network
-
-**Usage:** `soroban config network add [OPTIONS] --rpc-url <RPC_URL> --network-passphrase <NETWORK_PASSPHRASE> <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of network
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config network rm`
-
-Remove a network
-
-**Usage:** `soroban config network rm [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Network to remove
-
-###### **Options:**
-
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-
-
-
-## `soroban config network ls`
-
-List networks
-
-**Usage:** `soroban config network ls [OPTIONS]`
-
-###### **Options:**
-
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-* `-l`, `--long` — Get more info about the networks
-
-
-
 ## `soroban events`
 
 Watch the network for contract events
@@ -751,6 +526,154 @@ Watch the network for contract events
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `soroban identity`
+
+Create and manage identities including keys and addresses
+
+**Usage:** `soroban identity <COMMAND>`
+
+###### **Subcommands:**
+
+* `add` — Add a new identity (keypair, ledger, macOS keychain)
+* `address` — Given an identity return its address (public key)
+* `fund` — Fund an identity on a test network
+* `generate` — Generate a new identity with a seed phrase, currently 12 words
+* `ls` — List identities
+* `rm` — Remove an identity
+* `show` — Given an identity return its private key
+
+
+
+## `soroban identity add`
+
+Add a new identity (keypair, ledger, macOS keychain)
+
+**Usage:** `soroban identity add [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of identity
+
+###### **Options:**
+
+* `--secret-key` — Add using secret_key Can provide with SOROBAN_SECRET_KEY
+* `--seed-phrase` — Add using 12 word seed phrase to generate secret_key
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban identity address`
+
+Given an identity return its address (public key)
+
+**Usage:** `soroban identity address [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+
+###### **Options:**
+
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban identity fund`
+
+Fund an identity on a test network
+
+**Usage:** `soroban identity fund [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban identity generate`
+
+Generate a new identity with a seed phrase, currently 12 words
+
+**Usage:** `soroban identity generate [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of identity
+
+###### **Options:**
+
+* `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
+* `-s`, `--as-secret` — Output the generated identity as a secret key
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
+* `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `soroban identity ls`
+
+List identities
+
+**Usage:** `soroban identity ls [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban identity rm`
+
+Remove an identity
+
+**Usage:** `soroban identity rm [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Identity to remove
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban identity show`
+
+Given an identity return its private key
+
+**Usage:** `soroban identity show [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of identity to lookup, default is test identity
+
+###### **Options:**
+
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
 
 
 
@@ -927,6 +850,70 @@ Decode XDR
   Default value: `json`
 
   Possible values: `json`, `json-formatted`
+
+
+
+## `soroban network`
+
+Start and configure networks
+
+**Usage:** `soroban network <COMMAND>`
+
+###### **Subcommands:**
+
+* `add` — Add a new network
+* `rm` — Remove a network
+* `ls` — List networks
+
+
+
+## `soroban network add`
+
+Add a new network
+
+**Usage:** `soroban network add [OPTIONS] --rpc-url <RPC_URL> --network-passphrase <NETWORK_PASSPHRASE> <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Name of network
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban network rm`
+
+Remove a network
+
+**Usage:** `soroban network rm [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Network to remove
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban network ls`
+
+List networks
+
+**Usage:** `soroban network ls [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `-l`, `--long` — Get more info about the networks
 
 
 

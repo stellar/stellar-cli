@@ -7,16 +7,13 @@ use crate::Pwd;
 
 use self::{network::Network, secret::Secret};
 
-pub mod identity;
+use super::network;
+
 pub mod locator;
-pub mod network;
 pub mod secret;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Configure different identities to sign transactions.
-    #[command(subcommand)]
-    Identity(identity::Cmd),
     /// Configure different networks
     #[command(subcommand)]
     Network(network::Cmd),
@@ -25,23 +22,11 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Identity(#[from] identity::Error),
-    #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Config(#[from] locator::Error),
-}
-
-impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        match &self {
-            Cmd::Identity(identity) => identity.run().await?,
-            Cmd::Network(network) => network.run()?,
-        }
-        Ok(())
-    }
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]

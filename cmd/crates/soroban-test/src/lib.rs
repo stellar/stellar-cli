@@ -30,7 +30,7 @@ use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
-    commands::{config, contract, contract::invoke, global},
+    commands::{config, contract, contract::invoke, global, identity},
     CommandParser, Pwd,
 };
 
@@ -158,7 +158,7 @@ impl TestEnv {
 
     /// Returns the public key corresponding to the test identity's `hd_path`
     pub fn test_address(&self, hd_path: usize) -> String {
-        self.cmd::<config::identity::address::Cmd>(&format!("--hd-path={hd_path}"))
+        self.cmd::<identity::address::Cmd>(&format!("--hd-path={hd_path}"))
             .public_key()
             .unwrap()
             .to_string()
@@ -166,7 +166,7 @@ impl TestEnv {
 
     /// Returns the private key corresponding to the test identity's `hd_path`
     pub fn test_show(&self, hd_path: usize) -> String {
-        self.cmd::<config::identity::show::Cmd>(&format!("--hd-path={hd_path}"))
+        self.cmd::<identity::show::Cmd>(&format!("--hd-path={hd_path}"))
             .private_key()
             .unwrap()
             .to_string()

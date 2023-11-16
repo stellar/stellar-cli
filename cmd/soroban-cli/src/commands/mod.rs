@@ -7,7 +7,9 @@ pub mod config;
 pub mod contract;
 pub mod events;
 pub mod global;
+pub mod identity;
 pub mod lab;
+pub mod network;
 pub mod plugin;
 pub mod version;
 
@@ -90,11 +92,12 @@ impl Root {
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
-            Cmd::Config(config) => config.run().await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Lab(lab) => lab.run().await?,
+            Cmd::Network(network) => network.run()?,
             Cmd::Version(version) => version.run(),
+            Cmd::Identity(id) => id.run().await?,
         };
         Ok(())
     }
@@ -116,14 +119,17 @@ pub enum Cmd {
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
-    /// Read and update config
-    #[command(subcommand)]
-    Config(config::Cmd),
     /// Watch the network for contract events
     Events(events::Cmd),
+    /// Create and manage identities including keys and addresses
+    #[command(subcommand, visible_alias = "id")]
+    Identity(identity::Cmd),
     /// Experiment with early features and expert tools
     #[command(subcommand)]
     Lab(lab::Cmd),
+    /// Start and configure networks
+    #[command(subcommand)]
+    Network(network::Cmd),
     /// Print version information
     Version(version::Cmd),
 }
@@ -135,7 +141,8 @@ pub enum Error {
     Contract(#[from] contract::Error),
     #[error(transparent)]
     Events(#[from] events::Error),
-
+    #[error(transparent)]
+    Identity(#[from] identity::Error),
     #[error(transparent)]
     Lab(#[from] lab::Error),
     #[error(transparent)]
@@ -144,4 +151,6 @@ pub enum Error {
     Clap(#[from] clap::error::Error),
     #[error(transparent)]
     Plugin(#[from] plugin::Error),
+    #[error(transparent)]
+    Network(#[from] network::Error),
 }

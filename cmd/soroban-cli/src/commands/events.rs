@@ -3,7 +3,7 @@ use std::io;
 
 use soroban_env_host::xdr::{self, Limits, ReadXdr};
 
-use super::config::{locator, network};
+use super::{config::locator, network};
 use crate::{rpc, utils};
 
 #[derive(Parser, Debug, Clone)]
