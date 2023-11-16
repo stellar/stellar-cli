@@ -10,7 +10,7 @@ use crate::{
     rpc::{self, Client},
 };
 
-use super::locator;
+use super::config::locator;
 
 pub mod add;
 pub mod ls;

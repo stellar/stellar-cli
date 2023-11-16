@@ -3,7 +3,7 @@ use soroban_test::TestEnv;
 use std::{fs, path::Path};
 
 use crate::util::{add_identity, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
-use soroban_cli::commands::config::network;
+use soroban_cli::commands::network;
 
 const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
 
@@ -32,8 +32,7 @@ fn set_and_remove_network() {
         //     .assert()
         //     .stdout("");
         sandbox
-            .new_assert_cmd("config")
-            .arg("network")
+            .new_assert_cmd("network")
             .arg("ls")
             .assert()
             .stdout("\n");
@@ -42,8 +41,7 @@ fn set_and_remove_network() {
 
 fn add_network(sandbox: &TestEnv, name: &str) {
     sandbox
-        .new_assert_cmd("config")
-        .arg("network")
+        .new_assert_cmd("network")
         .arg("add")
         .args([
             "--rpc-url=https://127.0.0.1",
@@ -59,9 +57,8 @@ fn add_network(sandbox: &TestEnv, name: &str) {
 
 fn add_network_global(sandbox: &TestEnv, dir: &Path, name: &str) {
     sandbox
-        .new_assert_cmd("config")
+        .new_assert_cmd("network")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("network")
         .arg("add")
         .arg("--global")
         .arg("--rpc-url")
@@ -81,18 +78,16 @@ fn set_and_remove_global_network() {
     add_network_global(&sandbox, &dir, "global");
 
     sandbox
-        .new_assert_cmd("config")
+        .new_assert_cmd("network")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("network")
         .arg("ls")
         .arg("--global")
         .assert()
         .stdout("global\n");
 
     sandbox
-        .new_assert_cmd("config")
+        .new_assert_cmd("network")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("network")
         .arg("rm")
         .arg("--global")
         .arg("global")
@@ -100,9 +95,8 @@ fn set_and_remove_global_network() {
         .stdout("");
 
     sandbox
-        .new_assert_cmd("config")
+        .new_assert_cmd("network")
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("network")
         .arg("ls")
         .assert()
         .stdout("\n");
@@ -150,8 +144,7 @@ fn read_identity() {
     let ident_dir = dir.join(".soroban/identity");
     assert!(ident_dir.exists());
     sandbox
-        .new_assert_cmd("config")
-        .arg("identity")
+        .new_assert_cmd("identity")
         .arg("ls")
         .assert()
         .stdout("test_id\n");
@@ -161,8 +154,7 @@ fn read_identity() {
 fn generate_identity() {
     let sandbox = TestEnv::default();
     sandbox
-        .new_assert_cmd("config")
-        .arg("identity")
+        .new_assert_cmd("identity")
         .arg("generate")
         .arg("--seed")
         .arg("0000000000000000")
@@ -172,8 +164,7 @@ fn generate_identity() {
         .success();
 
     sandbox
-        .new_assert_cmd("config")
-        .arg("identity")
+        .new_assert_cmd("identity")
         .arg("ls")
         .assert()
         .stdout("test\n");
@@ -197,9 +188,8 @@ fn seed_phrase() {
     );
 
     sandbox
-        .new_assert_cmd("config")
+        .new_assert_cmd("id")
         .current_dir(dir)
-        .arg("identity")
         .arg("ls")
         .assert()
         .stdout("test_seed\n");
@@ -218,12 +208,11 @@ fn use_env() {
     let sandbox = TestEnv::default();
 
     sandbox
-        .new_assert_cmd("config")
+        .new_assert_cmd("identity")
         .env(
             "SOROBAN_SECRET_KEY",
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
         )
-        .arg("identity")
         .arg("add")
         .arg("bob")
         .assert()
@@ -231,8 +220,7 @@ fn use_env() {
         .success();
 
     sandbox
-        .new_assert_cmd("config")
-        .arg("identity")
+        .new_assert_cmd("identity")
         .arg("show")
         .arg("bob")
         .assert()

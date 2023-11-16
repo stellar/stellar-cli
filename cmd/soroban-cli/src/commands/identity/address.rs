@@ -1,6 +1,7 @@
-use crate::commands::config::secret::Secret;
-
-use super::super::{locator, secret};
+use super::super::config::{
+    locator,
+    secret::{self, Secret},
+};
 use clap::arg;
 
 #[derive(thiserror::Error, Debug)]

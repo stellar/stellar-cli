@@ -1,4 +1,4 @@
-use super::super::{locator, secret};
+use super::super::config::{locator, secret};
 use clap::command;
 
 #[derive(thiserror::Error, Debug)]
@@ -13,11 +13,11 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Name of identity
+    /// Name of network
     pub name: String,
 
     #[command(flatten)]
-    pub secrets: secret::Args,
+    pub network: super::Network,
 
     #[command(flatten)]
     pub config_locator: locator::Args,
@@ -27,6 +27,6 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         Ok(self
             .config_locator
-            .write_identity(&self.name, &self.secrets.read_secret()?)?)
+            .write_network(&self.name, &self.network)?)
     }
 }
