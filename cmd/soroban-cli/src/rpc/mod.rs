@@ -556,6 +556,7 @@ soroban config identity fund {address} --helper-url <url>"#
     ) -> Result<(TransactionResult, TransactionMeta, Vec<DiagnosticEvent>), Error> {
         let client = self.client()?;
         tracing::trace!(?tx);
+        eprintln!("esteblock tx base64: {}", tx.to_xdr_base64()?);
         let SendTransactionResponse {
             hash,
             error_result_xdr,
