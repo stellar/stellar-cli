@@ -260,16 +260,22 @@ func entryKeyToTTLEntryKey(key xdr.LedgerKey) (xdr.LedgerKey, error) {
 }
 
 func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKeyAndEntry, error) {
-	encodedKeys := make([]string, len(keys), 2*len(keys))
-	encodedKeyToKey := make(map[string]xdr.LedgerKey, len(keys))
-	encodedKeyToEncodedTTLLedgerKey := make(map[string]string, len(keys))
-	for _, k := range keys {
+	encodedKeys := make([]string, 0, 2*len(keys))
+	type keyToEncoded struct {
+		key           xdr.LedgerKey
+		encodedKey    string
+		encodedTTLKey *string
+	}
+	keysToEncoded := make([]keyToEncoded, len(keys))
+	for i, k := range keys {
+		k2 := k
+		keysToEncoded[i].key = k2
 		encodedKey, err := encodeLedgerKey(l.buffer, k)
 		if err != nil {
 			return nil, err
 		}
+		keysToEncoded[i].encodedKey = encodedKey
 		encodedKeys = append(encodedKeys, encodedKey)
-		encodedKeyToKey[encodedKey] = k
 		if !hasTTLKey(k) {
 			continue
 		}
@@ -281,7 +287,7 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKey
 		if err != nil {
 			return nil, err
 		}
-		encodedKeyToEncodedTTLLedgerKey[encodedKey] = encodedTTLKey
+		keysToEncoded[i].encodedTTLKey = &encodedTTLKey
 		encodedKeys = append(encodedKeys, encodedTTLKey)
 	}
 
@@ -290,9 +296,9 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKey
 		return nil, err
 	}
 
-	result := make([]LedgerKeyAndEntry, 0, len(rawResult))
-	for encodedKey, key := range encodedKeyToKey {
-		encodedEntry, ok := rawResult[encodedKey]
+	result := make([]LedgerKeyAndEntry, 0, len(keys))
+	for _, k2e := range keysToEncoded {
+		encodedEntry, ok := rawResult[k2e.encodedKey]
 		if !ok {
 			continue
 		}
@@ -300,22 +306,21 @@ func (l *ledgerEntryReadTx) GetLedgerEntries(keys ...xdr.LedgerKey) ([]LedgerKey
 		if err := xdr.SafeUnmarshal([]byte(encodedEntry), &entry); err != nil {
 			return nil, errors.Wrap(err, "cannot decode ledger entry from DB")
 		}
-		encodedExpKey, has := encodedKeyToEncodedTTLLedgerKey[encodedKey]
-		if !has {
-			result = append(result, LedgerKeyAndEntry{key, entry, nil})
+		if k2e.encodedTTLKey == nil {
+			result = append(result, LedgerKeyAndEntry{k2e.key, entry, nil})
 			continue
 		}
-		encodedExpEntry, ok := rawResult[encodedExpKey]
+		encodedTTLEntry, ok := rawResult[*k2e.encodedTTLKey]
 		if !ok {
 			// missing ttl key. This should not happen.
 			return nil, errors.New("missing ttl key entry")
 		}
-		var expEntry xdr.LedgerEntry
-		if err := xdr.SafeUnmarshal([]byte(encodedExpEntry), &expEntry); err != nil {
+		var ttlEntry xdr.LedgerEntry
+		if err := xdr.SafeUnmarshal([]byte(encodedTTLEntry), &ttlEntry); err != nil {
 			return nil, errors.Wrap(err, "cannot decode TTL ledger entry from DB")
 		}
-		liveUntilSeq := uint32(expEntry.Data.Ttl.LiveUntilLedgerSeq)
-		result = append(result, LedgerKeyAndEntry{key, entry, &liveUntilSeq})
+		liveUntilSeq := uint32(ttlEntry.Data.Ttl.LiveUntilLedgerSeq)
+		result = append(result, LedgerKeyAndEntry{k2e.key, entry, &liveUntilSeq})
 	}
 
 	return result, nil
