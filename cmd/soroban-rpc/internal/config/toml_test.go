@@ -31,7 +31,6 @@ func TestBasicTomlReading(t *testing.T) {
 	// Check the fields got read correctly
 	assert.Equal(t, []string{"http://history-futurenet.stellar.org"}, cfg.HistoryArchiveURLs)
 	assert.Equal(t, network.FutureNetworkPassphrase, cfg.NetworkPassphrase)
-	assert.Equal(t, true, cfg.CaptiveCoreUseDB)
 	assert.Equal(t, "/etc/stellar/soroban-rpc", cfg.CaptiveCoreStoragePath)
 	assert.Equal(t, "/etc/stellar/soroban-rpc/captive-core.cfg", cfg.CaptiveCoreConfigPath)
 }

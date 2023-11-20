@@ -175,12 +175,6 @@ func (cfg *Config) options() ConfigOptions {
 			},
 		},
 		{
-			Name:         "captive-core-use-db",
-			Usage:        "informs captive core to use on disk mode. the db will by default be created in current runtime directory of soroban-rpc, unless DATABASE=<path> setting is present in captive core config file.",
-			ConfigKey:    &cfg.CaptiveCoreUseDB,
-			DefaultValue: false,
-		},
-		{
 			Name:      "history-archive-urls",
 			Usage:     "comma-separated list of stellar history archives to connect with",
 			ConfigKey: &cfg.HistoryArchiveURLs,
