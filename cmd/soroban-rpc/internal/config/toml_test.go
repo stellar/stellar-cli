@@ -19,7 +19,6 @@ NETWORK_PASSPHRASE = "Test SDF Future Network ; October 2022"
 
 # testing comments work ok
 STELLAR_CORE_BINARY_PATH = "/usr/bin/stellar-core"
-CAPTIVE_CORE_USE_DB = true
 CAPTIVE_CORE_STORAGE_PATH = "/etc/stellar/soroban-rpc"
 CAPTIVE_CORE_CONFIG_PATH = "/etc/stellar/soroban-rpc/captive-core.cfg"
 `
