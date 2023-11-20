@@ -192,12 +192,12 @@ pub fn entry_to_ts(entry: &Entry) -> String {
                 output = format!(r#"return {output};"#);
             };
             let parse_result_xdr = if return_type == "void" {
-                r#"parseResultXdr: () => {}"#.to_owned()
+                r"parseResultXdr: () => {}".to_owned()
             } else {
                 format!(
-                    r#"parseResultXdr: (xdr): {return_type} => {{
+                    r"parseResultXdr: (xdr): {return_type} => {{
                 {output}
-            }}"#
+            }}"
                 )
             };
             let js_name = jsify_name(name);
