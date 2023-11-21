@@ -259,7 +259,21 @@ func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.F
 		var txMeta xdr.TransactionMeta
 		err = xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &txMeta)
 		assert.NoError(t, err)
-		fmt.Printf("meta: %#v\n", txMeta)
+		if txMeta.V == 3 && txMeta.V3.SorobanMeta != nil {
+			if len(txMeta.V3.SorobanMeta.Events) > 0 {
+				fmt.Println("Contract events:")
+				for i, e := range txMeta.V3.SorobanMeta.Events {
+					fmt.Printf("  %d: %s\n", i, e)
+				}
+			}
+
+			if len(txMeta.V3.SorobanMeta.DiagnosticEvents) > 0 {
+				fmt.Println("Diagnostic events:")
+				for i, d := range txMeta.V3.SorobanMeta.DiagnosticEvents {
+					fmt.Printf("  %d: %s\n", i, d)
+				}
+			}
+		}
 	}
 
 	require.NotNil(t, response.ResultXdr)

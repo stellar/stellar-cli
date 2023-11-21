@@ -61,13 +61,17 @@ pub enum Error {
     Fetch(#[from] fetch::Error),
     #[error(transparent)]
     Spec(#[from] contract_spec::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
+    #[error("Failed to get file name from path: {0:?}")]
+    FailedToGetFileName(PathBuf),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let spec = if let Some(wasm) = &self.wasm {
             let wasm: wasm::Args = wasm.into();
-            wasm.parse().unwrap().spec
+            wasm.parse()?.spec
         } else {
             let fetch = contract::fetch::Cmd {
                 contract_id: self.contract_id.clone(),
@@ -100,7 +104,9 @@ impl Cmd {
             .ok()
             .unwrap_or_else(Network::futurenet);
         let absolute_path = self.output_dir.canonicalize()?;
-        let file_name = absolute_path.file_name().unwrap();
+        let file_name = absolute_path
+            .file_name()
+            .ok_or_else(|| Error::FailedToGetFileName(absolute_path.clone()))?;
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;

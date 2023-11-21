@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run
-      SYSTEM_TEST_GIT_REF: 352cc1d4ea96af8cfb2c2b7335c3b51da000f889
+      SYSTEM_TEST_GIT_REF: master
 
       # the soroban tools source code to compile and run from system test
       # refers to checked out source of current git hub ref context
@@ -32,16 +32,16 @@ jobs:
       # test runtime environment, tests invoke rustc/cargo
       SYSTEM_TEST_RUST_TOOLCHAIN_VERSION: stable
 
-      # set the version of js-soroban-client to use, need to choose one of either 
+      # set the version of js-stellar-sdk to use, need to choose one of either
       # resolution options, using npm release or a gh ref:
       #
-      # option #1, set the version of soroban-js-client based on a npm release version
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION: 1.0.0-beta.2
-      # option #2, set the version of soroban-js-client used as a ref to a gh repo
-      # if a value is set on SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO, it takes precedence 
-      # over any SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO:
-      SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF:
+      # option #1, set the version of stellar-sdk based on a npm release version
+      SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION: v11.0.0-beta.6
+      # option #2, set the version of stellar-sdk used as a ref to a gh repo if
+      # a value is set on SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO, it takes
+      # precedence over any SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION
+      SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO:
+      SYSTEM_TEST_JS_STELLAR_SDK_GH_REF:
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
@@ -64,25 +64,25 @@ jobs:
         name: checkout soroban-tools
         with:
           path: soroban-tools
-      - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO != ''}}   
-        name: prepare local js-soroban-client
+      - if: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO != ''}}
+        name: prepare local js-stellar-sdk
         run: |
-          rm -rf $GITHUB_WORKSPACE/system-test/js-soroban-client;
-      - if: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO != ''}}    
+          rm -rf $GITHUB_WORKSPACE/system-test/js-stellar-sdk;
+      - if: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO != ''}}
         uses: actions/checkout@v3
         with:
-          repository: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO }}
-          ref: ${{ env.SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REF }}
-          path: system-test/js-soroban-client
+          repository: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO }}
+          ref: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REF }}
+          path: system-test/js-stellar-sdk
       - uses: stellar/actions/rust-cache@main
       - name: Build system test with component versions
         run: |
           cd $GITHUB_WORKSPACE/system-test
-          if [ -z "$SYSTEM_TEST_JS_SOROBAN_CLIENT_GH_REPO" ]; then \
-            JS_SOROBAN_CLIENT_REF="$SYSTEM_TEST_JS_SOROBAN_CLIENT_NPM_VERSION"; \
+          if [ -z "$SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO" ]; then \
+            JS_STELLAR_SDK_REF="$SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION"; \
           else \
-            JS_SOROBAN_CLIENT_REF="file:/home/tester/js-soroban-client"; \
-          fi 
+            JS_STELLAR_SDK_REF="file:/home/tester/js-stellar-sdk"; \
+          fi
           make \
             CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
             CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
@@ -91,7 +91,7 @@ jobs:
             SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
             RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
             QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
-            JS_SOROBAN_CLIENT_NPM_VERSION=$JS_SOROBAN_CLIENT_REF \
+            JS_STELLAR_SDK_NPM_VERSION=$JS_STELLAR_SDK_REF \
             build
       - name: Run system test scenarios
         run: |

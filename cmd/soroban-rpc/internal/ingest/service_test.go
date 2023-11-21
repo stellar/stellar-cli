@@ -111,6 +111,7 @@ func TestIngestion(t *testing.T) {
 		Type:       xdr.ScAddressTypeScAddressTypeContract,
 		ContractId: &contractID,
 	}
+	xdrTrue := true
 	operationChanges := xdr.LedgerEntryChanges{
 		{
 			Type: xdr.LedgerEntryChangeTypeLedgerEntryState,
@@ -125,6 +126,10 @@ func TestIngestion(t *testing.T) {
 							Sym:  &persistentKey,
 						},
 						Durability: xdr.ContractDataDurabilityPersistent,
+						Val: xdr.ScVal{
+							Type: xdr.ScValTypeScvBool,
+							B:    &xdrTrue,
+						},
 					},
 				},
 			},
@@ -145,6 +150,10 @@ func TestIngestion(t *testing.T) {
 							Sym:  &persistentKey,
 						},
 						Durability: xdr.ContractDataDurabilityPersistent,
+						Val: xdr.ScVal{
+							Type: xdr.ScValTypeScvBool,
+							B:    &xdrTrue,
+						},
 					},
 				},
 			},
@@ -161,6 +170,10 @@ func TestIngestion(t *testing.T) {
 					Sym:  &persistentKey,
 				},
 				Durability: xdr.ContractDataDurabilityTemporary,
+				Val: xdr.ScVal{
+					Type: xdr.ScValTypeScvBool,
+					B:    &xdrTrue,
+				},
 			},
 		},
 	}
@@ -202,7 +215,14 @@ func TestIngestion(t *testing.T) {
 			},
 			TxProcessing: []xdr.TransactionResultMeta{
 				{
-					Result:        xdr.TransactionResultPair{TransactionHash: firstTxHash},
+					Result: xdr.TransactionResultPair{
+						TransactionHash: firstTxHash,
+						Result: xdr.TransactionResult{
+							Result: xdr.TransactionResultResult{
+								Results: &[]xdr.OperationResult{},
+							},
+						},
+					},
 					FeeProcessing: xdr.LedgerEntryChanges{},
 					TxApplyProcessing: xdr.TransactionMeta{
 						V: 3,
