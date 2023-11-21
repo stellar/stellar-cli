@@ -108,8 +108,18 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 			}
 		}
 
-		for i, ledgerKeyAndEntry := range ledgerKeysAndEntries {
-			ledgerXDR, err := xdr.MarshalBase64(ledgerKeyAndEntry.Entry.Data)
+		for _, ledgerKeyAndEntry := range ledgerKeysAndEntries {
+			keyXDR, err := xdr.MarshalBase64(ledgerKeyAndEntry.Key)
+			if err != nil {
+				logger.WithError(err).WithField("request", request).
+					Infof("could not serialize ledger key %v", ledgerKeyAndEntry.Key)
+				return GetLedgerEntriesResponse{}, &jrpc2.Error{
+					Code:    jrpc2.InternalError,
+					Message: fmt.Sprintf("could not serialize ledger key %v", ledgerKeyAndEntry.Key),
+				}
+			}
+
+			entryXDR, err := xdr.MarshalBase64(ledgerKeyAndEntry.Entry.Data)
 			if err != nil {
 				logger.WithError(err).WithField("request", request).
 					Infof("could not serialize ledger entry data for ledger entry %v", ledgerKeyAndEntry.Entry)
@@ -120,8 +130,8 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 			}
 
 			ledgerEntryResults = append(ledgerEntryResults, LedgerEntryResult{
-				Key:                request.Keys[i],
-				XDR:                ledgerXDR,
+				Key:                keyXDR,
+				XDR:                entryXDR,
 				LastModifiedLedger: int64(ledgerKeyAndEntry.Entry.LastModifiedLedgerSeq),
 				LiveUntilLedgerSeq: ledgerKeyAndEntry.LiveUntilLedgerSeq,
 			})
