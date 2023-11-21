@@ -8,10 +8,10 @@ use soroban_env_host::xdr::{
     OperationBody, Preconditions, ScMetaEntry, ScMetaV0, SequenceNumber, Transaction,
     TransactionExt, TransactionResult, TransactionResultResult, Uint256, VecM,
 };
+use soroban_rpc::Client;
 
 use super::restore;
 use crate::key;
-use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
@@ -42,7 +42,7 @@ pub enum Error {
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
@@ -123,11 +123,10 @@ impl Cmd {
                 &network.network_passphrase,
                 None,
                 None,
-                true,
             )
             .await?
-            .as_signed()?
             .result
+            .as_ref()
         {
             // Now just need to restore it and don't have to install again
             restore::Cmd {

@@ -1,0 +1,39 @@
+{
+    "events": [{
+        "eventType": "system",
+        "ledger": "43601283",
+        "ledgerClosedAt": "2022-11-16T16:10:41Z",
+        "contractId": "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z",
+        "id": "0164090849041387521-0000000003",
+        "pagingToken": "164090849041387521-3",
+        "topic": [
+            "AAAABQAAAAh0cmFuc2Zlcg==",
+            "AAAAAQB6Mcc="
+        ],
+        "value": "AAAABQAAAApHaWJNb255UGxzAAA="
+    }, {
+        "eventType": "contract",
+        "ledger": "43601284",
+        "ledgerClosedAt": "2022-11-16T16:10:41Z",
+        "contractId": "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z",
+        "id": "0164090849041387521-0000000003",
+        "pagingToken": "164090849041387521-3",
+        "topic": [
+            "AAAABQAAAAh0cmFuc2Zlcg==",
+            "AAAAAQB6Mcc="
+        ],
+        "value": "AAAABQAAAApHaWJNb255UGxzAAA="
+    }, {
+        "eventType": "system",
+        "ledger": "43601285",
+        "ledgerClosedAt": "2022-11-16T16:10:41Z",
+        "contractId": "CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2",
+        "id": "0164090849041387521-0000000003",
+        "pagingToken": "164090849041387521-3",
+        "topic": [
+            "AAAABQAAAAh0cmFuc2Zlcg==",
+            "AAAAAQB6Mcc="
+        ],
+        "value": "AAAABQAAAApHaWJNb255UGxzAAA="
+    }]
+}

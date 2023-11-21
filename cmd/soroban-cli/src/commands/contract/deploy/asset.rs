@@ -1,4 +1,5 @@
 use clap::{arg, command, Parser};
+use rpc::{Client, Error as SorobanRpcError};
 use soroban_env_host::{
     xdr::{
         Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
@@ -8,12 +9,12 @@ use soroban_env_host::{
     },
     HostError,
 };
+use soroban_rpc as rpc;
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
 use crate::{
     commands::config,
-    rpc::{Client, Error as SorobanRpcError},
     utils::{contract_id_hash_from_asset, parsing::parse_asset},
 };
 
@@ -92,7 +93,7 @@ impl Cmd {
         )?;
 
         client
-            .prepare_and_send_transaction(&tx, &key, &[], network_passphrase, None, None, true)
+            .prepare_and_send_transaction(&tx, &key, &[], network_passphrase, None, None)
             .await?;
 
         Ok(stellar_strkey::Contract(contract_id.0).to_string())

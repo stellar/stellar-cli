@@ -30,10 +30,10 @@ use super::super::{
 };
 use crate::{
     commands::global,
-    rpc::{self, Client},
     utils::{self, contract_spec},
     Pwd,
 };
+use soroban_rpc::Client;
 use soroban_spec_tools::Spec;
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -114,7 +114,7 @@ pub enum Error {
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing operation result")]
@@ -300,20 +300,30 @@ impl Cmd {
             &key,
         )?;
 
-        let res = client
-            .prepare_and_send_transaction(
-                &tx,
-                &key,
-                &signers,
-                &network.network_passphrase,
-                Some(log_events),
-                (global_args.verbose || global_args.very_verbose || self.cost)
-                    .then_some(log_resources),
-                false,
+        let txn = client.create_assembled_transaction(&tx).await?;
+
+        let (return_value, events) = if txn.is_view() {
+            (
+                txn.sim_res().results()?[0].xdr.clone(),
+                txn.sim_res().events()?,
             )
-            .await?;
-        crate::log::diagnostic_events(&res.contract_events()?, tracing::Level::INFO);
-        output_to_string(&spec, &res.return_value()?, &function)
+        } else {
+            let res = client
+                .send_assembled_transaction(
+                    txn,
+                    &key,
+                    &signers,
+                    &network.network_passphrase,
+                    Some(log_events),
+                    (global_args.verbose || global_args.very_verbose || self.cost)
+                        .then_some(log_resources),
+                )
+                .await?;
+            (res.return_value()?, res.contract_events()?)
+        };
+
+        crate::log::diagnostic_events(&events, tracing::Level::INFO);
+        output_to_string(&spec, &return_value, &function)
     }
 
     pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {

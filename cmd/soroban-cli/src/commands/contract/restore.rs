@@ -7,6 +7,7 @@ use soroban_env_host::xdr::{
     RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
     TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
 };
+use soroban_rpc::Client;
 use stellar_strkey::DecodeError;
 
 use crate::{
@@ -14,9 +15,7 @@ use crate::{
         config::{self, locator},
         contract::extend,
     },
-    key,
-    rpc::{self, Client},
-    wasm, Pwd,
+    key, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -75,7 +74,7 @@ pub enum Error {
     #[error("missing operation result")]
     MissingOperationResult,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
     #[error(transparent)]
@@ -149,19 +148,10 @@ impl Cmd {
         };
 
         let res = client
-            .prepare_and_send_transaction(
-                &tx,
-                &key,
-                &[],
-                &network.network_passphrase,
-                None,
-                None,
-                true,
-            )
+            .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
 
         let meta = res
-            .as_signed()?
             .result_meta
             .as_ref()
             .ok_or(Error::MissingOperationResult)?;

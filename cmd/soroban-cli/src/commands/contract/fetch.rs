@@ -16,15 +16,13 @@ use soroban_env_host::{
     },
 };
 
+use soroban_rpc::Client;
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
 use super::super::config::{self, locator};
 use crate::commands::network::{self, Network};
-use crate::{
-    rpc::{self, Client},
-    utils, Pwd,
-};
+use crate::{utils, Pwd};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -60,7 +58,7 @@ impl Pwd for Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]

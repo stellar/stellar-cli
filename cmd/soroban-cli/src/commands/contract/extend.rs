@@ -8,12 +8,9 @@ use soroban_env_host::xdr::{
     TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
 };
 
-use crate::{
-    commands::config,
-    key,
-    rpc::{self, Client},
-    wasm, Pwd,
-};
+use soroban_rpc::Client;
+
+use crate::{commands::config, key, wasm, Pwd};
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
 
@@ -70,7 +67,7 @@ pub enum Error {
     #[error("missing operation result")]
     MissingOperationResult,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
     #[error(transparent)]
@@ -145,15 +142,7 @@ impl Cmd {
         };
 
         let res = client
-            .prepare_and_send_transaction(
-                &tx,
-                &key,
-                &[],
-                &network.network_passphrase,
-                None,
-                None,
-                true,
-            )
+            .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
 
         let events = res.events()?;
@@ -161,7 +150,6 @@ impl Cmd {
             tracing::info!("Events:\n {events:#?}");
         }
         let meta = res
-            .as_signed()?
             .result_meta
             .as_ref()
             .ok_or(Error::MissingOperationResult)?;

@@ -1,10 +1,10 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use soroban_env_host::xdr::{self, Limits, ReadXdr};
-
-use super::{config::locator, network};
-use crate::{rpc, utils};
+use super::config::{locator, network};
+use crate::utils;
+use soroban_env_host::xdr::{self, ReadXdr};
+use soroban_rpc as rpc;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -106,7 +106,7 @@ pub enum Error {
     #[error("missing target")]
     MissingTarget,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Generic(#[from] Box<dyn std::error::Error>),
     #[error(transparent)]

@@ -12,12 +12,9 @@ use soroban_env_host::{
     HostError,
 };
 use soroban_sdk::xdr::Limits;
+use soroban_rpc::{Client, FullLedgerEntries, FullLedgerEntry};
 
-use crate::{
-    commands::config,
-    key,
-    rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
-};
+use crate::{commands::config, key};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -74,7 +71,7 @@ pub enum Error {
     #[error("either `--key` or `--key-xdr` are required when querying a network")]
     KeyIsRequired,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Xdr(#[from] XdrError),
     #[error(transparent)]

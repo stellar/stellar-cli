@@ -3,12 +3,10 @@ use std::str::FromStr;
 use clap::{arg, Parser};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use soroban_rpc::Client;
 use stellar_strkey::ed25519::PublicKey;
 
-use crate::{
-    commands::HEADING_RPC,
-    rpc::{self, Client},
-};
+use crate::commands::HEADING_RPC;
 
 use super::config::locator;
 
@@ -43,7 +41,7 @@ pub enum Error {
     #[error("network arg or rpc url and network passphrase are required if using the network")]
     Network,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error("Failed to parse JSON from {0}, {1}")]

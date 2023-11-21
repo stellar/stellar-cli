@@ -55,16 +55,7 @@ pub fn sign_transaction(
 ///
 /// Might return an error
 pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strkey::DecodeError> {
-    stellar_strkey::Contract::from_string(contract_id)
-        .map(|strkey| strkey.0)
-        .or_else(|_| {
-            // strkey failed, try to parse it as a hex string, for backwards compatibility.
-            soroban_spec_tools::utils::padded_hex_from_str(contract_id, 32)
-                .map_err(|_| stellar_strkey::DecodeError::Invalid)?
-                .try_into()
-                .map_err(|_| stellar_strkey::DecodeError::Invalid)
-        })
-        .map_err(|_| stellar_strkey::DecodeError::Invalid)
+    Ok(stellar_strkey::Contract::from_string(contract_id)?.0)
 }
 
 /// # Errors
