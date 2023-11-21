@@ -2679,7 +2679,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-rpc"
-version = "20.0.2"
+version = "20.1.1"
 dependencies = [
  "base64 0.21.5",
  "clap",
