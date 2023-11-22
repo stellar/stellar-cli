@@ -152,6 +152,20 @@ impl Args {
             .collect())
     }
 
+    pub fn list_identities_long(&self) -> Result<Vec<(String, String)>, Error> {
+        Ok(KeyType::Identity
+            .list_paths(&self.local_and_global()?)
+            .into_iter()
+            .flatten()
+            .map(|(name, location)| {
+                let path = match location {
+                    Location::Local(path) | Location::Global(path) => path,
+                };
+                (name, format!("{}", path.display()))
+            })
+            .collect())
+    }
+
     pub fn list_networks(&self) -> Result<Vec<String>, Error> {
         Ok(KeyType::Network
             .list_paths(&self.local_and_global()?)
