@@ -639,6 +639,7 @@ List identities
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>`
+* `-l`, `--long`
 
 
 
