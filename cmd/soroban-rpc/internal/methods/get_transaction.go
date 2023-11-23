@@ -30,11 +30,11 @@ type GetTransactionResponse struct {
 	// Status is one of: TransactionSuccess, TransactionNotFound, or TransactionFailed.
 	Status string `json:"status"`
 	// LatestLedger is the latest ledger stored in Soroban-RPC.
-	LatestLedger int64 `json:"latestLedger,string"`
+	LatestLedger uint32 `json:"latestLedger,string"`
 	// LatestLedgerCloseTime is the unix timestamp of when the latest ledger was closed.
 	LatestLedgerCloseTime int64 `json:"latestLedgerCloseTime,string"`
 	// LatestLedger is the oldest ledger stored in Soroban-RPC.
-	OldestLedger int64 `json:"oldestLedger,string"`
+	OldestLedger uint32 `json:"oldestLedger,string"`
 	// LatestLedgerCloseTime is the unix timestamp of when the oldest ledger was closed.
 	OldestLedgerCloseTime int64 `json:"oldestLedgerCloseTime,string"`
 
@@ -53,7 +53,7 @@ type GetTransactionResponse struct {
 	ResultMetaXdr string `json:"resultMetaXdr,omitempty"`
 
 	// Ledger is the sequence of the ledger which included the transaction.
-	Ledger int64 `json:"ledger,string,omitempty"`
+	Ledger uint32 `json:"ledger,string,omitempty"`
 	// LedgerCloseTime is the unix timestamp of when the transaction was included in the ledger.
 	LedgerCloseTime int64 `json:"createdAt,string,omitempty"`
 }
@@ -86,9 +86,9 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 
 	tx, found, storeRange := getter.GetTransaction(txHash)
 	response := GetTransactionResponse{
-		LatestLedger:          int64(storeRange.LastLedger.Sequence),
+		LatestLedger:          storeRange.LastLedger.Sequence,
 		LatestLedgerCloseTime: storeRange.LastLedger.CloseTime,
-		OldestLedger:          int64(storeRange.FirstLedger.Sequence),
+		OldestLedger:          storeRange.FirstLedger.Sequence,
 		OldestLedgerCloseTime: storeRange.FirstLedger.CloseTime,
 	}
 	if !found {
@@ -98,7 +98,7 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 
 	response.ApplicationOrder = tx.ApplicationOrder
 	response.FeeBump = tx.FeeBump
-	response.Ledger = int64(tx.Ledger.Sequence)
+	response.Ledger = tx.Ledger.Sequence
 	response.LedgerCloseTime = tx.Ledger.CloseTime
 
 	response.ResultXdr = base64.StdEncoding.EncodeToString(tx.Result)

@@ -79,7 +79,7 @@ type EventInfo struct {
 }
 
 type GetEventsRequest struct {
-	StartLedger int32              `json:"startLedger,string,omitempty"`
+	StartLedger uint32             `json:"startLedger,string,omitempty"`
 	Filters     []EventFilter      `json:"filters"`
 	Pagination  *PaginationOptions `json:"pagination,omitempty"`
 }

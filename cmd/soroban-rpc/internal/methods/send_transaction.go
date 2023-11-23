@@ -31,7 +31,7 @@ type SendTransactionResponse struct {
 	Hash string `json:"hash"`
 	// LatestLedger is the latest ledger known to Soroban-RPC at the time it handled
 	// the transaction submission request.
-	LatestLedger int64 `json:"latestLedger,string"`
+	LatestLedger uint32 `json:"latestLedger,string"`
 	// LatestLedgerCloseTime is the unix timestamp of the close time of the latest ledger known to
 	// Soroban-RPC at the time it handled the transaction submission request.
 	LatestLedgerCloseTime int64 `json:"latestLedgerCloseTime,string"`
@@ -106,14 +106,14 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 				ErrorResultXDR:        resp.Error,
 				Status:                resp.Status,
 				Hash:                  txHash,
-				LatestLedger:          int64(ledgerInfo.Sequence),
+				LatestLedger:          ledgerInfo.Sequence,
 				LatestLedgerCloseTime: ledgerInfo.CloseTime,
 			}, nil
 		case proto.TXStatusPending, proto.TXStatusDuplicate, proto.TXStatusTryAgainLater:
 			return SendTransactionResponse{
 				Status:                resp.Status,
 				Hash:                  txHash,
-				LatestLedger:          int64(ledgerInfo.Sequence),
+				LatestLedger:          ledgerInfo.Sequence,
 				LatestLedgerCloseTime: ledgerInfo.CloseTime,
 			}, nil
 		default:

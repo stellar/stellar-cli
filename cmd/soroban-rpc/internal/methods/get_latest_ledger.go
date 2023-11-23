@@ -15,7 +15,7 @@ type GetLatestLedgerResponse struct {
 	// Stellar Core protocol version associated with the ledger.
 	ProtocolVersion uint32 `json:"protocolVersion,string"`
 	// Sequence number of the latest ledger.
-	Sequence uint32 `json:"sequence"`
+	Sequence uint32 `json:"sequence,string"`
 }
 
 // NewGetLatestLedgerHandler returns a JSON RPC handler to retrieve the latest ledger entry from Stellar core.
