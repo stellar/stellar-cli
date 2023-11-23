@@ -25,16 +25,16 @@ type LedgerEntryResult struct {
 	// Ledger entry data encoded in base 64.
 	XDR string `json:"xdr"`
 	// Last modified ledger for this entry.
-	LastModifiedLedger int64 `json:"lastModifiedLedgerSeq,string"`
+	LastModifiedLedger uint32 `json:"lastModifiedLedgerSeq"`
 	// The ledger sequence until the entry is live, available for entries that have associated ttl ledger entries.
-	LiveUntilLedgerSeq *uint32 `json:"liveUntilLedgerSeq,string,omitempty"`
+	LiveUntilLedgerSeq *uint32 `json:"liveUntilLedgerSeq,omitempty"`
 }
 
 type GetLedgerEntriesResponse struct {
 	// All found ledger entries.
 	Entries []LedgerEntryResult `json:"entries"`
 	// Sequence number of the latest ledger at time of request.
-	LatestLedger int64 `json:"latestLedger,string"`
+	LatestLedger uint32 `json:"latestLedger"`
 }
 
 const getLedgerEntriesMaxKeys = 200
@@ -132,14 +132,14 @@ func NewGetLedgerEntriesHandler(logger *log.Entry, ledgerEntryReader db.LedgerEn
 			ledgerEntryResults = append(ledgerEntryResults, LedgerEntryResult{
 				Key:                keyXDR,
 				XDR:                entryXDR,
-				LastModifiedLedger: int64(ledgerKeyAndEntry.Entry.LastModifiedLedgerSeq),
+				LastModifiedLedger: uint32(ledgerKeyAndEntry.Entry.LastModifiedLedgerSeq),
 				LiveUntilLedgerSeq: ledgerKeyAndEntry.LiveUntilLedgerSeq,
 			})
 		}
 
 		response := GetLedgerEntriesResponse{
 			Entries:      ledgerEntryResults,
-			LatestLedger: int64(latestLedger),
+			LatestLedger: uint32(latestLedger),
 		}
 		return response, nil
 	})

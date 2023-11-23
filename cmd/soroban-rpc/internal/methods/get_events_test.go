@@ -404,7 +404,7 @@ func TestGetEventsRequestValid(t *testing.T) {
 		[]byte("{ \"filters\": [], \"pagination\": { \"cursor\": \"0000000021474840576-0000000000\"} }"),
 		&request,
 	))
-	assert.Equal(t, int32(0), request.StartLedger)
+	assert.Equal(t, uint32(0), request.StartLedger)
 	assert.NoError(t, request.Valid(1000))
 
 	assert.EqualError(t, (&GetEventsRequest{
@@ -427,12 +427,6 @@ func TestGetEventsRequestValid(t *testing.T) {
 
 	assert.EqualError(t, (&GetEventsRequest{
 		StartLedger: 0,
-		Filters:     []EventFilter{},
-		Pagination:  nil,
-	}).Valid(1000), "startLedger must be positive")
-
-	assert.EqualError(t, (&GetEventsRequest{
-		StartLedger: -100,
 		Filters:     []EventFilter{},
 		Pagination:  nil,
 	}).Valid(1000), "startLedger must be positive")

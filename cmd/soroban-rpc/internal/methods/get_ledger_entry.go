@@ -24,10 +24,10 @@ type GetLedgerEntryRequest struct {
 // TODO(https://github.com/stellar/soroban-tools/issues/374) remove after getLedgerEntries is deployed.
 type GetLedgerEntryResponse struct {
 	XDR                string `json:"xdr"`
-	LastModifiedLedger int64  `json:"lastModifiedLedgerSeq,string"`
-	LatestLedger       int64  `json:"latestLedger,string"`
+	LastModifiedLedger uint32 `json:"lastModifiedLedgerSeq"`
+	LatestLedger       uint32 `json:"latestLedger"`
 	// The ledger sequence until the entry is live, available for entries that have associated ttl ledger entries.
-	LiveUntilLedgerSeq *uint32 `json:"LiveUntilLedgerSeq,string,omitempty"`
+	LiveUntilLedgerSeq *uint32 `json:"LiveUntilLedgerSeq,omitempty"`
 }
 
 var invalidLedgerKeyXdrError = &jrpc2.Error{
@@ -96,8 +96,8 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 		}
 
 		response := GetLedgerEntryResponse{
-			LastModifiedLedger: int64(ledgerEntry.LastModifiedLedgerSeq),
-			LatestLedger:       int64(latestLedger),
+			LastModifiedLedger: uint32(ledgerEntry.LastModifiedLedgerSeq),
+			LatestLedger:       latestLedger,
 			LiveUntilLedgerSeq: liveUntilLedgerSeq,
 		}
 		if response.XDR, err = xdr.MarshalBase64(ledgerEntry.Data); err != nil {
