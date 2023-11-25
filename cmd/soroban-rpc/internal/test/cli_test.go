@@ -290,7 +290,7 @@ func runCLICommand(t *testing.T, cmd string) *icmd.Result {
 }
 
 func getCLIDefaultAccount(t *testing.T) string {
-	return runSuccessfulCLICmd(t, "config identity address --hd-path 0")
+	return runSuccessfulCLICmd(t, "identity address --hd-path 0")
 }
 
 func NewCLITest(t *testing.T) *Test {
