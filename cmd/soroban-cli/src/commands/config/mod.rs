@@ -37,7 +37,7 @@ pub struct Args {
 
     #[arg(long, visible_alias = "source", env = "SOROBAN_ACCOUNT")]
     /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-    pub source_account: Option<String>,
+    pub source_account: String,
 
     #[arg(long)]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -49,12 +49,7 @@ pub struct Args {
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = if let Some(source_account) = &self.source_account {
-            self.account(source_account)?
-        } else {
-            secret::Secret::test_seed_phrase()?
-        };
-
+        let key = self.account(&self.source_account)?;
         Ok(key.key_pair(self.hd_path)?)
     }
 
