@@ -92,6 +92,14 @@ impl FromStr for Secret {
     }
 }
 
+impl From<PrivateKey> for Secret {
+    fn from(value: PrivateKey) -> Self {
+        Secret::SecretKey {
+            secret_key: value.to_string(),
+        }
+    }
+}
+
 impl Secret {
     pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
         Ok(match self {

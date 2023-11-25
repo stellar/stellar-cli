@@ -56,21 +56,16 @@ impl Cmd {
             Secret::from_seed(self.seed.as_deref())
         }?;
         let secret = if self.as_secret {
-            let secret = seed_phrase.private_key(self.hd_path)?;
-            Secret::SecretKey {
-                secret_key: secret.to_string(),
-            }
+            seed_phrase.private_key(self.hd_path)?.into()
         } else {
             seed_phrase
         };
         self.config_locator.write_identity(&self.name, &secret)?;
-        if !self.network.is_no_network() {
-            let addr = secret.public_key(self.hd_path)?;
-            let network = self.network.get(&self.config_locator)?;
-            network.fund_address(&addr).await.unwrap_or_else(|_| {
-                tracing::warn!("Failed to fund address: {addr} on at {}", network.rpc_url);
-            });
-        }
+        let addr = secret.public_key(self.hd_path)?;
+        let network = self.network.get(&self.config_locator)?;
+        network.fund_address(&addr).await.unwrap_or_else(|_| {
+            tracing::warn!("Failed to fund address: {addr} on at {}", network.rpc_url);
+        });
         Ok(())
     }
 }
