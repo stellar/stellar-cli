@@ -6,7 +6,6 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
-	"github.com/stellar/go/gxdr"
 
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
@@ -30,26 +29,19 @@ type GetLedgerEntryResponse struct {
 	LiveUntilLedgerSeq *uint32 `json:"LiveUntilLedgerSeq,string,omitempty"`
 }
 
-var invalidLedgerKeyXdrError = &jrpc2.Error{
-	Code:    jrpc2.InvalidParams,
-	Message: "cannot unmarshal key value",
-}
-
 // NewGetLedgerEntryHandler returns a json rpc handler to retrieve the specified ledger entry from stellar core
 // Deprecated. use NewGetLedgerEntriesHandler instead.
 // TODO(https://github.com/stellar/soroban-tools/issues/374) remove after getLedgerEntries is deployed.
 func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetLedgerEntryRequest) (GetLedgerEntryResponse, error) {
-		if err := gxdr.ValidateLedgerKey(request.Key, gxdr.DefaultMaxDepth); err != nil {
-			logger.WithError(err).WithField("request", request).
-				Info("could not validate ledgerKey from getLedgerEntry request")
-			return GetLedgerEntryResponse{}, invalidLedgerKeyXdrError
-		}
 		var key xdr.LedgerKey
 		if err := xdr.SafeUnmarshalBase64(request.Key, &key); err != nil {
 			logger.WithError(err).WithField("request", request).
 				Info("could not unmarshal ledgerKey from getLedgerEntry request")
-			return GetLedgerEntryResponse{}, invalidLedgerKeyXdrError
+			return GetLedgerEntryResponse{}, &jrpc2.Error{
+				Code:    jrpc2.InvalidParams,
+				Message: "cannot unmarshal key value",
+			}
 		}
 
 		if key.Type == xdr.LedgerEntryTypeTtl {
