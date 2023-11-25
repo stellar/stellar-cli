@@ -45,11 +45,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 #[derive(Parser, Debug)]
 #[command(
     name = "soroban",
-    version = version::short(),
-    long_version = version::long(),
     about = ABOUT,
     long_about = ABOUT.to_string() + LONG_ABOUT,
     disable_help_subcommand = true,
+    disable_version_flag = true,
 )]
 pub struct Root {
     #[clap(flatten)]
