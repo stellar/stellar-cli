@@ -52,7 +52,17 @@ pub async fn invoke_custom(
     arg: &str,
     wasm: &Path,
 ) -> Result<String, contract::invoke::Error> {
-    let mut i: contract::invoke::Cmd = sandbox.cmd_arr(&["--id", id, "--", func, arg]);
+    let mut i: contract::invoke::Cmd = sandbox.cmd_arr(&[
+        "--id",
+        id,
+        "--network",
+        "futurenet",
+        "--source",
+        "default",
+        "--",
+        func,
+        arg,
+    ]);
     i.wasm = Some(wasm.to_path_buf());
     i.config.network.network = Some("futurenet".to_owned());
     i.invoke(&soroban_cli::commands::global::Args::default())

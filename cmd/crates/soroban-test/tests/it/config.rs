@@ -156,6 +156,8 @@ fn generate_identity() {
     sandbox
         .new_assert_cmd("identity")
         .arg("generate")
+        .arg("--network=futurenet")
+        .arg("--no-fund")
         .arg("--seed")
         .arg("0000000000000000")
         .arg("test")
