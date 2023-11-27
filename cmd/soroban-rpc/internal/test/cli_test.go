@@ -285,12 +285,13 @@ func runCLICommand(t *testing.T, cmd string) *icmd.Result {
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
-		fmt.Sprintf("SOROBAN_ACCOUNT=%s", "test"),
+		"SOROBAN_ACCOUNT=test",
 	)
 	return icmd.RunCmd(c)
 }
 
 func getCLIDefaultAccount(t *testing.T) string {
+	runSuccessfulCLICmd(t, "keys generate -d test --no-fund")
 	return "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4"
 }
 
