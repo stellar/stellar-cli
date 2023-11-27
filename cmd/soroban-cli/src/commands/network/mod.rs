@@ -15,6 +15,7 @@ use super::config::locator;
 pub mod add;
 pub mod ls;
 pub mod rm;
+pub mod start;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -24,6 +25,8 @@ pub enum Cmd {
     Rm(rm::Cmd),
     /// List networks
     Ls(ls::Cmd),
+    /// Start network
+    Start(start::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -36,6 +39,9 @@ pub enum Error {
 
     #[error(transparent)]
     Ls(#[from] ls::Error),
+
+    #[error(transparent)]
+    Start(#[from] start::Error),
 
     #[error(transparent)]
     Config(#[from] locator::Error),
@@ -62,6 +68,7 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
+            Cmd::Start(cmd) => cmd.run()?,
         };
         Ok(())
     }
