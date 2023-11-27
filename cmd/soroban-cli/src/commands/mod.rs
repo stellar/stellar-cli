@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use clap::{command, error::ErrorKind, ArgAction, CommandFactory, FromArgMatches, Parser};
+use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 pub mod completion;
 pub mod config;
