@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
+use clap::{command, error::ErrorKind, ArgAction, CommandFactory, FromArgMatches, Parser};
 
 pub mod completion;
 pub mod config;
@@ -46,11 +46,18 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 #[command(
     name = "soroban",
     about = ABOUT,
+    version = version::long(),
     long_about = ABOUT.to_string() + LONG_ABOUT,
     disable_help_subcommand = true,
     disable_version_flag = true,
 )]
 pub struct Root {
+    // Supply alternative and common ways to get at the version via a -V and
+    // --version, but hide it in the help so as not to clutter the help with so
+    // many ways to get at the version.
+    #[arg(short = 'V', long, action = ArgAction::Version, hide = true)]
+    pub version: bool,
+
     #[clap(flatten)]
     pub global_args: global::Args,
 
