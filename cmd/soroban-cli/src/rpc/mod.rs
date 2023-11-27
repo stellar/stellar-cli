@@ -111,10 +111,7 @@ pub struct SendTransactionResponse {
         default
     )]
     pub error_result_xdr: Option<String>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: u32,
     #[serde(
         rename = "latestLedgerCloseTime",
@@ -174,10 +171,7 @@ impl TryInto<GetTransactionResponse> for GetTransactionResponseRaw {
 pub struct LedgerEntryResult {
     pub key: String,
     pub xdr: String,
-    #[serde(
-        rename = "lastModifiedLedgerSeq",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "lastModifiedLedgerSeq")]
     pub last_modified_ledger: u32,
     #[serde(
         rename = "liveUntilLedgerSeq",
@@ -191,10 +185,7 @@ pub struct LedgerEntryResult {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLedgerEntriesResponse {
     pub entries: Option<Vec<LedgerEntryResult>>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: i64,
 }
 
@@ -207,20 +198,14 @@ pub struct GetNetworkResponse {
     )]
     pub friendbot_url: Option<String>,
     pub passphrase: String,
-    #[serde(
-        rename = "protocolVersion",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "protocolVersion")]
     pub protocol_version: u32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLatestLedgerResponse {
     pub id: String,
-    #[serde(
-        rename = "protocolVersion",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "protocolVersion")]
     pub protocol_version: u32,
     pub sequence: u32,
 }
@@ -278,10 +263,7 @@ pub struct SimulateTransactionResponse {
         default
     )]
     pub restore_preamble: Option<RestorePreamble>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: u32,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
@@ -333,10 +315,7 @@ pub struct RestorePreamble {
 pub struct GetEventsResponse {
     #[serde(deserialize_with = "deserialize_default_from_null")]
     pub events: Vec<Event>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: u32,
 }
 
@@ -963,7 +942,7 @@ mod tests {
  "minResourceFee": "100000000",
  "cost": { "cpuInsns": "1000", "memBytes": "1000" },
  "transactionData": "",
- "latestLedger": "1234"
+ "latestLedger": 1234
         }"#;
 
         let resp: SimulateTransactionResponse = serde_json::from_str(s).unwrap();
@@ -973,7 +952,7 @@ mod tests {
     #[test]
     fn simulation_transaction_response_parsing_mostly_empty() {
         let s = r#"{
- "latestLedger": "1234"
+ "latestLedger": 1234
         }"#;
 
         let resp: SimulateTransactionResponse = serde_json::from_str(s).unwrap();
