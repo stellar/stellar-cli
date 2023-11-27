@@ -341,8 +341,8 @@ fn boolean(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stdout(
-            r#"true
-"#,
+            r"true
+",
         );
 }
 fn boolean_two(sandbox: &TestEnv, id: &str) {
@@ -352,8 +352,8 @@ fn boolean_two(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stdout(
-            r#"true
-"#,
+            r"true
+",
         );
 }
 
@@ -362,8 +362,8 @@ fn boolean_no_flag(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stdout(
-            r#"false
-"#,
+            r"false
+",
         );
 }
 
@@ -374,8 +374,8 @@ fn boolean_false(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stdout(
-            r#"false
-"#,
+            r"false
+",
         );
 }
 
@@ -385,15 +385,15 @@ fn boolean_not(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stdout(
-            r#"false
-"#,
+            r"false
+",
         );
 }
 
 fn boolean_not_no_flag(sandbox: &TestEnv, id: &str) {
     invoke_custom(sandbox, id, "not").assert().success().stdout(
-        r#"true
-"#,
+        r"true
+",
     );
 }
 
@@ -402,8 +402,8 @@ fn option_none(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stdout(
-            r#"null
-"#,
+            r"null
+",
         );
 }
 
@@ -413,7 +413,7 @@ fn option_some(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stdout(
-            r#"1
-"#,
+            r"1
+",
         );
 }
