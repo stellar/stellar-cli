@@ -22,14 +22,14 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract read`↴](#soroban-contract-read)
 * [`soroban contract restore`↴](#soroban-contract-restore)
 * [`soroban events`↴](#soroban-events)
-* [`soroban identity`↴](#soroban-identity)
-* [`soroban identity add`↴](#soroban-identity-add)
-* [`soroban identity address`↴](#soroban-identity-address)
-* [`soroban identity fund`↴](#soroban-identity-fund)
-* [`soroban identity generate`↴](#soroban-identity-generate)
-* [`soroban identity ls`↴](#soroban-identity-ls)
-* [`soroban identity rm`↴](#soroban-identity-rm)
-* [`soroban identity show`↴](#soroban-identity-show)
+* [`soroban keys`↴](#soroban-keys)
+* [`soroban keys add`↴](#soroban-keys-add)
+* [`soroban keys address`↴](#soroban-keys-address)
+* [`soroban keys fund`↴](#soroban-keys-fund)
+* [`soroban keys generate`↴](#soroban-keys-generate)
+* [`soroban keys ls`↴](#soroban-keys-ls)
+* [`soroban keys rm`↴](#soroban-keys-rm)
+* [`soroban keys show`↴](#soroban-keys-show)
 * [`soroban lab`↴](#soroban-lab)
 * [`soroban lab token`↴](#soroban-lab-token)
 * [`soroban lab token wrap`↴](#soroban-lab-token-wrap)
@@ -81,7 +81,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `completion` — Print shell completion code for the specified shell
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
-* `identity` — Create and manage identities including keys and addresses
+* `keys` — Create and manage identities including keys and addresses
 * `lab` — Experiment with early features and expert tools
 * `network` — Start and configure networks
 * `version` — Print version information
@@ -235,7 +235,7 @@ Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `soroban contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --durability <DURABILITY>`
+**Usage:** `soroban contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -271,7 +271,7 @@ If no keys are specified the contract itself is extended.
 
 Deploy a contract
 
-**Usage:** `soroban contract deploy [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
+**Usage:** `soroban contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
 
 ###### **Options:**
 
@@ -342,7 +342,7 @@ Inspect a WASM file listing contract functions, meta, etc
 
 Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `soroban contract install [OPTIONS] --wasm <WASM>`
+**Usage:** `soroban contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
 ###### **Options:**
 
@@ -371,7 +371,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 soroban contract invoke ... -- --help
 
-**Usage:** `soroban contract invoke [OPTIONS] --id <CONTRACT_ID> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `soroban contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -411,7 +411,7 @@ Optimize a WASM file
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `soroban contract read [OPTIONS] --durability <DURABILITY>`
+**Usage:** `soroban contract read [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -456,7 +456,7 @@ Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `soroban contract restore [OPTIONS] --durability <DURABILITY>`
+**Usage:** `soroban contract restore [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -529,11 +529,11 @@ Watch the network for contract events
 
 
 
-## `soroban identity`
+## `soroban keys`
 
 Create and manage identities including keys and addresses
 
-**Usage:** `soroban identity <COMMAND>`
+**Usage:** `soroban keys <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -547,11 +547,11 @@ Create and manage identities including keys and addresses
 
 
 
-## `soroban identity add`
+## `soroban keys add`
 
 Add a new identity (keypair, ledger, macOS keychain)
 
-**Usage:** `soroban identity add [OPTIONS] <NAME>`
+**Usage:** `soroban keys add [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -566,11 +566,11 @@ Add a new identity (keypair, ledger, macOS keychain)
 
 
 
-## `soroban identity address`
+## `soroban keys address`
 
 Given an identity return its address (public key)
 
-**Usage:** `soroban identity address [OPTIONS] [NAME]`
+**Usage:** `soroban keys address [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -584,11 +584,11 @@ Given an identity return its address (public key)
 
 
 
-## `soroban identity fund`
+## `soroban keys fund`
 
 Fund an identity on a test network
 
-**Usage:** `soroban identity fund [OPTIONS] [NAME]`
+**Usage:** `soroban keys fund [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -605,11 +605,11 @@ Fund an identity on a test network
 
 
 
-## `soroban identity generate`
+## `soroban keys generate`
 
 Generate a new identity with a seed phrase, currently 12 words
 
-**Usage:** `soroban identity generate [OPTIONS] <NAME>`
+**Usage:** `soroban keys generate [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -617,6 +617,7 @@ Generate a new identity with a seed phrase, currently 12 words
 
 ###### **Options:**
 
+* `--no-fund` — Do not fund address
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
 * `--global` — Use global config
@@ -629,11 +630,11 @@ Generate a new identity with a seed phrase, currently 12 words
 
 
 
-## `soroban identity ls`
+## `soroban keys ls`
 
 List identities
 
-**Usage:** `soroban identity ls [OPTIONS]`
+**Usage:** `soroban keys ls [OPTIONS]`
 
 ###### **Options:**
 
@@ -643,11 +644,11 @@ List identities
 
 
 
-## `soroban identity rm`
+## `soroban keys rm`
 
 Remove an identity
 
-**Usage:** `soroban identity rm [OPTIONS] <NAME>`
+**Usage:** `soroban keys rm [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -660,11 +661,11 @@ Remove an identity
 
 
 
-## `soroban identity show`
+## `soroban keys show`
 
 Given an identity return its private key
 
-**Usage:** `soroban identity show [OPTIONS] [NAME]`
+**Usage:** `soroban keys show [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -708,7 +709,7 @@ Wrap, create, and manage token contracts
 
 Deploy a token contract to wrap an existing Stellar classic asset for smart contract usage
 
-**Usage:** `soroban lab token wrap [OPTIONS] --asset <ASSET>`
+**Usage:** `soroban lab token wrap [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -730,7 +731,7 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 
 Compute the expected contract id for the given asset
 
-**Usage:** `soroban lab token id [OPTIONS] --asset <ASSET>`
+**Usage:** `soroban lab token id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
