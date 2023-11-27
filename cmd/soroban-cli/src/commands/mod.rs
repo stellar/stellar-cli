@@ -7,7 +7,7 @@ pub mod config;
 pub mod contract;
 pub mod events;
 pub mod global;
-pub mod identity;
+pub mod keys;
 pub mod lab;
 pub mod network;
 pub mod plugin;
@@ -97,7 +97,7 @@ impl Root {
             Cmd::Lab(lab) => lab.run().await?,
             Cmd::Network(network) => network.run()?,
             Cmd::Version(version) => version.run(),
-            Cmd::Identity(id) => id.run().await?,
+            Cmd::Keys(id) => id.run().await?,
         };
         Ok(())
     }
@@ -122,8 +122,8 @@ pub enum Cmd {
     /// Watch the network for contract events
     Events(events::Cmd),
     /// Create and manage identities including keys and addresses
-    #[command(subcommand, visible_alias = "id")]
-    Identity(identity::Cmd),
+    #[command(subcommand)]
+    Keys(keys::Cmd),
     /// Experiment with early features and expert tools
     #[command(subcommand)]
     Lab(lab::Cmd),
@@ -142,7 +142,7 @@ pub enum Error {
     #[error(transparent)]
     Events(#[from] events::Error),
     #[error(transparent)]
-    Identity(#[from] identity::Error),
+    Keys(#[from] keys::Error),
     #[error(transparent)]
     Lab(#[from] lab::Error),
     #[error(transparent)]

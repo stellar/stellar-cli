@@ -15,7 +15,7 @@ pub enum SecretKind {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn add_identity(dir: &Path, name: &str, kind: SecretKind, data: &str) {
+pub fn add_key(dir: &Path, name: &str, kind: SecretKind, data: &str) {
     let secret = match kind {
         SecretKind::Seed => Secret::SeedPhrase {
             seed_phrase: data.to_string(),
@@ -32,7 +32,7 @@ pub fn add_identity(dir: &Path, name: &str, kind: SecretKind, data: &str) {
 
 pub fn add_test_id(dir: &Path) -> String {
     let name = "test_id";
-    add_identity(
+    add_key(
         dir,
         name,
         SecretKind::Key,

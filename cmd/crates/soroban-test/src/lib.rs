@@ -30,7 +30,7 @@ use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
-    commands::{config, contract, contract::invoke, global, identity},
+    commands::{config, contract, contract::invoke, global, keys},
     CommandParser, Pwd,
 };
 
@@ -82,6 +82,13 @@ impl TestEnv {
     pub fn new() -> Result<TestEnv, Error> {
         let this = TempDir::new().map(|temp_dir| TestEnv { temp_dir })?;
         std::env::set_var("XDG_CONFIG_HOME", this.temp_dir.as_os_str());
+        this.new_assert_cmd("keys")
+            .arg("generate")
+            .arg("test")
+            .arg("-d")
+            .arg("--no-fund")
+            .assert();
+        std::env::set_var("SOROBAN_ACCOUNT", "test");
         Ok(this)
     }
 
@@ -156,17 +163,17 @@ impl TestEnv {
         &self.temp_dir
     }
 
-    /// Returns the public key corresponding to the test identity's `hd_path`
+    /// Returns the public key corresponding to the test keys's `hd_path`
     pub fn test_address(&self, hd_path: usize) -> String {
-        self.cmd::<identity::address::Cmd>(&format!("--hd-path={hd_path}"))
+        self.cmd::<keys::address::Cmd>(&format!("--hd-path={hd_path}"))
             .public_key()
             .unwrap()
             .to_string()
     }
 
-    /// Returns the private key corresponding to the test identity's `hd_path`
+    /// Returns the private key corresponding to the test keys's `hd_path`
     pub fn test_show(&self, hd_path: usize) -> String {
-        self.cmd::<identity::show::Cmd>(&format!("--hd-path={hd_path}"))
+        self.cmd::<keys::show::Cmd>(&format!("--hd-path={hd_path}"))
             .private_key()
             .unwrap()
             .to_string()

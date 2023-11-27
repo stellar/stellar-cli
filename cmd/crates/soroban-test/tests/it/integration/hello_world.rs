@@ -1,6 +1,6 @@
 use soroban_cli::commands::{
-    config::identity,
     contract::{self, fetch},
+    keys,
 };
 use soroban_test::TestEnv;
 
@@ -111,7 +111,7 @@ fn invoke_auth(sandbox: &TestEnv, id: &str) {
 
 async fn invoke_auth_with_identity(sandbox: &TestEnv, id: &str) {
     sandbox
-        .cmd::<identity::generate::Cmd>("test -d ")
+        .cmd::<keys::generate::Cmd>("test -d ")
         .run()
         .await
         .unwrap();

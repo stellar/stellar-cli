@@ -58,6 +58,8 @@ pub enum Error {
     ConfigMissing(String, String),
     #[error(transparent)]
     String(#[from] std::string::FromUtf8Error),
+    #[error(transparent)]
+    Secret(#[from] crate::commands::config::secret::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]

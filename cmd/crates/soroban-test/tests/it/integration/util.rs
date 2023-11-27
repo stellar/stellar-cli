@@ -2,14 +2,14 @@ use soroban_cli::commands::contract;
 use soroban_test::{TestEnv, Wasm};
 use std::{fmt::Display, path::Path};
 
-use crate::util::{add_identity, SecretKind};
+use crate::util::{add_key, SecretKind};
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 
 pub fn add_test_seed(dir: &Path) -> String {
     let name = "test_seed";
-    add_identity(
+    add_key(
         dir,
         name,
         SecretKind::Seed,

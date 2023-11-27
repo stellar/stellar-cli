@@ -2,7 +2,7 @@ use assert_fs::TempDir;
 use soroban_test::TestEnv;
 use std::{fs, path::Path};
 
-use crate::util::{add_identity, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
+use crate::util::{add_key, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
 use soroban_cli::commands::network;
 
 const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
@@ -137,24 +137,24 @@ fn multiple_networks() {
 }
 
 #[test]
-fn read_identity() {
+fn read_key() {
     let sandbox = TestEnv::default();
     let dir = sandbox.dir().as_ref();
     add_test_id(dir);
     let ident_dir = dir.join(".soroban/identity");
     assert!(ident_dir.exists());
     sandbox
-        .new_assert_cmd("identity")
+        .new_assert_cmd("keys")
         .arg("ls")
         .assert()
         .stdout("test_id\n");
 }
 
 #[test]
-fn generate_identity() {
+fn generate_key() {
     let sandbox = TestEnv::default();
     sandbox
-        .new_assert_cmd("identity")
+        .new_assert_cmd("keys")
         .arg("generate")
         .arg("--network=futurenet")
         .arg("--no-fund")
@@ -166,7 +166,7 @@ fn generate_identity() {
         .success();
 
     sandbox
-        .new_assert_cmd("identity")
+        .new_assert_cmd("keys")
         .arg("ls")
         .assert()
         .stdout("test\n");
@@ -182,7 +182,7 @@ fn generate_identity() {
 fn seed_phrase() {
     let sandbox = TestEnv::default();
     let dir = sandbox.dir();
-    add_identity(
+    add_key(
         dir,
         "test_seed",
         SecretKind::Seed,
@@ -210,7 +210,7 @@ fn use_env() {
     let sandbox = TestEnv::default();
 
     sandbox
-        .new_assert_cmd("identity")
+        .new_assert_cmd("keys")
         .env(
             "SOROBAN_SECRET_KEY",
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
@@ -222,7 +222,7 @@ fn use_env() {
         .success();
 
     sandbox
-        .new_assert_cmd("identity")
+        .new_assert_cmd("keys")
         .arg("show")
         .arg("bob")
         .assert()
