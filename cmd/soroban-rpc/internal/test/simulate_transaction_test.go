@@ -232,7 +232,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions: 6062311,
+			Instructions: 6262706,
 			ReadBytes:    0,
 			WriteBytes:   7048,
 		},
