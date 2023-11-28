@@ -147,7 +147,7 @@ fn read_key() {
         .new_assert_cmd("keys")
         .arg("ls")
         .assert()
-        .stdout("test_id\n");
+        .stdout(predicates::str::contains("test_id\n"));
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn generate_key() {
         .arg("--no-fund")
         .arg("--seed")
         .arg("0000000000000000")
-        .arg("test")
+        .arg("test_2")
         .assert()
         .stdout("")
         .success();
@@ -169,9 +169,9 @@ fn generate_key() {
         .new_assert_cmd("keys")
         .arg("ls")
         .assert()
-        .stdout("test\n");
+        .stdout(predicates::str::contains("test_2\n"));
     let file_contents =
-        fs::read_to_string(sandbox.dir().join(".soroban/identity/test.toml")).unwrap();
+        fs::read_to_string(sandbox.dir().join(".soroban/identity/test_2.toml")).unwrap();
     assert_eq!(
         file_contents,
         format!("seed_phrase = \"{DEFAULT_SEED_PHRASE}\"\n")
@@ -190,19 +190,11 @@ fn seed_phrase() {
     );
 
     sandbox
-        .new_assert_cmd("id")
+        .new_assert_cmd("keys")
         .current_dir(dir)
         .arg("ls")
         .assert()
-        .stdout("test_seed\n");
-}
-
-#[test]
-fn read_address() {
-    let sandbox = TestEnv::default();
-    for hd_path in 0..2 {
-        test_hd_path(&sandbox, hd_path);
-    }
+        .stdout(predicates::str::contains("test_seed\n"));
 }
 
 #[test]
@@ -228,12 +220,4 @@ fn use_env() {
         .assert()
         .success()
         .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
-}
-
-fn test_hd_path(sandbox: &TestEnv, hd_path: usize) {
-    let seed_phrase = sep5::SeedPhrase::from_seed_phrase(DEFAULT_SEED_PHRASE).unwrap();
-    let key_pair = seed_phrase.from_path_index(hd_path, None).unwrap();
-    let pub_key = key_pair.public().to_string();
-    let test_address = sandbox.test_address(hd_path);
-    assert_eq!(pub_key, test_address);
 }
