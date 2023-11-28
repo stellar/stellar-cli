@@ -216,7 +216,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	contractHash := sha256.Sum256(contractBinary)
 	contractHashBytes := xdr.ScBytes(contractHash[:])
 	expectedXdr := xdr.ScVal{Type: xdr.ScValTypeScvBytes, Bytes: &contractHashBytes}
-	assert.Greater(t, result.LatestLedger, int64(0))
+	assert.Greater(t, result.LatestLedger, uint32(0))
 	assert.Greater(t, result.Cost.CPUInstructions, uint64(0))
 	assert.Greater(t, result.Cost.MemoryBytes, uint64(0))
 
@@ -578,7 +578,7 @@ func TestSimulateTransactionError(t *testing.T) {
 		},
 	}
 	result := simulateTransactionFromTxParams(t, client, params)
-	assert.Greater(t, result.LatestLedger, int64(0))
+	assert.Greater(t, result.LatestLedger, uint32(0))
 	assert.Contains(t, result.Error, "MissingValue")
 	require.Len(t, result.Events, 1)
 	var event xdr.DiagnosticEvent

@@ -42,7 +42,7 @@ type SimulateTransactionResponse struct {
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
 	Cost            SimulateTransactionCost      `json:"cost,omitempty"`            // the effective cpu and memory cost of the invoked transaction execution.
 	RestorePreamble *RestorePreamble             `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
-	LatestLedger    int64                        `json:"latestLedger,string"`
+	LatestLedger    uint32                       `json:"latestLedger"`
 }
 
 type PreflightGetter interface {
@@ -117,7 +117,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error:        err.Error(),
-				LatestLedger: int64(latestLedger),
+				LatestLedger: latestLedger,
 			}
 		}
 
@@ -146,7 +146,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
 			},
-			LatestLedger:    int64(latestLedger),
+			LatestLedger:    latestLedger,
 			RestorePreamble: restorePreamble,
 		}
 	})

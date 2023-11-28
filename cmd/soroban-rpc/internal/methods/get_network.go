@@ -14,7 +14,7 @@ type GetNetworkRequest struct{}
 type GetNetworkResponse struct {
 	FriendbotURL    string `json:"friendbotUrl,omitempty"`
 	Passphrase      string `json:"passphrase"`
-	ProtocolVersion int    `json:"protocolVersion,string"`
+	ProtocolVersion int    `json:"protocolVersion"`
 }
 
 // NewGetNetworkHandler returns a json rpc handler to for the getNetwork method

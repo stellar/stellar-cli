@@ -68,7 +68,7 @@ func (e eventTypeSet) matches(event xdr.ContractEvent) bool {
 
 type EventInfo struct {
 	EventType                string   `json:"type"`
-	Ledger                   int32    `json:"ledger,string"`
+	Ledger                   int32    `json:"ledger"`
 	LedgerClosedAt           string   `json:"ledgerClosedAt"`
 	ContractID               string   `json:"contractId"`
 	ID                       string   `json:"id"`
@@ -79,7 +79,7 @@ type EventInfo struct {
 }
 
 type GetEventsRequest struct {
-	StartLedger int32              `json:"startLedger,string,omitempty"`
+	StartLedger uint32             `json:"startLedger,omitempty"`
 	Filters     []EventFilter      `json:"filters"`
 	Pagination  *PaginationOptions `json:"pagination,omitempty"`
 }
@@ -295,7 +295,7 @@ type PaginationOptions struct {
 
 type GetEventsResponse struct {
 	Events       []EventInfo `json:"events"`
-	LatestLedger int64       `json:"latestLedger,string"`
+	LatestLedger int64       `json:"latestLedger"`
 }
 
 type eventScanner interface {
