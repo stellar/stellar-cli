@@ -52,7 +52,7 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, len(result.Entries))
-	assert.Greater(t, result.LatestLedger, int64(0))
+	assert.Greater(t, result.LatestLedger, uint32(0))
 }
 
 func TestGetLedgerEntriesInvalidParams(t *testing.T) {
@@ -153,22 +153,22 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	err = client.CallResult(context.Background(), "getLedgerEntries", request, &result)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(result.Entries))
-	require.Greater(t, result.LatestLedger, int64(0))
+	require.Greater(t, result.LatestLedger, uint32(0))
 
-	require.Greater(t, result.Entries[0].LastModifiedLedger, int64(0))
+	require.Greater(t, result.Entries[0].LastModifiedLedger, uint32(0))
 	require.LessOrEqual(t, result.Entries[0].LastModifiedLedger, result.LatestLedger)
 	require.NotNil(t, result.Entries[0].LiveUntilLedgerSeq)
-	require.Greater(t, *result.Entries[0].LiveUntilLedgerSeq, uint32(result.LatestLedger))
+	require.Greater(t, *result.Entries[0].LiveUntilLedgerSeq, result.LatestLedger)
 	require.Equal(t, contractCodeKeyB64, result.Entries[0].Key)
 	var firstEntry xdr.LedgerEntryData
 	require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
 	require.Equal(t, xdr.LedgerEntryTypeContractCode, firstEntry.Type)
 	require.Equal(t, contractBinary, firstEntry.MustContractCode().Code)
 
-	require.Greater(t, result.Entries[1].LastModifiedLedger, int64(0))
+	require.Greater(t, result.Entries[1].LastModifiedLedger, uint32(0))
 	require.LessOrEqual(t, result.Entries[1].LastModifiedLedger, result.LatestLedger)
 	require.NotNil(t, result.Entries[1].LiveUntilLedgerSeq)
-	require.Greater(t, *result.Entries[1].LiveUntilLedgerSeq, uint32(result.LatestLedger))
+	require.Greater(t, *result.Entries[1].LiveUntilLedgerSeq, result.LatestLedger)
 	require.Equal(t, contractInstanceKeyB64, result.Entries[1].Key)
 	var secondEntry xdr.LedgerEntryData
 	require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[1].XDR, &secondEntry))
