@@ -3,8 +3,8 @@ use soroban_env_host::storage::SnapshotSource;
 use soroban_env_host::xdr::ContractDataDurability::{Persistent, Temporary};
 use soroban_env_host::xdr::{
     ConfigSettingEntry, ConfigSettingId, Error as XdrError, Hash, LedgerEntry, LedgerEntryData,
-    LedgerKey, LedgerKeyConfigSetting, LedgerKeyTtl, ReadXdr, ScError, ScErrorCode, TtlEntry,
-    WriteXdr,
+    LedgerKey, LedgerKeyConfigSetting, LedgerKeyTtl, Limits, ReadXdr, ScError, ScErrorCode,
+    TtlEntry, WriteXdr,
 };
 use soroban_env_host::HostError;
 use state_ttl::{get_restored_ledger_sequence, is_live, TTLLedgerEntry};
@@ -149,7 +149,7 @@ impl LedgerStorage {
         key: &LedgerKey,
         include_not_live: bool,
     ) -> Result<(LedgerEntry, Option<u32>), Error> {
-        let mut key_xdr = key.to_xdr()?;
+        let mut key_xdr = key.to_xdr(Limits::none())?;
         let xdr = self.get_xdr_internal(&mut key_xdr)?;
 
         let live_until_ledger_seq = match key {
@@ -160,9 +160,9 @@ impl LedgerStorage {
                 let ttl_key = LedgerKey::Ttl(LedgerKeyTtl {
                     key_hash: Hash(key_hash),
                 });
-                let mut ttl_key_xdr = ttl_key.to_xdr()?;
+                let mut ttl_key_xdr = ttl_key.to_xdr(Limits::none())?;
                 let ttl_entry_xdr = self.get_xdr_internal(&mut ttl_key_xdr)?;
-                let ttl_entry = LedgerEntry::from_xdr(ttl_entry_xdr)?;
+                let ttl_entry = LedgerEntry::from_xdr(ttl_entry_xdr, Limits::none())?;
                 if let LedgerEntryData::Ttl(TtlEntry {
                     live_until_ledger_seq,
                     ..
@@ -185,7 +185,7 @@ impl LedgerStorage {
             return Err(Error::NotLive);
         }
 
-        let entry = LedgerEntry::from_xdr(xdr)?;
+        let entry = LedgerEntry::from_xdr(xdr, Limits::none())?;
         Ok((entry, live_until_ledger_seq))
     }
 
@@ -197,7 +197,7 @@ impl LedgerStorage {
         // TODO: this can be optimized since for entry types other than ContractCode/ContractData,
         //       they don't need to be deserialized and serialized again
         let (entry, _) = self.get(key, include_not_live)?;
-        Ok(entry.to_xdr()?)
+        Ok(entry.to_xdr(Limits::none())?)
     }
 
     pub(crate) fn get_configuration_setting(

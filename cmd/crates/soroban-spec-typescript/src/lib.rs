@@ -10,7 +10,7 @@ use crate::types::Type;
 use heck::ToLowerCamelCase;
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
-use stellar_xdr::curr::{ScSpecEntry, WriteXdr};
+use stellar_xdr::curr::{Limits, ScSpecEntry, WriteXdr};
 
 use types::Entry;
 
@@ -64,7 +64,7 @@ fn generate_class(fns: &[Entry], spec: &[ScSpecEntry]) -> String {
     let methods = fns.iter().map(entry_to_ts).join("\n\n    ");
     let spec = spec
         .iter()
-        .map(|s| format!("\"{}\"", s.to_xdr_base64().unwrap()))
+        .map(|s| format!("\"{}\"", s.to_xdr_base64(Limits::none()).unwrap()))
         .join(",\n        ");
     format!(
         r#"export class Contract {{

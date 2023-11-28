@@ -5,6 +5,7 @@ use clap::{
 };
 use core::str::FromStr;
 use soroban_env_host::xdr;
+use soroban_env_host::xdr::Limits;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -49,8 +50,8 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let value =
-            xdr::Type::from_xdr_base64(self.r#type, self.xdr.clone()).map_err(Error::Xdr)?;
+        let value = xdr::Type::from_xdr_base64(self.r#type, self.xdr.clone(), Limits::none())
+            .map_err(Error::Xdr)?;
 
         match self.output {
             Output::Default => println!("{value:#?}"),

@@ -1,7 +1,7 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use soroban_env_host::xdr::{self, ReadXdr};
+use soroban_env_host::xdr::{self, Limits, ReadXdr};
 
 use super::config::{locator, network};
 use crate::{rpc, utils};
@@ -143,7 +143,7 @@ impl Cmd {
                 }
 
                 if segment != "*" {
-                    if let Err(e) = xdr::ScVal::from_xdr_base64(segment) {
+                    if let Err(e) = xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
                         return Err(Error::InvalidSegment {
                             topic: topic.to_string(),
                             segment: segment.to_string(),
