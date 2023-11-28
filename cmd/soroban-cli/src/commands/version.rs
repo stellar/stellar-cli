@@ -15,15 +15,11 @@ impl Cmd {
     }
 }
 
-pub fn short() -> String {
-    format!("{} ({GIT_REVISION})", env!("CARGO_PKG_VERSION"))
-}
-
 pub fn long() -> String {
     let env = soroban_env_host::VERSION;
     let xdr = soroban_env_host::VERSION.xdr;
     [
-        short(),
+        format!("{} ({GIT_REVISION})", env!("CARGO_PKG_VERSION")),
         format!("soroban-env {} ({})", env.pkg, env.rev),
         format!("soroban-env interface version {}", meta::INTERFACE_VERSION),
         format!(
