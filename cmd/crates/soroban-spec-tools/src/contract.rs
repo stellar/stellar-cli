@@ -5,7 +5,7 @@ use std::{
 };
 
 use soroban_env_host::xdr::{
-    self, DepthLimitedRead, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
+    self, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
     ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
     StringM, WriteXdr,
 };
@@ -60,9 +60,8 @@ impl Contract {
         let env_meta = if let Some(env_meta) = env_meta {
             env_meta_base64 = Some(base64.encode(env_meta));
             let cursor = Cursor::new(env_meta);
-            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScEnvMetaEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, xdr::Error>>()?
+            let mut read = Limited::new(cursor, Limits::none());
+            ScEnvMetaEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
             vec![]
         };
@@ -71,7 +70,7 @@ impl Contract {
         let meta = if let Some(meta) = meta {
             meta_base64 = Some(base64.encode(meta));
             let cursor = Cursor::new(meta);
-            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
+            let mut depth_limit_read = Limited::new(cursor, Limits::none());
             ScMetaEntry::read_xdr_iter(&mut depth_limit_read)
                 .collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
@@ -82,9 +81,8 @@ impl Contract {
         let spec = if let Some(spec) = spec {
             spec_base64 = Some(base64.encode(spec));
             let cursor = Cursor::new(spec);
-            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScSpecEntry::read_xdr_iter(&mut depth_limit_read)
-                .collect::<Result<Vec<_>, xdr::Error>>()?
+            let mut read = Limited::new(cursor, Limits::none());
+            ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
             vec![]
         };
@@ -103,7 +101,7 @@ impl Contract {
         let spec = self
             .spec
             .iter()
-            .map(|e| Ok(format!("\"{}\"", e.to_xdr_base64()?)))
+            .map(|e| Ok(format!("\"{}\"", e.to_xdr_base64(Limits::none())?)))
             .collect::<Result<Vec<_>, Error>>()?
             .join(",\n");
         Ok(format!("[{spec}]"))

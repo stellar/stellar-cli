@@ -2,9 +2,9 @@ use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, ExtensionPoint, Hash, HashIdPreimage,
-    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, LedgerFootprint, Memo, Operation,
-    OperationBody, Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress, ScMap,
-    ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
+    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, LedgerFootprint, Limits, Memo,
+    Operation, OperationBody, Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress,
+    ScMap, ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
     SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanCredentials, SorobanResources,
     SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
@@ -32,7 +32,7 @@ impl Assembled {
             network_id: Hash(Sha256::digest(network_passphrase).into()),
             tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(self.txn.clone()),
         };
-        Ok(Sha256::digest(signature_payload.to_xdr()?).into())
+        Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
     }
 
     pub fn sign(
@@ -216,7 +216,7 @@ pub fn assemble(
                     VecM::try_from(
                         r.auth
                             .iter()
-                            .map(SorobanAuthorizationEntry::from_xdr_base64)
+                            .map(|v| SorobanAuthorizationEntry::from_xdr_base64(v, Limits::none()))
                             .collect::<Result<Vec<_>, _>>()?,
                     )
                 })
@@ -369,7 +369,7 @@ fn sign_soroban_authorization_entry(
         nonce: *nonce,
         signature_expiration_ledger,
     })
-    .to_xdr()?;
+    .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
     let signature = signer.sign(&payload);
@@ -407,7 +407,8 @@ fn sign_soroban_authorization_entry(
 }
 
 pub fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transaction, Error> {
-    let transaction_data = SorobanTransactionData::from_xdr_base64(&restore.transaction_data)?;
+    let transaction_data =
+        SorobanTransactionData::from_xdr_base64(&restore.transaction_data, Limits::none())?;
     let fee = u32::try_from(restore.min_resource_fee)
         .map_err(|_| Error::LargeFee(restore.min_resource_fee))?;
     Ok(Transaction {
@@ -488,10 +489,10 @@ mod tests {
             min_resource_fee: 115,
             latest_ledger: 3,
             results: vec![SimulateHostFunctionResultRaw {
-                auth: vec![fn_auth.to_xdr_base64().unwrap()],
-                xdr: ScVal::U32(0).to_xdr_base64().unwrap(),
+                auth: vec![fn_auth.to_xdr_base64(Limits::none()).unwrap()],
+                xdr: ScVal::U32(0).to_xdr_base64(Limits::none()).unwrap(),
             }],
-            transaction_data: transaction_data().to_xdr_base64().unwrap(),
+            transaction_data: transaction_data().to_xdr_base64(Limits::none()).unwrap(),
             ..Default::default()
         }
     }
@@ -601,7 +602,7 @@ mod tests {
             &txn,
             &SimulateTransactionResponse {
                 min_resource_fee: 115,
-                transaction_data: transaction_data().to_xdr_base64().unwrap(),
+                transaction_data: transaction_data().to_xdr_base64(Limits::none()).unwrap(),
                 latest_ledger: 3,
                 ..Default::default()
             },
@@ -621,7 +622,7 @@ mod tests {
             &txn,
             &SimulateTransactionResponse {
                 min_resource_fee: 115,
-                transaction_data: transaction_data().to_xdr_base64().unwrap(),
+                transaction_data: transaction_data().to_xdr_base64(Limits::none()).unwrap(),
                 latest_ledger: 3,
                 ..Default::default()
             },
