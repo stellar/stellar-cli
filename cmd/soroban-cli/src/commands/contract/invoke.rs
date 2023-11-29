@@ -28,7 +28,7 @@ use super::super::{
     config::{self, locator},
     events,
 };
-use crate::{commands::global, utils, Pwd};
+use crate::{commands::global, Pwd};
 use soroban_rpc::Client;
 use soroban_spec_tools::{contract, Spec};
 
@@ -341,7 +341,7 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
+        soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
             .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
     }
 }
