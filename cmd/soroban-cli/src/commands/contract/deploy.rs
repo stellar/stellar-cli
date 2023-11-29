@@ -5,6 +5,7 @@ use std::num::ParseIntError;
 use clap::{arg, command, Parser};
 use rand::Rng;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::Limits;
 use soroban_env_host::{
     xdr::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
@@ -211,7 +212,7 @@ fn get_contract_id(
         network_id,
         contract_id_preimage,
     });
-    let preimage_xdr = preimage.to_xdr()?;
+    let preimage_xdr = preimage.to_xdr(Limits::none())?;
     Ok(Hash(Sha256::digest(preimage_xdr).into()))
 }
 

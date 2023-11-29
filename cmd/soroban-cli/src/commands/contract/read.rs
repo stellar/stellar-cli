@@ -11,6 +11,7 @@ use soroban_env_host::{
     },
     HostError,
 };
+use soroban_sdk::xdr::Limits;
 
 use crate::{
     commands::config,
@@ -163,10 +164,10 @@ impl Cmd {
                     })?,
                 ],
                 Output::Xdr => [
-                    key.to_xdr_base64()?,
-                    val.to_xdr_base64()?,
-                    last_modified_ledger.to_xdr_base64()?,
-                    live_until_ledger_seq.to_xdr_base64()?,
+                    key.to_xdr_base64(Limits::none())?,
+                    val.to_xdr_base64(Limits::none())?,
+                    last_modified_ledger.to_xdr_base64(Limits::none())?,
+                    live_until_ledger_seq.to_xdr_base64(Limits::none())?,
                 ],
             };
             out.write_record(output)

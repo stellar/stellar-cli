@@ -16,18 +16,18 @@ version = "20.0.0-rc4"
 [workspace.dependencies.soroban-env-host]
 version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-env"
-rev = "2674d867d7c6aa4212abab05ff30e5804ff1db90"
+rev = "be04cf31e925ba5bacd9b22db7caf7b4f6dd8372"
 
 [workspace.dependencies.soroban-spec]
 version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "fb422beae0d4944dc0e83559a8940b31f5ebd89d"
+rev = "e35bace9de5addae7c32f405cdc11bb459cb1d61"
 # path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-spec-rust]
 version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "fb422beae0d4944dc0e83559a8940b31f5ebd89d"
+rev = "e35bace9de5addae7c32f405cdc11bb459cb1d61"
 # path = "../rs-soroban-sdk/soroban-spec-rust"
 
 [workspace.dependencies.soroban-spec-json]
@@ -45,12 +45,12 @@ path = "./cmd/crates/soroban-spec-tools"
 [workspace.dependencies.soroban-sdk]
 version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "fb422beae0d4944dc0e83559a8940b31f5ebd89d"
+rev = "e35bace9de5addae7c32f405cdc11bb459cb1d61"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "20.0.0-rc2"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "fb422beae0d4944dc0e83559a8940b31f5ebd89d"
+rev = "e35bace9de5addae7c32f405cdc11bb459cb1d61"
 
 [workspace.dependencies.soroban-cli]
 version = "20.0.0-rc4"
@@ -59,7 +59,7 @@ path = "cmd/soroban-cli"
 [workspace.dependencies.stellar-xdr]
 version = "20.0.0-rc1"
 git = "https://github.com/stellar/rs-stellar-xdr"
-rev = "9c97e4fa909a0b6455547a4f4a95800696b2a69a"
+rev = "d6f8ece2c89809d5e2800b9df64ae60787ee492b"
 default-features = true
 
 [workspace.dependencies]

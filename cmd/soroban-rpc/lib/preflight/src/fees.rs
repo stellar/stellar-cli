@@ -14,8 +14,8 @@ use soroban_env_host::xdr;
 use soroban_env_host::xdr::ContractDataDurability::Persistent;
 use soroban_env_host::xdr::{
     ConfigSettingEntry, ConfigSettingId, ContractEventType, DecoratedSignature, DiagnosticEvent,
-    ExtendFootprintTtlOp, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Memo,
-    MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
+    ExtendFootprintTtlOp, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Limits,
+    Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
     RestoreFootprintOp, ScVal, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
@@ -41,7 +41,7 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
 
     let contract_events_size =
         calculate_contract_events_size_bytes(events).context("cannot calculate events size")?;
-    let invocation_return_size = u32::try_from(invocation_result.to_xdr()?.len())?;
+    let invocation_return_size = u32::try_from(invocation_result.to_xdr(Limits::none())?.len())?;
     // This is totally unintuitive, but it's what's expected by the library
     let final_contract_events_size = contract_events_size + invocation_return_size;
 
@@ -115,7 +115,7 @@ fn estimate_max_transaction_size_for_operation(
         signatures: signatures.try_into()?,
     };
 
-    let envelope_xdr = envelope.to_xdr()?;
+    let envelope_xdr = envelope.to_xdr(Limits::none())?;
     let envelope_size = envelope_xdr.len();
 
     // Add a 15% leeway
@@ -247,7 +247,7 @@ fn calculate_contract_events_size_bytes(events: &[DiagnosticEvent]) -> Result<u3
             continue;
         }
         let event_xdr = e
-            .to_xdr()
+            .to_xdr(Limits::none())
             .with_context(|| format!("cannot marshal event {e:?}"))?;
         res += u32::try_from(event_xdr.len())?;
     }
@@ -361,7 +361,8 @@ fn compute_extend_footprint_rent_changes(
         let unmodified_entry_and_ttl = ledger_storage.get(key, false).with_context(|| {
             format!("cannot find extend footprint ledger entry with key {key:?}")
         })?;
-        let size = (key.to_xdr()?.len() + unmodified_entry_and_ttl.0.to_xdr()?.len()) as u32;
+        let size = (key.to_xdr(Limits::none())?.len()
+            + unmodified_entry_and_ttl.0.to_xdr(Limits::none())?.len()) as u32;
         let ttl_entry: Box<dyn TTLLedgerEntry> =
             (&unmodified_entry_and_ttl)
                 .try_into()
@@ -455,7 +456,8 @@ fn compute_restore_footprint_rent_changes(
         let unmodified_entry_and_ttl = ledger_storage.get(key, true).with_context(|| {
             format!("cannot find restore footprint ledger entry with key {key:?}")
         })?;
-        let size = (key.to_xdr()?.len() + unmodified_entry_and_ttl.0.to_xdr()?.len()) as u32;
+        let size = (key.to_xdr(Limits::none())?.len()
+            + unmodified_entry_and_ttl.0.to_xdr(Limits::none())?.len()) as u32;
         let ttl_entry: Box<dyn TTLLedgerEntry> =
             (&unmodified_entry_and_ttl)
                 .try_into()

@@ -14,7 +14,7 @@ use ledger_storage::LedgerStorage;
 use preflight::PreflightResult;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, InvokeHostFunctionOp, LedgerFootprint, OperationBody, ReadXdr, WriteXdr,
+    AccountId, InvokeHostFunctionOp, LedgerFootprint, Limits, OperationBody, ReadXdr, WriteXdr,
 };
 use soroban_env_host::LedgerInfo;
 use std::ffi::{CStr, CString};
@@ -155,8 +155,9 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     ledger_info: CLedgerInfo,
     enable_debug: bool,
 ) -> Result<CPreflightResult> {
-    let invoke_hf_op = InvokeHostFunctionOp::from_xdr(from_c_xdr(invoke_hf_op)).unwrap();
-    let source_account = AccountId::from_xdr(from_c_xdr(source_account)).unwrap();
+    let invoke_hf_op =
+        InvokeHostFunctionOp::from_xdr(from_c_xdr(invoke_hf_op), Limits::none()).unwrap();
+    let source_account = AccountId::from_xdr(from_c_xdr(source_account), Limits::none()).unwrap();
     let ledger_storage = LedgerStorage::with_restore_tracking(handle, ledger_info.sequence_number)
         .context("cannot create LedgerStorage")?;
     let result = preflight::preflight_invoke_hf_op(
@@ -196,8 +197,8 @@ fn preflight_footprint_ttl_op_or_maybe_panic(
     footprint: CXDR,
     current_ledger_seq: u32,
 ) -> Result<CPreflightResult> {
-    let op_body = OperationBody::from_xdr(from_c_xdr(op_body)).unwrap();
-    let footprint = LedgerFootprint::from_xdr(from_c_xdr(footprint)).unwrap();
+    let op_body = OperationBody::from_xdr(from_c_xdr(op_body), Limits::none()).unwrap();
+    let footprint = LedgerFootprint::from_xdr(from_c_xdr(footprint), Limits::none()).unwrap();
     let ledger_storage = &LedgerStorage::new(handle, current_ledger_seq);
     let result = preflight::preflight_footprint_ttl_op(
         ledger_storage,
@@ -244,7 +245,7 @@ fn catch_preflight_panic(op: Box<dyn Fn() -> Result<CPreflightResult>>) -> *mut 
 }
 
 fn xdr_to_c(v: impl WriteXdr) -> CXDR {
-    let (xdr, len) = vec_to_c_array(v.to_xdr().unwrap());
+    let (xdr, len) = vec_to_c_array(v.to_xdr(Limits::none()).unwrap());
     CXDR { xdr, len }
 }
 

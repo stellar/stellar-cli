@@ -4,7 +4,7 @@ use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
     Asset, ContractIdPreimage, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-    HashIdPreimageContractId, Signature, SignatureHint, Transaction, TransactionEnvelope,
+    HashIdPreimageContractId, Limits, Signature, SignatureHint, Transaction, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, WriteXdr,
 };
@@ -26,7 +26,7 @@ pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u
         network_id: Hash(Sha256::digest(network_passphrase).into()),
         tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
     };
-    Ok(Sha256::digest(signature_payload.to_xdr()?).into())
+    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
 }
 
 /// # Errors
@@ -112,7 +112,7 @@ pub fn contract_id_hash_from_asset(
         network_id,
         contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
     });
-    let preimage_xdr = preimage.to_xdr()?;
+    let preimage_xdr = preimage.to_xdr(Limits::none())?;
     Ok(Hash(Sha256::digest(preimage_xdr).into()))
 }
 
