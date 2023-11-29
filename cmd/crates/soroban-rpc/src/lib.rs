@@ -1,3 +1,8 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::missing_panics_doc
+)]
 use http::{uri::Authority, Uri};
 use itertools::Itertools;
 use jsonrpsee_core::params::ObjectParams;
