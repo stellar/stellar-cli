@@ -28,13 +28,9 @@ use super::super::{
     config::{self, locator},
     events,
 };
-use crate::{
-    commands::global,
-    utils::{self, contract_spec},
-    Pwd,
-};
+use crate::{commands::global, utils, Pwd};
 use soroban_rpc::Client;
-use soroban_spec_tools::Spec;
+use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -140,7 +136,7 @@ pub enum Error {
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
-    ContractSpec(#[from] contract_spec::Error),
+    ContractSpec(#[from] contract::Error),
     #[error("")]
     MissingFileArg(PathBuf),
 }

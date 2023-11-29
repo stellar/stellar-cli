@@ -9,6 +9,7 @@ use soroban_env_host::xdr::{
     TransactionExt, TransactionResult, TransactionResultResult, Uint256, VecM,
 };
 use soroban_rpc::Client;
+use soroban_spec_tools::contract::Contract;
 
 use super::restore;
 use crate::key;
@@ -151,7 +152,7 @@ impl Cmd {
     }
 }
 
-fn get_contract_meta_sdk_version(wasm_spec: &utils::contract_spec::ContractSpec) -> Option<String> {
+fn get_contract_meta_sdk_version(wasm_spec: &Contract) -> Option<String> {
     let rs_sdk_version_option = if let Some(_meta) = &wasm_spec.meta_base64 {
         wasm_spec.meta.iter().find(|entry| match entry {
             ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) => {
