@@ -16,6 +16,7 @@ pub mod add;
 pub mod ls;
 pub mod rm;
 pub mod start;
+pub mod stop;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -27,6 +28,8 @@ pub enum Cmd {
     Ls(ls::Cmd),
     /// Start network
     Start(start::Cmd),
+    /// Stop network
+    Stop(stop::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -42,6 +45,9 @@ pub enum Error {
 
     #[error(transparent)]
     Start(#[from] start::Error),
+
+    #[error(transparent)]
+    Stop(#[from] stop::Error),
 
     #[error(transparent)]
     Config(#[from] locator::Error),
@@ -66,9 +72,11 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
+            // can this be changed to cmd like the others?
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Start(cmd) => cmd.run()?,
+            Cmd::Stop(cmd) => cmd.run()?,
         };
         Ok(())
     }

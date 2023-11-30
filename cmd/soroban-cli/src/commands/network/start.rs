@@ -35,7 +35,7 @@ impl Cmd {
     }
 }
 
-fn build_docker_command(cmd: &Cmd) -> String{
+fn build_docker_command(cmd: &Cmd) -> String {
     let image_name = format!("{}:{}", cmd.docker_image, cmd.docker_tag);
     let docker_command = format!("docker run --rm -d -p \"{from_port}:{to_port}\" --name {container_name} {image_name} --{network} --enable-soroban-rpc",
       from_port=FROM_PORT,
