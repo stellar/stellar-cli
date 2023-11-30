@@ -25,7 +25,8 @@ pub enum Cmd {
     /// If no keys are specified the contract itself is extended.
     Extend(extend::Cmd),
 
-    /// Deploy a contract
+    /// Deploy a contract or Soroban Asset Contract
+    #[command(subcommand)]
     Deploy(deploy::Cmd),
 
     /// Fetch a contract's Wasm binary
