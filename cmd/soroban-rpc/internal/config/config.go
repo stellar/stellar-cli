@@ -29,6 +29,7 @@ type Config struct {
 	FriendbotURL                                string
 	HistoryArchiveURLs                          []string
 	IngestionTimeout                            time.Duration
+	CaptiveCoreTimeout                          time.Duration
 	LogFormat                                   LogFormat
 	LogLevel                                    logrus.Level
 	MaxEventsLimit                              uint

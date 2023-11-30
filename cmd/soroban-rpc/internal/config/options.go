@@ -175,6 +175,12 @@ func (cfg *Config) options() ConfigOptions {
 			},
 		},
 		{
+			Name:         "captive-core-timeout",
+			Usage:        "Timeout for configuring and connecting to the specified Stellar Core instance",
+			ConfigKey:    &cfg.CaptiveCoreTimeout,
+			DefaultValue: 1 * time.Minute,
+		},
+		{
 			Name:      "history-archive-urls",
 			Usage:     "comma-separated list of stellar history archives to connect with",
 			ConfigKey: &cfg.HistoryArchiveURLs,

@@ -113,6 +113,8 @@ func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbacken
 		logger.WithError(err).Fatal("Invalid captive core toml")
 	}
 
+	newCaptiveCoreCtx, cancelNewCaptiveCore := context.WithTimeout(context.Background(), cfg.CaptiveCoreTimeout)
+	defer cancelNewCaptiveCore()
 	captiveConfig := ledgerbackend.CaptiveCoreConfig{
 		BinaryPath:          cfg.StellarCoreBinaryPath,
 		StoragePath:         cfg.CaptiveCoreStoragePath,
@@ -123,6 +125,7 @@ func newCaptiveCore(cfg *config.Config, logger *supportlog.Entry) (*ledgerbacken
 		Toml:                captiveCoreToml,
 		UserAgent:           "captivecore",
 		UseDB:               true,
+		Context:             newCaptiveCoreCtx,
 	}
 	return ledgerbackend.NewCaptive(captiveConfig)
 
