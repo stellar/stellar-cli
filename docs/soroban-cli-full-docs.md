@@ -65,6 +65,8 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network add`↴](#soroban-network-add)
 * [`soroban network rm`↴](#soroban-network-rm)
 * [`soroban network ls`↴](#soroban-network-ls)
+* [`soroban network start`↴](#soroban-network-start)
+* [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
 
 ## `soroban`
@@ -1289,6 +1291,8 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
+* `start` — Start network
+* `stop` — Stop network
 
 
 
@@ -1339,6 +1343,43 @@ List networks
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `-l`, `--long` — Get more info about the networks
+
+
+
+## `soroban network start`
+
+Start network
+
+**Usage:** `soroban network start [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to start
+
+###### **Options:**
+
+* `-c`, `--container-name <CONTAINER_NAME>` — optional argument to customize container name
+
+  Default value: `stellar`
+* `-i`, `--docker-image <DOCKER_IMAGE>` — optional argument for docker image
+
+  Default value: `stellar/quickstart`
+* `-t`, `--docker-tag <DOCKER_TAG>` — optional argument for docker tag
+
+  Default value: `testing`
+* `-d`, `--detached` — optional argument to run docker process in detached mode
+
+
+
+## `soroban network stop`
+
+Stop network
+
+**Usage:** `soroban network stop [CONTAINER]`
+
+###### **Arguments:**
+
+* `<CONTAINER>` — docker container to stop
 
 
 
