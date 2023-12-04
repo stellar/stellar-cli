@@ -34,9 +34,10 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         println!("Starting {} network", &self.network);
-        let docker_command = build_docker_command(&self);
 
-        run_docker_command(docker_command, self.detached);
+        let docker_command = build_docker_command(self);
+
+        run_docker_command(&docker_command, self.detached);
         Ok(())
     }
 }
@@ -55,13 +56,13 @@ fn build_docker_command(cmd: &Cmd) -> String {
     docker_command
 }
 
-fn run_docker_command(docker_command: String, detached: bool) {
-    println!("Running docker command: `{}`", docker_command);
+fn run_docker_command(docker_command: &str, detached: bool) {
+    println!("Running docker command: `{docker_command}`");
     if detached {
-        println!("Running docker container id: ")
+        println!("Running docker container id: ");
     }
     let mut cmd = Command::new("sh")
-        .args(&["-c", &docker_command])
+        .args(["-c", &docker_command])
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn()
@@ -69,6 +70,6 @@ fn run_docker_command(docker_command: String, detached: bool) {
 
     let status = cmd.wait();
     if status.is_err() {
-        println!("Exited with status {:?}", status);
+        println!("Exited with status {status:?}");
     }
 }
