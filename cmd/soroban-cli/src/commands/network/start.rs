@@ -14,23 +14,25 @@ pub struct Cmd {
     /// Network to start
     pub network: String,
 
-    /// optional argument for a custom local container name, defaults to "stellar"
+    /// optional argument to customize container name
     #[arg(short, long, default_value=CONTAINER_NAME)]
     pub container_name: String,
 
-    /// optional argument for a different docker image, defaults to "stellar/quickstart"
+    /// optional argument for docker image
     #[arg(short = 'i', long, default_value=DOCKER_IMAGE)]
     pub docker_image: String,
 
-    /// optional argument for a different docker tag, defaults to "testing"
+    /// optional argument for docker tag
     #[arg(short = 't', long, default_value=DOCKER_TAG)]
     pub docker_tag: String,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        println!("Starting {}", &self.network);
-        start_container(self);
+        println!("Starting {} network", &self.network);
+        let docker_command = build_docker_command(&self);
+
+        run_docker_command(docker_command);
         Ok(())
     }
 }
@@ -48,22 +50,16 @@ fn build_docker_command(cmd: &Cmd) -> String {
     docker_command
 }
 
-fn start_container(cmd: &Cmd) {
-    let docker_command = build_docker_command(&cmd);
+fn run_docker_command(docker_command: String) {
+    println!("Running docker command: `{}`", docker_command);
+    let output = Command::new("sh")
+        .args(&["-c", &docker_command])
+        .output()
+        .expect("Failed to execute command");
 
-    // Use Command::new to create a new command
-    let mut cmd = Command::new("sh");
-
-    // Use arg method to add arguments to the command
-    cmd.arg("-c").arg(docker_command);
-
-    // Use output method to execute the command and capture the output
-    let output = cmd.output().expect("Failed to execute command");
-
-    // Check if the command was successful
     if output.status.success() {
         let result = String::from_utf8_lossy(&output.stdout);
-        println!("Docker command output: {}", result);
+        println!("Docker container id started: {}", result);
     } else {
         let result = String::from_utf8_lossy(&output.stderr);
         eprintln!("Error executing Docker command: {}", result);

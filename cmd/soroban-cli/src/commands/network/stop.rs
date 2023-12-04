@@ -14,9 +14,6 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let docker_command;
-
-        // let docker_container = &self.container.unwrap_or("stellar");
-
         match &self.container {
             Some(value) => {
                 let container = value.to_string();
@@ -42,19 +39,15 @@ fn build_docker_command(container_name: String) -> String {
 }
 
 fn run_docker_command(docker_command: String) {
-    // Use Command::new to create a new command
-    let mut cmd = Command::new("sh");
+    println!("Running docker command: `{}`", docker_command);
+    let output = Command::new("sh")
+        .args(&["-c", &docker_command])
+        .output()
+        .expect("Failed to execute command");
 
-    // Use arg method to add arguments to the command
-    cmd.arg("-c").arg(docker_command);
-
-    // Use output method to execute the command and capture the output
-    let output = cmd.output().expect("Failed to execute command");
-
-    // Check if the command was successful
     if output.status.success() {
         let result = String::from_utf8_lossy(&output.stdout);
-        println!("Docker command output: {}", result);
+        println!("Docker image stopped: {}", result);
     } else {
         let result = String::from_utf8_lossy(&output.stderr);
         eprintln!("Error executing Docker command: {}", result);
