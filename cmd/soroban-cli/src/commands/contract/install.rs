@@ -86,12 +86,17 @@ impl Cmd {
         })?;
         // Check Rust SDK version if using the public network.
         if let Some(rs_sdk_ver) = get_contract_meta_sdk_version(wasm_spec) {
-            if rs_sdk_ver.contains("rc") && !self.ignore_checks && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE {
+            if rs_sdk_ver.contains("rc")
+                && !self.ignore_checks
+                && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE
+            {
                 return Err(Error::ContractCompiledWithReleaseCandidateSdk {
                     wasm: self.wasm.wasm.clone(),
                     version: rs_sdk_ver,
                 });
-            } else if rs_sdk_ver.contains("rc") && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE{
+            } else if rs_sdk_ver.contains("rc")
+                && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE
+            {
                 tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
             }
         }
