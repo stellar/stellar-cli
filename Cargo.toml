@@ -57,7 +57,7 @@ version = "20.0.0-rc.4.2"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.stellar-xdr]
-version = "20.0.0-rc1"
+version = "=20.0.0-rc1"
 git = "https://github.com/stellar/rs-stellar-xdr"
 rev = "d5ce0c9e7aa83461773a6e81662067f35d39e4c1"
 default-features = false
