@@ -51,9 +51,11 @@ pub struct UnionCase {
 impl From<&ScSpecUdtUnionCaseV0> for UnionCase {
     fn from(c: &ScSpecUdtUnionCaseV0) -> Self {
         let (doc, name, values) = match c {
-            ScSpecUdtUnionCaseV0::VoidV0(v) => {
-                (v.doc.to_utf8_string_lossy(), v.name.to_utf8_string_lossy(), vec![])
-            }
+            ScSpecUdtUnionCaseV0::VoidV0(v) => (
+                v.doc.to_utf8_string_lossy(),
+                v.name.to_utf8_string_lossy(),
+                vec![],
+            ),
             ScSpecUdtUnionCaseV0::TupleV0(t) => (
                 t.doc.to_utf8_string_lossy(),
                 t.name.to_utf8_string_lossy(),

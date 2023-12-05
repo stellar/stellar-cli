@@ -254,7 +254,11 @@ fn indent(s: &str, n: usize) -> String {
 
 fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
     if lib.len() > 0 {
-        format!("{}::{}", lib.to_utf8_string_lossy(), name.to_utf8_string_lossy())
+        format!(
+            "{}::{}",
+            lib.to_utf8_string_lossy(),
+            name.to_utf8_string_lossy()
+        )
     } else {
         name.to_utf8_string_lossy()
     }

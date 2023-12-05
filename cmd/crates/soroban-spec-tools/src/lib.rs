@@ -424,7 +424,9 @@ impl Spec {
                 };
                 enum_case == &name.to_utf8_string_lossy()
             })
-            .ok_or_else(|| Error::EnumCase(enum_case.to_string(), union.name.to_utf8_string_lossy()))?;
+            .ok_or_else(|| {
+                Error::EnumCase(enum_case.to_string(), union.name.to_utf8_string_lossy())
+            })?;
 
         let mut res = vec![ScVal::Symbol(ScSymbol(
             enum_case.try_into().map_err(Error::Xdr)?,
@@ -1294,7 +1296,8 @@ impl Spec {
         match self.find(name).ok() {
             Some(ScSpecEntry::UdtStructV0(strukt)) => {
                 // Check if a tuple strukt
-                if !strukt.fields.is_empty() && strukt.fields[0].name.to_utf8_string_lossy() == "0" {
+                if !strukt.fields.is_empty() && strukt.fields[0].name.to_utf8_string_lossy() == "0"
+                {
                     let value_types = strukt
                         .fields
                         .iter()
