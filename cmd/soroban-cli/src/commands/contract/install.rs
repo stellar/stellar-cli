@@ -150,7 +150,7 @@ fn get_contract_meta_sdk_version(wasm_spec: &utils::contract_spec::ContractSpec)
     let rs_sdk_version_option = if let Some(_meta) = &wasm_spec.meta_base64 {
         wasm_spec.meta.iter().find(|entry| match entry {
             ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) => {
-                key.to_string_lossy().contains(CONTRACT_META_SDK_KEY)
+                key.to_utf8_string_lossy().contains(CONTRACT_META_SDK_KEY)
             }
         })
     } else {
@@ -159,7 +159,7 @@ fn get_contract_meta_sdk_version(wasm_spec: &utils::contract_spec::ContractSpec)
     if let Some(rs_sdk_version_entry) = &rs_sdk_version_option {
         match rs_sdk_version_entry {
             ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) => {
-                return Some(val.to_string_lossy());
+                return Some(val.to_utf8_string_lossy());
             }
         }
     }
