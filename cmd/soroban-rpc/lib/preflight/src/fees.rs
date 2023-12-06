@@ -138,7 +138,7 @@ fn calculate_host_function_soroban_resources(
         .map(|c| c.encoded_new_value.as_ref().map_or(0, Vec::len) as u32)
         .sum();
 
-    // Add a 20% leeway with a minimum of 800k instructions
+    // Add a 20% leeway with a minimum of 1 million instructions
     let budget_instructions = budget
         .get_cpu_insns_consumed()
         .context("cannot get instructions consumed")?;
