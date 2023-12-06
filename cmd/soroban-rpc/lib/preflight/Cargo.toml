@@ -12,5 +12,7 @@ base64 = { workspace = true }
 thiserror = { workspace = true }
 libc = "0.2.147"
 sha2 = { workspace = true }
+# we need the testutils feature in order to get backtraces in the preflight library
+# when soroban rpc is configured to run with --preflight-enable-debug
 soroban-env-host = { workspace = true,  features = ["recording_auth", "testutils"]}
 rand = "0.8.5"
