@@ -17,6 +17,7 @@ version = "20.0.0-rc4"
 version = "20.0.0"
 git = "https://github.com/stellar/rs-soroban-env"
 rev = "9c5394083725bacf32a56107d7fa2adf643dc7b5"
+features = ["testutils"]
 
 [workspace.dependencies.soroban-spec]
 version = "20.0.0"
