@@ -142,7 +142,7 @@ fn calculate_host_function_soroban_resources(
     let budget_instructions = budget
         .get_cpu_insns_consumed()
         .context("cannot get instructions consumed")?;
-    let instructions = max(budget_instructions + 800000, budget_instructions * 120 / 100);
+    let instructions = max(budget_instructions + 1000000, budget_instructions * 120 / 100);
     Ok(SorobanResources {
         footprint: ledger_footprint,
         instructions: u32::try_from(instructions)?,
