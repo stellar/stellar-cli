@@ -1,7 +1,13 @@
 use std::process::Command;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {}
+pub enum Error {
+    #[error("Failed to execute docker command: {0}")]
+    CommandError(std::io::Error),
+
+    #[error("Failed to find docker container: {error}")]
+    ContainerNotFoundErr { error: String },
+}
 
 const CONTAINER_NAME: &str = "stellar";
 
@@ -18,8 +24,7 @@ impl Cmd {
             .clone()
             .unwrap_or(String::from(CONTAINER_NAME));
         let docker_command = build_docker_command(&container);
-        run_docker_command(&docker_command);
-        Ok(())
+        run_docker_command(&docker_command)
     }
 }
 
@@ -27,18 +32,21 @@ fn build_docker_command(container_name: &str) -> String {
     format!("docker stop {container_name}")
 }
 
-fn run_docker_command(docker_command: &str) {
+fn run_docker_command(docker_command: &str) -> Result<(), Error> {
     println!("Running docker command: `{docker_command}`");
     let output = Command::new("sh")
         .args(["-c", &docker_command])
         .output()
-        .expect("Failed to execute command");
-
-    if output.status.success() {
-        let result = String::from_utf8_lossy(&output.stdout);
-        println!("Docker image stopped: {result}");
-    } else {
-        let result = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Error executing Docker command: {result}");
-    }
+        .map_err(Error::CommandError)
+        .and_then(|output| {
+            if output.status.success() {
+                let result = String::from_utf8_lossy(&output.stdout);
+                println!("Docker image stopped: {result}");
+                Ok(())
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                Err(Error::ContainerNotFoundErr { error: stderr })
+            }
+        });
+    output
 }
