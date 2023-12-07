@@ -2,13 +2,18 @@
 
 set -e
 
+echo "Checking dependencies."
+
 SED=sed
 if [ -z "$(sed --version 2>&1 | grep GNU)" ]; then
-    SED=gsed
+  echo "Using gsed instead of sed."
+  SED=gsed
 fi
 
 CURL="curl -sL --fail-with-body"
 CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND='s/.*rev=\(.*\)#.*/\1/'
+
+printf "Checking soroban-env-host... "
 
 if ! CARGO_OUTPUT=$(cargo tree -p soroban-env-host 2>&1); then
   echo "The project depends on multiple versions of the soroban-env-host Rust library, please unify them."
@@ -24,12 +29,15 @@ if ! CARGO_OUTPUT=$(cargo tree -p soroban-env-host 2>&1); then
   exit 1
 fi
 
+echo ✔️
 
 # revision of the https://github.com/stellar/rs-stellar-xdr library used by the Rust code
 RS_STELLAR_XDR_REVISION=""
 
 # revision of https://github.com/stellar/stellar-xdr/ used by the Rust code
 STELLAR_XDR_REVISION_FROM_RUST=""
+
+printf "Checking rs-stellar-xdr... "
 
 if CARGO_OUTPUT=$(cargo tree --depth 0 -p stellar-xdr 2>&1); then
   RS_STELLAR_XDR_REVISION=$(echo $CARGO_OUTPUT | head -n 1 | $SED "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
@@ -44,12 +52,16 @@ else
   echo $CARGO_OUTPUT
 fi
 
+echo " All good."
+
 # Now, lets compare the Rust and Go XDR revisions
 # TODO: The sed extraction below won't work for version tags
 GO_XDR_REVISION=$(go list -m -f '{{.Version}}' github.com/stellar/go | $SED 's/.*-\(.*\)/\1/')
 
 # revision of https://github.com/stellar/stellar-xdr/ used by the Go code
 STELLAR_XDR_REVISION_FROM_GO=$($CURL https://raw.githubusercontent.com/stellar/go/${GO_XDR_REVISION}/xdr/xdr_commit_generated.txt)
+
+printf "Checking stellar-xdr... "
 
 if [ "$STELLAR_XDR_REVISION_FROM_GO" != "$STELLAR_XDR_REVISION_FROM_RUST" ]; then
   echo "Go and Rust dependencies are using different revisions of https://github.com/stellar/stellar-xdr"
@@ -59,12 +71,16 @@ if [ "$STELLAR_XDR_REVISION_FROM_GO" != "$STELLAR_XDR_REVISION_FROM_RUST" ]; the
   exit 1
 fi
 
+echo ✔️
+
 # Now, lets make sure that the core and captive core version used in the tests use the same version and that they depend
 # on the same XDR revision
 
 # TODO: The sed extractions below won't work when the commit is not included in the Core image tag/debian packages version
 CORE_CONTAINER_REVISION=$($SED -n 's/.*\/\(stellar-core\|unsafe-stellar-core\(-next\)\{0,1\}\)\:.*\..*-[^\.]*\.\(.*\)\..*/\3/p' < cmd/soroban-rpc/internal/test/docker-compose.yml)
 CAPTIVE_CORE_PKG_REVISION=$($SED -n 's/.*DEBIAN_PKG_VERSION:.*\..*-[^\.]*\.\(.*\)\..*/\1/p' < .github/workflows/soroban-rpc.yml)
+
+printf "Checking Core and Captive Core versions... "
 
 if [ "$CORE_CONTAINER_REVISION" != "$CAPTIVE_CORE_PKG_REVISION" ]; then
   echo "Soroban RPC integration tests are using different versions of the Core container and Captive Core Debian package."
@@ -74,6 +90,8 @@ if [ "$CORE_CONTAINER_REVISION" != "$CAPTIVE_CORE_PKG_REVISION" ]; then
   exit 1
 fi
 
+echo ✔️
+
 # Revision of https://github.com/stellar/rs-stellar-xdr by Core.
 # We obtain it from src/rust/src/host-dep-tree-curr.txt but Alternatively/in addition we could:
 #  * Check the rs-stellar-xdr revision of host-dep-tree-prev.txt
@@ -82,6 +100,9 @@ CORE_HOST_DEP_TREE_CURR=$($CURL https://raw.githubusercontent.com/stellar/stella
 
 
 RS_STELLAR_XDR_REVISION_FROM_CORE=$(echo "$CORE_HOST_DEP_TREE_CURR" | grep stellar-xdr | head -n 1 | $SED "$CARGO_PACKAGE_REVISION_EXTRACT_SED_COMMAND")
+
+printf "Checking rs-stellar-xdr by Core... "
+
 if [ "$RS_STELLAR_XDR_REVISION" != "$RS_STELLAR_XDR_REVISION_FROM_CORE" ]; then
   echo "The Core revision used in integration tests (${CORE_CONTAINER_REVISION}) uses a different revision of https://github.com/stellar/rs-stellar-xdr"
   echo
@@ -90,5 +111,4 @@ if [ "$RS_STELLAR_XDR_REVISION" != "$RS_STELLAR_XDR_REVISION_FROM_CORE" ]; then
   exit 1
 fi
 
-
-
+echo ✔️
