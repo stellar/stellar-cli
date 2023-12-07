@@ -822,7 +822,7 @@ soroban config identity fund {address} --helper-url <url>"#
 
         let mut oparams = ObjectParams::new();
         match start {
-            EventStart::Ledger(l) => oparams.insert("startLedger", l.to_string())?,
+            EventStart::Ledger(l) => oparams.insert("startLedger", l)?,
             EventStart::Cursor(c) => {
                 pagination.insert("cursor".to_string(), c.into());
             }
