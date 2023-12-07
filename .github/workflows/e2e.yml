@@ -22,7 +22,7 @@ jobs:
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci,
-      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#ecb24df104c2453a00fa5097d2e879d7731b9596
+      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#v20.0.0
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests"
       # or set SYSTEM_TEST_CORE_GIT_REF to empty, and set SYSTEM_TEST_CORE_IMAGE
       # to pull a pre-compiled image from dockerhub instead
@@ -36,22 +36,25 @@ jobs:
       # resolution options, using npm release or a gh ref:
       #
       # option #1, set the version of stellar-sdk based on a npm release version
-      SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION:
+      SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION: 11.0.1
       # option #2, set the version of stellar-sdk used as a ref to a gh repo if
       # a value is set on SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO, it takes
       # precedence over any SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION
-      SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO: stellar/js-stellar-sdk
-      SYSTEM_TEST_JS_STELLAR_SDK_GH_REF: 40d1f70f5d7af5f36a28d70cd738d0a2436ab88a
+      SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO: 
+      SYSTEM_TEST_JS_STELLAR_SDK_GH_REF: 
+
+      # the version of rs-stellar-xdr to use for quickstart
+      SYSTEM_TEST_RS_XDR_GIT_REF=v20.0.1
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
-      SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart.git#69a1089eee9aaac4bafe4cbfc0639de18222db6a
+      SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart.git#412bb828ddb4a93745227ab5ad97c623d43f3a5f
 
       # triggers system test to log out details from quickstart's logs and test steps
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
       # the soroban test cases will compile various contracts from the examples repo
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "main"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "6160782e48cb30d31e1cd61f06cb8299370acf26"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v3
@@ -90,6 +93,7 @@ jobs:
             SOROBAN_RPC_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
             SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
             RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
+            RS_XDR_GIT_REF=$SYSTEM_TEST_RS_XDR_GIT_REF \
             QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
             JS_STELLAR_SDK_NPM_VERSION=$JS_STELLAR_SDK_REF \
             build
