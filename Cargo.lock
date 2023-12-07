@@ -2778,6 +2778,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-token-sdk"
+version = "20.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=822ce6cc3e461ccc925275b472d77b6ca35b2cd9#822ce6cc3e461ccc925275b472d77b6ca35b2cd9"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soroban-wasmi"
 version = "0.31.1-soroban.20.0.0"
 source = "git+https://github.com/stellar/wasmi?rev=ab29800224d85ee64d4ac127bac84cdbb0276721#ab29800224d85ee64d4ac127bac84cdbb0276721"
@@ -2963,6 +2971,21 @@ name = "test_hello_world"
 version = "20.0.1"
 dependencies = [
  "soroban-sdk",
+]
+
+[[package]]
+name = "test_swap"
+version = "20.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "test_token"
+version = "20.0.0"
+dependencies = [
+ "soroban-sdk",
+ "soroban-token-sdk",
 ]
 
 [[package]]
