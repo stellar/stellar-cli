@@ -356,7 +356,7 @@ pub struct Event {
     #[serde(rename = "type")]
     pub event_type: String,
 
-    pub ledger: String,
+    pub ledger: u32,
     #[serde(rename = "ledgerClosedAt")]
     pub ledger_closed_at: String,
 
