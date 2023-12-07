@@ -1354,7 +1354,7 @@ Start network
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to start
+* `<NETWORK>` — Network to start, e.g. local, testnet, futurenet
 
 ###### **Options:**
 
@@ -1379,7 +1379,7 @@ Stop network
 
 ###### **Arguments:**
 
-* `<CONTAINER>` — docker container to stop
+* `<CONTAINER>` — docker container to stop, defaults to "stellar"
 
 
 

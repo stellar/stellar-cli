@@ -13,7 +13,7 @@ const CONTAINER_NAME: &str = "stellar";
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
-    /// docker container to stop
+    /// docker container to stop, defaults to "stellar"
     pub container: Option<String>,
 }
 

@@ -11,7 +11,7 @@ const DOCKER_TAG: &str = "testing";
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
-    /// Network to start
+    /// Network to start, e.g. local, testnet, futurenet
     pub network: String,
 
     /// optional argument to customize container name
