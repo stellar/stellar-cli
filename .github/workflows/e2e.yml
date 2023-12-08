@@ -44,7 +44,7 @@ jobs:
       SYSTEM_TEST_JS_STELLAR_SDK_GH_REF: 
 
       # the version of rs-stellar-xdr to use for quickstart
-      SYSTEM_TEST_RS_XDR_GIT_REF=v20.0.1
+      SYSTEM_TEST_RS_XDR_GIT_REF: v20.0.1
 
       # system test will build quickstart image internally to use for running the service stack
       # configured in standalone network mode(core, rpc)
