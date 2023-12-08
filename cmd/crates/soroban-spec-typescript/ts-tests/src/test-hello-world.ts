@@ -1,20 +1,26 @@
 import test from "ava";
-import { wallet, publicKey, rpcUrl } from "./util.js";
-import { Address, Contract, networks } from "test-hello-world";
+import { root, wallet, rpcUrl } from "./util.js";
+import { Contract, networks } from "test-hello-world";
 
-const contract = new Contract({...networks.standalone, rpcUrl, wallet});
+const contract = new Contract({ ...networks.standalone, rpcUrl, wallet });
 
 test("hello", async (t) => {
-  t.deepEqual(await contract.hello({ world: "tests" }), ["Hello", "tests"]);
+  t.deepEqual((await contract.hello({ world: "tests" })).result, ["Hello", "tests"]);
 });
 
-// Currently must run tests in serial because nonce logic not smart enough to handle concurrent calls.
-test.serial.failing("auth", async (t) => {
-  t.deepEqual(await contract.auth({ addr: publicKey, world: 'lol' }), Address.fromString(publicKey))
+test("auth", async (t) => {
+  t.deepEqual(
+    (await contract.auth({
+      addr: root.keypair.publicKey(),
+      world: 'lol'
+    })).result,
+    root.address
+  )
 });
 
-test.serial.failing("inc", async (t) => {
-  t.is(await contract.getCount(), 0);
-  t.is(await contract.inc(), 1)
-  t.is(await contract.getCount(), 1);
+test("inc", async (t) => {
+  const { result: startingBalance } = await contract.getCount()
+  const inc = await contract.inc()
+  t.is((await inc.signAndSend()).result, startingBalance + 1)
+  t.is((await contract.getCount()).result, startingBalance + 1)
 });
