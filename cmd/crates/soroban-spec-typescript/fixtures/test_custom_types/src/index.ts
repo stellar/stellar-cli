@@ -1,31 +1,93 @@
-import { ContractSpec, Address } from 'stellar-sdk';
+import * as SorobanClient from 'soroban-client';
+import { ContractSpec, Address } from 'soroban-client';
 import { Buffer } from "buffer";
-import { AssembledTransaction, Ok, Err } from './assembled-tx.js';
-import type {
-  u32,
-  i32,
-  u64,
-  i64,
-  u128,
-  i128,
-  u256,
-  i256,
-  Option,
-  Typepoint,
-  Duration,
-  Error_,
-  Result,
-} from './assembled-tx.js';
-import type { ClassOptions, XDR_BASE64 } from './method-options.js';
+import { invoke } from './invoke.js';
+import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'
 
-export * from './assembled-tx.js';
-export * from './method-options.js';
+export * from './invoke.js'
+export * from './method-options.js'
+
+export type u32 = number;
+export type i32 = number;
+export type u64 = bigint;
+export type i64 = bigint;
+export type u128 = bigint;
+export type i128 = bigint;
+export type u256 = bigint;
+export type i256 = bigint;
+export type Option<T> = T | undefined;
+export type Typepoint = bigint;
+export type Duration = bigint;
+export {Address};
+
+/// Error interface containing the error message
+export interface Error_ { message: string };
+
+export interface Result<T, E extends Error_> {
+    unwrap(): T,
+    unwrapErr(): E,
+    isOk(): boolean,
+    isErr(): boolean,
+};
+
+export class Ok<T, E extends Error_ = Error_> implements Result<T, E> {
+    constructor(readonly value: T) { }
+    unwrapErr(): E {
+        throw new Error('No error');
+    }
+    unwrap(): T {
+        return this.value;
+    }
+
+    isOk(): boolean {
+        return true;
+    }
+
+    isErr(): boolean {
+        return !this.isOk()
+    }
+}
+
+export class Err<E extends Error_ = Error_> implements Result<any, E> {
+    constructor(readonly error: E) { }
+    unwrapErr(): E {
+        return this.error;
+    }
+    unwrap(): never {
+        throw new Error(this.error.message);
+    }
+
+    isOk(): boolean {
+        return false;
+    }
+
+    isErr(): boolean {
+        return !this.isOk()
+    }
+}
 
 if (typeof window !== 'undefined') {
     //@ts-ignore Buffer exists
     window.Buffer = window.Buffer || Buffer;
 }
 
+const regex = /Error\(Contract, #(\d+)\)/;
+
+function parseError(message: string): Err | undefined {
+    const match = message.match(regex);
+    if (!match) {
+        return undefined;
+    }
+    if (Errors === undefined) {
+        return undefined;
+    }
+    let i = parseInt(match[1], 10);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
+    }
+    return undefined;
+}
 
 export const networks = {
     futurenet: {
@@ -35,55 +97,31 @@ export const networks = {
 } as const
 
 /**
-    This is from the rust doc above the struct Test
-    */
+     * This is from the rust doc above the struct Test
+     */
 export interface Test {
-  /**
-    
-    */
-a: u32;
-  /**
-    
-    */
-b: boolean;
-  /**
-    
-    */
-c: string;
+  a: u32;
+  b: boolean;
+  c: string;
 }
 
-/**
-    
-    */
 export type SimpleEnum = {tag: "First", values: void} | {tag: "Second", values: void} | {tag: "Third", values: void};
 
-/**
-    
-    */
 export enum RoyalCard {
   Jack = 11,
   Queen = 12,
   King = 13,
 }
 
-/**
-    
-    */
 export type TupleStruct = readonly [Test,  SimpleEnum];
-/**
-    
-    */
 export type ComplexEnum = {tag: "Struct", values: readonly [Test]} | {tag: "Tuple", values: readonly [TupleStruct]} | {tag: "Enum", values: readonly [SimpleEnum]} | {tag: "Asset", values: readonly [string, i128]} | {tag: "Void", values: void};
 
-/**
-    
-    */
-export const Errors = {
+const Errors = {
 1: {message:"Please provide an odd number"}
 }
 
 export class Contract {
-    spec: ContractSpec;
+            spec: ContractSpec;
     constructor(public readonly options: ClassOptions) {
         this.spec = new ContractSpec([
             "AAAAAQAAAC9UaGlzIGlzIGZyb20gdGhlIHJ1c3QgZG9jIGFib3ZlIHRoZSBzdHJ1Y3QgVGVzdAAAAAAAAAAABFRlc3QAAAADAAAAAAAAAAFhAAAAAAAABAAAAAAAAAABYgAAAAAAAAEAAAAAAAAAAWMAAAAAAAAR",
@@ -120,638 +158,857 @@ export class Contract {
         "AAAAAAAAAAAAAAAEaTI1NgAAAAEAAAAAAAAABGkyNTYAAAANAAAAAQAAAA0=",
         "AAAAAAAAAAAAAAAGc3RyaW5nAAAAAAABAAAAAAAAAAZzdHJpbmcAAAAAABAAAAABAAAAEA==",
         "AAAAAAAAAAAAAAAMdHVwbGVfc3RydWt0AAAAAQAAAAAAAAAMdHVwbGVfc3RydWt0AAAH0AAAAAtUdXBsZVN0cnVjdAAAAAABAAAH0AAAAAtUdXBsZVN0cnVjdAA="
-        ]);
+            ]);
     }
-    private readonly parsers = {
-        hello: (result: XDR_BASE64): string => this.spec.funcResToNative("hello", result),
-        woid: () => {},
-        val: (result: XDR_BASE64): any => this.spec.funcResToNative("val", result),
-        u32FailOnEven: (result: XDR_BASE64 | Err): Ok<u32> | Err<Error_> => {
-            if (result instanceof Err) return result
-            return new Ok(this.spec.funcResToNative("u32_fail_on_even", result))
-        },
-        u32: (result: XDR_BASE64): u32 => this.spec.funcResToNative("u32_", result),
-        i32: (result: XDR_BASE64): i32 => this.spec.funcResToNative("i32_", result),
-        i64: (result: XDR_BASE64): i64 => this.spec.funcResToNative("i64_", result),
-        struktHel: (result: XDR_BASE64): Array<string> => this.spec.funcResToNative("strukt_hel", result),
-        strukt: (result: XDR_BASE64): Test => this.spec.funcResToNative("strukt", result),
-        simple: (result: XDR_BASE64): SimpleEnum => this.spec.funcResToNative("simple", result),
-        complex: (result: XDR_BASE64): ComplexEnum => this.spec.funcResToNative("complex", result),
-        addresse: (result: XDR_BASE64): string => this.spec.funcResToNative("addresse", result),
-        bytes: (result: XDR_BASE64): Buffer => this.spec.funcResToNative("bytes", result),
-        bytesN: (result: XDR_BASE64): Buffer => this.spec.funcResToNative("bytes_n", result),
-        card: (result: XDR_BASE64): RoyalCard => this.spec.funcResToNative("card", result),
-        boolean: (result: XDR_BASE64): boolean => this.spec.funcResToNative("boolean", result),
-        not: (result: XDR_BASE64): boolean => this.spec.funcResToNative("not", result),
-        i128: (result: XDR_BASE64): i128 => this.spec.funcResToNative("i128", result),
-        u128: (result: XDR_BASE64): u128 => this.spec.funcResToNative("u128", result),
-        multiArgs: (result: XDR_BASE64): u32 => this.spec.funcResToNative("multi_args", result),
-        map: (result: XDR_BASE64): Map<u32, boolean> => this.spec.funcResToNative("map", result),
-        vec: (result: XDR_BASE64): Array<u32> => this.spec.funcResToNative("vec", result),
-        tuple: (result: XDR_BASE64): readonly [string, u32] => this.spec.funcResToNative("tuple", result),
-        option: (result: XDR_BASE64): Option<u32> => this.spec.funcResToNative("option", result),
-        u256: (result: XDR_BASE64): u256 => this.spec.funcResToNative("u256", result),
-        i256: (result: XDR_BASE64): i256 => this.spec.funcResToNative("i256", result),
-        string: (result: XDR_BASE64): string => this.spec.funcResToNative("string", result),
-        tupleStrukt: (result: XDR_BASE64): TupleStruct => this.spec.funcResToNative("tuple_strukt", result)
-    };
-    private txFromJSON = <T>(json: string): AssembledTransaction<T> => {
-        const { method, ...tx } = JSON.parse(json)
-        return AssembledTransaction.fromJSON(
-            {
-                ...this.options,
-                method,
-                parseResultXdr: this.parsers[method],
-            },
-            tx,
-        );
-    }
-    public readonly fromJSON = {
-        hello: this.txFromJSON<ReturnType<typeof this.parsers['hello']>>,
-        woid: this.txFromJSON<ReturnType<typeof this.parsers['woid']>>,
-        val: this.txFromJSON<ReturnType<typeof this.parsers['val']>>,
-        u32FailOnEven: this.txFromJSON<ReturnType<typeof this.parsers['u32FailOnEven']>>,
-        u32: this.txFromJSON<ReturnType<typeof this.parsers['u32']>>,
-        i32: this.txFromJSON<ReturnType<typeof this.parsers['i32']>>,
-        i64: this.txFromJSON<ReturnType<typeof this.parsers['i64']>>,
-        struktHel: this.txFromJSON<ReturnType<typeof this.parsers['struktHel']>>,
-        strukt: this.txFromJSON<ReturnType<typeof this.parsers['strukt']>>,
-        simple: this.txFromJSON<ReturnType<typeof this.parsers['simple']>>,
-        complex: this.txFromJSON<ReturnType<typeof this.parsers['complex']>>,
-        addresse: this.txFromJSON<ReturnType<typeof this.parsers['addresse']>>,
-        bytes: this.txFromJSON<ReturnType<typeof this.parsers['bytes']>>,
-        bytesN: this.txFromJSON<ReturnType<typeof this.parsers['bytesN']>>,
-        card: this.txFromJSON<ReturnType<typeof this.parsers['card']>>,
-        boolean: this.txFromJSON<ReturnType<typeof this.parsers['boolean']>>,
-        not: this.txFromJSON<ReturnType<typeof this.parsers['not']>>,
-        i128: this.txFromJSON<ReturnType<typeof this.parsers['i128']>>,
-        u128: this.txFromJSON<ReturnType<typeof this.parsers['u128']>>,
-        multiArgs: this.txFromJSON<ReturnType<typeof this.parsers['multiArgs']>>,
-        map: this.txFromJSON<ReturnType<typeof this.parsers['map']>>,
-        vec: this.txFromJSON<ReturnType<typeof this.parsers['vec']>>,
-        tuple: this.txFromJSON<ReturnType<typeof this.parsers['tuple']>>,
-        option: this.txFromJSON<ReturnType<typeof this.parsers['option']>>,
-        u256: this.txFromJSON<ReturnType<typeof this.parsers['u256']>>,
-        i256: this.txFromJSON<ReturnType<typeof this.parsers['i256']>>,
-        string: this.txFromJSON<ReturnType<typeof this.parsers['string']>>,
-        tupleStrukt: this.txFromJSON<ReturnType<typeof this.parsers['tupleStrukt']>>
-    }
-        /**
-    * Construct and simulate a hello transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    hello = async ({hello}: {hello: string}, options: {
+    hello = async <R extends ResponseTypes = undefined>({hello}: {hello: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `string`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'hello',
             args: this.spec.funcArgsToScVals("hello", {hello}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['hello'],
+            parseResultXdr: (xdr): string => {
+                return this.spec.funcResToNative("hello", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a woid transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    woid = async (options: {
+    woid = async <R extends ResponseTypes = undefined>(options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `void`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'woid',
             args: this.spec.funcArgsToScVals("woid", {}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['woid'],
+            parseResultXdr: () => {},
         });
     }
 
 
-        /**
-    * Construct and simulate a val transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    val = async (options: {
+    val = async <R extends ResponseTypes = undefined>(options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `any`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'val',
             args: this.spec.funcArgsToScVals("val", {}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['val'],
+            parseResultXdr: (xdr): any => {
+                return this.spec.funcResToNative("val", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a u32_fail_on_even transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    u32FailOnEven = async ({u32_}: {u32_: u32}, options: {
+    u32FailOnEven = async <R extends ResponseTypes = undefined>({u32_}: {u32_: u32}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Ok<u32> | Err<Error_> | undefined`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    try {
+            return await invoke({
             method: 'u32_fail_on_even',
             args: this.spec.funcArgsToScVals("u32_fail_on_even", {u32_}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['u32FailOnEven'],
+            parseResultXdr: (xdr): Ok<u32> | Err<Error_> | undefined => {
+                return new Ok(this.spec.funcResToNative("u32_fail_on_even", xdr));
+            },
         });
+        } catch (e) {
+            let err = parseError(e.toString());
+            if (err) return err;
+            throw e;
+        }
     }
 
 
-        /**
-    * Construct and simulate a u32_ transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    u32 = async ({u32_}: {u32_: u32}, options: {
+    u32 = async <R extends ResponseTypes = undefined>({u32_}: {u32_: u32}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `u32`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'u32_',
             args: this.spec.funcArgsToScVals("u32_", {u32_}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['u32'],
+            parseResultXdr: (xdr): u32 => {
+                return this.spec.funcResToNative("u32_", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a i32_ transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    i32 = async ({i32_}: {i32_: i32}, options: {
+    i32 = async <R extends ResponseTypes = undefined>({i32_}: {i32_: i32}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `i32`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'i32_',
             args: this.spec.funcArgsToScVals("i32_", {i32_}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['i32'],
+            parseResultXdr: (xdr): i32 => {
+                return this.spec.funcResToNative("i32_", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a i64_ transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    i64 = async ({i64_}: {i64_: i64}, options: {
+    i64 = async <R extends ResponseTypes = undefined>({i64_}: {i64_: i64}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `i64`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'i64_',
             args: this.spec.funcArgsToScVals("i64_", {i64_}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['i64'],
+            parseResultXdr: (xdr): i64 => {
+                return this.spec.funcResToNative("i64_", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a strukt_hel transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.Example contract method which takes a struct
-    */
-    struktHel = async ({strukt}: {strukt: Test}, options: {
+    /**
+     * Example contract method which takes a struct
+     */
+struktHel = async <R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Array<string>`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'strukt_hel',
             args: this.spec.funcArgsToScVals("strukt_hel", {strukt}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['struktHel'],
+            parseResultXdr: (xdr): Array<string> => {
+                return this.spec.funcResToNative("strukt_hel", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a strukt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    strukt = async ({strukt}: {strukt: Test}, options: {
+    strukt = async <R extends ResponseTypes = undefined>({strukt}: {strukt: Test}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Test`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'strukt',
             args: this.spec.funcArgsToScVals("strukt", {strukt}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['strukt'],
+            parseResultXdr: (xdr): Test => {
+                return this.spec.funcResToNative("strukt", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a simple transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    simple = async ({simple}: {simple: SimpleEnum}, options: {
+    simple = async <R extends ResponseTypes = undefined>({simple}: {simple: SimpleEnum}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `SimpleEnum`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'simple',
             args: this.spec.funcArgsToScVals("simple", {simple}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['simple'],
+            parseResultXdr: (xdr): SimpleEnum => {
+                return this.spec.funcResToNative("simple", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a complex transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    complex = async ({complex}: {complex: ComplexEnum}, options: {
+    complex = async <R extends ResponseTypes = undefined>({complex}: {complex: ComplexEnum}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `ComplexEnum`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'complex',
             args: this.spec.funcArgsToScVals("complex", {complex}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['complex'],
+            parseResultXdr: (xdr): ComplexEnum => {
+                return this.spec.funcResToNative("complex", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a addresse transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    addresse = async ({addresse}: {addresse: string}, options: {
+    addresse = async <R extends ResponseTypes = undefined>({addresse}: {addresse: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `string`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'addresse',
             args: this.spec.funcArgsToScVals("addresse", {addresse: new Address(addresse)}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['addresse'],
+            parseResultXdr: (xdr): string => {
+                return this.spec.funcResToNative("addresse", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a bytes transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    bytes = async ({bytes}: {bytes: Buffer}, options: {
+    bytes = async <R extends ResponseTypes = undefined>({bytes}: {bytes: Buffer}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Buffer`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'bytes',
             args: this.spec.funcArgsToScVals("bytes", {bytes}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['bytes'],
+            parseResultXdr: (xdr): Buffer => {
+                return this.spec.funcResToNative("bytes", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a bytes_n transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    bytesN = async ({bytes_n}: {bytes_n: Buffer}, options: {
+    bytesN = async <R extends ResponseTypes = undefined>({bytes_n}: {bytes_n: Buffer}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Buffer`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'bytes_n',
             args: this.spec.funcArgsToScVals("bytes_n", {bytes_n}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['bytesN'],
+            parseResultXdr: (xdr): Buffer => {
+                return this.spec.funcResToNative("bytes_n", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a card transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    card = async ({card}: {card: RoyalCard}, options: {
+    card = async <R extends ResponseTypes = undefined>({card}: {card: RoyalCard}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `RoyalCard`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'card',
             args: this.spec.funcArgsToScVals("card", {card}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['card'],
+            parseResultXdr: (xdr): RoyalCard => {
+                return this.spec.funcResToNative("card", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a boolean transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    boolean = async ({boolean}: {boolean: boolean}, options: {
+    boolean = async <R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `boolean`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'boolean',
             args: this.spec.funcArgsToScVals("boolean", {boolean}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['boolean'],
+            parseResultXdr: (xdr): boolean => {
+                return this.spec.funcResToNative("boolean", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a not transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.Negates a boolean value
-    */
-    not = async ({boolean}: {boolean: boolean}, options: {
+    /**
+     * Negates a boolean value
+     */
+not = async <R extends ResponseTypes = undefined>({boolean}: {boolean: boolean}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `boolean`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'not',
             args: this.spec.funcArgsToScVals("not", {boolean}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['not'],
+            parseResultXdr: (xdr): boolean => {
+                return this.spec.funcResToNative("not", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a i128 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    i128 = async ({i128}: {i128: i128}, options: {
+    i128 = async <R extends ResponseTypes = undefined>({i128}: {i128: i128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `i128`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'i128',
             args: this.spec.funcArgsToScVals("i128", {i128}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['i128'],
+            parseResultXdr: (xdr): i128 => {
+                return this.spec.funcResToNative("i128", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a u128 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    u128 = async ({u128}: {u128: u128}, options: {
+    u128 = async <R extends ResponseTypes = undefined>({u128}: {u128: u128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `u128`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'u128',
             args: this.spec.funcArgsToScVals("u128", {u128}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['u128'],
+            parseResultXdr: (xdr): u128 => {
+                return this.spec.funcResToNative("u128", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a multi_args transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    multiArgs = async ({a, b}: {a: u32, b: boolean}, options: {
+    multiArgs = async <R extends ResponseTypes = undefined>({a, b}: {a: u32, b: boolean}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `u32`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'multi_args',
             args: this.spec.funcArgsToScVals("multi_args", {a, b}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['multiArgs'],
+            parseResultXdr: (xdr): u32 => {
+                return this.spec.funcResToNative("multi_args", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a map transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    map = async ({map}: {map: Map<u32, boolean>}, options: {
+    map = async <R extends ResponseTypes = undefined>({map}: {map: Map<u32, boolean>}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Map<u32, boolean>`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'map',
             args: this.spec.funcArgsToScVals("map", {map}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['map'],
+            parseResultXdr: (xdr): Map<u32, boolean> => {
+                return this.spec.funcResToNative("map", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a vec transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    vec = async ({vec}: {vec: Array<u32>}, options: {
+    vec = async <R extends ResponseTypes = undefined>({vec}: {vec: Array<u32>}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Array<u32>`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'vec',
             args: this.spec.funcArgsToScVals("vec", {vec}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['vec'],
+            parseResultXdr: (xdr): Array<u32> => {
+                return this.spec.funcResToNative("vec", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a tuple transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    tuple = async ({tuple}: {tuple: readonly [string, u32]}, options: {
+    tuple = async <R extends ResponseTypes = undefined>({tuple}: {tuple: readonly [string, u32]}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `readonly [string, u32]`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'tuple',
             args: this.spec.funcArgsToScVals("tuple", {tuple}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['tuple'],
+            parseResultXdr: (xdr): readonly [string, u32] => {
+                return this.spec.funcResToNative("tuple", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a option transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.Example of an optional argument
-    */
-    option = async ({option}: {option: Option<u32>}, options: {
+    /**
+     * Example of an optional argument
+     */
+option = async <R extends ResponseTypes = undefined>({option}: {option: Option<u32>}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Option<u32>`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'option',
             args: this.spec.funcArgsToScVals("option", {option}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['option'],
+            parseResultXdr: (xdr): Option<u32> => {
+                return this.spec.funcResToNative("option", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a u256 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    u256 = async ({u256}: {u256: u256}, options: {
+    u256 = async <R extends ResponseTypes = undefined>({u256}: {u256: u256}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `u256`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'u256',
             args: this.spec.funcArgsToScVals("u256", {u256}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['u256'],
+            parseResultXdr: (xdr): u256 => {
+                return this.spec.funcResToNative("u256", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a i256 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    i256 = async ({i256}: {i256: i256}, options: {
+    i256 = async <R extends ResponseTypes = undefined>({i256}: {i256: i256}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `i256`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'i256',
             args: this.spec.funcArgsToScVals("i256", {i256}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['i256'],
+            parseResultXdr: (xdr): i256 => {
+                return this.spec.funcResToNative("i256", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a string transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    string = async ({string}: {string: string}, options: {
+    string = async <R extends ResponseTypes = undefined>({string}: {string: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `string`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'string',
             args: this.spec.funcArgsToScVals("string", {string}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['string'],
+            parseResultXdr: (xdr): string => {
+                return this.spec.funcResToNative("string", xdr);
+            },
         });
     }
 
 
-        /**
-    * Construct and simulate a tuple_strukt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-    */
-    tupleStrukt = async ({tuple_strukt}: {tuple_strukt: TupleStruct}, options: {
+    tupleStrukt = async <R extends ResponseTypes = undefined>({tuple_strukt}: {tuple_strukt: TupleStruct}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
-        fee?: number,
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `TupleStruct`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
     } = {}) => {
-        return await AssembledTransaction.fromSimulation({
+                    return await invoke({
             method: 'tuple_strukt',
             args: this.spec.funcArgsToScVals("tuple_strukt", {tuple_strukt}),
             ...options,
             ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['tupleStrukt'],
+            parseResultXdr: (xdr): TupleStruct => {
+                return this.spec.funcResToNative("tuple_strukt", xdr);
+            },
         });
     }
 

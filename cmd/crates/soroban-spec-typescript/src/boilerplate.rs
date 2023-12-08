@@ -81,8 +81,8 @@ impl Project {
         [
             "package.json",
             "README.md",
-            "src/assembled-tx.ts",
             "src/index.ts",
+            "src/invoke.ts",
             "src/method-options.ts",
         ]
         .into_iter()

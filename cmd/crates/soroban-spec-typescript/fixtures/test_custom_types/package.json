@@ -2,9 +2,9 @@
     "version": "0.0.0",
     "name": "test_custom_types",
     "dependencies": {
-        "@stellar/freighter-api": "1.7.1",
+        "@stellar/freighter-api": "1.5.1",
         "buffer": "6.0.3",
-        "stellar-sdk": "11.0.0-beta.6"
+        "soroban-client": "1.0.0-beta.2"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
