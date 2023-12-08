@@ -8,6 +8,7 @@ pub mod contract;
 pub mod events;
 pub mod global;
 pub mod keys;
+pub mod init;
 pub mod lab;
 pub mod network;
 pub mod plugin;
@@ -94,6 +95,7 @@ impl Root {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
+            Cmd::Init(init) => init.run()?,
             Cmd::Lab(lab) => lab.run().await?,
             Cmd::Network(network) => network.run()?,
             Cmd::Version(version) => version.run(),
@@ -128,6 +130,8 @@ pub enum Cmd {
     /// Create and manage identities including keys and addresses
     #[command(subcommand)]
     Keys(keys::Cmd),
+    /// Initialize a new Soroban project
+    Init(init::Cmd),
     /// Experiment with early features and expert tools
     #[command(subcommand)]
     Lab(lab::Cmd),
@@ -147,6 +151,8 @@ pub enum Error {
     Events(#[from] events::Error),
     #[error(transparent)]
     Keys(#[from] keys::Error),
+    #[error(transparent)]
+    Init(#[from] init::Error),
     #[error(transparent)]
     Lab(#[from] lab::Error),
     #[error(transparent)]
