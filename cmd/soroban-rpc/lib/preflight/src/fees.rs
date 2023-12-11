@@ -143,7 +143,7 @@ fn calculate_host_function_soroban_resources(
         .get_cpu_insns_consumed()
         .context("cannot get instructions consumed")?;
     let instructions = max(
-        budget_instructions + 1000000,
+        budget_instructions + 3000000,
         budget_instructions * 120 / 100,
     );
     Ok(SorobanResources {
