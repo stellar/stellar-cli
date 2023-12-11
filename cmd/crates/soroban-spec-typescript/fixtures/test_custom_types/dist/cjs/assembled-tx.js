@@ -211,12 +211,12 @@ class AssembledTransaction {
         return await SentTransaction.init(this.options, this, secondsToWait);
     };
     getStorageExpiration = async () => {
-        const key = new stellar_sdk_1.Contract(this.options.contractId).getFootprint()[1];
-        const expirationKey = stellar_sdk_1.xdr.LedgerKey.expiration(new stellar_sdk_1.xdr.LedgerKeyExpiration({ keyHash: (0, stellar_sdk_1.hash)(key.toXDR()) }));
-        const entryRes = await this.server.getLedgerEntries(expirationKey);
-        if (!(entryRes.entries && entryRes.entries.length))
+        const entryRes = await this.server.getLedgerEntries(new stellar_sdk_1.Contract(this.options.contractId).getFootprint());
+        if (!entryRes.entries ||
+            !entryRes.entries.length ||
+            !entryRes.entries[0].liveUntilLedgerSeq)
             throw new Error('failed to get ledger entry');
-        return entryRes.entries[0].val.expiration().expirationLedgerSeq();
+        return entryRes.entries[0].liveUntilLedgerSeq;
     };
     /**
      * Get a list of accounts, other than the invoker of the simulation, that

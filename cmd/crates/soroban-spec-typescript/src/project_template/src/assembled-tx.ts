@@ -297,16 +297,15 @@ export class AssembledTransaction<T> {
   }
 
   getStorageExpiration = async () => {
-    const key = new Contract(this.options.contractId).getFootprint()[1]
-
-    const expirationKey = xdr.LedgerKey.expiration(
-      new xdr.LedgerKeyExpiration({ keyHash: hash(key.toXDR()) }),
+    const entryRes = await this.server.getLedgerEntries(
+      new Contract(this.options.contractId).getFootprint()
     )
-
-    const entryRes = await this.server.getLedgerEntries(expirationKey)
-    if (!(entryRes.entries && entryRes.entries.length)) throw new Error('failed to get ledger entry')
-
-    return entryRes.entries[0].val.expiration().expirationLedgerSeq()
+    if (
+      !entryRes.entries ||
+      !entryRes.entries.length ||
+      !entryRes.entries[0].liveUntilLedgerSeq
+    ) throw new Error('failed to get ledger entry')
+    return entryRes.entries[0].liveUntilLedgerSeq
   }
 
   /**

@@ -200,12 +200,12 @@ export class AssembledTransaction {
         return await SentTransaction.init(this.options, this, secondsToWait);
     };
     getStorageExpiration = async () => {
-        const key = new Contract(this.options.contractId).getFootprint()[1];
-        const expirationKey = xdr.LedgerKey.expiration(new xdr.LedgerKeyExpiration({ keyHash: hash(key.toXDR()) }));
-        const entryRes = await this.server.getLedgerEntries(expirationKey);
-        if (!(entryRes.entries && entryRes.entries.length))
+        const entryRes = await this.server.getLedgerEntries(new Contract(this.options.contractId).getFootprint());
+        if (!entryRes.entries ||
+            !entryRes.entries.length ||
+            !entryRes.entries[0].liveUntilLedgerSeq)
             throw new Error('failed to get ledger entry');
-        return entryRes.entries[0].val.expiration().expirationLedgerSeq();
+        return entryRes.entries[0].liveUntilLedgerSeq;
     };
     /**
      * Get a list of accounts, other than the invoker of the simulation, that
