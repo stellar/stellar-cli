@@ -15,6 +15,7 @@ use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
+const PUBLIC_NETWORK_PASSPHRASE: &str = "Public Global Stellar Network ; September 2015";
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -70,20 +71,6 @@ impl Cmd {
     }
 
     pub async fn run_and_get_hash(&self) -> Result<Hash, Error> {
-        let wasm_spec = &self.wasm.parse().map_err(|e| Error::CannotParseWasm {
-            wasm: self.wasm.wasm.clone(),
-            error: e,
-        })?;
-        if let Some(rs_sdk_ver) = get_contract_meta_sdk_version(wasm_spec) {
-            if rs_sdk_ver.contains("rc") && !self.ignore_checks {
-                return Err(Error::ContractCompiledWithReleaseCandidateSdk {
-                    wasm: self.wasm.wasm.clone(),
-                    version: rs_sdk_ver,
-                });
-            } else if rs_sdk_ver.contains("rc") {
-                tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
-            }
-        }
         self.run_against_rpc_server(&self.wasm.read()?).await
     }
 
@@ -93,6 +80,26 @@ impl Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
+        let wasm_spec = &self.wasm.parse().map_err(|e| Error::CannotParseWasm {
+            wasm: self.wasm.wasm.clone(),
+            error: e,
+        })?;
+        // Check Rust SDK version if using the public network.
+        if let Some(rs_sdk_ver) = get_contract_meta_sdk_version(wasm_spec) {
+            if rs_sdk_ver.contains("rc")
+                && !self.ignore_checks
+                && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE
+            {
+                return Err(Error::ContractCompiledWithReleaseCandidateSdk {
+                    wasm: self.wasm.wasm.clone(),
+                    version: rs_sdk_ver,
+                });
+            } else if rs_sdk_ver.contains("rc")
+                && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE
+            {
+                tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
+            }
+        }
         let key = self.config.key_pair()?;
 
         // Get the account sequence number
