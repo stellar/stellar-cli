@@ -21,7 +21,7 @@ var mockContractHash = xdr.Hash{0xd, 0xe, 0xf}
 var contractCostParams = func() *xdr.ContractCostParams {
 	var result xdr.ContractCostParams
 
-	for i := 0; i < 22; i++ {
+	for i := 0; i < 23; i++ {
 		result = append(result, xdr.ContractCostParamEntry{
 			Ext:        xdr.ExtensionPoint{},
 			ConstTerm:  0,

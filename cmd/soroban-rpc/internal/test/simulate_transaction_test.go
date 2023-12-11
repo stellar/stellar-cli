@@ -232,11 +232,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 					},
 				},
 			},
-			Instructions: 6262706,
+			Instructions: 4378462,
 			ReadBytes:    0,
 			WriteBytes:   7048,
 		},
-		ResourceFee: 130498,
+		ResourceFee: 113910,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -1122,7 +1122,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.InDelta(t, 7464, uint32(transactionData.Resources.ReadBytes), 200)
-	assert.InDelta(t, 98339, int64(transactionData.ResourceFee), 2000)
+	assert.InDelta(t, 80980, int64(transactionData.ResourceFee), 5000)
 	assert.InDelta(t, 104, uint32(transactionData.Resources.WriteBytes), 15)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }

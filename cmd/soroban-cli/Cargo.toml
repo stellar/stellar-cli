@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "20.0.0-rc4"
+version = "20.0.0"
 edition = "2021"
 rust-version = "1.72"
 autobins = false
@@ -66,7 +66,7 @@ rand = "0.8.5"
 wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
-ed25519-dalek = "2.0.0"
+ed25519-dalek = "=2.0.0"
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
 hyper   = "0.14.27"
