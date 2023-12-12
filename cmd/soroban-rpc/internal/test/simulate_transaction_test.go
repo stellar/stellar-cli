@@ -236,6 +236,11 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 			ReadBytes:    0,
 			WriteBytes:   7048,
 		},
+		// the resulting fee is derived from the compute factors and a default padding is applied to instructions by preflight
+		// for test purposes, the most deterministic way to assert the resulting fee is expected value in test scope, is to capture
+		// the resulting fee from current preflight output and re-plug it in here, rather than try to re-implement the cost-model algo
+		// in the test.
+		ResourceFee: 135910,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -246,7 +251,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.Instructions), uint32(transactionData.Resources.Instructions), 3200000)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.ReadBytes), uint32(transactionData.Resources.ReadBytes), 10)
 	assert.InDelta(t, uint32(expectedTransactionData.Resources.WriteBytes), uint32(transactionData.Resources.WriteBytes), 300)
-	assert.Greater(t, int64(transactionData.ResourceFee), int64(0))
+	assert.InDelta(t, int64(expectedTransactionData.ResourceFee), int64(transactionData.ResourceFee), 3000)
 
 	// Then decode and check the result xdr, separately so we get a decent diff if it fails.
 	assert.Len(t, result.Results, 1)
@@ -1121,7 +1126,11 @@ func TestSimulateSystemEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.InDelta(t, 7464, uint32(transactionData.Resources.ReadBytes), 200)
-	assert.Greater(t, int64(transactionData.ResourceFee), int64(0))
+	// the resulting fee is derived from compute factors and a default padding is applied to instructions by preflight
+	// for test purposes, the most deterministic way to assert the resulting fee is expected value in test scope, is to capture
+	// the resulting fee from current preflight output and re-plug it in here, rather than try to re-implement the cost-model algo
+	// in the test.
+	assert.InDelta(t, 100980, int64(transactionData.ResourceFee), 5000)
 	assert.InDelta(t, 104, uint32(transactionData.Resources.WriteBytes), 15)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }
