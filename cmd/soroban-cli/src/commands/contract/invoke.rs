@@ -45,6 +45,11 @@ pub struct Cmd {
     /// Output the cost execution to stderr
     #[arg(long = "cost")]
     pub cost: bool,
+
+    /// Number of instructions to simulate
+    #[arg(long)]
+    pub instructions: Option<u32>,
+
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
@@ -296,14 +301,16 @@ impl Cmd {
             &key,
         )?;
 
-        let txn = client.create_assembled_transaction(&tx).await?;
-
+        let mut txn = client.create_assembled_transaction(&tx).await?;
         let (return_value, events) = if txn.is_view() {
             (
                 txn.sim_res().results()?[0].xdr.clone(),
                 txn.sim_res().events()?,
             )
         } else {
+            if let Some(instructions) = self.instructions {
+                txn = txn.set_max_instructions(instructions);
+            }
             let res = client
                 .send_assembled_transaction(
                     txn,

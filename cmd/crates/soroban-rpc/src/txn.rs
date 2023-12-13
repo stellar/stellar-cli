@@ -178,6 +178,23 @@ impl Assembled {
         };
         !self.requires_auth()
     }
+
+    #[must_use]
+    pub fn set_max_instructions(mut self, instructions: u32) -> Self {
+        if let TransactionExt::V1(SorobanTransactionData {
+            resources:
+                SorobanResources {
+                    instructions: ref mut i,
+                    ..
+                },
+            ..
+        }) = &mut self.txn.ext
+        {
+            tracing::trace!("setting max instructions to {instructions} from {i}");
+            *i = instructions;
+        }
+        self
+    }
 }
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
