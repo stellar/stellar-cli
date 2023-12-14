@@ -38,9 +38,13 @@ pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
     let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage, TtlEntryMap::new())?;
-    let soroban_resources =
-        calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget, resource_config)
-            .context("cannot compute host function resources")?;
+    let soroban_resources = calculate_host_function_soroban_resources(
+        &ledger_changes,
+        &post_storage.footprint,
+        budget,
+        resource_config,
+    )
+    .context("cannot compute host function resources")?;
 
     let contract_events_size =
         calculate_contract_events_size_bytes(events).context("cannot calculate events size")?;
@@ -131,7 +135,7 @@ fn calculate_host_function_soroban_resources(
     ledger_changes: &[LedgerEntryChange],
     footprint: &Footprint,
     budget: &Budget,
-    resource_config: CResourceConfig
+    resource_config: CResourceConfig,
 ) -> Result<SorobanResources> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)
         .context("cannot convert storage footprint to ledger footprint")?;

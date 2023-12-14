@@ -84,7 +84,7 @@ fn get_default_c_xdr_vector() -> CXDRVector {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct CResourceConfig {
-    pub instruction_leeway: u64
+    pub instruction_leeway: u64,
 }
 
 #[repr(C)]
