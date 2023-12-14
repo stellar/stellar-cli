@@ -83,6 +83,12 @@ fn get_default_c_xdr_vector() -> CXDRVector {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
+pub struct CResourceConfig {
+    pub instruction_leeway: u64
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct CPreflightResult {
     // Error string in case of error, otherwise null
     pub error: *mut libc::c_char,
@@ -133,6 +139,7 @@ pub extern "C" fn preflight_invoke_hf_op(
     invoke_hf_op: CXDR,      // InvokeHostFunctionOp XDR in base64
     source_account: CXDR,    // AccountId XDR in base64
     ledger_info: CLedgerInfo,
+    resource_config: CResourceConfig,
     enable_debug: bool,
 ) -> *mut CPreflightResult {
     catch_preflight_panic(Box::new(move || {
@@ -142,6 +149,7 @@ pub extern "C" fn preflight_invoke_hf_op(
             invoke_hf_op,
             source_account,
             ledger_info,
+            resource_config,
             enable_debug,
         )
     }))
@@ -153,6 +161,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     invoke_hf_op: CXDR,    // InvokeHostFunctionOp XDR in base64
     source_account: CXDR,  // AccountId XDR in base64
     ledger_info: CLedgerInfo,
+    resource_config: CResourceConfig,
     enable_debug: bool,
 ) -> Result<CPreflightResult> {
     let invoke_hf_op =
@@ -166,6 +175,7 @@ fn preflight_invoke_hf_op_or_maybe_panic(
         invoke_hf_op,
         source_account,
         LedgerInfo::from(ledger_info),
+        resource_config,
         enable_debug,
     )?;
     Ok(result.into())

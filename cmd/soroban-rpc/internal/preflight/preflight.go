@@ -35,6 +35,10 @@ type snapshotSourceHandle struct {
 	logger *log.Entry
 }
 
+const (
+	defaultInstructionLeeway uint64 = 1000000
+)
+
 // SnapshotSourceGet takes a LedgerKey XDR in base64 string and returns its matching LedgerEntry XDR in base64 string
 // It's used by the Rust preflight code to obtain ledger entries.
 //
@@ -71,6 +75,10 @@ func FreeGoXDR(xdr C.xdr_t) {
 	C.free(unsafe.Pointer(xdr.xdr))
 }
 
+type ResourceConfig struct {
+	InstructionLeeway uint64 `json:"instructionLeeway"`
+}
+
 type PreflightParameters struct {
 	Logger            *log.Entry
 	SourceAccount     xdr.AccountId
@@ -79,6 +87,7 @@ type PreflightParameters struct {
 	NetworkPassphrase string
 	LedgerEntryReadTx db.LedgerEntryReadTx
 	BucketListSize    uint64
+	ResourceConfig    *ResourceConfig
 	EnableDebug       bool
 }
 
@@ -216,12 +225,20 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
+	instructionLeeway := defaultInstructionLeeway
+	if params.ResourceConfig != nil {
+		instructionLeeway = params.ResourceConfig.InstructionLeeway
+	}
+	resourceConfig := C.resource_config_t{
+		instruction_leeway: C.uint64_t(instructionLeeway),
+	}
 	res := C.preflight_invoke_hf_op(
 		C.uintptr_t(handle),
 		C.uint64_t(params.BucketListSize),
 		invokeHostFunctionCXDR,
 		sourceAccountCXDR,
 		li,
+		resourceConfig,
 		C.bool(params.EnableDebug),
 	)
 	FreeGoXDR(invokeHostFunctionCXDR)

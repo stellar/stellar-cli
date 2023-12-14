@@ -15,7 +15,8 @@ import (
 )
 
 type SimulateTransactionRequest struct {
-	Transaction string `json:"transaction"`
+	Transaction    string                    `json:"transaction"`
+	ResourceConfig *preflight.ResourceConfig `json:"resourceConfig,omitempty"`
 }
 
 type SimulateTransactionCost struct {
@@ -46,7 +47,7 @@ type SimulateTransactionResponse struct {
 }
 
 type PreflightGetter interface {
-	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, bucketListSize uint64, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (preflight.Preflight, error)
+	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, bucketListSize uint64, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint, resourceConfig *preflight.ResourceConfig) (preflight.Preflight, error)
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
@@ -113,7 +114,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
-		result, err := getter.GetPreflight(ctx, readTx, bucketListSize, sourceAccount, op.Body, footprint)
+		result, err := getter.GetPreflight(ctx, readTx, bucketListSize, sourceAccount, op.Body, footprint, request.ResourceConfig)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error:        err.Error(),
