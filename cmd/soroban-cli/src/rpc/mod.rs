@@ -693,9 +693,11 @@ soroban config identity fund {address} --helper-url <url>"#
     ) -> Result<SimulateTransactionResponse, Error> {
         tracing::trace!("Simulating:\n{tx:#?}");
         let base64_tx = tx.to_xdr_base64(Limits::none())?;
+        let mut builder = ObjectParams::new();
+        builder.insert("transaction", base64_tx)?;
         let response: SimulateTransactionResponse = self
             .client()?
-            .request("simulateTransaction", rpc_params![base64_tx])
+            .request("simulateTransaction", builder)
             .await?;
         tracing::trace!("Simulation response:\n {response:#?}");
         match response.error {

@@ -25,6 +25,10 @@ typedef struct xdr_vector_t {
     size_t len;
 } xdr_vector_t;
 
+typedef struct resource_config_t {
+    uint64_t instruction_leeway; // Allow this many extra instructions when budgeting
+} resource_config_t;
+
 typedef struct preflight_result_t {
     char          *error; // Error string in case of error, otherwise null
     xdr_vector_t  auth; // array of SorobanAuthorizationEntries
@@ -43,6 +47,7 @@ preflight_result_t *preflight_invoke_hf_op(uintptr_t handle, // Go Handle to for
                                            const xdr_t invoke_hf_op, // InvokeHostFunctionOp XDR
                                            const xdr_t source_account, // AccountId XDR
                                            const ledger_info_t ledger_info,
+                                           const resource_config_t resource_config,
                                            bool enable_debug);
 
 preflight_result_t *preflight_footprint_ttl_op(uintptr_t   handle, // Go Handle to forward to SnapshotSourceGet

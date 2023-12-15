@@ -16,6 +16,8 @@ use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
 use std::rc::Rc;
 
+use crate::CResourceConfig;
+
 pub(crate) struct RestorePreamble {
     pub(crate) transaction_data: SorobanTransactionData,
     pub(crate) min_fee: i64,
@@ -40,6 +42,7 @@ pub(crate) fn preflight_invoke_hf_op(
     invoke_hf_op: InvokeHostFunctionOp,
     source_account: AccountId,
     ledger_info: LedgerInfo,
+    resource_config: CResourceConfig,
     enable_debug: bool,
 ) -> Result<PreflightResult> {
     let ledger_storage_rc = Rc::new(ledger_storage);
@@ -117,6 +120,7 @@ pub(crate) fn preflight_invoke_hf_op(
         &ledger_storage_rc,
         &storage,
         &budget,
+        resource_config,
         &diagnostic_events,
         &result,
         bucket_list_size,
