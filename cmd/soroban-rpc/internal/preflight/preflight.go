@@ -36,7 +36,7 @@ type snapshotSourceHandle struct {
 }
 
 const (
-	defaultInstructionLeeway uint64 = 1000000
+	defaultInstructionLeeway uint64 = 3000000
 )
 
 // SnapshotSourceGet takes a LedgerKey XDR in base64 string and returns its matching LedgerEntry XDR in base64 string
