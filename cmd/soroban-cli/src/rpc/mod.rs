@@ -356,7 +356,7 @@ pub struct Event {
     #[serde(rename = "type")]
     pub event_type: String,
 
-    pub ledger: String,
+    pub ledger: u32,
     #[serde(rename = "ledgerClosedAt")]
     pub ledger_closed_at: String,
 
@@ -822,7 +822,7 @@ soroban config identity fund {address} --helper-url <url>"#
 
         let mut oparams = ObjectParams::new();
         match start {
-            EventStart::Ledger(l) => oparams.insert("startLedger", l.to_string())?,
+            EventStart::Ledger(l) => oparams.insert("startLedger", l)?,
             EventStart::Cursor(c) => {
                 pagination.insert("cursor".to_string(), c.into());
             }
