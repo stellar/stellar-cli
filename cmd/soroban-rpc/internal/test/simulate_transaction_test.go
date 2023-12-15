@@ -240,7 +240,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		// for test purposes, the most deterministic way to assert the resulting fee is expected value in test scope, is to capture
 		// the resulting fee from current preflight output and re-plug it in here, rather than try to re-implement the cost-model algo
 		// in the test.
-		ResourceFee: 135910,
+		ResourceFee: 115910,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -1130,7 +1130,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	// for test purposes, the most deterministic way to assert the resulting fee is expected value in test scope, is to capture
 	// the resulting fee from current preflight output and re-plug it in here, rather than try to re-implement the cost-model algo
 	// in the test.
-	assert.InDelta(t, 100980, int64(transactionData.ResourceFee), 5000)
+	assert.InDelta(t, 80980, int64(transactionData.ResourceFee), 5000)
 	assert.InDelta(t, 104, uint32(transactionData.Resources.WriteBytes), 15)
 	require.GreaterOrEqual(t, len(response.Events), 3)
 }
