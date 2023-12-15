@@ -79,6 +79,21 @@ type ResourceConfig struct {
 	InstructionLeeway uint64 `json:"instructionLeeway"`
 }
 
+func DefaultResourceConfig() ResourceConfig {
+	return ResourceConfig{
+		InstructionLeeway: defaultInstructionLeeway,
+	}
+}
+
+type PreflightGetterParameters struct {
+	LedgerEntryReadTx db.LedgerEntryReadTx
+	BucketListSize    uint64
+	SourceAccount     xdr.AccountId
+	OperationBody     xdr.OperationBody
+	Footprint         xdr.LedgerFootprint
+	ResourceConfig    ResourceConfig
+}
+
 type PreflightParameters struct {
 	Logger            *log.Entry
 	SourceAccount     xdr.AccountId
@@ -87,7 +102,7 @@ type PreflightParameters struct {
 	NetworkPassphrase string
 	LedgerEntryReadTx db.LedgerEntryReadTx
 	BucketListSize    uint64
-	ResourceConfig    *ResourceConfig
+	ResourceConfig    ResourceConfig
 	EnableDebug       bool
 }
 
@@ -225,12 +240,8 @@ func getInvokeHostFunctionPreflight(params PreflightParameters) (Preflight, erro
 
 	handle := cgo.NewHandle(snapshotSourceHandle{params.LedgerEntryReadTx, params.Logger})
 	defer handle.Delete()
-	instructionLeeway := defaultInstructionLeeway
-	if params.ResourceConfig != nil {
-		instructionLeeway = params.ResourceConfig.InstructionLeeway
-	}
 	resourceConfig := C.resource_config_t{
-		instruction_leeway: C.uint64_t(instructionLeeway),
+		instruction_leeway: C.uint64_t(params.ResourceConfig.InstructionLeeway),
 	}
 	res := C.preflight_invoke_hf_op(
 		C.uintptr_t(handle),
