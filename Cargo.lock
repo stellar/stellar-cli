@@ -2539,6 +2539,7 @@ dependencies = [
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-strkey 0.0.7",
+ "stellar-xdr",
  "strsim",
  "termcolor",
  "termcolor_output",
@@ -2847,12 +2848,15 @@ checksum = "9595b775539e475da4179fa46212b11e4575f526d57b13308989a8c1dd59238c"
 dependencies = [
  "arbitrary",
  "base64 0.13.1",
+ "clap",
  "crate-git-revision 0.0.6",
  "escape-bytes",
  "hex",
  "serde",
+ "serde_json",
  "serde_with",
  "stellar-strkey 0.0.8",
+ "thiserror",
 ]
 
 [[package]]
@@ -3722,3 +3726,8 @@ dependencies = [
  "quote",
  "syn 2.0.39",
 ]
+
+[[patch.unused]]
+name = "stellar-xdr"
+version = "20.0.1"
+source = "git+https://github.com/stellar/rs-stellar-xdr?rev=c9ba372b1b40a047c0b249972e18334845763b78#c9ba372b1b40a047c0b249972e18334845763b78"
