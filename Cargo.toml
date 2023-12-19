@@ -82,13 +82,15 @@ tracing-appender = "0.2.2"
 which = "4.4.0"
 wasmparser = "0.90.0"
 
+
 # [patch."https://github.com/stellar/rs-soroban-env"]
 # soroban-env-host = { path = "../rs-soroban-env/soroban-env-host/" }
 # [patch."https://github.com/stellar/rs-soroban-sdk"]
 # soroban-spec = { path = "../rs-soroban-sdk/soroban-spec/" }
 # soroban-token-spec = { path = "../rs-soroban-sdk/soroban-token-spec/" }
 # soroban-sdk = { path = "../rs-soroban-sdk/soroban-sdk/" }
-# path = "../rs-stellar-xdr/"
+# [patch."https://github.com/stellar/rs-stellar-xdr"]
+# stellar-xdr = { path = "../rs-stellar-xdr/" }
 
 [profile.test-wasms]
 inherits = "release"
