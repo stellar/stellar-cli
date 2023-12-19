@@ -35,6 +35,7 @@ default = []
 opt = ["dep:wasm-opt"]
 
 [dependencies]
+stellar-xdr = { workspace = true, features = ["cli"] }
 soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-json = { workspace = true }

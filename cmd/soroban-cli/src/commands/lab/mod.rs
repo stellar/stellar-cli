@@ -1,7 +1,6 @@
 use clap::Subcommand;
 
 pub mod token;
-pub mod xdr;
 
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
@@ -9,7 +8,7 @@ pub enum Cmd {
     Token(token::Root),
 
     /// Decode xdr
-    Xdr(xdr::Cmd),
+    Xdr(stellar_xdr::cli::Root),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -17,7 +16,7 @@ pub enum Error {
     #[error(transparent)]
     Token(#[from] token::Error),
     #[error(transparent)]
-    Xdr(#[from] xdr::Error),
+    Xdr(#[from] stellar_xdr::cli::Error),
 }
 
 impl Cmd {
