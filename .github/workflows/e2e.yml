@@ -22,7 +22,7 @@ jobs:
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci,
-      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#v20.0.0
+      SYSTEM_TEST_CORE_GIT_REF: https://github.com/stellar/stellar-core.git#v20.0.2
       SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS: "--disable-tests"
       # or set SYSTEM_TEST_CORE_GIT_REF to empty, and set SYSTEM_TEST_CORE_IMAGE
       # to pull a pre-compiled image from dockerhub instead
