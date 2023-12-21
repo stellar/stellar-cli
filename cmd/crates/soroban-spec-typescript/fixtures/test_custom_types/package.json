@@ -4,7 +4,7 @@
     "dependencies": {
         "@stellar/freighter-api": "1.7.1",
         "buffer": "6.0.3",
-        "stellar-sdk": "11.0.1"
+        "stellar-sdk": "11.1.0"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
