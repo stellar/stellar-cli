@@ -1,16 +1,65 @@
+use std::fs::read_to_string;
 use std::path::Path;
 use std::{fs, io};
 
 use clap::Parser;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
+use toml_edit::{value, Document, TomlError};
 
 #[derive(Clone, Debug, PartialEq, clap::ValueEnum)]
 pub enum ExampleContract {
-    HelloWorld,
     Account,
     Alloc,
+    AtomicMultiswap,
+    AtomicSwap,
+    Auth,
+    CrossContract,
+    CustomTypes,
+    DeepContractAuth,
+    Deployer,
+    Errors,
+    Events,
+    Fuzzing,
+    HelloWorld,
+    Increment,
+    LiquidityPool,
+    Logging,
+    SimpleAccount,
+    SingleOffer,
+    Timelock,
+    Token,
+    UpgradeableContract,
     None,
+}
+
+impl ToString for ExampleContract {
+    fn to_string(&self) -> String {
+        match self {
+            ExampleContract::Account => String::from("account"),
+            ExampleContract::Alloc => String::from("alloc"),
+            ExampleContract::AtomicMultiswap => String::from("atomic_multiswap"),
+            ExampleContract::AtomicSwap => String::from("atomic_swap"),
+            ExampleContract::Auth => String::from("auth"),
+            ExampleContract::CrossContract => String::from("cross_contract"),
+            ExampleContract::CustomTypes => String::from("custom_types"),
+            ExampleContract::DeepContractAuth => String::from("deep_contract_auth"),
+            ExampleContract::Deployer => String::from("deployer"),
+            ExampleContract::Errors => String::from("errors"),
+            ExampleContract::Events => String::from("events"),
+            ExampleContract::Fuzzing => String::from("fuzzing"),
+            ExampleContract::HelloWorld => String::from("hello_world"),
+            ExampleContract::Increment => String::from("increment"),
+            ExampleContract::LiquidityPool => String::from("liquidity_pool"),
+            ExampleContract::Logging => String::from("logging"),
+            ExampleContract::SimpleAccount => String::from("simple_account"),
+            ExampleContract::SingleOffer => String::from("single_offer"),
+            ExampleContract::Timelock => String::from("timelock"),
+            ExampleContract::Token => String::from("token"),
+            ExampleContract::UpgradeableContract => String::from("upgradeable_contract"),
+            ExampleContract::None => String::from("none"),
+        }
+    }
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -19,7 +68,7 @@ pub struct Cmd {
     pub project_path: String,
 
     /// optional flag to specify the initial soroban example contracts to include
-    #[arg(short, long, num_args = 1..=6, default_value = "none")]
+    #[arg(short, long, num_args = 1..=20, default_value = "none")]
     pub with_contract: Vec<ExampleContract>,
 }
 
@@ -36,6 +85,9 @@ pub enum Error {
 
     #[error("Failed to checkout the template repository: {0}")]
     CheckoutError(#[from] gix::clone::checkout::main_worktree::Error),
+
+    #[error("Failed to parse Cargo.toml: {0}")]
+    TomlParseError(#[from] TomlError),
 }
 
 const TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-tutorial-project.git";
@@ -92,19 +144,29 @@ fn copy_example_contracts(
 ) -> Result<(), Error> {
     let project_contracts_path = to.join("contracts");
     for contract in contracts {
-        let contract_dir = match contract {
-            ExampleContract::HelloWorld => Path::new("hello-world"),
-            ExampleContract::Alloc => Path::new("alloc"),
-            ExampleContract::Account => Path::new("account"),
-            ExampleContract::None => continue,
-        };
-
-        let from_contract_path = from.join(contract_dir);
-        let to_contract_path = project_contracts_path.join(contract_dir);
+        let contract_as_string = contract.to_string();
+        let contract_path = Path::new(&contract_as_string);
+        let from_contract_path = from.join(contract_path);
+        let to_contract_path = project_contracts_path.join(contract_path);
         std::fs::create_dir_all(&to_contract_path)?;
 
-        copy_contents(&from_contract_path, &to_contract_path)?
+        copy_contents(&from_contract_path, &to_contract_path)?;
+        edit_cargo_file(&to_contract_path)?;
     }
+
+    Ok(())
+}
+
+fn edit_cargo_file(contract_path: &Path) -> Result<(), Error> {
+    let cargo_path = contract_path.join("Cargo.toml");
+    let cargo_toml_str = read_to_string(&cargo_path)?;
+    let mut doc = cargo_toml_str.parse::<Document>().unwrap();
+
+    doc["dependencies"]["soroban-sdk"] = value("{ workspace = true }");
+    doc["dev_dependencies"]["soroban-sdk"] = value("{ workspace = true }");
+
+    std::fs::write(&cargo_path, doc.to_string())?;
+
     Ok(())
 }
 
@@ -137,15 +199,15 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
 }
 
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
-    let default_entries_to_exclude = vec![".git", ".github", "Makefile", "Cargo.lock"];
+    let contents_to_exclude_from_copy =
+        vec![".git", ".github", "Makefile", "Cargo.lock", ".vscode"];
     for entry in fs::read_dir(from)? {
         let entry = entry?;
-        let entry_name = entry.file_name().to_string_lossy().to_string();
         let path = entry.path();
-        let file_name = path.file_name().unwrap();
-        let new_path = to.join(file_name);
+        let entry_name = entry.file_name().to_string_lossy().to_string();
+        let new_path = to.join(&entry_name);
 
-        if default_entries_to_exclude.contains(&entry_name.as_str()) {
+        if contents_to_exclude_from_copy.contains(&entry_name.as_str()) {
             continue;
         }
 
@@ -156,11 +218,14 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             std::fs::copy(&path, &new_path)?;
         }
     }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs::read_to_string;
+
     use super::*;
 
     #[test]
@@ -172,17 +237,19 @@ mod tests {
 
         assert!(project_dir.as_path().join("README.md").exists());
         assert!(project_dir.as_path().join("contracts").exists());
+        assert!(project_dir.as_path().join("Cargo.toml").exists());
 
-        // check that it does not include certain template files
+        // check that it does not include certain template files and directories
         assert!(!project_dir.as_path().join(".git").exists());
         assert!(!project_dir.as_path().join(".github").exists());
         assert!(!project_dir.as_path().join("Cargo.lock").exists());
+        assert!(!project_dir.as_path().join(".vscode").exists());
 
         temp_dir.close().unwrap()
     }
 
     #[test]
-    fn test_include_contract() {
+    fn test_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_contracts = vec![ExampleContract::Alloc];
@@ -195,10 +262,11 @@ mod tests {
             .join("alloc")
             .exists());
 
-        // check that it does not include certain template files
+        // check that it does not include certain template files and directories
         assert!(!project_dir.as_path().join(".git").exists());
         assert!(!project_dir.as_path().join(".github").exists());
         assert!(!project_dir.as_path().join("Cargo.lock").exists());
+        assert!(!project_dir.as_path().join(".vscode").exists());
 
         // check that it does not include certain contract files
         assert!(!project_dir
@@ -212,6 +280,38 @@ mod tests {
             .join("contracts")
             .join("alloc")
             .join("Cargo.lock")
+            .exists());
+
+        // check that the contract's Cargo.toml file uses the workspace for dependencies
+        let contract_cargo_path = project_dir
+            .as_path()
+            .join("contracts")
+            .join("alloc")
+            .join("Cargo.toml");
+        let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
+        println!("{}", cargo_toml_str);
+
+        assert!(cargo_toml_str.contains("soroban-sdk = \"{ workspace = true }\""));
+
+        temp_dir.close().unwrap()
+    }
+
+    #[test]
+    fn test_including_multiple_example_contracts() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("project");
+        let with_contracts = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
+        init(project_dir.as_path(), TEMPLATE_URL, &with_contracts).unwrap();
+
+        assert!(project_dir
+            .as_path()
+            .join("contracts")
+            .join("account")
+            .exists());
+        assert!(project_dir
+            .as_path()
+            .join("contracts")
+            .join("atomic_swap")
             .exists());
 
         temp_dir.close().unwrap()
