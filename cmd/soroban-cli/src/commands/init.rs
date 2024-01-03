@@ -90,7 +90,7 @@ pub enum Error {
     TomlParseError(#[from] TomlError),
 }
 
-const TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-tutorial-project.git";
+const TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-init-template.git";
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 
 impl Cmd {
