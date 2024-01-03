@@ -170,6 +170,8 @@ fn edit_cargo_file(contract_path: &Path) -> Result<(), Error> {
     doc["dev_dependencies"]["soroban-sdk"] =
         toml_edit::Item::Value(Value::InlineTable(workspace_table));
 
+    doc.remove("profile");
+
     std::fs::write(&cargo_path, doc.to_string())?;
 
     Ok(())
