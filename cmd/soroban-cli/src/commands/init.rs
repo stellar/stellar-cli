@@ -5,7 +5,7 @@ use std::{fs, io};
 use clap::Parser;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
-use toml_edit::{value, Document, TomlError};
+use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
 #[derive(Clone, Debug, PartialEq, clap::ValueEnum)]
 pub enum ExampleContract {
@@ -162,8 +162,13 @@ fn edit_cargo_file(contract_path: &Path) -> Result<(), Error> {
     let cargo_toml_str = read_to_string(&cargo_path)?;
     let mut doc = cargo_toml_str.parse::<Document>().unwrap();
 
-    doc["dependencies"]["soroban-sdk"] = value("{ workspace = true }");
-    doc["dev_dependencies"]["soroban-sdk"] = value("{ workspace = true }");
+    let mut workspace_table = InlineTable::new();
+    workspace_table.insert("workspace", Value::Boolean(Formatted::new(true)));
+
+    doc["dependencies"]["soroban-sdk"] =
+        toml_edit::Item::Value(Value::InlineTable(workspace_table.clone()));
+    doc["dev_dependencies"]["soroban-sdk"] =
+        toml_edit::Item::Value(Value::InlineTable(workspace_table));
 
     std::fs::write(&cargo_path, doc.to_string())?;
 
@@ -291,7 +296,7 @@ mod tests {
         let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
         println!("{}", cargo_toml_str);
 
-        assert!(cargo_toml_str.contains("soroban-sdk = \"{ workspace = true }\""));
+        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
 
         temp_dir.close().unwrap()
     }
