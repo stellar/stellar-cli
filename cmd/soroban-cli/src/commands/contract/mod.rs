@@ -3,6 +3,7 @@ pub mod build;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;
+pub mod id;
 pub mod inspect;
 pub mod install;
 pub mod invoke;
@@ -31,6 +32,10 @@ pub enum Cmd {
 
     /// Fetch a contract's Wasm binary
     Fetch(fetch::Cmd),
+
+    /// Generate the contract id for a given contract or asset
+    #[command(subcommand)]
+    Id(id::Cmd),
 
     /// Inspect a WASM file listing contract functions, meta, etc
     Inspect(inspect::Cmd),
@@ -76,6 +81,8 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+    #[error(transparent)]
+    Id(#[from] id::Error),
 
     #[error(transparent)]
     Inspect(#[from] inspect::Error),
@@ -103,6 +110,7 @@ impl Cmd {
             Cmd::Build(build) => build.run()?,
             Cmd::Extend(extend) => extend.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
+            Cmd::Id(id) => id.run()?,
             Cmd::Inspect(inspect) => inspect.run()?,
             Cmd::Install(install) => install.run().await?,
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,

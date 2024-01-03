@@ -98,6 +98,7 @@ impl Root {
             Cmd::Network(network) => network.run()?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
+            Cmd::Config(_) => todo!(),
         };
         Ok(())
     }
@@ -116,6 +117,9 @@ pub enum Cmd {
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
+    /// Deprecated, use `soroban keys` and `soroban network` instead
+    #[command(subcommand)]
+    Config(config::Cmd),
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),

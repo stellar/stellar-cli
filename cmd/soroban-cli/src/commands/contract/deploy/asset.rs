@@ -99,21 +99,6 @@ impl Cmd {
     }
 }
 
-/// # Errors
-///
-/// Might return an error
-pub fn vec_to_hash(res: &ScVal) -> Result<Hash, XdrError> {
-    if let ScVal::Address(ScAddress::Contract(res_contract)) = &res {
-        let mut hash_bytes: [u8; 32] = [0; 32];
-        for (i, b) in res_contract.0.iter().enumerate() {
-            hash_bytes[i] = *b;
-        }
-        Ok(Hash(hash_bytes))
-    } else {
-        Err(XdrError::Invalid)
-    }
-}
-
 fn build_wrap_token_tx(
     asset: &Asset,
     contract_id: &Hash,

@@ -7,16 +7,19 @@ use crate::Pwd;
 
 use self::{network::Network, secret::Secret};
 
-use super::network;
+use super::{keys, network};
 
 pub mod locator;
 pub mod secret;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Configure different networks
+    /// Configure different networks. Depraecated, use `soroban network` instead.
     #[command(subcommand)]
     Network(network::Cmd),
+    /// Identity management. Deprecated use `soroban keys` instead.
+    #[command(subcommand)]
+    Identity(keys::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]

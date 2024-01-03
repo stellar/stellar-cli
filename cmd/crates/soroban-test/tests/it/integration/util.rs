@@ -77,6 +77,7 @@ pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
     sandbox
         .new_assert_cmd("contract")
         .arg("deploy")
+        .arg("wasm")
         .arg("--wasm-hash")
         .arg(&format!("{hash}"))
         .arg("--salt")

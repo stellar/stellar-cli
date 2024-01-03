@@ -1,6 +1,6 @@
 use soroban_cli::CommandParser;
 use soroban_cli::{
-    commands::{keys, lab::token::wrap},
+    commands::{contract::deploy::asset, keys},
     utils::contract_id_hash_from_asset,
 };
 use soroban_test::TestEnv;
@@ -92,6 +92,6 @@ async fn burn() {
     );
 }
 
-fn wrap_cmd(asset: &str) -> wrap::Cmd {
-    wrap::Cmd::parse_arg_vec(&["--source=test", &format!("--asset={asset}")]).unwrap()
+fn wrap_cmd(asset: &str) -> asset::Cmd {
+    asset::Cmd::parse_arg_vec(&["--source=test", &format!("--asset={asset}")]).unwrap()
 }
