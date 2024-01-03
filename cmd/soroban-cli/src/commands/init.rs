@@ -67,14 +67,14 @@ impl ToString for ExampleContract {
 pub struct Cmd {
     pub project_path: String,
 
-    /// optional flag to specify the initial soroban example contracts to include
+    /// optional flag to specify soroban example contracts to include
     #[arg(short, long, num_args = 1..=20, default_value = "none")]
     pub with_contract: Vec<ExampleContract>,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to create directory: {0}")]
+    #[error("Io error: {0}")]
     CreateDirError(#[from] io::Error),
 
     #[error("Failed to clone the template repository: {0}")]
@@ -254,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn test_including_example_contract() {
+    fn test_init_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_contracts = vec![ExampleContract::Alloc];
@@ -302,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn test_including_multiple_example_contracts() {
+    fn test_init_including_multiple_example_contracts() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_contracts = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
