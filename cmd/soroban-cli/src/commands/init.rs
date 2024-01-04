@@ -77,11 +77,13 @@ pub enum Error {
     #[error("Io error: {0}")]
     CreateDirError(#[from] io::Error),
 
-    #[error("Failed to clone the template repository: {0}")]
-    CloneError(#[from] gix::clone::Error),
+    // the gix::clone::Error is too large to include in the error enum as is, so we wrap it in a Box
+    #[error("Failed to clone the template repository")]
+    CloneError(#[from] Box<gix::clone::Error>),
 
+    // the gix::clone::fetch::Error is too large to include in the error enum as is, so we wrap it in a Box
     #[error("Failed to fetch the template repository: {0}")]
-    FetchError(#[from] gix::clone::fetch::Error),
+    FetchError(#[from] Box<gix::clone::fetch::Error>),
 
     #[error("Failed to checkout the template repository: {0}")]
     CheckoutError(#[from] gix::clone::checkout::main_worktree::Error),
@@ -122,7 +124,7 @@ fn init(
 
     // if there are with-contract flags, include the example contracts
     if include_example_contracts(with_contracts) {
-        println!("Including example contracts: {:?}", with_contracts);
+        println!("Including example contracts: {with_contracts:?}");
 
         // create an examples temp dir in the temp dir
         let examples_dir = tempfile::tempdir()?;
@@ -191,13 +193,15 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
             fs_capabilities: None,
         },
         gix::open::Options::isolated(),
-    )?
+    )
+    .map_err(Box::new)?
     .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(
         NonZeroU32::new(1).unwrap(),
     ));
 
-    let (mut prepare, _outcome) =
-        fetch.fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))?;
+    let (mut prepare, _outcome) = fetch
+        .fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))
+        .map_err(Box::new)?;
 
     let (_repo, _outcome) =
         prepare.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
@@ -206,8 +210,7 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
 }
 
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
-    let contents_to_exclude_from_copy =
-        vec![".git", ".github", "Makefile", "Cargo.lock", ".vscode"];
+    let contents_to_exclude_from_copy = [".git", ".github", "Makefile", "Cargo.lock", ".vscode"];
     for entry in fs::read_dir(from)? {
         let entry = entry?;
         let path = entry.path();
