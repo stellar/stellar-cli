@@ -6,7 +6,6 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
-	"github.com/stellar/go/gxdr"
 
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
@@ -24,15 +23,10 @@ type GetLedgerEntryRequest struct {
 // TODO(https://github.com/stellar/soroban-tools/issues/374) remove after getLedgerEntries is deployed.
 type GetLedgerEntryResponse struct {
 	XDR                string `json:"xdr"`
-	LastModifiedLedger int64  `json:"lastModifiedLedgerSeq,string"`
-	LatestLedger       int64  `json:"latestLedger,string"`
+	LastModifiedLedger uint32 `json:"lastModifiedLedgerSeq"`
+	LatestLedger       uint32 `json:"latestLedger"`
 	// The ledger sequence until the entry is live, available for entries that have associated ttl ledger entries.
-	LiveUntilLedgerSeq *uint32 `json:"LiveUntilLedgerSeq,string,omitempty"`
-}
-
-var invalidLedgerKeyXdrError = &jrpc2.Error{
-	Code:    jrpc2.InvalidParams,
-	Message: "cannot unmarshal key value",
+	LiveUntilLedgerSeq *uint32 `json:"LiveUntilLedgerSeq,omitempty"`
 }
 
 // NewGetLedgerEntryHandler returns a json rpc handler to retrieve the specified ledger entry from stellar core
@@ -40,16 +34,14 @@ var invalidLedgerKeyXdrError = &jrpc2.Error{
 // TODO(https://github.com/stellar/soroban-tools/issues/374) remove after getLedgerEntries is deployed.
 func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader) jrpc2.Handler {
 	return handler.New(func(ctx context.Context, request GetLedgerEntryRequest) (GetLedgerEntryResponse, error) {
-		if err := gxdr.ValidateLedgerKey(request.Key, gxdr.DefaultMaxDepth); err != nil {
-			logger.WithError(err).WithField("request", request).
-				Info("could not validate ledgerKey from getLedgerEntry request")
-			return GetLedgerEntryResponse{}, invalidLedgerKeyXdrError
-		}
 		var key xdr.LedgerKey
 		if err := xdr.SafeUnmarshalBase64(request.Key, &key); err != nil {
 			logger.WithError(err).WithField("request", request).
 				Info("could not unmarshal ledgerKey from getLedgerEntry request")
-			return GetLedgerEntryResponse{}, invalidLedgerKeyXdrError
+			return GetLedgerEntryResponse{}, &jrpc2.Error{
+				Code:    jrpc2.InvalidParams,
+				Message: "cannot unmarshal key value",
+			}
 		}
 
 		if key.Type == xdr.LedgerEntryTypeTtl {
@@ -96,8 +88,8 @@ func NewGetLedgerEntryHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntr
 		}
 
 		response := GetLedgerEntryResponse{
-			LastModifiedLedger: int64(ledgerEntry.LastModifiedLedgerSeq),
-			LatestLedger:       int64(latestLedger),
+			LastModifiedLedger: uint32(ledgerEntry.LastModifiedLedgerSeq),
+			LatestLedger:       latestLedger,
 			LiveUntilLedgerSeq: liveUntilLedgerSeq,
 		}
 		if response.XDR, err = xdr.MarshalBase64(ledgerEntry.Data); err != nil {

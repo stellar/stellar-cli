@@ -14,8 +14,8 @@ use soroban_env_host::xdr;
 use soroban_env_host::xdr::ContractDataDurability::Persistent;
 use soroban_env_host::xdr::{
     ConfigSettingEntry, ConfigSettingId, ContractEventType, DecoratedSignature, DiagnosticEvent,
-    ExtendFootprintTtlOp, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Memo,
-    MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
+    ExtendFootprintTtlOp, ExtensionPoint, InvokeHostFunctionOp, LedgerFootprint, LedgerKey, Limits,
+    Memo, MuxedAccount, MuxedAccountMed25519, Operation, OperationBody, Preconditions,
     RestoreFootprintOp, ScVal, SequenceNumber, Signature, SignatureHint, SorobanResources,
     SorobanTransactionData, Transaction, TransactionExt, TransactionV1Envelope, Uint256, WriteXdr,
 };
@@ -23,25 +23,32 @@ use state_ttl::{get_restored_ledger_sequence, TTLLedgerEntry};
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 
+use crate::CResourceConfig;
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn compute_host_function_transaction_data_and_min_fee(
     op: &InvokeHostFunctionOp,
     pre_storage: &LedgerStorage,
     post_storage: &Storage,
     budget: &Budget,
+    resource_config: CResourceConfig,
     events: &[DiagnosticEvent],
     invocation_result: &ScVal,
     bucket_list_size: u64,
     current_ledger_seq: u32,
 ) -> Result<(SorobanTransactionData, i64)> {
     let ledger_changes = get_ledger_changes(budget, post_storage, pre_storage, TtlEntryMap::new())?;
-    let soroban_resources =
-        calculate_host_function_soroban_resources(&ledger_changes, &post_storage.footprint, budget)
-            .context("cannot compute host function resources")?;
+    let soroban_resources = calculate_host_function_soroban_resources(
+        &ledger_changes,
+        &post_storage.footprint,
+        budget,
+        resource_config,
+    )
+    .context("cannot compute host function resources")?;
 
     let contract_events_size =
         calculate_contract_events_size_bytes(events).context("cannot calculate events size")?;
-    let invocation_return_size = u32::try_from(invocation_result.to_xdr()?.len())?;
+    let invocation_return_size = u32::try_from(invocation_result.to_xdr(Limits::none())?.len())?;
     // This is totally unintuitive, but it's what's expected by the library
     let final_contract_events_size = contract_events_size + invocation_return_size;
 
@@ -115,7 +122,7 @@ fn estimate_max_transaction_size_for_operation(
         signatures: signatures.try_into()?,
     };
 
-    let envelope_xdr = envelope.to_xdr()?;
+    let envelope_xdr = envelope.to_xdr(Limits::none())?;
     let envelope_size = envelope_xdr.len();
 
     // Add a 15% leeway
@@ -128,6 +135,7 @@ fn calculate_host_function_soroban_resources(
     ledger_changes: &[LedgerEntryChange],
     footprint: &Footprint,
     budget: &Budget,
+    resource_config: CResourceConfig,
 ) -> Result<SorobanResources> {
     let ledger_footprint = storage_footprint_to_ledger_footprint(footprint)
         .context("cannot convert storage footprint to ledger footprint")?;
@@ -138,11 +146,14 @@ fn calculate_host_function_soroban_resources(
         .map(|c| c.encoded_new_value.as_ref().map_or(0, Vec::len) as u32)
         .sum();
 
-    // Add a 20% leeway with a minimum of 50k instructions
+    // Add a 20% leeway with a minimum of 3 million instructions
     let budget_instructions = budget
         .get_cpu_insns_consumed()
         .context("cannot get instructions consumed")?;
-    let instructions = max(budget_instructions + 50000, budget_instructions * 120 / 100);
+    let instructions = max(
+        budget_instructions + resource_config.instruction_leeway,
+        budget_instructions * 120 / 100,
+    );
     Ok(SorobanResources {
         footprint: ledger_footprint,
         instructions: u32::try_from(instructions)?,
@@ -247,7 +258,7 @@ fn calculate_contract_events_size_bytes(events: &[DiagnosticEvent]) -> Result<u3
             continue;
         }
         let event_xdr = e
-            .to_xdr()
+            .to_xdr(Limits::none())
             .with_context(|| format!("cannot marshal event {e:?}"))?;
         res += u32::try_from(event_xdr.len())?;
     }
@@ -361,7 +372,8 @@ fn compute_extend_footprint_rent_changes(
         let unmodified_entry_and_ttl = ledger_storage.get(key, false).with_context(|| {
             format!("cannot find extend footprint ledger entry with key {key:?}")
         })?;
-        let size = (key.to_xdr()?.len() + unmodified_entry_and_ttl.0.to_xdr()?.len()) as u32;
+        let size = (key.to_xdr(Limits::none())?.len()
+            + unmodified_entry_and_ttl.0.to_xdr(Limits::none())?.len()) as u32;
         let ttl_entry: Box<dyn TTLLedgerEntry> =
             (&unmodified_entry_and_ttl)
                 .try_into()
@@ -455,7 +467,8 @@ fn compute_restore_footprint_rent_changes(
         let unmodified_entry_and_ttl = ledger_storage.get(key, true).with_context(|| {
             format!("cannot find restore footprint ledger entry with key {key:?}")
         })?;
-        let size = (key.to_xdr()?.len() + unmodified_entry_and_ttl.0.to_xdr()?.len()) as u32;
+        let size = (key.to_xdr(Limits::none())?.len()
+            + unmodified_entry_and_ttl.0.to_xdr(Limits::none())?.len()) as u32;
         let ttl_entry: Box<dyn TTLLedgerEntry> =
             (&unmodified_entry_and_ttl)
                 .try_into()

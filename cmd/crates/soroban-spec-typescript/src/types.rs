@@ -15,8 +15,8 @@ pub struct StructField {
 impl From<&ScSpecUdtStructFieldV0> for StructField {
     fn from(f: &ScSpecUdtStructFieldV0) -> Self {
         StructField {
-            doc: f.doc.to_string_lossy(),
-            name: f.name.to_string_lossy(),
+            doc: f.doc.to_utf8_string_lossy(),
+            name: f.name.to_utf8_string_lossy(),
             value: (&f.type_).into(),
         }
     }
@@ -33,8 +33,8 @@ pub struct FunctionInput {
 impl From<&ScSpecFunctionInputV0> for FunctionInput {
     fn from(f: &ScSpecFunctionInputV0) -> Self {
         FunctionInput {
-            doc: f.doc.to_string_lossy(),
-            name: f.name.to_string_lossy(),
+            doc: f.doc.to_utf8_string_lossy(),
+            name: f.name.to_utf8_string_lossy(),
             value: (&f.type_).into(),
         }
     }
@@ -51,12 +51,14 @@ pub struct UnionCase {
 impl From<&ScSpecUdtUnionCaseV0> for UnionCase {
     fn from(c: &ScSpecUdtUnionCaseV0) -> Self {
         let (doc, name, values) = match c {
-            ScSpecUdtUnionCaseV0::VoidV0(v) => {
-                (v.doc.to_string_lossy(), v.name.to_string_lossy(), vec![])
-            }
+            ScSpecUdtUnionCaseV0::VoidV0(v) => (
+                v.doc.to_utf8_string_lossy(),
+                v.name.to_utf8_string_lossy(),
+                vec![],
+            ),
             ScSpecUdtUnionCaseV0::TupleV0(t) => (
-                t.doc.to_string_lossy(),
-                t.name.to_string_lossy(),
+                t.doc.to_utf8_string_lossy(),
+                t.name.to_utf8_string_lossy(),
                 t.type_.iter().map(Type::from).collect(),
             ),
         };
@@ -75,8 +77,8 @@ pub struct EnumCase {
 impl From<&ScSpecUdtEnumCaseV0> for EnumCase {
     fn from(c: &ScSpecUdtEnumCaseV0) -> Self {
         EnumCase {
-            doc: c.doc.to_string_lossy(),
-            name: c.name.to_string_lossy(),
+            doc: c.doc.to_utf8_string_lossy(),
+            name: c.name.to_utf8_string_lossy(),
             value: c.value,
         }
     }
@@ -93,8 +95,8 @@ pub struct ErrorEnumCase {
 impl From<&ScSpecUdtErrorEnumCaseV0> for ErrorEnumCase {
     fn from(c: &ScSpecUdtErrorEnumCaseV0) -> Self {
         ErrorEnumCase {
-            doc: c.doc.to_string_lossy(),
-            name: c.name.to_string_lossy(),
+            doc: c.doc.to_utf8_string_lossy(),
+            name: c.name.to_utf8_string_lossy(),
             value: c.value,
         }
     }
@@ -189,7 +191,7 @@ impl From<&ScSpecTypeDef> for Type {
                 element: Box::new(Type::from(vec.element_type.as_ref())),
             },
             ScSpecTypeDef::Udt(udt) => Type::Custom {
-                name: udt.name.to_string_lossy(),
+                name: udt.name.to_utf8_string_lossy(),
             },
             ScSpecTypeDef::BytesN(b) => Type::BytesN { n: b.n },
             ScSpecTypeDef::Val => Type::Val,
@@ -218,34 +220,34 @@ impl From<&ScSpecEntry> for Entry {
     fn from(spec: &ScSpecEntry) -> Self {
         match spec {
             ScSpecEntry::FunctionV0(f) => Entry::Function {
-                doc: f.doc.to_string_lossy(),
-                name: f.name.to_string_lossy(),
+                doc: f.doc.to_utf8_string_lossy(),
+                name: f.name.to_utf8_string_lossy(),
                 inputs: f.inputs.iter().map(Into::into).collect(),
                 outputs: f.outputs.iter().map(Into::into).collect(),
             },
             ScSpecEntry::UdtStructV0(s) if is_tuple_strukt(s) => Entry::TupleStruct {
-                doc: s.doc.to_string_lossy(),
-                name: s.name.to_string_lossy(),
+                doc: s.doc.to_utf8_string_lossy(),
+                name: s.name.to_utf8_string_lossy(),
                 fields: s.fields.iter().map(|f| &f.type_).map(Into::into).collect(),
             },
             ScSpecEntry::UdtStructV0(s) => Entry::Struct {
-                doc: s.doc.to_string_lossy(),
-                name: s.name.to_string_lossy(),
+                doc: s.doc.to_utf8_string_lossy(),
+                name: s.name.to_utf8_string_lossy(),
                 fields: s.fields.iter().map(Into::into).collect(),
             },
             ScSpecEntry::UdtUnionV0(u) => Entry::Union {
-                doc: u.doc.to_string_lossy(),
-                name: u.name.to_string_lossy(),
+                doc: u.doc.to_utf8_string_lossy(),
+                name: u.name.to_utf8_string_lossy(),
                 cases: u.cases.iter().map(Into::into).collect(),
             },
             ScSpecEntry::UdtEnumV0(e) => Entry::Enum {
-                doc: e.doc.to_string_lossy(),
-                name: e.name.to_string_lossy(),
+                doc: e.doc.to_utf8_string_lossy(),
+                name: e.name.to_utf8_string_lossy(),
                 cases: e.cases.iter().map(Into::into).collect(),
             },
             ScSpecEntry::UdtErrorEnumV0(e) => Entry::ErrorEnum {
-                doc: e.doc.to_string_lossy(),
-                name: e.name.to_string_lossy(),
+                doc: e.doc.to_utf8_string_lossy(),
+                name: e.name.to_utf8_string_lossy(),
                 cases: e.cases.iter().map(Into::into).collect(),
             },
         }
@@ -253,5 +255,5 @@ impl From<&ScSpecEntry> for Entry {
 }
 
 fn is_tuple_strukt(s: &ScSpecUdtStructV0) -> bool {
-    !s.fields.is_empty() && s.fields[0].name.to_string_lossy() == "0"
+    !s.fields.is_empty() && s.fields[0].name.to_utf8_string_lossy() == "0"
 }

@@ -7,15 +7,15 @@ use serde_aux::prelude::{
     deserialize_default_from_null, deserialize_number_from_string,
     deserialize_option_number_from_string,
 };
-use soroban_env_host::xdr::DepthLimitedRead;
 use soroban_env_host::xdr::{
     self, AccountEntry, AccountId, ContractDataEntry, DiagnosticEvent, Error as XdrError,
-    LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, PublicKey, ReadXdr,
+    LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyAccount, Limited, PublicKey, ReadXdr,
     SorobanAuthorizationEntry, SorobanResources, SorobanTransactionData, Transaction,
     TransactionEnvelope, TransactionMeta, TransactionMetaV3, TransactionResult, Uint256, VecM,
     WriteXdr,
 };
 use soroban_sdk::token;
+use soroban_sdk::xdr::Limits;
 use std::{
     fmt::Display,
     str::FromStr,
@@ -111,10 +111,7 @@ pub struct SendTransactionResponse {
         default
     )]
     pub error_result_xdr: Option<String>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: u32,
     #[serde(
         rename = "latestLedgerCloseTime",
@@ -159,12 +156,15 @@ impl TryInto<GetTransactionResponse> for GetTransactionResponseRaw {
             status: self.status,
             envelope: self
                 .envelope_xdr
-                .map(ReadXdr::from_xdr_base64)
+                .map(|v| ReadXdr::from_xdr_base64(v, Limits::none()))
                 .transpose()?,
-            result: self.result_xdr.map(ReadXdr::from_xdr_base64).transpose()?,
+            result: self
+                .result_xdr
+                .map(|v| ReadXdr::from_xdr_base64(v, Limits::none()))
+                .transpose()?,
             result_meta: self
                 .result_meta_xdr
-                .map(ReadXdr::from_xdr_base64)
+                .map(|v| ReadXdr::from_xdr_base64(v, Limits::none()))
                 .transpose()?,
         })
     }
@@ -174,10 +174,7 @@ impl TryInto<GetTransactionResponse> for GetTransactionResponseRaw {
 pub struct LedgerEntryResult {
     pub key: String,
     pub xdr: String,
-    #[serde(
-        rename = "lastModifiedLedgerSeq",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "lastModifiedLedgerSeq")]
     pub last_modified_ledger: u32,
     #[serde(
         rename = "liveUntilLedgerSeq",
@@ -191,10 +188,7 @@ pub struct LedgerEntryResult {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLedgerEntriesResponse {
     pub entries: Option<Vec<LedgerEntryResult>>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: i64,
 }
 
@@ -207,20 +201,14 @@ pub struct GetNetworkResponse {
     )]
     pub friendbot_url: Option<String>,
     pub passphrase: String,
-    #[serde(
-        rename = "protocolVersion",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "protocolVersion")]
     pub protocol_version: u32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GetLatestLedgerResponse {
     pub id: String,
-    #[serde(
-        rename = "protocolVersion",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "protocolVersion")]
     pub protocol_version: u32,
     pub sequence: u32,
 }
@@ -278,10 +266,7 @@ pub struct SimulateTransactionResponse {
         default
     )]
     pub restore_preamble: Option<RestorePreamble>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: u32,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub error: Option<String>,
@@ -296,9 +281,14 @@ impl SimulateTransactionResponse {
                     auth: r
                         .auth
                         .iter()
-                        .map(|a| Ok(SorobanAuthorizationEntry::from_xdr_base64(a)?))
+                        .map(|a| {
+                            Ok(SorobanAuthorizationEntry::from_xdr_base64(
+                                a,
+                                Limits::none(),
+                            )?)
+                        })
                         .collect::<Result<_, Error>>()?,
-                    xdr: xdr::ScVal::from_xdr_base64(&r.xdr)?,
+                    xdr: xdr::ScVal::from_xdr_base64(&r.xdr, Limits::none())?,
                 })
             })
             .collect()
@@ -307,13 +297,14 @@ impl SimulateTransactionResponse {
     pub fn events(&self) -> Result<Vec<DiagnosticEvent>, Error> {
         self.events
             .iter()
-            .map(|e| Ok(DiagnosticEvent::from_xdr_base64(e)?))
+            .map(|e| Ok(DiagnosticEvent::from_xdr_base64(e, Limits::none())?))
             .collect()
     }
 
     pub fn transaction_data(&self) -> Result<SorobanTransactionData, Error> {
         Ok(SorobanTransactionData::from_xdr_base64(
             &self.transaction_data,
+            Limits::none(),
         )?)
     }
 }
@@ -333,10 +324,7 @@ pub struct RestorePreamble {
 pub struct GetEventsResponse {
     #[serde(deserialize_with = "deserialize_default_from_null")]
     pub events: Vec<Event>,
-    #[serde(
-        rename = "latestLedger",
-        deserialize_with = "deserialize_number_from_string"
-    )]
+    #[serde(rename = "latestLedger")]
     pub latest_ledger: u32,
 }
 
@@ -368,7 +356,7 @@ pub struct Event {
     #[serde(rename = "type")]
     pub event_type: String,
 
-    pub ledger: String,
+    pub ledger: u32,
     #[serde(rename = "ledgerClosedAt")]
     pub ledger_closed_at: String,
 
@@ -398,10 +386,12 @@ impl Display for Event {
         writeln!(f, "  Contract: {}", self.contract_id)?;
         writeln!(f, "  Topics:")?;
         for topic in &self.topic {
-            let scval = xdr::ScVal::from_xdr_base64(topic).map_err(|_| std::fmt::Error)?;
+            let scval =
+                xdr::ScVal::from_xdr_base64(topic, Limits::none()).map_err(|_| std::fmt::Error)?;
             writeln!(f, "            {scval:?}")?;
         }
-        let scval = xdr::ScVal::from_xdr_base64(&self.value).map_err(|_| std::fmt::Error)?;
+        let scval = xdr::ScVal::from_xdr_base64(&self.value, Limits::none())
+            .map_err(|_| std::fmt::Error)?;
         writeln!(f, "  Value:    {scval:?}")
     }
 }
@@ -457,7 +447,7 @@ impl Event {
 
         colored!(stdout, "  Topics:\n")?;
         for topic in &self.topic {
-            let scval = xdr::ScVal::from_xdr_base64(topic)?;
+            let scval = xdr::ScVal::from_xdr_base64(topic, Limits::none())?;
             colored!(
                 stdout,
                 "            {}{:?}{}\n",
@@ -467,7 +457,7 @@ impl Event {
             )?;
         }
 
-        let scval = xdr::ScVal::from_xdr_base64(&self.value)?;
+        let scval = xdr::ScVal::from_xdr_base64(&self.value, Limits::none())?;
         colored!(
             stdout,
             "  Value: {}{:?}{}\n",
@@ -612,10 +602,8 @@ soroban config identity fund {address} --helper-url <url>"#
             ));
         }
         let ledger_entry = &entries[0];
-        let mut depth_limit_read = DepthLimitedRead::new(ledger_entry.xdr.as_bytes(), 100);
-        if let LedgerEntryData::Account(entry) =
-            LedgerEntryData::read_xdr_base64(&mut depth_limit_read)?
-        {
+        let mut read = Limited::new(ledger_entry.xdr.as_bytes(), Limits::none());
+        if let LedgerEntryData::Account(entry) = LedgerEntryData::read_xdr_base64(&mut read)? {
             tracing::trace!(account=?entry);
             Ok(entry)
         } else {
@@ -635,7 +623,10 @@ soroban config identity fund {address} --helper-url <url>"#
             status,
             ..
         } = client
-            .request("sendTransaction", rpc_params![tx.to_xdr_base64()?])
+            .request(
+                "sendTransaction",
+                rpc_params![tx.to_xdr_base64(Limits::none())?],
+            )
             .await
             .map_err(|err| {
                 Error::TransactionSubmissionFailed(format!("No status yet:\n {err:#?}"))
@@ -645,9 +636,9 @@ soroban config identity fund {address} --helper-url <url>"#
             let error = error_result_xdr
                 .ok_or(Error::MissingError)
                 .and_then(|x| {
-                    TransactionResult::read_xdr_base64(&mut DepthLimitedRead::new(
+                    TransactionResult::read_xdr_base64(&mut Limited::new(
                         x.as_bytes(),
-                        100,
+                        Limits::none(),
                     ))
                     .map_err(|_| Error::InvalidResponse)
                 })
@@ -701,10 +692,12 @@ soroban config identity fund {address} --helper-url <url>"#
         tx: &TransactionEnvelope,
     ) -> Result<SimulateTransactionResponse, Error> {
         tracing::trace!("Simulating:\n{tx:#?}");
-        let base64_tx = tx.to_xdr_base64()?;
+        let base64_tx = tx.to_xdr_base64(Limits::none())?;
+        let mut builder = ObjectParams::new();
+        builder.insert("transaction", base64_tx)?;
         let response: SimulateTransactionResponse = self
             .client()?
-            .request("simulateTransaction", rpc_params![base64_tx])
+            .request("simulateTransaction", builder)
             .await?;
         tracing::trace!("Simulation response:\n {response:#?}");
         match response.error {
@@ -750,11 +743,11 @@ soroban config identity fund {address} --helper-url <url>"#
     ) -> Result<GetLedgerEntriesResponse, Error> {
         let mut base64_keys: Vec<String> = vec![];
         for k in keys {
-            let base64_result = k.to_xdr_base64();
+            let base64_result = k.to_xdr_base64(Limits::none());
             if base64_result.is_err() {
                 return Err(Error::Xdr(XdrError::Invalid));
             }
-            base64_keys.push(k.to_xdr_base64().unwrap());
+            base64_keys.push(k.to_xdr_base64(Limits::none()).unwrap());
         }
         Ok(self
             .client()?
@@ -788,8 +781,8 @@ soroban config identity fund {address} --helper-url <url>"#
                      live_until_ledger_seq_ledger_seq,
                  }| {
                     Ok(FullLedgerEntry {
-                        key: LedgerKey::from_xdr_base64(key)?,
-                        val: LedgerEntryData::from_xdr_base64(xdr)?,
+                        key: LedgerKey::from_xdr_base64(key, Limits::none())?,
+                        val: LedgerEntryData::from_xdr_base64(xdr, Limits::none())?,
                         live_until_ledger_seq: live_until_ledger_seq_ledger_seq.unwrap_or_default(),
                         last_modified_ledger: *last_modified_ledger,
                     })
@@ -831,7 +824,7 @@ soroban config identity fund {address} --helper-url <url>"#
 
         let mut oparams = ObjectParams::new();
         match start {
-            EventStart::Ledger(l) => oparams.insert("startLedger", l.to_string())?,
+            EventStart::Ledger(l) => oparams.insert("startLedger", l)?,
             EventStart::Cursor(c) => {
                 pagination.insert("cursor".to_string(), c.into());
             }
@@ -859,7 +852,7 @@ soroban config identity fund {address} --helper-url <url>"#
             return Err(Error::NotFound("Contract".to_string(), contract_address));
         }
         let contract_ref_entry = &entries[0];
-        match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr)? {
+        match LedgerEntryData::from_xdr_base64(&contract_ref_entry.xdr, Limits::none())? {
             LedgerEntryData::ContractData(contract_data) => Ok(contract_data),
             scval => Err(Error::UnexpectedContractCodeDataType(scval)),
         }
@@ -890,7 +883,7 @@ soroban config identity fund {address} --helper-url <url>"#
             ));
         }
         let contract_data_entry = &entries[0];
-        match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr)? {
+        match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())? {
             LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Ok(code.into()),
             scval => Err(Error::UnexpectedContractCodeDataType(scval)),
         }
@@ -963,7 +956,7 @@ mod tests {
  "minResourceFee": "100000000",
  "cost": { "cpuInsns": "1000", "memBytes": "1000" },
  "transactionData": "",
- "latestLedger": "1234"
+ "latestLedger": 1234
         }"#;
 
         let resp: SimulateTransactionResponse = serde_json::from_str(s).unwrap();
@@ -973,7 +966,7 @@ mod tests {
     #[test]
     fn simulation_transaction_response_parsing_mostly_empty() {
         let s = r#"{
- "latestLedger": "1234"
+ "latestLedger": 1234
         }"#;
 
         let resp: SimulateTransactionResponse = serde_json::from_str(s).unwrap();

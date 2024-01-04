@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/stellar/go/keypair"
-	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 
@@ -53,7 +52,7 @@ func TestGetLedgerEntriesNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, len(result.Entries))
-	assert.Greater(t, result.LatestLedger, int64(0))
+	assert.Greater(t, result.LatestLedger, uint32(0))
 }
 
 func TestGetLedgerEntriesInvalidParams(t *testing.T) {
@@ -80,8 +79,9 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	kp := keypair.Root(StandaloneNetworkPassphrase)
-	account := txnbuild.NewSimpleAccount(kp.Address(), 0)
+	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
+	address := sourceAccount.Address()
+	account := txnbuild.NewSimpleAccount(address, 0)
 
 	contractBinary := getHelloWorldContract(t)
 	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
@@ -96,35 +96,40 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 		},
 	})
 	tx, err := txnbuild.NewTransaction(params)
-	require.NoError(t, err)
-	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
-	require.NoError(t, err)
-	b64, err := tx.Base64()
-	require.NoError(t, err)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	sendTxRequest := methods.SendTransactionRequest{Transaction: b64}
-	var sendTxResponse methods.SendTransactionResponse
-	err = client.CallResult(context.Background(), "sendTransaction", sendTxRequest, &sendTxResponse)
-	require.NoError(t, err)
-	require.Equal(t, proto.TXStatusPending, sendTxResponse.Status)
+	params = preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createCreateContractOperation(address, contractBinary),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	tx, err = txnbuild.NewTransaction(params)
+	assert.NoError(t, err)
+	sendSuccessfulTransaction(t, client, sourceAccount, tx)
 
-	txStatusResponse := getTransaction(t, client, sendTxResponse.Hash)
-	require.Equal(t, methods.TransactionStatusSuccess, txStatusResponse.Status)
+	contractID := getContractID(t, address, testSalt, StandaloneNetworkPassphrase)
 
 	contractHash := sha256.Sum256(contractBinary)
-	contractKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
+	contractCodeKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractCode,
 		ContractCode: &xdr.LedgerKeyContractCode{
 			Hash: contractHash,
 		},
 	})
-	require.NoError(t, err)
 
 	// Doesn't exist.
-	sourceAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
-	contractID := getContractID(t, sourceAccount, testSalt, StandaloneNetworkPassphrase)
+	notFoundKeyB64, err := xdr.MarshalBase64(getCounterLedgerKey(contractID))
+	require.NoError(t, err)
+
 	contractIDHash := xdr.Hash(contractID)
-	notFoundKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
+	contractInstanceKeyB64, err := xdr.MarshalBase64(xdr.LedgerKey{
 		Type: xdr.LedgerEntryTypeContractData,
 		ContractData: &xdr.LedgerKeyContractData{
 			Contract: xdr.ScAddress{
@@ -139,9 +144,7 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	var keys []string
-	keys = append(keys, contractKeyB64)
-	keys = append(keys, notFoundKeyB64)
+	keys := []string{contractCodeKeyB64, notFoundKeyB64, contractInstanceKeyB64}
 	request := methods.GetLedgerEntriesRequest{
 		Keys: keys,
 	}
@@ -149,11 +152,28 @@ func TestGetLedgerEntriesSucceeds(t *testing.T) {
 	var result methods.GetLedgerEntriesResponse
 	err = client.CallResult(context.Background(), "getLedgerEntries", request, &result)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(result.Entries))
-	require.Greater(t, result.LatestLedger, int64(0))
+	require.Equal(t, 2, len(result.Entries))
+	require.Greater(t, result.LatestLedger, uint32(0))
 
+	require.Greater(t, result.Entries[0].LastModifiedLedger, uint32(0))
+	require.LessOrEqual(t, result.Entries[0].LastModifiedLedger, result.LatestLedger)
+	require.NotNil(t, result.Entries[0].LiveUntilLedgerSeq)
+	require.Greater(t, *result.Entries[0].LiveUntilLedgerSeq, result.LatestLedger)
+	require.Equal(t, contractCodeKeyB64, result.Entries[0].Key)
 	var firstEntry xdr.LedgerEntryData
 	require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &firstEntry))
+	require.Equal(t, xdr.LedgerEntryTypeContractCode, firstEntry.Type)
 	require.Equal(t, contractBinary, firstEntry.MustContractCode().Code)
-	require.Equal(t, contractKeyB64, result.Entries[0].Key)
+
+	require.Greater(t, result.Entries[1].LastModifiedLedger, uint32(0))
+	require.LessOrEqual(t, result.Entries[1].LastModifiedLedger, result.LatestLedger)
+	require.NotNil(t, result.Entries[1].LiveUntilLedgerSeq)
+	require.Greater(t, *result.Entries[1].LiveUntilLedgerSeq, result.LatestLedger)
+	require.Equal(t, contractInstanceKeyB64, result.Entries[1].Key)
+	var secondEntry xdr.LedgerEntryData
+	require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[1].XDR, &secondEntry))
+	require.Equal(t, xdr.LedgerEntryTypeContractData, secondEntry.Type)
+	require.True(t, secondEntry.MustContractData().Key.Equals(xdr.ScVal{
+		Type: xdr.ScValTypeScvLedgerKeyContractInstance,
+	}))
 }

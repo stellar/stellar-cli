@@ -7,7 +7,6 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
-	"github.com/stellar/go/gxdr"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 
@@ -16,7 +15,8 @@ import (
 )
 
 type SimulateTransactionRequest struct {
-	Transaction string `json:"transaction"`
+	Transaction    string                    `json:"transaction"`
+	ResourceConfig *preflight.ResourceConfig `json:"resourceConfig,omitempty"`
 }
 
 type SimulateTransactionCost struct {
@@ -43,24 +43,17 @@ type SimulateTransactionResponse struct {
 	Results         []SimulateHostFunctionResult `json:"results,omitempty"`         // an array of the individual host function call results
 	Cost            SimulateTransactionCost      `json:"cost,omitempty"`            // the effective cpu and memory cost of the invoked transaction execution.
 	RestorePreamble *RestorePreamble             `json:"restorePreamble,omitempty"` // If present, it indicates that a prior RestoreFootprint is required
-	LatestLedger    int64                        `json:"latestLedger,string"`
+	LatestLedger    uint32                       `json:"latestLedger"`
 }
 
 type PreflightGetter interface {
-	GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, bucketListSize uint64, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (preflight.Preflight, error)
+	GetPreflight(ctx context.Context, params preflight.PreflightGetterParameters) (preflight.Preflight, error)
 }
 
 // NewSimulateTransactionHandler returns a json rpc handler to run preflight simulations
 func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.LedgerEntryReader, ledgerReader db.LedgerReader, getter PreflightGetter) jrpc2.Handler {
 
 	return handler.New(func(ctx context.Context, request SimulateTransactionRequest) SimulateTransactionResponse {
-		if err := gxdr.ValidateTransactionEnvelope(request.Transaction, gxdr.DefaultMaxDepth); err != nil {
-			logger.WithError(err).WithField("request", request).
-				Info("could not validate simulate transaction envelope")
-			return SimulateTransactionResponse{
-				Error: "Could not unmarshal transaction",
-			}
-		}
 		var txEnvelope xdr.TransactionEnvelope
 		if err := xdr.SafeUnmarshalBase64(request.Transaction, &txEnvelope); err != nil {
 			logger.WithError(err).WithField("request", request).
@@ -121,11 +114,23 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 			}
 		}
 
-		result, err := getter.GetPreflight(ctx, readTx, bucketListSize, sourceAccount, op.Body, footprint)
+		resource_config := preflight.DefaultResourceConfig()
+		if request.ResourceConfig != nil {
+			resource_config = *request.ResourceConfig
+		}
+		params := preflight.PreflightGetterParameters{
+			LedgerEntryReadTx: readTx,
+			BucketListSize:    bucketListSize,
+			SourceAccount:     sourceAccount,
+			OperationBody:     op.Body,
+			Footprint:         footprint,
+			ResourceConfig:    resource_config,
+		}
+		result, err := getter.GetPreflight(ctx, params)
 		if err != nil {
 			return SimulateTransactionResponse{
 				Error:        err.Error(),
-				LatestLedger: int64(latestLedger),
+				LatestLedger: latestLedger,
 			}
 		}
 
@@ -154,7 +159,7 @@ func NewSimulateTransactionHandler(logger *log.Entry, ledgerEntryReader db.Ledge
 				CPUInstructions: result.CPUInstructions,
 				MemoryBytes:     result.MemoryBytes,
 			},
-			LatestLedger:    int64(latestLedger),
+			LatestLedger:    latestLedger,
 			RestorePreamble: restorePreamble,
 		}
 	})
