@@ -150,7 +150,7 @@ Deprecated, use `soroban keys` and `soroban network` instead
 ###### **Subcommands:**
 
 * `network` — Configure different networks. Depraecated, use `soroban network` instead
-* `identity` — Identity management. Deprecated use `soroban keys` instead
+* `identity` — Identity management. Deprecated, use `soroban keys` instead
 
 
 
@@ -220,7 +220,7 @@ List networks
 
 ## `soroban config identity`
 
-Identity management. Deprecated use `soroban keys` instead
+Identity management. Deprecated, use `soroban keys` instead
 
 **Usage:** `soroban config identity <COMMAND>`
 
