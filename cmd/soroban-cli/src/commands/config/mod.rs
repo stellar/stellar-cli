@@ -17,7 +17,7 @@ pub enum Cmd {
     /// Configure different networks. Depraecated, use `soroban network` instead.
     #[command(subcommand)]
     Network(network::Cmd),
-    /// Identity management. Deprecated use `soroban keys` instead.
+    /// Identity management. Deprecated, use `soroban keys` instead.
     #[command(subcommand)]
     Identity(keys::Cmd),
 }
@@ -25,11 +25,23 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Identity(#[from] keys::Error),
+    #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Config(#[from] locator::Error),
+}
+
+impl Cmd {
+    pub async fn run(&self) -> Result<(), Error> {
+        match &self {
+            Cmd::Identity(identity) => identity.run().await?,
+            Cmd::Network(network) => network.run()?,
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
