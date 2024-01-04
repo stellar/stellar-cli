@@ -153,13 +153,13 @@ fn copy_example_contracts(
         std::fs::create_dir_all(&to_contract_path)?;
 
         copy_contents(&from_contract_path, &to_contract_path)?;
-        edit_cargo_file(&to_contract_path)?;
+        edit_contract_cargo_file(&to_contract_path)?;
     }
 
     Ok(())
 }
 
-fn edit_cargo_file(contract_path: &Path) -> Result<(), Error> {
+fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     let cargo_path = contract_path.join("Cargo.toml");
     let cargo_toml_str = read_to_string(&cargo_path)?;
     let mut doc = cargo_toml_str.parse::<Document>().unwrap();
