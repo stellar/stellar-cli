@@ -49,6 +49,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban keys ls`↴](#soroban-keys-ls)
 * [`soroban keys rm`↴](#soroban-keys-rm)
 * [`soroban keys show`↴](#soroban-keys-show)
+* [`soroban init`↴](#soroban-init)
 * [`soroban lab`↴](#soroban-lab)
 * [`soroban lab token`↴](#soroban-lab-token)
 * [`soroban lab token wrap`↴](#soroban-lab-token-wrap)
@@ -102,6 +103,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
+* `init` — Initialize a new Soroban project
 * `lab` — Experiment with early features and expert tools
 * `network` — Start and configure networks
 * `version` — Print version information
@@ -1030,6 +1032,26 @@ Given an identity return its private key
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+## `soroban init`
+
+Initialize a new Soroban project
+
+**Usage:** `soroban init [OPTIONS] <PROJECT_PATH>`
+
+###### **Arguments:**
+
+* `<PROJECT_PATH>`
+
+###### **Options:**
+
+* `-w`, `--with-contract <WITH_CONTRACT>` — optional flag to specify soroban example contracts to include
+
+  Default value: `none`
+
+  Possible values: `account`, `alloc`, `atomic-multiswap`, `atomic-swap`, `auth`, `cross-contract`, `custom-types`, `deep-contract-auth`, `deployer`, `errors`, `events`, `fuzzing`, `hello-world`, `increment`, `liquidity-pool`, `logging`, `simple-account`, `single-offer`, `timelock`, `token`, `upgradeable-contract`, `none`
+
 
 
 
