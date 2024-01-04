@@ -1,6 +1,7 @@
 use clap::arg;
 use soroban_env_host::xdr::{
-    self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, ReadXdr, ScAddress, ScVal,
+    self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
+    ScVal,
 };
 use std::path::PathBuf;
 
@@ -75,7 +76,7 @@ impl Args {
                 .collect::<Result<Vec<_>, Error>>()?
         } else if let Some(keys) = &self.key_xdr {
             keys.iter()
-                .map(|s| Ok(ScVal::from_xdr_base64(s)?))
+                .map(|s| Ok(ScVal::from_xdr_base64(s, Limits::none())?))
                 .collect::<Result<Vec<_>, Error>>()?
         } else if let Some(wasm) = &self.wasm {
             return Ok(vec![crate::wasm::Args { wasm: wasm.clone() }.try_into()?]);

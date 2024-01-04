@@ -124,7 +124,7 @@ impl Spec {
             ),
             ScType::Option(type_) => return self.doc(name, &type_.value_type),
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                let spec_type = self.find(&name.to_string_lossy())?;
+                let spec_type = self.find(&name.to_utf8_string_lossy())?;
                 match spec_type {
                     ScSpecEntry::FunctionV0(ScSpecFunctionV0 { doc, .. })
                     | ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
@@ -132,7 +132,7 @@ impl Spec {
                     | ScSpecEntry::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
                     | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. }) => doc,
                 }
-                .to_string_lossy()
+                .to_utf8_string_lossy()
             }
         };
         if let Some(mut ex) = self.example(type_) {
@@ -164,11 +164,11 @@ impl Spec {
             .and_then(|specs| {
                 specs.iter().find(|e| {
                     let entry_name = match e {
-                        ScSpecEntry::FunctionV0(x) => x.name.to_string_lossy(),
-                        ScSpecEntry::UdtStructV0(x) => x.name.to_string_lossy(),
-                        ScSpecEntry::UdtUnionV0(x) => x.name.to_string_lossy(),
-                        ScSpecEntry::UdtEnumV0(x) => x.name.to_string_lossy(),
-                        ScSpecEntry::UdtErrorEnumV0(x) => x.name.to_string_lossy(),
+                        ScSpecEntry::FunctionV0(x) => x.name.to_utf8_string_lossy(),
+                        ScSpecEntry::UdtStructV0(x) => x.name.to_utf8_string_lossy(),
+                        ScSpecEntry::UdtUnionV0(x) => x.name.to_utf8_string_lossy(),
+                        ScSpecEntry::UdtEnumV0(x) => x.name.to_utf8_string_lossy(),
+                        ScSpecEntry::UdtErrorEnumV0(x) => x.name.to_utf8_string_lossy(),
                     };
                     name == entry_name
                 })
@@ -248,7 +248,7 @@ impl Spec {
                     | ScType::Address => Ok(Value::String(s.to_owned())),
                     ScType::Udt(ScSpecTypeUdt { name })
                         if matches!(
-                            self.find(&name.to_string_lossy())?,
+                            self.find(&name.to_utf8_string_lossy())?,
                             ScSpecEntry::UdtUnionV0(_) | ScSpecEntry::UdtStructV0(_)
                         ) =>
                     {
@@ -321,13 +321,13 @@ impl Spec {
     }
 
     fn parse_udt(&self, name: &StringM<60>, value: &Value) -> Result<ScVal, Error> {
-        let name = &name.to_string_lossy();
+        let name = &name.to_utf8_string_lossy();
         match (self.find(name)?, value) {
             (ScSpecEntry::UdtStructV0(strukt), Value::Object(map)) => {
                 if strukt
                     .fields
                     .iter()
-                    .any(|f| f.name.to_string_lossy() == "0")
+                    .any(|f| f.name.to_utf8_string_lossy() == "0")
                 {
                     self.parse_tuple_strukt(
                         strukt,
@@ -379,7 +379,7 @@ impl Spec {
             .to_vec()
             .iter()
             .map(|f| {
-                let name = &f.name.to_string_lossy();
+                let name = &f.name.to_utf8_string_lossy();
                 let v = map
                     .get(name)
                     .ok_or_else(|| Error::MissingKey(name.clone()))?;
@@ -422,9 +422,11 @@ impl Spec {
                     ScSpecUdtUnionCaseV0::VoidV0(v) => &v.name,
                     ScSpecUdtUnionCaseV0::TupleV0(v) => &v.name,
                 };
-                enum_case == &name.to_string_lossy()
+                enum_case == &name.to_utf8_string_lossy()
             })
-            .ok_or_else(|| Error::EnumCase(enum_case.to_string(), union.name.to_string_lossy()))?;
+            .ok_or_else(|| {
+                Error::EnumCase(enum_case.to_string(), union.name.to_utf8_string_lossy())
+            })?;
 
         let mut res = vec![ScVal::Symbol(ScSymbol(
             enum_case.try_into().map_err(Error::Xdr)?,
@@ -583,7 +585,7 @@ impl Spec {
     ///
     /// May panic
     pub fn udt_to_json(&self, name: &StringM<60>, sc_obj: &ScVal) -> Result<Value, Error> {
-        let name = &name.to_string_lossy();
+        let name = &name.to_utf8_string_lossy();
         let udt = self.find(name)?;
         Ok(match (sc_obj, udt) {
             (ScVal::Map(Some(map)), ScSpecEntry::UdtStructV0(strukt)) => serde_json::Value::Object(
@@ -593,7 +595,7 @@ impl Spec {
                     .zip(map.iter())
                     .map(|(field, entry)| {
                         let val = self.xdr_to_json(&entry.val, &field.type_)?;
-                        Ok((field.name.to_string_lossy(), val))
+                        Ok((field.name.to_utf8_string_lossy(), val))
                     })
                     .collect::<Result<serde_json::Map<String, _>, Error>>()?,
             ),
@@ -611,7 +613,7 @@ impl Spec {
                 let (first, rest) = match v.split_at(1) {
                     ([first], []) => (first, None),
                     ([first], rest) => (first, Some(rest)),
-                    _ => return Err(Error::IllFormedEnum(union.name.to_string_lossy())),
+                    _ => return Err(Error::IllFormedEnum(union.name.to_utf8_string_lossy())),
                 };
 
                 let ScVal::Symbol(case_name) = first else {
@@ -627,14 +629,14 @@ impl Spec {
                         };
                         name.as_vec() == case_name.as_vec()
                     })
-                    .ok_or_else(|| Error::FailedToFindEnumCase(case_name.to_string_lossy()))?;
+                    .ok_or_else(|| Error::FailedToFindEnumCase(case_name.to_utf8_string_lossy()))?;
 
-                let case_name = case_name.to_string_lossy();
+                let case_name = case_name.to_utf8_string_lossy();
                 match case {
                     ScSpecUdtUnionCaseV0::TupleV0(v) => {
                         let rest = rest.ok_or_else(|| {
                             Error::EnumMissingSecondValue(
-                                union.name.to_string_lossy(),
+                                union.name.to_utf8_string_lossy(),
                                 case_name.clone(),
                             )
                         })?;
@@ -1130,11 +1132,11 @@ impl Spec {
             }
             ScType::BytesN(t) => Some(format!("{}_hex_bytes", t.n)),
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                match self.find(&name.to_string_lossy()).ok()? {
+                match self.find(&name.to_utf8_string_lossy()).ok()? {
                     ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { fields, .. })
                         if fields
                             .get(0)
-                            .map(|f| f.name.to_string_lossy() == "0")
+                            .map(|f| f.name.to_utf8_string_lossy() == "0")
                             .unwrap_or_default() =>
                     {
                         let fields = fields
@@ -1159,7 +1161,7 @@ impl Spec {
         let inner = strukt
             .fields
             .iter()
-            .map(|f| (f.name.to_string_lossy(), &f.type_))
+            .map(|f| (f.name.to_utf8_string_lossy(), &f.type_))
             .map(|(name, type_)| {
                 let type_ = self.arg_value_name(type_, depth + 1)?;
                 Some(format!("{name}: {type_}"))
@@ -1176,7 +1178,7 @@ impl Spec {
             .map(|f| {
                 Some(match f {
                     ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 { name, .. }) => {
-                        name.to_string_lossy()
+                        name.to_utf8_string_lossy()
                     }
                     ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                         name,
@@ -1184,7 +1186,7 @@ impl Spec {
                         ..
                     }) => format!(
                         "{}({})",
-                        name.to_string_lossy(),
+                        name.to_utf8_string_lossy(),
                         type_
                             .iter()
                             .map(|type_| self.arg_value_name(type_, depth + 1))
@@ -1283,7 +1285,7 @@ impl Spec {
                 Some(format!("\"{res}\""))
             }
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                self.example_udts(name.to_string_lossy().as_ref())
+                self.example_udts(name.to_utf8_string_lossy().as_ref())
             }
             // No specific value name for these yet.
             ScType::Val => None,
@@ -1294,7 +1296,8 @@ impl Spec {
         match self.find(name).ok() {
             Some(ScSpecEntry::UdtStructV0(strukt)) => {
                 // Check if a tuple strukt
-                if !strukt.fields.is_empty() && strukt.fields[0].name.to_string_lossy() == "0" {
+                if !strukt.fields.is_empty() && strukt.fields[0].name.to_utf8_string_lossy() == "0"
+                {
                     let value_types = strukt
                         .fields
                         .iter()
@@ -1307,7 +1310,7 @@ impl Spec {
                 let inner = strukt
                     .fields
                     .iter()
-                    .map(|f| (f.name.to_string_lossy(), &f.type_))
+                    .map(|f| (f.name.to_utf8_string_lossy(), &f.type_))
                     .map(|(name, type_)| {
                         let type_ = self.example(type_)?;
                         let name = format!(r#""{name}""#);
@@ -1331,21 +1334,21 @@ impl Spec {
             .iter()
             .map(|case| match case {
                 ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 { name, .. }) => {
-                    Some(format!("\"{}\"", name.to_string_lossy()))
+                    Some(format!("\"{}\"", name.to_utf8_string_lossy()))
                 }
                 ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                     name, type_, ..
                 }) => {
                     if type_.len() == 1 {
                         let single = self.example(&type_[0])?;
-                        Some(format!("{{\"{}\":{single}}}", name.to_string_lossy()))
+                        Some(format!("{{\"{}\":{single}}}", name.to_utf8_string_lossy()))
                     } else {
                         let names = type_
                             .iter()
                             .map(|t| self.example(t))
                             .collect::<Option<Vec<_>>>()?
                             .join(", ");
-                        Some(format!("{{\"{}\":[{names}]}}", name.to_string_lossy()))
+                        Some(format!("{{\"{}\":[{names}]}}", name.to_utf8_string_lossy()))
                     }
                 }
             })

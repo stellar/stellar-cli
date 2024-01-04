@@ -6,9 +6,8 @@ use std::{
 };
 
 use stellar_xdr::curr::{
-    DepthLimitedRead, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
-    StringM,
+    Limited, Limits, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0,
+    ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM,
 };
 
 pub struct ContractSpec {
@@ -61,8 +60,8 @@ impl ContractSpec {
         let env_meta = if let Some(env_meta) = env_meta {
             env_meta_base64 = Some(base64.encode(env_meta));
             let cursor = Cursor::new(env_meta);
-            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScEnvMetaEntry::read_xdr_iter(&mut depth_limit_read).collect::<Result<Vec<_>, _>>()?
+            let mut read = Limited::new(cursor, Limits::none());
+            ScEnvMetaEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, _>>()?
         } else {
             vec![]
         };
@@ -71,8 +70,8 @@ impl ContractSpec {
         let meta = if let Some(meta) = meta {
             meta_base64 = Some(base64.encode(meta));
             let cursor = Cursor::new(meta);
-            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScMetaEntry::read_xdr_iter(&mut depth_limit_read).collect::<Result<Vec<_>, _>>()?
+            let mut read = Limited::new(cursor, Limits::none());
+            ScMetaEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, _>>()?
         } else {
             vec![]
         };
@@ -81,8 +80,8 @@ impl ContractSpec {
         let spec = if let Some(spec) = spec {
             spec_base64 = Some(base64.encode(spec));
             let cursor = Cursor::new(spec);
-            let mut depth_limit_read = DepthLimitedRead::new(cursor, 100);
-            ScSpecEntry::read_xdr_iter(&mut depth_limit_read).collect::<Result<Vec<_>, _>>()?
+            let mut read = Limited::new(cursor, Limits::none());
+            ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, _>>()?
         } else {
             vec![]
         };
@@ -147,12 +146,12 @@ impl Display for ContractSpec {
 }
 
 fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::fmt::Result {
-    writeln!(f, " • Function: {}", func.name.to_string_lossy())?;
+    writeln!(f, " • Function: {}", func.name.to_utf8_string_lossy())?;
     if func.doc.len() > 0 {
         writeln!(
             f,
             "     Docs: {}",
-            &indent(&func.doc.to_string_lossy(), 11).trim()
+            &indent(&func.doc.to_utf8_string_lossy(), 11).trim()
         )?;
     }
     writeln!(
@@ -175,7 +174,7 @@ fn write_union(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtUnionV0) -> std::
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_string_lossy(), 10).trim()
+            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
         )?;
     }
     writeln!(f, "     Cases:")?;
@@ -192,7 +191,7 @@ fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_string_lossy(), 10).trim()
+            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
         )?;
     }
     writeln!(f, "     Fields:")?;
@@ -200,7 +199,7 @@ fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std
         writeln!(
             f,
             "      • {}: {}",
-            field.name.to_string_lossy(),
+            field.name.to_utf8_string_lossy(),
             indent(&format!("{:#?}", field.type_), 8).trim()
         )?;
         if field.doc.len() > 0 {
@@ -217,7 +216,7 @@ fn write_enum(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtEnumV0) -> std::fm
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_string_lossy(), 10).trim()
+            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
         )?;
     }
     writeln!(f, "     Cases:")?;
@@ -234,7 +233,7 @@ fn write_error(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtErrorEnumV0) -> s
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_string_lossy(), 10).trim()
+            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
         )?;
     }
     writeln!(f, "     Cases:")?;
@@ -255,9 +254,13 @@ fn indent(s: &str, n: usize) -> String {
 
 fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
     if lib.len() > 0 {
-        format!("{}::{}", lib.to_string_lossy(), name.to_string_lossy())
+        format!(
+            "{}::{}",
+            lib.to_utf8_string_lossy(),
+            name.to_utf8_string_lossy()
+        )
     } else {
-        name.to_string_lossy()
+        name.to_utf8_string_lossy()
     }
 }
 

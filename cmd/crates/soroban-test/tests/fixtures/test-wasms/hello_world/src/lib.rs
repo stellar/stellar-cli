@@ -49,7 +49,7 @@ impl Contract {
     }
 
     pub fn prng_u64_in_range(env: Env, low: u64, high: u64) -> u64 {
-        env.prng().u64_in_range(low..=high)
+        env.prng().gen_range(low..=high)
     }
 
     pub fn upgrade_contract(env: Env, hash: BytesN<32>) {

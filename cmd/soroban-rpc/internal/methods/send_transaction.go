@@ -6,7 +6,6 @@ import (
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
-	"github.com/stellar/go/gxdr"
 	"github.com/stellar/go/network"
 	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/support/log"
@@ -31,7 +30,7 @@ type SendTransactionResponse struct {
 	Hash string `json:"hash"`
 	// LatestLedger is the latest ledger known to Soroban-RPC at the time it handled
 	// the transaction submission request.
-	LatestLedger int64 `json:"latestLedger,string"`
+	LatestLedger uint32 `json:"latestLedger"`
 	// LatestLedgerCloseTime is the unix timestamp of the close time of the latest ledger known to
 	// Soroban-RPC at the time it handled the transaction submission request.
 	LatestLedgerCloseTime int64 `json:"latestLedgerCloseTime,string"`
@@ -49,24 +48,17 @@ type LatestLedgerStore interface {
 	GetLatestLedger() transactions.LedgerInfo
 }
 
-var invalidTransactionXdrError = &jrpc2.Error{
-	Code:    jrpc2.InvalidParams,
-	Message: "invalid_xdr",
-}
-
 // NewSendTransactionHandler returns a submit transaction json rpc handler
 func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, store LatestLedgerStore, passphrase string) jrpc2.Handler {
 	submitter := daemon.CoreClient()
 	return handler.New(func(ctx context.Context, request SendTransactionRequest) (SendTransactionResponse, error) {
-		if err := gxdr.ValidateTransactionEnvelope(request.Transaction, gxdr.DefaultMaxDepth); err != nil {
-			logger.WithError(err).WithField("request", request).
-				Info("could not validate send transaction envelope")
-			return SendTransactionResponse{}, invalidTransactionXdrError
-		}
 		var envelope xdr.TransactionEnvelope
 		err := xdr.SafeUnmarshalBase64(request.Transaction, &envelope)
 		if err != nil {
-			return SendTransactionResponse{}, invalidTransactionXdrError
+			return SendTransactionResponse{}, &jrpc2.Error{
+				Code:    jrpc2.InvalidParams,
+				Message: "invalid_xdr",
+			}
 		}
 
 		var hash [32]byte
@@ -106,14 +98,14 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 				ErrorResultXDR:        resp.Error,
 				Status:                resp.Status,
 				Hash:                  txHash,
-				LatestLedger:          int64(ledgerInfo.Sequence),
+				LatestLedger:          ledgerInfo.Sequence,
 				LatestLedgerCloseTime: ledgerInfo.CloseTime,
 			}, nil
 		case proto.TXStatusPending, proto.TXStatusDuplicate, proto.TXStatusTryAgainLater:
 			return SendTransactionResponse{
 				Status:                resp.Status,
 				Hash:                  txHash,
-				LatestLedger:          int64(ledgerInfo.Sequence),
+				LatestLedger:          ledgerInfo.Sequence,
 				LatestLedgerCloseTime: ledgerInfo.CloseTime,
 			}, nil
 		default:

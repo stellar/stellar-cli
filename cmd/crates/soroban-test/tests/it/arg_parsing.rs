@@ -90,7 +90,7 @@ fn parse_i256() {
 
 #[test]
 fn parse_bytes() {
-    let b = from_string_primitive(r#"beefface"#, &ScSpecTypeDef::Bytes).unwrap();
+    let b = from_string_primitive(r"beefface", &ScSpecTypeDef::Bytes).unwrap();
     assert_eq!(
         b,
         ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
@@ -100,7 +100,7 @@ fn parse_bytes() {
 
 #[test]
 fn parse_bytes_when_hex_is_all_numbers() {
-    let b = from_string_primitive(r#"4554"#, &ScSpecTypeDef::Bytes).unwrap();
+    let b = from_string_primitive(r"4554", &ScSpecTypeDef::Bytes).unwrap();
     assert_eq!(
         b,
         ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
@@ -111,7 +111,7 @@ fn parse_bytes_when_hex_is_all_numbers() {
 #[test]
 fn parse_bytesn() {
     let b = from_string_primitive(
-        r#"beefface"#,
+        r"beefface",
         &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 4 }),
     )
     .unwrap();
@@ -124,8 +124,8 @@ fn parse_bytesn() {
 
 #[test]
 fn parse_bytesn_when_hex_is_all_numbers() {
-    let b = from_string_primitive(r#"4554"#, &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 2 }))
-        .unwrap();
+    let b =
+        from_string_primitive(r"4554", &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 2 })).unwrap();
     assert_eq!(
         b,
         ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))

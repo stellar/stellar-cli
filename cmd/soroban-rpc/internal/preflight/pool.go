@@ -139,26 +139,27 @@ func (m *metricsLedgerEntryWrapper) GetLedgerEntries(keys ...xdr.LedgerKey) ([]d
 	return entries, err
 }
 
-func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, readTx db.LedgerEntryReadTx, bucketListSize uint64, sourceAccount xdr.AccountId, opBody xdr.OperationBody, footprint xdr.LedgerFootprint) (Preflight, error) {
+func (pwp *PreflightWorkerPool) GetPreflight(ctx context.Context, params PreflightGetterParameters) (Preflight, error) {
 	if pwp.isClosed.Load() {
 		return Preflight{}, errors.New("preflight worker pool is closed")
 	}
 	wrappedTx := metricsLedgerEntryWrapper{
-		LedgerEntryReadTx: readTx,
+		LedgerEntryReadTx: params.LedgerEntryReadTx,
 	}
-	params := PreflightParameters{
+	preflightParams := PreflightParameters{
 		Logger:            pwp.logger,
-		SourceAccount:     sourceAccount,
-		OpBody:            opBody,
+		SourceAccount:     params.SourceAccount,
+		OpBody:            params.OperationBody,
 		NetworkPassphrase: pwp.networkPassphrase,
 		LedgerEntryReadTx: &wrappedTx,
-		BucketListSize:    bucketListSize,
-		Footprint:         footprint,
+		BucketListSize:    params.BucketListSize,
+		Footprint:         params.Footprint,
+		ResourceConfig:    params.ResourceConfig,
 		EnableDebug:       pwp.enableDebug,
 	}
 	resultC := make(chan workerResult)
 	select {
-	case pwp.requestChan <- workerRequest{ctx, params, resultC}:
+	case pwp.requestChan <- workerRequest{ctx, preflightParams, resultC}:
 		result := <-resultC
 		if wrappedTx.ledgerEntriesFetched > 0 {
 			status := "ok"

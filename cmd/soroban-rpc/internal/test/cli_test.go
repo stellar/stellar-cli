@@ -48,11 +48,18 @@ func TestCLICargoTest(t *testing.T) {
 }
 
 func TestCLIWrapCustom(t *testing.T) {
-	NewCLITest(t)
-	testAccount := getCLIDefaultAccount(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=deadbeef:%s", testAccount))
-	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
-	runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- mint --to=%s --amount 1", strkeyContractID, testAccount))
+	it := NewCLITest(t)
+	assetCode := "deadbeef"
+	issuerAccount := getCLIDefaultAccount(t)
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=%s:%s", assetCode, issuerAccount))
+	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, issuerAccount)))
+	asset := txnbuild.CreditAsset{
+		Code:   assetCode,
+		Issuer: issuerAccount,
+	}
+	establishAccountTrustline(t, it, it.MasterKey(), it.MasterAccount(), asset)
+	masterAccount := keypair.Root(StandaloneNetworkPassphrase).Address()
+	runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- mint --to=%s --amount 1", strkeyContractID, masterAccount))
 }
 
 func TestCLIWrapNative(t *testing.T) {
@@ -296,14 +303,9 @@ func fundAccount(t *testing.T, test *Test, account string, amount string) {
 	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
 	client := jrpc2.NewClient(ch, nil)
 
-	sourceAccount := keypair.Root(StandaloneNetworkPassphrase)
-
 	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
-		SourceAccount: &txnbuild.SimpleAccount{
-			AccountID: keypair.Root(StandaloneNetworkPassphrase).Address(),
-			Sequence:  1,
-		},
-		IncrementSequenceNum: false,
+		SourceAccount:        test.MasterAccount(),
+		IncrementSequenceNum: true,
 		Operations: []txnbuild.Operation{&txnbuild.CreateAccount{
 			Destination: account,
 			Amount:      amount,
@@ -315,7 +317,29 @@ func fundAccount(t *testing.T, test *Test, account string, amount string) {
 		},
 	})
 	require.NoError(t, err)
-	sendSuccessfulTransaction(t, client, sourceAccount, tx)
+	sendSuccessfulTransaction(t, client, test.MasterKey(), tx)
+}
+
+func establishAccountTrustline(t *testing.T, test *Test, kp *keypair.Full, account txnbuild.Account, asset txnbuild.Asset) {
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	line := asset.MustToChangeTrustAsset()
+	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
+		SourceAccount:        account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{&txnbuild.ChangeTrust{
+			Line:  line,
+			Limit: "2000",
+		}},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    nil,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+	require.NoError(t, err)
+	sendSuccessfulTransaction(t, client, kp, tx)
 }
 
 func parseInt(t *testing.T, s string) uint64 {

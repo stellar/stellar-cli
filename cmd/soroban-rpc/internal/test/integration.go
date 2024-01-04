@@ -17,6 +17,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/stellar/go/clients/stellarcore"
+	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/txnbuild"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/config"
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/daemon"
@@ -47,6 +49,7 @@ type Test struct {
 
 	coreClient *stellarcore.Client
 
+	masterAccount txnbuild.Account
 	shutdownOnce  sync.Once
 	shutdownCalls []func()
 }
@@ -64,6 +67,10 @@ func NewTest(t *testing.T) *Test {
 		t:           t,
 		composePath: findDockerComposePath(),
 	}
+	i.masterAccount = &txnbuild.SimpleAccount{
+		AccountID: i.MasterKey().Address(),
+		Sequence:  0,
+	}
 	i.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color")
 	i.prepareShutdownHandlers()
 	i.coreClient = &stellarcore.Client{URL: "http://localhost:" + strconv.Itoa(stellarCorePort)}
@@ -72,6 +79,14 @@ func NewTest(t *testing.T) *Test {
 	i.launchDaemon(coreBinaryPath)
 
 	return i
+}
+
+func (i *Test) MasterKey() *keypair.Full {
+	return keypair.Root(StandaloneNetworkPassphrase)
+}
+
+func (i *Test) MasterAccount() txnbuild.Account {
+	return i.masterAccount
 }
 
 func (i *Test) sorobanRPCURL() string {
@@ -121,7 +136,6 @@ func (i *Test) launchDaemon(coreBinaryPath string) {
 	config.CaptiveCoreConfigPath = path.Join(i.composePath, "captive-core-integration-tests.cfg")
 	config.CaptiveCoreStoragePath = i.t.TempDir()
 	config.CaptiveCoreHTTPPort = 0
-	config.CaptiveCoreUseDB = true
 	config.FriendbotURL = friendbotURL
 	config.NetworkPassphrase = StandaloneNetworkPassphrase
 	config.HistoryArchiveURLs = []string{"http://localhost:1570"}
