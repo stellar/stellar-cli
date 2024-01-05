@@ -365,7 +365,7 @@ fn log_resources(resources: &SorobanResources) {
 
 pub fn output_to_string(spec: &Spec, res: &ScVal, function: &str) -> Result<String, Error> {
     let mut res_str = String::new();
-    if let Some(output) = spec.find_function(function)?.outputs.get(0) {
+    if let Some(output) = spec.find_function(function)?.outputs.first() {
         res_str = spec
             .xdr_to_json(res, output)
             .map_err(|e| Error::CannotPrintResult {

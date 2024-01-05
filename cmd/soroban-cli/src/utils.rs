@@ -103,11 +103,7 @@ pub fn contract_id_hash_from_asset(
     asset: &Asset,
     network_passphrase: &str,
 ) -> Result<Hash, XdrError> {
-    let network_id = Hash(
-        Sha256::digest(network_passphrase.as_bytes())
-            .try_into()
-            .unwrap(),
-    );
+    let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
         contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
