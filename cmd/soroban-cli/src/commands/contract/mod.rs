@@ -1,3 +1,4 @@
+pub mod asset;
 pub mod bindings;
 pub mod build;
 pub mod deploy;
@@ -15,6 +16,9 @@ use crate::commands::global;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
+    /// Utilities to deploy a Stellar Asset Contract or get its id
+    #[command(subcommand)]
+    Asset(asset::Cmd),
     /// Generate code client bindings for a contract
     #[command(subcommand)]
     Bindings(bindings::Cmd),
@@ -26,9 +30,8 @@ pub enum Cmd {
     /// If no keys are specified the contract itself is extended.
     Extend(extend::Cmd),
 
-    /// Deploy a contract or Soroban Asset Contract
-    #[command(subcommand)]
-    Deploy(deploy::Cmd),
+    /// Deploy a wasm contract
+    Deploy(deploy::wasm::Cmd),
 
     /// Fetch a contract's Wasm binary
     Fetch(fetch::Cmd),
@@ -68,6 +71,9 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Asset(#[from] asset::Error),
+
+    #[error(transparent)]
     Bindings(#[from] bindings::Error),
 
     #[error(transparent)]
@@ -77,7 +83,7 @@ pub enum Error {
     Extend(#[from] extend::Error),
 
     #[error(transparent)]
-    Deploy(#[from] deploy::Error),
+    Deploy(#[from] deploy::wasm::Error),
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
@@ -106,6 +112,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match &self {
+            Cmd::Asset(asset) => asset.run().await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run()?,
             Cmd::Extend(extend) => extend.run().await?,

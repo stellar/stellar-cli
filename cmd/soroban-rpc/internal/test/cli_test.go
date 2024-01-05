@@ -51,7 +51,7 @@ func TestCLIWrapCustom(t *testing.T) {
 	it := NewCLITest(t)
 	assetCode := "deadbeef"
 	issuerAccount := getCLIDefaultAccount(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy asset --asset=%s:%s", assetCode, issuerAccount))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract asset deploy --asset=%s:%s", assetCode, issuerAccount))
 	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, issuerAccount)))
 	asset := txnbuild.CreditAsset{
 		Code:   assetCode,
@@ -65,7 +65,7 @@ func TestCLIWrapCustom(t *testing.T) {
 func TestCLIWrapNative(t *testing.T) {
 	NewCLITest(t)
 	testAccount := getCLIDefaultAccount(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy asset --asset=native:%s", testAccount))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract asset deploy --asset=native:%s", testAccount))
 	require.Equal(t, "CAMTHSPKXZJIRTUXQP5QWJIFH3XIDMKLFAWVQOFOXPTKAW5GKV37ZC4N", strkeyContractID)
 	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
 	require.Equal(t, "\"9223372036854775807\"", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- balance --id %s", strkeyContractID, testAccount)))
@@ -84,13 +84,13 @@ func TestCLIContractInstallAndDeploy(t *testing.T) {
 	runSuccessfulCLICmd(t, fmt.Sprintf("contract install --wasm %s --ignore-checks", helloWorldContractPath))
 	wasm := getHelloWorldContract(t)
 	contractHash := xdr.Hash(sha256.Sum256(wasm))
-	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt %s --wasm-hash %s --ignore-checks", hex.EncodeToString(testSalt[:]), contractHash.HexString()))
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt %s --wasm-hash %s --ignore-checks", hex.EncodeToString(testSalt[:]), contractHash.HexString()))
 	outputsContractIDInLastLine(t, output)
 }
 
 func TestCLIContractDeploy(t *testing.T) {
 	NewCLITest(t)
-	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt %s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt %s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	outputsContractIDInLastLine(t, output)
 }
 
@@ -110,14 +110,14 @@ func outputsContractIDInLastLine(t *testing.T, output string) {
 
 func TestCLIContractDeployAndInvoke(t *testing.T) {
 	NewCLITest(t)
-	contractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	contractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	output := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- hello --world=world", contractID))
 	require.Contains(t, output, `["Hello","world"]`)
 }
 
 func TestCLIRestorePreamble(t *testing.T) {
 	test := NewCLITest(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "1", count)
 	count = runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
@@ -135,7 +135,7 @@ func TestCLIRestorePreamble(t *testing.T) {
 
 func TestCLIExtend(t *testing.T) {
 	test := NewCLITest(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "1", count)
 
@@ -159,7 +159,7 @@ func TestCLIExtend(t *testing.T) {
 }
 func TestCLIExtendTooLow(t *testing.T) {
 	test := NewCLITest(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "1", count)
 
@@ -181,7 +181,7 @@ func TestCLIExtendTooLow(t *testing.T) {
 
 func TestCLIExtendTooHigh(t *testing.T) {
 	test := NewCLITest(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "1", count)
 
@@ -200,7 +200,7 @@ func TestCLIExtendTooHigh(t *testing.T) {
 
 func TestCLIRestore(t *testing.T) {
 	test := NewCLITest(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy wasm --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract deploy --salt=%s --wasm %s --ignore-checks", hex.EncodeToString(testSalt[:]), helloWorldContractPath))
 	count := runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id %s -- inc", strkeyContractID))
 	require.Equal(t, "1", count)
 

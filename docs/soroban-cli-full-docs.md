@@ -20,6 +20,9 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban config identity rm`↴](#soroban-config-identity-rm)
 * [`soroban config identity show`↴](#soroban-config-identity-show)
 * [`soroban contract`↴](#soroban-contract)
+* [`soroban contract asset`↴](#soroban-contract-asset)
+* [`soroban contract asset id`↴](#soroban-contract-asset-id)
+* [`soroban contract asset deploy`↴](#soroban-contract-asset-deploy)
 * [`soroban contract bindings`↴](#soroban-contract-bindings)
 * [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
 * [`soroban contract bindings rust`↴](#soroban-contract-bindings-rust)
@@ -27,8 +30,6 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract build`↴](#soroban-contract-build)
 * [`soroban contract extend`↴](#soroban-contract-extend)
 * [`soroban contract deploy`↴](#soroban-contract-deploy)
-* [`soroban contract deploy asset`↴](#soroban-contract-deploy-asset)
-* [`soroban contract deploy wasm`↴](#soroban-contract-deploy-wasm)
 * [`soroban contract fetch`↴](#soroban-contract-fetch)
 * [`soroban contract id`↴](#soroban-contract-id)
 * [`soroban contract id asset`↴](#soroban-contract-id-asset)
@@ -376,10 +377,11 @@ Tools for smart contract developers
 
 ###### **Subcommands:**
 
+* `asset` — Utilities to deploy a Stellar Asset Contract or get its id
 * `bindings` — Generate code client bindings for a contract
 * `build` — Build a contract from source
 * `extend` — Extend the time to live ledger of a contract-data ledger entry
-* `deploy` — Deploy a contract or Soroban Asset Contract
+* `deploy` — Deploy a wasm contract
 * `fetch` — Fetch a contract's Wasm binary
 * `id` — Generate the contract id for a given contract or asset
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
@@ -388,6 +390,60 @@ Tools for smart contract developers
 * `optimize` — Optimize a WASM file
 * `read` — Print the current value of a contract-data ledger entry
 * `restore` — Restore an evicted value for a contract-data legder entry
+
+
+
+## `soroban contract asset`
+
+Utilities to deploy a Stellar Asset Contract or get its id
+
+**Usage:** `soroban contract asset <COMMAND>`
+
+###### **Subcommands:**
+
+* `id` — Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+* `deploy` — Deploy builtin Soroban Asset Contract
+
+
+
+## `soroban contract asset id`
+
+Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+
+**Usage:** `soroban contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+
+
+
+## `soroban contract asset deploy`
+
+Deploy builtin Soroban Asset Contract
+
+**Usage:** `soroban contract asset deploy [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>`
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
 
 
 
@@ -516,44 +572,9 @@ If no keys are specified the contract itself is extended.
 
 ## `soroban contract deploy`
 
-Deploy a contract or Soroban Asset Contract
+Deploy a wasm contract
 
-**Usage:** `soroban contract deploy <COMMAND>`
-
-###### **Subcommands:**
-
-* `asset` — Deploy builtin Soroban Asset Contract
-* `wasm` — Deploy normal Wasm Contract
-
-
-
-## `soroban contract deploy asset`
-
-Deploy builtin Soroban Asset Contract
-
-**Usage:** `soroban contract deploy asset [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
-
-###### **Options:**
-
-* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>`
-* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-
-  Default value: `100`
-
-
-
-## `soroban contract deploy wasm`
-
-Deploy normal Wasm Contract
-
-**Usage:** `soroban contract deploy wasm [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
+**Usage:** `soroban contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
 
 ###### **Options:**
 
