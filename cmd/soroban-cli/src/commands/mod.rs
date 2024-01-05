@@ -98,7 +98,7 @@ impl Root {
             Cmd::Network(network) => network.run()?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
-            Cmd::Config(_) => todo!(),
+            Cmd::Config(c) => c.run().await?,
         };
         Ok(())
     }
