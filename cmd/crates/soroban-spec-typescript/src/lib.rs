@@ -182,7 +182,7 @@ pub fn entry_to_parser(entry: &Entry) -> Option<(String, String)> {
         }
 
         let output = outputs
-            .get(0)
+            .first()
             .map(|_| format!("this.spec.funcResToNative(\"{name}\", result)"))
             .unwrap_or_default();
         let parse_result_xdr = if return_type == "void" {

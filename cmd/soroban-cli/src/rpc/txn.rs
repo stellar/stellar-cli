@@ -125,10 +125,10 @@ impl Assembled {
     pub fn auth(&self) -> VecM<SorobanAuthorizationEntry> {
         self.txn
             .operations
-            .get(0)
+            .first()
             .and_then(|op| match op.body {
                 OperationBody::InvokeHostFunction(ref body) => (matches!(
-                    body.auth.get(0).map(|x| &x.root_invocation.function),
+                    body.auth.first().map(|x| &x.root_invocation.function),
                     Some(&SorobanAuthorizedFunction::ContractFn(_))
                 ))
                 .then_some(body.auth.clone()),
@@ -235,7 +235,7 @@ fn sign_soroban_authorizations(
             body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
             ..
         }] if matches!(
-            auth.get(0).map(|x| &x.root_invocation.function),
+            auth.first().map(|x| &x.root_invocation.function),
             Some(&SorobanAuthorizedFunction::ContractFn(_))
         ) =>
         {

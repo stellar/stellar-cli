@@ -386,7 +386,7 @@ impl Spec {
                 let val = self.from_json(v, &f.type_)?;
                 let key = StringM::from_str(name).unwrap();
                 Ok(ScMapEntry {
-                    key: ScVal::Symbol(key.try_into()?),
+                    key: ScVal::Symbol(key.into()),
                     val,
                 })
             })
@@ -1135,7 +1135,7 @@ impl Spec {
                 match self.find(&name.to_utf8_string_lossy()).ok()? {
                     ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { fields, .. })
                         if fields
-                            .get(0)
+                            .first()
                             .map(|f| f.name.to_utf8_string_lossy() == "0")
                             .unwrap_or_default() =>
                     {
