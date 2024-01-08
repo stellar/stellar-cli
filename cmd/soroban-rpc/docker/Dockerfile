@@ -21,7 +21,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUST_TOOLC
 RUN make REPOSITORY_VERSION=${REPOSITORY_VERSION} build-soroban-rpc
 RUN mv soroban-rpc /bin/soroban-rpc
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 ARG STELLAR_CORE_VERSION
 ENV STELLAR_CORE_VERSION=${STELLAR_CORE_VERSION:-*}
 ENV STELLAR_CORE_BINARY_PATH /usr/bin/stellar-core
