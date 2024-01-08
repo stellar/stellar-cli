@@ -21,6 +21,9 @@ type SendTransactionResponse struct {
 	// ErrorResultXDR is a TransactionResult xdr string which contains details on why
 	// the transaction could not be accepted by stellar-core.
 	ErrorResultXDR string `json:"errorResultXdr,omitempty"`
+	// DiagnosticEventsXDR is present only if Status is equal to proto.TXStatusError.
+	// DiagnosticEventsXDR is a base64-encoded slice of xdr.DiagnosticEvent
+	DiagnosticEventsXDR []string `json:"diagnosticEventsXdr,omitempty"`
 	// Status represents the status of the transaction submission returned by stellar-core.
 	// Status can be one of: proto.TXStatusPending, proto.TXStatusDuplicate,
 	// proto.TXStatusTryAgainLater, or proto.TXStatusError.
@@ -94,8 +97,17 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 
 		switch resp.Status {
 		case proto.TXStatusError:
+			events, err := proto.DiagnosticEventsToSlice(resp.DiagnosticEvents)
+			if err != nil {
+				logger.WithField("tx", request.Transaction).Error("Cannot decode diagnostic events:", err)
+				return SendTransactionResponse{}, &jrpc2.Error{
+					Code:    jrpc2.InternalError,
+					Message: "could not decode diagnostic events",
+				}
+			}
 			return SendTransactionResponse{
 				ErrorResultXDR:        resp.Error,
+				DiagnosticEventsXDR:   events,
 				Status:                resp.Status,
 				Hash:                  txHash,
 				LatestLedger:          ledgerInfo.Sequence,
