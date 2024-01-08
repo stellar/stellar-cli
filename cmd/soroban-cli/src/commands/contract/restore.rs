@@ -182,7 +182,7 @@ impl Cmd {
 }
 
 fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
-    ops.get(0).and_then(|op| {
+    ops.first().and_then(|op| {
         op.changes.iter().find_map(|entry| match entry {
             LedgerEntryChange::Updated(LedgerEntry {
                 data:

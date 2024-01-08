@@ -240,7 +240,7 @@ func TestSimulateTransactionSucceeds(t *testing.T) {
 		// for test purposes, the most deterministic way to assert the resulting fee is expected value in test scope, is to capture
 		// the resulting fee from current preflight output and re-plug it in here, rather than try to re-implement the cost-model algo
 		// in the test.
-		ResourceFee: 135910,
+		ResourceFee: 132146,
 	}
 
 	// First, decode and compare the transaction data so we get a decent diff if it fails.
@@ -1125,7 +1125,7 @@ func TestSimulateSystemEvent(t *testing.T) {
 	err = xdr.SafeUnmarshalBase64(response.TransactionData, &transactionData)
 	require.NoError(t, err)
 
-	assert.InDelta(t, 7464, uint32(transactionData.Resources.ReadBytes), 200)
+	assert.InDelta(t, 6856, uint32(transactionData.Resources.ReadBytes), 200)
 	// the resulting fee is derived from compute factors and a default padding is applied to instructions by preflight
 	// for test purposes, the most deterministic way to assert the resulting fee is expected value in test scope, is to capture
 	// the resulting fee from current preflight output and re-plug it in here, rather than try to re-implement the cost-model algo

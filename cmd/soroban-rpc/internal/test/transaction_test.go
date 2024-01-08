@@ -151,6 +151,58 @@ func TestSendTransactionBadSequence(t *testing.T) {
 	assert.Equal(t, xdr.TransactionResultCodeTxBadSeq, errorResult.Result.Code)
 }
 
+func TestSendTransactionFailedInsufficientResourceFee(t *testing.T) {
+	test := NewTest(t)
+
+	ch := jhttp.NewChannel(test.sorobanRPCURL(), nil)
+	client := jrpc2.NewClient(ch, nil)
+
+	kp := keypair.Root(StandaloneNetworkPassphrase)
+	address := kp.Address()
+	account := txnbuild.NewSimpleAccount(address, 0)
+
+	contractBinary := getHelloWorldContract(t)
+	params := preflightTransactionParams(t, client, txnbuild.TransactionParams{
+		SourceAccount:        &account,
+		IncrementSequenceNum: true,
+		Operations: []txnbuild.Operation{
+			createInstallContractCodeOperation(account.AccountID, contractBinary),
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+	})
+
+	// make the transaction fail due to insufficient resource fees
+	params.Operations[0].(*txnbuild.InvokeHostFunction).Ext.SorobanData.ResourceFee /= 2
+
+	tx, err := txnbuild.NewTransaction(params)
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+	tx, err = tx.Sign(StandaloneNetworkPassphrase, kp)
+	assert.NoError(t, err)
+	b64, err := tx.Base64()
+	assert.NoError(t, err)
+
+	request := methods.SendTransactionRequest{Transaction: b64}
+	var result methods.SendTransactionResponse
+	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
+	assert.NoError(t, err)
+
+	assert.Equal(t, proto.TXStatusError, result.Status)
+	var errorResult xdr.TransactionResult
+	assert.NoError(t, xdr.SafeUnmarshalBase64(result.ErrorResultXDR, &errorResult))
+	assert.Equal(t, xdr.TransactionResultCodeTxSorobanInvalid, errorResult.Result.Code)
+
+	assert.Greater(t, len(result.DiagnosticEventsXDR), 0)
+	var event xdr.DiagnosticEvent
+	err = xdr.SafeUnmarshalBase64(result.DiagnosticEventsXDR[0], &event)
+	assert.NoError(t, err)
+
+}
+
 func TestSendTransactionFailedInLedger(t *testing.T) {
 	test := NewTest(t)
 
