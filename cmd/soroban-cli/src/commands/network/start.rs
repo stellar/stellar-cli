@@ -12,7 +12,7 @@ const DOCKER_IMAGE: &str = "stellar/quickstart";
 /// `soroban network start <NETWORK> [OPTIONS] -- [DOCKER_RUN_ARGS]`
 ///
 /// OPTIONS: refer to the options that are available to the quickstart image:
-/// --enable-soroban-rpc - is defaulted to be enabled
+/// --enable-soroban-rpc - is enabled by default
 /// --protocol-version (only for local network)
 /// --limits (only for local network)
 
@@ -32,6 +32,10 @@ pub struct Cmd {
     #[arg(short = 't', long)]
     pub image_tag_override: Option<String>,
 
+    /// optional argument to turn off soroban rpc
+    #[arg(short = 'r', long)]
+    pub disable_soroban_rpc: bool,
+
     // optional arguments to pass to the docker run command
     #[arg(last = true, id = "DOCKER_RUN_ARGS")]
     pub slop: Vec<String>,
@@ -46,6 +50,40 @@ impl Cmd {
         run_docker_command(&docker_command);
         Ok(())
     }
+}
+
+fn run_docker_command(docker_command: &str) {
+    println!("Running docker command: `{docker_command}`");
+    let mut cmd = Command::new("sh")
+        .args(["-c", &docker_command])
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .unwrap();
+
+    let status = cmd.wait();
+    if status.is_err() {
+        println!("Exited with status {status:?}");
+    }
+}
+
+fn build_docker_command(cmd: &Cmd) -> String {
+    let image = get_image_name(cmd);
+    let container_name = get_container_name(cmd);
+    let port_mapping = get_port_mapping(cmd);
+
+    let docker_command =
+        format!(
+        "docker run --rm {slop} {port} {container_name} {image} --{network} {enable_soroban_rpc}",
+        port = format_args!("-p {port_mapping}"),
+        container_name = format_args!("--name {container_name}"),
+        image = image,
+        network = cmd.network,
+        slop = cmd.slop.join(" "),
+        enable_soroban_rpc = if cmd.disable_soroban_rpc { "" } else { "--enable-soroban-rpc" },
+    );
+
+    docker_command
 }
 
 fn get_image_name(cmd: &Cmd) -> String {
@@ -66,44 +104,18 @@ fn get_image_name(cmd: &Cmd) -> String {
     format!("{DOCKER_IMAGE}:{image_tag}")
 }
 
-fn build_docker_command(cmd: &Cmd) -> String {
-    let image = get_image_name(cmd);
-
-    let container_name = if cmd.slop.contains(&"--name".to_string()) {
+fn get_container_name(cmd: &Cmd) -> String {
+    if cmd.slop.contains(&"--name".to_string()) {
         cmd.slop[cmd.slop.iter().position(|x| x == "--name").unwrap() + 1].clone()
     } else {
         CONTAINER_NAME.to_string()
-    };
+    }
+}
 
-    let port = if cmd.slop.contains(&"-p".to_string()) {
+fn get_port_mapping(cmd: &Cmd) -> String {
+    if cmd.slop.contains(&"-p".to_string()) {
         cmd.slop[cmd.slop.iter().position(|x| x == "-p").unwrap() + 1].clone()
     } else {
         format!("{FROM_PORT}:{TO_PORT}")
-    };
-
-    let docker_command = format!(
-        "docker run --rm {slop} {port} {container_name} {image} --{network} --enable-soroban-rpc",
-        port = format_args!("-p {port}"),
-        container_name = format_args!("--name {container_name}"),
-        image = image,
-        network = cmd.network,
-        slop = cmd.slop.join(" ")
-    );
-
-    docker_command
-}
-
-fn run_docker_command(docker_command: &str) {
-    println!("Running docker command: `{docker_command}`");
-    let mut cmd = Command::new("sh")
-        .args(["-c", &docker_command])
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .unwrap();
-
-    let status = cmd.wait();
-    if status.is_err() {
-        println!("Exited with status {status:?}");
     }
 }
