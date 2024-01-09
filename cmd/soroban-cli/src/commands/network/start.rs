@@ -14,10 +14,6 @@ pub struct Cmd {
     /// Network to start, e.g. local, testnet, futurenet
     pub network: String,
 
-    /// optional argument for docker image
-    #[arg(short = 'i', long, default_value=DOCKER_IMAGE)]
-    pub docker_image: String,
-
     /// optional argument for docker tag
     #[arg(short = 't', long, default_value=DOCKER_TAG)]
     pub docker_tag: String,
@@ -46,7 +42,7 @@ fn build_docker_command(cmd: &Cmd) -> String {
         "futurenet" => "soroban-dev",
         _ => "latest",
     };
-    let image = format!("{}:{}", cmd.docker_image, image_tag);
+    let image = format!("{}:{}", DOCKER_IMAGE, image_tag);
 
     let container_name = if cmd.slop.contains(&"--name".to_string()) {
         cmd.slop[cmd.slop.iter().position(|x| x == "--name").unwrap() + 1].clone()
