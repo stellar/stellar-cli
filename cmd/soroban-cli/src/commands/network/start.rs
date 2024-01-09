@@ -16,8 +16,8 @@ const DOCKER_IMAGE: &str = "stellar/quickstart";
 /// --protocol-version (only for local network)
 /// --limits (only for local network)
 
-/// DOCKER_RUN_ARGS: These are arguments to be passed to the `docker run` command itself, and should be passed in after the slop `--`. Some common options are:
-/// -p <FROM_PORT>:<TO_PORT> - this maps the port from the container to the host machine. By default, the port is 8000.
+/// `DOCKER_RUN_ARGS`: These are arguments to be passed to the `docker run` command itself, and should be passed in after the slop `--`. Some common options are:
+/// -p <`FROM_PORT`>:<`TO_PORT`> - this maps the port from the container to the host machine. By default, the port is 8000.
 /// -d - this runs the container in detached mode, so that it runs in the background
 
 // By default, without any optional arguments, the following docker command will run:
@@ -51,24 +51,19 @@ impl Cmd {
 fn get_image_name(cmd: &Cmd) -> String {
     // this can be overriden with the `-t` flag
     let mut image_tag = match cmd.network.as_str() {
-        "local" => "latest",
-        "pubnet" => "latest",
         "testnet" => "testing",
         "futurenet" => "soroban-dev",
-        _ => "latest",
+        _ => "latest", // default to latest for local and pubnet
     };
 
     if cmd.image_tag_override.is_some() {
         let override_tag = cmd.image_tag_override.as_ref().unwrap();
-        println!(
-            "Overriding docker image tag to use '{}' instead of '{}'",
-            override_tag, image_tag
-        );
+        println!("Overriding docker image tag to use '{override_tag}' instead of '{image_tag}'");
 
         image_tag = override_tag;
     }
 
-    format!("{}:{}", DOCKER_IMAGE, image_tag)
+    format!("{DOCKER_IMAGE}:{image_tag}")
 }
 
 fn build_docker_command(cmd: &Cmd) -> String {
@@ -83,13 +78,13 @@ fn build_docker_command(cmd: &Cmd) -> String {
     let port = if cmd.slop.contains(&"-p".to_string()) {
         cmd.slop[cmd.slop.iter().position(|x| x == "-p").unwrap() + 1].clone()
     } else {
-        format!("{}:{}", FROM_PORT, TO_PORT)
+        format!("{FROM_PORT}:{TO_PORT}")
     };
 
     let docker_command = format!(
         "docker run --rm {slop} {port} {container_name} {image} --{network} --enable-soroban-rpc",
-        port = format!("-p {port}"),
-        container_name = format!("--name {container_name}"),
+        port = format_args!("-p {port}"),
+        container_name = format_args!("--name {container_name}"),
         image = image,
         network = cmd.network,
         slop = cmd.slop.join(" ")
