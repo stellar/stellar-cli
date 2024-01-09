@@ -14,10 +14,6 @@ pub struct Cmd {
     /// Network to start, e.g. local, testnet, futurenet
     pub network: String,
 
-    /// optional argument to customize container name
-    #[arg(short, long, default_value=CONTAINER_NAME)]
-    pub container_name: String,
-
     /// optional argument for docker image
     #[arg(short = 'i', long, default_value=DOCKER_IMAGE)]
     pub docker_image: String,
@@ -26,9 +22,9 @@ pub struct Cmd {
     #[arg(short = 't', long, default_value=DOCKER_TAG)]
     pub docker_tag: String,
 
-    /// optional argument to run docker process in detached mode
-    #[arg(short = 'd', long)]
-    pub detached: bool,
+    // optional arguments to pass to docker command
+    #[arg(last = true, id = "DOCKER_COMMAND_ARGS")]
+    pub slop: Vec<String>,
 }
 
 impl Cmd {
@@ -37,7 +33,7 @@ impl Cmd {
 
         let docker_command = build_docker_command(self);
 
-        run_docker_command(&docker_command, self.detached);
+        run_docker_command(&docker_command);
         Ok(())
     }
 }
@@ -50,25 +46,34 @@ fn build_docker_command(cmd: &Cmd) -> String {
         "futurenet" => "soroban-dev",
         _ => "latest",
     };
-    let image_name = format!("{}:{}", cmd.docker_image, image_tag);
+    let image = format!("{}:{}", cmd.docker_image, image_tag);
 
-    let docker_command = format!("docker run --rm {detached} -p \"{from_port}:{to_port}\" --name {container_name} {image_name} --{network} --enable-soroban-rpc",
-      detached = if cmd.detached { "-d" } else { "" },
-      from_port=FROM_PORT,
-      to_port=TO_PORT,
-      container_name=cmd.container_name,
-      image_name=image_name,
-      network=cmd.network
+    let container_name = if cmd.slop.contains(&"--name".to_string()) {
+        cmd.slop[cmd.slop.iter().position(|x| x == "--name").unwrap() + 1].clone()
+    } else {
+        CONTAINER_NAME.to_string()
+    };
+
+    let port = if cmd.slop.contains(&"-p".to_string()) {
+        cmd.slop[cmd.slop.iter().position(|x| x == "-p").unwrap() + 1].clone()
+    } else {
+        format!("{}:{}", FROM_PORT, TO_PORT)
+    };
+
+    let docker_command = format!(
+        "docker run --rm {slop} {port} {container_name} {image} --{network} --enable-soroban-rpc",
+        port = format!("-p {port}"),
+        container_name = format!("--name {container_name}"),
+        image = image,
+        network = cmd.network,
+        slop = cmd.slop.join(" ")
     );
 
     docker_command
 }
 
-fn run_docker_command(docker_command: &str, detached: bool) {
+fn run_docker_command(docker_command: &str) {
     println!("Running docker command: `{docker_command}`");
-    if detached {
-        println!("Running docker container id: ");
-    }
     let mut cmd = Command::new("sh")
         .args(["-c", &docker_command])
         .stdout(Stdio::inherit())
