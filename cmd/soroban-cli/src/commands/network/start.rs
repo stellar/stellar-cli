@@ -43,7 +43,15 @@ impl Cmd {
 }
 
 fn build_docker_command(cmd: &Cmd) -> String {
-    let image_name = format!("{}:{}", cmd.docker_image, cmd.docker_tag);
+    let image_tag = match cmd.network.as_str() {
+        "local" => "latest",
+        "pubnet" => "latest",
+        "testnet" => "testing",
+        "futurenet" => "soroban-dev",
+        _ => "latest",
+    };
+    let image_name = format!("{}:{}", cmd.docker_image, image_tag);
+
     let docker_command = format!("docker run --rm {detached} -p \"{from_port}:{to_port}\" --name {container_name} {image_name} --{network} --enable-soroban-rpc",
       detached = if cmd.detached { "-d" } else { "" },
       from_port=FROM_PORT,
