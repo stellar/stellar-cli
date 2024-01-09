@@ -7,16 +7,15 @@ const FROM_PORT: i32 = 8000;
 const TO_PORT: i32 = 8000;
 const CONTAINER_NAME: &str = "stellar";
 const DOCKER_IMAGE: &str = "stellar/quickstart";
-const DOCKER_TAG: &str = "testing";
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
     /// Network to start, e.g. local, testnet, futurenet
     pub network: String,
 
-    /// optional argument for docker tag
-    #[arg(short = 't', long, default_value=DOCKER_TAG)]
-    pub docker_tag: String,
+    /// optional argument to override the default docker image tag for the given network
+    #[arg(short = 't', long)]
+    pub image_tag_override: Option<String>,
 
     // optional arguments to pass to docker command
     #[arg(last = true, id = "DOCKER_COMMAND_ARGS")]
@@ -42,6 +41,17 @@ fn build_docker_command(cmd: &Cmd) -> String {
         "futurenet" => "soroban-dev",
         _ => "latest",
     };
+
+    if cmd.image_tag_override.is_some() {
+        let override_tag = cmd.image_tag_override.as_ref().unwrap();
+        println!(
+            "Overriding docker image tag to use '{}' instead of '{}'",
+            override_tag, image_tag
+        );
+
+        image_tag = override_tag;
+    }
+
     let image = format!("{}:{}", DOCKER_IMAGE, image_tag);
 
     let container_name = if cmd.slop.contains(&"--name".to_string()) {
