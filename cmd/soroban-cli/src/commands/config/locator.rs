@@ -69,6 +69,7 @@ pub struct Args {
     #[arg(long)]
     pub global: bool,
 
+    /// Location of config directory, default is "."
     #[arg(long, help_heading = "TESTING_OPTIONS")]
     pub config_dir: Option<PathBuf>,
 }
