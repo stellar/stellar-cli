@@ -72,7 +72,6 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
-            // can this be changed to cmd like the others?
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Start(cmd) => cmd.run()?,
