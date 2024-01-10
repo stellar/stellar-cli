@@ -36,6 +36,14 @@ pub struct Cmd {
     #[arg(short = 'r', long)]
     pub disable_soroban_rpc: bool,
 
+    // option argument to specify the protocol version for the local network only
+    #[arg(short = 'p', long)]
+    pub protocol_version: Option<String>,
+
+    // option argument to specify the limits for the local network only
+    #[arg(short = 'l', long)]
+    pub limit: Option<String>,
+
     // optional arguments to pass to the docker run command
     #[arg(last = true, id = "DOCKER_RUN_ARGS")]
     pub slop: Vec<String>,
@@ -71,16 +79,20 @@ fn build_docker_command(cmd: &Cmd) -> String {
     let image = get_image_name(cmd);
     let container_name = get_container_name(cmd);
     let port_mapping = get_port_mapping(cmd);
+    let protocol_version = get_protocol_version_arg(cmd);
+    let limits = get_limits_arg(cmd);
 
     let docker_command =
         format!(
-        "docker run --rm {slop} {port} {container_name} {image} --{network} {enable_soroban_rpc}",
+        "docker run --rm {slop} {port} {container_name} {image} --{network} {enable_soroban_rpc} {protocol_version} {limits}",
         port = format_args!("-p {port_mapping}"),
         container_name = format_args!("--name {container_name}"),
         image = image,
         network = cmd.network,
         slop = cmd.slop.join(" "),
         enable_soroban_rpc = if cmd.disable_soroban_rpc { "" } else { "--enable-soroban-rpc" },
+        protocol_version = protocol_version,
+        limits = limits,
     );
 
     docker_command
@@ -117,5 +129,23 @@ fn get_port_mapping(cmd: &Cmd) -> String {
         cmd.slop[cmd.slop.iter().position(|x| x == "-p").unwrap() + 1].clone()
     } else {
         format!("{FROM_PORT}:{TO_PORT}")
+    }
+}
+
+fn get_protocol_version_arg(cmd: &Cmd) -> String {
+    if cmd.network == "local" && cmd.protocol_version.is_some() {
+        let version = cmd.protocol_version.as_ref().unwrap();
+        format!("--protocol-version {version}")
+    } else {
+        "".to_string()
+    }
+}
+
+fn get_limits_arg(cmd: &Cmd) -> String {
+    if cmd.network == "local" && cmd.limit.is_some() {
+        let limit = cmd.limit.as_ref().unwrap();
+        format!("--limits {limit}")
+    } else {
+        "".to_string()
     }
 }
