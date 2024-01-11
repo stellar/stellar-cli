@@ -1,8 +1,10 @@
+use core::fmt;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::{fs, io};
 
 use clap::Parser;
+use itertools::Itertools;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
@@ -33,31 +35,31 @@ pub enum ExampleContract {
     None,
 }
 
-impl ToString for ExampleContract {
-    fn to_string(&self) -> String {
+impl fmt::Display for ExampleContract {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ExampleContract::Account => String::from("account"),
-            ExampleContract::Alloc => String::from("alloc"),
-            ExampleContract::AtomicMultiswap => String::from("atomic_multiswap"),
-            ExampleContract::AtomicSwap => String::from("atomic_swap"),
-            ExampleContract::Auth => String::from("auth"),
-            ExampleContract::CrossContract => String::from("cross_contract"),
-            ExampleContract::CustomTypes => String::from("custom_types"),
-            ExampleContract::DeepContractAuth => String::from("deep_contract_auth"),
-            ExampleContract::Deployer => String::from("deployer"),
-            ExampleContract::Errors => String::from("errors"),
-            ExampleContract::Events => String::from("events"),
-            ExampleContract::Fuzzing => String::from("fuzzing"),
-            ExampleContract::HelloWorld => String::from("hello_world"),
-            ExampleContract::Increment => String::from("increment"),
-            ExampleContract::LiquidityPool => String::from("liquidity_pool"),
-            ExampleContract::Logging => String::from("logging"),
-            ExampleContract::SimpleAccount => String::from("simple_account"),
-            ExampleContract::SingleOffer => String::from("single_offer"),
-            ExampleContract::Timelock => String::from("timelock"),
-            ExampleContract::Token => String::from("token"),
-            ExampleContract::UpgradeableContract => String::from("upgradeable_contract"),
-            ExampleContract::None => String::from("none"),
+            ExampleContract::Account => write!(f, "account"),
+            ExampleContract::Alloc => write!(f, "alloc"),
+            ExampleContract::AtomicMultiswap => write!(f, "atomic_multiswap"),
+            ExampleContract::AtomicSwap => write!(f, "atomic_swap"),
+            ExampleContract::Auth => write!(f, "auth"),
+            ExampleContract::CrossContract => write!(f, "cross_contract"),
+            ExampleContract::CustomTypes => write!(f, "custom_types"),
+            ExampleContract::DeepContractAuth => write!(f, "deep_contract_auth"),
+            ExampleContract::Deployer => write!(f, "deployer"),
+            ExampleContract::Errors => write!(f, "errors"),
+            ExampleContract::Events => write!(f, "events"),
+            ExampleContract::Fuzzing => write!(f, "fuzzing"),
+            ExampleContract::HelloWorld => write!(f, "hello_world"),
+            ExampleContract::Increment => write!(f, "increment"),
+            ExampleContract::LiquidityPool => write!(f, "liquidity_pool"),
+            ExampleContract::Logging => write!(f, "logging"),
+            ExampleContract::SimpleAccount => write!(f, "simple_account"),
+            ExampleContract::SingleOffer => write!(f, "single_offer"),
+            ExampleContract::Timelock => write!(f, "timelock"),
+            ExampleContract::Token => write!(f, "token"),
+            ExampleContract::UpgradeableContract => write!(f, "upgradeable_contract"),
+            ExampleContract::None => write!(f, "none"),
         }
     }
 }
@@ -124,7 +126,10 @@ fn init(
 
     // if there are with-contract flags, include the example contracts
     if include_example_contracts(with_examples) {
-        println!("Including example contracts: {with_examples:?}");
+        println!(
+            "Including example contracts: {}",
+            with_examples.iter().join(", ")
+        );
 
         // create an examples temp dir in the temp dir
         let examples_dir = tempfile::tempdir()?;
