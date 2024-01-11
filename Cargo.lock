@@ -2533,9 +2533,9 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "soroban-spec-json",
- "soroban-spec-rust 20.0.3",
+ "soroban-spec-rust",
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-strkey 0.0.7",
@@ -2669,21 +2669,10 @@ dependencies = [
  "rustc_version",
  "sha2 0.10.8",
  "soroban-env-common",
- "soroban-spec 20.1.0",
- "soroban-spec-rust 20.1.0",
+ "soroban-spec",
+ "soroban-spec-rust",
  "stellar-xdr",
  "syn 2.0.39",
-]
-
-[[package]]
-name = "soroban-spec"
-version = "20.0.3"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=93b09e42e4efa841cbd034c0bff0dc362765086c#93b09e42e4efa841cbd034c0bff0dc362765086c"
-dependencies = [
- "base64 0.13.1",
- "stellar-xdr",
- "thiserror",
- "wasmparser 0.88.0",
 ]
 
 [[package]]
@@ -2706,23 +2695,8 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "stellar-xdr",
- "thiserror",
-]
-
-[[package]]
-name = "soroban-spec-rust"
-version = "20.0.3"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=93b09e42e4efa841cbd034c0bff0dc362765086c#93b09e42e4efa841cbd034c0bff0dc362765086c"
-dependencies = [
- "prettyplease",
- "proc-macro2",
- "quote",
- "sha2 0.10.8",
- "soroban-spec 20.0.3",
- "stellar-xdr",
- "syn 2.0.39",
  "thiserror",
 ]
 
@@ -2735,7 +2709,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "soroban-spec 20.1.0",
+ "soroban-spec",
  "stellar-xdr",
  "syn 2.0.39",
  "thiserror",
@@ -2750,7 +2724,7 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "serde_json",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "stellar-strkey 0.0.7",
  "stellar-xdr",
  "thiserror",
@@ -2773,7 +2747,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "stellar-xdr",
  "temp-dir",
  "thiserror",
@@ -2795,7 +2769,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "soroban-spec-tools",
  "stellar-strkey 0.0.7",
  "thiserror",
