@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/stellar/go/support/errors"
+)
 
 type LogFormat int
 
@@ -47,13 +50,13 @@ func (f *LogFormat) UnmarshalTOML(i interface{}) error {
 	}
 }
 
-func (f LogFormat) String() string {
+func (f LogFormat) String() (string, error) {
 	switch f {
 	case LogFormatText:
-		return "text"
+		return "text", nil
 	case LogFormatJSON:
-		return "json"
+		return "json", nil
 	default:
-		panic(fmt.Sprintf("unknown log format: %d", f))
+		return "", errors.Errorf("unknown log format: %d", f)
 	}
 }
