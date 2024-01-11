@@ -2,6 +2,7 @@ package ledgerbucketwindow
 
 import (
 	"fmt"
+	"github.com/stellar/go/support/errors"
 )
 
 // LedgerBucketWindow is a sequence of buckets associated to a ledger window.
@@ -66,11 +67,11 @@ func (w *LedgerBucketWindow[T]) Len() uint32 {
 }
 
 // Get obtains a bucket from the window
-func (w *LedgerBucketWindow[T]) Get(i uint32) *LedgerBucket[T] {
+func (w *LedgerBucketWindow[T]) Get(i uint32) (*LedgerBucket[T], error) {
 	length := w.Len()
 	if i >= length {
-		panic(fmt.Errorf("index out of range [%d] with length %d", i, length))
+		return nil, errors.Errorf("index out of range [%d] with length %d", i, length)
 	}
 	index := (w.start + i) % length
-	return &w.buckets[index]
+	return &w.buckets[index], nil
 }

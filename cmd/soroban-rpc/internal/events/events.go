@@ -114,10 +114,17 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor,
 	}
 
 	firstLedgerInRange := eventRange.Start.Ledger
-	firstLedgerInWindow := m.eventsByLedger.Get(0).LedgerSeq
+	firstBucket, err := m.eventsByLedger.Get(0)
+	if err != nil {
+		return 0, err
+	}
+	firstLedgerInWindow := firstBucket.LedgerSeq
 	lastLedgerInWindow := firstLedgerInWindow + (m.eventsByLedger.Len() - 1)
 	for i := firstLedgerInRange - firstLedgerInWindow; i < m.eventsByLedger.Len(); i++ {
-		bucket := m.eventsByLedger.Get(i)
+		bucket, err := m.eventsByLedger.Get(i)
+		if err != nil {
+			return 0, err
+		}
 		events := bucket.BucketContent
 		if bucket.LedgerSeq == firstLedgerInRange {
 			// we need to seek for the beginning of the events in the first bucket in the range
@@ -146,7 +153,10 @@ func (m *MemoryStore) validateRange(eventRange *Range) error {
 	if m.eventsByLedger.Len() == 0 {
 		return errors.New("event store is empty")
 	}
-	firstBucket := m.eventsByLedger.Get(0)
+	firstBucket, err := m.eventsByLedger.Get(0)
+	if err != nil {
+		return err
+	}
 	min := Cursor{Ledger: firstBucket.LedgerSeq}
 	if eventRange.Start.Cmp(min) < 0 {
 		if eventRange.ClampStart {
