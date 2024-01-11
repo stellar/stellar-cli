@@ -7,25 +7,25 @@ use crate::Pwd;
 
 use self::{network::Network, secret::Secret};
 
-pub mod identity;
+use super::{keys, network};
+
 pub mod locator;
-pub mod network;
 pub mod secret;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Configure different identities to sign transactions.
-    #[command(subcommand)]
-    Identity(identity::Cmd),
-    /// Configure different networks
+    /// Configure different networks. Depraecated, use `soroban network` instead.
     #[command(subcommand)]
     Network(network::Cmd),
+    /// Identity management. Deprecated, use `soroban keys` instead.
+    #[command(subcommand)]
+    Identity(keys::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Identity(#[from] identity::Error),
+    Identity(#[from] keys::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
@@ -52,7 +52,7 @@ pub struct Args {
 
     #[arg(long, visible_alias = "source", env = "SOROBAN_ACCOUNT")]
     /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-    pub source_account: Option<String>,
+    pub source_account: String,
 
     #[arg(long)]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -64,12 +64,7 @@ pub struct Args {
 
 impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = if let Some(source_account) = &self.source_account {
-            self.account(source_account)?
-        } else {
-            secret::Secret::test_seed_phrase()?
-        };
-
+        let key = self.account(&self.source_account)?;
         Ok(key.key_pair(self.hd_path)?)
     }
 

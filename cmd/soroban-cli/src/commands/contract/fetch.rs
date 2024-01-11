@@ -20,7 +20,7 @@ use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
 use super::super::config::{self, locator};
-use crate::commands::config::network::{self, Network};
+use crate::commands::network::{self, Network};
 use crate::{
     rpc::{self, Client},
     utils, Pwd,

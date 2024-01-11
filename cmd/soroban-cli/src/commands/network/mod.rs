@@ -10,7 +10,7 @@ use crate::{
     rpc::{self, Client},
 };
 
-use super::locator;
+use super::config::locator;
 
 pub mod add;
 pub mod ls;
@@ -40,7 +40,7 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
 
-    #[error("network arg or rpc url  and network passphrase are required if using the network")]
+    #[error("network arg or rpc url and network passphrase are required if using the network")]
     Network,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
@@ -74,6 +74,7 @@ pub struct Args {
     #[arg(
         long = "rpc-url",
         requires = "network_passphrase",
+        required_unless_present = "network",
         env = "SOROBAN_RPC_URL",
         help_heading = HEADING_RPC,
     )]
@@ -82,6 +83,7 @@ pub struct Args {
     #[arg(
         long = "network-passphrase",
         requires = "rpc_url",
+        required_unless_present = "network",
         env = "SOROBAN_NETWORK_PASSPHRASE",
         help_heading = HEADING_RPC,
     )]
@@ -89,8 +91,7 @@ pub struct Args {
     /// Name of network to use from config
     #[arg(
         long,
-        conflicts_with = "network_passphrase",
-        conflicts_with = "rpc_url",
+        required_unless_present = "rpc_url",
         env = "SOROBAN_NETWORK",
         help_heading = HEADING_RPC,
     )]
@@ -100,8 +101,11 @@ pub struct Args {
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
         if let Some(name) = self.network.as_deref() {
-            Ok(locator.read_network(name)?)
-        } else if let (Some(rpc_url), Some(network_passphrase)) =
+            if let Ok(network) = locator.read_network(name) {
+                return Ok(network);
+            }
+        }
+        if let (Some(rpc_url), Some(network_passphrase)) =
             (self.rpc_url.clone(), self.network_passphrase.clone())
         {
             Ok(Network {
@@ -111,10 +115,6 @@ impl Args {
         } else {
             Err(Error::Network)
         }
-    }
-
-    pub fn is_no_network(&self) -> bool {
-        self.network.is_none() && self.network_passphrase.is_none() && self.rpc_url.is_none()
     }
 }
 

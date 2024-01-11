@@ -51,7 +51,7 @@ func TestCLIWrapCustom(t *testing.T) {
 	it := NewCLITest(t)
 	assetCode := "deadbeef"
 	issuerAccount := getCLIDefaultAccount(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=%s:%s", assetCode, issuerAccount))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract asset deploy --asset=%s:%s", assetCode, issuerAccount))
 	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, issuerAccount)))
 	asset := txnbuild.CreditAsset{
 		Code:   assetCode,
@@ -65,7 +65,7 @@ func TestCLIWrapCustom(t *testing.T) {
 func TestCLIWrapNative(t *testing.T) {
 	NewCLITest(t)
 	testAccount := getCLIDefaultAccount(t)
-	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("lab token wrap --asset=native:%s", testAccount))
+	strkeyContractID := runSuccessfulCLICmd(t, fmt.Sprintf("contract asset deploy --asset=native:%s", testAccount))
 	require.Equal(t, "CAMTHSPKXZJIRTUXQP5QWJIFH3XIDMKLFAWVQOFOXPTKAW5GKV37ZC4N", strkeyContractID)
 	require.Equal(t, "true", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- authorized --id=%s", strkeyContractID, testAccount)))
 	require.Equal(t, "\"9223372036854775807\"", runSuccessfulCLICmd(t, fmt.Sprintf("contract invoke --id=%s -- balance --id %s", strkeyContractID, testAccount)))
@@ -285,12 +285,14 @@ func runCLICommand(t *testing.T, cmd string) *icmd.Result {
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("SOROBAN_RPC_URL=http://localhost:%d/", sorobanRPCPort),
 		fmt.Sprintf("SOROBAN_NETWORK_PASSPHRASE=%s", StandaloneNetworkPassphrase),
+		"SOROBAN_ACCOUNT=test",
 	)
 	return icmd.RunCmd(c)
 }
 
 func getCLIDefaultAccount(t *testing.T) string {
-	return runSuccessfulCLICmd(t, "config identity address --hd-path 0")
+	runSuccessfulCLICmd(t, "keys generate -d test --no-fund")
+	return "GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4"
 }
 
 func NewCLITest(t *testing.T) *Test {

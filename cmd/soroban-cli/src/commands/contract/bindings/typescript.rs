@@ -6,11 +6,9 @@ use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 use crate::wasm;
 use crate::{
     commands::{
-        config::{
-            locator,
-            network::{self, Network},
-        },
+        config::locator,
         contract::{self, fetch},
+        network::{self, Network},
     },
     utils::contract_spec::{self, ContractSpec},
 };
