@@ -4,14 +4,10 @@ use clap::{command, Parser};
 use soroban_spec_tools::contract as contract_spec;
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 
-use crate::wasm;
-use crate::{
-    commands::{
-        config::locator,
-        contract::{self, fetch},
-        network::{self, Network},
-    },
+use crate::commands::{
+    config::locator,
     contract::{self, fetch},
+    network::{self, Network},
 };
 use crate::wasm;
 

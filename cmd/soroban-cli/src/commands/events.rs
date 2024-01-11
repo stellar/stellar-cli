@@ -1,7 +1,7 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use super::config::{locator, network};
+use super::{config::locator, network};
 use crate::utils;
 use soroban_env_host::xdr::{self, Limits, ReadXdr};
 use soroban_rpc as rpc;

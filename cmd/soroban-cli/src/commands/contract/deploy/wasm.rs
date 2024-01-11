@@ -17,9 +17,10 @@ use soroban_env_host::{
 use crate::commands::contract::{self, id::wasm::get_contract_id};
 use crate::{
     commands::{config, contract::install, HEADING_RPC},
-    rpc::{self, Client},
     utils, wasm,
 };
+use rpc::Client;
+use soroban_rpc as rpc;
 
 #[derive(Parser, Debug, Clone)]
 #[command(group(
