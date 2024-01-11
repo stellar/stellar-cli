@@ -15,7 +15,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Contract = exports.Errors = exports.RoyalCard = exports.networks = void 0;
-const stellar_sdk_1 = require("stellar-sdk");
+const stellar_sdk_1 = require("@stellar/stellar-sdk");
 const buffer_1 = require("buffer");
 const assembled_tx_js_1 = require("./assembled-tx.js");
 __exportStar(require("./assembled-tx.js"), exports);

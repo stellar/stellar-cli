@@ -101,7 +101,7 @@ lint:
 	golangci-lint run ./...
 
 typescript-bindings-fixtures: build-test-wasms
-	cargo run -- contract bindings typescript \
+	cargo run --jobs 2 -- contract bindings typescript \
 					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
 					--contract-id CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK \
 					--network futurenet \

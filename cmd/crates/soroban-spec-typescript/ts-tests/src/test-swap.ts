@@ -1,5 +1,5 @@
 import test from "ava"
-import { SorobanRpc, xdr } from 'stellar-sdk'
+import { SorobanRpc, xdr } from '@stellar/stellar-sdk'
 import { wallet, rpcUrl, alice, bob, networkPassphrase, root, Wallet } from "./util.js"
 import { Contract as Token } from "token"
 import { Contract as Swap, networks, NeedsMoreSignaturesError } from "test-swap"

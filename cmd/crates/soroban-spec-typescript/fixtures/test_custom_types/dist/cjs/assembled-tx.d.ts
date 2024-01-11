@@ -1,5 +1,5 @@
-import { Account, Address, Operation, SorobanRpc, xdr } from "stellar-sdk";
-import type { Memo, MemoType, Transaction } from "stellar-sdk";
+import { Account, Address, Operation, SorobanRpc, xdr } from "@stellar/stellar-sdk";
+import type { Memo, MemoType, Transaction } from "@stellar/stellar-sdk";
 import type { ClassOptions, MethodOptions, Wallet, XDR_BASE64 } from "./method-options.js";
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
 export declare class ExpiredStateError extends Error {

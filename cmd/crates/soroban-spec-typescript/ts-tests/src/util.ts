@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { Keypair, TransactionBuilder, hash } from "stellar-sdk";
+import { Keypair, TransactionBuilder, hash } from "@stellar/stellar-sdk";
 import { Address } from 'test-custom-types'
 
 const rootKeypair = Keypair.fromSecret(spawnSync("./soroban", ["config", "identity", "show"], { shell: true, encoding: "utf8" }).stdout.trim());
