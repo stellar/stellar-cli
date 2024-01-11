@@ -69,7 +69,7 @@ pub struct Cmd {
 
     /// optional flag to specify soroban example contracts to include
     #[arg(short, long, num_args = 1..=20, default_value = "none")]
-    pub with_contract: Vec<ExampleContract>,
+    pub with_example: Vec<ExampleContract>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -101,7 +101,7 @@ impl Cmd {
         println!("Creating a new soroban project at {}", self.project_path);
         let project_path = Path::new(&self.project_path);
 
-        init(project_path, TEMPLATE_URL, &self.with_contract)?;
+        init(project_path, TEMPLATE_URL, &self.with_example)?;
 
         Ok(())
     }
@@ -110,7 +110,7 @@ impl Cmd {
 fn init(
     project_path: &Path,
     template_url: &str,
-    with_contracts: &[ExampleContract],
+    with_examples: &[ExampleContract],
 ) -> Result<(), Error> {
     // create a template temp dir to clone the template repo into
     let template_dir = tempfile::tempdir()?;
@@ -123,8 +123,8 @@ fn init(
     copy_contents(template_dir.path(), project_path)?;
 
     // if there are with-contract flags, include the example contracts
-    if include_example_contracts(with_contracts) {
-        println!("Including example contracts: {with_contracts:?}");
+    if include_example_contracts(with_examples) {
+        println!("Including example contracts: {with_examples:?}");
 
         // create an examples temp dir in the temp dir
         let examples_dir = tempfile::tempdir()?;
@@ -133,7 +133,7 @@ fn init(
         clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
 
         // copy the example contracts into the project
-        copy_example_contracts(examples_dir.path(), project_path, with_contracts)?;
+        copy_example_contracts(examples_dir.path(), project_path, with_examples)?;
     }
 
     Ok(())
@@ -242,8 +242,8 @@ mod tests {
     fn test_init() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_contracts = vec![ExampleContract::None];
-        init(project_dir.as_path(), TEMPLATE_URL, &with_contracts).unwrap();
+        let with_examples = vec![ExampleContract::None];
+        init(project_dir.as_path(), TEMPLATE_URL, &with_examples).unwrap();
 
         assert!(project_dir.as_path().join("README.md").exists());
         assert!(project_dir.as_path().join("contracts").exists());
@@ -262,8 +262,8 @@ mod tests {
     fn test_init_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_contracts = vec![ExampleContract::Alloc];
-        init(project_dir.as_path(), TEMPLATE_URL, &with_contracts).unwrap();
+        let with_examples = vec![ExampleContract::Alloc];
+        init(project_dir.as_path(), TEMPLATE_URL, &with_examples).unwrap();
 
         assert!(project_dir.as_path().join("README.md").exists());
         assert!(project_dir
@@ -310,8 +310,8 @@ mod tests {
     fn test_init_including_multiple_example_contracts() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_contracts = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
-        init(project_dir.as_path(), TEMPLATE_URL, &with_contracts).unwrap();
+        let with_examples = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
+        init(project_dir.as_path(), TEMPLATE_URL, &with_examples).unwrap();
 
         assert!(project_dir
             .as_path()
