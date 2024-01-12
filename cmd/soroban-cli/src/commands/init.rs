@@ -4,7 +4,6 @@ use std::path::Path;
 use std::{fs, io};
 
 use clap::Parser;
-use itertools::Itertools;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
@@ -100,7 +99,7 @@ const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.
 impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) -> Result<(), Error> {
-        println!("Creating a new soroban project at {}", self.project_path);
+        println!("ℹ️  Initializing project at {}", self.project_path);
         let project_path = Path::new(&self.project_path);
 
         init(project_path, TEMPLATE_URL, &self.with_example)?;
@@ -126,11 +125,6 @@ fn init(
 
     // if there are with-contract flags, include the example contracts
     if include_example_contracts(with_examples) {
-        println!(
-            "Including example contracts: {}",
-            with_examples.iter().join(", ")
-        );
-
         // create an examples temp dir in the temp dir
         let examples_dir = tempfile::tempdir()?;
 
@@ -151,6 +145,7 @@ fn copy_example_contracts(
 ) -> Result<(), Error> {
     let project_contracts_path = to.join("contracts");
     for contract in contracts {
+        println!("ℹ️  Initializing example contract: {}", contract);
         let contract_as_string = contract.to_string();
         let contract_path = Path::new(&contract_as_string);
         let from_contract_path = from.join(contract_path);
@@ -230,11 +225,28 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             std::fs::create_dir_all(&new_path)?;
             copy_contents(&path, &new_path)?;
         } else {
+            if file_exists(&new_path.to_string_lossy()) {
+                println!(
+                    "ℹ️  Skipped creating {} as it already exists",
+                    &new_path.to_string_lossy()
+                );
+                continue;
+            }
+
+            println!("➕  Writing {}", &new_path.to_string_lossy());
             std::fs::copy(&path, &new_path)?;
         }
     }
 
     Ok(())
+}
+
+fn file_exists(file_path: &str) -> bool {
+    if let Ok(metadata) = fs::metadata(file_path) {
+        metadata.is_file()
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]
