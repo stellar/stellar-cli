@@ -132,77 +132,6 @@ fn init(project_path: &Path, with_examples: &[ExampleContract]) -> Result<(), Er
     Ok(())
 }
 
-fn copy_example_contracts(
-    from: &Path,
-    to: &Path,
-    contracts: &[ExampleContract],
-) -> Result<(), Error> {
-    let project_contracts_path = to.join("contracts");
-    for contract in contracts {
-        println!("ℹ️  Initializing example contract: {}", contract);
-        let contract_as_string = contract.to_string();
-        let contract_path = Path::new(&contract_as_string);
-        let from_contract_path = from.join(contract_path);
-        let to_contract_path = project_contracts_path.join(contract_path);
-        std::fs::create_dir_all(&to_contract_path)?;
-
-        copy_contents(&from_contract_path, &to_contract_path)?;
-        edit_contract_cargo_file(&to_contract_path)?;
-    }
-
-    Ok(())
-}
-
-fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
-    let cargo_path = contract_path.join("Cargo.toml");
-    let cargo_toml_str = read_to_string(&cargo_path)?;
-    let mut doc = cargo_toml_str.parse::<Document>().unwrap();
-
-    let mut workspace_table = InlineTable::new();
-    workspace_table.insert("workspace", Value::Boolean(Formatted::new(true)));
-
-    doc["dependencies"]["soroban-sdk"] =
-        toml_edit::Item::Value(Value::InlineTable(workspace_table.clone()));
-    doc["dev_dependencies"]["soroban-sdk"] =
-        toml_edit::Item::Value(Value::InlineTable(workspace_table));
-
-    doc.remove("profile");
-
-    std::fs::write(&cargo_path, doc.to_string())?;
-
-    Ok(())
-}
-
-fn include_example_contracts(contracts: &[ExampleContract]) -> bool {
-    !(contracts.len() == 1 && contracts[0] == ExampleContract::None)
-}
-
-fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
-    let mut fetch = gix::clone::PrepareFetch::new(
-        from_url,
-        to_path,
-        gix::create::Kind::WithWorktree,
-        gix::create::Options {
-            destination_must_be_empty: false,
-            fs_capabilities: None,
-        },
-        gix::open::Options::isolated(),
-    )
-    .map_err(Box::new)?
-    .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(
-        NonZeroU32::new(1).unwrap(),
-    ));
-
-    let (mut prepare, _outcome) = fetch
-        .fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))
-        .map_err(Box::new)?;
-
-    let (_repo, _outcome) =
-        prepare.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
-
-    Ok(())
-}
-
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
     let contents_to_exclude_from_copy = [
         ".git",
@@ -248,6 +177,77 @@ fn file_exists(file_path: &str) -> bool {
     } else {
         false
     }
+}
+
+fn include_example_contracts(contracts: &[ExampleContract]) -> bool {
+    !(contracts.len() == 1 && contracts[0] == ExampleContract::None)
+}
+
+fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
+    let mut fetch = gix::clone::PrepareFetch::new(
+        from_url,
+        to_path,
+        gix::create::Kind::WithWorktree,
+        gix::create::Options {
+            destination_must_be_empty: false,
+            fs_capabilities: None,
+        },
+        gix::open::Options::isolated(),
+    )
+    .map_err(Box::new)?
+    .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(
+        NonZeroU32::new(1).unwrap(),
+    ));
+
+    let (mut prepare, _outcome) = fetch
+        .fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))
+        .map_err(Box::new)?;
+
+    let (_repo, _outcome) =
+        prepare.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
+
+    Ok(())
+}
+
+fn copy_example_contracts(
+    from: &Path,
+    to: &Path,
+    contracts: &[ExampleContract],
+) -> Result<(), Error> {
+    let project_contracts_path = to.join("contracts");
+    for contract in contracts {
+        println!("ℹ️  Initializing example contract: {}", contract);
+        let contract_as_string = contract.to_string();
+        let contract_path = Path::new(&contract_as_string);
+        let from_contract_path = from.join(contract_path);
+        let to_contract_path = project_contracts_path.join(contract_path);
+        std::fs::create_dir_all(&to_contract_path)?;
+
+        copy_contents(&from_contract_path, &to_contract_path)?;
+        edit_contract_cargo_file(&to_contract_path)?;
+    }
+
+    Ok(())
+}
+
+fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
+    let cargo_path = contract_path.join("Cargo.toml");
+    let cargo_toml_str = read_to_string(&cargo_path)?;
+    let mut doc = cargo_toml_str.parse::<Document>().unwrap();
+
+    let mut workspace_table = InlineTable::new();
+    workspace_table.insert("workspace", Value::Boolean(Formatted::new(true)));
+
+    doc["dependencies"]["soroban-sdk"] =
+        toml_edit::Item::Value(Value::InlineTable(workspace_table.clone()));
+    doc["dev_dependencies"]["soroban-sdk"] =
+        toml_edit::Item::Value(Value::InlineTable(workspace_table));
+
+    doc.remove("profile");
+
+    std::fs::write(&cargo_path, doc.to_string())?;
+
+    Ok(())
 }
 
 #[cfg(test)]
