@@ -18,10 +18,10 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub fn run(&self) -> Result<(), Error> {
         match &self {
-            Cmd::Asset(asset) => asset.run().await?,
-            Cmd::Wasm(wasm) => wasm.run().await?,
+            Cmd::Asset(asset) => asset.run()?,
+            Cmd::Wasm(wasm) => wasm.run()?,
         }
         Ok(())
     }

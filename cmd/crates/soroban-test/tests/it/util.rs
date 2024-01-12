@@ -15,7 +15,7 @@ pub enum SecretKind {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn add_identity(dir: &Path, name: &str, kind: SecretKind, data: &str) {
+pub fn add_key(dir: &Path, name: &str, kind: SecretKind, data: &str) {
     let secret = match kind {
         SecretKind::Seed => Secret::SeedPhrase {
             seed_phrase: data.to_string(),
@@ -32,7 +32,7 @@ pub fn add_identity(dir: &Path, name: &str, kind: SecretKind, data: &str) {
 
 pub fn add_test_id(dir: &Path) -> String {
     let name = "test_id";
-    add_identity(
+    add_key(
         dir,
         name,
         SecretKind::Key,
@@ -52,7 +52,17 @@ pub async fn invoke_custom(
     arg: &str,
     wasm: &Path,
 ) -> Result<String, contract::invoke::Error> {
-    let mut i: contract::invoke::Cmd = sandbox.cmd_arr(&["--id", id, "--", func, arg]);
+    let mut i: contract::invoke::Cmd = sandbox.cmd_arr(&[
+        "--id",
+        id,
+        "--network",
+        "futurenet",
+        "--source",
+        "default",
+        "--",
+        func,
+        arg,
+    ]);
     i.wasm = Some(wasm.to_path_buf());
     i.config.network.network = Some("futurenet".to_owned());
     i.invoke(&soroban_cli::commands::global::Args::default())

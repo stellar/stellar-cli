@@ -1907,7 +1907,7 @@ dependencies = [
 
 [[package]]
 name = "preflight"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "anyhow",
  "base64 0.21.5",
@@ -2492,7 +2492,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2533,9 +2533,9 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "soroban-spec-json",
- "soroban-spec-rust 20.0.3",
+ "soroban-spec-rust",
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-strkey 0.0.7",
@@ -2622,7 +2622,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "20.1.1"
+version = "20.2.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
@@ -2669,21 +2669,10 @@ dependencies = [
  "rustc_version",
  "sha2 0.10.8",
  "soroban-env-common",
- "soroban-spec 20.1.0",
- "soroban-spec-rust 20.1.0",
+ "soroban-spec",
+ "soroban-spec-rust",
  "stellar-xdr",
  "syn 2.0.39",
-]
-
-[[package]]
-name = "soroban-spec"
-version = "20.0.3"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=93b09e42e4efa841cbd034c0bff0dc362765086c#93b09e42e4efa841cbd034c0bff0dc362765086c"
-dependencies = [
- "base64 0.13.1",
- "stellar-xdr",
- "thiserror",
- "wasmparser 0.88.0",
 ]
 
 [[package]]
@@ -2699,30 +2688,15 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-json"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "pretty_assertions",
  "serde",
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "stellar-xdr",
- "thiserror",
-]
-
-[[package]]
-name = "soroban-spec-rust"
-version = "20.0.3"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=93b09e42e4efa841cbd034c0bff0dc362765086c#93b09e42e4efa841cbd034c0bff0dc362765086c"
-dependencies = [
- "prettyplease",
- "proc-macro2",
- "quote",
- "sha2 0.10.8",
- "soroban-spec 20.0.3",
- "stellar-xdr",
- "syn 2.0.39",
  "thiserror",
 ]
 
@@ -2735,7 +2709,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "soroban-spec 20.1.0",
+ "soroban-spec",
  "stellar-xdr",
  "syn 2.0.39",
  "thiserror",
@@ -2743,14 +2717,14 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "base64 0.21.5",
  "ethnum",
  "hex",
  "itertools 0.10.5",
  "serde_json",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "stellar-strkey 0.0.7",
  "stellar-xdr",
  "thiserror",
@@ -2761,7 +2735,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "base64 0.21.5",
  "heck",
@@ -2773,7 +2747,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "stellar-xdr",
  "temp-dir",
  "thiserror",
@@ -2782,7 +2756,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -2795,7 +2769,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 20.0.3",
+ "soroban-spec",
  "soroban-spec-tools",
  "stellar-strkey 0.0.7",
  "thiserror",
@@ -2990,28 +2964,28 @@ checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
 name = "test_custom_types"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_swap"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_token"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -3019,7 +2993,7 @@ dependencies = [
 
 [[package]]
 name = "test_udt"
-version = "20.1.1"
+version = "20.2.0"
 dependencies = [
  "soroban-sdk",
 ]

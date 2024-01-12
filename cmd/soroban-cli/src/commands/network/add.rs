@@ -1,4 +1,4 @@
-use super::{super::secret, locator};
+use super::super::config::{locator, secret};
 use clap::command;
 
 #[derive(thiserror::Error, Debug)]

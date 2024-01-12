@@ -1,6 +1,6 @@
-use crate::commands::config::secret::Secret;
+use crate::commands::config::secret;
 
-use super::super::{locator, secret};
+use super::super::config::locator;
 use clap::arg;
 
 #[derive(thiserror::Error, Debug)]
@@ -19,7 +19,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity to lookup, default test identity used if not provided
-    pub name: Option<String>,
+    pub name: String,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
@@ -36,20 +36,14 @@ impl Cmd {
     }
 
     pub fn private_key(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        Ok(if let Some(name) = &self.name {
-            self.locator.read_identity(name)?
-        } else {
-            Secret::test_seed_phrase()?
-        }
-        .key_pair(self.hd_path)?)
+        Ok(self
+            .locator
+            .read_identity(&self.name)?
+            .key_pair(self.hd_path)?)
     }
 
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        if let Some(Ok(key)) = self
-            .name
-            .as_deref()
-            .map(stellar_strkey::ed25519::PublicKey::from_string)
-        {
+        if let Ok(key) = stellar_strkey::ed25519::PublicKey::from_string(&self.name) {
             Ok(key)
         } else {
             Ok(stellar_strkey::ed25519::PublicKey::from_payload(

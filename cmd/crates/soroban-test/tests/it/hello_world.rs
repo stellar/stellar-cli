@@ -1,7 +1,4 @@
-use soroban_cli::commands::{
-    config::identity,
-    contract::{self, fetch},
-};
+use soroban_cli::commands::contract::{self, fetch};
 use soroban_test::TestEnv;
 use std::path::PathBuf;
 
@@ -10,13 +7,6 @@ use crate::util::{
     DEFAULT_PUB_KEY, DEFAULT_PUB_KEY_1, DEFAULT_SECRET_KEY, DEFAULT_SEED_PHRASE, HELLO_WORLD,
     TEST_SALT,
 };
-
-
-
-
-
-
-
 
 #[tokio::test]
 async fn fetch() {

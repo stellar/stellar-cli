@@ -58,6 +58,8 @@ pub enum Error {
     ConfigMissing(String, String),
     #[error(transparent)]
     String(#[from] std::string::FromUtf8Error),
+    #[error(transparent)]
+    Secret(#[from] crate::commands::config::secret::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -67,6 +69,7 @@ pub struct Args {
     #[arg(long)]
     pub global: bool,
 
+    /// Location of config directory, default is "."
     #[arg(long, help_heading = "TESTING_OPTIONS")]
     pub config_dir: Option<PathBuf>,
 }
@@ -149,6 +152,20 @@ impl Args {
             .list_paths(&self.local_and_global()?)?
             .into_iter()
             .map(|(name, _)| name)
+            .collect())
+    }
+
+    pub fn list_identities_long(&self) -> Result<Vec<(String, String)>, Error> {
+        Ok(KeyType::Identity
+            .list_paths(&self.local_and_global()?)
+            .into_iter()
+            .flatten()
+            .map(|(name, location)| {
+                let path = match location {
+                    Location::Local(path) | Location::Global(path) => path,
+                };
+                (name, format!("{}", path.display()))
+            })
             .collect())
     }
 
