@@ -137,7 +137,7 @@ fn get_protocol_version_arg(cmd: &Cmd) -> String {
         let version = cmd.protocol_version.as_ref().unwrap();
         format!("--protocol-version {version}")
     } else {
-        "".to_string()
+        String::new()
     }
 }
 
@@ -146,6 +146,6 @@ fn get_limits_arg(cmd: &Cmd) -> String {
         let limit = cmd.limit.as_ref().unwrap();
         format!("--limits {limit}")
     } else {
-        "".to_string()
+        String::new()
     }
 }
