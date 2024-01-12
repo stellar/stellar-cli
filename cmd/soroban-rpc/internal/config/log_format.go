@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/stellar/go/support/errors"
 )
 
 type LogFormat int
@@ -57,6 +56,6 @@ func (f LogFormat) String() (string, error) {
 	case LogFormatJSON:
 		return "json", nil
 	default:
-		return "", errors.Errorf("unknown log format: %d", f)
+		return "", fmt.Errorf("unknown log format: %d", f)
 	}
 }

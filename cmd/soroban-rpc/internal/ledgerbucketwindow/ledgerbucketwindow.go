@@ -1,7 +1,7 @@
 package ledgerbucketwindow
 
 import (
-	"github.com/stellar/go/support/errors"
+	"fmt"
 )
 
 // LedgerBucketWindow is a sequence of buckets associated to a ledger window.
@@ -40,7 +40,7 @@ func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) (*LedgerBucket[T]
 	if length > 0 {
 		expectedLedgerSequence := w.buckets[w.start].LedgerSeq + length
 		if expectedLedgerSequence != bucket.LedgerSeq {
-			return &LedgerBucket[T]{}, errors.Errorf("ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq)
+			return &LedgerBucket[T]{}, fmt.Errorf("ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq)
 		}
 	}
 
@@ -69,7 +69,7 @@ func (w *LedgerBucketWindow[T]) Len() uint32 {
 func (w *LedgerBucketWindow[T]) Get(i uint32) (*LedgerBucket[T], error) {
 	length := w.Len()
 	if i >= length {
-		return nil, errors.Errorf("index out of range [%d] with length %d", i, length)
+		return nil, fmt.Errorf("index out of range [%d] with length %d", i, length)
 	}
 	index := (w.start + i) % length
 	return &w.buckets[index], nil
