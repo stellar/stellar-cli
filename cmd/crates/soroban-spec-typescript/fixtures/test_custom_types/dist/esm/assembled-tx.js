@@ -1,4 +1,4 @@
-import { Account, Address, Contract, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, authorizeEntry, hash, xdr, BASE_FEE, } from "stellar-sdk";
+import { Account, Address, Contract, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, authorizeEntry, hash, xdr, BASE_FEE, } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
 export class ExpiredStateError extends Error {
 }

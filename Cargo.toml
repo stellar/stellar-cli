@@ -11,7 +11,7 @@ default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.package]
-version = "20.1.1"
+version = "20.2.0"
 rust-version = "1.74.0"
 
 [workspace.dependencies.soroban-env-host]
@@ -20,27 +20,27 @@ git = "https://github.com/stellar/rs-soroban-env"
 rev = "c1b238b65bfd13666be4ac14e0e390c31b549caf"
 
 [workspace.dependencies.soroban-spec]
-version = "=20.0.3"
+version = "=20.1.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "93b09e42e4efa841cbd034c0bff0dc362765086c"
+rev = "811ce3da801c03a21d5fa80fda187c0f1012240f"
 # path = "../rs-soroban-sdk/soroban-spec"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=20.0.3"
+version = "=20.1.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "93b09e42e4efa841cbd034c0bff0dc362765086c"
+rev = "811ce3da801c03a21d5fa80fda187c0f1012240f"
 # path = "../rs-soroban-sdk/soroban-spec-rust"
 
 [workspace.dependencies.soroban-spec-json]
-version = "20.1.1"
+version = "20.2.0"
 path = "./cmd/crates/soroban-spec-json"
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "20.1.1"
+version = "20.2.0"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "20.1.1"
+version = "20.2.0"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
@@ -59,7 +59,7 @@ git = "https://github.com/stellar/rs-soroban-sdk"
 rev = "811ce3da801c03a21d5fa80fda187c0f1012240f"
 
 [workspace.dependencies.soroban-cli]
-version = "20.1.1"
+version = "20.2.0"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.stellar-xdr]
