@@ -2,7 +2,6 @@ import test from 'ava'
 import { root, rpcUrl, wallet } from './util.js'
 import { Contract, Ok, Err, networks } from 'test-custom-types'
 
-const addr = root.address;
 const publicKey = root.keypair.publicKey();
 
 const contract = new Contract({ ...networks.standalone, rpcUrl, wallet });
@@ -50,18 +49,21 @@ test("strukt", async (t) => {
 })
 
 test('simple first', async t => {
-  const simple = { tag: 'First', values: undefined } as const
-  t.deepEqual((await contract.simple({ simple })).result, simple)
+  const arg = { tag: 'First', values: undefined } as const
+  const ret = { tag: 'First' }
+  t.deepEqual((await contract.simple({ simple: arg })).result, ret)
 })
 
 test('simple second', async t => {
-  const simple = { tag: 'Second', values: undefined } as const
-  t.deepEqual((await contract.simple({ simple })).result, simple)
+  const arg = { tag: 'Second', values: undefined } as const
+  const ret = { tag: 'Second' }
+  t.deepEqual((await contract.simple({ simple: arg })).result, ret)
 })
 
 test('simple third', async t => {
-  const simple = { tag: 'Third', values: undefined } as const
-  t.deepEqual((await contract.simple({ simple })).result, simple)
+  const arg = { tag: 'Third', values: undefined } as const
+  const ret = { tag: 'Third' }
+  t.deepEqual((await contract.simple({ simple: arg })).result, ret)
 })
 
 test('complex with struct', async t => {
@@ -72,29 +74,30 @@ test('complex with struct', async t => {
 
 test('complex with tuple', async t => {
   const arg = { tag: 'Tuple', values: [[{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }]] } as const
-  const ret = { tag: 'Tuple', values: [[{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }]] }
+  const ret = { tag: 'Tuple', values: [[{ a: 0, b: true, c: 'hello' }, { tag: 'First' }]] }
   t.deepEqual((await contract.complex({ complex: arg })).result, ret)
 })
 
 test('complex with enum', async t => {
   const arg = { tag: 'Enum', values: [{ tag: 'First', values: undefined }] } as const
-  const ret = { tag: 'Enum', values: [{ tag: 'First', values: undefined }] }
+  const ret = { tag: 'Enum', values: [{ tag: 'First' }] }
   t.deepEqual((await contract.complex({ complex: arg })).result, ret)
 })
 
 test('complex with asset', async t => {
   const arg = { tag: 'Asset', values: [publicKey, 1n] } as const
-  const ret = { tag: 'Asset', values: [addr, 1n] }
+  const ret = { tag: 'Asset', values: [publicKey, 1n] }
   t.deepEqual((await contract.complex({ complex: arg })).result, ret)
 })
 
 test('complex with void', async t => {
-  const complex = { tag: 'Void', values: undefined } as const
-  t.deepEqual((await contract.complex({ complex })).result, complex)
+  const arg = { tag: 'Void', values: undefined } as const
+  const ret = { tag: 'Void' }
+  t.deepEqual((await contract.complex({ complex: arg })).result, ret)
 })
 
 test('addresse', async t => {
-  t.deepEqual((await contract.addresse({ addresse: publicKey })).result, addr)
+  t.deepEqual((await contract.addresse({ addresse: publicKey })).result, publicKey)
 })
 
 test('bytes', async t => {
@@ -138,7 +141,8 @@ test('map', async t => {
   map.set(1, true)
   map.set(2, false)
   // map.set(3, 'hahaha') // should throw an error
-  t.deepEqual((await contract.map({ map })).result, map)
+  const ret = Array.from(map.entries())
+  t.deepEqual((await contract.map({ map })).result, ret)
 })
 
 test('vec', async t => {
@@ -178,6 +182,6 @@ test('string', async t => {
 
 test('tuple_strukt', async t => {
   const arg = [{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }] as const
-  const res = [{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }]
+  const res = [{ a: 0, b: true, c: 'hello' }, { tag: 'First' }]
   t.deepEqual((await contract.tupleStrukt({ tuple_strukt: arg })).result, res)
 })

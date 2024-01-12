@@ -12,8 +12,8 @@ import {
   nativeToScVal,
   xdr,
   BASE_FEE,
-} from "stellar-sdk";
-import type { Memo, MemoType, Transaction } from "stellar-sdk";
+} from "@stellar/stellar-sdk";
+import type { Memo, MemoType, Transaction } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
 import type {
   ClassOptions,
