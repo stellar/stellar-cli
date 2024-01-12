@@ -48,7 +48,7 @@ type SendTransactionRequest struct {
 // LatestLedgerStore is a store which returns the latest ingested ledger.
 type LatestLedgerStore interface {
 	// GetLatestLedger returns the latest ingested ledger.
-	GetLatestLedger() transactions.LedgerInfo
+	GetLatestLedger() (transactions.LedgerInfo, error)
 }
 
 // NewSendTransactionHandler returns a submit transaction json rpc handler
@@ -74,7 +74,11 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 		}
 		txHash := hex.EncodeToString(hash[:])
 
-		ledgerInfo := store.GetLatestLedger()
+		ledgerInfo, err := store.GetLatestLedger()
+		if err != nil {
+			return SendTransactionResponse{}, err
+		}
+
 		resp, err := submitter.SubmitTransaction(ctx, request.Transaction)
 		if err != nil {
 			logger.WithError(err).
