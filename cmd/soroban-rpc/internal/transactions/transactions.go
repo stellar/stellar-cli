@@ -122,7 +122,10 @@ func (m *MemoryStore) IngestTransactions(ledgerCloseMeta xdr.LedgerCloseMeta) er
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	evicted := m.transactionsByLedger.Append(bucket)
+	evicted, err := m.transactionsByLedger.Append(bucket)
+	if err != nil {
+		return err
+	}
 	if evicted != nil {
 		// garbage-collect evicted entries
 		for _, evictedTxHash := range evicted.BucketContent {
@@ -158,28 +161,37 @@ type StoreRange struct {
 }
 
 // GetLatestLedger returns the latest ledger available in the store.
-func (m *MemoryStore) GetLatestLedger() LedgerInfo {
+func (m *MemoryStore) GetLatestLedger() (LedgerInfo, error) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	if m.transactionsByLedger.Len() > 0 {
-		lastBucket := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
+		lastBucket, err := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
+		if err != nil {
+			return LedgerInfo{}, err
+		}
 		return LedgerInfo{
 			Sequence:  lastBucket.LedgerSeq,
 			CloseTime: lastBucket.LedgerCloseTimestamp,
-		}
+		}, nil
 	}
-	return LedgerInfo{}
+	return LedgerInfo{}, nil
 }
 
 // GetTransaction obtains a transaction from the store and whether it's present and the current store range
-func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRange) {
+func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRange, error) {
 	startTime := time.Now()
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	var storeRange StoreRange
 	if m.transactionsByLedger.Len() > 0 {
-		firstBucket := m.transactionsByLedger.Get(0)
-		lastBucket := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
+		firstBucket, err := m.transactionsByLedger.Get(0)
+		if err != nil {
+			return Transaction{}, false, StoreRange{}, err
+		}
+		lastBucket, err := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
+		if err != nil {
+			return Transaction{}, false, StoreRange{}, err
+		}
 		storeRange = StoreRange{
 			FirstLedger: LedgerInfo{
 				Sequence:  firstBucket.LedgerSeq,
@@ -193,7 +205,7 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 	}
 	internalTx, ok := m.transactions[hash]
 	if !ok {
-		return Transaction{}, false, storeRange
+		return Transaction{}, false, storeRange, nil
 	}
 	tx := Transaction{
 		Result:           internalTx.result,
@@ -209,5 +221,5 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 	}
 
 	m.transactionDurationMetric.With(prometheus.Labels{"operation": "get"}).Observe(time.Since(startTime).Seconds())
-	return tx, true, storeRange
+	return tx, true, storeRange, nil
 }

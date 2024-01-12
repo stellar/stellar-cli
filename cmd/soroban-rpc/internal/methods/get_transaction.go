@@ -63,7 +63,7 @@ type GetTransactionRequest struct {
 }
 
 type transactionGetter interface {
-	GetTransaction(hash xdr.Hash) (transactions.Transaction, bool, transactions.StoreRange)
+	GetTransaction(hash xdr.Hash) (transactions.Transaction, bool, transactions.StoreRange, error)
 }
 
 func GetTransaction(getter transactionGetter, request GetTransactionRequest) (GetTransactionResponse, error) {
@@ -84,7 +84,10 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 		}
 	}
 
-	tx, found, storeRange := getter.GetTransaction(txHash)
+	tx, found, storeRange, err := getter.GetTransaction(txHash)
+	if err != nil {
+		return GetTransactionResponse{}, err
+	}
 	response := GetTransactionResponse{
 		LatestLedger:          storeRange.LastLedger.Sequence,
 		LatestLedgerCloseTime: storeRange.LastLedger.CloseTime,
