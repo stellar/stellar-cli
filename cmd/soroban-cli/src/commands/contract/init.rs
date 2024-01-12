@@ -1,7 +1,7 @@
 use core::fmt;
 use std::fs::read_to_string;
 use std::path::Path;
-use std::{fs, io};
+use std::{env, fs, io};
 
 use clap::Parser;
 use std::num::NonZeroU32;
@@ -93,7 +93,6 @@ pub enum Error {
     TomlParseError(#[from] TomlError),
 }
 
-const TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-init-template.git";
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 
 impl Cmd {
@@ -102,26 +101,21 @@ impl Cmd {
         println!("ℹ️  Initializing project at {}", self.project_path);
         let project_path = Path::new(&self.project_path);
 
-        init(project_path, TEMPLATE_URL, &self.with_example)?;
+        init(project_path, &self.with_example)?;
 
         Ok(())
     }
 }
 
-fn init(
-    project_path: &Path,
-    template_url: &str,
-    with_examples: &[ExampleContract],
-) -> Result<(), Error> {
-    // create a template temp dir to clone the template repo into
-    let template_dir = tempfile::tempdir()?;
+fn init(project_path: &Path, with_examples: &[ExampleContract]) -> Result<(), Error> {
+    let cli_cmd_root = env!("CARGO_MANIFEST_DIR");
+    let template_dir_path = Path::new(cli_cmd_root)
+        .join("src")
+        .join("utils")
+        .join("contract-init-template");
 
-    // clone the template repo into the temp dir
-    clone_repo(template_url, template_dir.path())?;
-
-    // create the project directory and copy the template contents into it
     std::fs::create_dir_all(project_path)?;
-    copy_contents(template_dir.path(), project_path)?;
+    copy_contents(template_dir_path.as_path(), project_path)?;
 
     // if there are with-contract flags, include the example contracts
     if include_example_contracts(with_examples) {
@@ -210,7 +204,14 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
 }
 
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
-    let contents_to_exclude_from_copy = [".git", ".github", "Makefile", "Cargo.lock", ".vscode"];
+    let contents_to_exclude_from_copy = [
+        ".git",
+        ".github",
+        "Makefile",
+        "Cargo.lock",
+        ".vscode",
+        "target",
+    ];
     for entry in fs::read_dir(from)? {
         let entry = entry?;
         let path = entry.path();
@@ -260,7 +261,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = vec![ExampleContract::None];
-        init(project_dir.as_path(), TEMPLATE_URL, &with_examples).unwrap();
+        init(project_dir.as_path(), &with_examples).unwrap();
 
         assert!(project_dir.as_path().join("README.md").exists());
         assert!(project_dir.as_path().join("contracts").exists());
@@ -280,7 +281,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = vec![ExampleContract::Alloc];
-        init(project_dir.as_path(), TEMPLATE_URL, &with_examples).unwrap();
+        init(project_dir.as_path(), &with_examples).unwrap();
 
         assert!(project_dir.as_path().join("README.md").exists());
         assert!(project_dir
@@ -328,7 +329,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
-        init(project_dir.as_path(), TEMPLATE_URL, &with_examples).unwrap();
+        init(project_dir.as_path(), &with_examples).unwrap();
 
         assert!(project_dir
             .as_path()
