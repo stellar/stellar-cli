@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AssembledTransaction = exports.NULL_ACCOUNT = exports.contractErrorPattern = exports.Err = exports.Ok = exports.Address = exports.NoUnsignedNonInvokerAuthEntriesError = exports.SendFailedError = exports.SendResultOnlyError = exports.WalletDisconnectedError = exports.NeedsMoreSignaturesError = exports.ExpiredStateError = void 0;
-const stellar_sdk_1 = require("stellar-sdk");
+const stellar_sdk_1 = require("@stellar/stellar-sdk");
 Object.defineProperty(exports, "Address", { enumerable: true, get: function () { return stellar_sdk_1.Address; } });
 const buffer_1 = require("buffer");
 class ExpiredStateError extends Error {

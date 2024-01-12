@@ -14,7 +14,7 @@ test("auth", async (t) => {
       addr: root.keypair.publicKey(),
       world: 'lol'
     })).result,
-    root.address
+    root.keypair.publicKey()
   )
 });
 
