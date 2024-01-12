@@ -216,7 +216,7 @@ fn copy_example_contracts(
 ) -> Result<(), Error> {
     let project_contracts_path = to.join("contracts");
     for contract in contracts {
-        println!("ℹ️  Initializing example contract: {}", contract);
+        println!("ℹ️  Initializing example contract: {contract}");
         let contract_as_string = contract.to_string();
         let contract_path = Path::new(&contract_as_string);
         let from_contract_path = from.join(contract_path);
