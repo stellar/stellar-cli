@@ -16,6 +16,7 @@ use soroban_env_host::xdr::{
 };
 use soroban_sdk::token;
 use soroban_sdk::xdr::Limits;
+use soroban_spec_tools::contract::Spec;
 use std::{
     fmt::Display,
     str::FromStr,
@@ -25,7 +26,7 @@ use termcolor::{Color, ColorChoice, StandardStream, WriteColor};
 use termcolor_output::colored;
 use tokio::time::sleep;
 
-use crate::utils::contract_spec;
+// use soroban_spec_tools::contract::Spec;
 
 mod txn;
 
@@ -88,7 +89,7 @@ pub enum Error {
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error(transparent)]
-    CouldNotParseContractSpec(#[from] contract_spec::Error),
+    CouldNotParseContractSpec(#[from] soroban_spec_tools::contract::Error),
     #[error("unexpected contract code got token")]
     UnexpectedToken(ContractDataEntry),
     #[error(transparent)]
@@ -898,11 +899,9 @@ soroban config identity fund {address} --helper-url <url>"#
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
                 executable: xdr::ContractExecutable::Wasm(hash),
                 ..
-            }) => Ok(contract_spec::ContractSpec::new(
-                &self.get_remote_wasm_from_hash(hash).await?,
-            )
-            .map_err(Error::CouldNotParseContractSpec)?
-            .spec),
+            }) => Ok(Spec::new(&self.get_remote_wasm_from_hash(hash).await?)
+                .map_err(Error::CouldNotParseContractSpec)?
+                .spec),
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
                 executable: xdr::ContractExecutable::StellarAsset,
                 ..

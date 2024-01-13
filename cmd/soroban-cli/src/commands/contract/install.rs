@@ -153,7 +153,7 @@ impl Cmd {
     }
 }
 
-fn get_contract_meta_sdk_version(wasm_spec: &utils::contract_spec::ContractSpec) -> Option<String> {
+fn get_contract_meta_sdk_version(wasm_spec: &soroban_spec_tools::contract::Spec) -> Option<String> {
     let rs_sdk_version_option = if let Some(_meta) = &wasm_spec.meta_base64 {
         wasm_spec.meta.iter().find(|entry| match entry {
             ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) => {
