@@ -553,6 +553,8 @@ If no keys are specified the contract itself is extended.
 * `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to extend
 * `--durability <DURABILITY>` — Storage entry durability
 
+  Default value: `persistent`
+
   Possible values:
   - `persistent`:
     Persistent
@@ -810,6 +812,8 @@ Print the current value of a contract-data ledger entry
 * `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to extend
 * `--durability <DURABILITY>` — Storage entry durability
 
+  Default value: `persistent`
+
   Possible values:
   - `persistent`:
     Persistent
@@ -842,6 +846,8 @@ If no keys are specificed the contract itself is restored.
 * `--wasm <WASM>` — Path to Wasm file of contract code to extend
 * `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to extend
 * `--durability <DURABILITY>` — Storage entry durability
+
+  Default value: `persistent`
 
   Possible values:
   - `persistent`:
