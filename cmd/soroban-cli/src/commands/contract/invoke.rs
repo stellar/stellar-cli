@@ -28,13 +28,8 @@ use super::super::{
     config::{self, locator},
     events,
 };
-use crate::{
-    commands::global,
-    rpc::{self, Client},
-    utils::{self, contract_spec},
-    Pwd,
-};
-use soroban_spec_tools::Spec;
+use crate::{commands::global, rpc, Pwd};
+use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -140,7 +135,7 @@ pub enum Error {
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
-    ContractSpec(#[from] contract_spec::Error),
+    ContractSpec(#[from] contract::Error),
     #[error("")]
     MissingFileArg(PathBuf),
 }
@@ -275,7 +270,7 @@ impl Cmd {
             // For testing wasm arg parsing
             let _ = self.build_host_function_parameters(contract_id, spec_entries)?;
         }
-        let client = Client::new(&network.rpc_url)?;
+        let client = rpc::Client::new(&network.rpc_url)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
@@ -344,7 +339,7 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
+        soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
             .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
     }
 }

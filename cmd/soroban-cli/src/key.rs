@@ -83,7 +83,7 @@ impl Args {
         } else if let Some(wasm_hash) = &self.wasm_hash {
             return Ok(vec![LedgerKey::ContractCode(LedgerKeyContractCode {
                 hash: xdr::Hash(
-                    utils::contract_id_from_str(wasm_hash)
+                    soroban_spec_tools::utils::contract_id_from_str(wasm_hash)
                         .map_err(|e| Error::CannotParseContractId(wasm_hash.clone(), e))?,
                 ),
             })]);
