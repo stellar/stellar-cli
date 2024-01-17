@@ -1,22 +1,20 @@
-mod fees;
-mod ledger_storage;
-mod preflight;
-mod state_ttl;
-
-extern crate anyhow;
 extern crate base64;
 extern crate libc;
 extern crate sha2;
 extern crate soroban_env_host;
+extern crate soroban_simulation;
 
-use anyhow::{Context, Result};
-use ledger_storage::LedgerStorage;
-use preflight::PreflightResult;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    AccountId, InvokeHostFunctionOp, LedgerFootprint, Limits, OperationBody, ReadXdr, WriteXdr,
+    AccountId, Hash, InvokeHostFunctionOp, LedgerEntry, LedgerEntryData, LedgerFootprint,
+    LedgerKey, LedgerKeyTtl, Limits, OperationBody, ReadXdr, TtlEntry, WriteXdr,
 };
 use soroban_env_host::LedgerInfo;
+use soroban_simulation::{ledger_storage, ResourceConfig};
+use soroban_simulation::{
+    simulate_footprint_ttl_op, simulate_invoke_hf_op, LedgerStorage, SimulationResult,
+};
+use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::panic;
 use std::ptr::null_mut;
@@ -87,6 +85,14 @@ pub struct CResourceConfig {
     pub instruction_leeway: u64,
 }
 
+impl From<CResourceConfig> for ResourceConfig {
+    fn from(r: CResourceConfig) -> Self {
+        return ResourceConfig {
+            instruction_leeway: r.instruction_leeway,
+        };
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct CPreflightResult {
@@ -110,21 +116,21 @@ pub struct CPreflightResult {
     pub pre_restore_min_fee: i64,
 }
 
-impl From<PreflightResult> for CPreflightResult {
-    fn from(p: PreflightResult) -> Self {
+impl From<SimulationResult> for CPreflightResult {
+    fn from(s: SimulationResult) -> Self {
         let mut result = Self {
-            error: string_to_c(p.error),
-            auth: xdr_vec_to_c(p.auth),
-            result: option_xdr_to_c(p.result),
-            transaction_data: option_xdr_to_c(p.transaction_data),
-            min_fee: p.min_fee,
-            events: xdr_vec_to_c(p.events),
-            cpu_instructions: p.cpu_instructions,
-            memory_bytes: p.memory_bytes,
+            error: string_to_c(s.error),
+            auth: xdr_vec_to_c(s.auth),
+            result: option_xdr_to_c(s.result),
+            transaction_data: option_xdr_to_c(s.transaction_data),
+            min_fee: s.min_fee,
+            events: xdr_vec_to_c(s.events),
+            cpu_instructions: s.cpu_instructions,
+            memory_bytes: s.memory_bytes,
             pre_restore_transaction_data: get_default_c_xdr(),
             pre_restore_min_fee: 0,
         };
-        if let Some(p) = p.restore_preamble {
+        if let Some(p) = s.restore_preamble {
             result.pre_restore_min_fee = p.min_fee;
             result.pre_restore_transaction_data = xdr_to_c(p.transaction_data);
         };
@@ -163,22 +169,29 @@ fn preflight_invoke_hf_op_or_maybe_panic(
     ledger_info: CLedgerInfo,
     resource_config: CResourceConfig,
     enable_debug: bool,
-) -> Result<CPreflightResult> {
+) -> Result<CPreflightResult, Box<dyn Error>> {
     let invoke_hf_op =
         InvokeHostFunctionOp::from_xdr(from_c_xdr(invoke_hf_op), Limits::none()).unwrap();
     let source_account = AccountId::from_xdr(from_c_xdr(source_account), Limits::none()).unwrap();
-    let ledger_storage = LedgerStorage::with_restore_tracking(handle, ledger_info.sequence_number)
-        .context("cannot create LedgerStorage")?;
-    let result = preflight::preflight_invoke_hf_op(
+    let go_storage = GoLedgerStorage {
+        golang_handle: handle,
+        current_ledger_sequence: ledger_info.sequence_number,
+    };
+    let ledger_storage =
+        LedgerStorage::with_restore_tracking(Box::new(go_storage), ledger_info.sequence_number)?;
+    let result = simulate_invoke_hf_op(
         ledger_storage,
         bucket_list_size,
         invoke_hf_op,
         source_account,
         LedgerInfo::from(ledger_info),
-        resource_config,
+        resource_config.into(),
         enable_debug,
-    )?;
-    Ok(result.into())
+    );
+    match result {
+        Ok(r) => Ok(r.into()),
+        Err(e) => Err(e),
+    }
 }
 
 #[no_mangle]
@@ -206,18 +219,25 @@ fn preflight_footprint_ttl_op_or_maybe_panic(
     op_body: CXDR,
     footprint: CXDR,
     current_ledger_seq: u32,
-) -> Result<CPreflightResult> {
+) -> Result<CPreflightResult, Box<dyn Error>> {
     let op_body = OperationBody::from_xdr(from_c_xdr(op_body), Limits::none()).unwrap();
     let footprint = LedgerFootprint::from_xdr(from_c_xdr(footprint), Limits::none()).unwrap();
-    let ledger_storage = &LedgerStorage::new(handle, current_ledger_seq);
-    let result = preflight::preflight_footprint_ttl_op(
+    let go_storage = GoLedgerStorage {
+        golang_handle: handle,
+        current_ledger_sequence: current_ledger_seq,
+    };
+    let ledger_storage = &LedgerStorage::new(Box::new(go_storage), current_ledger_seq);
+    let result = simulate_footprint_ttl_op(
         ledger_storage,
         bucket_list_size,
         op_body,
         footprint,
         current_ledger_seq,
-    )?;
-    Ok(result.into())
+    );
+    match result {
+        Ok(r) => Ok(r.into()),
+        Err(e) => Err(e),
+    }
 }
 
 fn preflight_error(str: String) -> CPreflightResult {
@@ -236,10 +256,12 @@ fn preflight_error(str: String) -> CPreflightResult {
     }
 }
 
-fn catch_preflight_panic(op: Box<dyn Fn() -> Result<CPreflightResult>>) -> *mut CPreflightResult {
+fn catch_preflight_panic(
+    op: Box<dyn Fn() -> Result<CPreflightResult, Box<dyn Error>>>,
+) -> *mut CPreflightResult {
     // catch panics before they reach foreign callers (which otherwise would result in
     // undefined behavior)
-    let res: std::thread::Result<Result<CPreflightResult>> =
+    let res: std::thread::Result<Result<CPreflightResult, Box<dyn Error>>> =
         panic::catch_unwind(panic::AssertUnwindSafe(op));
     let c_preflight_result = match res {
         Err(panic) => match panic.downcast::<String>() {
@@ -351,4 +373,88 @@ fn from_c_string(str: *const libc::c_char) -> String {
 fn from_c_xdr(xdr: CXDR) -> Vec<u8> {
     let s = unsafe { slice::from_raw_parts(xdr.xdr, xdr.len) };
     s.to_vec()
+}
+
+// Functions imported from Golang
+extern "C" {
+    // Free Strings returned from Go functions
+    fn FreeGoXDR(xdr: CXDR);
+    // LedgerKey XDR in base64 string to LedgerEntry XDR in base64 string
+    fn SnapshotSourceGet(handle: libc::uintptr_t, ledger_key: CXDR) -> CXDR;
+}
+
+struct GoLedgerStorage {
+    golang_handle: libc::uintptr_t,
+    current_ledger_sequence: u32,
+}
+
+impl GoLedgerStorage {
+    // Get the XDR, regardless of ttl
+    fn get_xdr_internal(
+        &self,
+        key_xdr: &mut Vec<u8>,
+    ) -> std::result::Result<Vec<u8>, ledger_storage::Error> {
+        let key_c_xdr = CXDR {
+            xdr: key_xdr.as_mut_ptr(),
+            len: key_xdr.len(),
+        };
+        let res = unsafe { SnapshotSourceGet(self.golang_handle, key_c_xdr) };
+        if res.xdr.is_null() {
+            return Err(ledger_storage::Error::NotFound);
+        }
+        let v = from_c_xdr(res);
+        unsafe { FreeGoXDR(res) };
+        Ok(v)
+    }
+}
+
+impl ledger_storage::LedgerGetter for GoLedgerStorage {
+    fn get(
+        &self,
+        key: &LedgerKey,
+        include_not_live: bool,
+    ) -> std::result::Result<(LedgerEntry, Option<u32>), ledger_storage::Error> {
+        let mut key_xdr = key.to_xdr(Limits::none())?;
+        let xdr = self.get_xdr_internal(&mut key_xdr)?;
+
+        let live_until_ledger_seq = match key {
+            // TODO: it would probably be more efficient to do all of this in the Go side
+            //       (e.g. it would allow us to query multiple entries at once)
+            LedgerKey::ContractData(_) | LedgerKey::ContractCode(_) => {
+                let key_hash: [u8; 32] = Sha256::digest(key_xdr).into();
+                let ttl_key = LedgerKey::Ttl(LedgerKeyTtl {
+                    key_hash: Hash(key_hash),
+                });
+                let mut ttl_key_xdr = ttl_key.to_xdr(Limits::none())?;
+                let ttl_entry_xdr = self.get_xdr_internal(&mut ttl_key_xdr)?;
+                let ttl_entry = LedgerEntry::from_xdr(ttl_entry_xdr, Limits::none())?;
+                if let LedgerEntryData::Ttl(TtlEntry {
+                    live_until_ledger_seq,
+                    ..
+                }) = ttl_entry.data
+                {
+                    Some(live_until_ledger_seq)
+                } else {
+                    return Err(ledger_storage::Error::UnexpectedLedgerEntryTypeForTtlKey {
+                        ledger_entry_type: ttl_entry.data.name().to_string(),
+                    });
+                }
+            }
+            _ => None,
+        };
+
+        if !include_not_live
+            && live_until_ledger_seq.is_some()
+            && !is_live(live_until_ledger_seq.unwrap(), self.current_ledger_sequence)
+        {
+            return Err(ledger_storage::Error::NotLive);
+        }
+
+        let entry = LedgerEntry::from_xdr(xdr, Limits::none())?;
+        Ok((entry, live_until_ledger_seq))
+    }
+}
+
+pub(crate) fn is_live(live_until_ledger_seq: u32, current_ledger_seq: u32) -> bool {
+    live_until_ledger_seq >= current_ledger_seq
 }
