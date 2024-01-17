@@ -273,7 +273,7 @@ mod tests {
         assert!(!project_dir.as_path().join("Cargo.lock").exists());
         assert!(!project_dir.as_path().join(".vscode").exists());
 
-        temp_dir.close().unwrap()
+        temp_dir.close().unwrap();
     }
 
     #[test]
@@ -317,11 +317,10 @@ mod tests {
             .join("alloc")
             .join("Cargo.toml");
         let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
-        println!("{}", cargo_toml_str);
 
         assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
 
-        temp_dir.close().unwrap()
+        temp_dir.close().unwrap();
     }
 
     #[test]
@@ -342,6 +341,6 @@ mod tests {
             .join("atomic_swap")
             .exists());
 
-        temp_dir.close().unwrap()
+        temp_dir.close().unwrap();
     }
 }
