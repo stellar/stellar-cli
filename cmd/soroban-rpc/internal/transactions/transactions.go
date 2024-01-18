@@ -161,37 +161,28 @@ type StoreRange struct {
 }
 
 // GetLatestLedger returns the latest ledger available in the store.
-func (m *MemoryStore) GetLatestLedger() (LedgerInfo, error) {
+func (m *MemoryStore) GetLatestLedger() LedgerInfo {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	if m.transactionsByLedger.Len() > 0 {
-		lastBucket, err := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
-		if err != nil {
-			return LedgerInfo{}, err
-		}
+		lastBucket := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
 		return LedgerInfo{
 			Sequence:  lastBucket.LedgerSeq,
 			CloseTime: lastBucket.LedgerCloseTimestamp,
-		}, nil
+		}
 	}
-	return LedgerInfo{}, nil
+	return LedgerInfo{}
 }
 
 // GetTransaction obtains a transaction from the store and whether it's present and the current store range
-func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRange, error) {
+func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRange) {
 	startTime := time.Now()
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	var storeRange StoreRange
 	if m.transactionsByLedger.Len() > 0 {
-		firstBucket, err := m.transactionsByLedger.Get(0)
-		if err != nil {
-			return Transaction{}, false, StoreRange{}, err
-		}
-		lastBucket, err := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
-		if err != nil {
-			return Transaction{}, false, StoreRange{}, err
-		}
+		firstBucket := m.transactionsByLedger.Get(0)
+		lastBucket := m.transactionsByLedger.Get(m.transactionsByLedger.Len() - 1)
 		storeRange = StoreRange{
 			FirstLedger: LedgerInfo{
 				Sequence:  firstBucket.LedgerSeq,
@@ -205,7 +196,7 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 	}
 	internalTx, ok := m.transactions[hash]
 	if !ok {
-		return Transaction{}, false, storeRange, nil
+		return Transaction{}, false, storeRange
 	}
 	tx := Transaction{
 		Result:           internalTx.result,
@@ -221,5 +212,5 @@ func (m *MemoryStore) GetTransaction(hash xdr.Hash) (Transaction, bool, StoreRan
 	}
 
 	m.transactionDurationMetric.With(prometheus.Labels{"operation": "get"}).Observe(time.Since(startTime).Seconds())
-	return tx, true, storeRange, nil
+	return tx, true, storeRange
 }

@@ -66,11 +66,11 @@ func (w *LedgerBucketWindow[T]) Len() uint32 {
 }
 
 // Get obtains a bucket from the window
-func (w *LedgerBucketWindow[T]) Get(i uint32) (*LedgerBucket[T], error) {
+func (w *LedgerBucketWindow[T]) Get(i uint32) *LedgerBucket[T] {
 	length := w.Len()
 	if i >= length {
-		return nil, fmt.Errorf("index out of range [%d] with length %d", i, length)
+		panic(fmt.Errorf("index out of range [%d] with length %d", i, length))
 	}
 	index := (w.start + i) % length
-	return &w.buckets[index], nil
+	return &w.buckets[index]
 }

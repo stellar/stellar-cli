@@ -18,10 +18,7 @@ type HealthCheckResult struct {
 // NewHealthCheck returns a health check json rpc handler
 func NewHealthCheck(txStore *transactions.MemoryStore, maxHealthyLedgerLatency time.Duration) jrpc2.Handler {
 	return handler.New(func(ctx context.Context) (HealthCheckResult, error) {
-		ledgerInfo, err := txStore.GetLatestLedger()
-		if err != nil {
-			return HealthCheckResult{}, err
-		}
+		ledgerInfo := txStore.GetLatestLedger()
 		if ledgerInfo.Sequence < 1 {
 			return HealthCheckResult{}, jrpc2.Error{
 				Code:    jrpc2.InternalError,

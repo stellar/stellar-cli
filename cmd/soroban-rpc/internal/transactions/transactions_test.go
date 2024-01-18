@@ -240,14 +240,12 @@ func txEnvelope(ledgerSequence uint32, feeBump bool) xdr.TransactionEnvelope {
 }
 
 func requirePresent(t *testing.T, store *MemoryStore, feeBump bool, ledgerSequence, firstSequence, lastSequence uint32) {
-	tx, ok, storeRange, err := store.GetTransaction(txHash(ledgerSequence, false))
-	require.NoError(t, err)
+	tx, ok, storeRange := store.GetTransaction(txHash(ledgerSequence, false))
 	require.True(t, ok)
 	require.Equal(t, expectedTransaction(t, ledgerSequence, feeBump), tx)
 	require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
 	if feeBump {
-		tx, ok, storeRange, err = store.GetTransaction(txHash(ledgerSequence, true))
-		require.NoError(t, err)
+		tx, ok, storeRange = store.GetTransaction(txHash(ledgerSequence, true))
 		require.True(t, ok)
 		require.Equal(t, expectedTransaction(t, ledgerSequence, feeBump), tx)
 		require.Equal(t, expectedStoreRange(firstSequence, lastSequence), storeRange)
@@ -258,8 +256,7 @@ func TestIngestTransactions(t *testing.T) {
 	// Use a small retention window to test eviction
 	store := NewMemoryStore(interfaces.MakeNoOpDeamon(), "passphrase", 3)
 
-	_, ok, storeRange, err := store.GetTransaction(txHash(1, false))
-	require.NoError(t, err)
+	_, ok, storeRange := store.GetTransaction(txHash(1, false))
 	require.False(t, ok)
 	require.Equal(t, StoreRange{}, storeRange)
 
@@ -289,8 +286,7 @@ func TestIngestTransactions(t *testing.T) {
 	requirePresent(t, store, false, 3, 2, 4)
 	requirePresent(t, store, false, 4, 2, 4)
 
-	_, ok, storeRange, err = store.GetTransaction(txHash(1, false))
-	require.NoError(t, err)
+	_, ok, storeRange = store.GetTransaction(txHash(1, false))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(2, 4), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
@@ -302,15 +298,13 @@ func TestIngestTransactions(t *testing.T) {
 	requirePresent(t, store, false, 4, 3, 5)
 	requirePresent(t, store, false, 5, 3, 5)
 
-	_, ok, storeRange, err = store.GetTransaction(txHash(2, false))
-	require.NoError(t, err)
+	_, ok, storeRange = store.GetTransaction(txHash(2, false))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(3, 5), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
 	require.Len(t, store.transactions, 3)
 
-	_, ok, storeRange, err = store.GetTransaction(txHash(2, true))
-	require.NoError(t, err)
+	_, ok, storeRange = store.GetTransaction(txHash(2, true))
 	require.False(t, ok)
 	require.Equal(t, expectedStoreRange(3, 5), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
