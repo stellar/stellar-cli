@@ -75,7 +75,6 @@ func NewSendTransactionHandler(daemon interfaces.Daemon, logger *log.Entry, stor
 		txHash := hex.EncodeToString(hash[:])
 
 		ledgerInfo := store.GetLatestLedger()
-
 		resp, err := submitter.SubmitTransaction(ctx, request.Transaction)
 		if err != nil {
 			logger.WithError(err).

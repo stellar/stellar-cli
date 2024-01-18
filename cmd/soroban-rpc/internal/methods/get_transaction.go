@@ -85,9 +85,6 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	}
 
 	tx, found, storeRange := getter.GetTransaction(txHash)
-	if err != nil {
-		return GetTransactionResponse{}, err
-	}
 	response := GetTransactionResponse{
 		LatestLedger:          storeRange.LastLedger.Sequence,
 		LatestLedgerCloseTime: storeRange.LastLedger.CloseTime,
