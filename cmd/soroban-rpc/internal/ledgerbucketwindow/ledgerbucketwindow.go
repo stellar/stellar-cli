@@ -40,7 +40,7 @@ func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) (*LedgerBucket[T]
 	if length > 0 {
 		expectedLedgerSequence := w.buckets[w.start].LedgerSeq + length
 		if expectedLedgerSequence != bucket.LedgerSeq {
-			return &LedgerBucket[T]{}, fmt.Errorf("ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq)
+			return &LedgerBucket[T]{}, fmt.Errorf("error appending ledgers: ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq)
 		}
 	}
 

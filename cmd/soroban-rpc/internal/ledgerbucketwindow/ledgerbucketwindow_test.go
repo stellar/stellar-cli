@@ -89,3 +89,16 @@ func TestAppend(t *testing.T) {
 	require.Equal(t, bucket(9), *m.Get(1))
 	require.Equal(t, bucket(10), *m.Get(2))
 }
+
+func TestAppendError(t *testing.T) {
+	m := NewLedgerBucketWindow[uint32](3)
+	require.Equal(t, uint32(0), m.Len())
+
+	evicted, err := m.Append(bucket(5))
+	require.NoError(t, err)
+	require.Nil(t, evicted)
+
+	evicted, err = m.Append(bucket(1))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error appending ledgers: ledgers not contiguous: expected ledger sequence 6 but received 1")
+}
