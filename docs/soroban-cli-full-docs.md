@@ -680,11 +680,9 @@ Initialize a Soroban project with an example contract
 
 ###### **Options:**
 
-* `-w`, `--with-example <WITH_EXAMPLE>` — optional flag to specify soroban example contracts to include
+* `-w`, `--with-example <WITH_EXAMPLE>` — An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default
 
-  Default value: `none`
-
-  Possible values: `account`, `alloc`, `atomic-multiswap`, `atomic-swap`, `auth`, `cross-contract`, `custom-types`, `deep-contract-auth`, `deployer`, `errors`, `events`, `fuzzing`, `hello-world`, `increment`, `liquidity-pool`, `logging`, `simple-account`, `single-offer`, `timelock`, `token`, `upgradeable-contract`, `none`
+  Possible values: `account`, `alloc`, `atomic-multiswap`, `atomic-swap`, `auth`, `cross-contract`, `custom-types`, `deep-contract-auth`, `deployer`, `errors`, `events`, `fuzzing`, `increment`, `liquidity-pool`, `logging`, `simple-account`, `single-offer`, `timelock`, `token`, `upgradeable-contract`
 
 
 

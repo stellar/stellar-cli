@@ -22,7 +22,6 @@ pub enum ExampleContract {
     Errors,
     Events,
     Fuzzing,
-    HelloWorld,
     Increment,
     LiquidityPool,
     Logging,
@@ -31,7 +30,6 @@ pub enum ExampleContract {
     Timelock,
     Token,
     UpgradeableContract,
-    None,
 }
 
 impl fmt::Display for ExampleContract {
@@ -49,7 +47,6 @@ impl fmt::Display for ExampleContract {
             ExampleContract::Errors => write!(f, "errors"),
             ExampleContract::Events => write!(f, "events"),
             ExampleContract::Fuzzing => write!(f, "fuzzing"),
-            ExampleContract::HelloWorld => write!(f, "hello_world"),
             ExampleContract::Increment => write!(f, "increment"),
             ExampleContract::LiquidityPool => write!(f, "liquidity_pool"),
             ExampleContract::Logging => write!(f, "logging"),
@@ -58,7 +55,6 @@ impl fmt::Display for ExampleContract {
             ExampleContract::Timelock => write!(f, "timelock"),
             ExampleContract::Token => write!(f, "token"),
             ExampleContract::UpgradeableContract => write!(f, "upgradeable_contract"),
-            ExampleContract::None => write!(f, "none"),
         }
     }
 }
@@ -68,8 +64,8 @@ impl fmt::Display for ExampleContract {
 pub struct Cmd {
     pub project_path: String,
 
-    /// optional flag to specify soroban example contracts to include
-    #[arg(short, long, num_args = 1..=20, default_value = "none")]
+    /// An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
+    #[arg(short, long, num_args = 1..=20)]
     pub with_example: Vec<ExampleContract>,
 }
 
@@ -180,7 +176,7 @@ fn file_exists(file_path: &str) -> bool {
 }
 
 fn include_example_contracts(contracts: &[ExampleContract]) -> bool {
-    !(contracts.len() == 1 && contracts[0] == ExampleContract::None)
+    contracts.len() >= 1
 }
 
 fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
