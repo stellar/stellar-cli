@@ -176,7 +176,7 @@ fn file_exists(file_path: &str) -> bool {
 }
 
 fn include_example_contracts(contracts: &[ExampleContract]) -> bool {
-    contracts.len() >= 1
+    !contracts.is_empty()
 }
 
 fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
@@ -256,12 +256,27 @@ mod tests {
     fn test_init() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_examples = vec![ExampleContract::None];
+        let with_examples = vec![];
         init(project_dir.as_path(), &with_examples).unwrap();
 
         assert!(project_dir.as_path().join("README.md").exists());
         assert!(project_dir.as_path().join("contracts").exists());
         assert!(project_dir.as_path().join("Cargo.toml").exists());
+
+        // check that it includes the default hello-world contract
+        assert!(project_dir
+            .as_path()
+            .join("contracts")
+            .join("hello_world")
+            .exists());
+        // check that the contract's Cargo.toml file uses the workspace for dependencies
+        let contract_cargo_path = project_dir
+            .as_path()
+            .join("contracts")
+            .join("hello_world")
+            .join("Cargo.toml");
+        let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
+        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
 
         // check that it does not include certain template files and directories
         assert!(!project_dir.as_path().join(".git").exists());
@@ -313,7 +328,6 @@ mod tests {
             .join("alloc")
             .join("Cargo.toml");
         let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
-
         assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
 
         temp_dir.close().unwrap();
