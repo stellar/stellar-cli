@@ -34,6 +34,7 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban contract id`↴](#soroban-contract-id)
 * [`soroban contract id asset`↴](#soroban-contract-id-asset)
 * [`soroban contract id wasm`↴](#soroban-contract-id-wasm)
+* [`soroban contract init`↴](#soroban-contract-init)
 * [`soroban contract inspect`↴](#soroban-contract-inspect)
 * [`soroban contract install`↴](#soroban-contract-install)
 * [`soroban contract invoke`↴](#soroban-contract-invoke)
@@ -384,6 +385,7 @@ Tools for smart contract developers
 * `deploy` — Deploy a wasm contract
 * `fetch` — Fetch a contract's Wasm binary
 * `id` — Generate the contract id for a given contract or asset
+* `init` — Initialize a Soroban project with an example contract
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
@@ -663,6 +665,25 @@ Deploy normal Wasm Contract
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `soroban contract init`
+
+Initialize a Soroban project with an example contract
+
+**Usage:** `soroban contract init [OPTIONS] <PROJECT_PATH>`
+
+###### **Arguments:**
+
+* `<PROJECT_PATH>`
+
+###### **Options:**
+
+* `-w`, `--with-example <WITH_EXAMPLE>` — An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default
+
+  Possible values: `account`, `alloc`, `atomic-multiswap`, `atomic-swap`, `auth`, `cross-contract`, `custom-types`, `deep-contract-auth`, `deployer`, `errors`, `events`, `fuzzing`, `increment`, `liquidity-pool`, `logging`, `simple-account`, `single-offer`, `timelock`, `token`, `upgradeable-contract`
+
 
 
 

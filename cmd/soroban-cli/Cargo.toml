@@ -93,6 +93,12 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 cargo_metadata = "0.15.4"
 pathdiff = "0.2.1"
 dotenvy = "0.15.7"
+gix = { version = "0.55.2", default-features = false, features = [
+  "blocking-http-transport-reqwest-rust-tls",
+  "worktree-mutation",
+] }
+tempfile = "3.8.1"
+toml_edit = "0.21.0"
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10.55", features = ["vendored"] }
