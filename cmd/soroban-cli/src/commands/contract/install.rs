@@ -112,14 +112,10 @@ impl Cmd {
             build_install_contract_code_tx(contract, sequence + 1, self.fee.fee, &key)?;
 
         // Currently internal errors are not returned if the contract code is expired
-        if let (
-            TransactionResult {
-                result: TransactionResultResult::TxInternalError,
-                ..
-            },
-            _,
-            _,
-        ) = client
+        if let Some(TransactionResult {
+            result: TransactionResultResult::TxInternalError,
+            ..
+        }) = client
             .prepare_and_send_transaction(
                 &tx_without_preflight,
                 &key,
@@ -129,6 +125,8 @@ impl Cmd {
                 None,
             )
             .await?
+            .result
+            .as_ref()
         {
             // Now just need to restore it and don't have to install again
             restore::Cmd {
