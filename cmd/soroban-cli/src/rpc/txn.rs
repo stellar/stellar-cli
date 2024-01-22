@@ -2,16 +2,16 @@ use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, ExtensionPoint, Hash, HashIdPreimage,
-    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Memo, Operation,
-    OperationBody, Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress, ScMap,
-    ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
+    HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, LedgerFootprint, Limits, Memo,
+    Operation, OperationBody, Preconditions, PublicKey, ReadXdr, RestoreFootprintOp, ScAddress,
+    ScMap, ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
     SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanCredentials, SorobanResources,
     SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 
-use crate::rpc::{Client, Error, RestorePreamble, SimulateTransactionResponse};
+use super::{Client, Error, RestorePreamble, SimulateTransactionResponse};
 
 use super::{LogEvents, LogResources};
 
@@ -117,6 +117,7 @@ impl Assembled {
         }
     }
 
+    #[must_use]
     pub fn bump_seq_num(mut self) -> Self {
         self.txn.seq_num.0 += 1;
         self
@@ -155,6 +156,44 @@ impl Assembled {
             };
         }
         Ok(())
+    }
+
+    pub fn requires_auth(&self) -> bool {
+        requires_auth(&self.txn).is_some()
+    }
+
+    pub fn is_view(&self) -> bool {
+        if let TransactionExt::V1(SorobanTransactionData {
+            resources:
+                SorobanResources {
+                    footprint: LedgerFootprint { read_write, .. },
+                    ..
+                },
+            ..
+        }) = &self.txn.ext
+        {
+            if read_write.is_empty() {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[must_use]
+    pub fn set_max_instructions(mut self, instructions: u32) -> Self {
+        if let TransactionExt::V1(SorobanTransactionData {
+            resources:
+                SorobanResources {
+                    instructions: ref mut i,
+                    ..
+                },
+            ..
+        }) = &mut self.txn.ext
+        {
+            tracing::trace!("setting max instructions to {instructions} from {i}");
+            *i = instructions;
+        }
+        self
     }
 }
 
@@ -206,7 +245,7 @@ pub fn assemble(
     }
 
     // update the fees of the actual transaction to meet the minimum resource fees.
-    let classic_transaction_fees = crate::fee::Args::default().fee;
+    let classic_transaction_fees = 100;
     // Pad the fees up by 15% for a bit of wiggle room.
     tx.fee = (tx.fee.max(
         classic_transaction_fees
@@ -220,6 +259,21 @@ pub fn assemble(
     Ok(tx)
 }
 
+fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
+    let [op @ Operation {
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
+        ..
+    }] = txn.operations.as_slice()
+    else {
+        return None;
+    };
+    matches!(
+        auth.first().map(|x| &x.root_invocation.function),
+        Some(&SorobanAuthorizedFunction::ContractFn(_))
+    )
+    .then(move || op.clone())
+}
+
 // Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
 // transaction. If unable to sign, return an error.
 fn sign_soroban_authorizations(
@@ -230,18 +284,8 @@ fn sign_soroban_authorizations(
     network_passphrase: &str,
 ) -> Result<Option<Transaction>, Error> {
     let mut tx = raw.clone();
-    let mut op = match tx.operations.as_slice() {
-        [op @ Operation {
-            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-            ..
-        }] if matches!(
-            auth.first().map(|x| &x.root_invocation.function),
-            Some(&SorobanAuthorizedFunction::ContractFn(_))
-        ) =>
-        {
-            op.clone()
-        }
-        _ => return Ok(None),
+    let Some(mut op) = requires_auth(&tx) else {
+        return Ok(None);
     };
 
     let Operation {
