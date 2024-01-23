@@ -180,7 +180,7 @@ fn include_example_contracts(contracts: &[ExampleContract]) -> bool {
 }
 
 fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
-    let mut fetch = gix::clone::PrepareFetch::new(
+    let mut prepare = gix::clone::PrepareFetch::new(
         from_url,
         to_path,
         gix::create::Kind::WithWorktree,
@@ -195,12 +195,12 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
         NonZeroU32::new(1).unwrap(),
     ));
 
-    let (mut prepare, _outcome) = fetch
+    let (mut checkout, _outcome) = prepare
         .fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))
         .map_err(Box::new)?;
 
     let (_repo, _outcome) =
-        prepare.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
+        checkout.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
 
     Ok(())
 }
