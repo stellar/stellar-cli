@@ -34,6 +34,7 @@ use soroban_cli::{
     CommandParser, Pwd,
 };
 
+mod module;
 mod wasm;
 pub use wasm::Wasm;
 
