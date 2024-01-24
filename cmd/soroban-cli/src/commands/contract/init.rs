@@ -124,24 +124,27 @@ fn init(
         .join("utils")
         .join("contract-init-template");
 
+    // create a project dir, and copy the contents of the base template (contract-init-template) into it
     std::fs::create_dir_all(project_path)?;
     copy_contents(template_dir_path.as_path(), project_path)?;
 
     if frontend_template != &FrontendTemplate::None {
-        // create an examples temp dir in the temp dir
+        // create a temp dir for the template repo
         let fe_template_dir = tempfile::tempdir()?;
 
+        // clone the template repo into the temp dir
         clone_repo(FRONTEND_ASTRO_TEMPLATE_URL, fe_template_dir.path())?;
 
+        // copy the frontend template files into the project
         copy_frontend_files(fe_template_dir.path(), project_path, frontend_template);
     }
 
-    // if there are with-contract flags, include the example contracts
+    // if there are --with-example flags, include the example contracts
     if include_example_contracts(with_examples) {
-        // create an examples temp dir in the temp dir
+        // create an examples temp dir
         let examples_dir = tempfile::tempdir()?;
 
-        // clone the soroban-examples repo into temp dir
+        // clone the soroban-examples repo into the temp dir
         clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
 
         // copy the example contracts into the project
