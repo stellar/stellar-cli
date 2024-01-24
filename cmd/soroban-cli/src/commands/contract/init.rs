@@ -3,12 +3,12 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::{env, fs, io};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
-#[derive(Clone, Debug, PartialEq, clap::ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum ExampleContract {
     Account,
     Alloc,
@@ -59,6 +59,12 @@ impl fmt::Display for ExampleContract {
     }
 }
 
+#[derive(Clone, Debug, ValueEnum, PartialEq)]
+pub enum FrontendTemplate {
+    Astro,
+    None,
+}
+
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -67,6 +73,9 @@ pub struct Cmd {
     /// An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
     #[arg(short, long, num_args = 1..=20)]
     pub with_example: Vec<ExampleContract>,
+
+    #[arg(short, long, value_enum, default_value = "none")]
+    pub frontend_template: FrontendTemplate,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -90,6 +99,7 @@ pub enum Error {
 }
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
+const FRONTEND_ASTRO_TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-init-template";
 
 impl Cmd {
     #[allow(clippy::unused_self)]
@@ -97,13 +107,17 @@ impl Cmd {
         println!("ℹ️  Initializing project at {}", self.project_path);
         let project_path = Path::new(&self.project_path);
 
-        init(project_path, &self.with_example)?;
+        init(project_path, &self.frontend_template, &self.with_example)?;
 
         Ok(())
     }
 }
 
-fn init(project_path: &Path, with_examples: &[ExampleContract]) -> Result<(), Error> {
+fn init(
+    project_path: &Path,
+    frontend_template: &FrontendTemplate,
+    with_examples: &[ExampleContract],
+) -> Result<(), Error> {
     let cli_cmd_root = env!("CARGO_MANIFEST_DIR");
     let template_dir_path = Path::new(cli_cmd_root)
         .join("src")
@@ -112,6 +126,15 @@ fn init(project_path: &Path, with_examples: &[ExampleContract]) -> Result<(), Er
 
     std::fs::create_dir_all(project_path)?;
     copy_contents(template_dir_path.as_path(), project_path)?;
+
+    if frontend_template != &FrontendTemplate::None {
+        // create an examples temp dir in the temp dir
+        let fe_template_dir = tempfile::tempdir()?;
+
+        clone_repo(FRONTEND_ASTRO_TEMPLATE_URL, fe_template_dir.path())?;
+
+        copy_frontend_files(fe_template_dir.path(), project_path, frontend_template);
+    }
 
     // if there are with-contract flags, include the example contracts
     if include_example_contracts(with_examples) {
@@ -152,6 +175,15 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             copy_contents(&path, &new_path)?;
         } else {
             if file_exists(&new_path.to_string_lossy()) {
+                //if file is .gitignore, merge the files
+                if path.to_string_lossy().contains(".gitignore") {
+                    let new_contents = read_to_string(&new_path)?;
+                    let old_contents = read_to_string(&path)?;
+                    let merged_contents = format!("{}\n{}", new_contents, old_contents);
+                    std::fs::write(&new_path, merged_contents)?;
+                    continue;
+                }
+
                 println!(
                     "ℹ️  Skipped creating {} as it already exists",
                     &new_path.to_string_lossy()
@@ -244,6 +276,17 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     std::fs::write(&cargo_path, doc.to_string())?;
 
     Ok(())
+}
+
+fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
+    println!("ℹ️  Initializing with {:?} frontend template", template);
+    match template {
+        FrontendTemplate::Astro => {
+            let from_template_path = from.join("astro");
+            let _ = copy_contents(&from_template_path, &to);
+        }
+        FrontendTemplate::None => {}
+    }
 }
 
 #[cfg(test)]
