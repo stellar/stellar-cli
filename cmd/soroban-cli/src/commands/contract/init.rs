@@ -294,7 +294,7 @@ fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::read_to_string;
+    use std::{fs::read_to_string, path::PathBuf};
 
     use super::*;
 
@@ -303,32 +303,21 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = vec![];
-        init(project_dir.as_path(), &with_examples).unwrap();
+        init(
+            project_dir.as_path(),
+            &FrontendTemplate::None,
+            &with_examples,
+        )
+        .unwrap();
 
-        assert!(project_dir.as_path().join("README.md").exists());
-        assert!(project_dir.as_path().join("contracts").exists());
-        assert!(project_dir.as_path().join("Cargo.toml").exists());
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
 
-        // check that it includes the default hello-world contract
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("hello_world")
-            .exists());
         // check that the contract's Cargo.toml file uses the workspace for dependencies
-        let contract_cargo_path = project_dir
-            .as_path()
-            .join("contracts")
-            .join("hello_world")
-            .join("Cargo.toml");
-        let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
-        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
+        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
 
-        // check that it does not include certain template files and directories
-        assert!(!project_dir.as_path().join(".git").exists());
-        assert!(!project_dir.as_path().join(".github").exists());
-        assert!(!project_dir.as_path().join("Cargo.lock").exists());
-        assert!(!project_dir.as_path().join(".vscode").exists());
+        assert_base_excluded_paths_do_not_exist(&project_dir);
 
         temp_dir.close().unwrap();
     }
@@ -338,43 +327,25 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = vec![ExampleContract::Alloc];
-        init(project_dir.as_path(), &with_examples).unwrap();
+        init(
+            project_dir.as_path(),
+            &FrontendTemplate::None,
+            &with_examples,
+        )
+        .unwrap();
 
-        assert!(project_dir.as_path().join("README.md").exists());
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .exists());
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
 
-        // check that it does not include certain template files and directories
-        assert!(!project_dir.as_path().join(".git").exists());
-        assert!(!project_dir.as_path().join(".github").exists());
-        assert!(!project_dir.as_path().join("Cargo.lock").exists());
-        assert!(!project_dir.as_path().join(".vscode").exists());
+        // check that alloc contract files exist
+        assert_contract_files_exist(&project_dir, "alloc");
 
-        // check that it does not include certain contract files
-        assert!(!project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .join("Makefile")
-            .exists());
-        assert!(!project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .join("Cargo.lock")
-            .exists());
+        // check that expected files are excluded from the alloc contract dir
+        assert_example_contract_excluded_files_do_not_exist(&project_dir, "alloc");
 
-        // check that the contract's Cargo.toml file uses the workspace for dependencies
-        let contract_cargo_path = project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .join("Cargo.toml");
-        let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
-        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
+        // check that the alloc contract's Cargo.toml file uses the workspace for dependencies
+        assert_contract_cargo_file_uses_workspace(&project_dir, "alloc");
 
         temp_dir.close().unwrap();
     }
@@ -384,19 +355,127 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
-        init(project_dir.as_path(), &with_examples).unwrap();
+        init(
+            project_dir.as_path(),
+            &FrontendTemplate::None,
+            &with_examples,
+        )
+        .unwrap();
 
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("account")
-            .exists());
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("atomic_swap")
-            .exists());
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        // check that account contract files exist and that expected files are excluded
+        assert_contract_files_exist(&project_dir, "account");
+        assert_example_contract_excluded_files_do_not_exist(&project_dir, "account");
+        assert_contract_cargo_file_uses_workspace(&project_dir, "account");
+
+        // check that atomic_swap contract files exist and that expected files are excluded
+        assert_contract_files_exist(&project_dir, "atomic_swap");
+        assert_example_contract_excluded_files_do_not_exist(&project_dir, "atomic_swap");
+        assert_contract_cargo_file_uses_workspace(&project_dir, "atomic_swap");
 
         temp_dir.close().unwrap();
+    }
+
+    #[test]
+    fn test_init_with_frontend_template() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("project");
+        let with_examples = vec![];
+        init(
+            project_dir.as_path(),
+            &FrontendTemplate::Astro,
+            &with_examples,
+        )
+        .unwrap();
+
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        // check that the contract's Cargo.toml file uses the workspace for dependencies
+        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        assert_astro_files_exist(&project_dir);
+
+        assert_gitignore_includes_astro_paths(&project_dir);
+
+        temp_dir.close().unwrap();
+    }
+
+    // test helpers
+    fn assert_base_template_files_exist(project_dir: &PathBuf) {
+        let expected_paths = ["contracts", "Cargo.toml", "README.md"];
+        for path in expected_paths.iter() {
+            assert!(project_dir.join(path).exists());
+        }
+    }
+
+    fn assert_default_hello_world_contract_files_exist(project_dir: &PathBuf) {
+        assert_contract_files_exist(project_dir, "hello_world");
+    }
+
+    fn assert_contract_files_exist(project_dir: &PathBuf, contract_name: &str) {
+        let contract_dir = project_dir.as_path().join("contracts").join(contract_name);
+
+        assert!(contract_dir.exists());
+        assert!(contract_dir.as_path().join("Cargo.toml").exists());
+        assert!(contract_dir.as_path().join("src").join("lib.rs").exists());
+        assert!(contract_dir.as_path().join("src").join("test.rs").exists());
+    }
+
+    fn assert_contract_cargo_file_uses_workspace(project_dir: &PathBuf, contract_name: &str) {
+        let contract_dir = project_dir.as_path().join("contracts").join(contract_name);
+        let cargo_toml_path = contract_dir.as_path().join("Cargo.toml");
+        let cargo_toml_str = read_to_string(cargo_toml_path).unwrap();
+        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
+    }
+
+    fn assert_example_contract_excluded_files_do_not_exist(
+        project_dir: &PathBuf,
+        contract_name: &str,
+    ) {
+        let contract_dir = project_dir.as_path().join("contracts").join(contract_name);
+        assert!(!contract_dir.as_path().join("Makefile").exists());
+        assert!(!contract_dir.as_path().join("Cargo.lock").exists());
+    }
+
+    fn assert_base_excluded_paths_do_not_exist(project_dir: &PathBuf) {
+        let excluded_paths = [
+            ".git",
+            ".github",
+            "Makefile",
+            "Cargo.lock",
+            ".vscode",
+            "target",
+        ];
+        for path in excluded_paths.iter() {
+            assert!(!project_dir.join(path).exists());
+        }
+    }
+
+    fn assert_gitignore_includes_astro_paths(project_dir: &PathBuf) {
+        let gitignore_path = project_dir.as_path().join(".gitignore");
+        let gitignore_str = read_to_string(gitignore_path).unwrap();
+        assert!(gitignore_str.contains(".astro/"));
+        assert!(gitignore_str.contains("node_modules"));
+        assert!(gitignore_str.contains("npm-debug.log*"));
+    }
+
+    fn assert_astro_files_exist(project_dir: &PathBuf) {
+        assert!(project_dir.as_path().join("public").exists());
+        assert!(project_dir.as_path().join("src").exists());
+        assert!(project_dir
+            .as_path()
+            .join("src")
+            .join("components")
+            .exists());
+        assert!(project_dir.as_path().join("src").join("layouts").exists());
+        assert!(project_dir.as_path().join("src").join("pages").exists());
+        assert!(project_dir.as_path().join("astro.config.mjs").exists());
+        assert!(project_dir.as_path().join("tsconfig.json").exists());
     }
 }
