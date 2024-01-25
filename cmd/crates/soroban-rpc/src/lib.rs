@@ -31,9 +31,8 @@ mod txn;
 
 pub use txn::*;
 
-use soroban_spec_tools::contract::Spec as Contract;
+use soroban_spec_tools::contract;
 
-use crate::utils::contract_spec as contract;
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 pub type LogEvents = fn(
@@ -958,7 +957,7 @@ soroban config identity fund {address} --helper-url <url>"#
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
                 executable: xdr::ContractExecutable::Wasm(hash),
                 ..
-            }) => Ok(Contract::new(&self.get_remote_wasm_from_hash(hash).await?)
+            }) => Ok(contract::Spec::new(&self.get_remote_wasm_from_hash(hash).await?)
                 .map_err(Error::CouldNotParseContractSpec)?
                 .spec),
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {

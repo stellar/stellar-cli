@@ -3,16 +3,17 @@
     clippy::must_use_candidate,
     clippy::missing_panics_doc
 )]
+use std::path::Path;
+pub(crate) use soroban_rpc as rpc;
+
 pub mod commands;
 pub mod fee;
 pub mod key;
 pub mod log;
-pub mod rpc;
 pub mod toid;
 pub mod utils;
 pub mod wasm;
 
-use std::path::Path;
 
 pub use commands::Root;
 
