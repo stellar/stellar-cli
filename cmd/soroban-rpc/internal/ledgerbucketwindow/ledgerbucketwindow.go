@@ -35,12 +35,12 @@ func NewLedgerBucketWindow[T any](retentionWindow uint32) *LedgerBucketWindow[T]
 }
 
 // Append adds a new bucket to the window. If the window is full a bucket will be evicted and returned.
-func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) *LedgerBucket[T] {
+func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) (*LedgerBucket[T], error) {
 	length := w.Len()
 	if length > 0 {
 		expectedLedgerSequence := w.buckets[w.start].LedgerSeq + length
 		if expectedLedgerSequence != bucket.LedgerSeq {
-			panic(fmt.Errorf("ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq))
+			return &LedgerBucket[T]{}, fmt.Errorf("error appending ledgers: ledgers not contiguous: expected ledger sequence %v but received %v", expectedLedgerSequence, bucket.LedgerSeq)
 		}
 	}
 
@@ -57,7 +57,7 @@ func (w *LedgerBucketWindow[T]) Append(bucket LedgerBucket[T]) *LedgerBucket[T] 
 		w.start = (w.start + 1) % length
 	}
 
-	return evicted
+	return evicted, nil
 }
 
 // Len returns the length (number of buckets in the window)

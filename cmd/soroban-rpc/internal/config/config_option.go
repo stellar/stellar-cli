@@ -88,8 +88,6 @@ func (o *ConfigOption) setValue(i interface{}) (err error) {
 	if o.CustomSetValue != nil {
 		return o.CustomSetValue(o, i)
 	}
-	// it's unfortunate that Set below panics when it cannot set the value..
-	// we'll want to catch this so that we can alert the user nicely.
 	defer func() {
 		if recoverRes := recover(); recoverRes != nil {
 			var ok bool
@@ -101,7 +99,7 @@ func (o *ConfigOption) setValue(i interface{}) (err error) {
 		}
 	}()
 	parser := func(option *ConfigOption, i interface{}) error {
-		panic(fmt.Sprintf("no parser for flag %s", o.Name))
+		return errors.Errorf("no parser for flag %s", o.Name)
 	}
 	switch o.ConfigKey.(type) {
 	case *bool:

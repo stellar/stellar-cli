@@ -130,7 +130,7 @@ func (cfg *Config) options() ConfigOptions {
 				return nil
 			},
 			MarshalTOML: func(option *ConfigOption) (interface{}, error) {
-				return cfg.LogFormat.String(), nil
+				return cfg.LogFormat.String()
 			},
 		},
 		{
