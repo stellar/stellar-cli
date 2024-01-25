@@ -182,7 +182,7 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
                 if path.to_string_lossy().contains(".gitignore") {
                     let new_contents = read_to_string(&new_path)?;
                     let old_contents = read_to_string(&path)?;
-                    let merged_contents = format!("{}\n{}", new_contents, old_contents);
+                    let merged_contents = format!("{new_contents}\n{old_contents}");
                     std::fs::write(&new_path, merged_contents)?;
                     continue;
                 }
@@ -282,11 +282,11 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
 }
 
 fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
-    println!("ℹ️  Initializing with {:?} frontend template", template);
+    println!("ℹ️  Initializing with {template:?} frontend template");
     match template {
         FrontendTemplate::Astro => {
             let from_template_path = from.join("astro");
-            let _ = copy_contents(&from_template_path, &to);
+            let _ = copy_contents(&from_template_path, to);
         }
         FrontendTemplate::None => {}
     }
