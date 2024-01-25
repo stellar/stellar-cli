@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -113,6 +114,16 @@ func TestUnassignableField(t *testing.T) {
 	err := co.setValue("abc")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), co.Name)
+}
+
+func TestNoParserForFlag(t *testing.T) {
+	var co ConfigOption
+	var invalidKey []time.Duration
+	co.Name = "mykey"
+	co.ConfigKey = &invalidKey
+	err := co.setValue("abc")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no parser for flag mykey")
 }
 
 func TestSetValue(t *testing.T) {
