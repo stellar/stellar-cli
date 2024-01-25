@@ -21,12 +21,16 @@ pub struct Assembled {
 }
 
 impl Assembled {
+    ///
+    /// # Errors
     pub async fn new(txn: &Transaction, client: &Client) -> Result<Self, Error> {
         let sim_res = Self::simulate(txn, client).await?;
         let txn = assemble(txn, &sim_res)?;
         Ok(Self { txn, sim_res })
     }
 
+    ///
+    /// # Errors
     pub fn hash(&self, network_passphrase: &str) -> Result<[u8; 32], xdr::Error> {
         let signature_payload = TransactionSignaturePayload {
             network_id: Hash(Sha256::digest(network_passphrase).into()),
@@ -35,6 +39,8 @@ impl Assembled {
         Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
     }
 
+    ///
+    /// # Errors
     pub fn sign(
         self,
         key: &ed25519_dalek::SigningKey,
@@ -55,6 +61,8 @@ impl Assembled {
         }))
     }
 
+    ///
+    /// # Errors
     pub async fn simulate(
         tx: &Transaction,
         client: &Client,
@@ -67,6 +75,8 @@ impl Assembled {
             .await
     }
 
+    ///
+    /// # Errors
     pub async fn handle_restore(
         self,
         client: &Client,
@@ -96,6 +106,8 @@ impl Assembled {
         &self.sim_res
     }
 
+    ///
+    /// # Errors
     pub async fn authorize(
         self,
         client: &Client,
@@ -123,6 +135,8 @@ impl Assembled {
         self
     }
 
+    ///
+    /// # Errors
     pub fn auth(&self) -> VecM<SorobanAuthorizationEntry> {
         self.txn
             .operations
@@ -138,6 +152,8 @@ impl Assembled {
             .unwrap_or_default()
     }
 
+    ///
+    /// # Errors
     pub fn log(
         &self,
         log_events: Option<LogEvents>,
@@ -199,6 +215,8 @@ impl Assembled {
 
 // Apply the result of a simulateTransaction onto a transaction envelope, preparing it for
 // submission to the network.
+///
+/// # Errors
 pub fn assemble(
     raw: &Transaction,
     simulation: &SimulateTransactionResponse,
@@ -422,6 +440,8 @@ fn sign_soroban_authorization_entry(
     Ok(auth)
 }
 
+///
+/// # Errors
 pub fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transaction, Error> {
     let transaction_data =
         SorobanTransactionData::from_xdr_base64(&restore.transaction_data, Limits::none())?;
@@ -442,8 +462,7 @@ pub fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transa
                 ext: ExtensionPoint::V0,
             }),
         }]
-        .try_into()
-        .unwrap(),
+        .try_into()?,
         ext: TransactionExt::V1(transaction_data),
     })
 }

@@ -178,6 +178,8 @@ impl TryInto<GetTransactionResponse> for GetTransactionResponseRaw {
 }
 
 impl GetTransactionResponse {
+    ///
+    /// # Errors
     pub fn return_value(&self) -> Result<xdr::ScVal, Error> {
         if let Some(xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
             soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
@@ -190,6 +192,8 @@ impl GetTransactionResponse {
         }
     }
 
+    ///
+    /// # Errors
     pub fn events(&self) -> Result<Vec<DiagnosticEvent>, Error> {
         if let Some(meta) = self.result_meta.as_ref() {
             Ok(extract_events(meta))
@@ -198,6 +202,8 @@ impl GetTransactionResponse {
         }
     }
 
+    ///
+    /// # Errors
     pub fn contract_events(&self) -> Result<Vec<DiagnosticEvent>, Error> {
         Ok(self
             .events()?
@@ -310,6 +316,8 @@ pub struct SimulateTransactionResponse {
 }
 
 impl SimulateTransactionResponse {
+    ///
+    /// # Errors
     pub fn results(&self) -> Result<Vec<SimulateHostFunctionResult>, Error> {
         self.results
             .iter()
@@ -331,6 +339,8 @@ impl SimulateTransactionResponse {
             .collect()
     }
 
+    ///
+    /// # Errors
     pub fn events(&self) -> Result<Vec<DiagnosticEvent>, Error> {
         self.events
             .iter()
@@ -338,6 +348,8 @@ impl SimulateTransactionResponse {
             .collect()
     }
 
+    ///
+    /// # Errors
     pub fn transaction_data(&self) -> Result<SorobanTransactionData, Error> {
         Ok(SorobanTransactionData::from_xdr_base64(
             &self.transaction_data,
@@ -434,10 +446,13 @@ impl Display for Event {
 }
 
 impl Event {
+    ///
+    /// # Errors
     pub fn parse_cursor(&self) -> Result<(u64, i32), Error> {
         parse_cursor(&self.id)
     }
-
+    ///
+    /// # Errors
     pub fn pretty_print(&self) -> Result<(), Box<dyn std::error::Error>> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         if !stdout.supports_color() {
@@ -539,6 +554,8 @@ pub struct Client {
 }
 
 impl Client {
+    ///
+    /// # Errors
     pub fn new(base_url: &str) -> Result<Self, Error> {
         // Add the port to the base URL if there is no port explicitly included
         // in the URL and the scheme allows us to infer a default port.
@@ -569,6 +586,8 @@ impl Client {
         })
     }
 
+    ///
+    /// # Errors
     fn client(&self) -> Result<HttpClient, Error> {
         let url = self.base_url.clone();
         let mut headers = HeaderMap::new();
@@ -580,6 +599,8 @@ impl Client {
             .build(url)?)
     }
 
+    ///
+    /// # Errors
     pub async fn friendbot_url(&self) -> Result<String, Error> {
         let network = self.get_network().await?;
         tracing::trace!("{network:#?}");
@@ -590,7 +611,8 @@ impl Client {
             )
         })
     }
-
+    ///
+    /// # Errors
     pub async fn verify_network_passphrase(&self, expected: Option<&str>) -> Result<String, Error> {
         let server = self.get_network().await?.passphrase;
         if let Some(expected) = expected {
@@ -604,11 +626,15 @@ impl Client {
         Ok(server)
     }
 
+    ///
+    /// # Errors
     pub async fn get_network(&self) -> Result<GetNetworkResponse, Error> {
         tracing::trace!("Getting network");
         Ok(self.client()?.request("getNetwork", rpc_params![]).await?)
     }
 
+    ///
+    /// # Errors
     pub async fn get_latest_ledger(&self) -> Result<GetLatestLedgerResponse, Error> {
         tracing::trace!("Getting latest ledger");
         Ok(self
@@ -617,6 +643,8 @@ impl Client {
             .await?)
     }
 
+    ///
+    /// # Errors
     pub async fn get_account(&self, address: &str) -> Result<AccountEntry, Error> {
         tracing::trace!("Getting address {}", address);
         let key = LedgerKey::Account(LedgerKeyAccount {
@@ -648,6 +676,8 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
+    ///
+    /// # Errors
     pub async fn send_transaction(
         &self,
         tx: &TransactionEnvelope,
@@ -718,6 +748,8 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
+    ///
+    /// # Errors
     pub async fn simulate_transaction(
         &self,
         tx: &TransactionEnvelope,
@@ -740,6 +772,8 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
+    ///
+    /// # Errors
     pub async fn send_assembled_transaction(
         &self,
         txn: txn::Assembled,
@@ -761,6 +795,8 @@ soroban config identity fund {address} --helper-url <url>"#
         self.send_transaction(&tx).await
     }
 
+    ///
+    /// # Errors
     pub async fn prepare_and_send_transaction(
         &self,
         tx_without_preflight: &Transaction,
@@ -782,6 +818,8 @@ soroban config identity fund {address} --helper-url <url>"#
         .await
     }
 
+    ///
+    /// # Errors
     pub async fn create_assembled_transaction(
         &self,
         txn: &Transaction,
@@ -789,6 +827,8 @@ soroban config identity fund {address} --helper-url <url>"#
         txn::Assembled::new(txn, self).await
     }
 
+    ///
+    /// # Errors
     pub async fn get_transaction(&self, tx_id: &str) -> Result<GetTransactionResponseRaw, Error> {
         Ok(self
             .client()?
@@ -796,6 +836,8 @@ soroban config identity fund {address} --helper-url <url>"#
             .await?)
     }
 
+    ///
+    /// # Errors
     pub async fn get_ledger_entries(
         &self,
         keys: &[LedgerKey],
@@ -806,7 +848,7 @@ soroban config identity fund {address} --helper-url <url>"#
             if base64_result.is_err() {
                 return Err(Error::Xdr(XdrError::Invalid));
             }
-            base64_keys.push(k.to_xdr_base64(Limits::none()).unwrap());
+            base64_keys.push(k.to_xdr_base64(Limits::none())?);
         }
         Ok(self
             .client()?
@@ -814,6 +856,8 @@ soroban config identity fund {address} --helper-url <url>"#
             .await?)
     }
 
+    ///
+    /// # Errors
     pub async fn get_full_ledger_entries(
         &self,
         ledger_keys: &[LedgerKey],
@@ -854,7 +898,8 @@ soroban config identity fund {address} --helper-url <url>"#
             latest_ledger,
         })
     }
-
+    ///
+    /// # Errors
     pub async fn get_events(
         &self,
         start: EventStart,
@@ -894,6 +939,8 @@ soroban config identity fund {address} --helper-url <url>"#
         Ok(self.client()?.request("getEvents", oparams).await?)
     }
 
+    ///
+    /// # Errors
     pub async fn get_contract_data(
         &self,
         contract_id: &[u8; 32],
@@ -917,6 +964,8 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
+    ///
+    /// # Errors
     pub async fn get_remote_wasm(&self, contract_id: &[u8; 32]) -> Result<Vec<u8>, Error> {
         match self.get_contract_data(contract_id).await? {
             xdr::ContractDataEntry {
@@ -931,6 +980,8 @@ soroban config identity fund {address} --helper-url <url>"#
         }
     }
 
+    ///
+    /// # Errors
     pub async fn get_remote_wasm_from_hash(&self, hash: xdr::Hash) -> Result<Vec<u8>, Error> {
         let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
         let contract_data = self.get_ledger_entries(&[code_key]).await?;
@@ -947,7 +998,8 @@ soroban config identity fund {address} --helper-url <url>"#
             scval => Err(Error::UnexpectedContractCodeDataType(scval)),
         }
     }
-
+    ///
+    /// # Errors
     pub async fn get_remote_contract_spec(
         &self,
         contract_id: &[u8; 32],
@@ -957,9 +1009,11 @@ soroban config identity fund {address} --helper-url <url>"#
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
                 executable: xdr::ContractExecutable::Wasm(hash),
                 ..
-            }) => Ok(contract::Spec::new(&self.get_remote_wasm_from_hash(hash).await?)
-                .map_err(Error::CouldNotParseContractSpec)?
-                .spec),
+            }) => Ok(
+                contract::Spec::new(&self.get_remote_wasm_from_hash(hash).await?)
+                    .map_err(Error::CouldNotParseContractSpec)?
+                    .spec,
+            ),
             xdr::ScVal::ContractInstance(xdr::ScContractInstance {
                 executable: xdr::ContractExecutable::StellarAsset,
                 ..
@@ -996,7 +1050,7 @@ fn extract_events(tx_meta: &TransactionMeta) -> Vec<DiagnosticEvent> {
     }
 }
 
-pub fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
+pub(crate) fn parse_cursor(c: &str) -> Result<(u64, i32), Error> {
     let (toid_part, event_index) = c.split('-').collect_tuple().ok_or(Error::InvalidCursor)?;
     let toid_part: u64 = toid_part.parse().map_err(|_| Error::InvalidCursor)?;
     let start_index: i32 = event_index.parse().map_err(|_| Error::InvalidCursor)?;
