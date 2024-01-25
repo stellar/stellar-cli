@@ -60,14 +60,9 @@ impl Image for Soroban {
 
 #[cfg(test)]
 mod tests {
-    use std::thread::sleep;
-    use std::time::Duration;
-
-    use soroban_cli::rpc::Client;
     use super::Soroban;
+    use soroban_cli::rpc::Client;
     use testcontainers::clients;
-
-    // use testcontainers_modules::redis::Redis;
 
     #[tokio::test]
     async fn testcontainers_work() {
@@ -75,13 +70,11 @@ mod tests {
         let docker = clients::Cli::default();
         let node = docker.run(Soroban::new());
         let host_port = node.get_host_port_ipv4(8000);
-        let url: String = format!("http://[::1]:{host_port}/soroban/rpc");
+        let url: String = format!("http://localhost:{host_port}/soroban/rpc");
         println!("{url}");
-        // sleep(Duration::from_secs(2000));
         let client = Client::new(&url).unwrap();
-        for _ in 0..20 {
-            sleep(Duration::from_secs(1));
-            println!("{:#?}", client.get_network().await);
-        }
+        let res = client.get_network().await;
+        println!("{res:#?}");
+        assert!(res.is_ok());
     }
 }
