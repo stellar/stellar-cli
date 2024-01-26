@@ -3,12 +3,16 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::{env, fs, io};
 
+use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, ValueEnum};
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
-#[derive(Clone, Debug, PartialEq, ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum, EnumIter)]
+
 pub enum ExampleContract {
     Account,
     Alloc,
@@ -71,11 +75,28 @@ pub struct Cmd {
     pub project_path: String,
 
     /// An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
-    #[arg(short, long, num_args = 1..=20)]
-    pub with_example: Vec<ExampleContract>,
+    #[arg(short, long, num_args = 1.., value_parser=possible_example_values())]
+    pub with_example: Vec<String>,
 
     #[arg(short, long, value_enum, default_value = "none")]
     pub frontend_template: FrontendTemplate,
+}
+
+fn possible_example_values() -> PossibleValuesParser {
+    //TODO: handle this unwrap more gracefully
+    let examples = get_valid_examples().unwrap();
+    let pvp = PossibleValuesParser::new(examples.iter().map(|s| PossibleValue::new(s)));
+
+    pvp
+}
+
+fn get_valid_examples() -> Result<Vec<String>, Error> {
+    let mut valid_examples = Vec::new();
+    for example in ExampleContract::iter() {
+        valid_examples.push(example.to_string());
+    }
+
+    Ok(valid_examples)
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -116,7 +137,7 @@ impl Cmd {
 fn init(
     project_path: &Path,
     frontend_template: &FrontendTemplate,
-    with_examples: &[ExampleContract],
+    with_examples: &[String],
 ) -> Result<(), Error> {
     let cli_cmd_root = env!("CARGO_MANIFEST_DIR");
     let template_dir_path = Path::new(cli_cmd_root)
@@ -210,7 +231,7 @@ fn file_exists(file_path: &str) -> bool {
     }
 }
 
-fn include_example_contracts(contracts: &[ExampleContract]) -> bool {
+fn include_example_contracts(contracts: &[String]) -> bool {
     !contracts.is_empty()
 }
 
@@ -240,11 +261,7 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn copy_example_contracts(
-    from: &Path,
-    to: &Path,
-    contracts: &[ExampleContract],
-) -> Result<(), Error> {
+fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Result<(), Error> {
     let project_contracts_path = to.join("contracts");
     for contract in contracts {
         println!("ℹ️  Initializing example contract: {contract}");
