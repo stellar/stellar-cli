@@ -75,8 +75,8 @@ jobs:
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test
     - name: Enable Docker Remote API on Localhost
-        shell: bash
-        run: |
+      shell: bash
+      run: |
           sudo mkdir -p /etc/systemd/system/docker.service.d/
           sudo cp ./.github/docker.override.conf /etc/systemd/system/docker.service.d/override.conf
           sudo systemctl daemon-reload
