@@ -69,6 +69,10 @@ rev = "4aef54ff9295c2fca4c5b9fbd2c92d0ff99f67de"
 version = "20.2.0"
 path = "cmd/soroban-cli"
 
+[workspace.dependencies.soroban-rpc]
+version = "20.2.0"
+path = "cmd/crates/soroban-rpc"
+
 [workspace.dependencies.stellar-xdr]
 version = "=20.1.0"
 default-features = true
