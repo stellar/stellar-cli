@@ -369,6 +369,21 @@ mod tests {
     }
 
     #[test]
+    fn test_init_with_invalid_example_contract() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("project");
+        let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
+        assert!(init(
+            project_dir.as_path(),
+            &FrontendTemplate::None,
+            &with_examples,
+        )
+        .is_err());
+
+        temp_dir.close().unwrap();
+    }
+
+    #[test]
     fn test_init_with_frontend_template() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
