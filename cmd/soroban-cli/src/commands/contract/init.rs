@@ -36,7 +36,7 @@ pub struct Cmd {
 fn possible_example_values() -> PossibleValuesParser {
     //TODO: handle this unwrap more gracefully
     let examples = get_valid_examples().unwrap();
-    let parser = PossibleValuesParser::new(examples.iter().map(|s| PossibleValue::new(s)));
+    let parser = PossibleValuesParser::new(examples.iter().map(PossibleValue::new));
 
     parser
 }
@@ -54,18 +54,21 @@ struct ReqBody {
 }
 
 fn get_valid_examples() -> Result<Vec<String>, Error> {
-    let body: ReqBody = ureq::get(GITHUB_API_URL).call()?.into_json()?;
+    let body: ReqBody = ureq::get(GITHUB_API_URL)
+        .call()
+        .map_err(Box::new)?
+        .into_json()?;
     let mut valid_examples = Vec::new();
     for item in body.tree {
         if item.type_field == "blob"
-            || item.path.starts_with(".")
-            || item.path.contains("/")
+            || item.path.starts_with('.')
+            || item.path.contains('/')
             || item.path == "hello_world"
         {
             continue;
-        } else {
-            valid_examples.push(item.path);
         }
+
+        valid_examples.push(item.path);
     }
 
     Ok(valid_examples)
@@ -90,8 +93,8 @@ pub enum Error {
     #[error("Failed to parse Cargo.toml: {0}")]
     TomlParseError(#[from] TomlError),
 
-    #[error("Failed to fetch example contracts: {0}")]
-    ExampleContractFetchError(#[from] ureq::Error),
+    #[error("Failed to fetch example contracts")]
+    ExampleContractFetchError(#[from] Box<ureq::Error>),
 }
 
 impl Cmd {
