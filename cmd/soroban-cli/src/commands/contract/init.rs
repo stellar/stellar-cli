@@ -10,7 +10,7 @@ use std::sync::atomic::AtomicBool;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
-const FRONTEND_ASTRO_TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-init-template";
+const FRONTEND_ASTRO_TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-astro-template";
 const GITHUB_API_URL: &str =
     "https://api.github.com/repos/stellar/soroban-examples/git/trees/main?recursive=1";
 
@@ -95,6 +95,9 @@ pub enum Error {
 
     #[error("Failed to fetch example contracts")]
     ExampleContractFetchError(#[from] Box<ureq::Error>),
+
+    #[error("Failed to parse package.json file: {0}")]
+    JsonParseError(#[from] serde_json::Error),
 }
 
 impl Cmd {
@@ -174,12 +177,9 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             copy_contents(&path, &new_path)?;
         } else {
             if file_exists(&new_path.to_string_lossy()) {
-                //if file is .gitignore, merge the files
+                //if file is .gitignore, overwrite the file with a new .gitignore file
                 if path.to_string_lossy().contains(".gitignore") {
-                    let new_contents = read_to_string(&new_path)?;
-                    let old_contents = read_to_string(&path)?;
-                    let merged_contents = format!("{new_contents}\n{old_contents}");
-                    std::fs::write(&new_path, merged_contents)?;
+                    std::fs::copy(&path, &new_path)?;
                     continue;
                 }
 
@@ -277,11 +277,45 @@ fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
     println!("ℹ️  Initializing with {template:?} frontend template");
     match template {
         FrontendTemplate::Astro => {
-            let from_template_path = from.join("astro");
-            let _ = copy_contents(&from_template_path, to);
+            let _ = copy_contents(&from, to);
+            let _ = edit_package_json_files(to);
         }
         FrontendTemplate::None => {}
     }
+}
+
+fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
+    //TODO: handle unwraps
+    let package_name = project_path.file_name().unwrap().to_str().unwrap();
+
+    edit_package_json(project_path, package_name)?;
+    edit_package_lock_json(project_path, package_name)
+}
+
+fn edit_package_lock_json(project_path: &Path, package_name: &str) -> Result<(), Error> {
+    let package_lock_json_path = project_path.join("package-lock.json");
+    let package_lock_json_str = read_to_string(&package_lock_json_path)?;
+
+    let mut doc: serde_json::Value = serde_json::from_str(&package_lock_json_str)?;
+
+    doc["name"] = serde_json::json!(package_name);
+
+    std::fs::write(&package_lock_json_path, doc.to_string())?;
+
+    Ok(())
+}
+
+fn edit_package_json(project_path: &Path, package_name: &str) -> Result<(), Error> {
+    let package_json_path = project_path.join("package.json");
+    let package_json_str = read_to_string(&package_json_path)?;
+
+    let mut doc: serde_json::Value = serde_json::from_str(&package_json_str)?;
+
+    doc["name"] = serde_json::json!(package_name);
+
+    std::fs::write(&package_json_path, doc.to_string())?;
+
+    Ok(())
 }
 
 #[cfg(test)]
