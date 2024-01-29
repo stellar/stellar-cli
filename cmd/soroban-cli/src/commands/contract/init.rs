@@ -1,67 +1,18 @@
-use core::fmt;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::{env, fs, io};
 
 use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, ValueEnum};
+use serde::Deserialize;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
-#[derive(Clone, Debug, PartialEq, ValueEnum, EnumIter)]
-
-pub enum ExampleContract {
-    Account,
-    Alloc,
-    AtomicMultiswap,
-    AtomicSwap,
-    Auth,
-    CrossContract,
-    CustomTypes,
-    DeepContractAuth,
-    Deployer,
-    Errors,
-    Events,
-    Fuzzing,
-    Increment,
-    LiquidityPool,
-    Logging,
-    SimpleAccount,
-    SingleOffer,
-    Timelock,
-    Token,
-    UpgradeableContract,
-}
-
-impl fmt::Display for ExampleContract {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ExampleContract::Account => write!(f, "account"),
-            ExampleContract::Alloc => write!(f, "alloc"),
-            ExampleContract::AtomicMultiswap => write!(f, "atomic_multiswap"),
-            ExampleContract::AtomicSwap => write!(f, "atomic_swap"),
-            ExampleContract::Auth => write!(f, "auth"),
-            ExampleContract::CrossContract => write!(f, "cross_contract"),
-            ExampleContract::CustomTypes => write!(f, "custom_types"),
-            ExampleContract::DeepContractAuth => write!(f, "deep_contract_auth"),
-            ExampleContract::Deployer => write!(f, "deployer"),
-            ExampleContract::Errors => write!(f, "errors"),
-            ExampleContract::Events => write!(f, "events"),
-            ExampleContract::Fuzzing => write!(f, "fuzzing"),
-            ExampleContract::Increment => write!(f, "increment"),
-            ExampleContract::LiquidityPool => write!(f, "liquidity_pool"),
-            ExampleContract::Logging => write!(f, "logging"),
-            ExampleContract::SimpleAccount => write!(f, "simple_account"),
-            ExampleContract::SingleOffer => write!(f, "single_offer"),
-            ExampleContract::Timelock => write!(f, "timelock"),
-            ExampleContract::Token => write!(f, "token"),
-            ExampleContract::UpgradeableContract => write!(f, "upgradeable_contract"),
-        }
-    }
-}
+const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
+const FRONTEND_ASTRO_TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-init-template";
+const GITHUB_API_URL: &str =
+    "https://api.github.com/repos/stellar/soroban-examples/git/trees/main?recursive=1";
 
 #[derive(Clone, Debug, ValueEnum, PartialEq)]
 pub enum FrontendTemplate {
@@ -85,15 +36,36 @@ pub struct Cmd {
 fn possible_example_values() -> PossibleValuesParser {
     //TODO: handle this unwrap more gracefully
     let examples = get_valid_examples().unwrap();
-    let pvp = PossibleValuesParser::new(examples.iter().map(|s| PossibleValue::new(s)));
+    let parser = PossibleValuesParser::new(examples.iter().map(|s| PossibleValue::new(s)));
 
-    pvp
+    parser
+}
+
+#[derive(Deserialize, Debug)]
+struct RepoPath {
+    path: String,
+    #[serde(rename = "type")]
+    type_field: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ReqBody {
+    tree: Vec<RepoPath>,
 }
 
 fn get_valid_examples() -> Result<Vec<String>, Error> {
+    let body: ReqBody = ureq::get(GITHUB_API_URL).call()?.into_json()?;
     let mut valid_examples = Vec::new();
-    for example in ExampleContract::iter() {
-        valid_examples.push(example.to_string());
+    for item in body.tree {
+        if item.type_field == "blob"
+            || item.path.starts_with(".")
+            || item.path.contains("/")
+            || item.path == "hello_world"
+        {
+            continue;
+        } else {
+            valid_examples.push(item.path);
+        }
     }
 
     Ok(valid_examples)
@@ -117,10 +89,10 @@ pub enum Error {
 
     #[error("Failed to parse Cargo.toml: {0}")]
     TomlParseError(#[from] TomlError),
-}
 
-const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
-const FRONTEND_ASTRO_TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-init-template";
+    #[error("Failed to fetch example contracts: {0}")]
+    ExampleContractFetchError(#[from] ureq::Error),
+}
 
 impl Cmd {
     #[allow(clippy::unused_self)]
@@ -343,7 +315,7 @@ mod tests {
     fn test_init_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_examples = vec![ExampleContract::Alloc];
+        let with_examples = ["alloc".to_owned()];
         init(
             project_dir.as_path(),
             &FrontendTemplate::None,
@@ -371,7 +343,7 @@ mod tests {
     fn test_init_including_multiple_example_contracts() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_examples = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
+        let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
         init(
             project_dir.as_path(),
             &FrontendTemplate::None,

@@ -53,9 +53,8 @@ clap = { version = "4.1.8", features = [
 ] }
 base64 = { workspace = true }
 thiserror = { workspace = true }
-serde = "1.0.82"
-serde_derive = "1.0.82"
-serde_json = "1.0.82"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 serde-aux = "4.1.2"
 hex = { workspace = true }
 num-bigint = "0.4"
@@ -99,6 +98,8 @@ gix = { version = "0.58.0", default-features = false, features = [
   "blocking-http-transport-reqwest-rust-tls",
   "worktree-mutation",
 ] }
+ureq = {version = "2.9.1", features = ["json"]}
+
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
 # For hyper-tls
