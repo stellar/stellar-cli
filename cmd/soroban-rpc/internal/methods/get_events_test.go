@@ -591,7 +591,8 @@ func TestGetEvents(t *testing.T) {
 				),
 			))
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		ledgerCloseMeta := ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)
+		assert.NoError(t, store.IngestEvents(ledgerCloseMeta))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -626,6 +627,7 @@ func TestGetEvents(t *testing.T) {
 				Topic:                    []string{value},
 				Value:                    value,
 				InSuccessfulContractCall: true,
+				TransactionHash:          ledgerCloseMeta.TransactionHash(i).HexString(),
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -699,7 +701,8 @@ func TestGetEvents(t *testing.T) {
 				),
 			))
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		ledgerCloseMeta := ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)
+		assert.NoError(t, store.IngestEvents(ledgerCloseMeta))
 
 		number := xdr.Uint64(4)
 		handler := eventsRPCHandler{
@@ -738,6 +741,7 @@ func TestGetEvents(t *testing.T) {
 				Topic:                    []string{counterXdr, value},
 				Value:                    value,
 				InSuccessfulContractCall: true,
+				TransactionHash:          ledgerCloseMeta.TransactionHash(4).HexString(),
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -792,7 +796,8 @@ func TestGetEvents(t *testing.T) {
 				),
 			),
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		ledgerCloseMeta := ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)
+		assert.NoError(t, store.IngestEvents(ledgerCloseMeta))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -832,6 +837,7 @@ func TestGetEvents(t *testing.T) {
 				Topic:                    []string{counterXdr, value},
 				Value:                    value,
 				InSuccessfulContractCall: true,
+				TransactionHash:          ledgerCloseMeta.TransactionHash(3).HexString(),
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -865,7 +871,8 @@ func TestGetEvents(t *testing.T) {
 				),
 			),
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		ledgerCloseMeta := ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)
+		assert.NoError(t, store.IngestEvents(ledgerCloseMeta))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -892,6 +899,7 @@ func TestGetEvents(t *testing.T) {
 				Topic:                    []string{counterXdr},
 				Value:                    counterXdr,
 				InSuccessfulContractCall: true,
+				TransactionHash:          ledgerCloseMeta.TransactionHash(0).HexString(),
 			},
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -913,7 +921,8 @@ func TestGetEvents(t *testing.T) {
 				),
 			))
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)))
+		ledgerCloseMeta := ledgerCloseMetaWithEvents(1, now.Unix(), txMeta...)
+		assert.NoError(t, store.IngestEvents(ledgerCloseMeta))
 
 		handler := eventsRPCHandler{
 			scanner:      store,
@@ -947,6 +956,7 @@ func TestGetEvents(t *testing.T) {
 				Topic:                    []string{value},
 				Value:                    value,
 				InSuccessfulContractCall: true,
+				TransactionHash:          ledgerCloseMeta.TransactionHash(i).HexString(),
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 1}, results)
@@ -996,7 +1006,8 @@ func TestGetEvents(t *testing.T) {
 				),
 			),
 		}
-		assert.NoError(t, store.IngestEvents(ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)))
+		ledgerCloseMeta := ledgerCloseMetaWithEvents(5, now.Unix(), txMeta...)
+		assert.NoError(t, store.IngestEvents(ledgerCloseMeta))
 
 		id := &events.Cursor{Ledger: 5, Tx: 1, Op: 0, Event: 0}
 		handler := eventsRPCHandler{
@@ -1031,6 +1042,7 @@ func TestGetEvents(t *testing.T) {
 				Topic:                    []string{counterXdr},
 				Value:                    expectedXdr,
 				InSuccessfulContractCall: true,
+				TransactionHash:          ledgerCloseMeta.TransactionHash(i).HexString(),
 			})
 		}
 		assert.Equal(t, GetEventsResponse{expected, 5}, results)
