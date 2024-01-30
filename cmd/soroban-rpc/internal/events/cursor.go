@@ -20,6 +20,8 @@ type Cursor struct {
 	// Tx is the index of the transaction within the ledger which emitted the event.
 	Tx uint32
 	// Op is the index of the operation within the transaction which emitted the event.
+	// Note: Currently, there is no use for it (events are transaction-wide and not operation-specific)
+	//       but we keep it in order to make the API future-proof.
 	Op uint32
 	// Event is the index of the event within in the operation which emitted the event.
 	Event uint32

@@ -15,24 +15,16 @@ import (
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/ledgerbucketwindow"
 )
 
-type bucket struct {
-	ledgerSeq            uint32
-	ledgerCloseTimestamp int64
-	events               []event
-}
-
 type event struct {
-	contents   xdr.DiagnosticEvent
-	txIndex    uint32
-	opIndex    uint32
-	eventIndex uint32
+	diagnosticEventXDR []byte
+	txIndex            uint32
+	eventIndex         uint32
 }
 
 func (e event) cursor(ledgerSeq uint32) Cursor {
 	return Cursor{
 		Ledger: ledgerSeq,
 		Tx:     e.txIndex,
-		Op:     e.opIndex,
 		Event:  e.eventIndex,
 	}
 }
@@ -129,7 +121,12 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor,
 			if eventRange.End.Cmp(cur) <= 0 {
 				return lastLedgerInWindow, nil
 			}
-			if !f(event.contents, cur, timestamp) {
+			var diagnosticEvent xdr.DiagnosticEvent
+			err := xdr.SafeUnmarshal(event.diagnosticEventXDR, &diagnosticEvent)
+			if err != nil {
+				return 0, err
+			}
+			if !f(diagnosticEvent, cur, timestamp) {
 				return lastLedgerInWindow, nil
 			}
 		}
@@ -201,7 +198,9 @@ func (m *MemoryStore) IngestEvents(ledgerCloseMeta xdr.LedgerCloseMeta) error {
 		BucketContent:        events,
 	}
 	m.lock.Lock()
-	m.eventsByLedger.Append(bucket)
+	if _, err = m.eventsByLedger.Append(bucket); err != nil {
+		return err
+	}
 	m.lock.Unlock()
 	m.eventsDurationMetric.With(prometheus.Labels{"operation": "ingest"}).
 		Observe(time.Since(startTime).Seconds())
@@ -241,15 +240,14 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 			return nil, err
 		}
 		for index, e := range txEvents {
+			diagnosticEventXDR, err := e.MarshalBinary()
+			if err != nil {
+				return nil, err
+			}
 			events = append(events, event{
-				contents: e,
-				txIndex:  tx.Index,
-				// NOTE: we cannot really index by operation since all events
-				//       are provided as part of the transaction. However,
-				//       that shouldn't matter in practice since a transaction
-				//       can only contain a single Host Function Invocation.
-				opIndex:    0,
-				eventIndex: uint32(index),
+				diagnosticEventXDR: diagnosticEventXDR,
+				txIndex:            tx.Index,
+				eventIndex:         uint32(index),
 			})
 		}
 	}
