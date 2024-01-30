@@ -344,7 +344,7 @@ fn check_internet_connection() -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::read_to_string, path::PathBuf};
+    use std::fs::read_to_string;
 
     use super::*;
 
@@ -472,19 +472,19 @@ mod tests {
     }
 
     // test helpers
-    fn assert_base_template_files_exist(project_dir: &PathBuf) {
+    fn assert_base_template_files_exist(project_dir: &Path) {
         let expected_paths = ["contracts", "Cargo.toml", "README.md"];
-        for path in expected_paths.iter() {
+        for path in &expected_paths {
             assert!(project_dir.join(path).exists());
         }
     }
 
-    fn assert_default_hello_world_contract_files_exist(project_dir: &PathBuf) {
+    fn assert_default_hello_world_contract_files_exist(project_dir: &Path) {
         assert_contract_files_exist(project_dir, "hello_world");
     }
 
-    fn assert_contract_files_exist(project_dir: &PathBuf, contract_name: &str) {
-        let contract_dir = project_dir.as_path().join("contracts").join(contract_name);
+    fn assert_contract_files_exist(project_dir: &Path, contract_name: &str) {
+        let contract_dir = project_dir.join("contracts").join(contract_name);
 
         assert!(contract_dir.exists());
         assert!(contract_dir.as_path().join("Cargo.toml").exists());
@@ -492,23 +492,23 @@ mod tests {
         assert!(contract_dir.as_path().join("src").join("test.rs").exists());
     }
 
-    fn assert_contract_cargo_file_uses_workspace(project_dir: &PathBuf, contract_name: &str) {
-        let contract_dir = project_dir.as_path().join("contracts").join(contract_name);
+    fn assert_contract_cargo_file_uses_workspace(project_dir: &Path, contract_name: &str) {
+        let contract_dir = project_dir.join("contracts").join(contract_name);
         let cargo_toml_path = contract_dir.as_path().join("Cargo.toml");
         let cargo_toml_str = read_to_string(cargo_toml_path).unwrap();
         assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
     }
 
     fn assert_example_contract_excluded_files_do_not_exist(
-        project_dir: &PathBuf,
+        project_dir: &Path,
         contract_name: &str,
     ) {
-        let contract_dir = project_dir.as_path().join("contracts").join(contract_name);
+        let contract_dir = project_dir.join("contracts").join(contract_name);
         assert!(!contract_dir.as_path().join("Makefile").exists());
         assert!(!contract_dir.as_path().join("Cargo.lock").exists());
     }
 
-    fn assert_base_excluded_paths_do_not_exist(project_dir: &PathBuf) {
+    fn assert_base_excluded_paths_do_not_exist(project_dir: &Path) {
         let excluded_paths = [
             ".git",
             ".github",
@@ -517,30 +517,26 @@ mod tests {
             ".vscode",
             "target",
         ];
-        for path in excluded_paths.iter() {
+        for path in &excluded_paths {
             assert!(!project_dir.join(path).exists());
         }
     }
 
-    fn assert_gitignore_includes_astro_paths(project_dir: &PathBuf) {
-        let gitignore_path = project_dir.as_path().join(".gitignore");
+    fn assert_gitignore_includes_astro_paths(project_dir: &Path) {
+        let gitignore_path = project_dir.join(".gitignore");
         let gitignore_str = read_to_string(gitignore_path).unwrap();
         assert!(gitignore_str.contains(".astro/"));
         assert!(gitignore_str.contains("node_modules"));
         assert!(gitignore_str.contains("npm-debug.log*"));
     }
 
-    fn assert_astro_files_exist(project_dir: &PathBuf) {
-        assert!(project_dir.as_path().join("public").exists());
-        assert!(project_dir.as_path().join("src").exists());
-        assert!(project_dir
-            .as_path()
-            .join("src")
-            .join("components")
-            .exists());
-        assert!(project_dir.as_path().join("src").join("layouts").exists());
-        assert!(project_dir.as_path().join("src").join("pages").exists());
-        assert!(project_dir.as_path().join("astro.config.mjs").exists());
-        assert!(project_dir.as_path().join("tsconfig.json").exists());
+    fn assert_astro_files_exist(project_dir: &Path) {
+        assert!(project_dir.join("public").exists());
+        assert!(project_dir.join("src").exists());
+        assert!(project_dir.join("src").join("components").exists());
+        assert!(project_dir.join("src").join("layouts").exists());
+        assert!(project_dir.join("src").join("pages").exists());
+        assert!(project_dir.join("astro.config.mjs").exists());
+        assert!(project_dir.join("tsconfig.json").exists());
     }
 }
