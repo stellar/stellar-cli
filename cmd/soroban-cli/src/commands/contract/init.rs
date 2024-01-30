@@ -2,7 +2,7 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::{env, fs, io};
 
-use clap::builder::{PossibleValue, PossibleValuesParser};
+use clap::builder::{PossibleValue, PossibleValuesParser, ValueParser};
 use clap::{Parser, ValueEnum};
 use serde::Deserialize;
 use std::num::NonZeroU32;
@@ -11,6 +11,7 @@ use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 const FRONTEND_ASTRO_TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-astro-template";
+const GITHUB_URL: &str = "https://github.com";
 const GITHUB_API_URL: &str =
     "https://api.github.com/repos/stellar/soroban-examples/git/trees/main?recursive=1";
 
@@ -25,20 +26,30 @@ pub enum FrontendTemplate {
 pub struct Cmd {
     pub project_path: String,
 
-    /// An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
-    #[arg(short, long, num_args = 1.., value_parser=possible_example_values())]
+    #[arg(short, long, num_args = 1.., value_parser=possible_example_values(), long_help=with_example_help())]
     pub with_example: Vec<String>,
 
     #[arg(short, long, value_enum, default_value = "none")]
     pub frontend_template: FrontendTemplate,
 }
 
-fn possible_example_values() -> PossibleValuesParser {
-    //TODO: handle this unwrap more gracefully
-    let examples = get_valid_examples().unwrap();
-    let parser = PossibleValuesParser::new(examples.iter().map(PossibleValue::new));
+fn possible_example_values() -> ValueParser {
+    // If fetching the example contracts from the soroban-examples repo succeeds, return a parser with the example contracts.
+    if let Ok(examples) = get_valid_examples() {
+        let parser = PossibleValuesParser::new(examples.iter().map(PossibleValue::new));
+        return parser.into();
+    }
 
-    parser
+    // If fetching with example contracts fails, return a string parser that will allow for any value. It will be ignored in `init`.
+    ValueParser::string().into()
+}
+
+fn with_example_help() -> String {
+    if check_internet_connection() {
+        "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.".to_owned()
+    } else {
+        "⚠️  Failed to fetch additional example contracts from soroban-examples repo. You can still continue with initializing - the default hello_world contract will still be included".to_owned()
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -126,6 +137,11 @@ fn init(
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
     std::fs::create_dir_all(project_path)?;
     copy_contents(template_dir_path.as_path(), project_path)?;
+
+    if !check_internet_connection() {
+        println!("⚠️  It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
+        return Ok(());
+    }
 
     if frontend_template != &FrontendTemplate::None {
         // create a temp dir for the template repo
@@ -316,6 +332,14 @@ fn edit_package_json(project_path: &Path, package_name: &str) -> Result<(), Erro
     std::fs::write(&package_json_path, doc.to_string())?;
 
     Ok(())
+}
+
+fn check_internet_connection() -> bool {
+    if let Ok(_req) = ureq::get(GITHUB_URL).call() {
+        return true;
+    }
+
+    false
 }
 
 #[cfg(test)]
