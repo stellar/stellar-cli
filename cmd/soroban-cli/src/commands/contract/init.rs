@@ -41,7 +41,7 @@ fn possible_example_values() -> ValueParser {
     }
 
     // If fetching with example contracts fails, return a string parser that will allow for any value. It will be ignored in `init`.
-    ValueParser::string().into()
+    ValueParser::string()
 }
 
 fn with_example_help() -> String {
@@ -293,7 +293,7 @@ fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
     println!("ℹ️  Initializing with {template:?} frontend template");
     match template {
         FrontendTemplate::Astro => {
-            let _ = copy_contents(&from, to);
+            let _ = copy_contents(from, to);
             let _ = edit_package_json_files(to);
         }
         FrontendTemplate::None => {}
