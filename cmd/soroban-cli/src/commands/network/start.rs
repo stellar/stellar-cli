@@ -6,7 +6,7 @@ pub enum Error {}
 const FROM_PORT: i32 = 8000;
 const TO_PORT: i32 = 8000;
 const CONTAINER_NAME: &str = "stellar";
-const DOCKER_IMAGE: &str = "stellar/quickstart";
+const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
 /// This command allows for starting a stellar quickstart container. To run it, you can use the following command:
 /// `soroban network start <NETWORK> [OPTIONS] -- [DOCKER_RUN_ARGS]`
@@ -36,15 +36,15 @@ pub struct Cmd {
     #[arg(short = 'r', long)]
     pub disable_soroban_rpc: bool,
 
-    // option argument to specify the protocol version for the local network only
+    /// option argument to specify the protocol version for the local network only
     #[arg(short = 'p', long)]
     pub protocol_version: Option<String>,
 
-    // option argument to specify the limits for the local network only
+    /// option argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
     pub limit: Option<String>,
 
-    // optional arguments to pass to the docker run command
+    /// optional arguments to pass to the docker run command
     #[arg(last = true, id = "DOCKER_RUN_ARGS")]
     pub slop: Vec<String>,
 }
