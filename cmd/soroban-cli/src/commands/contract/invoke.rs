@@ -47,6 +47,9 @@ pub struct Cmd {
     /// Number of instructions to simulate
     #[arg(long)]
     pub instructions: Option<u32>,
+    /// Sign and submit transaction regardless of whether it's a view function  
+    #[arg(long, env = "SOROBAN_INVOKE_SIGN", env = "SYSTEM_TEST_VERBOSE_OUTPUT")]
+    pub sign: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
@@ -301,7 +304,7 @@ impl Cmd {
         if let Some(instructions) = self.instructions {
             txn = txn.set_max_instructions(instructions);
         }
-        let (return_value, events) = if txn.is_view() {
+        let (return_value, events) = if txn.is_view() && !self.sign {
             (
                 txn.sim_res().results()?[0].xdr.clone(),
                 txn.sim_res().events()?,
