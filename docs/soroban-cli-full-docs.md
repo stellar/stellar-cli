@@ -879,6 +879,10 @@ soroban contract invoke ... -- --help
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--sign` — Sign and submit transaction regardless of whether it's a view function
+
+  Possible values: `true`, `false`
+
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
