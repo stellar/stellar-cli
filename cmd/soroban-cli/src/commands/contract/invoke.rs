@@ -47,7 +47,7 @@ pub struct Cmd {
     /// Number of instructions to simulate
     #[arg(long)]
     pub instructions: Option<u32>,
-    /// Do not sign and submit transaction 
+    /// Do not sign and submit transaction
     #[arg(long, env = "SOROBAN_INVOKE_SIGN", env = "SYSTEM_TEST_VERBOSE_OUTPUT")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`

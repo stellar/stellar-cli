@@ -21,13 +21,13 @@ async fn invoke() {
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
     sandbox
-    .new_assert_cmd("events")
-    .arg("--start-ledger=20")
-    .arg("--id")
-    .arg(id)
-    .assert()
-    .stdout(predicates::str::contains(id).not())
-    .success();
+        .new_assert_cmd("events")
+        .arg("--start-ledger=20")
+        .arg("--id")
+        .arg(id)
+        .assert()
+        .stdout(predicates::str::contains(id).not())
+        .success();
     invoke_hello_world_with_lib(sandbox, id).await;
     sandbox
         .new_assert_cmd("events")
