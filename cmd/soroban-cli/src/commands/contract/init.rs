@@ -301,33 +301,34 @@ fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
 }
 
 fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
-    //TODO: handle unwraps
-    let package_name = project_path.file_name().unwrap().to_str().unwrap();
-
+    let package_name = project_path.file_name().unwrap();
     edit_package_json(project_path, package_name)?;
     edit_package_lock_json(project_path, package_name)
 }
 
-fn edit_package_lock_json(project_path: &Path, package_name: &str) -> Result<(), Error> {
+fn edit_package_lock_json(
+    project_path: &Path,
+    package_name: &std::ffi::OsStr,
+) -> Result<(), Error> {
     let package_lock_json_path = project_path.join("package-lock.json");
     let package_lock_json_str = read_to_string(&package_lock_json_path)?;
 
     let mut doc: serde_json::Value = serde_json::from_str(&package_lock_json_str)?;
 
-    doc["name"] = serde_json::json!(package_name);
+    doc["name"] = serde_json::json!(package_name.to_string_lossy());
 
     std::fs::write(&package_lock_json_path, doc.to_string())?;
 
     Ok(())
 }
 
-fn edit_package_json(project_path: &Path, package_name: &str) -> Result<(), Error> {
+fn edit_package_json(project_path: &Path, package_name: &std::ffi::OsStr) -> Result<(), Error> {
     let package_json_path = project_path.join("package.json");
     let package_json_str = read_to_string(&package_json_path)?;
 
     let mut doc: serde_json::Value = serde_json::from_str(&package_json_str)?;
 
-    doc["name"] = serde_json::json!(package_name);
+    doc["name"] = serde_json::json!(package_name.to_string_lossy());
 
     std::fs::write(&package_json_path, doc.to_string())?;
 
