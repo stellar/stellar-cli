@@ -879,7 +879,7 @@ soroban contract invoke ... -- --help
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--sign` — Sign and submit transaction regardless of whether it's a view function
+* `--is-view` — Do not sign and submit transaction
 
   Possible values: `true`, `false`
 

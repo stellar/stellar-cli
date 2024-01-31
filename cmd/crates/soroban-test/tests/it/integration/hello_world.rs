@@ -1,3 +1,4 @@
+use predicates::boolean::PredicateBooleanExt;
 use soroban_cli::commands::{
     contract::{self, fetch},
     keys,
@@ -20,6 +21,15 @@ async fn invoke() {
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
     sandbox
+    .new_assert_cmd("events")
+    .arg("--start-ledger=20")
+    .arg("--id")
+    .arg(id)
+    .assert()
+    .stdout(predicates::str::contains(id).not())
+    .success();
+    invoke_hello_world_with_lib(sandbox, id).await;
+    sandbox
         .new_assert_cmd("events")
         .arg("--start-ledger=20")
         .arg("--id")
@@ -27,8 +37,6 @@ async fn invoke() {
         .assert()
         .stdout(predicates::str::contains(id))
         .success();
-
-    invoke_hello_world_with_lib(sandbox, id).await;
     invoke_hello_world_with_lib_two(sandbox, id).await;
     invoke_auth(sandbox, id);
     invoke_auth_with_identity(sandbox, id).await;
@@ -48,7 +56,7 @@ fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--sign")
+        .arg("--is-view")
         .arg("--id")
         .arg(id)
         .arg("--")
