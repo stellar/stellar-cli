@@ -38,7 +38,7 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match &self {
             Cmd::Identity(identity) => identity.run().await?,
-            Cmd::Network(network) => network.run()?,
+            Cmd::Network(network) => network.run().await?,
         }
         Ok(())
     }

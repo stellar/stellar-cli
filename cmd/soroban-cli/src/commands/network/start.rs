@@ -50,17 +50,17 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         println!("Starting {} network", &self.network);
 
         let docker_command = build_docker_command(self);
 
-        run_docker_command(&docker_command);
+        run_docker_command(&docker_command).await;
         Ok(())
     }
 }
 
-fn run_docker_command(docker_command: &str) {
+async fn run_docker_command(docker_command: &str) {
     println!("Running docker command: `{docker_command}`");
     let mut cmd = Command::new("sh")
         .args(["-c", &docker_command])

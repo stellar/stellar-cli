@@ -69,12 +69,12 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::Start(cmd) => cmd.run()?,
+            Cmd::Start(cmd) => cmd.run().await?,
             Cmd::Stop(cmd) => cmd.run()?,
         };
         Ok(())
