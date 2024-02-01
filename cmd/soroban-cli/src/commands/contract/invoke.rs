@@ -306,8 +306,8 @@ impl Cmd {
         }
         let (return_value, events) = if self.is_view {
             (
-                txn.sim_res().results()?[0].xdr.clone(),
-                txn.sim_res().events()?,
+                txn.sim_response().results()?[0].xdr.clone(),
+                txn.sim_response().events()?,
             )
         } else {
             let res = client

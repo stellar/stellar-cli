@@ -34,6 +34,7 @@ pub use txn::*;
 use soroban_spec_tools::contract;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
+pub(crate) const DEFAULT_TRANSACTION_FEES: u32 = 100;
 
 pub type LogEvents = fn(
     footprint: &LedgerFootprint,
@@ -392,6 +393,7 @@ pub struct GetEventsResponse {
 // Reference](https://docs.google.com/document/d/1TZUDgo_3zPz7TiPMMHVW_mtogjLyPL0plvzGMsxSz6A/edit#bookmark=id.35t97rnag3tx)
 // [Code
 // Reference](https://github.com/stellar/soroban-tools/blob/bac1be79e8c2590c9c35ad8a0168aab0ae2b4171/cmd/soroban-rpc/internal/methods/get_events.go#L182-L203)
+#[must_use]
 pub fn does_topic_match(topic: &[String], filter: &[String]) -> bool {
     filter.len() == topic.len()
         && filter
@@ -783,7 +785,7 @@ soroban config identity fund {address} --helper-url <url>"#
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,
     ) -> Result<GetTransactionResponse, Error> {
-        let seq_num = txn.sim_res().latest_ledger + 60; //5 min;
+        let seq_num = txn.sim_response().latest_ledger + 60; //5 min;
         let authorized = txn
             .handle_restore(self, source_key, network_passphrase)
             .await?

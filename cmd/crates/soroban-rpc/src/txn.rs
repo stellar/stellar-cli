@@ -73,7 +73,7 @@ impl Assembled {
         key: &ed25519_dalek::SigningKey,
         network_passphrase: &str,
     ) -> Result<TransactionEnvelope, xdr::Error> {
-        let tx = self.txn();
+        let tx = self.transaction();
         let tx_hash = self.hash(network_passphrase)?;
         let tx_signature = key.sign(&tx_hash);
 
@@ -133,7 +133,7 @@ impl Assembled {
             // Build and submit the restore transaction
             client
                 .send_transaction(
-                    &Assembled::new(&restore(self.txn(), restore_preamble)?, client)
+                    &Assembled::new(&restore(self.transaction(), restore_preamble)?, client)
                         .await?
                         .sign(source_key, network_passphrase)?,
                 )
@@ -145,12 +145,14 @@ impl Assembled {
     }
 
     /// Returns a reference to the original transaction.
-    pub fn txn(&self) -> &Transaction {
+    #[must_use]
+    pub fn transaction(&self) -> &Transaction {
         &self.txn
     }
 
     /// Returns a reference to the simulation response.
-    pub fn sim_res(&self) -> &SimulateTransactionResponse {
+    #[must_use]
+    pub fn sim_response(&self) -> &SimulateTransactionResponse {
         &self.sim_res
     }
 
@@ -165,7 +167,7 @@ impl Assembled {
         network_passphrase: &str,
     ) -> Result<Self, Error> {
         if let Some(txn) = sign_soroban_authorizations(
-            self.txn(),
+            self.transaction(),
             source_key,
             signers,
             seq_num,
@@ -185,7 +187,8 @@ impl Assembled {
 
     ///
     /// # Errors
-    pub fn auth(&self) -> VecM<SorobanAuthorizationEntry> {
+    #[must_use]
+    pub fn auth_entries(&self) -> VecM<SorobanAuthorizationEntry> {
         self.txn
             .operations
             .first()
@@ -216,18 +219,20 @@ impl Assembled {
                 log(resources);
             }
             if let Some(log) = log_events {
-                log(footprint, &[self.auth()], &self.sim_res.events()?);
+                log(footprint, &[self.auth_entries()], &self.sim_res.events()?);
             };
         }
         Ok(())
     }
 
+    #[must_use]
     pub fn requires_auth(&self) -> bool {
         requires_auth(&self.txn).is_some()
     }
 
+    #[must_use]
     pub fn is_view(&self) -> bool {
-        if let TransactionExt::V1(SorobanTransactionData {
+        let TransactionExt::V1(SorobanTransactionData {
             resources:
                 SorobanResources {
                     footprint: LedgerFootprint { read_write, .. },
@@ -235,12 +240,10 @@ impl Assembled {
                 },
             ..
         }) = &self.txn.ext
-        {
-            if read_write.is_empty() {
-                return true;
-            }
-        }
-        false
+        else {
+            return false;
+        };
+        read_write.is_empty()
     }
 
     #[must_use]
@@ -311,7 +314,7 @@ pub fn assemble(
     }
 
     // update the fees of the actual transaction to meet the minimum resource fees.
-    let classic_transaction_fees = 100;
+    let classic_transaction_fees = crate::DEFAULT_TRANSACTION_FEES;
     // Pad the fees up by 15% for a bit of wiggle room.
     tx.fee = (tx.fee.max(
         classic_transaction_fees
