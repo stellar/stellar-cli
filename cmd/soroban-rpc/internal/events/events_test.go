@@ -83,7 +83,7 @@ func eventsAreEqual(t *testing.T, a, b []event) {
 
 func TestScanRangeValidation(t *testing.T) {
 	m := NewMemoryStore(interfaces.MakeNoOpDeamon(), "unit-tests", 4)
-	assertNoCalls := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, timestamp int64) bool {
+	assertNoCalls := func(xdr.DiagnosticEvent, Cursor, int64, *xdr.Hash) bool {
 		t.Fatalf("unexpected call")
 		return true
 	}
@@ -362,7 +362,7 @@ func TestScan(t *testing.T) {
 		for _, input := range genEquivalentInputs(testCase.input) {
 			var events []event
 			iterateAll := true
-			f := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, ledgerCloseTimestamp int64) bool {
+			f := func(contractEvent xdr.DiagnosticEvent, cursor Cursor, ledgerCloseTimestamp int64, hash *xdr.Hash) bool {
 				require.Equal(t, ledgerCloseTime(cursor.Ledger), ledgerCloseTimestamp)
 				diagnosticEventXDR, err := contractEvent.MarshalBinary()
 				require.NoError(t, err)
@@ -370,6 +370,7 @@ func TestScan(t *testing.T) {
 					diagnosticEventXDR: diagnosticEventXDR,
 					txIndex:            cursor.Tx,
 					eventIndex:         cursor.Event,
+					txHash:             hash,
 				})
 				return iterateAll
 			}
