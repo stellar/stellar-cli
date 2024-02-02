@@ -48,7 +48,7 @@ fn with_example_help() -> String {
     if check_internet_connection() {
         "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.".to_owned()
     } else {
-        "⚠️  Failed to fetch additional example contracts from soroban-examples repo. You can still continue with initializing - the default hello_world contract will still be included".to_owned()
+        "⚠️  Failed to fetch additional example contracts from soroban-examples repo. You can continue with initializing - the default hello_world contract will still be included".to_owned()
     }
 }
 
