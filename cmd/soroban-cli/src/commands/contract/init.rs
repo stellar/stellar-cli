@@ -10,7 +10,6 @@ use std::sync::atomic::AtomicBool;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
-const FRONTEND_ASTRO_TEMPLATE_URL: &str = "https://github.com/AhaLabs/soroban-astro-template";
 const GITHUB_URL: &str = "https://github.com";
 const GITHUB_API_URL: &str =
     "https://api.github.com/repos/stellar/soroban-examples/git/trees/main?recursive=1";
@@ -29,8 +28,13 @@ pub struct Cmd {
     #[arg(short, long, num_args = 1.., value_parser=possible_example_values(), long_help=with_example_help())]
     pub with_example: Vec<String>,
 
-    #[arg(short, long, value_enum, default_value = "none")]
-    pub frontend_template: FrontendTemplate,
+    #[arg(
+        short,
+        long,
+        default_value = "",
+        long_help = "An optional flag to pass in a url for a frontend template repository."
+    )]
+    pub frontend_template: String,
 }
 
 fn possible_example_values() -> ValueParser {
@@ -125,7 +129,7 @@ impl Cmd {
 
 fn init(
     project_path: &Path,
-    frontend_template: &FrontendTemplate,
+    frontend_template: &String,
     with_examples: &[String],
 ) -> Result<(), Error> {
     let cli_cmd_root = env!("CARGO_MANIFEST_DIR");
@@ -143,15 +147,15 @@ fn init(
         return Ok(());
     }
 
-    if frontend_template != &FrontendTemplate::None {
+    if !frontend_template.is_empty() {
         // create a temp dir for the template repo
         let fe_template_dir = tempfile::tempdir()?;
 
         // clone the template repo into the temp dir
-        clone_repo(FRONTEND_ASTRO_TEMPLATE_URL, fe_template_dir.path())?;
+        clone_repo(frontend_template, fe_template_dir.path())?;
 
         // copy the frontend template files into the project
-        copy_frontend_files(fe_template_dir.path(), project_path, frontend_template);
+        copy_frontend_files(fe_template_dir.path(), project_path);
     }
 
     // if there are --with-example flags, include the example contracts
@@ -289,15 +293,10 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
-    println!("ℹ️  Initializing with {template:?} frontend template");
-    match template {
-        FrontendTemplate::Astro => {
-            let _ = copy_contents(from, to);
-            let _ = edit_package_json_files(to);
-        }
-        FrontendTemplate::None => {}
-    }
+fn copy_frontend_files(from: &Path, to: &Path) {
+    println!("ℹ️  Initializing with frontend template");
+    let _ = copy_contents(from, to);
+    let _ = edit_package_json_files(to);
 }
 
 fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
@@ -344,12 +343,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
-        init(
-            project_dir.as_path(),
-            &FrontendTemplate::None,
-            &with_examples,
-        )
-        .unwrap();
+        init(project_dir.as_path(), &"".to_owned(), &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -368,12 +362,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = ["alloc".to_owned()];
-        init(
-            project_dir.as_path(),
-            &FrontendTemplate::None,
-            &with_examples,
-        )
-        .unwrap();
+        init(project_dir.as_path(), &"".to_owned(), &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -396,12 +385,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
-        init(
-            project_dir.as_path(),
-            &FrontendTemplate::None,
-            &with_examples,
-        )
-        .unwrap();
+        init(project_dir.as_path(), &"".to_owned(), &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -425,12 +409,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
-        assert!(init(
-            project_dir.as_path(),
-            &FrontendTemplate::None,
-            &with_examples,
-        )
-        .is_err());
+        assert!(init(project_dir.as_path(), &"".to_owned(), &with_examples,).is_err());
 
         temp_dir.close().unwrap();
     }
@@ -442,7 +421,7 @@ mod tests {
         let with_examples = vec![];
         init(
             project_dir.as_path(),
-            &FrontendTemplate::Astro,
+            &"https://github.com/AhaLabs/soroban-astro-template".to_string(),
             &with_examples,
         )
         .unwrap();

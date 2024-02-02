@@ -686,10 +686,7 @@ Initialize a Soroban project with an example contract
 
 * `-f`, `--frontend-template <FRONTEND_TEMPLATE>`
 
-  Default value: `none`
-
-  Possible values: `astro`, `none`
-
+  Default value: ``
 
 
 
