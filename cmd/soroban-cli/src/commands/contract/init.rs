@@ -302,35 +302,23 @@ fn copy_frontend_files(from: &Path, to: &Path, template: &FrontendTemplate) {
 
 fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
     let package_name = project_path.file_name().unwrap();
-    edit_package_json(project_path, package_name)?;
-    edit_package_lock_json(project_path, package_name)
+    edit_package_name(project_path, package_name, "package.json")?;
+    edit_package_name(project_path, package_name, "package-lock.json")
 }
 
-fn edit_package_lock_json(
+fn edit_package_name(
     project_path: &Path,
     package_name: &std::ffi::OsStr,
+    file_name: &str,
 ) -> Result<(), Error> {
-    let package_lock_json_path = project_path.join("package-lock.json");
-    let package_lock_json_str = read_to_string(&package_lock_json_path)?;
+    let file_path = project_path.join(file_name);
+    let file_contents = read_to_string(&file_path)?;
 
-    let mut doc: serde_json::Value = serde_json::from_str(&package_lock_json_str)?;
-
-    doc["name"] = serde_json::json!(package_name.to_string_lossy());
-
-    std::fs::write(&package_lock_json_path, doc.to_string())?;
-
-    Ok(())
-}
-
-fn edit_package_json(project_path: &Path, package_name: &std::ffi::OsStr) -> Result<(), Error> {
-    let package_json_path = project_path.join("package.json");
-    let package_json_str = read_to_string(&package_json_path)?;
-
-    let mut doc: serde_json::Value = serde_json::from_str(&package_json_str)?;
+    let mut doc: serde_json::Value = serde_json::from_str(&file_contents)?;
 
     doc["name"] = serde_json::json!(package_name.to_string_lossy());
 
-    std::fs::write(&package_json_path, doc.to_string())?;
+    std::fs::write(&file_path, doc.to_string())?;
 
     Ok(())
 }
@@ -349,10 +337,12 @@ mod tests {
 
     use super::*;
 
+    const TEST_PROJECT_NAME: &str = "test-project";
+
     #[test]
     fn test_init() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let project_dir = temp_dir.path().join("project");
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
         init(
             project_dir.as_path(),
@@ -376,7 +366,7 @@ mod tests {
     #[test]
     fn test_init_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let project_dir = temp_dir.path().join("project");
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = ["alloc".to_owned()];
         init(
             project_dir.as_path(),
@@ -448,7 +438,7 @@ mod tests {
     #[test]
     fn test_init_with_frontend_template() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let project_dir = temp_dir.path().join("project");
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
         init(
             project_dir.as_path(),
@@ -466,8 +456,8 @@ mod tests {
         assert_base_excluded_paths_do_not_exist(&project_dir);
 
         assert_astro_files_exist(&project_dir);
-
         assert_gitignore_includes_astro_paths(&project_dir);
+        assert_package_json_files_have_correct_name(&project_dir);
 
         temp_dir.close().unwrap();
     }
@@ -539,5 +529,15 @@ mod tests {
         assert!(project_dir.join("src").join("pages").exists());
         assert!(project_dir.join("astro.config.mjs").exists());
         assert!(project_dir.join("tsconfig.json").exists());
+    }
+
+    fn assert_package_json_files_have_correct_name(project_dir: &Path) {
+        let package_json_path = project_dir.join("package.json");
+        let package_json_str = read_to_string(package_json_path).unwrap();
+        assert!(package_json_str.contains(&format!("\"name\":\"{}\"", TEST_PROJECT_NAME)));
+
+        let package_lock_json_path = project_dir.join("package-lock.json");
+        let package_lock_json_str = read_to_string(package_lock_json_path).unwrap();
+        assert!(package_lock_json_str.contains(&format!("\"name\":\"{}\"", TEST_PROJECT_NAME)));
     }
 }
