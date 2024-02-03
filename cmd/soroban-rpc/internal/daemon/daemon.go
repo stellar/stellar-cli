@@ -146,7 +146,7 @@ func MustNew(cfg *config.Config) *Daemon {
 	}
 	historyArchive, err := historyarchive.Connect(
 		cfg.HistoryArchiveURLs[0],
-		historyarchive.ConnectOptions{
+		historyarchive.ArchiveOptions{
 			CheckpointFrequency: cfg.CheckpointFrequency,
 		},
 	)
