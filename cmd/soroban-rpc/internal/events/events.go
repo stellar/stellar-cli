@@ -19,6 +19,7 @@ type event struct {
 	diagnosticEventXDR []byte
 	txIndex            uint32
 	eventIndex         uint32
+	txHash     *xdr.Hash // intentionally stored as a pointer to save memory (amortized as soon as there are two events in a transaction)
 }
 
 func (e event) cursor(ledgerSeq uint32) Cursor {
@@ -90,13 +91,15 @@ type Range struct {
 	ClampEnd bool
 }
 
+type ScanFunction func(xdr.DiagnosticEvent, Cursor, int64, *xdr.Hash) bool
+
 // Scan applies f on all the events occurring in the given range.
 // The events are processed in sorted ascending Cursor order.
 // If f returns false, the scan terminates early (f will not be applied on
 // remaining events in the range). Note that a read lock is held for the
 // entire duration of the Scan function so f should be written in a way
 // to minimize latency.
-func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor, int64) bool) (uint32, error) {
+func (m *MemoryStore) Scan(eventRange Range, f ScanFunction) (uint32, error) {
 	startTime := time.Now()
 	m.lock.RLock()
 	defer m.lock.RUnlock()
@@ -126,7 +129,7 @@ func (m *MemoryStore) Scan(eventRange Range, f func(xdr.DiagnosticEvent, Cursor,
 			if err != nil {
 				return 0, err
 			}
-			if !f(diagnosticEvent, cur, timestamp) {
+			if !f(diagnosticEvent, cur, timestamp, event.txHash) {
 				return lastLedgerInWindow, nil
 			}
 		}
@@ -235,10 +238,12 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 		if !tx.Result.Successful() {
 			continue
 		}
+
 		txEvents, err := tx.GetDiagnosticEvents()
 		if err != nil {
 			return nil, err
 		}
+		txHash := tx.Result.TransactionHash
 		for index, e := range txEvents {
 			diagnosticEventXDR, err := e.MarshalBinary()
 			if err != nil {
@@ -248,6 +253,7 @@ func readEvents(networkPassphrase string, ledgerCloseMeta xdr.LedgerCloseMeta) (
 				diagnosticEventXDR: diagnosticEventXDR,
 				txIndex:            tx.Index,
 				eventIndex:         uint32(index),
+				txHash:             &txHash,
 			})
 		}
 	}

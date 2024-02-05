@@ -76,6 +76,7 @@ type EventInfo struct {
 	Topic                    []string `json:"topic"`
 	Value                    string   `json:"value"`
 	InSuccessfulContractCall bool     `json:"inSuccessfulContractCall"`
+	TransactionHash          string   `json:"txHash"`
 }
 
 type GetEventsRequest struct {
@@ -299,7 +300,7 @@ type GetEventsResponse struct {
 }
 
 type eventScanner interface {
-	Scan(eventRange events.Range, f func(xdr.DiagnosticEvent, events.Cursor, int64) bool) (uint32, error)
+	Scan(eventRange events.Range, f events.ScanFunction) (uint32, error)
 }
 
 type eventsRPCHandler struct {
@@ -334,6 +335,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 		cursor               events.Cursor
 		ledgerCloseTimestamp int64
 		event                xdr.DiagnosticEvent
+		txHash               *xdr.Hash
 	}
 	var found []entry
 	latestLedger, err := h.scanner.Scan(
@@ -343,9 +345,9 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 			End:        events.MaxCursor,
 			ClampEnd:   true,
 		},
-		func(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerCloseTimestamp int64) bool {
+		func(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerCloseTimestamp int64, txHash *xdr.Hash) bool {
 			if request.Matches(event) {
-				found = append(found, entry{cursor, ledgerCloseTimestamp, event})
+				found = append(found, entry{cursor, ledgerCloseTimestamp, event, txHash})
 			}
 			return uint(len(found)) < limit
 		},
@@ -363,6 +365,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 			entry.event,
 			entry.cursor,
 			time.Unix(entry.ledgerCloseTimestamp, 0).UTC().Format(time.RFC3339),
+			entry.txHash.HexString(),
 		)
 		if err != nil {
 			return GetEventsResponse{}, errors.Wrap(err, "could not parse event")
@@ -375,7 +378,7 @@ func (h eventsRPCHandler) getEvents(request GetEventsRequest) (GetEventsResponse
 	}, nil
 }
 
-func eventInfoForEvent(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerClosedAt string) (EventInfo, error) {
+func eventInfoForEvent(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerClosedAt string, txHash string) (EventInfo, error) {
 	v0, ok := event.Event.Body.GetV0()
 	if !ok {
 		return EventInfo{}, errors.New("unknown event version")
@@ -411,6 +414,7 @@ func eventInfoForEvent(event xdr.DiagnosticEvent, cursor events.Cursor, ledgerCl
 		Topic:                    topic,
 		Value:                    data,
 		InSuccessfulContractCall: event.InSuccessfulContractCall,
+		TransactionHash:          txHash,
 	}
 	if event.Event.ContractId != nil {
 		info.ContractID = strkey.MustEncode(strkey.VersionByteContract, (*event.Event.ContractId)[:])
