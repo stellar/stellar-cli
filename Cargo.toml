@@ -66,7 +66,7 @@ git = "https://github.com/stellar/rs-soroban-sdk"
 rev = "4aef54ff9295c2fca4c5b9fbd2c92d0ff99f67de"
 
 [workspace.dependencies.soroban-cli]
-version = "20.2.0"
+version = "20.3.0"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.stellar-xdr]
