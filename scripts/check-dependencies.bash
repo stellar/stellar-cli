@@ -81,8 +81,8 @@ fi
 # on the same XDR revision
 
 # TODO: The sed extractions below won't work when the commit is not included in the Core image tag/debian packages version
-CORE_CONTAINER_REVISION=$($SED -n 's/.*\/\(stellar-core\|unsafe-stellar-core\(-next\)\{0,1\}\)\:.*\..*-[^\.]*\.\(.*\)\..*/\3/p' < cmd/soroban-rpc/internal/test/docker-compose.yml)
-CAPTIVE_CORE_PKG_REVISION=$($SED -n 's/.*DEBIAN_PKG_VERSION:.*\..*-[^\.]*\.\(.*\)\..*/\1/p' < .github/workflows/soroban-rpc.yml)
+CORE_CONTAINER_REVISION=$($SED -n 's/.*\/\(stellar-core\|unsafe-stellar-core\(-next\)\{0,1\}\)\:.*\.\([a-zA-Z0-9]*\)\..*/\3/p' < cmd/soroban-rpc/internal/test/docker-compose.yml)
+CAPTIVE_CORE_PKG_REVISION=$($SED -n 's/.*DEBIAN_PKG_VERSION:..*\.\([a-zA-Z0-9]*\)\..*/\1/p' < .github/workflows/soroban-rpc.yml)
 
 if [ "$CORE_CONTAINER_REVISION" != "$CAPTIVE_CORE_PKG_REVISION" ]; then
   echo "Soroban RPC integration tests are using different versions of the Core container and Captive Core Debian package."
