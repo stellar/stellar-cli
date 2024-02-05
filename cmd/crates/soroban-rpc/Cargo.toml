@@ -19,17 +19,14 @@ crate-type = ["rlib"]
 [dependencies]
 soroban-sdk = { workspace = true }
 soroban-spec-tools = { workspace = true }
-
 soroban-env-host = { workspace = true }
 stellar-strkey = { workspace = true }
 stellar-xdr = { workspace = true, features = ["curr", "std", "serde"] }
 soroban-spec = { workspace = true }
 
-
 termcolor = { workspace = true }
 termcolor_output = { workspace = true }
 clap = { workspace = true }
-
 serde_json = { workspace = true }
 serde-aux = { workspace = true }
 itertools = { workspace = true }
@@ -44,15 +41,10 @@ sha2 = { workspace = true }
 ed25519-dalek = { workspace = true }
 tracing = { workspace = true }
 
-
 # networking
 jsonrpsee-http-client = { workspace = true }
 jsonrpsee-core = { workspace = true }
 http = { workspace = true }
-
-# soroban-ledger-snapshot = { workspace = true }
-# soroban-sdk = { workspace = true }
-# sep5 = { workspace = true }
 
 
 [dev-dependencies]

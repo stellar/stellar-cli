@@ -29,7 +29,7 @@ use tokio::time::sleep;
 pub mod log;
 mod txn;
 
-pub use txn::*;
+pub use txn::Assembled;
 
 use soroban_spec_tools::contract;
 
@@ -185,7 +185,7 @@ impl GetTransactionResponse {
         if let Some(xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
             soroban_meta: Some(xdr::SorobanTransactionMeta { return_value, .. }),
             ..
-        })) = self.result_meta.as_ref()
+        })) = &self.result_meta
         {
             Ok(return_value.clone())
         } else {
@@ -196,11 +196,10 @@ impl GetTransactionResponse {
     ///
     /// # Errors
     pub fn events(&self) -> Result<Vec<DiagnosticEvent>, Error> {
-        if let Some(meta) = self.result_meta.as_ref() {
-            Ok(extract_events(meta))
-        } else {
-            Err(Error::MissingOp)
-        }
+        self.result_meta
+            .as_ref()
+            .map(extract_events)
+            .ok_or(Error::MissingOp)
     }
 
     ///
