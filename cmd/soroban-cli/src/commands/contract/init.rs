@@ -343,7 +343,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
-        init(project_dir.as_path(), &"".to_owned(), &with_examples).unwrap();
+        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -362,7 +362,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = ["alloc".to_owned()];
-        init(project_dir.as_path(), &"".to_owned(), &with_examples).unwrap();
+        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -385,7 +385,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
-        init(project_dir.as_path(), &"".to_owned(), &with_examples).unwrap();
+        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -409,7 +409,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
-        assert!(init(project_dir.as_path(), &"".to_owned(), &with_examples,).is_err());
+        assert!(init(project_dir.as_path(), &String::new(), &with_examples,).is_err());
 
         temp_dir.close().unwrap();
     }
@@ -513,10 +513,10 @@ mod tests {
     fn assert_package_json_files_have_correct_name(project_dir: &Path) {
         let package_json_path = project_dir.join("package.json");
         let package_json_str = read_to_string(package_json_path).unwrap();
-        assert!(package_json_str.contains(&format!("\"name\":\"{}\"", TEST_PROJECT_NAME)));
+        assert!(package_json_str.contains(&format!("\"name\":\"{TEST_PROJECT_NAME}\"")));
 
         let package_lock_json_path = project_dir.join("package-lock.json");
         let package_lock_json_str = read_to_string(package_lock_json_path).unwrap();
-        assert!(package_lock_json_str.contains(&format!("\"name\":\"{}\"", TEST_PROJECT_NAME)));
+        assert!(package_lock_json_str.contains(&format!("\"name\":\"{TEST_PROJECT_NAME}\"")));
     }
 }
