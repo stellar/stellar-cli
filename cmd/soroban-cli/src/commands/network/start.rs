@@ -1,4 +1,11 @@
-use std::process::{Command, Stdio};
+use bollard::{
+    container::{Config, CreateContainerOptions, StartContainerOptions},
+    image::CreateImageOptions,
+    service::{HostConfig, PortBinding},
+    ClientVersion, Docker,
+};
+use futures_util::TryStreamExt;
+use std::collections::HashMap;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {}
@@ -52,50 +59,79 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         println!("Starting {} network", &self.network);
-
-        let docker_command = build_docker_command(self);
-
-        run_docker_command(&docker_command).await;
+        run_docker_command(self).await;
         Ok(())
     }
 }
 
-async fn run_docker_command(docker_command: &str) {
-    println!("Running docker command: `{docker_command}`");
-    let mut cmd = Command::new("sh")
-        .args(["-c", &docker_command])
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .unwrap();
+async fn run_docker_command(cmd: &Cmd) {
+    const DEFAULT_TIMEOUT: u64 = 120;
+    pub const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
+        major_version: 1,
+        minor_version: 40,
+    };
 
-    let status = cmd.wait();
-    if status.is_err() {
-        println!("Exited with status {status:?}");
-    }
-}
+    //TODO: make this configurable, or instruct the user to set it in their environment, or toggle the `Allow the default Docker socket to be used (requires password)` option in Docker Desktop
+    let socket = "/Users/elizabethengelman/.docker/run/docker.sock";
+    let docker = Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap();
 
-fn build_docker_command(cmd: &Cmd) -> String {
     let image = get_image_name(cmd);
     let container_name = get_container_name(cmd);
     let port_mapping = get_port_mapping(cmd);
     let protocol_version = get_protocol_version_arg(cmd);
     let limits = get_limits_arg(cmd);
 
-    let docker_command =
-        format!(
-        "docker run --rm {slop} {port} {container_name} {image} --{network} {enable_soroban_rpc} {protocol_version} {limits}",
-        port = format_args!("-p {port_mapping}"),
-        container_name = format_args!("--name {container_name}"),
-        image = image,
-        network = cmd.network,
-        slop = cmd.slop.join(" "),
-        enable_soroban_rpc = if cmd.disable_soroban_rpc { "" } else { "--enable-soroban-rpc" },
-        protocol_version = protocol_version,
-        limits = limits,
-    );
+    let create_image_options = Some(CreateImageOptions {
+        from_image: image.clone(),
+        ..Default::default()
+    });
 
-    docker_command
+    let enable_soroban_rpc = if cmd.disable_soroban_rpc {
+        "".to_string()
+    } else {
+        "--enable-soroban-rpc".to_string()
+    };
+
+    let stellar_network = format!("--{}", cmd.network);
+
+    docker
+        .create_image(create_image_options, None, None)
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
+
+    //TODO: remove the empty strings from cmd vec
+    let config = Config {
+        image: Some(image),
+        cmd: Some(vec![
+            stellar_network,
+            enable_soroban_rpc,
+            protocol_version,
+            limits,
+        ]),
+        attach_stdout: Some(true),
+        attach_stderr: Some(true),
+        host_config: Some(HostConfig {
+            auto_remove: Some(true),
+            port_bindings: Some(port_mapping),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    println!("CONFIG: {:#?}", config);
+
+    let options = Some(CreateContainerOptions {
+        name: container_name,
+        platform: None,
+    });
+
+    let response = docker.create_container(options, config).await.unwrap();
+    let _container = docker
+        .start_container(&response.id, None::<StartContainerOptions<String>>)
+        .await;
+
+    println!("container create response {:#?}", response);
 }
 
 fn get_image_name(cmd: &Cmd) -> String {
@@ -124,12 +160,35 @@ fn get_container_name(cmd: &Cmd) -> String {
     }
 }
 
-fn get_port_mapping(cmd: &Cmd) -> String {
+//do i need to re-think the slop? since im not sure there's a way to pass stuff to the container, without putting it in this config
+
+// this is a little confusing - in the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
+
+/// PortMap describes the mapping of container ports to host ports, using the container's port-number and protocol as key in the format `<port>/<protocol>`, for example, `80/udp`.  If a container's port is mapped for multiple protocols, separate entries are added to the mapping table.
+fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
+    let mut port_mapping = HashMap::new();
     if cmd.slop.contains(&"-p".to_string()) {
-        cmd.slop[cmd.slop.iter().position(|x| x == "-p").unwrap() + 1].clone()
+        let ports_string = cmd.slop[cmd.slop.iter().position(|x| x == "-p").unwrap() + 1].clone();
+        let ports_vec: Vec<&str> = ports_string.split(':').collect();
+        let from_port = ports_vec[0];
+        let to_port = ports_vec[1];
+        port_mapping.insert(
+            format!("{to_port}/tcp"),
+            Some(vec![PortBinding {
+                host_ip: None,
+                host_port: Some(format!("{from_port}")),
+            }]),
+        );
     } else {
-        format!("{FROM_PORT}:{TO_PORT}")
+        port_mapping.insert(
+            format!("{TO_PORT}/tcp"),
+            Some(vec![PortBinding {
+                host_ip: None,
+                host_port: Some(format!("{FROM_PORT}")),
+            }]),
+        );
     }
+    port_mapping
 }
 
 fn get_protocol_version_arg(cmd: &Cmd) -> String {
