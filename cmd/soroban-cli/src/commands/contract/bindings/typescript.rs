@@ -1,15 +1,17 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec_tools::contract as contract_spec;
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 
-use crate::commands::{
-    config::locator,
-    contract::{self, fetch},
-    network::{self, Network},
-};
 use crate::wasm;
+use crate::{
+    commands::{
+        config::locator,
+        contract::{self, fetch},
+        network::{self, Network},
+    },
+    utils::contract_spec::{self, ContractSpec},
+};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -76,7 +78,7 @@ impl Cmd {
                 network: self.network.clone(),
             };
             let bytes = fetch.get_bytes().await?;
-            contract_spec::Spec::new(&bytes)?.spec
+            ContractSpec::new(&bytes)?.spec
         };
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));

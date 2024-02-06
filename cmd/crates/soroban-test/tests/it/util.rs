@@ -68,5 +68,3 @@ pub async fn invoke_custom(
     i.invoke(&soroban_cli::commands::global::Args::default())
         .await
 }
-
-pub const DEFAULT_CONTRACT_ID: &str = "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z";
