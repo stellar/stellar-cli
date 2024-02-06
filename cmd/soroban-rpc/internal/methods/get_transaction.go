@@ -56,6 +56,10 @@ type GetTransactionResponse struct {
 	Ledger uint32 `json:"ledger,omitempty"`
 	// LedgerCloseTime is the unix timestamp of when the transaction was included in the ledger.
 	LedgerCloseTime int64 `json:"createdAt,string,omitempty"`
+
+	// DiagnosticEventsXDR is present only if Status is equal to TransactionFailed.
+	// DiagnosticEventsXDR is a base64-encoded slice of xdr.DiagnosticEvent
+	DiagnosticEventsXDR []string `json:"diagnosticEventsXdr,omitempty"`
 }
 
 type GetTransactionRequest struct {
@@ -108,6 +112,7 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 		response.Status = TransactionStatusSuccess
 	} else {
 		response.Status = TransactionStatusFailed
+		response.DiagnosticEventsXDR = base64EncodeSlice(tx.Events)
 	}
 	return response, nil
 }

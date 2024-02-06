@@ -204,6 +204,42 @@ func txMeta(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
 	}
 }
 
+func txMetaWithEvents(ledgerSequence uint32, feeBump bool) xdr.LedgerCloseMeta {
+	tx := txMeta(ledgerSequence, feeBump)
+	contractIDBytes, _ := hex.DecodeString("df06d62447fd25da07c0135eed7557e5a5497ee7d15b7fe345bd47e191d8f577")
+	var contractID xdr.Hash
+	copy(contractID[:], contractIDBytes)
+	counter := xdr.ScSymbol("COUNTER")
+
+	tx.V1.TxProcessing[0].TxApplyProcessing.V3 = &xdr.TransactionMetaV3{
+		SorobanMeta: &xdr.SorobanTransactionMeta{
+			Events: []xdr.ContractEvent{{
+				ContractId: &contractID,
+				Type:       xdr.ContractEventTypeContract,
+				Body: xdr.ContractEventBody{
+					V: 0,
+					V0: &xdr.ContractEventV0{
+						Topics: []xdr.ScVal{{
+							Type: xdr.ScValTypeScvSymbol,
+							Sym:  &counter,
+						}},
+						Data: xdr.ScVal{
+							Type: xdr.ScValTypeScvSymbol,
+							Sym:  &counter,
+						},
+					},
+				},
+			}},
+			ReturnValue: xdr.ScVal{
+				Type: xdr.ScValTypeScvSymbol,
+				Sym:  &counter,
+			},
+		},
+	}
+
+	return tx
+}
+
 func txEnvelope(ledgerSequence uint32, feeBump bool) xdr.TransactionEnvelope {
 	var envelope xdr.TransactionEnvelope
 	var err error
@@ -309,6 +345,21 @@ func TestIngestTransactions(t *testing.T) {
 	require.Equal(t, expectedStoreRange(3, 5), storeRange)
 	require.Equal(t, uint32(3), store.transactionsByLedger.Len())
 	require.Len(t, store.transactions, 3)
+}
+
+func TestGetTransactionsWithEventData(t *testing.T) {
+	store := NewMemoryStore(interfaces.MakeNoOpDeamon(), "passphrase", 100)
+
+	// Insert ledger 1
+	metaWithEvents := txMetaWithEvents(1, false)
+	require.NoError(t, store.IngestTransactions(metaWithEvents))
+	require.Len(t, store.transactions, 1)
+
+	// check events data
+	tx, ok, _ := store.GetTransaction(txHash(1, false))
+	require.True(t, ok)
+	require.NotNil(t, tx.Events)
+
 }
 
 func stableHeapInUse() int64 {
