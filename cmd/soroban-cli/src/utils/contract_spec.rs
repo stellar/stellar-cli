@@ -10,7 +10,7 @@ use soroban_env_host::xdr::{
     StringM, WriteXdr,
 };
 
-pub struct Spec {
+pub struct ContractSpec {
     pub env_meta_base64: Option<String>,
     pub env_meta: Vec<ScEnvMetaEntry>,
     pub meta_base64: Option<String>,
@@ -38,7 +38,7 @@ pub enum Error {
     Parser(#[from] wasmparser::BinaryReaderError),
 }
 
-impl Spec {
+impl ContractSpec {
     pub fn new(bytes: &[u8]) -> Result<Self, Error> {
         let mut env_meta: Option<&[u8]> = None;
         let mut meta: Option<&[u8]> = None;
@@ -87,7 +87,7 @@ impl Spec {
             vec![]
         };
 
-        Ok(Spec {
+        Ok(ContractSpec {
             env_meta_base64,
             env_meta,
             meta_base64,
@@ -108,7 +108,7 @@ impl Spec {
     }
 }
 
-impl Display for Spec {
+impl Display for ContractSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(env_meta) = &self.env_meta_base64 {
             writeln!(f, "Env Meta: {env_meta}")?;

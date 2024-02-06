@@ -1,12 +1,11 @@
 use clap::arg;
 use soroban_env_host::xdr::{self, LedgerKey, LedgerKeyContractCode};
-use soroban_spec_tools::contract::{self, Spec};
 use std::{
     fs, io,
     path::{Path, PathBuf},
 };
 
-use crate::utils::{self};
+use crate::utils::{self, contract_spec::ContractSpec};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -26,7 +25,7 @@ pub enum Error {
     #[error(transparent)]
     Parser(#[from] wasmparser::BinaryReaderError),
     #[error(transparent)]
-    ContractSpec(#[from] contract::Error),
+    ContractSpec(#[from] crate::utils::contract_spec::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -61,9 +60,9 @@ impl Args {
 
     /// # Errors
     /// May fail to read wasm file or parse xdr section
-    pub fn parse(&self) -> Result<Spec, Error> {
+    pub fn parse(&self) -> Result<ContractSpec, Error> {
         let contents = self.read()?;
-        Ok(Spec::new(&contents)?)
+        Ok(ContractSpec::new(&contents)?)
     }
 }
 

@@ -144,18 +144,15 @@ impl Cmd {
             }),
         };
 
-        let res = client
+        let (result, meta, events) = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
 
-        let events = res.events()?;
+        tracing::trace!(?result);
+        tracing::trace!(?meta);
         if !events.is_empty() {
             tracing::info!("Events:\n {events:#?}");
         }
-        let meta = res
-            .result_meta
-            .as_ref()
-            .ok_or(Error::MissingOperationResult)?;
 
         // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.

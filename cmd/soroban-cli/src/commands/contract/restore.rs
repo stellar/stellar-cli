@@ -148,15 +148,11 @@ impl Cmd {
             }),
         };
 
-        let res = client
+        let (result, meta, events) = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
 
-        let meta = res
-            .result_meta
-            .as_ref()
-            .ok_or(Error::MissingOperationResult)?;
-        let events = res.events()?;
+        tracing::trace!(?result);
         tracing::trace!(?meta);
         if !events.is_empty() {
             tracing::info!("Events:\n {events:#?}");
@@ -181,7 +177,7 @@ impl Cmd {
                 operations[0].changes.len()
             );
         }
-        parse_operations(operations).ok_or(Error::MissingOperationResult)
+        parse_operations(&operations).ok_or(Error::MissingOperationResult)
     }
 }
 
