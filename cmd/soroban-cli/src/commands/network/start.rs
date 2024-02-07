@@ -4,6 +4,7 @@ use bollard::{
     service::{HostConfig, PortBinding},
     ClientVersion, Docker,
 };
+
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
 
@@ -14,6 +15,13 @@ const FROM_PORT: i32 = 8000;
 const TO_PORT: i32 = 8000;
 const CONTAINER_NAME: &str = "stellar";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
+
+// DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
+const DEFAULT_TIMEOUT: u64 = 120;
+const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
+    major_version: 1,
+    minor_version: 40,
+};
 
 /// This command allows for starting a stellar quickstart container. To run it, you can use the following command:
 /// `soroban network start <NETWORK> [OPTIONS] -- [DOCKER_RUN_ARGS]`
@@ -67,33 +75,16 @@ impl Cmd {
         Ok(())
     }
 }
-// TODO:
-// 1. make socket path configurable
-// 2. print out stdout and stderr - need to see error message if the user passes in an incorrect network or something
-// 3. do i need to re-think the slop? since im not sure there's a way to pass stuff to the container, without putting it in this config
-
-// TODO IN FOLLOW UP PR:
-// 1. allow for the user to print out logs in the terminal - it would also be necessary to map ctrl-c to stop the container because right now, when using the logs stream, the container will keep running in the background
 
 async fn run_docker_command(cmd: &Cmd) {
-    const DEFAULT_TIMEOUT: u64 = 120;
-    pub const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
-        major_version: 1,
-        minor_version: 40,
+    let docker = if cmd.docker_socket_path.is_some() {
+        let socket = cmd.docker_socket_path.as_ref().unwrap();
+        Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap()
+    } else {
+        Docker::connect_with_socket_defaults().unwrap()
     };
 
-    let docker: Docker;
-    if cmd.docker_socket_path.is_some() {
-        let socket = cmd.docker_socket_path.as_ref().unwrap();
-        docker = Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap();
-    } else {
-        docker = Docker::connect_with_socket_defaults().unwrap();
-    }
-
     let image = get_image_name(cmd);
-    let container_name = get_container_name(cmd);
-    let port_mapping = get_port_mapping(cmd);
-
     let create_image_options = Some(CreateImageOptions {
         from_image: image.clone(),
         ..Default::default()
@@ -106,6 +97,8 @@ async fn run_docker_command(cmd: &Cmd) {
         .unwrap();
 
     let container_args = get_container_args(cmd);
+    let container_name = get_container_name(cmd);
+    let port_mapping = get_port_mapping(cmd);
 
     let config = Config {
         image: Some(image),
@@ -120,8 +113,6 @@ async fn run_docker_command(cmd: &Cmd) {
         ..Default::default()
     };
 
-    println!("CONFIG: {:#?}", config);
-
     let options = Some(CreateContainerOptions {
         name: container_name,
         platform: None,
@@ -131,26 +122,24 @@ async fn run_docker_command(cmd: &Cmd) {
     let _container = docker
         .start_container(&response.id, None::<StartContainerOptions<String>>)
         .await;
-
-    println!("container create response {:#?}", response);
 }
 
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
     let enable_soroban_rpc = if cmd.disable_soroban_rpc {
-        "".to_string()
+        String::new()
     } else {
         "--enable-soroban-rpc".to_string()
     };
 
-    vec![
+    [
         format!("--{}", cmd.network),
         enable_soroban_rpc,
         get_protocol_version_arg(cmd),
         get_limits_arg(cmd),
     ]
     .iter()
+    .filter(|&s| !s.is_empty())
     .cloned()
-    .filter(|s| !s.is_empty())
     .collect()
 }
 
@@ -180,9 +169,7 @@ fn get_container_name(cmd: &Cmd) -> String {
     }
 }
 
-// this is a little confusing - in the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
-
-/// PortMap describes the mapping of container ports to host ports, using the container's port-number and protocol as key in the format `<port>/<protocol>`, for example, `80/udp`.  If a container's port is mapped for multiple protocols, separate entries are added to the mapping table.
+/// The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
 fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
     let mut port_mapping = HashMap::new();
     if cmd.slop.contains(&"-p".to_string()) {
@@ -194,7 +181,7 @@ fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
             format!("{to_port}/tcp"),
             Some(vec![PortBinding {
                 host_ip: None,
-                host_port: Some(format!("{from_port}")),
+                host_port: Some(from_port.to_string()),
             }]),
         );
     } else {
