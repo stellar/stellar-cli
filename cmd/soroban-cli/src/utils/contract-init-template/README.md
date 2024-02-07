@@ -1,3 +1,21 @@
-# Soroban Init Template
+# Soroban Project
 
-This repository can be used as a template for creating a Soroban project. You can either clone this repository directly, or soon will be able to use the `soroban init` command from the soroban CLI. This first iteration just creates a bare-bones Rust project setup as a Rust workspace, but in the future it will also include options for creating an frontend that is able to interact with contracts in the `contracts` directory as well.
+## Project Structure
+
+This repository uses the recommended structure for a Soroban project:
+```text
+.
+├── contracts
+│   └── hello_world
+│       ├── src
+│       │   ├── lib.rs
+│       │   └── test.rs
+│       └── Cargo.toml
+├── Cargo.toml
+└── README.md
+```
+
+- New Soroban contracts can be put in `contracts`, each in their own directory. There is already a `hello_world` contract in there to get you started.
+- If you initialized this project with any other example contracts via `--with-example`, those contracts will be in the `contracts` directory as well.
+- Contracts should have their own `Cargo.toml` files that rely on the top-level `Cargo.toml` workspace for their dependencies.
+- Frontend libraries can be added to the top-level directory as well. If you initialized this project with a frontend template via `--frontend-template` you will have those files already included.

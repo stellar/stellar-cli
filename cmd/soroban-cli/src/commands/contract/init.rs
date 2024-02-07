@@ -1,62 +1,23 @@
-use core::fmt;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::{env, fs, io};
 
-use clap::Parser;
+use clap::builder::{PossibleValue, PossibleValuesParser, ValueParser};
+use clap::{Parser, ValueEnum};
+use serde::Deserialize;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
-#[derive(Clone, Debug, PartialEq, clap::ValueEnum)]
-pub enum ExampleContract {
-    Account,
-    Alloc,
-    AtomicMultiswap,
-    AtomicSwap,
-    Auth,
-    CrossContract,
-    CustomTypes,
-    DeepContractAuth,
-    Deployer,
-    Errors,
-    Events,
-    Fuzzing,
-    Increment,
-    LiquidityPool,
-    Logging,
-    SimpleAccount,
-    SingleOffer,
-    Timelock,
-    Token,
-    UpgradeableContract,
-}
+const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
+const GITHUB_URL: &str = "https://github.com";
+const GITHUB_API_URL: &str =
+    "https://api.github.com/repos/stellar/soroban-examples/git/trees/main?recursive=1";
 
-impl fmt::Display for ExampleContract {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ExampleContract::Account => write!(f, "account"),
-            ExampleContract::Alloc => write!(f, "alloc"),
-            ExampleContract::AtomicMultiswap => write!(f, "atomic_multiswap"),
-            ExampleContract::AtomicSwap => write!(f, "atomic_swap"),
-            ExampleContract::Auth => write!(f, "auth"),
-            ExampleContract::CrossContract => write!(f, "cross_contract"),
-            ExampleContract::CustomTypes => write!(f, "custom_types"),
-            ExampleContract::DeepContractAuth => write!(f, "deep_contract_auth"),
-            ExampleContract::Deployer => write!(f, "deployer"),
-            ExampleContract::Errors => write!(f, "errors"),
-            ExampleContract::Events => write!(f, "events"),
-            ExampleContract::Fuzzing => write!(f, "fuzzing"),
-            ExampleContract::Increment => write!(f, "increment"),
-            ExampleContract::LiquidityPool => write!(f, "liquidity_pool"),
-            ExampleContract::Logging => write!(f, "logging"),
-            ExampleContract::SimpleAccount => write!(f, "simple_account"),
-            ExampleContract::SingleOffer => write!(f, "single_offer"),
-            ExampleContract::Timelock => write!(f, "timelock"),
-            ExampleContract::Token => write!(f, "token"),
-            ExampleContract::UpgradeableContract => write!(f, "upgradeable_contract"),
-        }
-    }
+#[derive(Clone, Debug, ValueEnum, PartialEq)]
+pub enum FrontendTemplate {
+    Astro,
+    None,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -64,9 +25,68 @@ impl fmt::Display for ExampleContract {
 pub struct Cmd {
     pub project_path: String,
 
-    /// An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
-    #[arg(short, long, num_args = 1..=20)]
-    pub with_example: Vec<ExampleContract>,
+    #[arg(short, long, num_args = 1.., value_parser=possible_example_values(), long_help=with_example_help())]
+    pub with_example: Vec<String>,
+
+    #[arg(
+        short,
+        long,
+        default_value = "",
+        long_help = "An optional flag to pass in a url for a frontend template repository."
+    )]
+    pub frontend_template: String,
+}
+
+fn possible_example_values() -> ValueParser {
+    // If fetching the example contracts from the soroban-examples repo succeeds, return a parser with the example contracts.
+    if let Ok(examples) = get_valid_examples() {
+        let parser = PossibleValuesParser::new(examples.iter().map(PossibleValue::new));
+        return parser.into();
+    }
+
+    // If fetching with example contracts fails, return a string parser that will allow for any value. It will be ignored in `init`.
+    ValueParser::string()
+}
+
+fn with_example_help() -> String {
+    if check_internet_connection() {
+        "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.".to_owned()
+    } else {
+        "⚠️  Failed to fetch additional example contracts from soroban-examples repo. You can continue with initializing - the default hello_world contract will still be included".to_owned()
+    }
+}
+
+#[derive(Deserialize, Debug)]
+struct RepoPath {
+    path: String,
+    #[serde(rename = "type")]
+    type_field: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ReqBody {
+    tree: Vec<RepoPath>,
+}
+
+fn get_valid_examples() -> Result<Vec<String>, Error> {
+    let body: ReqBody = ureq::get(GITHUB_API_URL)
+        .call()
+        .map_err(Box::new)?
+        .into_json()?;
+    let mut valid_examples = Vec::new();
+    for item in body.tree {
+        if item.type_field == "blob"
+            || item.path.starts_with('.')
+            || item.path.contains('/')
+            || item.path == "hello_world"
+        {
+            continue;
+        }
+
+        valid_examples.push(item.path);
+    }
+
+    Ok(valid_examples)
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -87,9 +107,13 @@ pub enum Error {
 
     #[error("Failed to parse Cargo.toml: {0}")]
     TomlParseError(#[from] TomlError),
-}
 
-const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
+    #[error("Failed to fetch example contracts")]
+    ExampleContractFetchError(#[from] Box<ureq::Error>),
+
+    #[error("Failed to parse package.json file: {0}")]
+    JsonParseError(#[from] serde_json::Error),
+}
 
 impl Cmd {
     #[allow(clippy::unused_self)]
@@ -97,28 +121,49 @@ impl Cmd {
         println!("ℹ️  Initializing project at {}", self.project_path);
         let project_path = Path::new(&self.project_path);
 
-        init(project_path, &self.with_example)?;
+        init(project_path, &self.frontend_template, &self.with_example)?;
 
         Ok(())
     }
 }
 
-fn init(project_path: &Path, with_examples: &[ExampleContract]) -> Result<(), Error> {
+fn init(
+    project_path: &Path,
+    frontend_template: &String,
+    with_examples: &[String],
+) -> Result<(), Error> {
     let cli_cmd_root = env!("CARGO_MANIFEST_DIR");
     let template_dir_path = Path::new(cli_cmd_root)
         .join("src")
         .join("utils")
         .join("contract-init-template");
 
+    // create a project dir, and copy the contents of the base template (contract-init-template) into it
     std::fs::create_dir_all(project_path)?;
     copy_contents(template_dir_path.as_path(), project_path)?;
 
-    // if there are with-contract flags, include the example contracts
+    if !check_internet_connection() {
+        println!("⚠️  It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
+        return Ok(());
+    }
+
+    if !frontend_template.is_empty() {
+        // create a temp dir for the template repo
+        let fe_template_dir = tempfile::tempdir()?;
+
+        // clone the template repo into the temp dir
+        clone_repo(frontend_template, fe_template_dir.path())?;
+
+        // copy the frontend template files into the project
+        copy_frontend_files(fe_template_dir.path(), project_path);
+    }
+
+    // if there are --with-example flags, include the example contracts
     if include_example_contracts(with_examples) {
-        // create an examples temp dir in the temp dir
+        // create an examples temp dir
         let examples_dir = tempfile::tempdir()?;
 
-        // clone the soroban-examples repo into temp dir
+        // clone the soroban-examples repo into the temp dir
         clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
 
         // copy the example contracts into the project
@@ -152,6 +197,12 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             copy_contents(&path, &new_path)?;
         } else {
             if file_exists(&new_path.to_string_lossy()) {
+                //if file is .gitignore, overwrite the file with a new .gitignore file
+                if path.to_string_lossy().contains(".gitignore") {
+                    std::fs::copy(&path, &new_path)?;
+                    continue;
+                }
+
                 println!(
                     "ℹ️  Skipped creating {} as it already exists",
                     &new_path.to_string_lossy()
@@ -175,12 +226,12 @@ fn file_exists(file_path: &str) -> bool {
     }
 }
 
-fn include_example_contracts(contracts: &[ExampleContract]) -> bool {
+fn include_example_contracts(contracts: &[String]) -> bool {
     !contracts.is_empty()
 }
 
 fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
-    let mut fetch = gix::clone::PrepareFetch::new(
+    let mut prepare = gix::clone::PrepareFetch::new(
         from_url,
         to_path,
         gix::create::Kind::WithWorktree,
@@ -195,21 +246,17 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
         NonZeroU32::new(1).unwrap(),
     ));
 
-    let (mut prepare, _outcome) = fetch
+    let (mut checkout, _outcome) = prepare
         .fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))
         .map_err(Box::new)?;
 
     let (_repo, _outcome) =
-        prepare.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
+        checkout.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
 
     Ok(())
 }
 
-fn copy_example_contracts(
-    from: &Path,
-    to: &Path,
-    contracts: &[ExampleContract],
-) -> Result<(), Error> {
+fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Result<(), Error> {
     let project_contracts_path = to.join("contracts");
     for contract in contracts {
         println!("ℹ️  Initializing example contract: {contract}");
@@ -246,43 +293,66 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+fn copy_frontend_files(from: &Path, to: &Path) {
+    println!("ℹ️  Initializing with frontend template");
+    let _ = copy_contents(from, to);
+    let _ = edit_package_json_files(to);
+}
+
+fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
+    let package_name = project_path.file_name().unwrap();
+    edit_package_name(project_path, package_name, "package.json")?;
+    edit_package_name(project_path, package_name, "package-lock.json")
+}
+
+fn edit_package_name(
+    project_path: &Path,
+    package_name: &std::ffi::OsStr,
+    file_name: &str,
+) -> Result<(), Error> {
+    let file_path = project_path.join(file_name);
+    let file_contents = read_to_string(&file_path)?;
+
+    let mut doc: serde_json::Value = serde_json::from_str(&file_contents)?;
+
+    doc["name"] = serde_json::json!(package_name.to_string_lossy());
+
+    std::fs::write(&file_path, doc.to_string())?;
+
+    Ok(())
+}
+
+fn check_internet_connection() -> bool {
+    if let Ok(_req) = ureq::get(GITHUB_URL).call() {
+        return true;
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::read_to_string;
 
     use super::*;
 
+    const TEST_PROJECT_NAME: &str = "test-project";
+
     #[test]
     fn test_init() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let project_dir = temp_dir.path().join("project");
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
-        init(project_dir.as_path(), &with_examples).unwrap();
+        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
 
-        assert!(project_dir.as_path().join("README.md").exists());
-        assert!(project_dir.as_path().join("contracts").exists());
-        assert!(project_dir.as_path().join("Cargo.toml").exists());
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
 
-        // check that it includes the default hello-world contract
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("hello_world")
-            .exists());
         // check that the contract's Cargo.toml file uses the workspace for dependencies
-        let contract_cargo_path = project_dir
-            .as_path()
-            .join("contracts")
-            .join("hello_world")
-            .join("Cargo.toml");
-        let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
-        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
+        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
 
-        // check that it does not include certain template files and directories
-        assert!(!project_dir.as_path().join(".git").exists());
-        assert!(!project_dir.as_path().join(".github").exists());
-        assert!(!project_dir.as_path().join("Cargo.lock").exists());
-        assert!(!project_dir.as_path().join(".vscode").exists());
+        assert_base_excluded_paths_do_not_exist(&project_dir);
 
         temp_dir.close().unwrap();
     }
@@ -290,45 +360,22 @@ mod tests {
     #[test]
     fn test_init_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let project_dir = temp_dir.path().join("project");
-        let with_examples = vec![ExampleContract::Alloc];
-        init(project_dir.as_path(), &with_examples).unwrap();
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
+        let with_examples = ["alloc".to_owned()];
+        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
 
-        assert!(project_dir.as_path().join("README.md").exists());
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .exists());
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
 
-        // check that it does not include certain template files and directories
-        assert!(!project_dir.as_path().join(".git").exists());
-        assert!(!project_dir.as_path().join(".github").exists());
-        assert!(!project_dir.as_path().join("Cargo.lock").exists());
-        assert!(!project_dir.as_path().join(".vscode").exists());
+        // check that alloc contract files exist
+        assert_contract_files_exist(&project_dir, "alloc");
 
-        // check that it does not include certain contract files
-        assert!(!project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .join("Makefile")
-            .exists());
-        assert!(!project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .join("Cargo.lock")
-            .exists());
+        // check that expected files are excluded from the alloc contract dir
+        assert_example_contract_excluded_files_do_not_exist(&project_dir, "alloc");
 
-        // check that the contract's Cargo.toml file uses the workspace for dependencies
-        let contract_cargo_path = project_dir
-            .as_path()
-            .join("contracts")
-            .join("alloc")
-            .join("Cargo.toml");
-        let cargo_toml_str = read_to_string(contract_cargo_path).unwrap();
-        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
+        // check that the alloc contract's Cargo.toml file uses the workspace for dependencies
+        assert_contract_cargo_file_uses_workspace(&project_dir, "alloc");
 
         temp_dir.close().unwrap();
     }
@@ -337,20 +384,139 @@ mod tests {
     fn test_init_including_multiple_example_contracts() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_examples = vec![ExampleContract::Account, ExampleContract::AtomicSwap];
-        init(project_dir.as_path(), &with_examples).unwrap();
+        let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
+        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
 
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("account")
-            .exists());
-        assert!(project_dir
-            .as_path()
-            .join("contracts")
-            .join("atomic_swap")
-            .exists());
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        // check that account contract files exist and that expected files are excluded
+        assert_contract_files_exist(&project_dir, "account");
+        assert_example_contract_excluded_files_do_not_exist(&project_dir, "account");
+        assert_contract_cargo_file_uses_workspace(&project_dir, "account");
+
+        // check that atomic_swap contract files exist and that expected files are excluded
+        assert_contract_files_exist(&project_dir, "atomic_swap");
+        assert_example_contract_excluded_files_do_not_exist(&project_dir, "atomic_swap");
+        assert_contract_cargo_file_uses_workspace(&project_dir, "atomic_swap");
 
         temp_dir.close().unwrap();
+    }
+
+    #[test]
+    fn test_init_with_invalid_example_contract() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("project");
+        let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
+        assert!(init(project_dir.as_path(), &String::new(), &with_examples,).is_err());
+
+        temp_dir.close().unwrap();
+    }
+
+    #[test]
+    fn test_init_with_frontend_template() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
+        let with_examples = vec![];
+        init(
+            project_dir.as_path(),
+            &"https://github.com/AhaLabs/soroban-astro-template".to_string(),
+            &with_examples,
+        )
+        .unwrap();
+
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        // check that the contract's Cargo.toml file uses the workspace for dependencies
+        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        assert_astro_files_exist(&project_dir);
+        assert_gitignore_includes_astro_paths(&project_dir);
+        assert_package_json_files_have_correct_name(&project_dir);
+
+        temp_dir.close().unwrap();
+    }
+
+    // test helpers
+    fn assert_base_template_files_exist(project_dir: &Path) {
+        let expected_paths = ["contracts", "Cargo.toml", "README.md"];
+        for path in &expected_paths {
+            assert!(project_dir.join(path).exists());
+        }
+    }
+
+    fn assert_default_hello_world_contract_files_exist(project_dir: &Path) {
+        assert_contract_files_exist(project_dir, "hello_world");
+    }
+
+    fn assert_contract_files_exist(project_dir: &Path, contract_name: &str) {
+        let contract_dir = project_dir.join("contracts").join(contract_name);
+
+        assert!(contract_dir.exists());
+        assert!(contract_dir.as_path().join("Cargo.toml").exists());
+        assert!(contract_dir.as_path().join("src").join("lib.rs").exists());
+        assert!(contract_dir.as_path().join("src").join("test.rs").exists());
+    }
+
+    fn assert_contract_cargo_file_uses_workspace(project_dir: &Path, contract_name: &str) {
+        let contract_dir = project_dir.join("contracts").join(contract_name);
+        let cargo_toml_path = contract_dir.as_path().join("Cargo.toml");
+        let cargo_toml_str = read_to_string(cargo_toml_path).unwrap();
+        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
+    }
+
+    fn assert_example_contract_excluded_files_do_not_exist(
+        project_dir: &Path,
+        contract_name: &str,
+    ) {
+        let contract_dir = project_dir.join("contracts").join(contract_name);
+        assert!(!contract_dir.as_path().join("Makefile").exists());
+        assert!(!contract_dir.as_path().join("Cargo.lock").exists());
+    }
+
+    fn assert_base_excluded_paths_do_not_exist(project_dir: &Path) {
+        let excluded_paths = [
+            ".git",
+            ".github",
+            "Makefile",
+            "Cargo.lock",
+            ".vscode",
+            "target",
+        ];
+        for path in &excluded_paths {
+            assert!(!project_dir.join(path).exists());
+        }
+    }
+
+    fn assert_gitignore_includes_astro_paths(project_dir: &Path) {
+        let gitignore_path = project_dir.join(".gitignore");
+        let gitignore_str = read_to_string(gitignore_path).unwrap();
+        assert!(gitignore_str.contains(".astro/"));
+        assert!(gitignore_str.contains("node_modules"));
+        assert!(gitignore_str.contains("npm-debug.log*"));
+    }
+
+    fn assert_astro_files_exist(project_dir: &Path) {
+        assert!(project_dir.join("public").exists());
+        assert!(project_dir.join("src").exists());
+        assert!(project_dir.join("src").join("components").exists());
+        assert!(project_dir.join("src").join("layouts").exists());
+        assert!(project_dir.join("src").join("pages").exists());
+        assert!(project_dir.join("astro.config.mjs").exists());
+        assert!(project_dir.join("tsconfig.json").exists());
+    }
+
+    fn assert_package_json_files_have_correct_name(project_dir: &Path) {
+        let package_json_path = project_dir.join("package.json");
+        let package_json_str = read_to_string(package_json_path).unwrap();
+        assert!(package_json_str.contains(&format!("\"name\":\"{TEST_PROJECT_NAME}\"")));
+
+        let package_lock_json_path = project_dir.join("package-lock.json");
+        let package_lock_json_str = read_to_string(package_lock_json_path).unwrap();
+        assert!(package_lock_json_str.contains(&format!("\"name\":\"{TEST_PROJECT_NAME}\"")));
     }
 }
