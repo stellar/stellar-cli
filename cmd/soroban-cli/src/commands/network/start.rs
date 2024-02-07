@@ -22,17 +22,6 @@ const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
     minor_version: 40,
 };
 
-/// This command allows for starting a stellar quickstart container. To run it, you can use the following command:
-/// `soroban network start <NETWORK> [OPTIONS] -- [DOCKER_RUN_ARGS]`
-///
-
-/// `DOCKER_RUN_ARGS`: These are arguments to be passed to the `docker run` command itself, and should be passed in after the slop `--`. Some common options are:
-/// -p <`FROM_PORT`>:<`TO_PORT`> - this maps the port from the container to the host machine. By default, the port is 8000.
-/// -d - this runs the container in detached mode, so that it runs in the background
-
-// By default, without any optional arguments, the following docker command will run:
-// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
-
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
     /// Network to start, e.g. local, testnet, futurenet, pubnet

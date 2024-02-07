@@ -27,6 +27,12 @@ pub enum Cmd {
     /// List networks
     Ls(ls::Cmd),
     /// Start network
+    ///
+    /// This command allows for starting a stellar quickstart container. To run it, you can use the following command:
+    /// `soroban network start <NETWORK> [OPTIONS]`
+    ///
+    /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
+    /// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
     Start(start::Cmd),
     /// Stop network
     Stop(stop::Cmd),
