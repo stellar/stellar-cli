@@ -43,13 +43,17 @@ pub struct Cmd {
     #[arg(short = 'r', long)]
     pub disable_soroban_rpc: bool,
 
-    /// option argument to specify the protocol version for the local network only
+    /// optional argument to specify the protocol version for the local network only
     #[arg(short = 'p', long)]
     pub protocol_version: Option<String>,
 
-    /// option argument to specify the limits for the local network only
+    /// optional argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
     pub limit: Option<String>,
+
+    /// optional argument to override the default docker socket path
+    #[arg(short = 'd', long)]
+    pub docker_socket_path: Option<String>,
 
     /// optional arguments to pass to the docker run command
     #[arg(last = true, id = "DOCKER_RUN_ARGS")]
@@ -78,9 +82,13 @@ async fn run_docker_command(cmd: &Cmd) {
         minor_version: 40,
     };
 
-    //TODO: make this configurable, or instruct the user to set it in their environment, or toggle the `Allow the default Docker socket to be used (requires password)` option in Docker Desktop
-    let socket = "/Users/elizabethengelman/.docker/run/docker.sock";
-    let docker = Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap();
+    let docker: Docker;
+    if cmd.docker_socket_path.is_some() {
+        let socket = cmd.docker_socket_path.as_ref().unwrap();
+        docker = Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap();
+    } else {
+        docker = Docker::connect_with_socket_defaults().unwrap();
+    }
 
     let image = get_image_name(cmd);
     let container_name = get_container_name(cmd);
