@@ -10,7 +10,6 @@ use futures_util::TryStreamExt;
 use std::collections::HashMap;
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
-const CONTAINER_NAME: &str = "stellar";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
 // DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
@@ -56,10 +55,6 @@ pub struct Cmd {
     /// optional argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
     pub limit: Option<String>,
-
-    /// argument to specify the container name
-    #[arg(short = 'n', long, default_value = CONTAINER_NAME)]
-    pub container_name: String,
 
     /// argument to specify the HOST_PORT:CONTAINER_PORT mapping
     #[arg(short = 'p', long, num_args = 1.., default_value = DEFAULT_PORT_MAPPING)]
@@ -117,10 +112,9 @@ async fn run_docker_command(cmd: &Cmd) {
         ..Default::default()
     };
 
-    println!("CONFIG: {:#?}", config);
-
+    let container_name = format!("stellar-{}", cmd.network);
     let options = Some(CreateContainerOptions {
-        name: cmd.container_name.clone(),
+        name: container_name,
         platform: None,
     });
 

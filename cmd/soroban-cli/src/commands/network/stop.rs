@@ -1,4 +1,7 @@
+use core::fmt;
+
 use bollard::{ClientVersion, Docker};
+use clap::ValueEnum;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -6,7 +9,6 @@ pub enum Error {
     StopContainerError(#[from] bollard::errors::Error),
 }
 
-const CONTAINER_NAME: &str = "stellar";
 // DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
 const DEFAULT_TIMEOUT: u64 = 120;
 const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
@@ -14,10 +16,32 @@ const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
     minor_version: 40,
 };
 
+// TODO: move to a shared module
+#[derive(ValueEnum, Debug, Clone, PartialEq)]
+pub enum Network {
+    Local,
+    Testnet,
+    Futurenet,
+    Pubnet,
+}
+
+impl fmt::Display for Network {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let variant_str = match self {
+            Network::Local => "local",
+            Network::Testnet => "testnet",
+            Network::Futurenet => "futurenet",
+            Network::Pubnet => "pubnet",
+        };
+
+        write!(f, "{}", variant_str)
+    }
+}
+
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
-    /// container to stop, defaults to "stellar"
-    pub container_name: Option<String>,
+    /// network container to stop
+    pub network: Network,
 
     /// optional argument to override the default docker socket path
     #[arg(short = 'd', long)]
@@ -26,26 +50,13 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let container_name = self
-            .container_name
-            .clone()
-            .unwrap_or(String::from(CONTAINER_NAME));
-
+        let container_name = format!("stellar-{}", self.network);
+        let docker = connect_to_docker(self);
         println!("Stopping container: {container_name}");
-        run_docker_command(self).await
+        docker.stop_container(&container_name, None).await.unwrap();
+
+        Ok(())
     }
-}
-
-async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
-    let docker = connect_to_docker(cmd);
-    let container_name = cmd
-        .container_name
-        .clone()
-        .unwrap_or(String::from(CONTAINER_NAME));
-
-    docker.stop_container(&container_name, None).await.unwrap();
-
-    Ok(())
 }
 
 //TODO: move to a shared module
