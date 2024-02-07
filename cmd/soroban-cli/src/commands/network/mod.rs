@@ -75,7 +75,7 @@ impl Cmd {
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Start(cmd) => cmd.run().await?,
-            Cmd::Stop(cmd) => cmd.run()?,
+            Cmd::Stop(cmd) => cmd.run().await?,
         };
         Ok(())
     }

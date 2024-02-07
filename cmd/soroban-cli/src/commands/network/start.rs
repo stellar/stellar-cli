@@ -77,12 +77,7 @@ impl Cmd {
 }
 
 async fn run_docker_command(cmd: &Cmd) {
-    let docker = if cmd.docker_socket_path.is_some() {
-        let socket = cmd.docker_socket_path.as_ref().unwrap();
-        Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap()
-    } else {
-        Docker::connect_with_socket_defaults().unwrap()
-    };
+    let docker = connect_to_docker(cmd);
 
     let image = get_image_name(cmd);
     let create_image_options = Some(CreateImageOptions {
@@ -122,6 +117,15 @@ async fn run_docker_command(cmd: &Cmd) {
     let _container = docker
         .start_container(&response.id, None::<StartContainerOptions<String>>)
         .await;
+}
+
+fn connect_to_docker(cmd: &Cmd) -> Docker {
+    if cmd.docker_socket_path.is_some() {
+        let socket = cmd.docker_socket_path.as_ref().unwrap();
+        Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap()
+    } else {
+        Docker::connect_with_socket_defaults().unwrap()
+    }
 }
 
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
