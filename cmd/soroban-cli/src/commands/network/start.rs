@@ -4,12 +4,10 @@ use bollard::{
     service::{HostConfig, PortBinding},
     ClientVersion, Docker,
 };
-
+use clap::ValueEnum;
+use core::fmt;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {}
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const CONTAINER_NAME: &str = "stellar";
@@ -22,10 +20,34 @@ const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
     minor_version: 40,
 };
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {}
+
+#[derive(ValueEnum, Debug, Clone, PartialEq)]
+pub enum Network {
+    Local,
+    Testnet,
+    Futurenet,
+    Pubnet,
+}
+
+impl fmt::Display for Network {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let variant_str = match self {
+            Network::Local => "local",
+            Network::Testnet => "testnet",
+            Network::Futurenet => "futurenet",
+            Network::Pubnet => "pubnet",
+        };
+
+        write!(f, "{}", variant_str)
+    }
+}
+
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
-    /// Network to start, e.g. local, testnet, futurenet, pubnet
-    pub network: String,
+    /// network to start
+    pub network: Network,
 
     /// optional argument to override the default docker socket path
     #[arg(short = 'd', long)]
@@ -138,9 +160,9 @@ fn get_container_args(cmd: &Cmd) -> Vec<String> {
 
 fn get_image_name(cmd: &Cmd) -> String {
     // this can be overriden with the `-t` flag
-    let mut image_tag = match cmd.network.as_str() {
-        "testnet" => "testing",
-        "futurenet" => "soroban-dev",
+    let mut image_tag = match cmd.network {
+        Network::Testnet => "testing",
+        Network::Futurenet => "soroban-dev",
         _ => "latest", // default to latest for local and pubnet
     };
 
@@ -175,7 +197,7 @@ fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
 }
 
 fn get_protocol_version_arg(cmd: &Cmd) -> String {
-    if cmd.network == "local" && cmd.protocol_version.is_some() {
+    if cmd.network == Network::Local && cmd.protocol_version.is_some() {
         let version = cmd.protocol_version.as_ref().unwrap();
         format!("--protocol-version {version}")
     } else {
@@ -184,7 +206,7 @@ fn get_protocol_version_arg(cmd: &Cmd) -> String {
 }
 
 fn get_limits_arg(cmd: &Cmd) -> String {
-    if cmd.network == "local" && cmd.limit.is_some() {
+    if cmd.network == Network::Local && cmd.limit.is_some() {
         let limit = cmd.limit.as_ref().unwrap();
         format!("--limits {limit}")
     } else {
