@@ -63,6 +63,13 @@ impl Cmd {
         Ok(())
     }
 }
+// TODO:
+// 1. make socket path configurable
+// 2. print out stdout and stderr - need to see error message if the user passes in an incorrect network or something
+// 3. do i need to re-think the slop? since im not sure there's a way to pass stuff to the container, without putting it in this config
+
+// TODO IN FOLLOW UP PR:
+// 1. allow for the user to print out logs in the terminal - it would also be necessary to map ctrl-c to stop the container because right now, when using the logs stream, the container will keep running in the background
 
 async fn run_docker_command(cmd: &Cmd) {
     const DEFAULT_TIMEOUT: u64 = 120;
@@ -78,21 +85,11 @@ async fn run_docker_command(cmd: &Cmd) {
     let image = get_image_name(cmd);
     let container_name = get_container_name(cmd);
     let port_mapping = get_port_mapping(cmd);
-    let protocol_version = get_protocol_version_arg(cmd);
-    let limits = get_limits_arg(cmd);
 
     let create_image_options = Some(CreateImageOptions {
         from_image: image.clone(),
         ..Default::default()
     });
-
-    let enable_soroban_rpc = if cmd.disable_soroban_rpc {
-        "".to_string()
-    } else {
-        "--enable-soroban-rpc".to_string()
-    };
-
-    let stellar_network = format!("--{}", cmd.network);
 
     docker
         .create_image(create_image_options, None, None)
@@ -100,15 +97,11 @@ async fn run_docker_command(cmd: &Cmd) {
         .await
         .unwrap();
 
-    //TODO: remove the empty strings from cmd vec
+    let container_args = get_container_args(cmd);
+
     let config = Config {
         image: Some(image),
-        cmd: Some(vec![
-            stellar_network,
-            enable_soroban_rpc,
-            protocol_version,
-            limits,
-        ]),
+        cmd: Some(container_args),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
         host_config: Some(HostConfig {
@@ -132,6 +125,25 @@ async fn run_docker_command(cmd: &Cmd) {
         .await;
 
     println!("container create response {:#?}", response);
+}
+
+fn get_container_args(cmd: &Cmd) -> Vec<String> {
+    let enable_soroban_rpc = if cmd.disable_soroban_rpc {
+        "".to_string()
+    } else {
+        "--enable-soroban-rpc".to_string()
+    };
+
+    vec![
+        format!("--{}", cmd.network),
+        enable_soroban_rpc,
+        get_protocol_version_arg(cmd),
+        get_limits_arg(cmd),
+    ]
+    .iter()
+    .cloned()
+    .filter(|s| !s.is_empty())
+    .collect()
 }
 
 fn get_image_name(cmd: &Cmd) -> String {
@@ -159,8 +171,6 @@ fn get_container_name(cmd: &Cmd) -> String {
         CONTAINER_NAME.to_string()
     }
 }
-
-//do i need to re-think the slop? since im not sure there's a way to pass stuff to the container, without putting it in this config
 
 // this is a little confusing - in the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
 
