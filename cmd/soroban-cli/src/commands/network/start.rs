@@ -11,8 +11,7 @@ use std::collections::HashMap;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {}
 
-const FROM_PORT: i32 = 8000;
-const TO_PORT: i32 = 8000;
+const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const CONTAINER_NAME: &str = "stellar";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
@@ -26,10 +25,6 @@ const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
 /// This command allows for starting a stellar quickstart container. To run it, you can use the following command:
 /// `soroban network start <NETWORK> [OPTIONS] -- [DOCKER_RUN_ARGS]`
 ///
-/// OPTIONS: refer to the options that are available to the quickstart image:
-/// --enable-soroban-rpc - is enabled by default
-/// --protocol-version (only for local network)
-/// --limits (only for local network)
 
 /// `DOCKER_RUN_ARGS`: These are arguments to be passed to the `docker run` command itself, and should be passed in after the slop `--`. Some common options are:
 /// -p <`FROM_PORT`>:<`TO_PORT`> - this maps the port from the container to the host machine. By default, the port is 8000.
@@ -43,29 +38,33 @@ pub struct Cmd {
     /// Network to start, e.g. local, testnet, futurenet, pubnet
     pub network: String,
 
-    /// optional argument to override the default docker image tag for the given network
-    #[arg(short = 't', long)]
-    pub image_tag_override: Option<String>,
-
-    /// optional argument to turn off soroban rpc
-    #[arg(short = 'r', long)]
-    pub disable_soroban_rpc: bool,
-
-    /// optional argument to specify the protocol version for the local network only
-    #[arg(short = 'p', long)]
-    pub protocol_version: Option<String>,
+    /// optional argument to override the default docker socket path
+    #[arg(short = 'd', long)]
+    pub docker_socket_path: Option<String>,
 
     /// optional argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
     pub limit: Option<String>,
 
-    /// optional argument to override the default docker socket path
-    #[arg(short = 'd', long)]
-    pub docker_socket_path: Option<String>,
+    /// argument to specify the container name
+    #[arg(short = 'n', long, default_value = CONTAINER_NAME)]
+    pub container_name: String,
 
-    /// optional arguments to pass to the docker run command
-    #[arg(last = true, id = "DOCKER_RUN_ARGS")]
-    pub slop: Vec<String>,
+    /// argument to specify the HOST_PORT:CONTAINER_PORT mapping
+    #[arg(short = 'p', long, num_args = 1.., default_value = DEFAULT_PORT_MAPPING)]
+    pub ports_mapping: Vec<String>,
+
+    /// optional argument to turn off soroban rpc
+    #[arg(short = 'r', long)]
+    pub disable_soroban_rpc: bool,
+
+    /// optional argument to override the default docker image tag for the given network
+    #[arg(short = 't', long)]
+    pub image_tag_override: Option<String>,
+
+    /// optional argument to specify the protocol version for the local network only
+    #[arg(short = 'v', long)]
+    pub protocol_version: Option<String>,
 }
 
 impl Cmd {
@@ -92,7 +91,6 @@ async fn run_docker_command(cmd: &Cmd) {
         .unwrap();
 
     let container_args = get_container_args(cmd);
-    let container_name = get_container_name(cmd);
     let port_mapping = get_port_mapping(cmd);
 
     let config = Config {
@@ -108,8 +106,10 @@ async fn run_docker_command(cmd: &Cmd) {
         ..Default::default()
     };
 
+    println!("CONFIG: {:#?}", config);
+
     let options = Some(CreateContainerOptions {
-        name: container_name,
+        name: cmd.container_name.clone(),
         platform: None,
     });
 
@@ -165,39 +165,24 @@ fn get_image_name(cmd: &Cmd) -> String {
     format!("{DOCKER_IMAGE}:{image_tag}")
 }
 
-fn get_container_name(cmd: &Cmd) -> String {
-    if cmd.slop.contains(&"--name".to_string()) {
-        cmd.slop[cmd.slop.iter().position(|x| x == "--name").unwrap() + 1].clone()
-    } else {
-        CONTAINER_NAME.to_string()
-    }
-}
-
 /// The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
 fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
-    let mut port_mapping = HashMap::new();
-    if cmd.slop.contains(&"-p".to_string()) {
-        let ports_string = cmd.slop[cmd.slop.iter().position(|x| x == "-p").unwrap() + 1].clone();
-        let ports_vec: Vec<&str> = ports_string.split(':').collect();
+    let mut port_mapping_hash = HashMap::new();
+    for port_mapping in cmd.ports_mapping.iter() {
+        let ports_vec: Vec<&str> = port_mapping.split(':').collect();
         let from_port = ports_vec[0];
         let to_port = ports_vec[1];
-        port_mapping.insert(
+
+        port_mapping_hash.insert(
             format!("{to_port}/tcp"),
             Some(vec![PortBinding {
                 host_ip: None,
-                host_port: Some(from_port.to_string()),
-            }]),
-        );
-    } else {
-        port_mapping.insert(
-            format!("{TO_PORT}/tcp"),
-            Some(vec![PortBinding {
-                host_ip: None,
-                host_port: Some(format!("{FROM_PORT}")),
+                host_port: Some(format!("{from_port}")),
             }]),
         );
     }
-    port_mapping
+
+    port_mapping_hash
 }
 
 fn get_protocol_version_arg(cmd: &Cmd) -> String {

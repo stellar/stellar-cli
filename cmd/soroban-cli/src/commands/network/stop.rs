@@ -2,11 +2,6 @@ use bollard::{ClientVersion, Docker};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    // #[error("Failed to execute docker command: {0}")]
-    // CommandError(std::io::Error),
-
-    // #[error("Failed to find docker container: {error}")]
-    // ContainerNotFoundErr { error: String },
     #[error("Failed to stop container: {0}")]
     StopContainerError(#[from] bollard::errors::Error),
 }
