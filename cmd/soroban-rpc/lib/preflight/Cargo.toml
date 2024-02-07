@@ -1,6 +1,6 @@
 [package]
 name = "preflight"
-version = "20.2.0"
+version = "20.3.0"
 publish = false
 
 [lib]
@@ -12,5 +12,5 @@ libc = "0.2.147"
 sha2 = { workspace = true }
 # we need the testutils feature in order to get backtraces in the preflight library
 # when soroban rpc is configured to run with --preflight-enable-debug
-soroban-env-host = { workspace = true,  features = ["recording_auth", "testutils"]}
+soroban-env-host = { workspace = true, features = ["recording_mode", "testutils"]}
 soroban-simulation = { workspace = true }
