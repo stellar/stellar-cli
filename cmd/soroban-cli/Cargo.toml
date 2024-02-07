@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "20.2.0"
+version = "20.3.0"
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -53,9 +53,8 @@ clap = { version = "4.1.8", features = [
 ] }
 base64 = { workspace = true }
 thiserror = { workspace = true }
-serde = "1.0.82"
-serde_derive = "1.0.82"
-serde_json = "1.0.82"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 serde-aux = "4.1.2"
 hex = { workspace = true }
 num-bigint = "0.4"
@@ -93,10 +92,14 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 cargo_metadata = "0.15.4"
 pathdiff = "0.2.1"
 dotenvy = "0.15.7"
-gix = { version = "0.55.2", default-features = false, features = [
+strum = "0.17.1"
+strum_macros = "0.17.1"
+gix = { version = "0.58.0", default-features = false, features = [
   "blocking-http-transport-reqwest-rust-tls",
   "worktree-mutation",
 ] }
+ureq = {version = "2.9.1", features = ["json"]}
+
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
 # For hyper-tls
