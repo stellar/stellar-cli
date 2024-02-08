@@ -154,6 +154,7 @@ func TestGetTransaction(t *testing.T) {
 		ResultMetaXdr:         expectedTxMeta,
 		Ledger:                101,
 		LedgerCloseTime:       2625,
+		DiagnosticEventsXDR:   []string{},
 	}, tx)
 
 	// ingest another (failed) transaction
@@ -177,6 +178,7 @@ func TestGetTransaction(t *testing.T) {
 		ResultMetaXdr:         expectedTxMeta,
 		Ledger:                101,
 		LedgerCloseTime:       2625,
+		DiagnosticEventsXDR:   []string{},
 	}, tx)
 
 	// the new transaction should also be there
@@ -206,5 +208,6 @@ func TestGetTransaction(t *testing.T) {
 		ResultMetaXdr:         expectedTxMeta,
 		Ledger:                102,
 		LedgerCloseTime:       2650,
+		DiagnosticEventsXDR:   []string{},
 	}, tx)
 }

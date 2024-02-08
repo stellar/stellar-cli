@@ -108,11 +108,12 @@ func GetTransaction(getter transactionGetter, request GetTransactionRequest) (Ge
 	response.ResultXdr = base64.StdEncoding.EncodeToString(tx.Result)
 	response.EnvelopeXdr = base64.StdEncoding.EncodeToString(tx.Envelope)
 	response.ResultMetaXdr = base64.StdEncoding.EncodeToString(tx.Meta)
+	response.DiagnosticEventsXDR = base64EncodeSlice(tx.Events)
+
 	if tx.Successful {
 		response.Status = TransactionStatusSuccess
 	} else {
 		response.Status = TransactionStatusFailed
-		response.DiagnosticEventsXDR = base64EncodeSlice(tx.Events)
 	}
 	return response, nil
 }
