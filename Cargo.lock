@@ -3525,7 +3525,7 @@ dependencies = [
  "soroban-spec",
  "soroban-spec-json",
  "soroban-spec-rust",
- "soroban-spec-tools",
+ "soroban-spec-tools 20.3.0",
  "soroban-spec-typescript",
  "stellar-strkey 0.0.7",
  "stellar-xdr",
@@ -3639,6 +3639,7 @@ dependencies = [
 [[package]]
 name = "soroban-rpc"
 version = "20.3.0"
+source = "git+https://github.com/stellar/soroban-rpc?rev=b4c2dec162b14b560ed86b9d76a936b7bafb0922#b4c2dec162b14b560ed86b9d76a936b7bafb0922"
 dependencies = [
  "base64 0.21.5",
  "clap",
@@ -3656,7 +3657,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-sdk",
  "soroban-spec",
- "soroban-spec-tools",
+ "soroban-spec-tools 20.3.0 (git+https://github.com/stellar/soroban-tools?rev=a1e51d263df80682a3dab2b00738700c7326f872)",
  "stellar-strkey 0.0.7",
  "stellar-xdr",
  "termcolor",
@@ -3665,7 +3666,6 @@ dependencies = [
  "tokio",
  "tracing",
  "wasmparser 0.90.0",
- "which",
 ]
 
 [[package]]
@@ -3783,6 +3783,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-spec-tools"
+version = "20.3.0"
+source = "git+https://github.com/stellar/soroban-tools?rev=a1e51d263df80682a3dab2b00738700c7326f872#a1e51d263df80682a3dab2b00738700c7326f872"
+dependencies = [
+ "base64 0.21.5",
+ "ethnum",
+ "hex",
+ "itertools 0.10.5",
+ "serde_json",
+ "soroban-env-host",
+ "soroban-spec",
+ "stellar-strkey 0.0.7",
+ "stellar-xdr",
+ "thiserror",
+ "wasmparser 0.90.0",
+]
+
+[[package]]
 name = "soroban-spec-typescript"
 version = "20.3.0"
 dependencies = [
@@ -3819,7 +3837,7 @@ dependencies = [
  "soroban-ledger-snapshot",
  "soroban-sdk",
  "soroban-spec",
- "soroban-spec-tools",
+ "soroban-spec-tools 20.3.0",
  "stellar-strkey 0.0.7",
  "thiserror",
  "tokio",
