@@ -1,9 +1,11 @@
+use std::borrow::Cow;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::{env, fs, io};
 
 use clap::builder::{PossibleValue, PossibleValuesParser, ValueParser};
 use clap::{Parser, ValueEnum};
+use rust_embed::RustEmbed;
 use serde::Deserialize;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
@@ -113,6 +115,9 @@ pub enum Error {
 
     #[error("Failed to parse package.json file: {0}")]
     JsonParseError(#[from] serde_json::Error),
+
+    #[error("Failed to convert file contents to string: {0}")]
+    ConvertFileContentsErr(#[from] std::str::Utf8Error),
 }
 
 impl Cmd {
@@ -127,6 +132,10 @@ impl Cmd {
     }
 }
 
+#[derive(RustEmbed)]
+#[folder = "src/utils/contract-init-template"]
+struct TemplateFiles;
+
 fn init(
     project_path: &Path,
     frontend_template: &String,
@@ -138,9 +147,11 @@ fn init(
         .join("utils")
         .join("contract-init-template");
 
+    println!("template_dir_path: {:?}", template_dir_path);
+
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
     std::fs::create_dir_all(project_path)?;
-    copy_contents(template_dir_path.as_path(), project_path)?;
+    copy_template_files(project_path)?;
 
     if !check_internet_connection() {
         println!("⚠️  It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
@@ -173,15 +184,35 @@ fn init(
     Ok(())
 }
 
+fn copy_template_files(project_path: &Path) -> Result<(), Error> {
+    for item in TemplateFiles::iter() {
+        let to = project_path.join(item.as_ref());
+        if file_exists(&to.to_string_lossy()) {
+            println!(
+                "ℹ️  Skipped creating {} as it already exists",
+                &to.to_string_lossy()
+            );
+            continue;
+        }
+        fs::create_dir_all(&to.parent().unwrap())?;
+
+        let file = match TemplateFiles::get(item.as_ref()) {
+            Some(file) => file,
+            None => {
+                println!("⚠️  Failed to read file: {}", item.as_ref());
+                continue;
+            }
+        };
+
+        let file_contents = std::str::from_utf8(file.data.as_ref())?;
+
+        fs::write(to, file_contents)?;
+    }
+    Ok(())
+}
+
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
-    let contents_to_exclude_from_copy = [
-        ".git",
-        ".github",
-        "Makefile",
-        "Cargo.lock",
-        ".vscode",
-        "target",
-    ];
+    let contents_to_exclude_from_copy = [".git", ".github", "Makefile", ".vscode", "target"];
     for entry in fs::read_dir(from)? {
         let entry = entry?;
         let path = entry.path();
@@ -475,18 +506,10 @@ mod tests {
     ) {
         let contract_dir = project_dir.join("contracts").join(contract_name);
         assert!(!contract_dir.as_path().join("Makefile").exists());
-        assert!(!contract_dir.as_path().join("Cargo.lock").exists());
     }
 
     fn assert_base_excluded_paths_do_not_exist(project_dir: &Path) {
-        let excluded_paths = [
-            ".git",
-            ".github",
-            "Makefile",
-            "Cargo.lock",
-            ".vscode",
-            "target",
-        ];
+        let excluded_paths = [".git", ".github", "Makefile", ".vscode", "target"];
         for path in &excluded_paths {
             assert!(!project_dir.join(path).exists());
         }
