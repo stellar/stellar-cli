@@ -15,6 +15,7 @@ use super::config::locator;
 pub mod add;
 pub mod ls;
 pub mod rm;
+pub mod shared;
 pub mod start;
 pub mod stop;
 

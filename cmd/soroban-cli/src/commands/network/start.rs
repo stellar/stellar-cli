@@ -2,46 +2,18 @@ use bollard::{
     container::{Config, CreateContainerOptions, StartContainerOptions},
     image::CreateImageOptions,
     service::{HostConfig, PortBinding},
-    ClientVersion, Docker,
 };
-use clap::ValueEnum;
-use core::fmt;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
+
+use crate::commands::network::shared::connect_to_docker;
+use crate::commands::network::shared::Network;
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
-// DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
-const DEFAULT_TIMEOUT: u64 = 120;
-const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
-    major_version: 1,
-    minor_version: 40,
-};
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {}
-
-#[derive(ValueEnum, Debug, Clone, PartialEq)]
-pub enum Network {
-    Local,
-    Testnet,
-    Futurenet,
-    Pubnet,
-}
-
-impl fmt::Display for Network {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let variant_str = match self {
-            Network::Local => "local",
-            Network::Testnet => "testnet",
-            Network::Futurenet => "futurenet",
-            Network::Pubnet => "pubnet",
-        };
-
-        write!(f, "{}", variant_str)
-    }
-}
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
@@ -82,7 +54,7 @@ impl Cmd {
 }
 
 async fn run_docker_command(cmd: &Cmd) {
-    let docker = connect_to_docker(cmd);
+    let docker = connect_to_docker(&cmd.docker_socket_path);
 
     let image = get_image_name(cmd);
     let create_image_options = Some(CreateImageOptions {
@@ -122,15 +94,6 @@ async fn run_docker_command(cmd: &Cmd) {
     let _container = docker
         .start_container(&response.id, None::<StartContainerOptions<String>>)
         .await;
-}
-
-fn connect_to_docker(cmd: &Cmd) -> Docker {
-    if cmd.docker_socket_path.is_some() {
-        let socket = cmd.docker_socket_path.as_ref().unwrap();
-        Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap()
-    } else {
-        Docker::connect_with_socket_defaults().unwrap()
-    }
 }
 
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
@@ -173,7 +136,7 @@ fn get_image_name(cmd: &Cmd) -> String {
 /// The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
 fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
     let mut port_mapping_hash = HashMap::new();
-    for port_mapping in cmd.ports_mapping.iter() {
+    for port_mapping in &cmd.ports_mapping {
         let ports_vec: Vec<&str> = port_mapping.split(':').collect();
         let from_port = ports_vec[0];
         let to_port = ports_vec[1];
@@ -182,7 +145,7 @@ fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
             format!("{to_port}/tcp"),
             Some(vec![PortBinding {
                 host_ip: None,
-                host_port: Some(format!("{from_port}")),
+                host_port: Some(from_port.to_string()),
             }]),
         );
     }
