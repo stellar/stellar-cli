@@ -6,14 +6,18 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/google/shlex"
 	"github.com/stellar/go/keypair"
+	proto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
@@ -22,6 +26,10 @@ import (
 	"gotest.tools/v3/icmd"
 
 	"github.com/stellar/soroban-tools/cmd/soroban-rpc/internal/methods"
+)
+
+var (
+	testSalt = sha256.Sum256([]byte("a1"))
 )
 
 func cargoTest(t *testing.T, name string) {
@@ -380,4 +388,140 @@ func getLedgerEntryLiveUntil(t *testing.T, client *jrpc2.Client, ttlLedgerKey xd
 	require.Contains(t, []xdr.LedgerEntryType{xdr.LedgerEntryTypeContractCode, xdr.LedgerEntryTypeContractData}, entry.Type)
 	require.NotNil(t, getLedgerEntryResult.LiveUntilLedgerSeq)
 	return xdr.Uint32(*getLedgerEntryResult.LiveUntilLedgerSeq)
+}
+
+func getCounterLedgerKey(contractID [32]byte) xdr.LedgerKey {
+	contractIDHash := xdr.Hash(contractID)
+	counterSym := xdr.ScSymbol("COUNTER")
+	key := xdr.LedgerKey{
+		Type: xdr.LedgerEntryTypeContractData,
+		ContractData: &xdr.LedgerKeyContractData{
+			Contract: xdr.ScAddress{
+				Type:       xdr.ScAddressTypeScAddressTypeContract,
+				ContractId: &contractIDHash,
+			},
+			Key: xdr.ScVal{
+				Type: xdr.ScValTypeScvSymbol,
+				Sym:  &counterSym,
+			},
+			Durability: xdr.ContractDataDurabilityPersistent,
+		},
+	}
+	return key
+}
+
+func waitUntilLedgerEntryTTL(t *testing.T, client *jrpc2.Client, ledgerKey xdr.LedgerKey) {
+	keyB64, err := xdr.MarshalBase64(ledgerKey)
+	require.NoError(t, err)
+	request := methods.GetLedgerEntriesRequest{
+		Keys: []string{keyB64},
+	}
+	ttled := false
+	for i := 0; i < 50; i++ {
+		var result methods.GetLedgerEntriesResponse
+		var entry xdr.LedgerEntryData
+		err := client.CallResult(context.Background(), "getLedgerEntries", request, &result)
+		require.NoError(t, err)
+		require.NotEmpty(t, result.Entries)
+		require.NoError(t, xdr.SafeUnmarshalBase64(result.Entries[0].XDR, &entry))
+		require.NotEqual(t, xdr.LedgerEntryTypeTtl, entry.Type)
+		liveUntilLedgerSeq := xdr.Uint32(*result.Entries[0].LiveUntilLedgerSeq)
+		// See https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#expiration-ledger
+		currentLedger := result.LatestLedger + 1
+		if xdr.Uint32(currentLedger) > liveUntilLedgerSeq {
+			ttled = true
+			t.Logf("ledger entry ttl'ed")
+			break
+		}
+		t.Log("waiting for ledger entry to ttl at ledger", liveUntilLedgerSeq)
+		time.Sleep(time.Second)
+	}
+	require.True(t, ttled)
+}
+
+func sendSuccessfulTransaction(t *testing.T, client *jrpc2.Client, kp *keypair.Full, transaction *txnbuild.Transaction) methods.GetTransactionResponse {
+	tx, err := transaction.Sign(StandaloneNetworkPassphrase, kp)
+	assert.NoError(t, err)
+	b64, err := tx.Base64()
+	assert.NoError(t, err)
+
+	request := methods.SendTransactionRequest{Transaction: b64}
+	var result methods.SendTransactionResponse
+	err = client.CallResult(context.Background(), "sendTransaction", request, &result)
+	assert.NoError(t, err)
+
+	expectedHashHex, err := tx.HashHex(StandaloneNetworkPassphrase)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedHashHex, result.Hash)
+	if !assert.Equal(t, proto.TXStatusPending, result.Status) {
+		var txResult xdr.TransactionResult
+		err := xdr.SafeUnmarshalBase64(result.ErrorResultXDR, &txResult)
+		assert.NoError(t, err)
+		fmt.Printf("error: %#v\n", txResult)
+	}
+	assert.NotZero(t, result.LatestLedger)
+	assert.NotZero(t, result.LatestLedgerCloseTime)
+
+	response := getTransaction(t, client, expectedHashHex)
+	if !assert.Equal(t, methods.TransactionStatusSuccess, response.Status) {
+		var txResult xdr.TransactionResult
+		err := xdr.SafeUnmarshalBase64(response.ResultXdr, &txResult)
+		assert.NoError(t, err)
+		fmt.Printf("error: %#v\n", txResult)
+		var txMeta xdr.TransactionMeta
+		err = xdr.SafeUnmarshalBase64(response.ResultMetaXdr, &txMeta)
+		assert.NoError(t, err)
+		if txMeta.V == 3 && txMeta.V3.SorobanMeta != nil {
+			if len(txMeta.V3.SorobanMeta.Events) > 0 {
+				fmt.Println("Contract events:")
+				for i, e := range txMeta.V3.SorobanMeta.Events {
+					fmt.Printf("  %d: %s\n", i, e)
+				}
+			}
+
+			if len(txMeta.V3.SorobanMeta.DiagnosticEvents) > 0 {
+				fmt.Println("Diagnostic events:")
+				for i, d := range txMeta.V3.SorobanMeta.DiagnosticEvents {
+					fmt.Printf("  %d: %s\n", i, d)
+				}
+			}
+		}
+	}
+
+	require.NotNil(t, response.ResultXdr)
+	assert.Greater(t, response.Ledger, result.LatestLedger)
+	assert.Greater(t, response.LedgerCloseTime, result.LatestLedgerCloseTime)
+	assert.GreaterOrEqual(t, response.LatestLedger, response.Ledger)
+	assert.GreaterOrEqual(t, response.LatestLedgerCloseTime, response.LedgerCloseTime)
+	return response
+}
+
+func getTransaction(t *testing.T, client *jrpc2.Client, hash string) methods.GetTransactionResponse {
+	var result methods.GetTransactionResponse
+	for i := 0; i < 60; i++ {
+		request := methods.GetTransactionRequest{Hash: hash}
+		err := client.CallResult(context.Background(), "getTransaction", request, &result)
+		assert.NoError(t, err)
+
+		if result.Status == methods.TransactionStatusNotFound {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		return result
+	}
+	t.Fatal("getTransaction timed out")
+	return result
+}
+
+func getHelloWorldContract(t *testing.T) []byte {
+	_, filename, _, _ := runtime.Caller(0)
+	testDirName := path.Dir(filename)
+	contractFile := path.Join(testDirName, helloWorldContractPath)
+	ret, err := os.ReadFile(contractFile)
+	if err != nil {
+		t.Fatalf("unable to read test_hello_world.wasm (%v) please run `make build-test-wasms` at the project root directory", err)
+	}
+	return ret
 }
