@@ -1,14 +1,12 @@
-use std::borrow::Cow;
-use std::fs::read_to_string;
-use std::path::Path;
-use std::{env, fs, io};
-
 use clap::builder::{PossibleValue, PossibleValuesParser, ValueParser};
 use clap::{Parser, ValueEnum};
 use rust_embed::RustEmbed;
 use serde::Deserialize;
+use std::fs::read_to_string;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::sync::atomic::AtomicBool;
+use std::{env, fs, io};
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
@@ -73,7 +71,10 @@ struct ReqBody {
 fn get_valid_examples() -> Result<Vec<String>, Error> {
     let body: ReqBody = ureq::get(GITHUB_API_URL)
         .call()
-        .map_err(Box::new)?
+        .map_err(|e| {
+            eprintln!("Error fetching example contracts from soroban-examples repo");
+            Box::new(e)
+        })?
         .into_json()?;
     let mut valid_examples = Vec::new();
     for item in body.tree {
@@ -94,30 +95,30 @@ fn get_valid_examples() -> Result<Vec<String>, Error> {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Io error: {0}")]
-    CreateDirError(#[from] io::Error),
+    IoError(#[from] io::Error),
 
     // the gix::clone::Error is too large to include in the error enum as is, so we wrap it in a Box
-    #[error("Failed to clone the template repository")]
+    #[error("Failed to clone repository: {0}")]
     CloneError(#[from] Box<gix::clone::Error>),
 
     // the gix::clone::fetch::Error is too large to include in the error enum as is, so we wrap it in a Box
-    #[error("Failed to fetch the template repository: {0}")]
+    #[error("Failed to fetch repository: {0}")]
     FetchError(#[from] Box<gix::clone::fetch::Error>),
 
-    #[error("Failed to checkout the template repository: {0}")]
+    #[error("Failed to checkout repository worktree: {0}")]
     CheckoutError(#[from] gix::clone::checkout::main_worktree::Error),
 
-    #[error("Failed to parse Cargo.toml: {0}")]
+    #[error("Failed to parse toml file: {0}")]
     TomlParseError(#[from] TomlError),
 
-    #[error("Failed to fetch example contracts")]
-    ExampleContractFetchError(#[from] Box<ureq::Error>),
+    #[error("Failed to complete get request")]
+    UreqError(#[from] Box<ureq::Error>),
 
     #[error("Failed to parse package.json file: {0}")]
     JsonParseError(#[from] serde_json::Error),
 
-    #[error("Failed to convert file contents to string: {0}")]
-    ConvertFileContentsErr(#[from] std::str::Utf8Error),
+    #[error("Failed to convert bytes to string: {0}")]
+    ConverBytesToStringErr(#[from] std::str::Utf8Error),
 }
 
 impl Cmd {
@@ -147,10 +148,13 @@ fn init(
         .join("utils")
         .join("contract-init-template");
 
-    println!("template_dir_path: {:?}", template_dir_path);
+    println!("template_dir_path: {template_dir_path:?}",);
 
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
-    std::fs::create_dir_all(project_path)?;
+    std::fs::create_dir_all(project_path).map_err(|e| {
+        eprintln!("Error creating new project directory: {project_path:?}");
+        e
+    })?;
     copy_template_files(project_path)?;
 
     if !check_internet_connection() {
@@ -160,19 +164,25 @@ fn init(
 
     if !frontend_template.is_empty() {
         // create a temp dir for the template repo
-        let fe_template_dir = tempfile::tempdir()?;
+        let fe_template_dir = tempfile::tempdir().map_err(|e| {
+            eprintln!("Error creating temp dir for frontend template");
+            e
+        })?;
 
         // clone the template repo into the temp dir
         clone_repo(frontend_template, fe_template_dir.path())?;
 
         // copy the frontend template files into the project
-        copy_frontend_files(fe_template_dir.path(), project_path);
+        copy_frontend_files(fe_template_dir.path(), project_path)?;
     }
 
     // if there are --with-example flags, include the example contracts
     if include_example_contracts(with_examples) {
         // create an examples temp dir
-        let examples_dir = tempfile::tempdir()?;
+        let examples_dir = tempfile::tempdir().map_err(|e| {
+            eprintln!("Error creating temp dir for soroban-examples");
+            e
+        })?;
 
         // clone the soroban-examples repo into the temp dir
         clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
@@ -194,27 +204,42 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
             );
             continue;
         }
-        fs::create_dir_all(&to.parent().unwrap())?;
+        fs::create_dir_all(to.parent().unwrap()).map_err(|e| {
+            eprintln!("Error creating directory path for: {to:?}");
+            e
+        })?;
 
-        let file = match TemplateFiles::get(item.as_ref()) {
-            Some(file) => file,
-            None => {
-                println!("⚠️  Failed to read file: {}", item.as_ref());
-                continue;
-            }
+        let Some(file) = TemplateFiles::get(item.as_ref()) else {
+            println!("⚠️  Failed to read file: {}", item.as_ref());
+            continue;
         };
 
-        let file_contents = std::str::from_utf8(file.data.as_ref())?;
+        let file_contents = std::str::from_utf8(file.data.as_ref()).map_err(|e| {
+            eprintln!(
+                "Error converting file contents in {:?} to string",
+                item.as_ref()
+            );
+            e
+        })?;
 
-        fs::write(to, file_contents)?;
+        fs::write(&to, file_contents).map_err(|e| {
+            eprintln!("Error writing file: {to:?}");
+            e
+        })?;
     }
     Ok(())
 }
 
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
     let contents_to_exclude_from_copy = [".git", ".github", "Makefile", ".vscode", "target"];
-    for entry in fs::read_dir(from)? {
-        let entry = entry?;
+    for entry in fs::read_dir(from).map_err(|e| {
+        eprintln!("Error reading directory: {from:?}");
+        e
+    })? {
+        let entry = entry.map_err(|e| {
+            eprintln!("Error reading entry in directory: {from:?}");
+            e
+        })?;
         let path = entry.path();
         let entry_name = entry.file_name().to_string_lossy().to_string();
         let new_path = to.join(&entry_name);
@@ -224,13 +249,24 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
         }
 
         if path.is_dir() {
-            std::fs::create_dir_all(&new_path)?;
+            std::fs::create_dir_all(&new_path).map_err(|e| {
+                eprintln!("Error creating directory: {new_path:?}");
+                e
+            })?;
             copy_contents(&path, &new_path)?;
         } else {
             if file_exists(&new_path.to_string_lossy()) {
                 //if file is .gitignore, overwrite the file with a new .gitignore file
                 if path.to_string_lossy().contains(".gitignore") {
-                    std::fs::copy(&path, &new_path)?;
+                    std::fs::copy(&path, &new_path).map_err(|e| {
+                        eprintln!(
+                            "Error copying from {:?} to {:?}",
+                            path.to_string_lossy(),
+                            new_path
+                        );
+
+                        e
+                    })?;
                     continue;
                 }
 
@@ -242,7 +278,14 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             }
 
             println!("➕  Writing {}", &new_path.to_string_lossy());
-            std::fs::copy(&path, &new_path)?;
+            std::fs::copy(&path, &new_path).map_err(|e| {
+                eprintln!(
+                    "Error copying from {:?} to {:?}",
+                    path.to_string_lossy(),
+                    new_path
+                );
+                e
+            })?;
         }
     }
 
@@ -272,17 +315,27 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
         },
         gix::open::Options::isolated(),
     )
-    .map_err(Box::new)?
+    .map_err(|e| {
+        eprintln!("Error preparing fetch for {from_url:?}");
+        Box::new(e)
+    })?
     .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(
         NonZeroU32::new(1).unwrap(),
     ));
 
     let (mut checkout, _outcome) = prepare
         .fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))
-        .map_err(Box::new)?;
+        .map_err(|e| {
+            eprintln!("Error calling fetch_then_checkout with {from_url:?}");
+            Box::new(e)
+        })?;
 
-    let (_repo, _outcome) =
-        checkout.main_worktree(gix::progress::Discard, &AtomicBool::new(false))?;
+    let (_repo, _outcome) = checkout
+        .main_worktree(gix::progress::Discard, &AtomicBool::new(false))
+        .map_err(|e| {
+            eprintln!("Error calling main_worktree for {from_url:?}");
+            e
+        })?;
 
     Ok(())
 }
@@ -295,7 +348,10 @@ fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Resul
         let contract_path = Path::new(&contract_as_string);
         let from_contract_path = from.join(contract_path);
         let to_contract_path = project_contracts_path.join(contract_path);
-        std::fs::create_dir_all(&to_contract_path)?;
+        std::fs::create_dir_all(&to_contract_path).map_err(|e| {
+            eprintln!("Error creating directory: {contract_path:?}");
+            e
+        })?;
 
         copy_contents(&from_contract_path, &to_contract_path)?;
         edit_contract_cargo_file(&to_contract_path)?;
@@ -306,8 +362,14 @@ fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Resul
 
 fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     let cargo_path = contract_path.join("Cargo.toml");
-    let cargo_toml_str = read_to_string(&cargo_path)?;
-    let mut doc = cargo_toml_str.parse::<Document>().unwrap();
+    let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
+        eprint!("Error reading Cargo.toml file in: {contract_path:?}");
+        e
+    })?;
+    let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
+        eprintln!("Error parsing Cargo.toml file in: {contract_path:?}");
+        e
+    })?;
 
     let mut workspace_table = InlineTable::new();
     workspace_table.insert("workspace", Value::Boolean(Formatted::new(true)));
@@ -319,20 +381,26 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
 
     doc.remove("profile");
 
-    std::fs::write(&cargo_path, doc.to_string())?;
+    std::fs::write(&cargo_path, doc.to_string()).map_err(|e| {
+        eprintln!("Error writing to Cargo.toml file in: {contract_path:?}");
+        e
+    })?;
 
     Ok(())
 }
 
-fn copy_frontend_files(from: &Path, to: &Path) {
+fn copy_frontend_files(from: &Path, to: &Path) -> Result<(), Error> {
     println!("ℹ️  Initializing with frontend template");
-    let _ = copy_contents(from, to);
-    let _ = edit_package_json_files(to);
+    copy_contents(from, to)?;
+    edit_package_json_files(to)
 }
 
 fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
     let package_name = project_path.file_name().unwrap();
-    edit_package_name(project_path, package_name, "package.json")?;
+    edit_package_name(project_path, package_name, "package.json").map_err(|e| {
+        eprintln!("Error editing package.json file in: {project_path:?}");
+        e
+    })?;
     edit_package_name(project_path, package_name, "package-lock.json")
 }
 
@@ -344,7 +412,10 @@ fn edit_package_name(
     let file_path = project_path.join(file_name);
     let file_contents = read_to_string(&file_path)?;
 
-    let mut doc: serde_json::Value = serde_json::from_str(&file_contents)?;
+    let mut doc: serde_json::Value = serde_json::from_str(&file_contents).map_err(|e| {
+        eprintln!("Error parsing package.json file in: {project_path:?}");
+        e
+    })?;
 
     doc["name"] = serde_json::json!(package_name.to_string_lossy());
 
