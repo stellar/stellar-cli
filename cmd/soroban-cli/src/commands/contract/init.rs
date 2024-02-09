@@ -6,7 +6,7 @@ use std::fs::read_to_string;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
-use std::{env, fs, io};
+use std::{fs, io};
 use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
@@ -142,14 +142,6 @@ fn init(
     frontend_template: &String,
     with_examples: &[String],
 ) -> Result<(), Error> {
-    let cli_cmd_root = env!("CARGO_MANIFEST_DIR");
-    let template_dir_path = Path::new(cli_cmd_root)
-        .join("src")
-        .join("utils")
-        .join("contract-init-template");
-
-    println!("template_dir_path: {template_dir_path:?}",);
-
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
     std::fs::create_dir_all(project_path).map_err(|e| {
         eprintln!("Error creating new project directory: {project_path:?}");
@@ -222,6 +214,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
             e
         })?;
 
+        println!("➕  Writing {}", &to.to_string_lossy());
         fs::write(&to, file_contents).map_err(|e| {
             eprintln!("Error writing file: {to:?}");
             e
