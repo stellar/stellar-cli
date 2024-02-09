@@ -20,7 +20,7 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let container_name = format!("stellar-{}", self.network);
-        let docker = connect_to_docker(&self.docker_socket_path);
+        let docker = connect_to_docker(&self.docker_socket_path)?;
         println!("Stopping container: {container_name}");
         docker.stop_container(&container_name, None).await.unwrap();
 

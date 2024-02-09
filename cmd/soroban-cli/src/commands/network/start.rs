@@ -13,7 +13,10 @@ const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {}
+pub enum Error {
+    #[error("Failed to start container: {0}")]
+    StartContainerError(#[from] bollard::errors::Error),
+}
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
@@ -48,13 +51,12 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         println!("Starting {} network", &self.network);
-        run_docker_command(self).await;
-        Ok(())
+        run_docker_command(self).await
     }
 }
 
-async fn run_docker_command(cmd: &Cmd) {
-    let docker = connect_to_docker(&cmd.docker_socket_path);
+async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
+    let docker = connect_to_docker(&cmd.docker_socket_path)?;
 
     let image = get_image_name(cmd);
     let create_image_options = Some(CreateImageOptions {
@@ -65,8 +67,7 @@ async fn run_docker_command(cmd: &Cmd) {
     docker
         .create_image(create_image_options, None, None)
         .try_collect::<Vec<_>>()
-        .await
-        .unwrap();
+        .await?;
 
     let container_args = get_container_args(cmd);
     let port_mapping = get_port_mapping(cmd);
@@ -91,9 +92,10 @@ async fn run_docker_command(cmd: &Cmd) {
     });
 
     let response = docker.create_container(options, config).await.unwrap();
-    let _container = docker
+    docker
         .start_container(&response.id, None::<StartContainerOptions<String>>)
-        .await;
+        .await
+        .map_err(Error::StartContainerError)
 }
 
 fn get_container_args(cmd: &Cmd) -> Vec<String> {

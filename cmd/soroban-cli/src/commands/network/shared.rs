@@ -31,11 +31,13 @@ impl fmt::Display for Network {
     }
 }
 
-pub fn connect_to_docker(docker_socket_path: &Option<String>) -> Docker {
+pub fn connect_to_docker(
+    docker_socket_path: &Option<String>,
+) -> Result<Docker, bollard::errors::Error> {
     if docker_socket_path.is_some() {
         let socket = docker_socket_path.as_ref().unwrap();
-        Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION).unwrap()
+        Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
     } else {
-        Docker::connect_with_socket_defaults().unwrap()
+        Docker::connect_with_socket_defaults()
     }
 }
