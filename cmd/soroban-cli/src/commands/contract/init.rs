@@ -1,13 +1,23 @@
-use clap::builder::{PossibleValue, PossibleValuesParser, ValueParser};
-use clap::{Parser, ValueEnum};
+use std::{
+    ffi::OsStr,
+    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write},
+    io,
+    num::NonZeroU32,
+    path::Path,
+    str,
+    sync::atomic::AtomicBool,
+};
+
+use clap::{
+    builder::{PossibleValue, PossibleValuesParser, ValueParser},
+    Parser, ValueEnum,
+};
+use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
 use serde::Deserialize;
-use std::fs::read_to_string;
-use std::num::NonZeroU32;
-use std::path::Path;
-use std::sync::atomic::AtomicBool;
-use std::{fs, io};
-use toml_edit::{Document, Formatted, InlineTable, TomlError, Value};
+use serde_json::{from_str, json, Error as JsonError, Value as JsonValue};
+use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
+use ureq::{get, Error as UreqError};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 const GITHUB_URL: &str = "https://github.com";
@@ -69,7 +79,7 @@ struct ReqBody {
 }
 
 fn get_valid_examples() -> Result<Vec<String>, Error> {
-    let body: ReqBody = ureq::get(GITHUB_API_URL)
+    let body: ReqBody = get(GITHUB_API_URL)
         .call()
         .map_err(|e| {
             eprintln!("Error fetching example contracts from soroban-examples repo");
@@ -99,26 +109,26 @@ pub enum Error {
 
     // the gix::clone::Error is too large to include in the error enum as is, so we wrap it in a Box
     #[error("Failed to clone repository: {0}")]
-    CloneError(#[from] Box<gix::clone::Error>),
+    CloneError(#[from] Box<clone::Error>),
 
     // the gix::clone::fetch::Error is too large to include in the error enum as is, so we wrap it in a Box
     #[error("Failed to fetch repository: {0}")]
-    FetchError(#[from] Box<gix::clone::fetch::Error>),
+    FetchError(#[from] Box<clone::fetch::Error>),
 
     #[error("Failed to checkout repository worktree: {0}")]
-    CheckoutError(#[from] gix::clone::checkout::main_worktree::Error),
+    CheckoutError(#[from] clone::checkout::main_worktree::Error),
 
     #[error("Failed to parse toml file: {0}")]
     TomlParseError(#[from] TomlError),
 
     #[error("Failed to complete get request")]
-    UreqError(#[from] Box<ureq::Error>),
+    UreqError(#[from] Box<UreqError>),
 
     #[error("Failed to parse package.json file: {0}")]
-    JsonParseError(#[from] serde_json::Error),
+    JsonParseError(#[from] JsonError),
 
     #[error("Failed to convert bytes to string: {0}")]
-    ConverBytesToStringErr(#[from] std::str::Utf8Error),
+    ConverBytesToStringErr(#[from] str::Utf8Error),
 }
 
 impl Cmd {
@@ -143,7 +153,7 @@ fn init(
     with_examples: &[String],
 ) -> Result<(), Error> {
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
-    std::fs::create_dir_all(project_path).map_err(|e| {
+    create_dir_all(project_path).map_err(|e| {
         eprintln!("Error creating new project directory: {project_path:?}");
         e
     })?;
@@ -196,7 +206,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
             );
             continue;
         }
-        fs::create_dir_all(to.parent().unwrap()).map_err(|e| {
+        create_dir_all(to.parent().unwrap()).map_err(|e| {
             eprintln!("Error creating directory path for: {to:?}");
             e
         })?;
@@ -215,7 +225,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
         })?;
 
         println!("➕  Writing {}", &to.to_string_lossy());
-        fs::write(&to, file_contents).map_err(|e| {
+        write(&to, file_contents).map_err(|e| {
             eprintln!("Error writing file: {to:?}");
             e
         })?;
@@ -225,7 +235,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
 
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
     let contents_to_exclude_from_copy = [".git", ".github", "Makefile", ".vscode", "target"];
-    for entry in fs::read_dir(from).map_err(|e| {
+    for entry in read_dir(from).map_err(|e| {
         eprintln!("Error reading directory: {from:?}");
         e
     })? {
@@ -242,7 +252,7 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
         }
 
         if path.is_dir() {
-            std::fs::create_dir_all(&new_path).map_err(|e| {
+            create_dir_all(&new_path).map_err(|e| {
                 eprintln!("Error creating directory: {new_path:?}");
                 e
             })?;
@@ -251,7 +261,7 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             if file_exists(&new_path.to_string_lossy()) {
                 //if file is .gitignore, overwrite the file with a new .gitignore file
                 if path.to_string_lossy().contains(".gitignore") {
-                    std::fs::copy(&path, &new_path).map_err(|e| {
+                    copy(&path, &new_path).map_err(|e| {
                         eprintln!(
                             "Error copying from {:?} to {:?}",
                             path.to_string_lossy(),
@@ -271,7 +281,7 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             }
 
             println!("➕  Writing {}", &new_path.to_string_lossy());
-            std::fs::copy(&path, &new_path).map_err(|e| {
+            copy(&path, &new_path).map_err(|e| {
                 eprintln!(
                     "Error copying from {:?} to {:?}",
                     path.to_string_lossy(),
@@ -286,7 +296,7 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
 }
 
 fn file_exists(file_path: &str) -> bool {
-    if let Ok(metadata) = fs::metadata(file_path) {
+    if let Ok(metadata) = metadata(file_path) {
         metadata.is_file()
     } else {
         false
@@ -298,33 +308,33 @@ fn include_example_contracts(contracts: &[String]) -> bool {
 }
 
 fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
-    let mut prepare = gix::clone::PrepareFetch::new(
+    let mut prepare = clone::PrepareFetch::new(
         from_url,
         to_path,
-        gix::create::Kind::WithWorktree,
-        gix::create::Options {
+        create::Kind::WithWorktree,
+        create::Options {
             destination_must_be_empty: false,
             fs_capabilities: None,
         },
-        gix::open::Options::isolated(),
+        open::Options::isolated(),
     )
     .map_err(|e| {
         eprintln!("Error preparing fetch for {from_url:?}");
         Box::new(e)
     })?
-    .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(
+    .with_shallow(remote::fetch::Shallow::DepthAtRemote(
         NonZeroU32::new(1).unwrap(),
     ));
 
     let (mut checkout, _outcome) = prepare
-        .fetch_then_checkout(gix::progress::Discard, &AtomicBool::new(false))
+        .fetch_then_checkout(progress::Discard, &AtomicBool::new(false))
         .map_err(|e| {
             eprintln!("Error calling fetch_then_checkout with {from_url:?}");
             Box::new(e)
         })?;
 
     let (_repo, _outcome) = checkout
-        .main_worktree(gix::progress::Discard, &AtomicBool::new(false))
+        .main_worktree(progress::Discard, &AtomicBool::new(false))
         .map_err(|e| {
             eprintln!("Error calling main_worktree for {from_url:?}");
             e
@@ -341,7 +351,7 @@ fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Resul
         let contract_path = Path::new(&contract_as_string);
         let from_contract_path = from.join(contract_path);
         let to_contract_path = project_contracts_path.join(contract_path);
-        std::fs::create_dir_all(&to_contract_path).map_err(|e| {
+        create_dir_all(&to_contract_path).map_err(|e| {
             eprintln!("Error creating directory: {contract_path:?}");
             e
         })?;
@@ -365,16 +375,15 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     })?;
 
     let mut workspace_table = InlineTable::new();
-    workspace_table.insert("workspace", Value::Boolean(Formatted::new(true)));
+    workspace_table.insert("workspace", TomlValue::Boolean(Formatted::new(true)));
 
     doc["dependencies"]["soroban-sdk"] =
-        toml_edit::Item::Value(Value::InlineTable(workspace_table.clone()));
-    doc["dev_dependencies"]["soroban-sdk"] =
-        toml_edit::Item::Value(Value::InlineTable(workspace_table));
+        Item::Value(TomlValue::InlineTable(workspace_table.clone()));
+    doc["dev_dependencies"]["soroban-sdk"] = Item::Value(TomlValue::InlineTable(workspace_table));
 
     doc.remove("profile");
 
-    std::fs::write(&cargo_path, doc.to_string()).map_err(|e| {
+    write(&cargo_path, doc.to_string()).map_err(|e| {
         eprintln!("Error writing to Cargo.toml file in: {contract_path:?}");
         e
     })?;
@@ -399,26 +408,26 @@ fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
 
 fn edit_package_name(
     project_path: &Path,
-    package_name: &std::ffi::OsStr,
+    package_name: &OsStr,
     file_name: &str,
 ) -> Result<(), Error> {
     let file_path = project_path.join(file_name);
     let file_contents = read_to_string(&file_path)?;
 
-    let mut doc: serde_json::Value = serde_json::from_str(&file_contents).map_err(|e| {
+    let mut doc: JsonValue = from_str(&file_contents).map_err(|e| {
         eprintln!("Error parsing package.json file in: {project_path:?}");
         e
     })?;
 
-    doc["name"] = serde_json::json!(package_name.to_string_lossy());
+    doc["name"] = json!(package_name.to_string_lossy());
 
-    std::fs::write(&file_path, doc.to_string())?;
+    write(&file_path, doc.to_string())?;
 
     Ok(())
 }
 
 fn check_internet_connection() -> bool {
-    if let Ok(_req) = ureq::get(GITHUB_URL).call() {
+    if let Ok(_req) = get(GITHUB_URL).call() {
         return true;
     }
 
