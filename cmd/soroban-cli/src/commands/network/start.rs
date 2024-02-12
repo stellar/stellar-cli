@@ -59,13 +59,15 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
     let docker = connect_to_docker(&cmd.docker_socket_path)?;
 
     let image = get_image_name(cmd);
-    let create_image_options = Some(CreateImageOptions {
-        from_image: image.clone(),
-        ..Default::default()
-    });
-
     docker
-        .create_image(create_image_options, None, None)
+        .create_image(
+            Some(CreateImageOptions {
+                from_image: image.clone(),
+                ..Default::default()
+            }),
+            None,
+            None,
+        )
         .try_collect::<Vec<_>>()
         .await?;
 
@@ -86,14 +88,21 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
     };
 
     let container_name = format!("stellar-{}", cmd.network);
-    let options = Some(CreateContainerOptions {
-        name: container_name,
-        platform: None,
-    });
-
-    let response = docker.create_container(options, config).await.unwrap();
+    let create_container_response = docker
+        .create_container(
+            Some(CreateContainerOptions {
+                name: container_name,
+                ..Default::default()
+            }),
+            config,
+        )
+        .await
+        .unwrap();
     docker
-        .start_container(&response.id, None::<StartContainerOptions<String>>)
+        .start_container(
+            &create_container_response.id,
+            None::<StartContainerOptions<String>>,
+        )
         .await
         .map_err(Error::StartContainerError)
 }
