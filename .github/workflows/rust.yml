@@ -75,7 +75,7 @@ jobs:
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test
     - if: startsWith(matrix.target, 'x86_64')
-      # specify directories explicitly to avoid building the preflight library (otherwise it will fail with missing symbols)
+      # specify directories explicitly (otherwise it will fail with missing symbols)
       run: |
         for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
           cargo test --target ${{ matrix.target }} --manifest-path $I/Cargo.toml

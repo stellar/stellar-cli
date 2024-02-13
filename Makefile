@@ -24,13 +24,6 @@ ifeq ($(shell uname -s),Darwin)
 	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'
 endif
 
-# Always specify the build target so that libpreflight.a is always put into
-# an architecture subdirectory (i.e. target/$(CARGO_BUILD_TARGET)/release-with-panic-unwind )
-# Otherwise it will be much harder for Golang to find the library since
-# it would need to distinguish when we are crosscompiling and when we are not
-# (libpreflight.a is put at target/release-with-panic-unwind/ when not cross compiling)
-CARGO_BUILD_TARGET ?= $(shell rustc -vV | sed -n 's|host: ||p')
-
 # update the Cargo.lock every time the Cargo.toml changes.
 Cargo.lock: Cargo.toml
 	cargo update --workspace
