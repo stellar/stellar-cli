@@ -143,7 +143,7 @@ fn get_image_name(cmd: &Cmd) -> String {
     // this can be overriden with the `-t` flag
     let mut image_tag = match cmd.network {
         Network::Testnet => "testing",
-        Network::Futurenet => "soroban-dev",
+        Network::Futurenet => "future",
         _ => "latest", // default to latest for local and pubnet
     };
 
