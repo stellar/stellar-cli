@@ -16,9 +16,10 @@ jobs:
       # the gh tag of system-test repo version to run
       SYSTEM_TEST_GIT_REF: master
 
-      # the soroban tools source code to compile and run from system test
+      # the soroban CLI & RPC source code to compile and run from system test
       # refers to checked out source of current git hub ref context
-      SYSTEM_TEST_SOROBAN_TOOLS_REF: ${{ github.workspace }}/soroban-tools
+      SYSTEM_TEST_SOROBAN_CLI_REF: ${{ github.workspace }}/soroban-tools
+      SYSTEM_TEST_SOROBAN_RPC_REF: https://github.com/stellar/soroban-rpc.git\#main
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci,
@@ -66,7 +67,13 @@ jobs:
       - uses: actions/checkout@v3
         name: checkout soroban-tools
         with:
+          repository: stellar/soroban-tools
           path: soroban-tools
+      - uses: actions/checkout@v3
+        name: checkout soroban-rpc
+        with:
+          repository: stellar/soroban-rpc
+          path: soroban-rpc
       - if: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO != ''}}
         name: prepare local js-stellar-sdk
         run: |
@@ -90,8 +97,8 @@ jobs:
             CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
             CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
             CORE_IMAGE=$SYSTEM_TEST_CORE_IMAGE \
-            SOROBAN_RPC_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
-            SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_TOOLS_REF \
+            SOROBAN_RPC_GIT_REF=$SYSTEM_TEST_SOROBAN_RPC_REF \
+            SOROBAN_CLI_GIT_REF=$SYSTEM_TEST_SOROBAN_CLI_REF \
             RUST_TOOLCHAIN_VERSION=$SYSTEM_TEST_RUST_TOOLCHAIN_VERSION \
             RS_XDR_GIT_REF=$SYSTEM_TEST_RS_XDR_GIT_REF \
             QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
