@@ -1,62 +1,61 @@
+use std::collections::HashMap;
+
 use bollard::{
     container::{Config, CreateContainerOptions, StartContainerOptions},
     image::CreateImageOptions,
     service::{HostConfig, PortBinding},
 };
 use futures_util::TryStreamExt;
-use std::collections::HashMap;
 
-use crate::commands::network::shared::connect_to_docker;
-use crate::commands::network::shared::Network;
+use crate::commands::network::shared::{connect_to_docker, Network, DOCKER_SOCKET_PATH_HELP};
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to start container: {0}")]
+    #[error("⛔ ️Failed to start container: {0}")]
     StartContainerError(#[from] bollard::errors::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
-    /// network to start
+    /// Network to start
     pub network: Network,
 
-    /// optional argument to override the default docker socket path
-    #[arg(short = 'd', long)]
+    #[arg(short = 'd', long, help = DOCKER_SOCKET_PATH_HELP)]
     pub docker_socket_path: Option<String>,
 
-    /// optional argument to specify the limits for the local network only
+    /// Optional argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
     pub limit: Option<String>,
 
-    /// argument to specify the HOST_PORT:CONTAINER_PORT mapping
+    /// Argument to specify the HOST_PORT:CONTAINER_PORT mapping
     #[arg(short = 'p', long, num_args = 1.., default_value = DEFAULT_PORT_MAPPING)]
     pub ports_mapping: Vec<String>,
 
-    /// optional argument to turn off soroban rpc
+    /// Optional argument to turn off soroban rpc
     #[arg(short = 'r', long)]
     pub disable_soroban_rpc: bool,
 
-    /// optional argument to override the default docker image tag for the given network
+    /// Optional argument to override the default docker image tag for the given network
     #[arg(short = 't', long)]
     pub image_tag_override: Option<String>,
 
-    /// optional argument to specify the protocol version for the local network only
+    /// Optional argument to specify the protocol version for the local network only
     #[arg(short = 'v', long)]
     pub protocol_version: Option<String>,
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        println!("Starting {} network", &self.network);
+        println!("ℹ️  Starting {} network", &self.network);
         run_docker_command(self).await
     }
 }
 
 async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
-    let docker = connect_to_docker(&cmd.docker_socket_path)?;
+    let docker = connect_to_docker(&cmd.docker_socket_path).await?;
 
     let image = get_image_name(cmd);
     docker
@@ -91,20 +90,34 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
     let create_container_response = docker
         .create_container(
             Some(CreateContainerOptions {
-                name: container_name,
+                name: container_name.clone(),
                 ..Default::default()
             }),
             config,
         )
-        .await
-        .unwrap();
+        .await?;
+
     docker
         .start_container(
             &create_container_response.id,
             None::<StartContainerOptions<String>>,
         )
-        .await
-        .map_err(Error::StartContainerError)
+        .await?;
+    println!("✅ Container started: {container_name}");
+    let stop_message = format!(
+        "ℹ️  To stop this container run: soroban network stop {network} {additional_flags}",
+        network = &cmd.network,
+        additional_flags = if cmd.docker_socket_path.is_some() {
+            format!(
+                "--docker-socket-path {}",
+                cmd.docker_socket_path.as_ref().unwrap()
+            )
+        } else {
+            String::new()
+        }
+    );
+    println!("{stop_message}");
+    Ok(())
 }
 
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
