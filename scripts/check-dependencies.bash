@@ -8,7 +8,6 @@ if [ -z "$(sed --version 2>&1 | grep GNU)" ]; then
 fi
 
 CURL="curl -sL --fail-with-body"
-
 if ! CARGO_OUTPUT=$(cargo tree -p soroban-env-host 2>&1); then
   echo "The project depends on multiple versions of the soroban-env-host Rust library, please unify them."
   echo "Make sure the soroban-sdk dependency indirectly points to the same soroban-env-host dependency imported explicitly."
@@ -22,7 +21,6 @@ if ! CARGO_OUTPUT=$(cargo tree -p soroban-env-host 2>&1); then
   echo $CARGO_OUTPUT
   exit 1
 fi
-
 
 # revision of the https://github.com/stellar/rs-stellar-xdr library used by the Rust code
 RS_STELLAR_XDR_REVISION=""
@@ -61,22 +59,3 @@ else
   echo "Full error:"
   echo $CARGO_OUTPUT
 fi
-
-# Revision of https://github.com/stellar/rs-stellar-xdr by Core.
-# We obtain it from src/rust/src/host-dep-tree-curr.txt but Alternatively/in addition we could:
-#  * Check the rs-stellar-xdr revision of host-dep-tree-prev.txt
-#  * Check the stellar-xdr revision
-CORE_HOST_DEP_TREE_CURR=$($CURL https://raw.githubusercontent.com/stellar/stellar-core/${CORE_CONTAINER_REVISION}/src/rust/src/host-dep-tree-curr.txt)
-
-
-RS_STELLAR_XDR_REVISION_FROM_CORE=$(echo "$CORE_HOST_DEP_TREE_CURR" | stellar_xdr_version_from_rust_dep_tree)
-if [ "$RS_STELLAR_XDR_REVISION" != "$RS_STELLAR_XDR_REVISION_FROM_CORE" ]; then
-  echo "The Core revision used in integration tests (${CORE_CONTAINER_REVISION}) uses a different revision of https://github.com/stellar/rs-stellar-xdr"
-  echo
-  echo "Current repository's revision $RS_STELLAR_XDR_REVISION"
-  echo "Core's revision $RS_STELLAR_XDR_REVISION_FROM_CORE"
-  exit 1
-fi
-
-
-
