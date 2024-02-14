@@ -146,7 +146,7 @@ jobs:
       run: |
         for name in soroban-spec-tools soroban-spec-json soroban-spec-typescript soroban-test soroban-cli
         do
-          version=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name=="'$name'") | .version')
+          version=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name=="'$name'") | .version' | head -n 1)
           cargo package \
             --no-verify \
             --package $name \
