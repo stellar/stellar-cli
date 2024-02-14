@@ -134,6 +134,10 @@ jobs:
       with:
         name: cargo-hack
         version: 0.5.28
+    # Vendor all the dependencies into the vendor/ folder.
+    - name: Vendor Dependencies
+      run: |
+        cargo vendor --versioned-dirs
 
     # Package the crates that will be published. Verification is disabled
     # because we aren't ready to verify yet. Add each crate that was packaged to
