@@ -5,7 +5,6 @@ members = [
     "cmd/crates/*",
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/crates/soroban-test/tests/fixtures/hello",
-    "cmd/soroban-rpc/lib/preflight",
 ]
 default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]

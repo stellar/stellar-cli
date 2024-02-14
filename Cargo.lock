@@ -2825,17 +2825,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "preflight"
-version = "20.3.0"
-dependencies = [
- "base64 0.21.5",
- "libc",
- "sha2 0.10.8",
- "soroban-env-host",
- "soroban-simulation",
-]
-
-[[package]]
 name = "pretty_assertions"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3741,19 +3730,6 @@ dependencies = [
  "soroban-spec-rust",
  "stellar-xdr",
  "syn 2.0.39",
-]
-
-[[package]]
-name = "soroban-simulation"
-version = "20.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "210b093c6d08b8e85ef5f4e4a231d5fa25d1d2787d4fecd50e11040849f259ba"
-dependencies = [
- "anyhow",
- "rand",
- "soroban-env-host",
- "static_assertions",
- "thiserror",
 ]
 
 [[package]]
