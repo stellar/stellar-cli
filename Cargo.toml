@@ -70,7 +70,7 @@ path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
 version = "20.3.0"
-path = "cmd/soroban-rpc"
+path = "cmd/crates/soroban-rpc"
 
 [workspace.dependencies.stellar-xdr]
 version = "=20.1.0"
