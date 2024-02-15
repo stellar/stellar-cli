@@ -158,3 +158,14 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
 }
+
+pub trait NetworkRunnable {
+    type Error;
+    type Result;
+
+    fn run_against_rpc_server(
+        &self,
+        global_args: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> impl std::future::Future<Output = Result<Self::Result, Self::Error>> + Send;
+}

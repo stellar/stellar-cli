@@ -3,7 +3,10 @@ use std::io;
 
 use soroban_env_host::xdr::{self, Limits, ReadXdr};
 
-use super::{config::locator, network};
+use super::{
+    config::{self, locator},
+    global, network, NetworkRunnable,
+};
 use crate::{rpc, utils};
 
 #[derive(Parser, Debug, Clone)]
@@ -119,6 +122,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
@@ -162,7 +167,7 @@ impl Cmd {
             })?;
         }
 
-        let response = self.run_against_rpc_server().await?;
+        let response = self.run_against_rpc_server(None, None).await?;
 
         for event in &response.events {
             match self.output {
@@ -189,9 +194,31 @@ impl Cmd {
         Ok(())
     }
 
-    async fn run_against_rpc_server(&self) -> Result<rpc::GetEventsResponse, Error> {
+    fn start(&self) -> Result<rpc::EventStart, Error> {
+        let start = match (self.start_ledger, self.cursor.clone()) {
+            (Some(start), _) => rpc::EventStart::Ledger(start),
+            (_, Some(c)) => rpc::EventStart::Cursor(c),
+            // should never happen because of required_unless_present flags
+            _ => return Err(Error::MissingStartLedgerAndCursor),
+        };
+        Ok(start)
+    }
+}
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = rpc::GetEventsResponse;
+
+    async fn run_against_rpc_server(
+        &self,
+        _args: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<rpc::GetEventsResponse, Error> {
         let start = self.start()?;
-        let network = self.network.get(&self.locator)?;
+        let network = if let Some(config) = config {
+            Ok(config.get_network()?)
+        } else {
+            self.network.get(&self.locator)
+        }?;
 
         let client = rpc::Client::new(&network.rpc_url)?;
         client
@@ -207,15 +234,5 @@ impl Cmd {
             )
             .await
             .map_err(Error::Rpc)
-    }
-
-    fn start(&self) -> Result<rpc::EventStart, Error> {
-        let start = match (self.start_ledger, self.cursor.clone()) {
-            (Some(start), _) => rpc::EventStart::Ledger(start),
-            (_, Some(c)) => rpc::EventStart::Cursor(c),
-            // should never happen because of required_unless_present flags
-            _ => return Err(Error::MissingStartLedgerAndCursor),
-        };
-        Ok(start)
     }
 }

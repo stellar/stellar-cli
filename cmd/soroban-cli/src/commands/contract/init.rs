@@ -82,7 +82,7 @@ fn get_valid_examples() -> Result<Vec<String>, Error> {
     let body: ReqBody = get(GITHUB_API_URL)
         .call()
         .map_err(|e| {
-            eprintln!("Error fetching example contracts from soroban-examples repo");
+            tracing::warn!("Error fetching example contracts from soroban-examples repo");
             Box::new(e)
         })?
         .into_json()?;

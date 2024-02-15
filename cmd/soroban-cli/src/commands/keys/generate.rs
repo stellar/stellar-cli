@@ -66,9 +66,13 @@ impl Cmd {
         if !self.no_fund {
             let addr = secret.public_key(self.hd_path)?;
             let network = self.network.get(&self.config_locator)?;
-            network.fund_address(&addr).await.unwrap_or_else(|_| {
-                tracing::warn!("Failed to fund address: {addr} on at {}", network.rpc_url);
-            });
+            network
+                .fund_address(&addr)
+                .await
+                .map_err(|e| {
+                    tracing::warn!("fund_address failed: {e}");
+                })
+                .unwrap_or_default();
         }
         Ok(())
     }

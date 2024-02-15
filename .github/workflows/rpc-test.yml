@@ -1,0 +1,44 @@
+
+name: test-rpc
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+
+jobs:
+  test:
+    name: Test against RPC
+    runs-on: ubuntu-22.04
+    services:
+      rpc:
+        image: stellar/quickstart:latest@sha256:742a649d5d9be826dd4b1a378c95b0e1833e1bcb08c3f4b9b9a8cdd03da653e3
+        ports:
+          - 9999:8000
+        env:
+          ENABLE_LOGS: true
+          NETWORK: local
+          ENABLE_SOROBAN_RPC: true
+          LIMITS: unlimited
+        options: >-
+          --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:9999/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 50
+    steps:
+    # - uses: dtolnay/rust-toolchain@stable
+    - uses: actions/checkout@v3
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - run: cargo build
+    # - run: cargo build
+    - run: make build-test-wasms
+    # - run: cargo test
+    - run: SOROBAN_PORT=9999 cargo test --features it --package soroban-test --test it -- integration

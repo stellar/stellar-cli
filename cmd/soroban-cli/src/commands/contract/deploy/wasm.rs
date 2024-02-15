@@ -14,7 +14,10 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::commands::contract::{self, id::wasm::get_contract_id};
+use crate::commands::{
+    contract::{self, id::wasm::get_contract_id},
+    global, NetworkRunnable,
+};
 use crate::{
     commands::{config, contract::install, HEADING_RPC},
     rpc::{self, Client},
@@ -92,20 +95,30 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = self.run_and_get_contract_id().await?;
+        let res_str = self.run_against_rpc_server(None, None).await?;
         println!("{res_str}");
         Ok(())
     }
+}
 
-    pub async fn run_and_get_contract_id(&self) -> Result<String, Error> {
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = String;
+
+    async fn run_against_rpc_server(
+        &self,
+        global_args: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<String, Error> {
+        let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let hash = install::Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
-                config: self.config.clone(),
+                config: config.clone(),
                 fee: self.fee.clone(),
                 ignore_checks: self.ignore_checks,
             }
-            .run_and_get_hash()
+            .run_against_rpc_server(global_args, Some(config))
             .await?;
             hex::encode(hash)
         } else {
@@ -115,18 +128,13 @@ impl Cmd {
                 .to_string()
         };
 
-        let hash = Hash(utils::contract_id_from_str(&wasm_hash).map_err(|e| {
+        let wasm_hash = Hash(utils::contract_id_from_str(&wasm_hash).map_err(|e| {
             Error::CannotParseWasmHash {
                 wasm_hash: wasm_hash.clone(),
                 error: e,
             }
         })?);
-
-        self.run_against_rpc_server(hash).await
-    }
-
-    async fn run_against_rpc_server(&self, wasm_hash: Hash) -> Result<String, Error> {
-        let network = self.config.get_network()?;
+        let network = config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
             Some(h) => soroban_spec_tools::utils::padded_hex_from_str(h, 32)
                 .map_err(|_| Error::CannotParseSalt { salt: h.clone() })?
@@ -139,7 +147,7 @@ impl Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = self.config.key_pair()?;
+        let key = config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey =

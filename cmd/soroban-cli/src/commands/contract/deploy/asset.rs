@@ -12,7 +12,7 @@ use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
 use crate::{
-    commands::config,
+    commands::{config, global, NetworkRunnable},
     rpc::{Client, Error as SorobanRpcError},
     utils::{contract_id_hash_from_asset, parsing::parse_asset},
 };
@@ -58,21 +58,30 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        // Parse asset
-        let asset = parse_asset(&self.asset)?;
-
-        let res_str = self.run_against_rpc_server(asset).await?;
+        let res_str = self.run_against_rpc_server(None, None).await?;
         println!("{res_str}");
         Ok(())
     }
+}
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = String;
 
-    async fn run_against_rpc_server(&self, asset: Asset) -> Result<String, Error> {
-        let network = self.config.get_network()?;
+    async fn run_against_rpc_server(
+        &self,
+        _: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<String, Error> {
+        let config = config.unwrap_or(&self.config);
+        // Parse asset
+        let asset = parse_asset(&self.asset)?;
+
+        let network = config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = self.config.key_pair()?;
+        let key = config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey =

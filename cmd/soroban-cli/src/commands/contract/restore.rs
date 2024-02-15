@@ -13,6 +13,7 @@ use crate::{
     commands::{
         config::{self, locator},
         contract::extend,
+        global, NetworkRunnable,
     },
     key,
     rpc::{self, Client},
@@ -87,7 +88,7 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = self.run_against_rpc_server().await?;
+        let expiration_ledger_seq = self.run_against_rpc_server(None, None).await?;
 
         if let Some(ledgers_to_extend) = self.ledgers_to_extend {
             extend::Cmd {
@@ -105,14 +106,23 @@ impl Cmd {
 
         Ok(())
     }
+}
 
-    pub async fn run_against_rpc_server(&self) -> Result<u32, Error> {
-        let network = self.config.get_network()?;
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = u32;
+
+    async fn run_against_rpc_server(
+        &self,
+        _: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<u32, Error> {
+        let config = config.unwrap_or(&self.config);
+        let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys()?;
-        let network = &self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
-        let key = self.config.key_pair()?;
+        let key = config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey =

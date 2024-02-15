@@ -14,7 +14,7 @@ use soroban_env_host::{
 use soroban_sdk::xdr::Limits;
 
 use crate::{
-    commands::config,
+    commands::{config, global, NetworkRunnable},
     key,
     rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
 };
@@ -91,17 +91,8 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let entries = self.run_against_rpc_server().await?;
+        let entries = self.run_against_rpc_server(None, None).await?;
         self.output_entries(&entries)
-    }
-
-    async fn run_against_rpc_server(&self) -> Result<FullLedgerEntries, Error> {
-        let network = self.config.get_network()?;
-        tracing::trace!(?network);
-        let network = &self.config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
-        let keys = self.key.parse_keys()?;
-        Ok(client.get_full_ledger_entries(&keys).await?)
     }
 
     fn output_entries(&self, entries: &FullLedgerEntries) -> Result<(), Error> {
@@ -176,5 +167,22 @@ impl Cmd {
         out.flush()
             .map_err(|e| Error::CannotPrintFlush { error: e })?;
         Ok(())
+    }
+}
+
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = FullLedgerEntries;
+    async fn run_against_rpc_server(
+        &self,
+        _: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<FullLedgerEntries, Error> {
+        let config = config.unwrap_or(&self.config);
+        let network = config.get_network()?;
+        tracing::trace!(?network);
+        let client = Client::new(&network.rpc_url)?;
+        let keys = self.key.parse_keys()?;
+        Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }

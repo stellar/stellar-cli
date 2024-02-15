@@ -9,7 +9,7 @@ use soroban_env_host::xdr::{
 };
 
 use crate::{
-    commands::config,
+    commands::{config, global, NetworkRunnable},
     key,
     rpc::{self, Client},
     wasm, Pwd,
@@ -80,7 +80,7 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let ttl_ledger = self.run_against_rpc_server().await?;
+        let ttl_ledger = self.run_against_rpc_server(None, None).await?;
         if self.ttl_ledger_only {
             println!("{ttl_ledger}");
         } else {
@@ -99,14 +99,23 @@ impl Cmd {
         }
         res
     }
+}
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = u32;
 
-    async fn run_against_rpc_server(&self) -> Result<u32, Error> {
-        let network = self.config.get_network()?;
+    async fn run_against_rpc_server(
+        &self,
+        _args: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<u32, Error> {
+        let config = config.unwrap_or(&self.config);
+        let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys()?;
-        let network = &self.config.get_network()?;
+        let network = &config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
-        let key = self.config.key_pair()?;
+        let key = config.key_pair()?;
         let extend_to = self.ledgers_to_extend();
 
         // Get the account sequence number

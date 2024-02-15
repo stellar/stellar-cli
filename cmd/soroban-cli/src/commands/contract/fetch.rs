@@ -21,6 +21,7 @@ use stellar_strkey::DecodeError;
 
 use super::super::config::{self, locator};
 use crate::commands::network::{self, Network};
+use crate::commands::{global, NetworkRunnable};
 use crate::{
     rpc::{self, Client},
     utils, Pwd,
@@ -115,15 +116,28 @@ impl Cmd {
     }
 
     pub async fn get_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.run_against_rpc_server().await
+        self.run_against_rpc_server(None, None).await
     }
 
     pub fn network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
     }
 
-    pub async fn run_against_rpc_server(&self) -> Result<Vec<u8>, Error> {
-        let network = self.network()?;
+    fn contract_id(&self) -> Result<[u8; 32], Error> {
+        utils::contract_id_from_str(&self.contract_id)
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+    }
+}
+
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = Vec<u8>;
+    async fn run_against_rpc_server(
+        &self,
+        _args: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<Vec<u8>, Error> {
+        let network = config.map_or_else(|| self.network(), |c| Ok(c.get_network()?))?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let client = Client::new(&network.rpc_url)?;
@@ -133,13 +147,7 @@ impl Cmd {
         // async closures are not yet stable
         Ok(client.get_remote_wasm(&contract_id).await?)
     }
-
-    fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
-    }
 }
-
 pub fn get_contract_wasm_from_storage(
     storage: &mut Storage,
     contract_id: [u8; 32],

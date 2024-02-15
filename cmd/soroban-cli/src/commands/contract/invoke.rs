@@ -28,6 +28,7 @@ use super::super::{
     config::{self, locator},
     events,
 };
+use crate::commands::NetworkRunnable;
 use crate::{commands::global, rpc, Pwd};
 use soroban_spec_tools::{contract, Spec};
 
@@ -255,14 +256,44 @@ impl Cmd {
     }
 
     pub async fn invoke(&self, global_args: &global::Args) -> Result<String, Error> {
-        self.run_against_rpc_server(global_args).await
+        self.run_against_rpc_server(Some(global_args), None).await
     }
 
-    pub async fn run_against_rpc_server(
+    pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
+        Ok(if let Some(wasm) = self.wasm.as_ref() {
+            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile(wasm.clone(), e))?)
+        } else {
+            None
+        })
+    }
+
+    pub fn spec_entries(&self) -> Result<Option<Vec<ScSpecEntry>>, Error> {
+        self.read_wasm()?
+            .map(|wasm| {
+                soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)
+            })
+            .transpose()
+    }
+}
+
+impl Cmd {
+    fn contract_id(&self) -> Result<[u8; 32], Error> {
+        soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
+            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+    }
+}
+
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = String;
+
+    async fn run_against_rpc_server(
         &self,
-        global_args: &global::Args,
+        global_args: Option<&global::Args>,
+        config: Option<&config::Args>,
     ) -> Result<String, Error> {
-        let network = self.config.get_network()?;
+        let config = config.unwrap_or(&self.config);
+        let network = config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let spec_entries = self.spec_entries()?;
@@ -274,7 +305,7 @@ impl Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = self.config.key_pair()?;
+        let key = config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey =
@@ -302,6 +333,11 @@ impl Cmd {
                 txn.sim_response().events()?,
             )
         } else {
+            let global::Args {
+                verbose,
+                very_verbose,
+                ..
+            } = global_args.map(Clone::clone).unwrap_or_default();
             let res = client
                 .send_assembled_transaction(
                     txn,
@@ -318,29 +354,6 @@ impl Cmd {
 
         crate::log::diagnostic_events(&events, tracing::Level::INFO);
         output_to_string(&spec, &return_value, &function)
-    }
-
-    pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
-        Ok(if let Some(wasm) = self.wasm.as_ref() {
-            Some(fs::read(wasm).map_err(|e| Error::CannotReadContractFile(wasm.clone(), e))?)
-        } else {
-            None
-        })
-    }
-
-    pub fn spec_entries(&self) -> Result<Option<Vec<ScSpecEntry>>, Error> {
-        self.read_wasm()?
-            .map(|wasm| {
-                soroban_spec::read::from_wasm(&wasm).map_err(Error::CannotParseContractSpec)
-            })
-            .transpose()
-    }
-}
-
-impl Cmd {
-    fn contract_id(&self) -> Result<[u8; 32], Error> {
-        soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
     }
 }
 

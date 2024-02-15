@@ -3,7 +3,7 @@ use serde_json::json;
 use soroban_cli::commands;
 use soroban_test::TestEnv;
 
-use crate::integration::util::{deploy_custom, extend_contract, CUSTOM_TYPES};
+use crate::integration::util::{deploy_custom, extend_contract};
 
 use super::util::invoke_with_roundtrip;
 
@@ -15,9 +15,9 @@ fn invoke_custom(e: &TestEnv, id: &str, func: &str) -> assert_cmd::Command {
 
 #[tokio::test]
 async fn parse() {
-    let sandbox = &TestEnv::default();
+    let sandbox = &TestEnv::new();
     let id = &deploy_custom(sandbox);
-    extend_contract(sandbox, id, CUSTOM_TYPES).await;
+    extend_contract(sandbox, id).await;
     symbol(sandbox, id);
     string_with_quotes(sandbox, id).await;
     symbol_with_quotes(sandbox, id).await;
@@ -187,7 +187,7 @@ fn number_arg_return_ok(sandbox: &TestEnv, id: &str) {
 
 async fn number_arg_return_err(sandbox: &TestEnv, id: &str) {
     let res = sandbox
-        .invoke(&["--id", id, "--", "u32_fail_on_even", "--u32_=2"])
+        .invoke_with_test(&["--id", id, "--", "u32_fail_on_even", "--u32_=2"])
         .await
         .unwrap_err();
     if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
