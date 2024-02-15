@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-22.04
     services:
       rpc:
-        image: stellar/quickstart:latest@sha256:742a649d5d9be826dd4b1a378c95b0e1833e1bcb08c3f4b9b9a8cdd03da653e3
+        image: stellar/quickstart:latest@sha256:8d6f6520ad3842042bfe4e271f8b2324ec2f128564487abedd3876cea83af4f1
         ports:
           - 8000:8000
         env:
