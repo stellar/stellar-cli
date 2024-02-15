@@ -14,13 +14,13 @@ jobs:
       rpc:
         image: stellar/quickstart:soroban-dev@sha256:0ad51035cf7caba2fd99c7c1fad0945df6932be7d5c893e1520ccdef7d6a6ffe
         ports:
-          - 7777:8000
+          - 8000:8000
         env:
           ENABLE_LOGS: true
           NETWORK: local
           ENABLE_SOROBAN_RPC: true
         options: >-
-          --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:7777/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:7777/friendbot\" | grep '\"invalid_field\": \"addr\"'"
+          --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 50
@@ -39,6 +39,6 @@ jobs:
     - run: cargo build
     - run: rustup target add wasm32-unknown-unknown
     - run: make build-test-wasms
-    - run: SOROBAN_PORT=7777 SOROBAN_FEE=100000 cargo test --features it --package soroban-test --test it -- integration
+    - run: SOROBAN_PORT=8000 SOROBAN_FEE=100000 cargo test --features it --package soroban-test --test it -- integration
     - run: npm ci && npm run test
       working-directory: cmd/crates/soroban-spec-typescript/ts-tests
