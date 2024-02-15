@@ -4,7 +4,6 @@ use soroban_cli::commands::{
     contract::{self, fetch},
 };
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
-use std::{thread::sleep, time::Duration};
 
 use crate::integration::util::extend_contract;
 
