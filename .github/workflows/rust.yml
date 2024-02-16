@@ -82,67 +82,43 @@ jobs:
         done
 
   publish-dry-run:
-    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
-      fail-fast: true
-    defaults:
-      run:
-        shell: bash
-    env:
-      CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-    steps:
-    - uses: actions/checkout@v3
-    - uses: stellar/actions/rust-cache@main
-    - run: rustup update
-    - run: rustup target add x86_64-unknown-linux-gnu
-
-    - uses: stellar/binaries@v18
-      with:
-        name: cargo-hack
-        version: 0.5.28
-
-    # Vendor all the dependencies into the vendor/ folder. Temporarily remove
-    # [patch.crates-io] entries in the workspace Cargo.toml that reference git
-    # repos. These will be removed when published.
-    - name: Vendor Dependencies
-      run: |
-        cp Cargo.toml Cargo.toml.bak
-        # sed -r '/(git|rev) ?=/d' Cargo.toml.bak > Cargo.toml
-        cargo vendor --versioned-dirs
-        rm Cargo.toml
-        mv Cargo.toml.bak Cargo.toml
-
-    # Package the crates that will be published. Verification is disabled
-    # because we aren't ready to verify yet. Add each crate that was packaged to
-    # the vendor/ directory.
-    - name: Package Crates
-      run: |
-        for name in soroban-spec-json soroban-spec-typescript soroban-test soroban-cli
-        do
-          version=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name=="'$name'") | .version')
-          cargo package \
-            --no-verify \
-            --package $name \
-            --config "source.crates-io.replace-with = 'vendored-sources'" \
-            --config "source.vendored-sources.directory = 'vendor'"
-          path="target/package/${name}-${version}.crate"
-          tar xvfz "$path" -C vendor/
-          # Crates in the vendor directory require a checksum file, but it doesn't
-          # matter if it is empty.
-          echo '{"files":{}}' > vendor/$name-$version/.cargo-checksum.json
-        done
-
-    # Rerun the package command but with verification enabled this time. Tell
-    # cargo to use the local vendor/ directory as the source for all packages. Run
-    # the package command on the full feature powerset so that all features of
-    # each crate are verified to compile.
-    - name: Verify Crates
-      run: >
-        cargo-hack hack
-          --feature-powerset
-          --ignore-private
-          --config "source.crates-io.replace-with = 'vendored-sources'"
-          --config "source.vendored-sources.directory = 'vendor'"
-        package
-          --target x86_64-unknown-linux-gnu
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+          cargo-hack-feature-options: --feature-powerset
+        - os: ubuntu-latest
+          target: aarch64-unknown-linux-gnu
+          cargo-hack-feature-options: --feature-powerset
+        - os: macos-latest
+          target: x86_64-apple-darwin
+          cargo-hack-feature-options: --feature-powerset
+        - os: macos-latest
+          target: aarch64-apple-darwin
+          cargo-hack-feature-options: --feature-powerset
+        # Windows builds notes:
+        #
+        # The different features that need testing are split over unique
+        # isolated builds for Windows, because there's a bug in Cargo [1] that
+        # causes builds of wasm-opt [2] to fail when run one after the other and
+        # attempting to clean up artifacts in between. The bug has been fixed,
+        # but will not make it into a stable release of Cargo until ~August
+        # 2023.
+        #
+        # [1]: https://github.com/rust-lang/cargo/pull/11442
+        # [2]: https://github.com/brson/wasm-opt-rs/issues/116
+        - os: windows-latest-8-cores
+          target: x86_64-pc-windows-msvc
+          cargo-hack-feature-options: ''
+        - os: windows-latest-8-cores
+          target: x86_64-pc-windows-msvc
+          cargo-hack-feature-options: --features opt --ignore-unknown-features
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
+    with:
+      crates: soroban-spec-tools soroban-spec-json soroban-spec-typescript soroban-test soroban-cli
+      runs-on: ${{ matrix.os }}
+      target: ${{ matrix.target }}
+      cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options }}

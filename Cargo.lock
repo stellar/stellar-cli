@@ -387,9 +387,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.0"
+version = "4.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "299353be8209bd133b049bf1c63582d184a8b39fd9c04f15fe65f50f88bdfe6c"
+checksum = "885e4d7d5af40bfb99ae6f9433e292feac98d452dcb3ec3d25dfe7552b77da8c"
 dependencies = [
  "clap",
 ]
@@ -3674,7 +3674,7 @@ dependencies = [
 [[package]]
 name = "soroban-rpc"
 version = "20.3.1"
-source = "git+https://github.com/stellar/soroban-rpc?branch=add-spec-tools-crate#c1dd6f8366cef68c72ea6192148adce2a177235b"
+source = "git+https://github.com/stellar/soroban-rpc?branch=add-spec-tools-crate#6a700d0a78609dc8445ba411ac0fbde41c381cda"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -3788,7 +3788,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec-tools"
 version = "20.3.1"
-source = "git+https://github.com/stellar/soroban-rpc?branch=add-spec-tools-crate#c1dd6f8366cef68c72ea6192148adce2a177235b"
+source = "git+https://github.com/stellar/soroban-rpc?branch=add-spec-tools-crate#6a700d0a78609dc8445ba411ac0fbde41c381cda"
 dependencies = [
  "base64 0.21.7",
  "ethnum",
