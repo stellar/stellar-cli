@@ -3674,7 +3674,7 @@ dependencies = [
 [[package]]
 name = "soroban-rpc"
 version = "20.3.1"
-source = "git+https://github.com/stellar/soroban-rpc?rev=c5bc9ed31e9ef3aebe918e0faad3d240ee4307e3#c5bc9ed31e9ef3aebe918e0faad3d240ee4307e3"
+source = "git+https://github.com/stellar/soroban-rpc?branch=add-spec-tools-crate#c1dd6f8366cef68c72ea6192148adce2a177235b"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -3788,7 +3788,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec-tools"
 version = "20.3.1"
-source = "git+https://github.com/stellar/soroban-rpc?rev=c5bc9ed31e9ef3aebe918e0faad3d240ee4307e3#c5bc9ed31e9ef3aebe918e0faad3d240ee4307e3"
+source = "git+https://github.com/stellar/soroban-rpc?branch=add-spec-tools-crate#c1dd6f8366cef68c72ea6192148adce2a177235b"
 dependencies = [
  "base64 0.21.7",
  "ethnum",
