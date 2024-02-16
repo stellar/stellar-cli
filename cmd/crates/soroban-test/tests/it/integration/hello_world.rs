@@ -3,6 +3,7 @@ use soroban_cli::commands::{
     config::{locator, secret},
     contract::{self, fetch},
 };
+use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
 use crate::integration::util::extend_contract;
@@ -12,7 +13,8 @@ use super::util::{deploy_hello, extend};
 #[tokio::test]
 async fn invoke() {
     let sandbox = &TestEnv::new();
-
+    let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
@@ -63,9 +65,11 @@ async fn invoke() {
     extend_contract(sandbox, id).await;
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
-    sandbox
+
+        sandbox
         .new_assert_cmd("events")
-        .arg("--start-ledger=20")
+        .arg("--start-ledger")
+        .arg(&sequence.to_string())
         .arg("--id")
         .arg(id)
         .assert()

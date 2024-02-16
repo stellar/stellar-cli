@@ -2,8 +2,6 @@ use soroban_test::TestEnv;
 
 use super::util::deploy_hello;
 
-const SOROBAN_FEE: &str = "100";
-
 fn write_env_file(e: &TestEnv, contents: &str) {
     let env_file = e.dir().join(".env");
     let contents = format!("SOROBAN_CONTRACT_ID={contents}");
@@ -17,7 +15,6 @@ fn can_read_file() {
     let id = deploy_hello(e);
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
-        .env("SOROBAN_FEE", SOROBAN_FEE)
         .arg("invoke")
         .arg("--")
         .arg("hello")
@@ -37,7 +34,6 @@ fn current_env_not_overwritten() {
             "SOROBAN_CONTRACT_ID",
             "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
         )
-        .env("SOROBAN_FEE", SOROBAN_FEE)
         .arg("invoke")
         .arg("--")
         .arg("hello")

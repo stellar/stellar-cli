@@ -28,23 +28,11 @@ pub fn deploy_custom(sandbox: &TestEnv) -> String {
 }
 
 pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
-    let hash = wasm.hash().unwrap();
-    sandbox
-        .new_assert_cmd("contract")
-        .env("SOROBAN_FEE", "100000")
-        .arg("install")
-        .arg("--wasm")
-        .arg(wasm.path())
-        .arg("--ignore-checks")
-        .assert()
-        .success()
-        .stdout(format!("{hash}\n"));
-
     sandbox
         .new_assert_cmd("contract")
         .arg("deploy")
-        .arg("--wasm-hash")
-        .arg(&format!("{hash}"))
+        .arg("--wasm")
+        .arg(wasm.path())
         .arg("--salt")
         .arg(TEST_SALT)
         .arg("--ignore-checks")
