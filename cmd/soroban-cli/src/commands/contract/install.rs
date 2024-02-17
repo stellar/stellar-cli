@@ -4,6 +4,7 @@ use std::num::ParseIntError;
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
+    self,
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation,
     OperationBody, Preconditions, ScMetaEntry, ScMetaV0, SequenceNumber, Transaction,
     TransactionExt, TransactionResult, TransactionResultResult, Uint256, VecM,
@@ -117,6 +118,13 @@ impl NetworkRunnable for Cmd {
 
         let (tx_without_preflight, hash) =
             build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &key)?;
+        
+        
+        let code_key = xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
+        let contract_data = client.get_ledger_entries(&[code_key]).await?;
+        if !contract_data.entries.unwrap_or_default().is_empty() {
+            return Ok(hash);
+        }
 
         let txn = client
             .create_assembled_transaction(&tx_without_preflight)
