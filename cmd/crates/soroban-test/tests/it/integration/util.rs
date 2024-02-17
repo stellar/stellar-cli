@@ -31,6 +31,8 @@ pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
     sandbox
         .new_assert_cmd("contract")
         .arg("deploy")
+        .arg("--fee")
+        .arg("1000000")
         .arg("--wasm")
         .arg(wasm.path())
         .arg("--salt")
