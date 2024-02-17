@@ -37,6 +37,7 @@ pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
         .arg(TEST_SALT)
         .arg("--ignore-checks")
         .assert()
+        .stderr("")
         .stdout_as_str()
 }
 

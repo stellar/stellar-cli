@@ -66,7 +66,7 @@ async fn invoke() {
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
 
-        sandbox
+    sandbox
         .new_assert_cmd("events")
         .arg("--start-ledger")
         .arg(&sequence.to_string())
