@@ -45,10 +45,6 @@ path = "./cmd/crates/soroban-spec-json"
 version = "20.2.0"
 path = "./cmd/crates/soroban-spec-typescript"
 
-[workspace.dependencies.soroban-spec-tools]
-version = "20.2.0"
-path = "./cmd/crates/soroban-spec-tools"
-
 [workspace.dependencies.soroban-sdk]
 version = "=20.3.1"
 # git = "https://github.com/stellar/rs-soroban-sdk"
@@ -69,9 +65,12 @@ version = "20.3.0"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
-version = "20.3.0"
-git = "https://github.com/stellar/soroban-rpc"
-rev = "b4c2dec162b14b560ed86b9d76a936b7bafb0922"
+version = "=20.3.2"
+# git = "https://github.com/stellar/soroban-rpc"
+
+[workspace.dependencies.soroban-spec-tools]
+version = "=20.3.2"
+# git = "https://github.com/stellar/soroban-rpc"
 
 [workspace.dependencies.stellar-xdr]
 version = "=20.1.0"
