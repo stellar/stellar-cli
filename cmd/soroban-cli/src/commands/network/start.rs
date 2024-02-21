@@ -28,7 +28,7 @@ pub struct Cmd {
 
     /// Optional argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
-    pub limit: Option<String>,
+    pub limits: Option<String>,
 
     /// Argument to specify the HOST_PORT:CONTAINER_PORT mapping
     #[arg(short = 'p', long, num_args = 1.., default_value = DEFAULT_PORT_MAPPING)]
@@ -184,9 +184,9 @@ fn get_protocol_version_arg(cmd: &Cmd) -> String {
 }
 
 fn get_limits_arg(cmd: &Cmd) -> String {
-    if cmd.network == Network::Local && cmd.limit.is_some() {
-        let limit = cmd.limit.as_ref().unwrap();
-        format!("--limits {limit}")
+    if cmd.network == Network::Local && cmd.limits.is_some() {
+        let limits = cmd.limits.as_ref().unwrap();
+        format!("--limits {limits}")
     } else {
         String::new()
     }
