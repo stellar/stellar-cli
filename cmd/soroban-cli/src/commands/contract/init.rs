@@ -226,7 +226,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
         })?;
 
         // We need to include the Cargo.toml file as Cargo.text in the template so that it will be included the package. This is making sure that the Cargo file is written as Cargo.toml in the new project. This is a workaround for this issue: https://github.com/rust-lang/cargo/issues/8597.
-        if item == "Cargo.text" {
+        if item == "Cargo.toml.removeextension" {
             to = project_path.join("Cargo.toml");
         }
 
