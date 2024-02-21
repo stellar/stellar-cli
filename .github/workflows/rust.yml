@@ -117,7 +117,7 @@ jobs:
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: --features opt --ignore-unknown-features
 
-    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@33c57d291588e4f2898c798c031f6e93690cab75
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@8eda5ef2620b49197050448ad955376085ed716f
     with:
       crates: soroban-spec-json soroban-spec-typescript soroban-test soroban-cli
       runs-on: ${{ matrix.os }}
