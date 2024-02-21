@@ -105,7 +105,6 @@ ureq = {version = "2.9.1", features = ["json"]}
 
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
-rust-embed = { version = "8.2.0", features = ["debug-embed"] }
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10.55", features = ["vendored"] }
