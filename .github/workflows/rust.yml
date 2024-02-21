@@ -82,7 +82,7 @@ jobs:
         done
 
   publish-dry-run:
-    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
+    # if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:

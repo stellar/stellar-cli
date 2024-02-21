@@ -7,7 +7,6 @@ on:
 
 jobs:
   integration:
-    if: false
     name: System tests
     strategy:
       matrix:
