@@ -144,7 +144,7 @@ impl Cmd {
 }
 
 #[derive(RustEmbed)]
-#[folder = "src/utils/contract-init-template"]
+#[folder = "cmd/soroban-cli/src/utils/contract-init-template"]
 struct TemplateFiles;
 
 fn init(
