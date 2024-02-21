@@ -5,7 +5,8 @@ use clap::ValueEnum;
 
 pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
 
-// DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
+// DEFAULT_DOCKER_HOST, DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
+const DEFAULT_DOCKER_HOST: &str = "unix:///var/run/docker.sock";
 const DEFAULT_TIMEOUT: u64 = 120;
 const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
     major_version: 1,
@@ -36,17 +37,39 @@ impl fmt::Display for Network {
 pub async fn connect_to_docker(
     docker_host: &Option<String>,
 ) -> Result<Docker, bollard::errors::Error> {
-    let docker = if docker_host.is_some() {
-        let socket = docker_host.as_ref().unwrap();
-        let connection = Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)?;
-        check_docker_connection(&connection).await?;
-        connection
-    } else {
-        let connection = Docker::connect_with_socket_defaults()?;
-        check_docker_connection(&connection).await?;
-        connection
-    };
-    Ok(docker)
+    // defaults to "unix:///var/run/docker.sock" if no docker_host is provided
+    let host = docker_host
+        .clone()
+        .unwrap_or(DEFAULT_DOCKER_HOST.to_string());
+
+    let connection = match host {
+        // if tcp or http use connect_with_http_defaults
+        // if windows and host starts with "npipe://" use connect_with_named_pipe
+        // if unix and host starts with "unix://" use connect_with_unix
+        // else default to connect_with_unix
+        h if h.starts_with("tcp://") || h.starts_with("http://") => {
+            #[cfg(feature = "ssl")]
+            if env::var("DOCKER_TLS_VERIFY").is_ok() {
+                return Docker::connect_with_ssl_defaults();
+            }
+            Docker::connect_with_http_defaults()
+        }
+        #[cfg(unix)]
+        h if h.starts_with("unix://") => {
+            Docker::connect_with_unix(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
+        }
+        #[cfg(windows)]
+        h if h.starts_with("npipe://") => {
+            Docker::connect_with_named_pipe(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
+        }
+        _ => {
+            // default to connecting with unix with whatever the DOCKER_HOST is
+            Docker::connect_with_unix(&host, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
+        }
+    }?;
+
+    check_docker_connection(&connection).await?;
+    Ok(connection)
 }
 
 // When bollard is not able to connect to the docker daemon, it returns a generic ConnectionRefused error
