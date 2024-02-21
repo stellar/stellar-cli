@@ -58,32 +58,35 @@ jobs:
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "v20.2.0"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         name: checkout system-test
         with:
           repository: stellar/system-test
           ref: ${{ env.SYSTEM_TEST_GIT_REF }}
           path: system-test
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         name: checkout soroban-tools
         with:
           repository: stellar/soroban-tools
           path: soroban-tools
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         name: checkout soroban-rpc
         with:
           repository: stellar/soroban-rpc
           path: soroban-rpc
+
       - if: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO != ''}}
         name: prepare local js-stellar-sdk
         run: |
           rm -rf $GITHUB_WORKSPACE/system-test/js-stellar-sdk;
+
       - if: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO != ''}}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO }}
           ref: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REF }}
           path: system-test/js-stellar-sdk
+
       - uses: stellar/actions/rust-cache@main
       - name: Build system test with component versions
         run: |
@@ -104,6 +107,7 @@ jobs:
             QUICKSTART_GIT_REF=$SYSTEM_TEST_QUICKSTART_GIT_REF \
             JS_STELLAR_SDK_NPM_VERSION=$JS_STELLAR_SDK_REF \
             build
+
       - name: Run system test scenarios
         run: |
           docker run --rm -t --name e2e_test stellar/system-test:dev \
