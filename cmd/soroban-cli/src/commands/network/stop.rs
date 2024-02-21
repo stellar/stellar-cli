@@ -1,4 +1,4 @@
-use crate::commands::network::shared::{connect_to_docker, Network, DOCKER_SOCKET_PATH_HELP};
+use crate::commands::network::shared::{connect_to_docker, Network, DOCKER_HOST_HELP};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -11,14 +11,14 @@ pub struct Cmd {
     /// Network to stop
     pub network: Network,
 
-    #[arg(short = 'd', long, help = DOCKER_SOCKET_PATH_HELP)]
-    pub docker_socket_path: Option<String>,
+    #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
+    pub docker_host: Option<String>,
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let container_name = format!("stellar-{}", self.network);
-        let docker = connect_to_docker(&self.docker_socket_path).await?;
+        let docker = connect_to_docker(&self.docker_host).await?;
         println!("ℹ️  Stopping container: {container_name}");
         docker.stop_container(&container_name, None).await.unwrap();
         println!("✅ Container stopped: {container_name}");

@@ -3,7 +3,7 @@ use core::fmt;
 use bollard::{ClientVersion, Docker};
 use clap::ValueEnum;
 
-pub const DOCKER_SOCKET_PATH_HELP: &str = "Optional argument to override the default docker socket path. This is useful when you are using a non-standard docker socket path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
+pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
 
 // DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
 const DEFAULT_TIMEOUT: u64 = 120;
@@ -34,10 +34,10 @@ impl fmt::Display for Network {
 }
 
 pub async fn connect_to_docker(
-    docker_socket_path: &Option<String>,
+    docker_host: &Option<String>,
 ) -> Result<Docker, bollard::errors::Error> {
-    let docker = if docker_socket_path.is_some() {
-        let socket = docker_socket_path.as_ref().unwrap();
+    let docker = if docker_host.is_some() {
+        let socket = docker_host.as_ref().unwrap();
         let connection = Docker::connect_with_socket(socket, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)?;
         check_docker_connection(&connection).await?;
         connection
@@ -68,7 +68,7 @@ pub async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::err
         Ok(_version) => Ok(()),
         Err(err) => {
             println!(
-                "⛔️ Failed to connect to the Docker daemon at {client_addr:?}. Is the docker daemon running?\nℹ️  Running a local Stellar network requires a Docker-compatible container runtime.\nℹ️  Please note that if you are using Docker Desktop, you may need to utilize the `--docker-socket-path` flag to pass in the location of the docker socket on your machine.\n"
+                "⛔️ Failed to connect to the Docker daemon at {client_addr:?}. Is the docker daemon running?\nℹ️  Running a local Stellar network requires a Docker-compatible container runtime.\nℹ️  Please note that if you are using Docker Desktop, you may need to utilize the `--docker-host` flag to pass in the location of the docker socket on your machine.\n"
             );
             Err(err)
         }
