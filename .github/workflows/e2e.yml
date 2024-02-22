@@ -59,6 +59,10 @@ jobs:
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v4
+        name: checkout current pr source
+        with:
+          path: soroban-cli
+      - uses: actions/checkout@v4
         name: checkout system-test
         with:
           repository: stellar/system-test
