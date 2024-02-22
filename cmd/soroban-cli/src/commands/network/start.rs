@@ -34,10 +34,6 @@ pub struct Cmd {
     #[arg(short = 'p', long, num_args = 1.., default_value = DEFAULT_PORT_MAPPING)]
     pub ports_mapping: Vec<String>,
 
-    /// Optional argument to turn off soroban rpc
-    #[arg(short = 'r', long)]
-    pub disable_soroban_rpc: bool,
-
     /// Optional argument to override the default docker image tag for the given network
     #[arg(short = 't', long)]
     pub image_tag_override: Option<String>,
@@ -118,15 +114,9 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
 }
 
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
-    let enable_soroban_rpc = if cmd.disable_soroban_rpc {
-        String::new()
-    } else {
-        "--enable-soroban-rpc".to_string()
-    };
-
     [
         format!("--{}", cmd.network),
-        enable_soroban_rpc,
+        "--enable-soroban-rpc".to_string(),
         get_protocol_version_arg(cmd),
         get_limits_arg(cmd),
     ]
