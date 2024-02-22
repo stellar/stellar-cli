@@ -110,7 +110,7 @@ bollard = "0.15.0"
 futures-util = "0.3.30"
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
-openssl = { version = "0.10.55", features = ["vendored"] }
+openssl = { version = "=0.10.55", features = ["vendored"] }
 
 [build-dependencies]
 crate-git-revision = "0.0.4"

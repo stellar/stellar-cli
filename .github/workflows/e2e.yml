@@ -18,7 +18,7 @@ jobs:
 
       # the soroban CLI & RPC source code to compile and run from system test
       # refers to checked out source of current git hub ref context
-      SYSTEM_TEST_SOROBAN_CLI_REF: ${{ github.workspace }}/soroban-tools
+      SYSTEM_TEST_SOROBAN_CLI_REF: ${{ github.workspace }}
       SYSTEM_TEST_SOROBAN_RPC_REF: https://github.com/stellar/soroban-rpc.git
 
       # core git ref should be latest commit for stable soroban functionality
@@ -37,7 +37,7 @@ jobs:
       # resolution options, using npm release or a gh ref:
       #
       # option #1, set the version of stellar-sdk based on a npm release version
-      SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION: 11.1.0
+      SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION: 11.2.2
       # option #2, set the version of stellar-sdk used as a ref to a gh repo if
       # a value is set on SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO, it takes
       # precedence over any SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION
