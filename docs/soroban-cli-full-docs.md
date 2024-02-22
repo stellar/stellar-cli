@@ -187,7 +187,7 @@ Configure different networks. Depraecated, use `soroban network` instead
 * `rm` — Remove a network
 * `ls` — List networks
 * `start` — Start network
-* `stop` — Stop network
+* `stop` — Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
 
 
 
@@ -257,7 +257,9 @@ List networks
 
 Start network
 
-This command allows for starting a stellar quickstart container. To run it, you can use the following command: `soroban network start <NETWORK> [OPTIONS]`
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+soroban network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
@@ -272,12 +274,11 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ###### **Options:**
 
-* `-d`, `--docker-socket-path <DOCKER_SOCKET_PATH>` — Optional argument to override the default docker socket path. This is useful when you are using a non-standard docker socket path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-* `-l`, `--limit <LIMIT>` — Optional argument to specify the limits for the local network only
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 * `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
 
   Default value: `8000:8000`
-* `-r`, `--disable-soroban-rpc` — Optional argument to turn off soroban rpc
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
 * `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
@@ -285,7 +286,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `soroban config network stop`
 
-Stop network
+Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
 
 **Usage:** `soroban config network stop [OPTIONS] <NETWORK>`
 
@@ -298,7 +299,7 @@ Stop network
 
 ###### **Options:**
 
-* `-d`, `--docker-socket-path <DOCKER_SOCKET_PATH>` — Optional argument to override the default docker socket path. This is useful when you are using a non-standard docker socket path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
 
@@ -1528,7 +1529,7 @@ Start and configure networks
 * `rm` — Remove a network
 * `ls` — List networks
 * `start` — Start network
-* `stop` — Stop network
+* `stop` — Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
 
 
 
@@ -1598,7 +1599,9 @@ List networks
 
 Start network
 
-This command allows for starting a stellar quickstart container. To run it, you can use the following command: `soroban network start <NETWORK> [OPTIONS]`
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+soroban network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
@@ -1613,12 +1616,11 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ###### **Options:**
 
-* `-d`, `--docker-socket-path <DOCKER_SOCKET_PATH>` — Optional argument to override the default docker socket path. This is useful when you are using a non-standard docker socket path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-* `-l`, `--limit <LIMIT>` — Optional argument to specify the limits for the local network only
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 * `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
 
   Default value: `8000:8000`
-* `-r`, `--disable-soroban-rpc` — Optional argument to turn off soroban rpc
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
 * `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
@@ -1626,7 +1628,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `soroban network stop`
 
-Stop network
+Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
 
 **Usage:** `soroban network stop [OPTIONS] <NETWORK>`
 
@@ -1639,7 +1641,7 @@ Stop network
 
 ###### **Options:**
 
-* `-d`, `--docker-socket-path <DOCKER_SOCKET_PATH>` — Optional argument to override the default docker socket path. This is useful when you are using a non-standard docker socket path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
 
