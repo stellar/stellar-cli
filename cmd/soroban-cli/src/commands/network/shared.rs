@@ -2,6 +2,7 @@ use core::fmt;
 
 use bollard::{ClientVersion, Docker};
 use clap::ValueEnum;
+use home::home_dir;
 
 pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
 
@@ -42,16 +43,12 @@ pub async fn connect_to_docker(
         .clone()
         .unwrap_or(DEFAULT_DOCKER_HOST.to_string());
 
-    let connection = match host {
-        // if tcp or http use connect_with_http_defaults
-        // if windows and host starts with "npipe://" use connect_with_named_pipe
+    let connection = match host.clone() {
+        // if tcp or http, use connect_with_http_defaults
+        // if windows and host starts with "npipe://", use connect_with_named_pipe
         // if unix and host starts with "unix://" use connect_with_unix
         // else default to connect_with_unix
         h if h.starts_with("tcp://") || h.starts_with("http://") => {
-            #[cfg(feature = "ssl")]
-            if env::var("DOCKER_TLS_VERIFY").is_ok() {
-                return Docker::connect_with_ssl_defaults();
-            }
             Docker::connect_with_http_defaults()
         }
         #[cfg(unix)]
@@ -68,8 +65,24 @@ pub async fn connect_to_docker(
         }
     }?;
 
-    check_docker_connection(&connection).await?;
-    Ok(connection)
+    match check_docker_connection(&connection).await {
+        Ok(_) => return Ok(connection),
+        // If we aren't able to connect with the defaults, or with the provided docker_host, we try with the default docker desktop socket since that is a common use case for developers
+        Err(_) => {
+            let default_docker_desktop_host =
+                format!("{}/.docker/run/docker.sock", home_dir().unwrap().display());
+            println!("Failed to connect to DOCKER_HOST: {host}.\nTrying to connect to the default Docker Desktop socket at {default_docker_desktop_host}.");
+            let connection = Docker::connect_with_unix(
+                &default_docker_desktop_host,
+                DEFAULT_TIMEOUT,
+                API_DEFAULT_VERSION,
+            )?;
+            match check_docker_connection(&connection).await {
+                Ok(_) => return Ok(connection),
+                Err(err) => return Err(err),
+            }
+        }
+    }
 }
 
 // When bollard is not able to connect to the docker daemon, it returns a generic ConnectionRefused error
