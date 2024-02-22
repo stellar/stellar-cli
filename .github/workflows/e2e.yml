@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run
-      SYSTEM_TEST_GIT_REF: master
+      SYSTEM_TEST_GIT_REF: 3a9642a0c8e9a55dea419f7c4a504d4aff30b078
 
       # the soroban CLI & RPC source code to compile and run from system test
       # refers to checked out source of current git hub ref context
-      SYSTEM_TEST_SOROBAN_CLI_REF: ${{ github.workspace }}/soroban-cli
+      SYSTEM_TEST_SOROBAN_CLI_REF: ${{ github.workspace }}
       SYSTEM_TEST_SOROBAN_RPC_REF: https://github.com/stellar/soroban-rpc.git
 
       # core git ref should be latest commit for stable soroban functionality
@@ -55,7 +55,7 @@ jobs:
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
       # the soroban test cases will compile various contracts from the examples repo
-      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "v20.2.0"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "782458d31395b0191ac40c9572ac53f13f573aa3"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
     steps:
       - uses: actions/checkout@v4
@@ -65,15 +65,15 @@ jobs:
           ref: ${{ env.SYSTEM_TEST_GIT_REF }}
           path: system-test
       - uses: actions/checkout@v4
-        name: checkout soroban-tools
-        with:
-          repository: stellar/soroban-tools
-          path: soroban-tools
-      - uses: actions/checkout@v4
         name: checkout soroban-rpc
         with:
           repository: stellar/soroban-rpc
           path: soroban-rpc
+      - uses: actions/checkout@v4
+        name: checkout soroban-cli
+        with:
+          repository: stellar/soroban-cli
+          path: soroban-cli
 
       - if: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO != ''}}
         name: prepare local js-stellar-sdk
