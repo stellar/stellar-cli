@@ -263,9 +263,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.15.1"
+version = "3.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c764d619ca78fccbf3069b37bd7af92577f044bb15236036662d79b6559f25b7"
+checksum = "a3b1be7772ee4501dba05acbe66bb1e8760f6a6c474a36035631638e4415f130"
 
 [[package]]
 name = "byteorder"
@@ -2619,18 +2619,18 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-src"
-version = "111.28.1+1.1.1w"
+version = "300.2.3+3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bf7e82ffd6d3d6e6524216a0bfd85509f68b5b28354e8e7800057e44cefa9b4"
+checksum = "5cff92b6f71555b61bb9315f7c64da3ca43d87531622120fea0195fc761b4843"
 dependencies = [
  "cc",
 ]
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.90"
+version = "0.9.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "374533b0e45f3a7ced10fcaeccca020e66656bc03dac384f852e4e5a7a8104a6"
+checksum = "dda2b0f344e78efc2facf7d195d098df0dd72151b26ab98da807afc26c198dff"
 dependencies = [
  "cc",
  "libc",
@@ -3664,9 +3664,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-rpc"
-version = "20.3.2"
+version = "20.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49c3ba8b7e4c25c0fa502a1e912b1613621bc5a79b14a9bb6167ddd33e8e37b2"
+checksum = "06a502143406eb8ca6d9e98b6ea50928a5eb47a216a94769bfa13d19c03d41c4"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -3779,9 +3779,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "20.3.2"
+version = "20.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf58e9914f77a1b47b5a5d1a24b442321ac584fb50d5eeed4df728a95e5f329a"
+checksum = "d5caac0698a57c2e1c5faaec5dfaa2ce511b822e863500ef225cc34203d0b6a4"
 dependencies = [
  "base64 0.21.7",
  "ethnum",

@@ -65,11 +65,11 @@ version = "20.3.0"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
-version = "=20.3.2"
+version = "=20.3.3"
 # git = "https://github.com/stellar/soroban-rpc"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "=20.3.2"
+version = "=20.3.3"
 # git = "https://github.com/stellar/soroban-rpc"
 
 [workspace.dependencies.stellar-xdr]
