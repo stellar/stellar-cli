@@ -3664,9 +3664,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-rpc"
-version = "20.3.2"
+version = "20.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49c3ba8b7e4c25c0fa502a1e912b1613621bc5a79b14a9bb6167ddd33e8e37b2"
+checksum = "06a502143406eb8ca6d9e98b6ea50928a5eb47a216a94769bfa13d19c03d41c4"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -3779,9 +3779,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "20.3.2"
+version = "20.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf58e9914f77a1b47b5a5d1a24b442321ac584fb50d5eeed4df728a95e5f329a"
+checksum = "d5caac0698a57c2e1c5faaec5dfaa2ce511b822e863500ef225cc34203d0b6a4"
 dependencies = [
  "base64 0.21.7",
  "ethnum",
