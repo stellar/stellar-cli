@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use soroban_test::TestEnv;
 
 use super::util::deploy_hello;
@@ -12,6 +14,7 @@ fn write_env_file(e: &TestEnv, contents: &str) {
 #[test]
 fn can_read_file() {
     let e = &TestEnv::new();
+    std::thread::sleep(Duration::from_millis(1000));
     let id = deploy_hello(e);
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
@@ -27,8 +30,8 @@ fn can_read_file() {
 #[test]
 fn current_env_not_overwritten() {
     let e = TestEnv::new();
+    std::thread::sleep(Duration::from_millis(1400));
     write_env_file(&e, &deploy_hello(&e));
-
     e.new_assert_cmd("contract")
         .env(
             "SOROBAN_CONTRACT_ID",
@@ -47,6 +50,7 @@ fn current_env_not_overwritten() {
 #[test]
 fn cli_args_have_priority() {
     let e = &TestEnv::new();
+    std::thread::sleep(Duration::from_millis(2000));
     let id = deploy_hello(e);
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
