@@ -19,7 +19,7 @@ jobs:
       # the soroban CLI & RPC source code to compile and run from system test
       # refers to checked out source of current git hub ref context
       SYSTEM_TEST_SOROBAN_CLI_REF: ${{ github.workspace }}/soroban-cli
-      SYSTEM_TEST_SOROBAN_RPC_REF: https://github.com/stellar/soroban-rpc.git#main
+      SYSTEM_TEST_SOROBAN_RPC_REF: https://github.com/stellar/soroban-rpc.git#v20.3.3
 
       # core git ref should be latest commit for stable soroban functionality
       # the core bin can either be compiled in-line here as part of ci,
@@ -47,8 +47,8 @@ jobs:
       # the version of rs-stellar-xdr to use for quickstart
       SYSTEM_TEST_RS_XDR_GIT_REF: v20.1.0
 
-      # system test will build quickstart image internally to use for running the service stack
-      # configured in standalone network mode(core, rpc)
+      # system test will build quickstart image internally to use for running
+      # the service stack configured in standalone network mode(core, rpc)
       SYSTEM_TEST_QUICKSTART_GIT_REF: https://github.com/stellar/quickstart.git#eeb44ee99c564275654800edea2e426d73e966b8
 
       # triggers system test to log out details from quickstart's logs and test steps
@@ -57,6 +57,7 @@ jobs:
       # the soroban test cases will compile various contracts from the examples repo
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "782458d31395b0191ac40c9572ac53f13f573aa3"
       SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
+
     steps:
       - uses: actions/checkout@v4
         name: checkout current pr source
@@ -68,6 +69,7 @@ jobs:
           repository: stellar/system-test
           ref: ${{ env.SYSTEM_TEST_GIT_REF }}
           path: system-test
+
       - if: ${{ env.SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO != ''}}
         name: prepare local js-stellar-sdk
         run: |
