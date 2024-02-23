@@ -15,7 +15,8 @@ use clap::{
 };
 use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
-use serde_json::{from_str, json, Error as JsonError, Value as JsonValue};
+use serde::Deserialize;
+use serde_json::{from_str, json, to_string_pretty, Error as JsonError, Value as JsonValue};
 use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
 use ureq::{get, Error as UreqError};
 
@@ -421,7 +422,9 @@ fn edit_package_name(
 
     doc["name"] = json!(package_name.to_string_lossy());
 
-    write(&file_path, doc.to_string())?;
+    let formatted_json = to_string_pretty(&doc)?;
+
+    write(&file_path, formatted_json)?;
 
     Ok(())
 }
