@@ -30,7 +30,7 @@ fn can_read_file() {
 #[test]
 fn current_env_not_overwritten() {
     let e = TestEnv::new();
-    std::thread::sleep(Duration::from_millis(1400));
+    std::thread::sleep(Duration::from_millis(3000));
     write_env_file(&e, &deploy_hello(&e));
     e.new_assert_cmd("contract")
         .env(
