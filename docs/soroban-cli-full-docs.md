@@ -446,6 +446,8 @@ Deploy builtin Soroban Asset Contract
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 
 
 
@@ -571,6 +573,8 @@ If no keys are specified the contract itself is extended.
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 
 
 
@@ -595,6 +599,8 @@ Deploy a wasm contract
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
@@ -736,6 +742,8 @@ Install a WASM file to the ledger without creating a contract instance
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -760,8 +768,6 @@ soroban contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--cost` — Output the cost execution to stderr
-* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--is-view` — Do not sign and submit transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -773,6 +779,8 @@ soroban contract invoke ... -- --help
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 
 
 
@@ -871,6 +879,8 @@ If no keys are specificed the contract itself is restored.
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 
 
 
@@ -1110,6 +1120,8 @@ Deploy a token contract to wrap an existing Stellar classic asset for smart cont
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 
 
 

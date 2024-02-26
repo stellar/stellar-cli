@@ -147,7 +147,7 @@ impl Cmd {
 
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
-        let (tx, contract_id) = build_create_contract_tx(
+        let (txn, contract_id) = build_create_contract_tx(
             wasm_hash,
             sequence + 1,
             self.fee.fee,
@@ -155,8 +155,10 @@ impl Cmd {
             salt,
             &key,
         )?;
+        let txn = client.create_assembled_transaction(&txn).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn);
         client
-            .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
+            .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?;
         Ok(stellar_strkey::Contract(contract_id.0).to_string())
     }
