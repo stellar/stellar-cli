@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "20.3.0"
+version = "20.3.1"
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -108,7 +108,7 @@ toml_edit = "0.21.0"
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
-openssl = { version = "0.10.55", features = ["vendored"] }
+openssl = { version = "=0.10.55", features = ["vendored"] }
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
