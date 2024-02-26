@@ -6,7 +6,7 @@ members = [
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/crates/soroban-test/tests/fixtures/hello",
 ]
-default-members = ["cmd/soroban-cli", "cmd/crates/soroban-test"]
+default-members = ["cmd/soroban-cli", "cmd/soroban-spec-tools", "cmd/crates/soroban-test"]
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.package]
@@ -45,6 +45,10 @@ path = "./cmd/crates/soroban-spec-json"
 version = "20.3.1"
 path = "./cmd/crates/soroban-spec-typescript"
 
+[workspace.dependencies.soroban-spec-tools]
+version = "20.3.1"
+path = "./cmd/crates/soroban-spec-tools"
+
 [workspace.dependencies.soroban-sdk]
 version = "=20.3.1"
 # git = "https://github.com/stellar/rs-soroban-sdk"
@@ -65,10 +69,6 @@ version = "20.3.1"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
-version = "=20.3.3"
-# git = "https://github.com/stellar/soroban-rpc"
-
-[workspace.dependencies.soroban-spec-tools]
 version = "=20.3.3"
 # git = "https://github.com/stellar/soroban-rpc"
 
