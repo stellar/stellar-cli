@@ -270,6 +270,27 @@ async fn contract_data_read() {
         .stdout(predicates::str::starts_with("COUNTER,2"));
 }
 
+#[tokio::test]
+pub fn half_max_instructions(){
+    let sandbox = TestEnv::new();
+    let wasm = HELLO_WORLD;
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("deploy")
+        .arg("--fee")
+        .arg("1000000")
+        .arg("--instructions")
+        .arg(&(u32::MAX / 2).to_string())
+        .arg("--wasm")
+        .arg(wasm.path())
+        .arg("--salt")
+        .arg(TEST_SALT)
+        .arg("--ignore-checks")
+        .assert()
+        .stderr("")
+        .stdout_as_str()
+}
+
 async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {
     invoke_with_source(sandbox, seed_phrase, id).await;
 }
