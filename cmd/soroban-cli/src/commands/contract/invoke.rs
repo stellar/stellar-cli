@@ -345,7 +345,7 @@ impl NetworkRunnable for Cmd {
                     &signers,
                     &network.network_passphrase,
                     Some(log_events),
-                    (global_args.verbose || global_args.very_verbose || self.fee.cost)
+                    (verbose || very_verbose || self.fee.cost)
                         .then_some(log_resources),
                 )
                 .await?;
