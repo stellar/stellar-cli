@@ -136,7 +136,7 @@ impl Cmd {
                         read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
-                    instructions: 0,
+                    instructions: self.fee.instructions.unwrap_or_default(),
                     read_bytes: 0,
                     write_bytes: 0,
                 },
