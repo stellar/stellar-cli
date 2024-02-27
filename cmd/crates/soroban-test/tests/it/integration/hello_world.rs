@@ -271,7 +271,7 @@ async fn contract_data_read() {
 }
 
 #[tokio::test]
-pub fn half_max_instructions(){
+async fn half_max_instructions() {
     let sandbox = TestEnv::new();
     let wasm = HELLO_WORLD;
     sandbox
