@@ -116,7 +116,7 @@ impl Display for Spec {
                 match env_meta_entry {
                     ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
                         let protocol = v >> 32;
-                        let interface = v & 0xffffffff;
+                        let interface = v & 0xffff_ffff;
                         writeln!(f, " • Interface Version: {v} (protocol: {protocol}, interface: {interface})")?;
                     }
                 }
