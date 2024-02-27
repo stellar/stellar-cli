@@ -24,36 +24,28 @@ ifeq ($(shell uname -s),Darwin)
 	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'
 endif
 
-# update the Cargo.lock every time the Cargo.toml changes.
-Cargo.lock: Cargo.toml
-	cargo update --workspace
-
-install_rust: Cargo.lock
-	cargo install --path ./cmd/soroban-cli --debug
-	cargo install --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
-
-install: install_rust
-
-build_rust: Cargo.lock
-	cargo build
+install:
+	cargo install --locked --path ./cmd/soroban-cli --debug
+	cargo install --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
 
 # regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
 build-snapshot: typescript-bindings-fixtures
 
-build: build_rust
+build:
+	cargo build
 
-build-test-wasms: Cargo.lock
+build-test-wasms:
 	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
 
-build-test: build-test-wasms install_rust
+build-test: build-test-wasms install
 
 test: build-test
-	cargo test 
+	cargo test
 
 e2e-test:
 	cargo test --test it -- --ignored
 
-check: Cargo.lock
+check:
 	cargo clippy --all-targets
 
 watch:
