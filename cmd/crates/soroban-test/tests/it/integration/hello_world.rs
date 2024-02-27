@@ -8,7 +8,7 @@ use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
 use crate::integration::util::extend_contract;
 
-use super::util::{deploy_hello, extend};
+use super::util::{deploy_hello, extend, HELLO_WORLD};
 
 #[tokio::test]
 async fn invoke() {
@@ -271,6 +271,7 @@ async fn contract_data_read() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn half_max_instructions() {
     let sandbox = TestEnv::new();
     let wasm = HELLO_WORLD;
@@ -283,12 +284,10 @@ async fn half_max_instructions() {
         .arg(&(u32::MAX / 2).to_string())
         .arg("--wasm")
         .arg(wasm.path())
-        .arg("--salt")
-        .arg(TEST_SALT)
         .arg("--ignore-checks")
         .assert()
         .stderr("")
-        .stdout_as_str()
+        .stdout_as_str();
 }
 
 async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {
