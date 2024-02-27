@@ -24,6 +24,8 @@ ifeq ($(shell uname -s),Darwin)
 	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'
 endif
 
+install_rust: install
+
 install:
 	cargo install --locked --path ./cmd/soroban-cli --debug
 	cargo install --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
