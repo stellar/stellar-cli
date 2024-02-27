@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use soroban_test::TestEnv;
 
 use super::util::deploy_hello;

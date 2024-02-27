@@ -34,7 +34,7 @@ pub fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm) -> String {
         .arg("--fee")
         .arg("1000000")
         .arg("--instructions")
-        .arg("10000000000")
+        .arg(&u32::MAX.to_string())
         .arg("--wasm")
         .arg(wasm.path())
         .arg("--salt")
