@@ -41,12 +41,6 @@ pub struct Cmd {
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// Output the cost execution to stderr
-    #[arg(long = "cost")]
-    pub cost: bool,
-    /// Number of instructions to simulate
-    #[arg(long)]
-    pub instructions: Option<u32>,
     /// Do not sign and submit transaction
     #[arg(long, env = "SOROBAN_INVOKE_SIGN", env = "SYSTEM_TEST_VERBOSE_OUTPUT")]
     pub is_view: bool,
@@ -300,10 +294,8 @@ impl Cmd {
             self.fee.fee,
             &key,
         )?;
-        let mut txn = client.create_assembled_transaction(&tx).await?;
-        if let Some(instructions) = self.instructions {
-            txn = txn.set_max_instructions(instructions);
-        }
+        let txn = client.create_assembled_transaction(&tx).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn);
         let (return_value, events) = if self.is_view {
             (
                 txn.sim_response().results()?[0].xdr.clone(),
@@ -317,7 +309,7 @@ impl Cmd {
                     &signers,
                     &network.network_passphrase,
                     Some(log_events),
-                    (global_args.verbose || global_args.very_verbose || self.cost)
+                    (global_args.verbose || global_args.very_verbose || self.fee.cost)
                         .then_some(log_resources),
                 )
                 .await?;

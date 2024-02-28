@@ -111,19 +111,17 @@ impl Cmd {
         let (tx_without_preflight, hash) =
             build_install_contract_code_tx(contract, sequence + 1, self.fee.fee, &key)?;
 
+        let txn = client
+            .create_assembled_transaction(&tx_without_preflight)
+            .await?;
+        let txn = self.fee.apply_to_assembled_txn(txn);
+
         // Currently internal errors are not returned if the contract code is expired
         if let Some(TransactionResult {
             result: TransactionResultResult::TxInternalError,
             ..
         }) = client
-            .prepare_and_send_transaction(
-                &tx_without_preflight,
-                &key,
-                &[],
-                &network.network_passphrase,
-                None,
-                None,
-            )
+            .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?
             .result
             .as_ref()

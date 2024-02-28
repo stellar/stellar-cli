@@ -3630,7 +3630,7 @@ dependencies = [
  "soroban-spec",
  "soroban-spec-json",
  "soroban-spec-rust",
- "soroban-spec-tools",
+ "soroban-spec-tools 20.3.1",
  "soroban-spec-typescript",
  "stellar-strkey 0.0.7",
  "stellar-xdr",
@@ -3763,7 +3763,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-sdk",
  "soroban-spec",
- "soroban-spec-tools",
+ "soroban-spec-tools 20.3.3",
  "stellar-strkey 0.0.7",
  "stellar-xdr",
  "termcolor",
@@ -3858,6 +3858,25 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
+version = "20.3.1"
+dependencies = [
+ "base64 0.21.7",
+ "ethnum",
+ "hex",
+ "itertools 0.10.5",
+ "serde_json",
+ "soroban-env-host",
+ "soroban-spec",
+ "stellar-strkey 0.0.7",
+ "stellar-xdr",
+ "thiserror",
+ "tokio",
+ "wasmparser 0.90.0",
+ "which",
+]
+
+[[package]]
+name = "soroban-spec-tools"
 version = "20.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5caac0698a57c2e1c5faaec5dfaa2ce511b822e863500ef225cc34203d0b6a4"
@@ -3912,7 +3931,7 @@ dependencies = [
  "soroban-ledger-snapshot",
  "soroban-sdk",
  "soroban-spec",
- "soroban-spec-tools",
+ "soroban-spec-tools 20.3.1",
  "stellar-strkey 0.0.7",
  "thiserror",
  "tokio",
