@@ -23,7 +23,7 @@ pub enum Error {
     #[error("optimization error: {0}")]
     OptimizationError(OptimizationError),
     #[cfg(not(feature = "opt"))]
-    #[error("Must install with \"opt\" feature, e.g. `cargo install soroban-cli --features opt")]
+    #[error("Must install with \"opt\" feature, e.g. `cargo install --locked soroban-cli --features opt")]
     Install,
 }
 
