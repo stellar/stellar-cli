@@ -140,7 +140,7 @@ impl Cmd {
                         read_only: vec![].try_into()?,
                         read_write: entry_keys.try_into()?,
                     },
-                    instructions: 0,
+                    instructions: self.fee.instructions.unwrap_or_default(),
                     read_bytes: 0,
                     write_bytes: 0,
                 },
