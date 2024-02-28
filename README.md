@@ -3,6 +3,10 @@
 This repo is home to the [Soroban CLI](https://github.com/stellar/soroban-tools/tree/main/cmd/soroban-cli): The command-line multi-tool for running and deploying Soroban contracts.
 
 
+## Install the CLI
+Install [the latest soroban-cli version](/releases).
+`cargo install --locked --version 20.3.1 soroban-cli`
+
 ## Setup Autocomplete
 `soroban completion --shell <SHELL>`
 Possible SHELL values are `bash`, `elvish`, `fish`, `powershell`, `zsh`, etc.
