@@ -6,8 +6,14 @@ use home::home_dir;
 
 pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
 
-// DEFAULT_DOCKER_HOST, DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
-const DEFAULT_DOCKER_HOST: &str = "unix:///var/run/docker.sock";
+// DEFAULT_DOCKER_HOST is from the bollard crate on the main branch, which has not been released yet: https://github.com/fussybeaver/bollard/blob/0972b1aac0ad5c08798e100319ddd0d2ee010365/src/docker.rs#L64
+#[cfg(unix)]
+pub const DEFAULT_DOCKER_HOST: &str = "unix:///var/run/docker.sock";
+
+#[cfg(windows)]
+pub const DEFAULT_DOCKER_HOST: &str = "npipe:////./pipe/docker_engine";
+
+// DEFAULT_TIMEOUT and API_DEFAULT_VERSION are from the bollard crate
 const DEFAULT_TIMEOUT: u64 = 120;
 const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
     major_version: 1,
