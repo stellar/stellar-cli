@@ -90,9 +90,10 @@ impl Cmd {
             network_passphrase,
             &key,
         )?;
-
+        let txn = client.create_assembled_transaction(&tx).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn);
         client
-            .prepare_and_send_transaction(&tx, &key, &[], network_passphrase, None, None)
+            .send_assembled_transaction(txn, &key, &[], network_passphrase, None, None)
             .await?;
 
         Ok(stellar_strkey::Contract(contract_id.0).to_string())
