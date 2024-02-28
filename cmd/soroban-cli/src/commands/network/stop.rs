@@ -1,9 +1,11 @@
-use crate::commands::network::shared::{connect_to_docker, Network, DOCKER_HOST_HELP};
+use crate::commands::network::shared::{
+    connect_to_docker, Error as ConnectionError, Network, DOCKER_HOST_HELP,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Failed to stop container: {0}")]
-    StopContainerError(#[from] bollard::errors::Error),
+    StopContainerError(#[from] ConnectionError),
 }
 
 #[derive(Debug, clap::Parser, Clone)]

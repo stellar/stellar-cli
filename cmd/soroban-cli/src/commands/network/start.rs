@@ -7,15 +7,20 @@ use bollard::{
 };
 use futures_util::TryStreamExt;
 
-use crate::commands::network::shared::{connect_to_docker, Network, DOCKER_HOST_HELP};
+use crate::commands::network::shared::{
+    connect_to_docker, Error as ConnectionError, Network, DOCKER_HOST_HELP,
+};
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("⛔ ️Failed to start container: {0}")]
-    StartContainerError(#[from] bollard::errors::Error),
+    #[error("⛔ ️Failed to connect to docker: {0}")]
+    ConnectionError(#[from] ConnectionError),
+
+    #[error("⛔ ️Failed to create container: {0}")]
+    BollardErr(#[from] bollard::errors::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]

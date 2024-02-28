@@ -20,6 +20,15 @@ const API_DEFAULT_VERSION: &ClientVersion = &ClientVersion {
     minor_version: 40,
 };
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("⛔ ️Failed to start container: {0}")]
+    BollardErr(#[from] bollard::errors::Error),
+
+    #[error("URI scheme is not supported: {uri}")]
+    UnsupportedURISchemeError { uri: String },
+}
+
 #[derive(ValueEnum, Debug, Clone, PartialEq)]
 pub enum Network {
     Local,
@@ -41,10 +50,11 @@ impl fmt::Display for Network {
     }
 }
 
-pub async fn connect_to_docker(
-    docker_host: &Option<String>,
-) -> Result<Docker, bollard::errors::Error> {
-    // defaults to "unix:///var/run/docker.sock" if no docker_host is provided
+pub async fn connect_to_docker(docker_host: &Option<String>) -> Result<Docker, Error> {
+    // if no docker_host is provided, use the default docker host:
+    // "unix:///var/run/docker.sock" on unix machines
+    // "npipe:////./pipe/docker_engine" on windows machines
+
     let host = docker_host
         .clone()
         .unwrap_or(DEFAULT_DOCKER_HOST.to_string());
@@ -66,8 +76,10 @@ pub async fn connect_to_docker(
             Docker::connect_with_named_pipe(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
         }
         _ => {
-            // default to connecting with socket defaults
-            Docker::connect_with_socket_defaults()
+            return Err(Error::UnsupportedURISchemeError {
+                uri: host.to_string(),
+            }
+            .into());
         }
     }?;
 
@@ -85,7 +97,7 @@ pub async fn connect_to_docker(
             )?;
             match check_docker_connection(&connection).await {
                 Ok(_) => return Ok(connection),
-                Err(err) => return Err(err),
+                Err(err) => return Err(err)?,
             }
         }
     }
