@@ -60,8 +60,8 @@ pub async fn connect_to_docker(
             Docker::connect_with_named_pipe(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
         }
         _ => {
-            // default to connecting with unix with whatever the DOCKER_HOST is
-            Docker::connect_with_unix(&host, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
+            // default to connecting with socket defaults
+            Docker::connect_with_socket_defaults()
         }
     }?;
 

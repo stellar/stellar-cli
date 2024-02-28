@@ -144,7 +144,7 @@ fn get_image_name(cmd: &Cmd) -> String {
     format!("{DOCKER_IMAGE}:{image_tag}")
 }
 
-/// The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
+// The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
 fn get_port_mapping(cmd: &Cmd) -> HashMap<String, Option<Vec<PortBinding>>> {
     let mut port_mapping_hash = HashMap::new();
     for port_mapping in &cmd.ports_mapping {
