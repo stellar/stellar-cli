@@ -59,10 +59,12 @@ pub async fn connect_to_docker(docker_host: &Option<String>) -> Result<Docker, E
         .clone()
         .unwrap_or(DEFAULT_DOCKER_HOST.to_string());
 
+    // this is based on the `connect_with_defaults` method which has not yet been released in the bollard crate
+    // https://github.com/fussybeaver/bollard/blob/0972b1aac0ad5c08798e100319ddd0d2ee010365/src/docker.rs#L660
     let connection = match host.clone() {
         // if tcp or http, use connect_with_http_defaults
-        // if windows and host starts with "npipe://", use connect_with_named_pipe
         // if unix and host starts with "unix://" use connect_with_unix
+        // if windows and host starts with "npipe://", use connect_with_named_pipe
         // else default to connect_with_unix
         h if h.starts_with("tcp://") || h.starts_with("http://") => {
             Docker::connect_with_http_defaults()
@@ -78,34 +80,49 @@ pub async fn connect_to_docker(docker_host: &Option<String>) -> Result<Docker, E
         _ => {
             return Err(Error::UnsupportedURISchemeError {
                 uri: host.to_string(),
-            }
-            .into());
+            });
         }
     }?;
 
     match check_docker_connection(&connection).await {
-        Ok(_) => return Ok(connection),
-        // If we aren't able to connect with the defaults, or with the provided docker_host, we try with the default docker desktop socket since that is a common use case for developers
-        Err(_) => {
-            let default_docker_desktop_host =
-                format!("{}/.docker/run/docker.sock", home_dir().unwrap().display());
-            println!("Failed to connect to DOCKER_HOST: {host}.\nTrying to connect to the default Docker Desktop socket at {default_docker_desktop_host}.");
-            let connection = Docker::connect_with_unix(
-                &default_docker_desktop_host,
-                DEFAULT_TIMEOUT,
-                API_DEFAULT_VERSION,
-            )?;
-            match check_docker_connection(&connection).await {
-                Ok(_) => return Ok(connection),
-                Err(err) => return Err(err)?,
+        Ok(()) => Ok(connection),
+        // If we aren't able to connect with the defaults, or with the provided docker_host
+        // try to connect with the default docker desktop socket since that is a common use case for devs
+        Err(_e) => {
+            // if on unix, try to connect to the default docker desktop socket
+            #[cfg(unix)]
+            {
+                let docker_desktop_connection = try_docker_desktop_socket(&host)?;
+                match check_docker_connection(&docker_desktop_connection).await {
+                    Ok(()) => Ok(docker_desktop_connection),
+                    Err(err) => Err(err)?,
+                }
+            }
+
+            #[cfg(windows)]
+            {
+                Err(_e)?;
             }
         }
     }
 }
 
+#[cfg(unix)]
+fn try_docker_desktop_socket(host: &str) -> Result<Docker, bollard::errors::Error> {
+    let default_docker_desktop_host =
+        format!("{}/.docker/run/docker.sock", home_dir().unwrap().display());
+    println!("Failed to connect to DOCKER_HOST: {host}.\nTrying to connect to the default Docker Desktop socket at {default_docker_desktop_host}.");
+
+    Docker::connect_with_unix(
+        &default_docker_desktop_host,
+        DEFAULT_TIMEOUT,
+        API_DEFAULT_VERSION,
+    )
+}
+
 // When bollard is not able to connect to the docker daemon, it returns a generic ConnectionRefused error
 // This method attempts to connect to the docker daemon and returns a more specific error message
-pub async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::errors::Error> {
+async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::errors::Error> {
     // This is a bit hacky, but the `client_addr` field is not directly accessible from the `Docker` struct, but we can access it from the debug string representation of the `Docker` struct
     let docker_debug_string = format!("{docker:#?}");
     let start_of_client_addr = docker_debug_string.find("client_addr: ").unwrap();
