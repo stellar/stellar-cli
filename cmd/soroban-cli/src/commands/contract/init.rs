@@ -645,11 +645,10 @@ mod tests {
     ) {
         let package_json_path = project_dir.join("package.json");
         let package_json_str = read_to_string(package_json_path).unwrap();
-        println!("package json: {package_json_str} ");
-        assert!(package_json_str.contains(&format!("\"name\":\"{expected_package_name}\"")));
+        assert!(package_json_str.contains(&format!("\"name\": \"{expected_package_name}\"")));
 
         let package_lock_json_path = project_dir.join("package-lock.json");
         let package_lock_json_str = read_to_string(package_lock_json_path).unwrap();
-        assert!(package_lock_json_str.contains(&format!("\"name\":\"{expected_package_name}\"")));
+        assert!(package_lock_json_str.contains(&format!("\"name\": \"{expected_package_name}\"")));
     }
 }
