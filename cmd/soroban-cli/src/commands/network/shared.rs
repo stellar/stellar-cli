@@ -2,6 +2,8 @@ use core::fmt;
 
 use bollard::{ClientVersion, Docker};
 use clap::ValueEnum;
+#[allow(unused_imports)]
+// Need to add this for windows, since we are only using this crate for the unix fn try_docker_desktop_socket
 use home::home_dir;
 
 pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
@@ -88,7 +90,8 @@ pub async fn connect_to_docker(docker_host: &Option<String>) -> Result<Docker, E
         Ok(()) => Ok(connection),
         // If we aren't able to connect with the defaults, or with the provided docker_host
         // try to connect with the default docker desktop socket since that is a common use case for devs
-        Err(_e) => {
+        #[allow(unused_variables)]
+        Err(e) => {
             // if on unix, try to connect to the default docker desktop socket
             #[cfg(unix)]
             {
@@ -101,7 +104,7 @@ pub async fn connect_to_docker(docker_host: &Option<String>) -> Result<Docker, E
 
             #[cfg(windows)]
             {
-                Err(_e)?;
+                Err(e)?
             }
         }
     }
