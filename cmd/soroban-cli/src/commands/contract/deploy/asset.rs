@@ -63,6 +63,8 @@ impl Cmd {
         Ok(())
     }
 }
+
+#[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = String;

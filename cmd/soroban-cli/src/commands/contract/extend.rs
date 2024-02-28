@@ -100,6 +100,8 @@ impl Cmd {
         res
     }
 }
+
+#[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = u32;
@@ -108,7 +110,7 @@ impl NetworkRunnable for Cmd {
         &self,
         _args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<u32, Error> {
+    ) -> Result<u32, Self::Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
