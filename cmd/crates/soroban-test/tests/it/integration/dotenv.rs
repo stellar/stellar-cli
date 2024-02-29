@@ -12,7 +12,7 @@ fn write_env_file(e: &TestEnv, contents: &str) {
 #[tokio::test]
 async fn can_read_file() {
     let e = &TestEnv::new();
-    // std::thread::sleep(core::time::Duration::from_millis(1000));
+    std::thread::sleep(core::time::Duration::from_millis(1000));
     let id = deploy_hello(e).await;
     println!("{id}");
     write_env_file(e, &id);
@@ -29,7 +29,7 @@ async fn can_read_file() {
 #[tokio::test]
 async fn current_env_not_overwritten() {
     let e = TestEnv::new();
-    // std::thread::sleep(core::time::Duration::from_millis(3000));
+    std::thread::sleep(core::time::Duration::from_millis(3000));
     write_env_file(&e, &deploy_hello(&e).await);
     e.new_assert_cmd("contract")
         .env(
@@ -49,7 +49,7 @@ async fn current_env_not_overwritten() {
 #[tokio::test]
 async fn cli_args_have_priority() {
     let e = &TestEnv::new();
-    // std::thread::sleep(core::time::Duration::from_millis(2000));
+    std::thread::sleep(core::time::Duration::from_millis(2000));
     let id = deploy_hello(e).await;
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
