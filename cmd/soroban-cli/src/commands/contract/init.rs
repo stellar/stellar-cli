@@ -1,8 +1,8 @@
 use std::{
     env,
     ffi::OsStr,
-    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write},
-    io,
+    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write, File, OpenOptions},
+    io::{self, Read, Write},
     num::NonZeroU32,
     path::Path,
     str,
@@ -158,9 +158,6 @@ fn init(
         // clone the template repo into the temp dir
         clone_repo(frontend_template, fe_template_dir.path())?;
 
-        // IF the frontend has a README.md, append it to the project's README.md and remove it
-        // `if stat fe_template_dir.path()/README.md > /dev/null 2>&1; then cat fe_template_dir.path()/README.md >> project_path/README.md && rm fe_template_dir.path()/README.md; fi` 
-
         // copy the frontend template files into the project
         copy_frontend_files(fe_template_dir.path(), project_path)?;
     }
@@ -253,21 +250,12 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             })?;
             copy_contents(&path, &new_path)?;
         } else {
-            append_and_remove_if_exists(".gitignore", &path, &new_path)?;
-            append_and_remove_if_exists("README.md", &path, &new_path)?;
             if file_exists(&new_path.to_string_lossy()) {
-                //if file is .gitignore, overwrite the file with a new .gitignore file
-                if path.to_string_lossy().contains(".gitignore") {
-                    copy(&path, &new_path).map_err(|e| {
-                        eprintln!(
-                            "Error copying from {:?} to {:?}",
-                            path.to_string_lossy(),
-                            new_path
-                        );
-
-                        e
-                    })?;
-                    continue;
+                if new_path.to_string_lossy().contains(".gitignore") {
+                    append_contents(&path, &new_path)?;
+                }
+                if new_path.to_string_lossy().contains("README.md") {
+                    append_contents(&path, &new_path)?;
                 }
 
                 println!(
@@ -443,32 +431,16 @@ fn check_internet_connection() -> bool {
     false
 }
 
-fn append_and_remove_if_exists(
-    file_name: &str,
-    from: &Path,
-    to: &Path,
-) -> Result<(), Error> {
-    if file_exists(&to.to_string_lossy()) {
-        //if file is .gitignore, overwrite the file with a new .gitignore file
-        if from.to_string_lossy().contains(file_name) {
-            copy(&from, &to).map_err(|e| {
-                eprintln!(
-                    "Error copying from {:?} to {:?}",
-                    from.to_string_lossy(),
-                    to
-                );
+fn append_contents(from: &Path, to: &Path) -> Result<(), Error> {
+    let mut from_file = File::open(from)?;
+    let mut from_content = String::new();
+    from_file.read_to_string(&mut from_content)?;
 
-                e
-            })?;
-            continue;
-        }
+    let mut to_file = OpenOptions::new().append(true).open(to)?;
+    to_file.write_all("\n\n".as_bytes())?;
+    to_file.write_all(from_content.as_bytes())?;
 
-        println!(
-            "ℹ️  Skipped creating {} as it already exists",
-            &to.to_string_lossy()
-        );
-        continue;
-    }
+    println!("ℹ️  Merging {} contents", &to.to_string_lossy());
     Ok(())
 }
 
@@ -685,5 +657,11 @@ mod tests {
         let package_lock_json_path = project_dir.join("package-lock.json");
         let package_lock_json_str = read_to_string(package_lock_json_path).unwrap();
         assert!(package_lock_json_str.contains(&format!("\"name\": \"{expected_package_name}\"")));
+    }
+
+    fn assert_readme_includes_frontend_file_appended(project_dir: &Path) {
+        let readme_path = project_dir.join("README.md");
+        let readme_str = read_to_string(readme_path).unwrap();
+        assert!(readme_str.contains("Soroban Frontend in Astro"));
     }
 }
