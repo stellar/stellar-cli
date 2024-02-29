@@ -158,6 +158,9 @@ fn init(
         // clone the template repo into the temp dir
         clone_repo(frontend_template, fe_template_dir.path())?;
 
+        // IF the frontend has a README.md, append it to the project's README.md and remove it
+        // `if stat fe_template_dir.path()/README.md > /dev/null 2>&1; then cat fe_template_dir.path()/README.md >> project_path/README.md && rm fe_template_dir.path()/README.md; fi` 
+
         // copy the frontend template files into the project
         copy_frontend_files(fe_template_dir.path(), project_path)?;
     }
@@ -250,6 +253,8 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             })?;
             copy_contents(&path, &new_path)?;
         } else {
+            append_and_remove_if_exists(".gitignore", &path, &new_path)?;
+            append_and_remove_if_exists("README.md", &path, &new_path)?;
             if file_exists(&new_path.to_string_lossy()) {
                 //if file is .gitignore, overwrite the file with a new .gitignore file
                 if path.to_string_lossy().contains(".gitignore") {
@@ -436,6 +441,35 @@ fn check_internet_connection() -> bool {
     }
 
     false
+}
+
+fn append_and_remove_if_exists(
+    file_name: &str,
+    from: &Path,
+    to: &Path,
+) -> Result<(), Error> {
+    if file_exists(&to.to_string_lossy()) {
+        //if file is .gitignore, overwrite the file with a new .gitignore file
+        if from.to_string_lossy().contains(file_name) {
+            copy(&from, &to).map_err(|e| {
+                eprintln!(
+                    "Error copying from {:?} to {:?}",
+                    from.to_string_lossy(),
+                    to
+                );
+
+                e
+            })?;
+            continue;
+        }
+
+        println!(
+            "ℹ️  Skipped creating {} as it already exists",
+            &to.to_string_lossy()
+        );
+        continue;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
