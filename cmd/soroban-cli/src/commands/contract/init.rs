@@ -132,7 +132,7 @@ struct TemplateFiles;
 
 fn init(
     project_path: &Path,
-    frontend_template: &String,
+    frontend_template: &str,
     with_examples: &[String],
 ) -> Result<(), Error> {
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
@@ -436,7 +436,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
-        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
+        init(project_dir.as_path(), "", &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -455,7 +455,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = ["alloc".to_owned()];
-        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
+        init(project_dir.as_path(), "", &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -478,7 +478,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
-        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
+        init(project_dir.as_path(), "", &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -502,7 +502,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
-        assert!(init(project_dir.as_path(), &String::new(), &with_examples,).is_err());
+        assert!(init(project_dir.as_path(), "", &with_examples,).is_err());
 
         temp_dir.close().unwrap();
     }
@@ -514,7 +514,7 @@ mod tests {
         let with_examples = vec![];
         init(
             project_dir.as_path(),
-            &"https://github.com/AhaLabs/soroban-astro-template".to_string(),
+            "https://github.com/AhaLabs/soroban-astro-template",
             &with_examples,
         )
         .unwrap();
