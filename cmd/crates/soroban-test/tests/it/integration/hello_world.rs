@@ -61,7 +61,7 @@ async fn invoke() {
     let secret::Secret::SeedPhrase { seed_phrase } = s else {
         panic!("Expected seed phrase")
     };
-    let id = &deploy_hello(sandbox);
+    let id = &deploy_hello(sandbox).await;
     extend_contract(sandbox, id).await;
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
@@ -103,8 +103,8 @@ async fn invoke() {
         println!("{}", entry.unwrap().path().display());
     }
     invoke_auth(sandbox, id, &addr);
-    invoke_auth_with_identity(sandbox, id, "test", &addr).await;
-    invoke_auth_with_identity(sandbox, id, "testone", &addr_1).await;
+    invoke_auth_with_identity(sandbox, id, "test", &addr);
+    invoke_auth_with_identity(sandbox, id, "testone", &addr_1);
     invoke_auth_with_different_test_account_fail(sandbox, id, &addr_1).await;
     // invoke_auth_with_different_test_account(sandbox, id);
     contract_data_read_failure(sandbox, id);
@@ -171,7 +171,7 @@ fn invoke_auth(sandbox: &TestEnv, id: &str, addr: &str) {
         .success();
 }
 
-async fn invoke_auth_with_identity(sandbox: &TestEnv, id: &str, key: &str, addr: &str) {
+fn invoke_auth_with_identity(sandbox: &TestEnv, id: &str, key: &str, addr: &str) {
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
@@ -227,7 +227,7 @@ fn contract_data_read_failure(sandbox: &TestEnv, id: &str) {
 async fn contract_data_read() {
     const KEY: &str = "COUNTER";
     let sandbox = &TestEnv::new();
-    let id = &deploy_hello(sandbox);
+    let id = &deploy_hello(sandbox).await;
     let res = sandbox
         .invoke_with_test(&["--id", id, "--", "inc"])
         .await

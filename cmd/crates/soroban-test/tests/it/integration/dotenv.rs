@@ -9,11 +9,12 @@ fn write_env_file(e: &TestEnv, contents: &str) {
     assert_eq!(contents, std::fs::read_to_string(env_file).unwrap());
 }
 
-#[test]
-fn can_read_file() {
+#[tokio::test]
+async fn can_read_file() {
     let e = &TestEnv::new();
-    std::thread::sleep(core::time::Duration::from_millis(1000));
-    let id = deploy_hello(e);
+    // std::thread::sleep(core::time::Duration::from_millis(1000));
+    let id = deploy_hello(e).await;
+    println!("{id}");
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
         .arg("invoke")
@@ -25,11 +26,11 @@ fn can_read_file() {
         .success();
 }
 
-#[test]
-fn current_env_not_overwritten() {
+#[tokio::test]
+async fn current_env_not_overwritten() {
     let e = TestEnv::new();
-    std::thread::sleep(core::time::Duration::from_millis(3000));
-    write_env_file(&e, &deploy_hello(&e));
+    // std::thread::sleep(core::time::Duration::from_millis(3000));
+    write_env_file(&e, &deploy_hello(&e).await);
     e.new_assert_cmd("contract")
         .env(
             "SOROBAN_CONTRACT_ID",
@@ -45,11 +46,11 @@ fn current_env_not_overwritten() {
         );
 }
 
-#[test]
-fn cli_args_have_priority() {
+#[tokio::test]
+async fn cli_args_have_priority() {
     let e = &TestEnv::new();
-    std::thread::sleep(core::time::Duration::from_millis(2000));
-    let id = deploy_hello(e);
+    // std::thread::sleep(core::time::Duration::from_millis(2000));
+    let id = deploy_hello(e).await;
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
         .env(
