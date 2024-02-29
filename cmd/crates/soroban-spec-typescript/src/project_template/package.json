@@ -2,9 +2,9 @@
     "version": "0.0.0",
     "name": "INSERT_CONTRACT_NAME_HERE",
     "dependencies": {
-        "@stellar/freighter-api": "1.7.1",
+        "@stellar/freighter-api": "2.0.0",
         "buffer": "6.0.3",
-        "@stellar/stellar-sdk": "11.2.0"
+        "@stellar/stellar-sdk": "11.2.2"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
