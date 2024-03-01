@@ -2,7 +2,7 @@ use soroban_sdk::{Address, Env};
 
 use crate::storage_types::DataKey;
 
-pub fn has_administrator(e: &Env) -> bool {
+pub fn has(e: &Env) -> bool {
     let key = DataKey::Admin;
     e.storage().instance().has(&key)
 }

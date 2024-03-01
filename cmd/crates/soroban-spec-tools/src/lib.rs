@@ -1429,8 +1429,7 @@ mod tests {
                         0xc7, 0x79, 0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0,
                         0xec, 0x9c, 0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
                     ]
-                    .try_into()
-                    .unwrap()
+                    .into()
                 ))
             ),
             Err(e) => panic!("Unexpected error: {e}"),
@@ -1441,7 +1440,7 @@ mod tests {
             Ok(addr) => assert_eq!(
                 addr,
                 ScVal::Address(ScAddress::Account(AccountId(
-                    PublicKey::PublicKeyTypeEd25519([0; 32].try_into().unwrap())
+                    PublicKey::PublicKeyTypeEd25519([0; 32].into())
                 )))
             ),
             Err(e) => panic!("Unexpected error: {e}"),
@@ -1458,8 +1457,7 @@ mod tests {
                             0xc7, 0x79, 0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0,
                             0xec, 0x9c, 0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
                         ]
-                        .try_into()
-                        .unwrap()
+                        .into()
                     )
                 )))
             ),

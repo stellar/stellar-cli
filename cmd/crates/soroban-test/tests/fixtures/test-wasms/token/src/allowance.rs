@@ -1,7 +1,7 @@
 use crate::storage_types::{AllowanceDataKey, AllowanceValue, DataKey};
 use soroban_sdk::{Address, Env};
 
-pub fn read_allowance(e: &Env, from: Address, spender: Address) -> AllowanceValue {
+pub fn read(e: &Env, from: Address, spender: Address) -> AllowanceValue {
     let key = DataKey::Allowance(AllowanceDataKey { from, spender });
     if let Some(allowance) = e.storage().temporary().get::<_, AllowanceValue>(&key) {
         if allowance.expiration_ledger < e.ledger().sequence() {
@@ -20,21 +20,16 @@ pub fn read_allowance(e: &Env, from: Address, spender: Address) -> AllowanceValu
     }
 }
 
-pub fn write_allowance(
-    e: &Env,
-    from: Address,
-    spender: Address,
-    amount: i128,
-    expiration_ledger: u32,
-) {
+pub fn write(e: &Env, from: Address, spender: Address, amount: i128, expiration_ledger: u32) {
     let allowance = AllowanceValue {
         amount,
         expiration_ledger,
     };
 
-    if amount > 0 && expiration_ledger < e.ledger().sequence() {
-        panic!("expiration_ledger is less than ledger seq when amount > 0")
-    }
+    assert!(
+        !(amount > 0 && expiration_ledger < e.ledger().sequence()),
+        "expiration_ledger is less than ledger seq when amount > 0"
+    );
 
     let key = DataKey::Allowance(AllowanceDataKey { from, spender });
     e.storage().temporary().set(&key.clone(), &allowance);
@@ -44,16 +39,14 @@ pub fn write_allowance(
             .checked_sub(e.ledger().sequence())
             .unwrap();
 
-        e.storage().temporary().extend_ttl(&key, live_for, live_for)
+        e.storage().temporary().extend_ttl(&key, live_for, live_for);
     }
 }
 
-pub fn spend_allowance(e: &Env, from: Address, spender: Address, amount: i128) {
-    let allowance = read_allowance(e, from.clone(), spender.clone());
-    if allowance.amount < amount {
-        panic!("insufficient allowance");
-    }
-    write_allowance(
+pub fn spend(e: &Env, from: Address, spender: Address, amount: i128) {
+    let allowance = read(e, from.clone(), spender.clone());
+    assert!(allowance.amount >= amount, "insufficient allowance");
+    write(
         e,
         from,
         spender,
