@@ -4,7 +4,7 @@ use soroban_cli::commands::{
     config::{locator::KeyType, secret::Secret},
     contract,
 };
-use soroban_test::{TestEnv, Wasm};
+use soroban_test::{TestEnv, Wasm, TEST_ACCOUNT};
 
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 
@@ -44,7 +44,6 @@ pub fn add_test_id(dir: &Path) -> String {
 pub const DEFAULT_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
 
-#[allow(dead_code)]
 pub async fn invoke_custom(
     sandbox: &TestEnv,
     id: &str,
@@ -52,21 +51,9 @@ pub async fn invoke_custom(
     arg: &str,
     wasm: &Path,
 ) -> Result<String, contract::invoke::Error> {
-    let mut i: contract::invoke::Cmd = sandbox.cmd_arr(&[
-        "--id",
-        id,
-        "--network",
-        "futurenet",
-        "--source",
-        "default",
-        "--",
-        func,
-        arg,
-    ]);
+    let mut i: contract::invoke::Cmd = sandbox.cmd_with_config(&["--id", id, "--", func, arg]);
     i.wasm = Some(wasm.to_path_buf());
-    i.config.network.network = Some("futurenet".to_owned());
-    i.invoke(&soroban_cli::commands::global::Args::default())
-        .await
+    sandbox.run_cmd_with(i, TEST_ACCOUNT).await
 }
 
 pub const DEFAULT_CONTRACT_ID: &str = "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z";

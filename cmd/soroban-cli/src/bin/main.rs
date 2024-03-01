@@ -37,6 +37,7 @@ async fn main() {
 
         let builder = fmt::Subscriber::builder()
             .with_env_filter(e_filter)
+            .with_ansi(false)
             .with_writer(std::io::stderr);
 
         let subscriber = builder.finish();

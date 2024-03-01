@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 pub mod completion;
@@ -157,4 +158,16 @@ pub enum Error {
     Plugin(#[from] plugin::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+}
+
+#[async_trait]
+pub trait NetworkRunnable {
+    type Error;
+    type Result;
+
+    async fn run_against_rpc_server(
+        &self,
+        global_args: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<Self::Result, Self::Error>;
 }

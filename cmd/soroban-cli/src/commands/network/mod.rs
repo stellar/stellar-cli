@@ -12,6 +12,8 @@ use crate::{
 
 use super::config::locator;
 
+pub const LOCAL_NETWORK_PASSPHRASE: &str = "Standalone Network ; February 2017";
+
 pub mod add;
 pub mod ls;
 pub mod rm;
@@ -42,6 +44,8 @@ pub enum Error {
 
     #[error("network arg or rpc url and network passphrase are required if using the network")]
     Network,
+    #[error(transparent)]
+    Http(#[from] http::Error),
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
@@ -139,13 +143,27 @@ pub struct Network {
 
 impl Network {
     pub async fn helper_url(&self, addr: &str) -> Result<http::Uri, Error> {
+        use http::Uri;
         tracing::debug!("address {addr:?}");
-        let client = Client::new(&self.rpc_url)?;
-        let helper_url_root = client.friendbot_url().await?;
-        let uri = http::Uri::from_str(&helper_url_root)
-            .map_err(|_| Error::InvalidUrl(helper_url_root.to_string()))?;
-        http::Uri::from_str(&format!("{uri:?}?addr={addr}"))
-            .map_err(|_| Error::InvalidUrl(helper_url_root.to_string()))
+        let rpc_uri = Uri::from_str(&self.rpc_url)
+            .map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))?;
+        if self.network_passphrase.as_str() == LOCAL_NETWORK_PASSPHRASE {
+            let auth = rpc_uri.authority().unwrap().clone();
+            let scheme = rpc_uri.scheme_str().unwrap();
+            // format!("{scheme}://{auth}/friendbot");
+            Ok(Uri::builder()
+                .authority(auth)
+                .scheme(scheme)
+                .path_and_query(format!("/friendbot?addr={addr}"))
+                .build()?)
+        } else {
+            let client = Client::new(&self.rpc_url)?;
+            let uri = client.friendbot_url().await?;
+            Uri::from_str(&format!("{uri:?}?addr={addr}")).map_err(|e| {
+                tracing::error!("{e}");
+                Error::InvalidUrl(uri.to_string())
+            })
+        }
     }
 
     #[allow(clippy::similar_names)]
