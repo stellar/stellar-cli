@@ -554,7 +554,7 @@ mod tests {
         let with_examples = vec![];
         init(
             project_dir.as_path(),
-            &"https://github.com/AhaLabs/soroban-astro-template".to_string(),
+            "https://github.com/AhaLabs/soroban-astro-template",
             &with_examples,
         )
         .unwrap();
