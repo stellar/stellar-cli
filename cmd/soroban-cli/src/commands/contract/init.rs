@@ -15,7 +15,6 @@ use clap::{
 };
 use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
-use serde::Deserialize;
 use serde_json::{from_str, json, to_string_pretty, Error as JsonError, Value as JsonValue};
 use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
 use ureq::{get, Error as UreqError};
