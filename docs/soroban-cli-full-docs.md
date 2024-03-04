@@ -11,6 +11,8 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban config network add`↴](#soroban-config-network-add)
 * [`soroban config network rm`↴](#soroban-config-network-rm)
 * [`soroban config network ls`↴](#soroban-config-network-ls)
+* [`soroban config network start`↴](#soroban-config-network-start)
+* [`soroban config network stop`↴](#soroban-config-network-stop)
 * [`soroban config identity`↴](#soroban-config-identity)
 * [`soroban config identity add`↴](#soroban-config-identity-add)
 * [`soroban config identity address`↴](#soroban-config-identity-address)
@@ -65,6 +67,8 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network add`↴](#soroban-network-add)
 * [`soroban network rm`↴](#soroban-network-rm)
 * [`soroban network ls`↴](#soroban-network-ls)
+* [`soroban network start`↴](#soroban-network-start)
+* [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
 
 ## `soroban`
@@ -182,6 +186,8 @@ Configure different networks. Depraecated, use `soroban network` instead
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
+* `start` — Start network
+* `stop` — Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
 
 
 
@@ -244,6 +250,56 @@ List networks
 
   Possible values: `true`, `false`
 
+
+
+
+## `soroban config network start`
+
+Start network
+
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+soroban network start <NETWORK> [OPTIONS]
+
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
+
+**Usage:** `soroban config network start [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to start
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
+* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
+
+  Default value: `8000:8000`
+* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
+* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+
+
+
+## `soroban config network stop`
+
+Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
+
+**Usage:** `soroban config network stop [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to stop
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
 
@@ -1502,6 +1558,8 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
+* `start` — Start network
+* `stop` — Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
 
 
 
@@ -1564,6 +1622,56 @@ List networks
 
   Possible values: `true`, `false`
 
+
+
+
+## `soroban network start`
+
+Start network
+
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+soroban network start <NETWORK> [OPTIONS]
+
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
+
+**Usage:** `soroban network start [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to start
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
+* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
+
+  Default value: `8000:8000`
+* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
+* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+
+
+
+## `soroban network stop`
+
+Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
+
+**Usage:** `soroban network stop [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to stop
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
 
