@@ -1,4 +1,5 @@
 use clap::arg;
+use soroban_env_host::xdr;
 use soroban_rpc::Assembled;
 
 use crate::commands::HEADING_RPC;
@@ -22,9 +23,22 @@ impl Args {
         if let Some(instructions) = self.instructions {
             txn.set_max_instructions(instructions)
         } else {
-            txn
+            add_padding_to_instructions(txn)
         }
     }
+}
+
+pub fn add_padding_to_instructions(txn: Assembled) -> Assembled {
+    let xdr::TransactionExt::V1(xdr::SorobanTransactionData {
+        resources: xdr::SorobanResources { instructions, .. },
+        ..
+    }) = txn.transaction().ext
+    else {
+        return txn;
+    };
+    // Start with 150%
+    let instructions = (instructions.checked_mul(150 / 100)).unwrap_or(instructions);
+    txn.set_max_instructions(instructions)
 }
 
 impl Default for Args {

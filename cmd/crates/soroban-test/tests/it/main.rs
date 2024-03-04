@@ -1,7 +1,7 @@
 mod arg_parsing;
 mod config;
 mod help;
-#[cfg(feature = "integration")]
+#[cfg(feature = "it")]
 mod integration;
 mod plugin;
 mod util;

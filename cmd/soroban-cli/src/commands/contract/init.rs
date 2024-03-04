@@ -14,15 +14,12 @@ use clap::{
 };
 use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
-use serde::Deserialize;
 use serde_json::{from_str, json, Error as JsonError, Value as JsonValue};
 use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
 use ureq::{get, Error as UreqError};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 const GITHUB_URL: &str = "https://github.com";
-const GITHUB_API_URL: &str =
-    "https://api.github.com/repos/stellar/soroban-examples/git/trees/main?recursive=1";
 
 #[derive(Clone, Debug, ValueEnum, PartialEq)]
 pub enum FrontendTemplate {
@@ -48,14 +45,36 @@ pub struct Cmd {
 }
 
 fn possible_example_values() -> ValueParser {
-    // If fetching the example contracts from the soroban-examples repo succeeds, return a parser with the example contracts.
-    if let Ok(examples) = get_valid_examples() {
-        let parser = PossibleValuesParser::new(examples.iter().map(PossibleValue::new));
-        return parser.into();
-    }
-
-    // If fetching with example contracts fails, return a string parser that will allow for any value. It will be ignored in `init`.
-    ValueParser::string()
+    let parser = PossibleValuesParser::new(
+        [
+            "account",
+            "alloc",
+            "atomic_multiswap",
+            "atomic_swap",
+            "auth",
+            "cross_contract",
+            "custom_types",
+            "deep_contract_auth",
+            "deployer",
+            "errors",
+            "eth_abi",
+            "events",
+            "fuzzing",
+            "increment",
+            "liquidity_pool",
+            "logging",
+            "mint-lock",
+            "simple_account",
+            "single_offer",
+            "timelock",
+            "token",
+            "upgradeable_contract",
+            "workspace",
+        ]
+        .iter()
+        .map(PossibleValue::new),
+    );
+    parser.into()
 }
 
 fn with_example_help() -> String {
@@ -64,42 +83,6 @@ fn with_example_help() -> String {
     } else {
         "⚠️  Failed to fetch additional example contracts from soroban-examples repo. You can continue with initializing - the default hello_world contract will still be included".to_owned()
     }
-}
-
-#[derive(Deserialize, Debug)]
-struct RepoPath {
-    path: String,
-    #[serde(rename = "type")]
-    type_field: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct ReqBody {
-    tree: Vec<RepoPath>,
-}
-
-fn get_valid_examples() -> Result<Vec<String>, Error> {
-    let body: ReqBody = get(GITHUB_API_URL)
-        .call()
-        .map_err(|e| {
-            eprintln!("Error fetching example contracts from soroban-examples repo");
-            Box::new(e)
-        })?
-        .into_json()?;
-    let mut valid_examples = Vec::new();
-    for item in body.tree {
-        if item.type_field == "blob"
-            || item.path.starts_with('.')
-            || item.path.contains('/')
-            || item.path == "hello_world"
-        {
-            continue;
-        }
-
-        valid_examples.push(item.path);
-    }
-
-    Ok(valid_examples)
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -149,7 +132,7 @@ struct TemplateFiles;
 
 fn init(
     project_path: &Path,
-    frontend_template: &String,
+    frontend_template: &str,
     with_examples: &[String],
 ) -> Result<(), Error> {
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
@@ -453,7 +436,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
-        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
+        init(project_dir.as_path(), "", &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -472,7 +455,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = ["alloc".to_owned()];
-        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
+        init(project_dir.as_path(), "", &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -495,7 +478,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
-        init(project_dir.as_path(), &String::new(), &with_examples).unwrap();
+        init(project_dir.as_path(), "", &with_examples).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -519,7 +502,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
-        assert!(init(project_dir.as_path(), &String::new(), &with_examples,).is_err());
+        assert!(init(project_dir.as_path(), "", &with_examples,).is_err());
 
         temp_dir.close().unwrap();
     }
@@ -531,7 +514,7 @@ mod tests {
         let with_examples = vec![];
         init(
             project_dir.as_path(),
-            &"https://github.com/AhaLabs/soroban-astro-template".to_string(),
+            "https://github.com/AhaLabs/soroban-astro-template",
             &with_examples,
         )
         .unwrap();

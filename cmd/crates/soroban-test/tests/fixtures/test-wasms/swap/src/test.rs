@@ -32,10 +32,10 @@ fn test_atomic_swap() {
 
     let token_admin = Address::generate(&env);
 
-    let (token_a, token_a_admin) = create_token_contract(&env, &token_admin);
-    let (token_b, token_b_admin) = create_token_contract(&env, &token_admin);
-    token_a_admin.mint(&a, &1000);
-    token_b_admin.mint(&b, &5000);
+    let (token_a, a_admin) = create_token_contract(&env, &token_admin);
+    let (token_b, b_admin) = create_token_contract(&env, &token_admin);
+    a_admin.mint(&a, &1000);
+    b_admin.mint(&b, &5000);
 
     let contract = create_atomic_swap_contract(&env);
 

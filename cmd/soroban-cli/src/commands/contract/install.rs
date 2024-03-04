@@ -4,12 +4,13 @@ use std::num::ParseIntError;
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount, Operation,
-    OperationBody, Preconditions, ScMetaEntry, ScMetaV0, SequenceNumber, Transaction,
+    self, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount,
+    Operation, OperationBody, Preconditions, ScMetaEntry, ScMetaV0, SequenceNumber, Transaction,
     TransactionExt, TransactionResult, TransactionResultResult, Uint256, VecM,
 };
 
 use super::restore;
+use crate::commands::{global, NetworkRunnable};
 use crate::key;
 use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
@@ -65,17 +66,24 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = hex::encode(self.run_and_get_hash().await?);
+        let res_str = hex::encode(self.run_against_rpc_server(None, None).await?);
         println!("{res_str}");
         Ok(())
     }
+}
 
-    pub async fn run_and_get_hash(&self) -> Result<Hash, Error> {
-        self.run_against_rpc_server(&self.wasm.read()?).await
-    }
-
-    async fn run_against_rpc_server(&self, contract: &[u8]) -> Result<Hash, Error> {
-        let network = self.config.get_network()?;
+#[async_trait::async_trait]
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = Hash;
+    async fn run_against_rpc_server(
+        &self,
+        args: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<Hash, Error> {
+        let config = config.unwrap_or(&self.config);
+        let contract = self.wasm.read()?;
+        let network = config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
@@ -100,7 +108,7 @@ impl Cmd {
                 tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
             }
         }
-        let key = self.config.key_pair()?;
+        let key = config.key_pair()?;
 
         // Get the account sequence number
         let public_strkey =
@@ -109,7 +117,14 @@ impl Cmd {
         let sequence: i64 = account_details.seq_num.into();
 
         let (tx_without_preflight, hash) =
-            build_install_contract_code_tx(contract, sequence + 1, self.fee.fee, &key)?;
+            build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &key)?;
+
+        let code_key =
+            xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
+        let contract_data = client.get_ledger_entries(&[code_key]).await?;
+        if !contract_data.entries.unwrap_or_default().is_empty() {
+            return Ok(hash);
+        }
 
         let txn = client
             .create_assembled_transaction(&tx_without_preflight)
@@ -136,12 +151,12 @@ impl Cmd {
                     wasm_hash: None,
                     durability: super::Durability::Persistent,
                 },
-                config: self.config.clone(),
+                config: config.clone(),
                 fee: self.fee.clone(),
                 ledgers_to_extend: None,
                 ttl_ledger_only: true,
             }
-            .run_against_rpc_server()
+            .run_against_rpc_server(args, None)
             .await?;
         }
 

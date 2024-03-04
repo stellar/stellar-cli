@@ -1,67 +1,68 @@
 use soroban_test::TestEnv;
 
-use super::util::{deploy_hello, TEST_CONTRACT_ID};
+use super::util::deploy_hello;
 
 fn write_env_file(e: &TestEnv, contents: &str) {
     let env_file = e.dir().join(".env");
-    std::fs::write(&env_file, contents).unwrap();
+    let contents = format!("SOROBAN_CONTRACT_ID={contents}");
+    std::fs::write(&env_file, &contents).unwrap();
     assert_eq!(contents, std::fs::read_to_string(env_file).unwrap());
 }
 
-fn contract_id() -> String {
-    format!("SOROBAN_CONTRACT_ID={TEST_CONTRACT_ID}")
+#[tokio::test]
+async fn can_read_file() {
+    let e = &TestEnv::new();
+    std::thread::sleep(core::time::Duration::from_millis(1000));
+    let id = deploy_hello(e).await;
+    println!("{id}");
+    write_env_file(e, &id);
+    e.new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--")
+        .arg("hello")
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
 }
 
-#[test]
-fn can_read_file() {
-    TestEnv::with_default(|e| {
-        deploy_hello(e);
-        write_env_file(e, &contract_id());
-        e.new_assert_cmd("contract")
-            .arg("invoke")
-            .arg("--")
-            .arg("hello")
-            .arg("--world=world")
-            .assert()
-            .stdout("[\"Hello\",\"world\"]\n")
-            .success();
-    });
+#[tokio::test]
+async fn current_env_not_overwritten() {
+    let e = TestEnv::new();
+    std::thread::sleep(core::time::Duration::from_millis(3000));
+    write_env_file(&e, &deploy_hello(&e).await);
+    e.new_assert_cmd("contract")
+        .env(
+            "SOROBAN_CONTRACT_ID",
+            "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        )
+        .arg("invoke")
+        .arg("--")
+        .arg("hello")
+        .arg("--world=world")
+        .assert()
+        .stderr(
+            "error: Contract not found: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4\n",
+        );
 }
 
-#[test]
-fn current_env_not_overwritten() {
-    TestEnv::with_default(|e| {
-        deploy_hello(e);
-        write_env_file(e, &contract_id());
-
-        e.new_assert_cmd("contract")
-            .env("SOROBAN_CONTRACT_ID", "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4")
-            .arg("invoke")
-            .arg("--")
-            .arg("hello")
-            .arg("--world=world")
-            .assert()
-            .stderr("error: Contract not found: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4\n");
-    });
-}
-
-#[test]
-fn cli_args_have_priority() {
-    TestEnv::with_default(|e| {
-        deploy_hello(e);
-        write_env_file(e, &contract_id());
-        e.new_assert_cmd("contract")
-            .env(
-                "SOROBAN_CONTRACT_ID",
-                "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
-            )
-            .arg("invoke")
-            .arg("--id")
-            .arg(TEST_CONTRACT_ID)
-            .arg("--")
-            .arg("hello")
-            .arg("--world=world")
-            .assert()
-            .stdout("[\"Hello\",\"world\"]\n");
-    });
+#[tokio::test]
+async fn cli_args_have_priority() {
+    let e = &TestEnv::new();
+    std::thread::sleep(core::time::Duration::from_millis(2000));
+    let id = deploy_hello(e).await;
+    write_env_file(e, &id);
+    e.new_assert_cmd("contract")
+        .env(
+            "SOROBAN_CONTRACT_ID",
+            "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        )
+        .arg("invoke")
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("hello")
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n");
 }

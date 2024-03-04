@@ -1,5 +1,5 @@
 use assert_fs::TempDir;
-use soroban_test::TestEnv;
+use soroban_test::{AssertExt, TestEnv};
 use std::{fs, path::Path};
 
 use crate::util::{add_key, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
@@ -7,30 +7,35 @@ use soroban_cli::commands::network;
 
 const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
 
+fn ls(sandbox: &TestEnv) -> Vec<String> {
+    sandbox
+        .new_assert_cmd("network")
+        .arg("ls")
+        .assert()
+        .stdout_as_str()
+        .split('\n')
+        .filter(|s| !s.is_empty())
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+}
+
 #[test]
 fn set_and_remove_network() {
     TestEnv::with_default(|sandbox| {
         add_network(sandbox, "local");
         let dir = sandbox.dir().join(".soroban").join("network");
-        let read_dir = std::fs::read_dir(dir);
-        println!("{read_dir:#?}");
-        let file = read_dir.unwrap().next().unwrap().unwrap();
+        let mut read_dir = std::fs::read_dir(dir).unwrap();
+        let file = read_dir.next().unwrap().unwrap();
         assert_eq!(file.file_name().to_str().unwrap(), "local.toml");
+        let res = ls(sandbox);
+        assert_eq!(res[0], "local");
+        sandbox
+            .new_assert_cmd("network")
+            .arg("rm")
+            .arg("local")
+            .assert()
+            .success();
 
-        let res = sandbox.cmd::<network::ls::Cmd>("");
-        let res = res.ls().unwrap();
-        assert_eq!(res.len(), 1);
-        assert_eq!(&res[0], "local");
-
-        sandbox.cmd::<network::rm::Cmd>("local").run().unwrap();
-
-        // sandbox
-        //     .new_assert_cmd("config")
-        //     .arg("network")
-        //     .arg("rm")
-        //     .arg("local")
-        //     .assert()
-        //     .stdout("");
         sandbox
             .new_assert_cmd("network")
             .arg("ls")
@@ -105,7 +110,7 @@ fn set_and_remove_global_network() {
 #[test]
 fn multiple_networks() {
     let sandbox = TestEnv::default();
-    let ls = || -> Vec<String> { sandbox.cmd::<network::ls::Cmd>("").ls().unwrap() };
+    let ls = || -> Vec<String> { ls(&sandbox) };
 
     add_network(&sandbox, "local");
     println!("{:#?}", ls());
@@ -156,7 +161,6 @@ fn generate_key() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
-        .arg("--network=futurenet")
         .arg("--no-fund")
         .arg("--seed")
         .arg("0000000000000000")

@@ -14,6 +14,7 @@ impl AtomicSwapContract {
     // Swap token A for token B atomically. Settle for the minimum requested price
     // for each party (this is an arbitrary choice; both parties could have
     // received the full amount as well).
+    #[allow(clippy::too_many_arguments)]
     pub fn swap(
         env: Env,
         a: Address,
@@ -26,12 +27,8 @@ impl AtomicSwapContract {
         min_a_for_b: i128,
     ) {
         // Verify preconditions on the minimum price for both parties.
-        if amount_b < min_b_for_a {
-            panic!("not enough token B for token A");
-        }
-        if amount_a < min_a_for_b {
-            panic!("not enough token A for token B");
-        }
+        assert!(amount_b >= min_b_for_a, "not enough token B for token A");
+        assert!(amount_a >= min_a_for_b, "not enough token A for token B");
         // Require authorization for a subset of arguments specific to a party.
         // Notice, that arguments are symmetric - there is no difference between
         // `a` and `b` in the call and hence their signatures can be used
@@ -70,7 +67,7 @@ fn move_token(
     token.transfer(
         &contract_address,
         from,
-        &(&max_spend_amount - &transfer_amount),
+        &(max_spend_amount - transfer_amount),
     );
 }
 
