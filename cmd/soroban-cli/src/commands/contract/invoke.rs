@@ -45,6 +45,8 @@ pub struct Cmd {
     /// View the result simulating and do not sign and submit transaction
     #[arg(long, env = "SOROBAN_INVOKE_VIEW")]
     pub is_view: bool,
+    #[arg(long, env = "SYSTEM_TEST_VERBOSE_OUTPUT", hide = true)]
+    pub is_view_deprecated: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
@@ -148,6 +150,10 @@ impl From<Infallible> for Error {
 }
 
 impl Cmd {
+    fn is_view(&self) -> bool {
+        self.is_view || self.is_view_deprecated
+    }
+
     fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
@@ -328,7 +334,7 @@ impl NetworkRunnable for Cmd {
         )?;
         let txn = client.create_assembled_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
-        let (return_value, events) = if self.is_view {
+        let (return_value, events) = if self.is_view() {
             (
                 txn.sim_response().results()?[0].xdr.clone(),
                 txn.sim_response().events()?,
