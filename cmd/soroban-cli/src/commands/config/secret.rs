@@ -11,7 +11,7 @@ pub enum Error {
     InvalidSecretKey,
     // #[error("seed_phrase must be 12 words long, found {len}")]
     // InvalidSeedPhrase { len: usize },
-    #[error("seceret input error")]
+    #[error("secret input error")]
     PasswordRead,
     #[error(transparent)]
     Secret(#[from] stellar_strkey::DecodeError),
