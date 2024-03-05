@@ -42,7 +42,7 @@ pub struct Cmd {
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// Do not sign and submit transaction
+    /// View the result simulating and do not sign and submit transaction
     #[arg(long, env = "SOROBAN_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
