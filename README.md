@@ -5,7 +5,13 @@ This repo is home to the [Soroban CLI](https://github.com/stellar/soroban-tools/
 
 ## Install the CLI
 Install [the latest soroban-cli version](/releases).
-`cargo install --locked --version 20.3.1 soroban-cli`
+`cargo install --locked soroban-cli`
+
+You can also install with `cargo-binstall`.
+```
+cargo install cargo-binstall
+cargo binstall -y soroban-cli
+```
 
 ## Setup Autocomplete
 `soroban completion --shell <SHELL>`
