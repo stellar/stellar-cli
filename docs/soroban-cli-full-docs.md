@@ -953,7 +953,7 @@ soroban contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — Do not sign and submit transaction
+* `--is-view` — View the result simulating and do not sign and submit transaction
 
   Possible values: `true`, `false`
 
