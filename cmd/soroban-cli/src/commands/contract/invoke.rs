@@ -258,7 +258,7 @@ impl Cmd {
     }
 
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = selVjf.invoke(global_args).await?;
+        let res = self.invoke(global_args).await?;
         println!("{res}");
         Ok(())
     }
