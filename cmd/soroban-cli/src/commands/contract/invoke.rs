@@ -150,7 +150,9 @@ impl From<Infallible> for Error {
 impl Cmd {
     fn is_view(&self) -> bool {
         self.is_view ||
-            // TODO: Remove at next major release. Was added 
+            // TODO: Remove at next major release. Was added to retain backwards
+            // compatibility when this env var used to be used for the --is-view
+            // option.
             std::env::var("SYSTEM_TEST_VERBOSE_OUTPUT").as_deref() == Ok("true")
     }
 
@@ -256,7 +258,7 @@ impl Cmd {
     }
 
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.invoke(global_args).await?;
+        let res = selVjf.invoke(global_args).await?;
         println!("{res}");
         Ok(())
     }
