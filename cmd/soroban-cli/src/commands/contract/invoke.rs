@@ -43,7 +43,7 @@ pub struct Cmd {
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
     /// Do not sign and submit transaction
-    #[arg(long, env = "SOROBAN_INVOKE_SIGN", env = "SYSTEM_TEST_VERBOSE_OUTPUT")]
+    #[arg(long, env = "SOROBAN_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
