@@ -32,11 +32,11 @@ pub enum Error {
     NetworkFileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
-    #[error("Seceret file failed to deserialize")]
+    #[error("Secret file failed to deserialize")]
     Deserialization,
     #[error("Failed to write identity file:{filepath}: {error}")]
     IdCreationFailed { filepath: PathBuf, error: io::Error },
-    #[error("Seceret file failed to deserialize")]
+    #[error("Secret file failed to deserialize")]
     NetworkDeserialization,
     #[error("Failed to write network file: {0}")]
     NetworkCreationFailed(std::io::Error),
