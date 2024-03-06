@@ -47,7 +47,7 @@ For latest releases, see [releases](https://github.com/stellar/soroban-cli/relea
 For upcoming features, please see the [project board](https://github.com/orgs/stellar/projects/50).
 
 ## To Contribute
-Please fork this see `good first issues` on [here](https://github.com/stellar/soroban-cli/contribute) and review [contributing.md](/contributing.md).
+Find issues to contribute to [here](https://github.com/stellar/soroban-cli/contribute) and review [CONTRIBUTING.md](/CONTRIBUTING.md).
 
 Developer Docs: https://developers.stellar.org/docs
 
