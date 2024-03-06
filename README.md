@@ -21,6 +21,9 @@ Install with Homebrew:
 brew install stellar/tap/soroban-cli
 ```
 
+## Manual
+For the full command-line manual, see [docs](/docs/soroban-cli-full-docs.md).
+
 ## Setup Autocomplete
 ```
 soroban completion --shell <SHELL>
@@ -36,9 +39,6 @@ To enable autocomplete permanently, run:
 ```
 echo "source <(soroban completion --shell bash)" >> ~/.bashrc
 ```
-
-## Full Docs
-For full docs, see [docs](/docs/soroban-cli-full-docs.md).
 
 ## Latest Release
 For latest releases, see [releases](https://github.com/stellar/soroban-cli/releases).
