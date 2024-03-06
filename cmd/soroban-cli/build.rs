@@ -25,8 +25,20 @@ struct ReqBody {
     tree: Vec<RepoPath>,
 }
 
-fn get_example_contracts() -> Result<Vec<String>, ureq::Error> {
-    let body: ReqBody = ureq::get(GITHUB_API_URL).call()?.into_json()?;
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Failed to complete get request")]
+    UreqError(#[from] Box<ureq::Error>),
+
+    #[error("Io error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+fn get_example_contracts() -> Result<Vec<String>, Error> {
+    let body: ReqBody = ureq::get(GITHUB_API_URL)
+        .call()
+        .map_err(Box::new)?
+        .into_json()?;
     let mut valid_examples = Vec::new();
     for item in body.tree {
         if item.type_field == "blob"

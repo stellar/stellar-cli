@@ -16,10 +16,12 @@ use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
 use serde_json::{from_str, json, Error as JsonError, Value as JsonValue};
 use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
-use ureq::{get, Error as UreqError};
+use ureq::get;
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 const GITHUB_URL: &str = "https://github.com";
+const WITH_EXAMPLE_LONG_HELP_TEXT: &str =
+    "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.";
 
 #[derive(Clone, Debug, ValueEnum, PartialEq)]
 pub enum FrontendTemplate {
@@ -32,7 +34,7 @@ pub enum FrontendTemplate {
 pub struct Cmd {
     pub project_path: String,
 
-    #[arg(short, long, num_args = 1.., value_parser=possible_example_values(), long_help=with_example_help())]
+    #[arg(short, long, num_args = 1.., value_parser=possible_example_values(), long_help=WITH_EXAMPLE_LONG_HELP_TEXT)]
     pub with_example: Vec<String>,
 
     #[arg(
@@ -48,14 +50,6 @@ fn possible_example_values() -> ValueParser {
     let example_contracts = env!("EXAMPLE_CONTRACTS").split(',').collect::<Vec<&str>>();
     let parser = PossibleValuesParser::new(example_contracts.iter().map(PossibleValue::new));
     parser.into()
-}
-
-fn with_example_help() -> String {
-    if check_internet_connection() {
-        "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.".to_owned()
-    } else {
-        "⚠️  Failed to fetch additional example contracts from soroban-examples repo. You can continue with initializing - the default hello_world contract will still be included".to_owned()
-    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -76,9 +70,6 @@ pub enum Error {
 
     #[error("Failed to parse toml file: {0}")]
     TomlParseError(#[from] TomlError),
-
-    #[error("Failed to complete get request")]
-    UreqError(#[from] Box<UreqError>),
 
     #[error("Failed to parse package.json file: {0}")]
     JsonParseError(#[from] JsonError),
