@@ -5,7 +5,7 @@ fn main() {
 
 mod build_helper {
     use std::{
-        fs::{metadata, File},
+        fs::{metadata, File, Metadata},
         io::{self, Write},
         path::{Path, PathBuf},
     };
@@ -41,7 +41,7 @@ mod build_helper {
     }
 
     fn get_example_contracts() -> Result<String, Error> {
-        if file_exists(&cached_example_contracts_file_path().unwrap()) {
+        if file_exists(&cached_example_contracts_file_path()) {
             let example_contracts = std::fs::read_to_string(cached_example_contracts_file_path())?;
             return Ok(example_contracts);
         }
@@ -116,10 +116,9 @@ mod build_helper {
     }
 
     fn file_exists(file_path: &Path) -> bool {
-        if let Ok(metadata) = metadata(file_path) {
-            metadata.is_file()
-        } else {
-            false
-        }
+        metadata(file_path)
+            .as_ref()
+            .map(Metadata::is_file)
+            .unwrap_or(false)
     }
 }
