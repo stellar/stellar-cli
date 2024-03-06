@@ -1,4 +1,5 @@
 use std::{
+    env,
     ffi::OsStr,
     fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write},
     io,
@@ -14,7 +15,7 @@ use clap::{
 };
 use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
-use serde_json::{from_str, json, Error as JsonError, Value as JsonValue};
+use serde_json::{from_str, json, to_string_pretty, Error as JsonError, Value as JsonValue};
 use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
 use ureq::get;
 
@@ -353,12 +354,22 @@ fn copy_frontend_files(from: &Path, to: &Path) -> Result<(), Error> {
 }
 
 fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
-    let package_name = project_path.file_name().unwrap();
-    edit_package_name(project_path, package_name, "package.json").map_err(|e| {
+    let package_name = if let Some(name) = project_path.file_name() {
+        name.to_owned()
+    } else {
+        let current_dir = env::current_dir()?;
+        let file_name = current_dir
+            .file_name()
+            .unwrap_or(OsStr::new("soroban-astro-template"))
+            .to_os_string();
+        file_name
+    };
+
+    edit_package_name(project_path, &package_name, "package.json").map_err(|e| {
         eprintln!("Error editing package.json file in: {project_path:?}");
         e
     })?;
-    edit_package_name(project_path, package_name, "package-lock.json")
+    edit_package_name(project_path, &package_name, "package-lock.json")
 }
 
 fn edit_package_name(
@@ -376,7 +387,9 @@ fn edit_package_name(
 
     doc["name"] = json!(package_name.to_string_lossy());
 
-    write(&file_path, doc.to_string())?;
+    let formatted_json = to_string_pretty(&doc)?;
+
+    write(&file_path, formatted_json)?;
 
     Ok(())
 }
@@ -495,7 +508,37 @@ mod tests {
 
         assert_astro_files_exist(&project_dir);
         assert_gitignore_includes_astro_paths(&project_dir);
-        assert_package_json_files_have_correct_name(&project_dir);
+        assert_package_json_files_have_correct_name(&project_dir, TEST_PROJECT_NAME);
+
+        temp_dir.close().unwrap();
+    }
+
+    #[test]
+    fn test_init_from_within_an_existing_project() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("./");
+        let with_examples = vec![];
+        init(
+            project_dir.as_path(),
+            "https://github.com/AhaLabs/soroban-astro-template",
+            &with_examples,
+        )
+        .unwrap();
+
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        // check that the contract's Cargo.toml file uses the workspace for dependencies
+        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        assert_astro_files_exist(&project_dir);
+        assert_gitignore_includes_astro_paths(&project_dir);
+        assert_package_json_files_have_correct_name(
+            &project_dir,
+            &project_dir.file_name().unwrap().to_string_lossy(),
+        );
 
         temp_dir.close().unwrap();
     }
@@ -561,13 +604,16 @@ mod tests {
         assert!(project_dir.join("tsconfig.json").exists());
     }
 
-    fn assert_package_json_files_have_correct_name(project_dir: &Path) {
+    fn assert_package_json_files_have_correct_name(
+        project_dir: &Path,
+        expected_package_name: &str,
+    ) {
         let package_json_path = project_dir.join("package.json");
         let package_json_str = read_to_string(package_json_path).unwrap();
-        assert!(package_json_str.contains(&format!("\"name\":\"{TEST_PROJECT_NAME}\"")));
+        assert!(package_json_str.contains(&format!("\"name\": \"{expected_package_name}\"")));
 
         let package_lock_json_path = project_dir.join("package-lock.json");
         let package_lock_json_str = read_to_string(package_lock_json_path).unwrap();
-        assert!(package_lock_json_str.contains(&format!("\"name\":\"{TEST_PROJECT_NAME}\"")));
+        assert!(package_lock_json_str.contains(&format!("\"name\": \"{expected_package_name}\"")));
     }
 }
