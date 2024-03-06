@@ -2,6 +2,9 @@
 
 This repo is home to the Soroban CLI, the command-line multi-tool for running and deploying Soroban contracts on the Stellar network.
 
+## Documentation
+
+For installation options see below, for usage instructions [see the manual](/docs/soroban-cli-full-docs.md).
 
 ## Install
 Install the latest version from source:
@@ -20,9 +23,6 @@ Install with Homebrew:
 ```
 brew install stellar/tap/soroban-cli
 ```
-
-## Manual
-For the full command-line manual, see [docs](/docs/soroban-cli-full-docs.md).
 
 ## Setup Autocomplete
 ```
