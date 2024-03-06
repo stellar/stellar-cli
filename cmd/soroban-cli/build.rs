@@ -41,7 +41,7 @@ mod build_helper {
     }
 
     fn get_example_contracts() -> Result<String, Error> {
-        if file_exists(cached_example_contracts_file_path().to_str().unwrap()) {
+        if file_exists(&cached_example_contracts_file_path().unwrap()) {
             let example_contracts = std::fs::read_to_string(cached_example_contracts_file_path())?;
             return Ok(example_contracts);
         }
@@ -115,7 +115,7 @@ mod build_helper {
         Ok(())
     }
 
-    fn file_exists(file_path: &str) -> bool {
+    fn file_exists(file_path: &Path) -> bool {
         if let Ok(metadata) = metadata(file_path) {
             metadata.is_file()
         } else {
