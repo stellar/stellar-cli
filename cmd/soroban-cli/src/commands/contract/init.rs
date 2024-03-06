@@ -1,7 +1,7 @@
 use std::{
     env,
     ffi::OsStr,
-    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write},
+    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write, Metadata},
     io,
     num::NonZeroU32,
     path::Path,
@@ -148,7 +148,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
     for item in TemplateFiles::iter() {
         let mut to = project_path.join(item.as_ref());
 
-        if file_exists(&to.to_string_lossy()) {
+        if file_exists(&to) {
             println!(
                 "ℹ️  Skipped creating {} as it already exists",
                 &to.to_string_lossy()
@@ -214,7 +214,7 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             })?;
             copy_contents(&path, &new_path)?;
         } else {
-            if file_exists(&new_path.to_string_lossy()) {
+            if file_exists(&new_path) {
                 //if file is .gitignore, overwrite the file with a new .gitignore file
                 if path.to_string_lossy().contains(".gitignore") {
                     copy(&path, &new_path).map_err(|e| {
@@ -251,12 +251,11 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn file_exists(file_path: &str) -> bool {
-    if let Ok(metadata) = metadata(file_path) {
-        metadata.is_file()
-    } else {
-        false
-    }
+fn file_exists(file_path: &Path) -> bool {
+    metadata(file_path)
+        .as_ref()
+        .map(Metadata::is_file)
+        .unwrap_or(false)
 }
 
 fn include_example_contracts(contracts: &[String]) -> bool {
