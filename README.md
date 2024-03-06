@@ -15,7 +15,7 @@ cargo install --locked cargo-binstall
 cargo binstall -y soroban-cli
 ```
 
-Install with [Homebrew]:
+Install with Homebrew:
 
 ```
 brew install stellar/tap/soroban-cli
@@ -50,8 +50,6 @@ For upcoming features, please see the [project board](https://github.com/orgs/st
 Find issues to contribute to [here](https://github.com/stellar/soroban-cli/contribute) and review [CONTRIBUTING.md](/CONTRIBUTING.md).
 
 Developer Docs: https://developers.stellar.org/docs
-
-[Homebrew]: https://brew.sh
 
 
 
