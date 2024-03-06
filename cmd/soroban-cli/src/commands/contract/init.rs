@@ -45,35 +45,8 @@ pub struct Cmd {
 }
 
 fn possible_example_values() -> ValueParser {
-    let parser = PossibleValuesParser::new(
-        [
-            "account",
-            "alloc",
-            "atomic_multiswap",
-            "atomic_swap",
-            "auth",
-            "cross_contract",
-            "custom_types",
-            "deep_contract_auth",
-            "deployer",
-            "errors",
-            "eth_abi",
-            "events",
-            "fuzzing",
-            "increment",
-            "liquidity_pool",
-            "logging",
-            "mint-lock",
-            "simple_account",
-            "single_offer",
-            "timelock",
-            "token",
-            "upgradeable_contract",
-            "workspace",
-        ]
-        .iter()
-        .map(PossibleValue::new),
-    );
+    let example_contracts = env!("EXAMPLE_CONTRACTS").split(',').collect::<Vec<&str>>();
+    let parser = PossibleValuesParser::new(example_contracts.iter().map(PossibleValue::new));
     parser.into()
 }
 

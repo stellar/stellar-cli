@@ -115,6 +115,9 @@ openssl = { version = "=0.10.55", features = ["vendored"] }
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
+serde.workspace = true
+ureq = { version = "2.9.1", features = ["json"] }
+
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
