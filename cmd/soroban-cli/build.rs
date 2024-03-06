@@ -16,7 +16,7 @@ mod build_helper {
     pub fn set_example_contracts() {
         let example_contracts = get_example_contracts().unwrap();
         let w = &mut std::io::stdout();
-        set_example_contracts_env_var(w, example_contracts).unwrap();
+        set_example_contracts_env_var(w, &example_contracts).unwrap();
     }
 
     #[derive(serde::Deserialize, Debug)]
@@ -46,18 +46,18 @@ mod build_helper {
             return Ok(example_contracts);
         }
 
-        fetch_and_cache_example_contracts()
+        Ok(fetch_and_cache_example_contracts())
     }
 
-    fn fetch_and_cache_example_contracts() -> Result<String, Error> {
+    fn fetch_and_cache_example_contracts() -> String {
         let example_contracts = fetch_example_contracts().unwrap().join(",");
         let cached_example_contracts = target_dir().join("example_contracts.txt");
 
         if let Err(err) = write_cache(&cached_example_contracts, &example_contracts) {
-            eprintln!("Error writing cache: {}", err);
+            eprintln!("Error writing cache: {err}");
         }
 
-        Ok(example_contracts)
+        example_contracts
     }
 
     fn fetch_example_contracts() -> Result<Vec<String>, Error> {
@@ -83,7 +83,7 @@ mod build_helper {
 
     fn set_example_contracts_env_var(
         w: &mut impl std::io::Write,
-        example_contracts: String,
+        example_contracts: &str,
     ) -> std::io::Result<()> {
         writeln!(w, "cargo:rustc-env=EXAMPLE_CONTRACTS={example_contracts}")?;
         Ok(())
