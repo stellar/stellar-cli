@@ -4,14 +4,19 @@ fn main() {
 }
 
 mod build_helper {
+    use std::{
+        fs::{metadata, File},
+        io::{self, Write},
+        path::{Path, PathBuf},
+    };
+
     const GITHUB_API_URL: &str =
         "https://api.github.com/repos/stellar/soroban-examples/git/trees/main?recursive=1";
 
     pub fn set_example_contracts() {
-        let example_contracts = get_example_contracts().unwrap().join(",");
-
+        let example_contracts = get_example_contracts().unwrap();
         let w = &mut std::io::stdout();
-        __set_example_contracts_env_var(w, example_contracts).unwrap();
+        set_example_contracts_env_var(w, example_contracts).unwrap();
     }
 
     #[derive(serde::Deserialize, Debug)]
@@ -35,7 +40,27 @@ mod build_helper {
         IoError(#[from] std::io::Error),
     }
 
-    fn get_example_contracts() -> Result<Vec<String>, Error> {
+    fn get_example_contracts() -> Result<String, Error> {
+        if file_exists(cached_example_contracts_file_path().to_str().unwrap()) {
+            let example_contracts = std::fs::read_to_string(cached_example_contracts_file_path())?;
+            return Ok(example_contracts);
+        }
+
+        fetch_and_cache_example_contracts()
+    }
+
+    fn fetch_and_cache_example_contracts() -> Result<String, Error> {
+        let example_contracts = fetch_example_contracts().unwrap().join(",");
+        let cached_example_contracts = target_dir().join("example_contracts.txt");
+
+        if let Err(err) = write_cache(&cached_example_contracts, &example_contracts) {
+            eprintln!("Error writing cache: {}", err);
+        }
+
+        Ok(example_contracts)
+    }
+
+    fn fetch_example_contracts() -> Result<Vec<String>, Error> {
         let body: ReqBody = ureq::get(GITHUB_API_URL)
             .call()
             .map_err(Box::new)?
@@ -56,11 +81,45 @@ mod build_helper {
         Ok(valid_examples)
     }
 
-    fn __set_example_contracts_env_var(
+    fn set_example_contracts_env_var(
         w: &mut impl std::io::Write,
         example_contracts: String,
     ) -> std::io::Result<()> {
         writeln!(w, "cargo:rustc-env=EXAMPLE_CONTRACTS={example_contracts}")?;
         Ok(())
+    }
+
+    fn cached_example_contracts_file_path() -> PathBuf {
+        target_dir().join("example_contracts.txt")
+    }
+
+    fn target_dir() -> PathBuf {
+        project_root().join("target")
+    }
+
+    fn project_root() -> PathBuf {
+        Path::new(&env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(2)
+            .unwrap()
+            .to_path_buf()
+    }
+
+    fn write_cache(cache_file_path: &Path, data: &str) -> io::Result<()> {
+        // Create or open the cache file
+        let mut file = File::create(cache_file_path)?;
+
+        // Write the data to the cache file
+        file.write_all(data.as_bytes())?;
+
+        Ok(())
+    }
+
+    fn file_exists(file_path: &str) -> bool {
+        if let Ok(metadata) = metadata(file_path) {
+            metadata.is_file()
+        } else {
+            false
+        }
     }
 }
