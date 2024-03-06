@@ -39,29 +39,38 @@ Of course, feel free to create a new issue if you think something needs to be ad
 ## Making Changes
 
 * Fork the soroban-cli repo to your own Github account
+
 * List the current configured remote repository for your fork. Your git remote
-    should initially look like this. 
-```
-$ git remote -v
-> origin  https://github.com/YOUR_USERNAME/soroban-cli.git (fetch)
-> origin  https://github.com/YOUR_USERNAME/soroban-cli.git (push)`
-```
+should initially look like this. 
+   ```
+   $ git remote -v
+   > origin  https://github.com/YOUR_USERNAME/soroban-cli.git (fetch)
+   > origin  https://github.com/YOUR_USERNAME/soroban-cli.git (push)
+   ```
+
 * Set the `stellar/soroban-cli` repo as new remote upstream repository that will
-    sync with your fork. 
-```
-git remote add upstream https://github.com/stellar/soroban-cli.git
-```
+sync with your fork. 
+  ```
+  git remote add upstream https://github.com/stellar/soroban-cli.git
+  ```
 
 * Verify the new upstream repository you've specified for your fork.
-```
-$ git remote -v
-> origin    https://github.com/YOUR_USERNAME/soroban-cli.git (fetch)
-> origin    https://github.com/YOUR_USERNAME/soroban-cli.git (push)
-> upstream  https://github.com/stellar/soroban-cli.git (fetch)
-> upstream  https://github.com/stellar/soroban-cli.git (push)
-```
+  ```
+  $ git remote -v
+  > origin    https://github.com/YOUR_USERNAME/soroban-cli.git (fetch)
+  > origin    https://github.com/YOUR_USERNAME/soroban-cli.git (push)
+  > upstream  https://github.com/stellar/soroban-cli.git (fetch)
+  > upstream  https://github.com/stellar/soroban-cli.git (push)
+  ```
+
+* Add git hooks for commits and pushes so that checks run before pushing:
+  ```
+  ./install_githooks.sh
+  ```
+
 * Create a topic branch for your changes in your local repo. When you push you should be able
-    to create PR based on upstream stellar/soroban-cli.
+to create PR based on upstream stellar/soroban-cli.
+
 * Make sure you have added the necessary tests for your changes and make sure all tests pass.
 
 
