@@ -17,8 +17,8 @@ pub mod version;
 pub const HEADING_RPC: &str = "Options (RPC)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
-Intro: https://soroban.stellar.org
-CLI Reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md";
+Intro: https://soroban.stellar.org/docs
+CLI Reference: https://github.com/stellar/soroban-cli/tree/main/docs/soroban-cli-full-docs.md";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
