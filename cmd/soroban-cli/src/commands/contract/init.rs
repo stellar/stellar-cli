@@ -1,8 +1,8 @@
 use std::{
     env,
     ffi::OsStr,
-    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write},
-    io,
+    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write, File, OpenOptions},
+    io::{self, Read, Write},
     num::NonZeroU32,
     path::Path,
     str,
@@ -251,18 +251,11 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             copy_contents(&path, &new_path)?;
         } else {
             if file_exists(&new_path.to_string_lossy()) {
-                //if file is .gitignore, overwrite the file with a new .gitignore file
-                if path.to_string_lossy().contains(".gitignore") {
-                    copy(&path, &new_path).map_err(|e| {
-                        eprintln!(
-                            "Error copying from {:?} to {:?}",
-                            path.to_string_lossy(),
-                            new_path
-                        );
-
-                        e
-                    })?;
-                    continue;
+                if new_path.to_string_lossy().contains(".gitignore") {
+                    append_contents(&path, &new_path)?;
+                }
+                if new_path.to_string_lossy().contains("README.md") {
+                    append_contents(&path, &new_path)?;
                 }
 
                 println!(
@@ -438,6 +431,41 @@ fn check_internet_connection() -> bool {
     false
 }
 
+// Appends the contents of a file to another file, separated by a delimiter
+fn append_contents(from: &Path, to: &Path) -> Result<(), Error> {
+    let mut from_file = File::open(from)?;
+    let mut from_content = String::new();
+    from_file.read_to_string(&mut from_content)?;
+
+    let mut to_file = OpenOptions::new().read(true).append(true).open(to)?;
+    let mut to_content = String::new();
+    to_file.read_to_string(&mut to_content)?;
+
+    let delimiter = get_merged_file_delimiter(to);
+    // if the to file already contains the delimiter, we don't need to append the contents again
+    if to_content.contains(&delimiter) {
+        return Ok(());
+    }
+
+    to_file.write_all(delimiter.as_bytes())?;
+    to_file.write_all(from_content.as_bytes())?;
+
+    println!("ℹ️  Merging {} contents", &to.to_string_lossy());
+    Ok(())
+}
+
+fn get_merged_file_delimiter(file_path: &Path) -> String {
+    let comment = if file_path.to_string_lossy().contains("README.md") {
+        "[//]: # \"The following is the Frontend Template's README.md\"".to_string()
+    } else if file_path.to_string_lossy().contains("gitignore") {
+        "# The following is from the Frontend Template's .gitignore".to_string()
+    } else {
+        String::new()
+    };
+
+    format!("\n\n---\n\n{comment}\n\n").to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::read_to_string;
@@ -545,6 +573,7 @@ mod tests {
         assert_astro_files_exist(&project_dir);
         assert_gitignore_includes_astro_paths(&project_dir);
         assert_package_json_files_have_correct_name(&project_dir, TEST_PROJECT_NAME);
+        assert_readme_includes_frontend_readme_appended(&project_dir);
 
         temp_dir.close().unwrap();
     }
@@ -575,6 +604,45 @@ mod tests {
             &project_dir,
             &project_dir.file_name().unwrap().to_string_lossy(),
         );
+
+        temp_dir.close().unwrap();
+    }
+
+    #[test]
+    fn test_init_does_not_duplicate_frontend_readme_contents_when_run_more_than_once() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
+        let with_examples = vec![];
+        init(
+            project_dir.as_path(),
+            "https://github.com/AhaLabs/soroban-astro-template",
+            &with_examples,
+        )
+        .unwrap();
+
+        // call init again to make sure the README.md's contents are not duplicated
+        init(
+            project_dir.as_path(),
+            "https://github.com/AhaLabs/soroban-astro-template",
+            &with_examples,
+        )
+        .unwrap();
+
+        assert_base_template_files_exist(&project_dir);
+        assert_default_hello_world_contract_files_exist(&project_dir);
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        // check that the contract's Cargo.toml file uses the workspace for dependencies
+        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_base_excluded_paths_do_not_exist(&project_dir);
+
+        assert_astro_files_exist(&project_dir);
+        assert_gitignore_includes_astro_paths(&project_dir);
+        assert_package_json_files_have_correct_name(
+            &project_dir,
+            &project_dir.file_name().unwrap().to_string_lossy(),
+        );
+        assert_readme_includes_frontend_readme_appended(&project_dir);
 
         temp_dir.close().unwrap();
     }
@@ -651,5 +719,21 @@ mod tests {
         let package_lock_json_path = project_dir.join("package-lock.json");
         let package_lock_json_str = read_to_string(package_lock_json_path).unwrap();
         assert!(package_lock_json_str.contains(&format!("\"name\": \"{expected_package_name}\"")));
+    }
+
+    fn assert_readme_includes_frontend_readme_appended(project_dir: &Path) {
+        let readme_path = project_dir.join("README.md");
+        let readme_str = read_to_string(readme_path).unwrap();
+        assert!(readme_str.contains("Soroban Frontend in Astro"));
+        let expected = "[//]: # \"The following is the Frontend Template's README.md\"";
+        assert!(readme_str.contains(expected));
+
+        let readme_path = project_dir.join("README.md");
+        let readme_str = read_to_string(readme_path).unwrap();
+        let readme_frontend_merge_delimiter =
+            "[//]: # \"The following is the Frontend Template's README.md\"";
+        let count = readme_str.matches(readme_frontend_merge_delimiter).count();
+        // making sure it is in there just once so that it isn't duplicated if `contract init` is run again
+        assert!(count == 1);
     }
 }
