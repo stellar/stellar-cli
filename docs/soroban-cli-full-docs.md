@@ -75,8 +75,8 @@ This document contains the help content for the `soroban` command-line program.
 
 Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
-Intro: https://soroban.stellar.org
-CLI Reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md
+Intro: https://soroban.stellar.org/docs
+CLI Reference: https://github.com/stellar/soroban-cli/tree/main/docs/soroban-cli-full-docs.md
 
 The easiest way to get started is to generate a new identity:
 
