@@ -3,3 +3,4 @@ captive-core/
 .soroban/
 !test.toml
 *.sqlite
+test_snapshots
