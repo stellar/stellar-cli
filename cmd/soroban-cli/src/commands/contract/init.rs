@@ -1,7 +1,10 @@
 use std::{
     env,
     ffi::OsStr,
-    fs::{copy, create_dir_all, metadata, read_dir, read_to_string, write, File, OpenOptions},
+    fs::{
+        copy, create_dir_all, metadata, read_dir, read_to_string, write, File, Metadata,
+        OpenOptions,
+    },
     io::{self, Read, Write},
     num::NonZeroU32,
     path::Path,
@@ -17,10 +20,12 @@ use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
 use serde_json::{from_str, json, to_string_pretty, Error as JsonError, Value as JsonValue};
 use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
-use ureq::{get, Error as UreqError};
+use ureq::get;
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 const GITHUB_URL: &str = "https://github.com";
+const WITH_EXAMPLE_LONG_HELP_TEXT: &str =
+    "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.";
 
 #[derive(Clone, Debug, ValueEnum, PartialEq)]
 pub enum FrontendTemplate {
@@ -33,7 +38,7 @@ pub enum FrontendTemplate {
 pub struct Cmd {
     pub project_path: String,
 
-    #[arg(short, long, num_args = 1.., value_parser=possible_example_values(), long_help=with_example_help())]
+    #[arg(short, long, num_args = 1.., value_parser=possible_example_values(), long_help=WITH_EXAMPLE_LONG_HELP_TEXT)]
     pub with_example: Vec<String>,
 
     #[arg(
@@ -46,44 +51,9 @@ pub struct Cmd {
 }
 
 fn possible_example_values() -> ValueParser {
-    let parser = PossibleValuesParser::new(
-        [
-            "account",
-            "alloc",
-            "atomic_multiswap",
-            "atomic_swap",
-            "auth",
-            "cross_contract",
-            "custom_types",
-            "deep_contract_auth",
-            "deployer",
-            "errors",
-            "eth_abi",
-            "events",
-            "fuzzing",
-            "increment",
-            "liquidity_pool",
-            "logging",
-            "mint-lock",
-            "simple_account",
-            "single_offer",
-            "timelock",
-            "token",
-            "upgradeable_contract",
-            "workspace",
-        ]
-        .iter()
-        .map(PossibleValue::new),
-    );
+    let example_contracts = env!("EXAMPLE_CONTRACTS").split(',').collect::<Vec<&str>>();
+    let parser = PossibleValuesParser::new(example_contracts.iter().map(PossibleValue::new));
     parser.into()
-}
-
-fn with_example_help() -> String {
-    if check_internet_connection() {
-        "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.".to_owned()
-    } else {
-        "⚠️  Failed to fetch additional example contracts from soroban-examples repo. You can continue with initializing - the default hello_world contract will still be included".to_owned()
-    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -104,9 +74,6 @@ pub enum Error {
 
     #[error("Failed to parse toml file: {0}")]
     TomlParseError(#[from] TomlError),
-
-    #[error("Failed to complete get request")]
-    UreqError(#[from] Box<UreqError>),
 
     #[error("Failed to parse package.json file: {0}")]
     JsonParseError(#[from] JsonError),
@@ -184,7 +151,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
     for item in TemplateFiles::iter() {
         let mut to = project_path.join(item.as_ref());
 
-        if file_exists(&to.to_string_lossy()) {
+        if file_exists(&to) {
             println!(
                 "ℹ️  Skipped creating {} as it already exists",
                 &to.to_string_lossy()
@@ -250,7 +217,7 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
             })?;
             copy_contents(&path, &new_path)?;
         } else {
-            if file_exists(&new_path.to_string_lossy()) {
+            if file_exists(&new_path) {
                 if new_path.to_string_lossy().contains(".gitignore") {
                     append_contents(&path, &new_path)?;
                 }
@@ -280,12 +247,11 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn file_exists(file_path: &str) -> bool {
-    if let Ok(metadata) = metadata(file_path) {
-        metadata.is_file()
-    } else {
-        false
-    }
+fn file_exists(file_path: &Path) -> bool {
+    metadata(file_path)
+        .as_ref()
+        .map(Metadata::is_file)
+        .unwrap_or(false)
 }
 
 fn include_example_contracts(contracts: &[String]) -> bool {
