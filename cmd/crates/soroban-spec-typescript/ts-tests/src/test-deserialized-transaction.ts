@@ -1,8 +1,14 @@
 import test from "ava"
-import { wallet, rpcUrl } from "./util.js"
-import { Contract, networks } from "test-hello-world"
+import { rpcUrl, root, signer } from "./util.js"
+import { Client, networks } from "test-hello-world"
 
-const contract = new Contract({ ...networks.standalone, rpcUrl, wallet })
+const contract = new Client({
+  rpcUrl,
+  allowHttp: true,
+  publicKey: root.keypair.publicKey(),
+  ...signer,
+  ...networks.standalone,
+})
 
 test("has correctly-typed result", async (t) => {
   const initial = await contract.hello({ world: "tests" })

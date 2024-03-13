@@ -1,8 +1,14 @@
 import test from "ava";
-import { root, wallet, rpcUrl } from "./util.js";
-import { Contract, networks } from "test-hello-world";
+import { root, signer, rpcUrl } from "./util.js";
+import { Client, networks } from "test-hello-world";
 
-const contract = new Contract({ ...networks.standalone, rpcUrl, wallet });
+const contract = new Client({
+  ...networks.standalone,
+  rpcUrl,
+  allowHttp: true,
+  publicKey: root.keypair.publicKey(),
+  ...signer,
+})
 
 test("hello", async (t) => {
   t.deepEqual((await contract.hello({ world: "tests" })).result, ["Hello", "tests"]);
@@ -19,8 +25,8 @@ test("auth", async (t) => {
 });
 
 test("inc", async (t) => {
-  const { result: startingBalance } = await contract.getCount()
+  const { result: startingBalance } = await contract.get_count()
   const inc = await contract.inc()
   t.is((await inc.signAndSend()).result, startingBalance + 1)
-  t.is((await contract.getCount()).result, startingBalance + 1)
+  t.is((await contract.get_count()).result, startingBalance + 1)
 });

@@ -1,10 +1,17 @@
 import test from 'ava'
-import { root, rpcUrl, wallet } from './util.js'
-import { Contract, Ok, Err, networks } from 'test-custom-types'
+import { root, rpcUrl, signer } from './util.js'
+import { Client, networks } from 'test-custom-types'
+import { Ok, Err } from '@stellar/stellar-sdk/lib/rust_types/index.js'
 
 const publicKey = root.keypair.publicKey();
 
-const contract = new Contract({ ...networks.standalone, rpcUrl, wallet });
+const contract = new Client({
+  ...networks.standalone,
+  rpcUrl,
+  allowHttp: true,
+  publicKey: root.keypair.publicKey(),
+  ...signer,
+});
 
 test('hello', async t => {
   const { result } = await contract.hello({ hello: 'tests' })
@@ -12,35 +19,35 @@ test('hello', async t => {
 })
 
 test('woid', async t => {
-  t.is((await contract.woid()).result, undefined)
+  t.is((await contract.woid()).result, null)
 })
 
 test('u32_fail_on_even', async t => {
   t.deepEqual(
-    (await contract.u32FailOnEven({ u32_: 1 })).result,
+    (await contract.u32_fail_on_even({ u32_: 1 })).result,
     new Ok(1)
   )
   t.deepEqual(
-    (await contract.u32FailOnEven({ u32_: 0 })).result,
+    (await contract.u32_fail_on_even({ u32_: 0 })).result,
     new Err({ message: "Please provide an odd number" })
   )
 })
 
-test('u32', async t => {
-  t.is((await contract.u32({ u32_: 1 })).result, 1)
+test('u32_', async t => {
+  t.is((await contract.u32_({ u32_: 1 })).result, 1)
 })
 
-test('i32', async t => {
-  t.is((await contract.i32({ i32_: 1 })).result, 1)
+test('i32_', async t => {
+  t.is((await contract.i32_({ i32_: 1 })).result, 1)
 })
 
-test('i64', async t => {
-  t.is((await contract.i64({ i64_: 1n })).result, 1n)
+test('i64_', async t => {
+  t.is((await contract.i64_({ i64_: 1n })).result, 1n)
 })
 
 test("strukt_hel", async (t) => {
   const test = { a: 0, b: true, c: "world" }
-  t.deepEqual((await contract.struktHel({ strukt: test })).result, ["Hello", "world"])
+  t.deepEqual((await contract.strukt_hel({ strukt: test })).result, ["Hello", "world"])
 })
 
 test("strukt", async (t) => {
@@ -107,7 +114,7 @@ test('bytes', async t => {
 
 test('bytes_n', async t => {
   const bytes_n = Buffer.from('123456789') // what's the correct way to construct bytes_n?
-  t.deepEqual((await contract.bytesN({ bytes_n })).result, bytes_n)
+  t.deepEqual((await contract.bytes_n({ bytes_n })).result, bytes_n)
 })
 
 test('card', async t => {
@@ -132,8 +139,8 @@ test('u128', async t => {
 })
 
 test('multi_args', async t => {
-  t.is((await contract.multiArgs({ a: 1, b: true })).result, 1)
-  t.is((await contract.multiArgs({ a: 1, b: false })).result, 0)
+  t.is((await contract.multi_args({ a: 1, b: true })).result, 1)
+  t.is((await contract.multi_args({ a: 1, b: false })).result, 0)
 })
 
 test('map', async t => {
@@ -183,5 +190,5 @@ test('string', async t => {
 test('tuple_strukt', async t => {
   const arg = [{ a: 0, b: true, c: 'hello' }, { tag: 'First', values: undefined }] as const
   const res = [{ a: 0, b: true, c: 'hello' }, { tag: 'First' }]
-  t.deepEqual((await contract.tupleStrukt({ tuple_strukt: arg })).result, res)
+  t.deepEqual((await contract.tuple_strukt({ tuple_strukt: arg })).result, res)
 })

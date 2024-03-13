@@ -1,8 +1,8 @@
 import test from "ava"
 import { SorobanRpc, xdr } from '@stellar/stellar-sdk'
-import { wallet, rpcUrl, alice, bob, networkPassphrase, root, Wallet } from "./util.js"
-import { Contract as Token } from "token"
-import { Contract as Swap, networks, NeedsMoreSignaturesError } from "test-swap"
+import { signer, rpcUrl, alice, bob, networkPassphrase, root } from "./util.js"
+import { Client as Token } from "token"
+import { basicNodeSigner, AssembledTransaction, Client as Swap, networks } from "test-swap"
 import fs from "node:fs"
 
 const tokenAId = fs.readFileSync(new URL("../contract-id-token-a.txt", import.meta.url), "utf8").trim()
@@ -13,19 +13,25 @@ const tokenA = new Token({
   contractId: tokenAId,
   networkPassphrase,
   rpcUrl,
-  wallet,
+  allowHttp: true,
+  publicKey: root.keypair.publicKey(),
+  ...signer,
 })
 const tokenB = new Token({
   contractId: tokenBId,
   networkPassphrase,
   rpcUrl,
-  wallet,
+  allowHttp: true,
+  publicKey: root.keypair.publicKey(),
+  ...signer,
 })
 function swapContractAs(invoker: typeof root | typeof alice | typeof bob) {
   return new Swap({
     ...networks.standalone,
     rpcUrl,
-    wallet: new Wallet(invoker.keypair.publicKey()),
+    allowHttp: true,
+    publicKey: invoker.keypair.publicKey(),
+    ...basicNodeSigner(invoker.keypair, networkPassphrase),
   })
 }
 
@@ -47,7 +53,7 @@ test('calling `signAndSend()` too soon throws descriptive error', async t => {
     min_b_for_a: amountBToSwap,
   })
   const error = await t.throwsAsync(tx.signAndSend())
-  t.true(error instanceof NeedsMoreSignaturesError, `error is not of type 'NeedsMoreSignaturesError'; instead it is of type '${error?.constructor.name}'`)
+  t.true(error instanceof AssembledTransaction.Errors.NeedsMoreSignatures, `error is not of type 'NeedsMoreSignaturesError'; instead it is of type '${error?.constructor.name}'`)
   if (error) t.regex(error.message, /needsNonInvokerSigningBy/)
 })
 
