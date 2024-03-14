@@ -183,6 +183,40 @@ fn generate_key() {
 }
 
 #[test]
+fn generate_key_on_testnet() {
+    if std::env::var("CI_TEST").is_err() {
+        return;
+    }
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("--rpc-url=https://soroban-testnet.stellar.org:443")
+        .arg("--network-passphrase=Test SDF Network ; September 2015")
+        .arg("test_2")
+        .assert()
+        .stdout("")
+        .stderr("")
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("ls")
+        .assert()
+        .stdout(predicates::str::contains("test_2\n"));
+    println!(
+        "aa {}",
+        sandbox
+            .new_assert_cmd("keys")
+            .arg("address")
+            .arg("test_2")
+            .assert()
+            .success()
+            .stdout_as_str()
+    );
+}
+
+#[test]
 fn seed_phrase() {
     let sandbox = TestEnv::default();
     let dir = sandbox.dir();
