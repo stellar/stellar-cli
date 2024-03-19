@@ -1,3 +1,5 @@
+// https://github.com/zondax/ledger-rs
+
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 
@@ -10,8 +12,8 @@ use soroban_env_host::xdr::{
     TransactionV1Envelope, Uint256, WriteXdr,
 };
 
-mod app;
-use app::get_public_key;
+pub mod newapp;
+use newapp::get_public_key;
 
 enum Error {}
 
@@ -65,25 +67,6 @@ mod test {
         let a_ledger = ledgers.next().expect("could not find any ledger device");
         println!("{:?}", a_ledger.path());
     }
-
-    // #[test]
-    // #[serial]
-    // fn exchange() {
-    //     use ledger_zondax_generic::{App, AppExt};
-    //     struct Dummy;
-    //     impl App for Dummy {
-    //         const CLA: u8 = 0;
-    //     }
-
-    //     init_logging();
-
-    //     let ledger = TransportNativeHID::new(hidapi()).expect("Could not get a device");
-
-    //     // use device info command that works in the dashboard
-    //     let result = futures::executor::block_on(Dummy::get_device_info(&ledger))
-    //         .expect("Error during exchange");
-    //     info!("{:x?}", result);
-    // }
 
     #[test]
     #[serial]
