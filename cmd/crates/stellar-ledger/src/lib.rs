@@ -12,8 +12,8 @@ use soroban_env_host::xdr::{
     TransactionV1Envelope, Uint256, WriteXdr,
 };
 
-pub mod newapp;
-use newapp::get_public_key;
+pub mod app;
+use app::get_public_key;
 
 enum Error {}
 
