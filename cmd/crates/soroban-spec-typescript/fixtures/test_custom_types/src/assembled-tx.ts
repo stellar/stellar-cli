@@ -287,11 +287,6 @@ export class AssembledTransaction<T> {
       throw new Error(`You must submit the transaction with the account that originally created it. Please switch to the wallet with "${this.raw.source}" as its public key.`)
     }
 
-    if ((await this.needsNonInvokerSigningBy()).length) {
-      throw new NeedsMoreSignaturesError(
-        'Transaction requires more signatures. See `needsNonInvokerSigningBy` for details.'
-      )
-    }
 
     return await SentTransaction.init(this.options, this, secondsToWait);
   }
@@ -408,7 +403,6 @@ export class AssembledTransaction<T> {
     if (!needsNonInvokerSigningBy) throw new NoUnsignedNonInvokerAuthEntriesError('No unsigned non-invoker auth entries; maybe you already signed?')
     const publicKey = await this.getPublicKey()
     if (!publicKey) throw new Error('Could not get public key from wallet; maybe Freighter is not signed in?')
-    if (needsNonInvokerSigningBy.indexOf(publicKey) === -1) throw new Error(`No auth entries for public key "${publicKey}"`)
     const wallet = await this.getWallet()
 
     const rawInvokeHostFunctionOp = this.raw
