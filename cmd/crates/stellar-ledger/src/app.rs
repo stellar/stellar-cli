@@ -30,7 +30,7 @@ pub enum LedgerError {
 
 pub fn get_public_key(index: u32) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
     let hd_path = bip_path_from_index(index);
-    get_public_key_with_display_flag(hd_path, true)
+    get_public_key_with_display_flag(hd_path, false)
 }
 
 fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
@@ -90,7 +90,6 @@ pub fn get_public_key_with_display_flag(
                 response.retcode(),
             );
             // Ok means we successfully connected with the Ledger but it doesn't mean our request succeeded. We still need to check the response.retcode
-
             if response.retcode() == RETURN_CODE_OK {
                 return Ok(
                     stellar_strkey::ed25519::PublicKey::from_payload(&response.data()).unwrap(),
