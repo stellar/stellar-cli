@@ -105,28 +105,29 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
 }
 
 fn doc_to_ts_doc(doc: &str, method: Option<&str>) -> String {
-    if method.is_none() {
-        if doc.is_empty() {
-            return String::new();
-        }
-        let doc = doc.split('\n').join("\n * ");
+    if let Some(method) = method {
+        let doc = if doc.is_empty() {
+            String::new()
+        } else {
+            format!("   *\n   * {}", doc.split('\n').join("\n   * "))
+        };
         return format!(
             r#"/**
+   * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{doc}
+   */"#
+        );
+    }
+
+    if doc.is_empty() {
+        return String::new();
+    }
+
+    let doc = doc.split('\n').join("\n * ");
+    format!(
+        r#"/**
  * {doc}
  */
 "#
-        );
-    }
-    let method = method.unwrap();
-    let doc = if doc.is_empty() {
-        String::new()
-    } else {
-        format!("   *\n   * {}", doc.split('\n').join("\n   * "))
-    };
-    format!(
-        r#"/**
-   * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{doc}
-   */"#
     )
 }
 
