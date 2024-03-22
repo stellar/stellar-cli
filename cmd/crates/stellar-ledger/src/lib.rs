@@ -15,6 +15,11 @@ use soroban_env_host::xdr::{
 pub mod app;
 use app::get_public_key;
 
+mod emulator;
+use emulator::run;
+
+mod docker;
+
 enum Error {}
 
 #[cfg(test)]
@@ -42,5 +47,10 @@ mod test {
         let public_key = get_public_key(0);
         println!("{public_key:?}");
         assert!(public_key.is_ok());
+    }
+
+    #[test]
+    fn test_the_emulator() {
+        emulator::run();
     }
 }

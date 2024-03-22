@@ -18,8 +18,8 @@ serde_derive = "1.0.82"
 serde_json = "1.0.82"
 sha2 = "0.9.9"
 soroban-env-host = { workspace = true }
-ed25519-dalek = {workspace=true}
-stellar-strkey = {workspace=true}
+ed25519-dalek = { workspace=true }
+stellar-strkey = { workspace=true }
 ledger-transport-hid = "0.10.0"
 sep5.workspace = true
 slip10 = "0.4.3"
@@ -27,6 +27,9 @@ ledger-transport = "0.10.0"
 tracing = {workspace=true}
 hex = {workspace=true}
 byteorder = "1.5.0"
+bollard = "0.15.0"
+home = "0.5.9"
+futures-util = "0.3.30"
 
 [dependencies.stellar-xdr]
 workspace = true
