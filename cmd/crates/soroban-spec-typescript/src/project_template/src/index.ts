@@ -1,6 +1,10 @@
 import { ContractSpec, Address } from '@stellar/stellar-sdk';
 import { Buffer } from "buffer";
-import { AssembledTransaction, Ok, Err } from './assembled-tx.js';
+import {
+  AssembledTransaction,
+  ContractClient,
+  ContractClientOptions,
+} from '@stellar/stellar-sdk/lib/contract_client/index.js';
 import type {
   u32,
   i32,
@@ -13,13 +17,11 @@ import type {
   Option,
   Typepoint,
   Duration,
-  Error_,
-  Result,
-} from './assembled-tx.js';
-import type { ClassOptions, XDR_BASE64 } from './method-options.js';
-
-export * from './assembled-tx.js';
-export * from './method-options.js';
+} from '@stellar/stellar-sdk/lib/contract_client';
+import { Result } from '@stellar/stellar-sdk/lib/rust_types/index.js';
+export * from '@stellar/stellar-sdk'
+export * from '@stellar/stellar-sdk/lib/contract_client/index.js'
+export * from '@stellar/stellar-sdk/lib/rust_types/index.js'
 
 if (typeof window !== 'undefined') {
     //@ts-ignore Buffer exists
