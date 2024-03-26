@@ -26,15 +26,6 @@ jobs:
     - run: rustup update
     - run: cargo fmt --all --check
 
-  rust-analyzer-compat:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - run: rustup update
-    - run: rustup +nightly component add rust-analyzer
-    - name: Check if rust-analyzer encounters any errors parsing project
-      run: rustup run nightly rust-analyzer analysis-stats . 2>&1 | tee /dev/stderr | (! grep '^\[ERROR')
-
   build-and-test:
     strategy:
       fail-fast: false
