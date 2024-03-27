@@ -16,7 +16,6 @@ pub mod app;
 use app::get_public_key;
 
 mod emulator;
-use emulator::run;
 
 mod docker;
 
@@ -24,6 +23,8 @@ enum Error {}
 
 #[cfg(test)]
 mod test {
+    use crate::emulator::Emulator;
+
     use super::*;
     use hidapi::HidApi;
     use ledger_transport_hid::TransportNativeHID;
@@ -52,7 +53,11 @@ mod test {
     // #[test]
     #[tokio::test]
     async fn test_my_emulator() {
-        let r = emulator::run().await;
-        assert!(r.is_ok());
+        let mut e = Emulator::new().await;
+        let start_result = e.run().await;
+        assert!(start_result.is_ok());
+
+        let stop_result = e.stop().await;
+        assert!(stop_result.is_ok());
     }
 }

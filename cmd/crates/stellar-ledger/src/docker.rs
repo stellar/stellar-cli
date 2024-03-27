@@ -70,20 +70,6 @@ impl DockerConnection {
         Ok(())
     }
 
-    //     docker run --rm -it -v "$(pwd)"/apps:/speculos/apps \
-    // -p 1234:1234 -p 5001:5000 -p 40000:40000 -p 41000:41000 ghcr.io/ledgerhq/speculos:latest \
-    // --model nanos ./apps/btc.elf --sdk 2.0 --seed "secret" --display headless --apdu-port 40000 \
-    //  --vnc-port 41000
-
-    // docker run --rm -it -v $(pwd)/apps:/speculos/apps \
-    // -p 5001:5000 --publish 41000:41000 speculos  \
-    // --model nanos ./apps/btc.elf --display headless --vnc-port 41000
-
-    // docker run --rm -it -p 5001:5000 --publish 41000:41000 zondax/builder-zemu  \
-    // --model nanos ./apps/btc.elf --display headless --vnc-port 41000
-
-    // docker run --rm -it -v $(pwd)/apps:/speculos/apps -p 5001:5000 --publish 41000:41000 speculos --display headless --vnc-port 41000 --model nanos ./apps/btc.elf
-
     pub async fn get_container_with_defaults(&self, image_name: &str) -> Result<String, Error> {
         let default_port_mappings = vec!["5001:5000", "9998:9998", "41000:41000"];
         // The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
@@ -102,23 +88,18 @@ impl DockerConnection {
             );
         }
 
-        // const displaySetting = "--display headless";
-        // const command = `/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN ${displaySetting} ${customOptions} -m ${modelOptions} ${DEFAULT_APP_PATH}/${appFilename} ${libArgs}`;
-
         let container_elf_path = format!("{DEFAULT_APP_PATH}/demoAppS.elf");
         let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
         let command_args = vec![command_string.as_str()];
 
         let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("apps");
-        // let volume_bind_string = format!("{}:/speculos/apps", apps_dir.display());
         let volume_bind_string = format!("{}:/project/app/bin", apps_dir.display());
-        println!("volume_bind_string: {volume_bind_string}");
 
-        let env_vars = vec![
-            "BOLOS_SDK=/project/deps/nanos-secure-sdk",
-            "BOLOS_ENV=/opt/bolos",
-            "DISPLAY=host.docker.internal:0",
-        ];
+        println!("volume_bind_string: {volume_bind_string}");
+        let bolos_sdk = format!("BOLOS_SDK={BOLOS_SDK}");
+        let bolos_env = format!("BOLOS_ENV={BOLOS_ENV}");
+        let display = format!("DISPLAY=host.docker.internal:0"); // TODO: this should be condiditional depending on os i think
+        let env_vars: Vec<&str> = vec![&bolos_sdk, &bolos_env, &display];
 
         let config = Config {
             image: Some(image_name),
@@ -171,6 +152,13 @@ impl DockerConnection {
         let logs = self.docker.logs(container_response_id, log_options);
         let logs = logs.try_collect::<Vec<_>>().await;
         println!("{logs:?}");
+    }
+
+    pub async fn stop_container(&self, container_response_id: &str) {
+        self.docker
+            .stop_container(container_response_id, None)
+            .await
+            .unwrap();
     }
 }
 
