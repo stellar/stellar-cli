@@ -4189,12 +4189,15 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "stellar-ledger"
 version = "20.3.1"
 dependencies = [
+ "bollard",
  "byteorder",
  "ed25519-dalek 2.0.0",
  "env_logger",
  "futures",
+ "futures-util",
  "hex",
  "hidapi",
+ "home",
  "ledger-transport",
  "ledger-transport-hid",
  "ledger-zondax-generic",
@@ -4213,6 +4216,7 @@ dependencies = [
  "stellar-strkey 0.0.7",
  "stellar-xdr",
  "thiserror",
+ "tokio",
  "tracing",
 ]
 

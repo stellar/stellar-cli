@@ -106,8 +106,7 @@ pub fn get_public_key_with_display_flag(
 }
 
 fn get_transport() -> Result<TransportNativeHID, LedgerError> {
-    // instantiate the connection to Ledger
-    // will return an error if Ledger is not connected
+    // instantiate the connection to Ledger, this will return an error if Ledger is not connected
     let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }

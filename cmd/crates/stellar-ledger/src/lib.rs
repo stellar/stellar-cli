@@ -49,8 +49,10 @@ mod test {
         assert!(public_key.is_ok());
     }
 
-    #[test]
-    fn test_the_emulator() {
-        emulator::run();
+    // #[test]
+    #[tokio::test]
+    async fn test_my_emulator() {
+        let r = emulator::run().await;
+        assert!(r.is_ok());
     }
 }
