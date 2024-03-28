@@ -70,6 +70,8 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network start`↴](#soroban-network-start)
 * [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
+* [`soroban data`↴](#soroban-data)
+* [`soroban data ls`↴](#soroban-data-ls)
 
 ## `soroban`
 
@@ -110,6 +112,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `lab` — Experiment with early features and expert tools
 * `network` — Start and configure networks
 * `version` — Print version information
+* `data` — Access cached data
 
 ###### **Options:**
 
@@ -1684,6 +1687,38 @@ Stop a network started with `network start`. For example, if you ran `soroban ne
 Print version information
 
 **Usage:** `soroban version`
+
+
+
+## `soroban data`
+
+Access cached data
+
+**Usage:** `soroban data <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — List identities
+
+
+
+## `soroban data ls`
+
+List identities
+
+**Usage:** `soroban data ls [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-l`, `--long`
+
+  Possible values: `true`, `false`
+
 
 
 
