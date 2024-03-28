@@ -33,7 +33,8 @@ pub enum LedgerError {
 
 pub async fn get_public_key(index: u32) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
     let hd_path = bip_path_from_index(index);
-    get_public_key_with_display_flag(hd_path, false).await
+    let transport = new_get_transport()?;
+    get_public_key_with_display_flag(transport, hd_path, false).await
 }
 
 fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
@@ -55,13 +56,11 @@ fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
 }
 
 /// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
-pub async fn get_public_key_with_display_flag(
+async fn get_public_key_with_display_flag(
+    transport: impl Exchange,
     hd_path: slip10::BIP32Path,
     display_and_confirm: bool,
 ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
-    // instantiate the connect to the Ledger, return an error if not connected
-    let transport = new_get_transport()?;
-
     // convert the hd_path into bytes to be sent as `data` to the Ledger
     // the first element of the data should be the number of elements in the path
     let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
