@@ -3,10 +3,10 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
+pub mod cache;
 pub mod completion;
 pub mod config;
 pub mod contract;
-pub mod data;
 pub mod events;
 pub mod global;
 pub mod keys;
@@ -101,7 +101,7 @@ impl Root {
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
             Cmd::Config(c) => c.run().await?,
-            Cmd::Data(data) => data.run()?,
+            Cmd::Cache(data) => data.run()?,
         };
         Ok(())
     }
@@ -139,9 +139,9 @@ pub enum Cmd {
     Network(network::Cmd),
     /// Print version information
     Version(version::Cmd),
-    /// Access cached data
+    /// Cache for tranasctions and contract specs
     #[command(subcommand)]
-    Data(data::Cmd),
+    Cache(cache::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -164,7 +164,7 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    Data(#[from] data::Error),
+    Cache(#[from] cache::Error),
 }
 
 #[async_trait]

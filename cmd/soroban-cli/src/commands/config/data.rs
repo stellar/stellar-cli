@@ -112,7 +112,14 @@ impl std::fmt::Display for DatedAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (id, a, uri) = (&self.0, &self.1, &self.2);
         let datetime = to_datatime(id).format("%b %d %H:%M");
-        write!(f, "{datetime} {uri} {}", a.type_str(),)
+        let status = match a {
+            Action::Simulation(sim) => sim
+                .error
+                .as_ref()
+                .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
+            Action::Transaction(txn) => txn.status.to_string(),
+        };
+        write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
     }
 }
 

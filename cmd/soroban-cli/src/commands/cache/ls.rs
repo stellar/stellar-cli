@@ -29,7 +29,7 @@ impl Cmd {
     }
 
     pub fn ls(&self) -> Result<Vec<String>, Error> {
-        Ok(data::list_actions()?
+        Ok(data::list_ulids()?
             .iter()
             .map(ToString::to_string)
             .collect())

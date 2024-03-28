@@ -126,7 +126,8 @@ impl TestEnv {
             .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
             .env("SOROBAN_RPC_URL", &self.rpc_url)
             .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
-            .env("XDG_CONFIG_HOME", self.temp_dir.as_os_str())
+            .env("XDG_CONFIG_HOME", self.temp_dir.join("config").as_os_str())
+            .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
             .current_dir(&self.temp_dir);
         cmd
     }
