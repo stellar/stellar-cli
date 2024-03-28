@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use std::{io::Write, str::FromStr};
 
-use ledger_transport::APDUCommand;
+use ledger_transport::{APDUCommand, Exchange};
 use ledger_transport_hid::{
     hidapi::{HidApi, HidError},
     LedgerHIDError, TransportNativeHID,
@@ -16,16 +16,19 @@ const P2_GET_PUBLIC_KEY_DISPLAY: u8 = 0x01;
 
 const RETURN_CODE_OK: u16 = 36864; // APDUAnswer.retcode which means success from Ledger
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum LedgerError {
-    /// Error occuring on init of hidapid and getting current devices list
-    HidApiError(HidError),
-    /// Error occuring on creating a new hid transport, connecting to first ledger device found  
-    LedgerHidError(LedgerHIDError),
-    /// Error occurred while exchanging with Ledger device
+    #[error("Error occurred while initializing HIDAPI: {0}")]
+    HidApiError(#[from] HidError),
+
+    #[error("Error occurred while initializing Ledger HID transport: {0}")]
+    LedgerHidError(#[from] LedgerHIDError),
+
+    #[error("Error with ADPU exchange with Ledger device: {0}")] //TODO update this message
     APDUExchangeError(String),
-    /// Error with transport
-    LedgerHIDError(LedgerHIDError),
+
+    #[error("Error occurred while exchanging with Ledger device: {0}")]
+    LedgerConnectionError(String),
 }
 
 pub async fn get_public_key(index: u32) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
@@ -57,7 +60,7 @@ pub async fn get_public_key_with_display_flag(
     display_and_confirm: bool,
 ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
     // instantiate the connect to the Ledger, return an error if not connected
-    let transport = get_transport()?;
+    let transport = new_get_transport()?;
 
     // convert the hd_path into bytes to be sent as `data` to the Ledger
     // the first element of the data should be the number of elements in the path
@@ -82,7 +85,8 @@ pub async fn get_public_key_with_display_flag(
 
     tracing::info!("APDU in: {}", hex::encode(&command.serialize()));
 
-    match transport.exchange(&command) {
+    // transport.exchange as is using the default implementation which is synchronous. but, we need to use the async version of exchange here so that we are conforming to the Exchange trait
+    match transport.exchange(&command).await {
         Ok(response) => {
             tracing::info!(
                 "APDU out: {}\nAPDU ret code: {:x}",
@@ -101,11 +105,21 @@ pub async fn get_public_key_with_display_flag(
                 return Err(LedgerError::APDUExchangeError(error_string));
             }
         }
-        Err(err) => return Err(LedgerError::LedgerHIDError(err)),
+        Err(err) => {
+            //FIX ME!!!!
+            return Err(LedgerError::LedgerConnectionError("test".to_string()));
+            //FIX ME!!!
+        }
     };
 }
 
 fn get_transport() -> Result<TransportNativeHID, LedgerError> {
+    // instantiate the connection to Ledger, this will return an error if Ledger is not connected
+    let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
+    TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
+}
+
+fn new_get_transport() -> Result<impl Exchange, LedgerError> {
     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
     let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
