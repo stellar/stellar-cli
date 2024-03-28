@@ -11,6 +11,18 @@ use crate::integration::util::extend_contract;
 use super::util::{deploy_hello, extend, HELLO_WORLD};
 
 #[tokio::test]
+async fn invoke_view_with_non_existent_source_account() {
+    let sandbox = &TestEnv::new();
+    let id = deploy_hello(sandbox).await;
+    let world = "world";
+    let mut cmd = hello_world_cmd(&id, world);
+    cmd.config.source_account = String::new();
+    cmd.is_view = true;
+    let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
+    assert_eq!(res, format!(r#"["Hello",{world:?}]"#));
+}
+
+#[tokio::test]
 async fn invoke() {
     let sandbox = &TestEnv::new();
     let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
@@ -132,12 +144,16 @@ fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
         .success();
 }
 
-async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
-    let cmd = contract::invoke::Cmd {
+fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
+    contract::invoke::Cmd {
         contract_id: id.to_string(),
-        slop: vec!["hello".into(), "--world=world".into()],
+        slop: vec!["hello".into(), format!("--world={arg}").into()],
         ..Default::default()
-    };
+    }
+}
+
+async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
+    let cmd = hello_world_cmd(id, "world");
     let res = e.run_cmd_with(cmd, "test").await.unwrap();
     assert_eq!(res, r#"["Hello","world"]"#);
 }

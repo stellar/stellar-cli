@@ -12,15 +12,16 @@ use heck::ToKebabCase;
 
 use soroban_env_host::{
     xdr::{
-        self, Error as XdrError, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
-        LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
-        Preconditions, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
-        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionExt,
-        Uint256, VecM,
+        self, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
+        LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
+        ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber,
+        SorobanAuthorizationEntry, SorobanResources, String32, StringM, Transaction,
+        TransactionExt, Uint256, VecM,
     },
     HostError,
 };
 
+use soroban_sdk::xdr::{AccountEntry, AccountEntryExt, AccountId, DiagnosticEvent, Thresholds};
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
@@ -77,7 +78,7 @@ pub enum Error {
         error: soroban_spec_tools::Error,
     },
     #[error("cannot add contract to ledger entries: {0}")]
-    CannotAddContractToLedgerEntries(XdrError),
+    CannotAddContractToLedgerEntries(xdr::Error),
     #[error(transparent)]
     // TODO: the Display impl of host errors is pretty user-unfriendly
     //       (it just calls Debug). I think we can do better than that
@@ -106,7 +107,7 @@ pub enum Error {
         error: soroban_spec_tools::Error,
     },
     #[error(transparent)]
-    Xdr(#[from] XdrError),
+    Xdr(#[from] xdr::Error),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
@@ -311,16 +312,21 @@ impl NetworkRunnable for Cmd {
             let _ = self.build_host_function_parameters(contract_id, spec_entries)?;
         }
         let client = rpc::Client::new(&network.rpc_url)?;
-        client
-            .verify_network_passphrase(Some(&network.network_passphrase))
-            .await?;
-        let key = config.key_pair()?;
+        let account_details = if self.is_view {
+            default_account_entry()
+        } else {
+            client
+                .verify_network_passphrase(Some(&network.network_passphrase))
+                .await?;
+            let key = config.key_pair()?;
 
-        // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+            // Get the account sequence number
+            let public_strkey =
+                stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
+            client.get_account(&public_strkey).await?
+        };
         let sequence: i64 = account_details.seq_num.into();
+        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
         // Get the contract
         let spec_entries = client.get_remote_contract_spec(&contract_id).await?;
@@ -332,7 +338,7 @@ impl NetworkRunnable for Cmd {
             host_function_params.clone(),
             sequence + 1,
             self.fee.fee,
-            &key,
+            account_id,
         )?;
         let txn = client.create_assembled_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
@@ -350,7 +356,7 @@ impl NetworkRunnable for Cmd {
             let res = client
                 .send_assembled_transaction(
                     txn,
-                    &key,
+                    &self.config.key_pair()?,
                     &signers,
                     &network.network_passphrase,
                     Some(log_events),
@@ -365,10 +371,27 @@ impl NetworkRunnable for Cmd {
     }
 }
 
+const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32])));
+
+fn default_account_entry() -> AccountEntry {
+    AccountEntry {
+        account_id: DEFAULT_ACCOUNT_ID,
+        balance: 0,
+        seq_num: SequenceNumber(0),
+        num_sub_entries: 0,
+        inflation_dest: None,
+        flags: 0,
+        home_domain: String32::from(unsafe { StringM::<32>::from_str("TEST").unwrap_unchecked() }),
+        thresholds: Thresholds([0; 4]),
+        signers: unsafe { [].try_into().unwrap_unchecked() },
+        ext: AccountEntryExt::V0,
+    }
+}
+
 fn log_events(
     footprint: &LedgerFootprint,
     auth: &[VecM<SorobanAuthorizationEntry>],
-    events: &[xdr::DiagnosticEvent],
+    events: &[DiagnosticEvent],
 ) {
     crate::log::auth(auth);
     crate::log::diagnostic_events(events, tracing::Level::TRACE);
@@ -397,7 +420,7 @@ fn build_invoke_contract_tx(
     parameters: InvokeContractArgs,
     sequence: i64,
     fee: u32,
-    key: &SigningKey,
+    source_account_id: Uint256,
 ) -> Result<Transaction, Error> {
     let op = Operation {
         source_account: None,
@@ -407,7 +430,7 @@ fn build_invoke_contract_tx(
         }),
     };
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account: MuxedAccount::Ed25519(source_account_id),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -467,16 +490,15 @@ fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
 
         // Set up special-case arg rules
         arg = match type_ {
-            xdr::ScSpecTypeDef::Bool => arg
+            ScSpecTypeDef::Bool => arg
                 .num_args(0..1)
                 .default_missing_value("true")
                 .default_value("false")
                 .num_args(0..=1),
-            xdr::ScSpecTypeDef::Option(_val) => arg.required(false),
-            xdr::ScSpecTypeDef::I256
-            | xdr::ScSpecTypeDef::I128
-            | xdr::ScSpecTypeDef::I64
-            | xdr::ScSpecTypeDef::I32 => arg.allow_hyphen_values(true),
+            ScSpecTypeDef::Option(_val) => arg.required(false),
+            ScSpecTypeDef::I256 | ScSpecTypeDef::I128 | ScSpecTypeDef::I64 | ScSpecTypeDef::I32 => {
+                arg.allow_hyphen_values(true)
+            }
             _ => arg,
         };
 
