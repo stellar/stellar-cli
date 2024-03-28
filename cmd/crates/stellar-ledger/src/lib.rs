@@ -18,11 +18,14 @@ mod emulator;
 
 mod docker;
 
+mod transport_zemu_http;
+
+use crate::app::get_zemu_transport;
+use crate::{app::new_get_transport, emulator::Emulator};
 enum Error {}
 
 #[cfg(test)]
 mod test {
-    use crate::{app::new_get_transport, emulator::Emulator};
 
     use super::*;
     use hidapi::HidApi;
@@ -51,7 +54,6 @@ mod test {
         assert!(public_key.is_ok());
     }
 
-    // #[test]
     #[tokio::test]
     async fn test_my_emulator() {
         let mut e = Emulator::new().await;
@@ -60,5 +62,15 @@ mod test {
 
         let stop_result = e.stop().await;
         assert!(stop_result.is_ok());
+    }
+
+    // // this may give an error because the get_pub_key is specific to app-stellar and i think im currently using a filecoin app elf
+    #[tokio::test]
+    async fn test_my_em_with_get_pub_key() {
+        let transport = get_zemu_transport("localhost", 9998).unwrap();
+        let ledger = app::Ledger::new(transport);
+        let public_key = ledger.get_public_key(0).await;
+        println!("{public_key:?}");
+        assert!(public_key.is_ok());
     }
 }

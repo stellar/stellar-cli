@@ -129,21 +129,12 @@ fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-fn get_transport() -> Result<TransportNativeHID, LedgerError> {
-    // instantiate the connection to Ledger, this will return an error if Ledger is not connected
-    let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
-    TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
-}
-
 pub fn new_get_transport() -> Result<impl Exchange, LedgerError> {
     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
     let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }
 
-// fn get_zemu_transport() -> Result<TransportNativeHID, LedgerError> {
-//     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
-//     // let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
-//     // TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError);
-//     TransportZemuHttp::new("http://localhost:9999").map_err(LedgerError::LedgerHidError)
-// }
+pub fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, LedgerError> {
+    Ok(TransportZemuHttp::new(host, port))
+}
