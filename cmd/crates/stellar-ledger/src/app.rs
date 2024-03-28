@@ -31,10 +31,27 @@ pub enum LedgerError {
     LedgerConnectionError(String),
 }
 
-pub async fn get_public_key(index: u32) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
-    let hd_path = bip_path_from_index(index);
-    let transport = new_get_transport()?;
-    get_public_key_with_display_flag(transport, hd_path, false).await
+pub struct Ledger<T> {
+    transport: T,
+}
+
+impl<T> Ledger<T>
+where
+    T: Exchange,
+{
+    pub fn new(transport: T) -> Ledger<T> {
+        Ledger {
+            transport: transport,
+        }
+    }
+
+    pub async fn get_public_key(
+        &self,
+        index: u32,
+    ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
+        let hd_path = bip_path_from_index(index);
+        get_public_key_with_display_flag(&self.transport, hd_path, false).await
+    }
 }
 
 fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
@@ -57,7 +74,7 @@ fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
 
 /// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
 async fn get_public_key_with_display_flag(
-    transport: impl Exchange,
+    transport: &impl Exchange,
     hd_path: slip10::BIP32Path,
     display_and_confirm: bool,
 ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
@@ -118,8 +135,15 @@ fn get_transport() -> Result<TransportNativeHID, LedgerError> {
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }
 
-fn new_get_transport() -> Result<impl Exchange, LedgerError> {
+pub fn new_get_transport() -> Result<impl Exchange, LedgerError> {
     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
     let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }
+
+// fn get_zemu_transport() -> Result<TransportNativeHID, LedgerError> {
+//     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
+//     // let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
+//     // TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError);
+//     TransportZemuHttp::new("http://localhost:9999").map_err(LedgerError::LedgerHidError)
+// }

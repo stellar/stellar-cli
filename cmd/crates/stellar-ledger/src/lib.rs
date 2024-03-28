@@ -13,7 +13,6 @@ use soroban_env_host::xdr::{
 };
 
 pub mod app;
-use app::get_public_key;
 
 mod emulator;
 
@@ -23,7 +22,7 @@ enum Error {}
 
 #[cfg(test)]
 mod test {
-    use crate::emulator::Emulator;
+    use crate::{app::new_get_transport, emulator::Emulator};
 
     use super::*;
     use hidapi::HidApi;
@@ -45,7 +44,9 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn test_get_public_key() {
-        let public_key = get_public_key(0).await;
+        let transport = new_get_transport().unwrap();
+        let ledger = app::Ledger::new(transport);
+        let public_key = ledger.get_public_key(0).await;
         println!("{public_key:?}");
         assert!(public_key.is_ok());
     }
