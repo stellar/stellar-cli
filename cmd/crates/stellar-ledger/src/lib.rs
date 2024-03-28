@@ -42,10 +42,10 @@ mod test {
         &HIDAPI
     }
 
-    #[test]
+    #[tokio::test]
     #[serial]
-    fn test_get_public_key() {
-        let public_key = get_public_key(0);
+    async fn test_get_public_key() {
+        let public_key = get_public_key(0).await;
         println!("{public_key:?}");
         assert!(public_key.is_ok());
     }

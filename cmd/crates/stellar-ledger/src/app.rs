@@ -28,9 +28,9 @@ pub enum LedgerError {
     LedgerHIDError(LedgerHIDError),
 }
 
-pub fn get_public_key(index: u32) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
+pub async fn get_public_key(index: u32) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
     let hd_path = bip_path_from_index(index);
-    get_public_key_with_display_flag(hd_path, false)
+    get_public_key_with_display_flag(hd_path, false).await
 }
 
 fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
@@ -52,7 +52,7 @@ fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
 }
 
 /// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
-pub fn get_public_key_with_display_flag(
+pub async fn get_public_key_with_display_flag(
     hd_path: slip10::BIP32Path,
     display_and_confirm: bool,
 ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
