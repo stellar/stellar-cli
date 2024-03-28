@@ -7,6 +7,8 @@ use ledger_transport_hid::{
     LedgerHIDError, TransportNativeHID,
 };
 
+use crate::transport_zemu_http::TransportZemuHttp;
+
 // these came from https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
 const CLA: u8 = 0xE0; // Instruction class
 const GET_PUBLIC_KEY: u8 = 0x02; // Instruction code to get public key

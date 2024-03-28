@@ -108,7 +108,7 @@ impl DockerConnection {
             attach_stderr: Some(true),
             env: Some(env_vars),
             host_config: Some(HostConfig {
-                auto_remove: Some(true),
+                // auto_remove: Some(true),
                 port_bindings: Some(port_mapping_hash),
                 binds: Some(vec![volume_bind_string]),
                 ..Default::default()

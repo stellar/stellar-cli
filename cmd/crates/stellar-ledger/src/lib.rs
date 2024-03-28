@@ -67,10 +67,17 @@ mod test {
     // // this may give an error because the get_pub_key is specific to app-stellar and i think im currently using a filecoin app elf
     #[tokio::test]
     async fn test_my_em_with_get_pub_key() {
-        let transport = get_zemu_transport("localhost", 9998).unwrap();
+        // let mut e = Emulator::new().await;
+        // let start_result = e.run().await;
+        // assert!(start_result.is_ok());
+
+        let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
         let ledger = app::Ledger::new(transport);
         let public_key = ledger.get_public_key(0).await;
         println!("{public_key:?}");
         assert!(public_key.is_ok());
+
+        // let stop_result = e.stop().await;
+        // assert!(stop_result.is_ok());
     }
 }
