@@ -50,7 +50,64 @@ where
         index: u32,
     ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
         let hd_path = bip_path_from_index(index);
-        get_public_key_with_display_flag(&self.transport, hd_path, false).await
+        Self::get_public_key_with_display_flag(self, hd_path, false).await
+    }
+
+    /// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
+    async fn get_public_key_with_display_flag(
+        &self,
+        hd_path: slip10::BIP32Path,
+        display_and_confirm: bool,
+    ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
+        // convert the hd_path into bytes to be sent as `data` to the Ledger
+        // the first element of the data should be the number of elements in the path
+        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+        let hd_path_elements_count = hd_path.depth();
+        hd_path_to_bytes.insert(0, hd_path_elements_count);
+
+        let p2 = if display_and_confirm {
+            P2_GET_PUBLIC_KEY_DISPLAY
+        } else {
+            P2_GET_PUBLIC_KEY_NO_DISPLAY
+        };
+
+        // more information about how to build this command can be found at https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
+        let command = APDUCommand {
+            cla: CLA,
+            ins: GET_PUBLIC_KEY,
+            p1: P1_GET_PUBLIC_KEY,
+            p2: p2,
+            data: hd_path_to_bytes,
+        };
+
+        tracing::info!("APDU in: {}", hex::encode(&command.serialize()));
+
+        // transport.exchange as is using the default implementation which is synchronous. but, we need to use the async version of exchange here so that we are conforming to the Exchange trait
+        match self.transport.exchange(&command).await {
+            Ok(response) => {
+                tracing::info!(
+                    "APDU out: {}\nAPDU ret code: {:x}",
+                    hex::encode(response.apdu_data()),
+                    response.retcode(),
+                );
+                // Ok means we successfully connected with the Ledger but it doesn't mean our request succeeded. We still need to check the response.retcode
+                if response.retcode() == RETURN_CODE_OK {
+                    return Ok(
+                        stellar_strkey::ed25519::PublicKey::from_payload(&response.data()).unwrap(),
+                    );
+                } else {
+                    let retcode = response.retcode();
+
+                    let error_string = format!("Ledger APDU retcode: 0x{:X}", retcode);
+                    return Err(LedgerError::APDUExchangeError(error_string));
+                }
+            }
+            Err(err) => {
+                //FIX ME!!!!
+                return Err(LedgerError::LedgerConnectionError("test".to_string()));
+                //FIX ME!!!
+            }
+        };
     }
 }
 
@@ -70,63 +127,6 @@ fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
         })
         .flatten()
         .collect::<Vec<u8>>()
-}
-
-/// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
-async fn get_public_key_with_display_flag(
-    transport: &impl Exchange,
-    hd_path: slip10::BIP32Path,
-    display_and_confirm: bool,
-) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
-    // convert the hd_path into bytes to be sent as `data` to the Ledger
-    // the first element of the data should be the number of elements in the path
-    let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
-    let hd_path_elements_count = hd_path.depth();
-    hd_path_to_bytes.insert(0, hd_path_elements_count);
-
-    let p2 = if display_and_confirm {
-        P2_GET_PUBLIC_KEY_DISPLAY
-    } else {
-        P2_GET_PUBLIC_KEY_NO_DISPLAY
-    };
-
-    // more information about how to build this command can be found at https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
-    let command = APDUCommand {
-        cla: CLA,
-        ins: GET_PUBLIC_KEY,
-        p1: P1_GET_PUBLIC_KEY,
-        p2: p2,
-        data: hd_path_to_bytes,
-    };
-
-    tracing::info!("APDU in: {}", hex::encode(&command.serialize()));
-
-    // transport.exchange as is using the default implementation which is synchronous. but, we need to use the async version of exchange here so that we are conforming to the Exchange trait
-    match transport.exchange(&command).await {
-        Ok(response) => {
-            tracing::info!(
-                "APDU out: {}\nAPDU ret code: {:x}",
-                hex::encode(response.apdu_data()),
-                response.retcode(),
-            );
-            // Ok means we successfully connected with the Ledger but it doesn't mean our request succeeded. We still need to check the response.retcode
-            if response.retcode() == RETURN_CODE_OK {
-                return Ok(
-                    stellar_strkey::ed25519::PublicKey::from_payload(&response.data()).unwrap(),
-                );
-            } else {
-                let retcode = response.retcode();
-
-                let error_string = format!("Ledger APDU retcode: 0x{:X}", retcode);
-                return Err(LedgerError::APDUExchangeError(error_string));
-            }
-        }
-        Err(err) => {
-            //FIX ME!!!!
-            return Err(LedgerError::LedgerConnectionError("test".to_string()));
-            //FIX ME!!!
-        }
-    };
 }
 
 fn get_transport() -> Result<TransportNativeHID, LedgerError> {
