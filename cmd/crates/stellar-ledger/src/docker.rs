@@ -88,7 +88,7 @@ impl DockerConnection {
             );
         }
 
-        let container_elf_path = format!("{DEFAULT_APP_PATH}/demoAppS.elf");
+        let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
         let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
         let command_args = vec![command_string.as_str()];
 
