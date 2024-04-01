@@ -27,26 +27,19 @@ enum Error {}
 #[cfg(test)]
 mod test {
 
+    use std::time::Duration;
+
     use super::*;
-    use hidapi::HidApi;
-    use ledger_transport_hid::TransportNativeHID;
-    use log::info;
     use once_cell::sync::Lazy;
     use serial_test::serial;
+    use tokio::time::sleep;
 
-    fn init_logging() {
-        let _ = env_logger::builder().is_test(true).try_init();
-    }
+    // TODO: create setup and cleanup functions to start and then stop the emulator at the beginning and end of the test run
 
-    fn hidapi() -> &'static HidApi {
-        static HIDAPI: Lazy<HidApi> = Lazy::new(|| HidApi::new().expect("unable to get HIDAPI"));
-
-        &HIDAPI
-    }
-
+    #[ignore]
     #[tokio::test]
     #[serial]
-    async fn test_get_public_key() {
+    async fn test_get_public_key_with_ledger_device() {
         let transport = new_get_transport().unwrap();
         let ledger = app::Ledger::new(transport);
         let public_key = ledger.get_public_key(0).await;
@@ -55,21 +48,9 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_my_emulator() {
+    async fn test_get_public_key() {
         let mut e = Emulator::new().await;
-        let start_result = e.run().await;
-        assert!(start_result.is_ok());
-
-        let stop_result = e.stop().await;
-        assert!(stop_result.is_ok());
-    }
-
-    // // this may give an error because the get_pub_key is specific to app-stellar and i think im currently using a filecoin app elf
-    #[tokio::test]
-    async fn test_my_em_with_get_pub_key() {
-        // let mut e = Emulator::new().await;
-        // let start_result = e.run().await;
-        // assert!(start_result.is_ok());
+        start_emulator(&mut e).await;
 
         let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
         let ledger = app::Ledger::new(transport);
@@ -77,7 +58,20 @@ mod test {
         println!("{public_key:?}");
         assert!(public_key.is_ok());
 
-        // let stop_result = e.stop().await;
-        // assert!(stop_result.is_ok());
+        stop_emulator(&mut e).await;
+    }
+
+    async fn start_emulator(e: &mut Emulator) {
+        let start_result = e.run().await;
+        assert!(start_result.is_ok());
+
+        //TODO: handle this in a different way
+        // perhaps i can check the endpoint to see if its up before trying to get the public key
+        sleep(Duration::from_secs(2)).await;
+    }
+
+    async fn stop_emulator(e: &mut Emulator) {
+        let stop_result = e.stop().await;
+        assert!(stop_result.is_ok());
     }
 }

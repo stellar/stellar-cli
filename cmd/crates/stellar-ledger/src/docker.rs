@@ -95,7 +95,6 @@ impl DockerConnection {
         let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("apps");
         let volume_bind_string = format!("{}:/project/app/bin", apps_dir.display());
 
-        println!("volume_bind_string: {volume_bind_string}");
         let bolos_sdk = format!("BOLOS_SDK={BOLOS_SDK}");
         let bolos_env = format!("BOLOS_ENV={BOLOS_ENV}");
         let display = format!("DISPLAY=host.docker.internal:0"); // TODO: this should be condiditional depending on os i think
@@ -108,7 +107,7 @@ impl DockerConnection {
             attach_stderr: Some(true),
             env: Some(env_vars),
             host_config: Some(HostConfig {
-                // auto_remove: Some(true),
+                auto_remove: Some(true),
                 port_bindings: Some(port_mapping_hash),
                 binds: Some(vec![volume_bind_string]),
                 ..Default::default()
