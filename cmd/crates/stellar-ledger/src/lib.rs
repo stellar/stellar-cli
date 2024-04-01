@@ -49,16 +49,51 @@ mod test {
 
     #[tokio::test]
     async fn test_get_public_key() {
-        let mut e = Emulator::new().await;
-        start_emulator(&mut e).await;
+        let mut emulator = Emulator::new().await;
+        start_emulator(&mut emulator).await;
 
         let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
         let ledger = app::Ledger::new(transport);
-        let public_key = ledger.get_public_key(0).await;
-        println!("{public_key:?}");
-        assert!(public_key.is_ok());
 
-        stop_emulator(&mut e).await;
+        match ledger.get_public_key(0).await {
+            Ok(public_key) => {
+                let public_key_string = public_key.to_string();
+                // This is determined by the seed phrase used to start up the emulator
+                // TODO: make the seed phrase configurable
+                let expected_public_key =
+                    "GDUTHCF37UX32EMANXIL2WOOVEDZ47GHBTT3DYKU6EKM37SOIZXM2FN7";
+                assert_eq!(public_key_string, expected_public_key);
+            }
+            Err(e) => {
+                println!("{e}");
+                assert!(false);
+                stop_emulator(&mut emulator).await;
+            }
+        }
+
+        stop_emulator(&mut emulator).await;
+    }
+
+    #[tokio::test]
+    async fn test_get_app_configuration() {
+        let mut emulator = Emulator::new().await;
+        start_emulator(&mut emulator).await;
+
+        let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
+        let ledger = app::Ledger::new(transport);
+
+        match ledger.get_app_configuration().await {
+            Ok(config) => {
+                assert_eq!(config, vec![0, 5, 0, 3]);
+            }
+            Err(e) => {
+                println!("{e}");
+                assert!(false);
+                stop_emulator(&mut emulator).await;
+            }
+        };
+
+        stop_emulator(&mut emulator).await;
     }
 
     async fn start_emulator(e: &mut Emulator) {
