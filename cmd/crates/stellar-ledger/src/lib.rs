@@ -27,14 +27,19 @@ enum Error {}
 #[cfg(test)]
 mod test {
 
-    use std::time::Duration;
+    use std::{str::FromStr, time::Duration};
 
     use super::*;
     use once_cell::sync::Lazy;
     use serial_test::serial;
     use tokio::time::sleep;
 
-    // TODO: create setup and cleanup functions to start and then stop the emulator at the beginning and end of the test run
+    use crate::app::LedgerError::APDUExchangeError;
+
+    // TODO:
+    // - create setup and cleanup functions to start and then stop the emulator at the beginning and end of the test run
+    // - test each of the device models
+    // - handle the sleep differently
 
     #[ignore]
     #[tokio::test]
@@ -95,6 +100,35 @@ mod test {
 
         stop_emulator(&mut emulator).await;
     }
+
+    #[tokio::test]
+    async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
+        //when hash signing isnt enabled on the device we expect an error
+        let mut emulator = Emulator::new().await;
+        start_emulator(&mut emulator).await;
+
+        let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
+        let ledger = app::Ledger::new(transport);
+
+        let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
+        let test_hash =
+            "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889".as_bytes();
+
+        let result = ledger.sign_transaction_hash(path, test_hash.into()).await;
+        if let Err(APDUExchangeError(msg)) = result {
+            assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
+        } else {
+            stop_emulator(&mut emulator).await;
+            panic!("Unexpected result");
+        }
+
+        stop_emulator(&mut emulator).await;
+    }
+
+    //TODO: implement this test
+    // not sure how to enable hash signing on the emulator yet. zemu has methods that emulate pressing the buttons to choose the option
+    #[tokio::test]
+    async fn test_sign_tx_hash_when_hash_signing_is_enabled() {}
 
     async fn start_emulator(e: &mut Emulator) {
         let start_result = e.run().await;

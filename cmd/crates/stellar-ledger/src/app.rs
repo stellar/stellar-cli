@@ -21,6 +21,10 @@ const GET_APP_CONFIGURATION: u8 = 0x06;
 const P1_GET_APP_CONFIGURATION: u8 = 0x00;
 const P2_GET_APP_CONFIGURATION: u8 = 0x00;
 
+const SIGN_TX_HASH: u8 = 0x08;
+const P1_SIGN_TX_HASH: u8 = 0x00;
+const P2_SIGN_TX_HASH: u8 = 0x00;
+
 const RETURN_CODE_OK: u16 = 36864; // APDUAnswer.retcode which means success from Ledger
 
 #[derive(thiserror::Error, Debug)]
@@ -70,6 +74,36 @@ where
         };
         self.send_command_to_ledger(command).await
     }
+
+    // based on impl from https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166
+    pub async fn sign_transaction_hash(
+        &self,
+        hd_path: slip10::BIP32Path,
+        transaction_hash: Vec<u8>,
+    ) -> Result<Vec<u8>, LedgerError> {
+        // convert the hd_path into bytes to be sent as `data` to the Ledger
+        // the first element of the data should be the number of elements in the path
+        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+        let hd_path_elements_count = hd_path.depth();
+        hd_path_to_bytes.insert(0, hd_path_elements_count);
+
+        let mut data = hd_path_to_bytes;
+        data.append(&mut transaction_hash.clone());
+
+        let command = APDUCommand {
+            cla: CLA,
+            ins: SIGN_TX_HASH,
+            p1: P1_SIGN_TX_HASH,
+            p2: P2_SIGN_TX_HASH,
+            data: data,
+        };
+
+        self.send_command_to_ledger(command).await
+    }
+
+
+
+
 
     /// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
     async fn get_public_key_with_display_flag(
