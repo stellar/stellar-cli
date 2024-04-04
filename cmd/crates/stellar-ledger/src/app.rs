@@ -1,5 +1,7 @@
 use byteorder::{BigEndian, WriteBytesExt};
-use std::{io::Write, str::FromStr};
+use reqwest::Response;
+use std::{io::Write, str::FromStr, thread::sleep, time::Duration, vec};
+use stellar_xdr::curr::ReadXdr;
 
 use ledger_transport::{APDUCommand, Exchange};
 use ledger_transport_hid::{
@@ -7,7 +9,11 @@ use ledger_transport_hid::{
     LedgerHIDError, TransportNativeHID,
 };
 
-use crate::transport_zemu_http::TransportZemuHttp;
+use soroban_env_host::xdr::Transaction;
+
+use crate::transport_zemu_http::{LedgerZemuError, TransportZemuHttp};
+
+const APDU_MAX_SIZE: u8 = 150; // from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 
 // these came from https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
 const CLA: u8 = 0xE0; // Instruction class
@@ -148,7 +154,12 @@ where
         &self,
         command: APDUCommand<Vec<u8>>,
     ) -> Result<Vec<u8>, LedgerError> {
-        match self.transport.exchange(&command).await {
+        let response = self.transport.exchange(&command).await;
+        println!("SLEEPING for 10...");
+        sleep(Duration::from_secs(10));
+        println!("sleep over, checking the response");
+
+        match response {
             Ok(response) => {
                 tracing::info!(
                     "APDU out: {}\nAPDU ret code: {:x}",

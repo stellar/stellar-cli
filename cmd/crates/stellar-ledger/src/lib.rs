@@ -154,15 +154,19 @@ mod test {
 
         // this is what the js code is doing:
         // let hash_as_bytes = [ 51, 137, 233, 240, 241, 166,  95,  25, 115, 108, 172, 245,  68, 194, 232,  37, 49,  62, 132,  71, 245, 105,  35,  59, 184, 219,  57, 170,  96, 124, 136, 137 ].to_vec();
-        match ledger.sign_transaction_hash(path, test_hash).await {
-            Ok(result) => {
-                println!("this is the response from signing the hash: {result:?}");
-            }
-            Err(e) => {
-                stop_emulator(&mut emulator).await;
-                panic!("Unexpected result: {e}");
-            }
-        }
+        let result = ledger.sign_transaction_hash(path, test_hash).await;
+
+        // approve_tx_hash_signature().await;
+
+        // match result {
+        //     Ok(result) => {
+        //         println!("this is the response from signing the hash: {result:?}");
+        //     }
+        //     Err(e) => {
+        //         stop_emulator(&mut emulator).await;
+        //         panic!("Unexpected result: {e}");
+        //     }
+        // }
 
         stop_emulator(&mut emulator).await;
     }
@@ -229,6 +233,93 @@ mod test {
             .await
             .unwrap();
 
+        // both button press
+        client
+            .post("http://localhost:5001/button/both")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+    }
+
+    async fn approve_tx_hash_signature() {
+        // let client = reqwest::Client::new();
+        // client.post("http://localhost:5001/button/right")
+        let mut map = HashMap::new();
+        map.insert("action", "press-and-release");
+
+        let client = reqwest::Client::new();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
+        // right button press
+        client
+            .post("http://localhost:5001/button/right")
+            .json(&map)
+            .send()
+            .await
+            .unwrap();
         // both button press
         client
             .post("http://localhost:5001/button/both")
