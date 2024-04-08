@@ -26,7 +26,7 @@ const P2_GET_PUBLIC_KEY_DISPLAY: u8 = 0x01;
 const SIGN_TX: u8 = 0x04;
 const P1_SIGN_TX_FIRST: u8 = 0x00;
 const P1_SIGN_TX_NOT_FIRST: u8 = 0x80;
-const P2_SIGN_TX_LAST: u8 = 0x80;
+const P2_SIGN_TX_LAST: u8 = 0x00;
 const P2_SIGN_TX_MORE: u8 = 0x80;
 
 const GET_APP_CONFIGURATION: u8 = 0x06;
@@ -119,10 +119,6 @@ where
         hd_path: slip10::BIP32Path,
         transaction: Transaction,
     ) -> Result<Vec<u8>, LedgerError> {
-        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
-        let hd_path_elements_count = hd_path.depth();
-        hd_path_to_bytes.insert(0, hd_path_elements_count);
-
         // let mut tx_as_bytes = vec![0u8; 32];
 
         // let tx_as_hex = "7ac33997544e3175d266bd022439b22cdb16508c01163f26e5cb2a3e1045a979000000020000000020da998b75e42b1f7f85d075c127f5b246df12ad96f010bcf7f76f72b16e57130000006400c5b4a5000000190000000000000000000000010000000000000001000000009541f02746240c1e9f3843d28e56f0a583ecd27502fb0f4a27d4d0922fe064a200000000000000000098968000000000";
@@ -136,7 +132,7 @@ where
         //     }
         // }
 
-        let mut b: Vec<u8> = [
+        let mut tx_as_bytes: Vec<u8> = [
             122, 195, 57, 151, 84, 78, 49, 117, 210, 102, 189, 2, 36, 57, 178, 44, 219, 22, 80,
             140, 1, 22, 63, 38, 229, 203, 42, 62, 16, 69, 169, 121, 0, 0, 0, 2, 0, 0, 0, 0, 32,
             218, 153, 139, 117, 228, 43, 31, 127, 133, 208, 117, 193, 39, 245, 178, 70, 223, 18,
@@ -148,21 +144,37 @@ where
         ]
         .to_vec();
 
-        let buffer_size = 1 + hd_path_elements_count * 4;
+        // data
+        //  data[0] = pathElts.length
+        // data pathElts
+        // chunk
 
+        let mut data: Vec<u8> = Vec::new();
+
+        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+        let hd_path_elements_count = hd_path.depth();
+
+        data.insert(0, hd_path_elements_count);
+        data.append(&mut hd_path_to_bytes);
+
+        let buffer_size = 1 + hd_path_elements_count * 4;
         let chunk_size = APDU_MAX_SIZE - buffer_size;
 
-        let mut data = hd_path_to_bytes;
-        data.append(&mut b);
-
-        let chunks = data.chunks(chunk_size as usize);
+        let chunks = tx_as_bytes.chunks(chunk_size as usize);
         let chunks_count = chunks.len();
 
         let mut result = Vec::new();
         println!("chunks_count: {:?}", chunks_count);
+
         for (i, chunk) in chunks.enumerate() {
             let is_first_chunk = i == 0;
             let is_last_chunk = chunks_count == i + 1;
+            println!("is_first_chunk {is_first_chunk:?}");
+            println!("is_last_chunk {is_last_chunk:?}");
+            let mut data = data.clone();
+            data.append(&mut chunk.to_vec());
+            println!("DATA BEING SENT for i {i}: {data:?}");
+
             let command = APDUCommand {
                 cla: CLA,
                 ins: SIGN_TX,
@@ -176,7 +188,7 @@ where
                 } else {
                     P2_SIGN_TX_MORE
                 },
-                data: chunk.to_vec(),
+                data: data.to_vec(),
             };
 
             println!("command: {:?}", command);
@@ -253,8 +265,6 @@ where
         hd_path_to_bytes.insert(0, hd_path_elements_count);
 
         println!("data: {:?}", hd_path_to_bytes);
-        // data: [3, 128, 0, 0, 44, 128, 0, 0, 148, 128, 0, 0, 0]
-        // in json:       data: [ 3, 128,   0,   0, 44, 128, 0,   0, 148, 128,  0,   0, 0 ]
 
         let p2 = if display_and_confirm {
             P2_GET_PUBLIC_KEY_DISPLAY
