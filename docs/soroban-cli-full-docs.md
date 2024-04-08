@@ -70,8 +70,11 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network start`↴](#soroban-network-start)
 * [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
-* [`soroban data`↴](#soroban-data)
-* [`soroban data ls`↴](#soroban-data-ls)
+* [`soroban cache`↴](#soroban-cache)
+* [`soroban cache ls`↴](#soroban-cache-ls)
+* [`soroban cache info`↴](#soroban-cache-info)
+* [`soroban cache clean`↴](#soroban-cache-clean)
+* [`soroban cache read`↴](#soroban-cache-read)
 
 ## `soroban`
 
@@ -112,7 +115,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `lab` — Experiment with early features and expert tools
 * `network` — Start and configure networks
 * `version` — Print version information
-* `data` — Access cached data
+* `cache` — Cache for tranasctions and contract specs
 
 ###### **Options:**
 
@@ -1690,23 +1693,26 @@ Print version information
 
 
 
-## `soroban data`
+## `soroban cache`
 
-Access cached data
+Cache for tranasctions and contract specs
 
-**Usage:** `soroban data <COMMAND>`
+**Usage:** `soroban cache <COMMAND>`
 
 ###### **Subcommands:**
 
-* `ls` — List identities
+* `ls` — List cached actions (transactions, simulations)
+* `info` — Show location of cache
+* `clean` — Delete all cached actions
+* `read` — Read cached action
 
 
 
-## `soroban data ls`
+## `soroban cache ls`
 
-List identities
+List cached actions (transactions, simulations)
 
-**Usage:** `soroban data ls [OPTIONS]`
+**Usage:** `soroban cache ls [OPTIONS]`
 
 ###### **Options:**
 
@@ -1719,6 +1725,41 @@ List identities
 
   Possible values: `true`, `false`
 
+
+
+
+## `soroban cache info`
+
+Show location of cache
+
+**Usage:** `soroban cache info`
+
+
+
+## `soroban cache clean`
+
+Delete all cached actions
+
+**Usage:** `soroban cache clean [OPTIONS]`
+
+###### **Options:**
+
+* `-a`, `--actions` — Actions only
+
+  Possible values: `true`, `false`
+
+
+
+
+## `soroban cache read`
+
+Read cached action
+
+**Usage:** `soroban cache read --ulid <ULID>`
+
+###### **Options:**
+
+* `--ulid <ULID>` — ULID of the cache entry
 
 
 
