@@ -13,7 +13,7 @@ use super::util::{deploy_hello, extend, HELLO_WORLD};
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
 async fn invoke() {
-    let sandbox = &TestEnv::with_rpc_url("http://moss:8090/soroban/rpc");
+    let sandbox = &TestEnv::new();
     let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
     sandbox
