@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use reqwest::Response;
 use std::{io::Write, str::FromStr, thread::sleep, time::Duration, vec};
-use stellar_xdr::curr::ReadXdr;
+use stellar_xdr::curr::{Limits, ReadXdr, WriteXdr};
 
 use ledger_transport::{APDUCommand, Exchange};
 use ledger_transport_hid::{
@@ -22,6 +22,12 @@ const GET_PUBLIC_KEY: u8 = 0x02; // Instruction code to get public key
 const P1_GET_PUBLIC_KEY: u8 = 0x00;
 const P2_GET_PUBLIC_KEY_NO_DISPLAY: u8 = 0x00;
 const P2_GET_PUBLIC_KEY_DISPLAY: u8 = 0x01;
+
+const SIGN_TX: u8 = 0x04;
+const P1_SIGN_TX_FIRST: u8 = 0x00;
+const P1_SIGN_TX_NOT_FIRST: u8 = 0x80;
+const P2_SIGN_TX_LAST: u8 = 0x80;
+const P2_SIGN_TX_MORE: u8 = 0x80;
 
 const GET_APP_CONFIGURATION: u8 = 0x06;
 const P1_GET_APP_CONFIGURATION: u8 = 0x00;
@@ -89,6 +95,7 @@ where
     ) -> Result<Vec<u8>, LedgerError> {
         // convert the hd_path into bytes to be sent as `data` to the Ledger
         // the first element of the data should be the number of elements in the path
+
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
         let hd_path_elements_count = hd_path.depth();
         hd_path_to_bytes.insert(0, hd_path_elements_count);
@@ -107,9 +114,131 @@ where
         self.send_command_to_ledger(command).await
     }
 
+    pub async fn sign_transaction(
+        &self,
+        hd_path: slip10::BIP32Path,
+        transaction: Transaction,
+    ) -> Result<Vec<u8>, LedgerError> {
+        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+        let hd_path_elements_count = hd_path.depth();
+        hd_path_to_bytes.insert(0, hd_path_elements_count);
 
+        // let mut tx_as_bytes = vec![0u8; 32];
 
+        // let tx_as_hex = "7ac33997544e3175d266bd022439b22cdb16508c01163f26e5cb2a3e1045a979000000020000000020da998b75e42b1f7f85d075c127f5b246df12ad96f010bcf7f76f72b16e57130000006400c5b4a5000000190000000000000000000000010000000000000001000000009541f02746240c1e9f3843d28e56f0a583ecd27502fb0f4a27d4d0922fe064a200000000000000000098968000000000";
+        // match hex::decode_to_slice(
+        //     tx_as_hex,
+        //     &mut tx_as_bytes as &mut [u8],
+        // ) {
+        //     Ok(()) => {}
+        //     Err(e) => {
+        //         panic!("Unexpected result: {e}");
+        //     }
+        // }
 
+        let mut b: Vec<u8> = [
+            122, 195, 57, 151, 84, 78, 49, 117, 210, 102, 189, 2, 36, 57, 178, 44, 219, 22, 80,
+            140, 1, 22, 63, 38, 229, 203, 42, 62, 16, 69, 169, 121, 0, 0, 0, 2, 0, 0, 0, 0, 32,
+            218, 153, 139, 117, 228, 43, 31, 127, 133, 208, 117, 193, 39, 245, 178, 70, 223, 18,
+            173, 150, 240, 16, 188, 247, 247, 111, 114, 177, 110, 87, 19, 0, 0, 0, 100, 0, 197,
+            180, 165, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+            0, 0, 0, 149, 65, 240, 39, 70, 36, 12, 30, 159, 56, 67, 210, 142, 86, 240, 165, 131,
+            236, 210, 117, 2, 251, 15, 74, 39, 212, 208, 146, 47, 224, 100, 162, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 152, 150, 128, 0, 0, 0, 0,
+        ]
+        .to_vec();
+
+        let buffer_size = 1 + hd_path_elements_count * 4;
+
+        let chunk_size = APDU_MAX_SIZE - buffer_size;
+
+        let mut data = hd_path_to_bytes;
+        data.append(&mut b);
+
+        let chunks = data.chunks(chunk_size as usize);
+        let chunks_count = chunks.len();
+
+        let mut result = Vec::new();
+        println!("chunks_count: {:?}", chunks_count);
+        for (i, chunk) in chunks.enumerate() {
+            let is_first_chunk = i == 0;
+            let is_last_chunk = chunks_count == i + 1;
+            let command = APDUCommand {
+                cla: CLA,
+                ins: SIGN_TX,
+                p1: if is_first_chunk {
+                    P1_SIGN_TX_FIRST
+                } else {
+                    P1_SIGN_TX_NOT_FIRST
+                },
+                p2: if is_last_chunk {
+                    P2_SIGN_TX_LAST
+                } else {
+                    P2_SIGN_TX_MORE
+                },
+                data: chunk.to_vec(),
+            };
+
+            println!("command: {:?}", command);
+            match self.send_command_to_ledger(command).await {
+                Ok(mut r) => {
+                    result.append(&mut r);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    // // should this take in a transaction or an assembled transaction?
+    // // i think i need to convert this tranaction to a byte array
+    // pub async fn sign_transaction(
+    //     &self,
+    //     hd_path: slip10::BIP32Path,
+    //     transaction: Transaction,
+    // ) -> Result<Vec<u8>, LedgerError> {
+    //     // TODO: check tx size and make sure it is less than TX_MAX_SIZE
+
+    //     // convert the hd_path into bytes to be sent as `data` to the Ledger
+    //     // the first element of the data should be the number of elements in the path
+    //     let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+    //     let hd_path_elements_count = hd_path.depth();
+
+    //     hd_path_to_bytes.insert(0, hd_path_elements_count);
+
+    //     let buffer_size = 1 + hd_path_elements_count * 4;
+
+    //     let chunkSize = APDU_MAX_SIZE - buffer_size;
+
+    //     // if (transaction.length <= chunkSize) {
+    //     //     // it fits in a single apdu
+    //     //     apdus.push(Buffer.concat([buffer, transaction]));
+    // // }
+
+    //     // this is copilot generated:
+    //     // let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+    //     // let hd_path_elements_count = hd_path.depth();
+    //     // hd_path_to_bytes.insert(0, hd_path_elements_count);
+
+    //     // let mut data = Vec::new();
+    //     // data.write_u32::<BigEndian>(transaction.len() as u32)
+    //     //     .unwrap();
+    //     // data.extend(transaction);
+
+    //     let command = APDUCommand {
+    //         cla: CLA,
+    //         ins: SIGN_TX,
+    //         p1: 0x00,
+    //         p2: 0x00,
+    //         data: vec![],
+    //     };
+
+    //     self.send_command_to_ledger(command).await
+
+    // }
 
     /// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
     async fn get_public_key_with_display_flag(
@@ -122,6 +251,10 @@ where
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
         let hd_path_elements_count = hd_path.depth();
         hd_path_to_bytes.insert(0, hd_path_elements_count);
+
+        println!("data: {:?}", hd_path_to_bytes);
+        // data: [3, 128, 0, 0, 44, 128, 0, 0, 148, 128, 0, 0, 0]
+        // in json:       data: [ 3, 128,   0,   0, 44, 128, 0,   0, 148, 128,  0,   0, 0 ]
 
         let p2 = if display_and_confirm {
             P2_GET_PUBLIC_KEY_DISPLAY
@@ -157,6 +290,8 @@ where
         let response = self.transport.exchange(&command).await;
         println!("SLEEPING for 10...");
         sleep(Duration::from_secs(10));
+        // this is when the user is supposed to confirm the transaction on the Ledger
+        // how do i do this programatically with the emulator?
         println!("sleep over, checking the response");
 
         match response {
@@ -167,6 +302,8 @@ where
                     response.retcode(),
                 );
                 // Ok means we successfully connected with the Ledger but it doesn't mean our request succeeded. We still need to check the response.retcode
+                println!("RETCODE: {:?}", response.retcode());
+                println!("response: {:?}", response.data());
                 if response.retcode() == RETURN_CODE_OK {
                     return Ok(response.data().to_vec());
                 } else {
@@ -179,7 +316,6 @@ where
             Err(err) => {
                 //FIX ME!!!!
                 return Err(LedgerError::LedgerConnectionError("test".to_string()));
-                //FIX ME!!!
             }
         };
     }

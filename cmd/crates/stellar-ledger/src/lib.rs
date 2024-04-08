@@ -27,11 +27,18 @@ enum Error {}
 #[cfg(test)]
 mod test {
 
-    use std::{collections::HashMap, str::FromStr, time::Duration};
+    use std::{collections::HashMap, path::PathBuf, str::FromStr, thread, time::Duration};
 
     use super::*;
+
     use once_cell::sync::Lazy;
     use serial_test::serial;
+
+    use stellar_xdr::curr::{
+        HostFunction, InvokeContractArgs, Memo, MuxedAccount, Preconditions, SequenceNumber,
+        StringM, TransactionExt, VecM,
+    };
+    // should MuxedAccount be stellar_strkey::ed25519::MuxedAccount; instead?
     use tokio::time::sleep;
 
     use crate::app::LedgerError::APDUExchangeError;
@@ -102,6 +109,42 @@ mod test {
     }
 
     #[tokio::test]
+    async fn test_sign_tx() {
+        let mut emulator = Emulator::new().await;
+        start_emulator(&mut emulator).await;
+
+        let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
+        let ledger = app::Ledger::new(transport);
+
+        let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
+
+        let tx = Transaction {
+            source_account: MuxedAccount::Ed25519(Uint256([0; 32])),
+            fee: 0,
+            seq_num: SequenceNumber(1),
+            cond: Preconditions::None,
+            memo: Memo::Text("Stellar".as_bytes().try_into().unwrap()),
+            operations: [].to_vec().try_into().unwrap(),
+            ext: TransactionExt::V0,
+        };
+
+        let result = ledger.sign_transaction(path, tx).await;
+        println!("result: {result:?}");
+        // match ledger.sign_transaction(hd_path, transaction).await {
+        //     Ok(config) => {
+        //         assert_eq!(config, vec![0, 5, 0, 3]);
+        //     }
+        //     Err(e) => {
+        //         println!("{e}");
+        //         assert!(false);
+        //         stop_emulator(&mut emulator).await;
+        //     }
+        // };
+
+        stop_emulator(&mut emulator).await;
+    }
+
+    #[tokio::test]
     async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
         //when hash signing isnt enabled on the device we expect an error
         let mut emulator = Emulator::new().await;
@@ -126,8 +169,6 @@ mod test {
         stop_emulator(&mut emulator).await;
     }
 
-    //TODO: implement this test
-    // not sure how to enable hash signing on the emulator yet. zemu has methods that emulate pressing the buttons to choose the option
     #[tokio::test]
     async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
         //when hash signing isnt enabled on the device we expect an error
@@ -152,21 +193,19 @@ mod test {
             }
         }
 
-        // this is what the js code is doing:
-        // let hash_as_bytes = [ 51, 137, 233, 240, 241, 166,  95,  25, 115, 108, 172, 245,  68, 194, 232,  37, 49,  62, 132,  71, 245, 105,  35,  59, 184, 219,  57, 170,  96, 124, 136, 137 ].to_vec();
-        let result = ledger.sign_transaction_hash(path, test_hash).await;
+        let result = ledger.sign_transaction_hash(path, test_hash);
 
-        // approve_tx_hash_signature().await;
+        approve_tx_hash_signature().await;
 
-        // match result {
-        //     Ok(result) => {
-        //         println!("this is the response from signing the hash: {result:?}");
-        //     }
-        //     Err(e) => {
-        //         stop_emulator(&mut emulator).await;
-        //         panic!("Unexpected result: {e}");
-        //     }
-        // }
+        match result.await {
+            Ok(result) => {
+                println!("this is the response from signing the hash: {result:?}");
+            }
+            Err(e) => {
+                stop_emulator(&mut emulator).await;
+                panic!("Unexpected result: {e}");
+            }
+        }
 
         stop_emulator(&mut emulator).await;
     }
@@ -243,6 +282,8 @@ mod test {
     }
 
     async fn approve_tx_hash_signature() {
+        println!("approving tx hash sig");
+
         // let client = reqwest::Client::new();
         // client.post("http://localhost:5001/button/right")
         let mut map = HashMap::new();
