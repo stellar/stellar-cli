@@ -104,9 +104,12 @@ impl Secret {
     pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
         Ok(match self {
             Secret::SecretKey { secret_key } => PrivateKey::from_string(secret_key)?,
-            Secret::SeedPhrase { seed_phrase } => sep5::SeedPhrase::from_str(seed_phrase)?
-                .from_path_index(index.unwrap_or_default(), None)?
-                .private(),
+            Secret::SeedPhrase { seed_phrase } => PrivateKey::from_payload(
+                &sep5::SeedPhrase::from_str(seed_phrase)?
+                    .from_path_index(index.unwrap_or_default(), None)?
+                    .private()
+                    .0,
+            )?,
         })
     }
 
