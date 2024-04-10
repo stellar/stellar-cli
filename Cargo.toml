@@ -14,31 +14,19 @@ version = "20.3.1"
 rust-version = "1.74.0"
 
 [workspace.dependencies.soroban-env-host]
-version = "=20.2.1"
-# git = "https://github.com/stellar/rs-soroban-env"
-# rev = "1bfc0f2a2ee134efc1e1b0d5270281d0cba61c2e"
-# path = "../rs-soroban-env/soroban-env-host"
+version = "=20.3.0"
 
 [workspace.dependencies.soroban-simulation]
-version = "=20.2.1"
-# git = "https://github.com/stellar/rs-soroban-env"
-# rev = "1bfc0f2a2ee134efc1e1b0d5270281d0cba61c2e"
-# path = "../rs-soroban-env/soroban-simulation"
+version = "=20.3.0"
 
 [workspace.dependencies.soroban-spec]
-version = "=20.3.1"
-# git = "https://github.com/stellar/rs-soroban-sdk"
-# rev = "4aef54ff9295c2fca4c5b9fbd2c92d0ff99f67de"
-# path = "../rs-soroban-sdk/soroban-spec"
+version = "=20.5.0"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=20.3.1"
-# git = "https://github.com/stellar/rs-soroban-sdk"
-# rev = "4aef54ff9295c2fca4c5b9fbd2c92d0ff99f67de"
-# path = "../rs-soroban-sdk/soroban-spec-rust"
+version = "=20.5.0"
 
 [workspace.dependencies.soroban-spec-json]
-version = "20.3.1"
+version = "=20.3.1"
 path = "./cmd/crates/soroban-spec-json"
 
 [workspace.dependencies.soroban-spec-typescript]
@@ -50,34 +38,28 @@ version = "20.3.1"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
-version = "=20.3.1"
-# git = "https://github.com/stellar/rs-soroban-sdk"
-# rev = "4aef54ff9295c2fca4c5b9fbd2c92d0ff99f67de"
+version = "=20.5.0"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "=20.3.1"
-# git = "https://github.com/stellar/rs-soroban-sdk"
-# rev = "4aef54ff9295c2fca4c5b9fbd2c92d0ff99f67de"
+version = "=20.5.0"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "=20.3.1"
-# git = "https://github.com/stellar/rs-soroban-sdk"
-# rev = "4aef54ff9295c2fca4c5b9fbd2c92d0ff99f67de"
+version = "=20.5.0"
 
 [workspace.dependencies.soroban-cli]
-version = "20.3.1"
+version = "=20.3.1"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
-version = "=20.3.3"
-# git = "https://github.com/stellar/soroban-rpc"
+package = "stellar-rpc-client"
+version = "=20.3.5"
 
 [workspace.dependencies.stellar-xdr]
 version = "=20.1.0"
 default-features = true
 
 [workspace.dependencies]
-stellar-strkey = "0.0.7"
+stellar-strkey = "0.0.8"
 sep5 = "0.0.2"
 base64 = "0.21.2"
 thiserror = "1.0.46"
