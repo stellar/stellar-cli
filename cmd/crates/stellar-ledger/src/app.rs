@@ -1,17 +1,8 @@
-use byteorder::{BigEndian, WriteBytesExt};
-use reqwest::Response;
 use sha2::{Digest, Sha256};
-use std::{
-    io::{Cursor, Write},
-    str::FromStr,
-    thread::sleep,
-    time::Duration,
-    vec,
-};
+use std::vec;
 use stellar_xdr::curr::{
-    self, Hash, Limited, Limits, ReadXdr, TransactionEnvelope, TransactionSignaturePayload,
-    TransactionSignaturePayloadTaggedTransaction, TransactionV0, TransactionV0Envelope,
-    TransactionV1Envelope, WriteXdr,
+    Hash, Limits, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+    WriteXdr,
 };
 
 use ledger_transport::{APDUCommand, Exchange};
@@ -22,7 +13,7 @@ use ledger_transport_hid::{
 
 use soroban_env_host::xdr::Transaction;
 
-use crate::transport_zemu_http::{LedgerZemuError, TransportZemuHttp};
+use crate::transport_zemu_http::TransportZemuHttp;
 
 const APDU_MAX_SIZE: u8 = 150; // from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 

@@ -1,17 +1,5 @@
 // https://github.com/zondax/ledger-rs
 
-use ed25519_dalek::Signer;
-use sha2::{Digest, Sha256};
-
-use soroban_env_host::xdr::{
-    self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, Uint256, WriteXdr,
-};
-
 pub mod app;
 
 mod emulator;
@@ -20,23 +8,21 @@ mod docker;
 
 mod transport_zemu_http;
 
-use crate::app::get_zemu_transport;
-use crate::{app::new_get_transport, emulator::Emulator};
-enum Error {}
-
 #[cfg(test)]
 mod test {
+    use soroban_env_host::xdr::{self, Operation, OperationBody, Transaction, Uint256};
 
-    use std::{collections::HashMap, path::PathBuf, str::FromStr, thread, time::Duration};
+    use crate::app::get_zemu_transport;
+    use crate::{app::new_get_transport, emulator::Emulator};
+
+    use std::{collections::HashMap, str::FromStr, time::Duration};
 
     use super::*;
 
-    use once_cell::sync::Lazy;
     use serial_test::serial;
 
     use stellar_xdr::curr::{
-        HostFunction, InvokeContractArgs, Memo, MuxedAccount, PaymentOp, Preconditions,
-        SequenceNumber, StringM, TransactionExt, TransactionV0, TransactionV0Ext, VecM,
+        Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
     };
 
     use tokio::time::sleep;
