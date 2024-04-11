@@ -130,9 +130,13 @@ where
         hd_path: slip10::BIP32Path,
         transaction: Transaction,
     ) -> Result<Vec<u8>, LedgerError> {
+        // TODO: in js-stellar-base signatureBase fn, they update the tx if the envelope type is V0 - do i need to take care of that here?
+        // i think not because in generated.rs the TransactionSignaturePayload has a note that says "Backwards Compatibility: Use ENVELOPE_TYPE_TX to sign ENVELOPE_TYPE_TX_V0"
+
         let tagged_transaction =
             TransactionSignaturePayloadTaggedTransaction::Tx(transaction.clone());
-        // FIXME
+
+        // TODO: do not hardcode this passphrase
         let testnet_passphrase = "Test SDF Network ; September 2015";
         let network_hash = Hash(Sha256::digest(testnet_passphrase.as_bytes()).into());
 
@@ -142,73 +146,6 @@ where
         };
 
         let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none()).unwrap();
-
-        // let tx_env = TransactionEnvelope::TxV0(TransactionV0Envelope {
-        //     tx: &transaction,
-        //     signatures: vec![].try_into().unwrap(),
-        // });
-
-        // let tx_as_bytes = &transaction.to_xdr(Limits::none()).unwrap();
-        // // let mut tx_env_as_xdr = tx_env.to_xdr(Limits::none()).unwrap();
-
-        // match TransactionV0::from_xdr(tx_as_bytes, Limits::none()) {
-        //     Ok(tx) => {
-        //         println!("tx: {:?}", tx);
-        //     }
-        //     Err(e) => {
-        //         println!("error: {:?}", e);
-        //     }
-        // }
-
-        // the test tx from // https://github.com/LedgerHQ/ledger-live/blob/bd5188b5368849cccab74c11cbc64870bd5edbcd/libs/ledgerjs/packages/hw-app-str/tests/Str.test.ts#L47 works. I converted the hex into a byte vec in js:
-        // const transaction = Buffer.from(
-        //     "7ac33997544e3175d266bd022439b22cdb16508c01163f26e5cb2a3e1045a979000000020000000020da998b75e42b1f7f85d075c127f5b246df12ad96f010bcf7f76f72b16e57130000006400c5b4a5000000190000000000000000000000010000000000000001000000009541f02746240c1e9f3843d28e56f0a583ecd27502fb0f4a27d4d0922fe064a200000000000000000098968000000000",
-        //         "hex"
-        //       );
-
-        // console.dir(transaction, {'maxArrayLength': 200});
-
-        // which is this byte vec here:
-
-        // let mut tx_as_bytes: Vec<u8> = [
-        //     122, 195, 57, 151, 84, 78, 49, 117, 210, 102, 189, 2, 36, 57, 178, 44, 219, 22, 80,
-        //     140, 1, 22, 63, 38, 229, 203, 42, 62, 16, 69, 169, 121, 0, 0, 0, 2, 0, 0, 0, 0, 32,
-        //     218, 153, 139, 117, 228, 43, 31, 127, 133, 208, 117, 193, 39, 245, 178, 70, 223, 18,
-        //     173, 150, 240, 16, 188, 247, 247, 111, 114, 177, 110, 87, 19, 0, 0, 0, 100, 0, 197,
-        //     180, 165, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0,
-        //     0, 0, 0, 149, 65, 240, 39, 70, 36, 12, 30, 159, 56, 67, 210, 142, 86, 240, 165, 131,
-        //     236, 210, 117, 2, 251, 15, 74, 39, 212, 208, 146, 47, 224, 100, 162, 0, 0, 0, 0, 0, 0,
-        //     0, 0, 0, 152, 150, 128, 0, 0, 0, 0,
-        // ]
-        // .to_vec();
-
-        //this is from js-stellar-base tests somewhere (transaction builder test) AHHH THIS ONE WORKED!!! but also seems to be v1 :thinkin:
-        // i bet that `signatureBase` is doing something that I need to bake in here somewhere.
-
-        // ah it makes a sig payload... i think that we have that in signer too. i just didnt realize how to put the two things togheter
-        let mut tx_as_bytes: Vec<u8> = [
-            206, 224, 48, 45, 89, 132, 77, 50, 189, 202, 145, 92, 130, 3, 221, 68, 179, 63, 187,
-            126, 220, 25, 5, 30, 163, 122, 190, 223, 40, 236, 212, 114, 0, 0, 0, 2, 0, 0, 0, 0,
-            137, 155, 40, 64, 237, 86, 54, 197, 109, 220, 95, 20, 178, 57, 117, 247, 159, 27, 162,
-            56, 141, 38, 148, 228, 197, 110, 205, 221, 201, 96, 229, 239, 0, 0, 0, 100, 0, 0, 0, 0,
-            0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
-            0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 210, 152, 197,
-            129, 87, 17, 101, 145, 233, 50, 9, 233, 92, 122, 91, 255, 18, 27, 46, 29, 63, 97, 139,
-            104, 208, 252, 200, 239, 229, 229, 228, 112, 0, 0, 0, 0, 0, 0, 0, 2, 84, 11, 228, 0, 0,
-            0, 0, 0,
-        ]
-        .to_vec();
-
-        // from what i can tell, this tx does this:
-        // max fee: 0.00001 XLM
-        // tx source: GAQNVGMLOXSCWH37QXIHLQJH6WZENXYSVWLPAEF4673W64VRNZLRHMFM
-        // send 1xlm
-        // tx destination:GCKUD4BHIYSAYHU7HBB5FDSW6CSYH3GSOUBPWD2KE7KNBERP4BSKEJDV
-
-        // i feel like i replicated that, but when i try to send the Transaction that is passed into this function, i keep getting back 0x6C24	SW_UNKNOWN_OP	Unknown Stellar operation
-        // i wish i could figure out how to decode that tx into a Transaction, so i could see what the heck it is doing differently
-
-        // i wonder if speculos is using a specific xdr version, or maybe its not speculos but the elf file that i created... somehow
 
         let mut data: Vec<u8> = Vec::new();
 
@@ -310,14 +247,7 @@ where
         &self,
         command: APDUCommand<Vec<u8>>,
     ) -> Result<Vec<u8>, LedgerError> {
-        let response = self.transport.exchange(&command).await;
-        println!("SLEEPING for 10...");
-        sleep(Duration::from_secs(10));
-        // this is when the user is supposed to confirm the transaction on the Ledger
-        // how do i do this programatically with the emulator?
-        println!("sleep over, checking the response");
-
-        match response {
+        match self.transport.exchange(&command).await {
             Ok(response) => {
                 tracing::info!(
                     "APDU out: {}\nAPDU ret code: {:x}",
