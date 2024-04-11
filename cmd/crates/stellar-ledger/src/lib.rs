@@ -38,15 +38,10 @@ mod test {
         HostFunction, InvokeContractArgs, Memo, MuxedAccount, PaymentOp, Preconditions,
         SequenceNumber, StringM, TransactionExt, TransactionV0, TransactionV0Ext, VecM,
     };
-    // should MuxedAccount be stellar_strkey::ed25519::MuxedAccount; instead?
+
     use tokio::time::sleep;
 
     use crate::app::LedgerError::APDUExchangeError;
-
-    // TODO:
-    // - create setup and cleanup functions to start and then stop the emulator at the beginning and end of the test run
-    // - test each of the device models
-    // - handle the sleep differently
 
     #[ignore]
     #[tokio::test]
@@ -139,7 +134,7 @@ mod test {
 
         let destination_account_str = "GCKUD4BHIYSAYHU7HBB5FDSW6CSYH3GSOUBPWD2KE7KNBERP4BSKEJDV";
         let destination_account_bytes =
-            match stellar_strkey::Strkey::from_string(source_account_str) {
+            match stellar_strkey::Strkey::from_string(destination_account_str) {
                 Ok(key) => match key {
                     stellar_strkey::Strkey::PublicKeyEd25519(p) => p.0,
                     _ => {
@@ -152,25 +147,6 @@ mod test {
                     return;
                 }
             };
-
-        // let tx_v0 = TransactionV0 {
-        //     source_account_ed25519: Uint256(source_account_bytes),
-        //     fee: 100,
-        //     seq_num: SequenceNumber(1),
-        //     time_bounds: None,
-        //     memo: Memo::Text("Stellar".as_bytes().try_into().unwrap()),
-        //     operations: vec![Operation {
-        //         source_account: Some(MuxedAccount::Ed25519(Uint256(source_account_bytes))),
-        //         body: OperationBody::Payment(PaymentOp {
-        //             destination: MuxedAccount::Ed25519(Uint256(destination_account_bytes)),
-        //             asset: xdr::Asset::Native,
-        //             amount: 100,
-        //         }),
-        //     }]
-        //     .try_into()
-        //     .unwrap(),
-        //     ext: TransactionV0Ext::V0,
-        // };
 
         let tx = Transaction {
             source_account: MuxedAccount::Ed25519(Uint256(source_account_bytes)), // was struggling to create a real account in this way with the G... address
@@ -221,7 +197,7 @@ mod test {
         let result = ledger.sign_transaction_hash(path, test_hash.into()).await;
         if let Err(APDUExchangeError(msg)) = result {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
-            // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED from https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
+            // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
         } else {
             stop_emulator(&mut emulator).await;
             panic!("Unexpected result: {:?}", result);
@@ -276,7 +252,7 @@ mod test {
         assert!(start_result.is_ok());
 
         //TODO: handle this in a different way
-        // perhaps i can check the endpoint to see if its up before trying to get the public key
+        // perhaps i can check the endpoint to see if its up before trying to send anything
         sleep(Duration::from_secs(2)).await;
     }
 

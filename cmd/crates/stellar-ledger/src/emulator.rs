@@ -50,9 +50,3 @@ impl Emulator {
         Ok(())
     }
 }
-
-// -------------------------------------------------------------
-
-// next steps:
-// have this docker connection start the speculos emulator
-// see if i can use that emulator in tests like they do with zemu
