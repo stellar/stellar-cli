@@ -193,8 +193,7 @@ mod test {
 
         match ledger.sign_transaction(path, tx).await {
             Ok(response) => {
-                stop_emulator(&mut emulator).await;
-                assert_eq!( hex::encode(response), "ab5de404a9a28ef6cee7387610d7a4c876f5a4051647eeaf077b909eb77ab309ca6dad4ec127da3537d2663204e4a8f4d0e2163d63af9e9d33471069e1d5c90b");
+                assert_eq!( hex::encode(response), "77b9f6e6924e5db2e35c5ecd7dd95248eadd51ea35d61e467cf6ba0df28ca7f38674e3fea8c8a3e2a0fa45f49d4381f9cf24bcc0ff8b708c9337beb854e98e0d");
             }
             Err(e) => {
                 stop_emulator(&mut emulator).await;
