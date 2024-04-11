@@ -101,7 +101,7 @@ impl Exchange for TransportZemuHttp {
         let resp: Response = HttpClient::new()
             .post(&self.url)
             .headers(headers)
-            .timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(10))
             .json(&request)
             .send()
             .await
