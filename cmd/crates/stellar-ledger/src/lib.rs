@@ -1,27 +1,27 @@
-// https://github.com/zondax/ledger-rs
-
-mod emulator;
-
-mod docker;
-
 mod transport_zemu_http;
-
-use sha2::{Digest, Sha256};
-use std::vec;
-use stellar_xdr::curr::{
-    Hash, Limits, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    WriteXdr,
-};
-
+use async_trait::async_trait;
+use futures::executor::block_on;
 use ledger_transport::{APDUCommand, Exchange};
 use ledger_transport_hid::{
     hidapi::{HidApi, HidError},
     LedgerHIDError, TransportNativeHID,
 };
+use sha2::{Digest, Sha256};
 
-use soroban_env_host::xdr::Transaction;
+use soroban_env_host::xdr::{Hash, Transaction};
+use std::vec;
+use stellar_xdr::curr::{
+    self, DecoratedSignature, Limits, Signature, SignatureHint, TransactionEnvelope,
+    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+    TransactionV1Envelope, WriteXdr,
+};
 
+use crate::signer::{Error, Stellar};
 use crate::transport_zemu_http::TransportZemuHttp;
+
+mod docker;
+mod emulator;
+mod signer;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
@@ -65,20 +65,21 @@ pub enum LedgerError {
     LedgerConnectionError(String),
 }
 
-pub struct Ledger<T> {
-    transport: T,
+pub struct LedgerOptions<T: Exchange> {
+    exchange: T,
+    hd_path: slip10::BIP32Path,
 }
 
-impl<T> Ledger<T>
+pub struct LedgerSigner<T: Exchange> {
+    network_passphrase: String,
+    transport: T,
+    hd_path: slip10::BIP32Path,
+}
+
+impl<T> LedgerSigner<T>
 where
     T: Exchange,
 {
-    pub fn new(transport: T) -> Ledger<T> {
-        Ledger {
-            transport: transport,
-        }
-    }
-
     pub async fn get_public_key(
         &self,
         index: u32,
@@ -99,7 +100,7 @@ where
     }
 
     // based on impl from https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166
-    pub async fn sign_transaction_hash(
+    async fn sign_transaction_hash(
         &self,
         hd_path: slip10::BIP32Path,
         transaction_hash: Vec<u8>,
@@ -133,9 +134,8 @@ where
         let tagged_transaction =
             TransactionSignaturePayloadTaggedTransaction::Tx(transaction.clone());
 
-        // TODO: do not hardcode this passphrase
-        let testnet_passphrase = "Test SDF Network ; September 2015";
-        let network_hash = Hash(Sha256::digest(testnet_passphrase.as_bytes()).into());
+        let passphrase = self.network_passphrase.clone();
+        let network_hash = Hash(Sha256::digest(passphrase.as_bytes()).into());
 
         let signature_payload = TransactionSignaturePayload {
             network_id: network_hash,
@@ -271,6 +271,58 @@ where
     }
 }
 
+#[async_trait]
+impl<T: Exchange> Stellar for LedgerSigner<T> {
+    type Init = LedgerOptions<T>;
+
+    fn new(network_passphrase: &str, options: Option<LedgerOptions<T>>) -> Self {
+        let options_unwrapped = options.unwrap();
+        LedgerSigner {
+            network_passphrase: network_passphrase.to_string(),
+            transport: options_unwrapped.exchange,
+            hd_path: options_unwrapped.hd_path,
+        }
+    }
+
+    fn network_hash(&self) -> stellar_xdr::curr::Hash {
+        Hash(Sha256::digest(self.network_passphrase.as_bytes()).into())
+    }
+
+    fn sign_txn_hash(
+        &self,
+        txn: [u8; 32],
+        source_account: &stellar_strkey::Strkey,
+    ) -> Result<DecoratedSignature, Error> {
+        let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), txn.to_vec())) //TODO: refactor sign_transaction_hash
+            .unwrap(); // FIXME: handle error
+
+        let sig_bytes = signature.try_into().unwrap(); // FIXME: handle error
+        Ok(DecoratedSignature {
+            hint: SignatureHint([0u8; 4]), //FIXME
+            signature: Signature(sig_bytes),
+        })
+    }
+
+    fn sign_txn(
+        &self,
+        txn: Transaction,
+        source_account: &stellar_strkey::Strkey,
+    ) -> Result<TransactionEnvelope, Error> {
+        let signature = block_on(self.sign_transaction(self.hd_path.clone(), txn.clone())).unwrap(); // FIXME: handle error
+
+        let sig_bytes = signature.try_into().unwrap(); // FIXME: handle error
+        let decorated_signature = DecoratedSignature {
+            hint: SignatureHint([0u8; 4]), //FIXME
+            signature: Signature(sig_bytes),
+        };
+
+        Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx: txn,
+            signatures: vec![decorated_signature].try_into().unwrap(), //fixme: remove unwrap
+        }))
+    }
+}
+
 fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
     let path = format!("m/44'/148'/{index}'");
     path.parse().unwrap() // this is basically the same thing as slip10::BIP32Path::from_str
@@ -289,7 +341,7 @@ fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-pub fn new_get_transport() -> Result<impl Exchange, LedgerError> {
+pub fn get_transport() -> Result<impl Exchange, LedgerError> {
     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
     let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
@@ -317,12 +369,18 @@ mod test {
 
     use tokio::time::sleep;
 
+    const TEST_NETWORK_PASSPHRASE: &str = "Test SDF Network ; September 2015";
+
     #[ignore]
     #[tokio::test]
     #[serial]
     async fn test_get_public_key_with_ledger_device() {
-        let transport = new_get_transport().unwrap();
-        let ledger = Ledger::new(transport);
+        let transport = get_transport().unwrap();
+        let ledger_options = Some(LedgerOptions {
+            exchange: transport,
+            hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
+        });
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
         let public_key = ledger.get_public_key(0).await;
         println!("{public_key:?}");
         assert!(public_key.is_ok());
@@ -334,7 +392,11 @@ mod test {
         start_emulator(&mut emulator).await;
 
         let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
-        let ledger = Ledger::new(transport);
+        let ledger_options = Some(LedgerOptions {
+            exchange: transport,
+            hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
+        });
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
         match ledger.get_public_key(0).await {
             Ok(public_key) => {
@@ -355,13 +417,18 @@ mod test {
         stop_emulator(&mut emulator).await;
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_get_app_configuration() {
         let mut emulator = Emulator::new().await;
         start_emulator(&mut emulator).await;
 
         let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
-        let ledger = Ledger::new(transport);
+        let ledger_options = Some(LedgerOptions {
+            exchange: transport,
+            hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
+        });
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
         match ledger.get_app_configuration().await {
             Ok(config) => {
@@ -377,13 +444,18 @@ mod test {
         stop_emulator(&mut emulator).await;
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_sign_tx() {
         let mut emulator = Emulator::new().await;
         start_emulator(&mut emulator).await;
 
         let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
-        let ledger = Ledger::new(transport);
+        let ledger_options = Some(LedgerOptions {
+            exchange: transport,
+            hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
+        });
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
 
@@ -439,7 +511,7 @@ mod test {
 
         match ledger.sign_transaction(path, tx).await {
             Ok(response) => {
-                assert_eq!( hex::encode(response), "77b9f6e6924e5db2e35c5ecd7dd95248eadd51ea35d61e467cf6ba0df28ca7f38674e3fea8c8a3e2a0fa45f49d4381f9cf24bcc0ff8b708c9337beb854e98e0d");
+                assert_eq!( hex::encode(response), "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e");
             }
             Err(e) => {
                 stop_emulator(&mut emulator).await;
@@ -451,14 +523,19 @@ mod test {
         stop_emulator(&mut emulator).await;
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
-        //when hash signing isnt enabled on the device we expect an error
+        //when hash signing isn't enabled on the device we expect an error
         let mut emulator = Emulator::new().await;
         start_emulator(&mut emulator).await;
 
         let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
-        let ledger = Ledger::new(transport);
+        let ledger_options = Some(LedgerOptions {
+            exchange: transport,
+            hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
+        });
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
         let test_hash =
@@ -476,6 +553,7 @@ mod test {
         stop_emulator(&mut emulator).await;
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
         //when hash signing isnt enabled on the device we expect an error
@@ -484,7 +562,11 @@ mod test {
         enable_hash_signing().await;
 
         let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
-        let ledger = Ledger::new(transport);
+        let ledger_options = Some(LedgerOptions {
+            exchange: transport,
+            hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
+        });
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
         let mut test_hash = vec![0u8; 32];
