@@ -47,10 +47,10 @@ impl Cmd {
         let file = self.file()?;
         tracing::debug!("reading file {}", file.display());
         let (action, _) = data::read(&self.ulid()?)?;
-        let output = if let Some(_) = self.output {
+        let output = if self.output.is_some() {
             match action {
                 data::Action::Transaction(sim) => sim.envelope_xdr.expect("missing envelope"),
-                _ => todo!(),
+                data::Action::Simulation(_) => todo!("Only read transactions"),
             }
         } else {
             serde_json::to_string_pretty(&action)?
