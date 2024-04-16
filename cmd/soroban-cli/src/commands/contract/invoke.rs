@@ -331,28 +331,32 @@ impl NetworkRunnable for Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
+        let r = client.get_contract_data(&contract_id).await?;
+        tracing::trace!("{r:?}");
         let ContractDataEntry {
-            val:
-                xdr::ScVal::ContractInstance(xdr::ScContractInstance {
-                    executable: xdr::ContractExecutable::Wasm(hash),
-                    ..
-                }),
+            val: xdr::ScVal::ContractInstance(xdr::ScContractInstance { executable, .. }),
             ..
-        } = client.get_contract_data(&contract_id).await?
+        } = r
         else {
             return Err(Error::MissingResult);
         };
-        let hash = hash.to_string();
-
         // Get the contract
-        let spec_entries = if let Ok(entries) = data::read_spec(&hash) {
-            entries
-        } else {
-            let res = client.get_remote_contract_spec(&contract_id).await?;
-            if global_args.map_or(true, |a| !a.no_cache) {
-                data::write_spec(&hash, &res)?;
+        let spec_entries = match executable {
+            xdr::ContractExecutable::Wasm(hash) => {
+                let hash = hash.to_string();
+                if let Ok(entries) = data::read_spec(&hash) {
+                    entries
+                } else {
+                    let res = client.get_remote_contract_spec(&contract_id).await?;
+                    if global_args.map_or(true, |a| !a.no_cache) {
+                        data::write_spec(&hash, &res)?;
+                    }
+                    res
+                }
             }
-            res
+            xdr::ContractExecutable::StellarAsset => {
+                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
+            }
         };
 
         // Get the ledger footprint
