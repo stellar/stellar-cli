@@ -2,12 +2,10 @@ use ed25519_dalek::Signer;
 use ledger_transport::async_trait;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
+    self, DecoratedSignature, InvokeHostFunctionOp, Limits, Operation, OperationBody, Signature,
+    SignatureHint, SorobanAuthorizedFunction, Transaction, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, Uint256, WriteXdr,
+    TransactionV1Envelope, WriteXdr,
 };
 
 use soroban_rpc::Error as RpcError;

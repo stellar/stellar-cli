@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{Hash, Transaction};
 use std::vec;
 use stellar_xdr::curr::{
-    self, DecoratedSignature, Limits, Signature, SignatureHint, TransactionEnvelope,
+    DecoratedSignature, Limits, Signature, SignatureHint, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, WriteXdr,
 };
@@ -120,7 +120,7 @@ where
             ins: SIGN_TX_HASH,
             p1: P1_SIGN_TX_HASH,
             p2: P2_SIGN_TX_HASH,
-            data: data,
+            data,
         };
 
         self.send_command_to_ledger(command).await
@@ -139,7 +139,7 @@ where
 
         let signature_payload = TransactionSignaturePayload {
             network_id: network_hash,
-            tagged_transaction: tagged_transaction,
+            tagged_transaction,
         };
 
         let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none()).unwrap();
@@ -224,7 +224,7 @@ where
             cla: CLA,
             ins: GET_PUBLIC_KEY,
             p1: P1_GET_PUBLIC_KEY,
-            p2: p2,
+            p2,
             data: hd_path_to_bytes,
         };
 
@@ -256,14 +256,13 @@ where
                 println!("response: {:?}", response.data());
                 if response.retcode() == RETURN_CODE_OK {
                     return Ok(response.data().to_vec());
-                } else {
-                    let retcode = response.retcode();
-
-                    let error_string = format!("Ledger APDU retcode: 0x{:X}", retcode);
-                    return Err(LedgerError::APDUExchangeError(error_string));
                 }
+
+                let retcode = response.retcode();
+                let error_string = format!("Ledger APDU retcode: 0x{:X}", retcode);
+                return Err(LedgerError::APDUExchangeError(error_string));
             }
-            Err(err) => {
+            Err(_err) => {
                 //FIX ME!!!!
                 return Err(LedgerError::LedgerConnectionError("test".to_string()));
             }
