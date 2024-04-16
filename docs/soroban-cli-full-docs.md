@@ -1755,11 +1755,15 @@ Delete all cached actions
 
 Read cached action
 
-**Usage:** `soroban cache read --ulid <ULID>`
+**Usage:** `soroban cache read [OPTIONS] --ulid <ULID>`
 
 ###### **Options:**
 
 * `--ulid <ULID>` — ULID of the cache entry
+* `--output <OUTPUT>`
+
+  Possible values: `envelope`
+
 
 
 
