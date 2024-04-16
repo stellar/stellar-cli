@@ -52,7 +52,7 @@ path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "=20.3.5"
+version = "=20.3.3"
 
 [workspace.dependencies.stellar-xdr]
 version = "=20.1.0"

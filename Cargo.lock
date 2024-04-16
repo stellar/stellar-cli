@@ -3951,9 +3951,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stellar-rpc-client"
-version = "20.3.5"
+version = "20.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01c98cb5068faa68bb4eae0ddd492752042be3c85df145483669936fd794388e"
+checksum = "11b76b620319d599e7171452bfafc19d92f219beb35c60dea02f895e2603eae9"
 dependencies = [
  "base64 0.21.7",
  "clap",
