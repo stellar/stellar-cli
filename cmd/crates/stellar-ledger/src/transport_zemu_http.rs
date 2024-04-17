@@ -98,10 +98,12 @@ impl Exchange for TransportZemuHttp {
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
+        println!("url: {}", self.url);
+
         let resp: Response = HttpClient::new()
             .post(&self.url)
             .headers(headers)
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(20))
             .json(&request)
             .send()
             .await

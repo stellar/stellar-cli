@@ -106,7 +106,7 @@ ureq = { version = "2.9.1", features = ["json"] }
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
-bollard = "0.15.0"
+bollard = { workspace=true }
 futures-util = "0.3.30"
 home = "0.5.9"
 # For hyper-tls
