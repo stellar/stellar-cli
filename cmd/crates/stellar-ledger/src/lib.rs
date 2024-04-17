@@ -418,9 +418,9 @@ impl Image for Speculos {
         TAG.to_owned()
     }
 
-    fn expose_ports(&self) -> Vec<u16> {
-        vec![5000, 9998, 41000]
-    }
+    // fn expose_ports(&self) -> Vec<u16> {
+    //     vec![5000, 9998, 41000]
+    // }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         // vec![WaitFor::seconds(30)]
@@ -484,6 +484,8 @@ mod test {
         });
         let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
+        sleep(Duration::from_secs(10)).await;
+
         match ledger.get_public_key(0).await {
             Ok(public_key) => {
                 let public_key_string = public_key.to_string();
@@ -494,12 +496,14 @@ mod test {
                 assert_eq!(public_key_string, expected_public_key);
             }
             Err(e) => {
+                sleep(Duration::from_secs(10)).await;
                 node.stop();
                 println!("{e}");
                 assert!(false);
             }
         }
 
+        sleep(Duration::from_secs(10)).await;
         node.stop();
     }
 
@@ -524,6 +528,7 @@ mod test {
                 assert_eq!(config, vec![0, 5, 0, 3]);
             }
             Err(e) => {
+                sleep(Duration::from_secs(10)).await;
                 node.stop();
                 println!("{e}");
                 assert!(false);
@@ -532,7 +537,6 @@ mod test {
 
         // sleep 10 seconds here
         sleep(Duration::from_secs(10)).await;
-
         node.stop();
     }
 
@@ -615,14 +619,14 @@ mod test {
         stop_emulator(&mut emulator).await;
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
         //when hash signing isn't enabled on the device we expect an error
-        let mut emulator = Emulator::new().await;
-        start_emulator(&mut emulator).await;
+        let docker = clients::Cli::default();
+        let node = docker.run(Speculos::new());
+        let host_port = node.get_host_port_ipv4(9998);
 
-        let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
+        let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -638,11 +642,13 @@ mod test {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
             // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
         } else {
-            stop_emulator(&mut emulator).await;
+            sleep(Duration::from_secs(10)).await;
+            node.stop();
             panic!("Unexpected result: {:?}", result);
         }
 
-        stop_emulator(&mut emulator).await;
+        sleep(Duration::from_secs(10)).await;
+        node.stop();
     }
 
     #[ignore]
