@@ -98,8 +98,6 @@ impl Exchange for TransportZemuHttp {
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
-        println!("url: {}", self.url);
-
         let resp: Response = HttpClient::new()
             .post(&self.url)
             .headers(headers)

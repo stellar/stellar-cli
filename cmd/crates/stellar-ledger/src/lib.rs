@@ -330,7 +330,6 @@ fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
 }
 
 fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
-    println!("hd_path.depth: {:?}", hd_path.depth());
     (0..hd_path.depth())
         .map(|index| {
             let value = *hd_path.index(index).unwrap();
@@ -442,6 +441,7 @@ mod test {
 
     use crate::emulator::Emulator;
 
+    use std::sync::Arc;
     use std::{collections::HashMap, str::FromStr, time::Duration};
 
     use super::*;
@@ -484,8 +484,6 @@ mod test {
         });
         let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
-        sleep(Duration::from_secs(10)).await;
-
         match ledger.get_public_key(0).await {
             Ok(public_key) => {
                 let public_key_string = public_key.to_string();
@@ -503,7 +501,6 @@ mod test {
             }
         }
 
-        sleep(Duration::from_secs(10)).await;
         node.stop();
     }
 
@@ -512,9 +509,6 @@ mod test {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
         let host_port = node.get_host_port_ipv4(9998);
-
-        println!("hostport for 9998: {host_port}");
-        println!("hostport for 5000: {}", node.get_host_port_ipv4(5000));
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
@@ -528,30 +522,31 @@ mod test {
                 assert_eq!(config, vec![0, 5, 0, 3]);
             }
             Err(e) => {
-                sleep(Duration::from_secs(10)).await;
                 node.stop();
                 println!("{e}");
                 assert!(false);
             }
         };
 
-        // sleep 10 seconds here
-        sleep(Duration::from_secs(10)).await;
         node.stop();
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_sign_tx() {
-        let mut emulator = Emulator::new().await;
-        start_emulator(&mut emulator).await;
+        let docker = clients::Cli::default();
+        let node = docker.run(Speculos::new());
+        let host_port = node.get_host_port_ipv4(9998);
+        let ui_host_port = node.get_host_port_ipv4(5000);
 
-        let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
+        // println!("sleeping for 10 to give me time to get the port");
+        // sleep(Duration::from_secs(15)).await;
+
+        let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
         });
-        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+        let ledger = Arc::new(LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options));
 
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
 
@@ -605,18 +600,29 @@ mod test {
             .unwrap(),
         };
 
-        match ledger.sign_transaction(path, tx).await {
+        let sign = tokio::task::spawn({
+            let ledger = Arc::clone(&ledger);
+            async move { ledger.sign_transaction(path, tx).await }
+        });
+        let approve = tokio::task::spawn(approve_tx_signature(ui_host_port));
+
+        // sleep(Duration::from_secs(20)).await;
+
+        let result = sign.await.unwrap();
+        let _ = approve.await.unwrap();
+
+        match result {
             Ok(response) => {
                 assert_eq!( hex::encode(response), "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e");
             }
             Err(e) => {
-                stop_emulator(&mut emulator).await;
+                node.stop();
                 println!("{e}");
                 assert!(false);
             }
         };
 
-        stop_emulator(&mut emulator).await;
+        node.stop();
     }
 
     #[tokio::test]
@@ -642,29 +648,29 @@ mod test {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
             // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
         } else {
-            sleep(Duration::from_secs(10)).await;
             node.stop();
             panic!("Unexpected result: {:?}", result);
         }
 
-        sleep(Duration::from_secs(10)).await;
         node.stop();
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
         //when hash signing isnt enabled on the device we expect an error
-        let mut emulator = Emulator::new().await;
-        start_emulator(&mut emulator).await;
-        enable_hash_signing().await;
+        let docker = clients::Cli::default();
+        let node = docker.run(Speculos::new());
+        let host_port = node.get_host_port_ipv4(9998);
+        let ui_host_port = node.get_host_port_ipv4(5000);
 
-        let transport = get_zemu_transport("127.0.0.1", 9998).unwrap();
+        enable_hash_signing(ui_host_port).await;
+
+        let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
         });
-        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+        let ledger = Arc::new(LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options));
 
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
         let mut test_hash = vec![0u8; 32];
@@ -675,26 +681,32 @@ mod test {
         ) {
             Ok(()) => {}
             Err(e) => {
-                stop_emulator(&mut emulator).await;
+                sleep(Duration::from_secs(10)).await;
+                node.stop();
                 panic!("Unexpected result: {e}");
             }
         }
 
-        let result = ledger.sign_transaction_hash(path, test_hash);
+        let sign = tokio::task::spawn({
+            let ledger = Arc::clone(&ledger);
+            async move { ledger.sign_transaction_hash(path, test_hash).await }
+        });
+        let approve = tokio::task::spawn(approve_tx_hash_signature(ui_host_port));
 
-        approve_tx_hash_signature().await;
+        let result = sign.await.unwrap();
+        let _ = approve.await.unwrap();
 
-        match result.await {
+        match result {
             Ok(result) => {
                 println!("this is the response from signing the hash: {result:?}");
             }
             Err(e) => {
-                stop_emulator(&mut emulator).await;
+                node.stop();
                 panic!("Unexpected result: {e}");
             }
         }
 
-        stop_emulator(&mut emulator).await;
+        node.stop();
     }
 
     async fn start_emulator(e: &mut Emulator) {
@@ -712,16 +724,16 @@ mod test {
     }
 
     // FIXME lol/sob
-    async fn enable_hash_signing() {
-        // let client = reqwest::Client::new();
-        // client.post("http://localhost:5001/button/right")
+    async fn enable_hash_signing(ui_host_port: u16) {
+        println!("enabliing hash signing on the device");
+
         let mut map = HashMap::new();
         map.insert("action", "press-and-release");
 
         let client = reqwest::Client::new();
         // right button press
         client
-            .post("http://localhost:5001/button/right")
+            .post(format!("http://localhost:{ui_host_port}/button/right"))
             .json(&map)
             .send()
             .await
@@ -729,7 +741,7 @@ mod test {
 
         // both button press
         client
-            .post("http://localhost:5001/button/both")
+            .post(format!("http://localhost:{ui_host_port}/button/both"))
             .json(&map)
             .send()
             .await
@@ -737,7 +749,7 @@ mod test {
 
         // both button press
         client
-            .post("http://localhost:5001/button/both")
+            .post(format!("http://localhost:{ui_host_port}/button/both"))
             .json(&map)
             .send()
             .await
@@ -745,7 +757,7 @@ mod test {
 
         // right button press
         client
-            .post("http://localhost:5001/button/right")
+            .post(format!("http://localhost:{ui_host_port}/button/right"))
             .json(&map)
             .send()
             .await
@@ -753,7 +765,7 @@ mod test {
 
         // right button press
         client
-            .post("http://localhost:5001/button/right")
+            .post(format!("http://localhost:{ui_host_port}/button/right"))
             .json(&map)
             .send()
             .await
@@ -761,96 +773,57 @@ mod test {
 
         // both button press
         client
-            .post("http://localhost:5001/button/both")
+            .post(format!("http://localhost:{ui_host_port}/button/both"))
             .json(&map)
             .send()
             .await
             .unwrap();
     }
 
-    async fn approve_tx_hash_signature() {
-        println!("approving tx hash sig");
-
-        // let client = reqwest::Client::new();
-        // client.post("http://localhost:5001/button/right")
+    async fn approve_tx_hash_signature(ui_host_port: u16) {
+        println!("approving tx hash sig on the device");
         let mut map = HashMap::new();
         map.insert("action", "press-and-release");
 
         let client = reqwest::Client::new();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
+        // press the right button 10 times
+        for _ in 0..10 {
+            client
+                .post(format!("http://localhost:{ui_host_port}/button/right"))
+                .json(&map)
+                .send()
+                .await
+                .unwrap();
+        }
 
-        // right button press
+        // press both buttons
         client
-            .post("http://localhost:5001/button/right")
+            .post(format!("http://localhost:{ui_host_port}/button/both"))
             .json(&map)
             .send()
             .await
             .unwrap();
-        // right button press
+    }
+
+    async fn approve_tx_signature(ui_host_port: u16) {
+        println!("approving tx on the device");
+        let mut map = HashMap::new();
+        map.insert("action", "press-and-release");
+
+        // press right button 17 times
+        let client = reqwest::Client::new();
+        for _ in 0..17 {
+            client
+                .post(format!("http://localhost:{ui_host_port}/button/right"))
+                .json(&map)
+                .send()
+                .await
+                .unwrap();
+        }
+
+        // press both buttons
         client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // right button press
-        client
-            .post("http://localhost:5001/button/right")
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
-        // both button press
-        client
-            .post("http://localhost:5001/button/both")
+            .post(format!("http://localhost:{ui_host_port}/button/both"))
             .json(&map)
             .send()
             .await
