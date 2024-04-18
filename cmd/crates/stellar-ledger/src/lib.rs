@@ -19,8 +19,6 @@ use stellar_xdr::curr::{
 use crate::signer::{Error, Stellar};
 use crate::transport_zemu_http::TransportZemuHttp;
 
-mod docker;
-mod emulator;
 mod signer;
 mod speculos;
 
@@ -354,7 +352,6 @@ pub fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, Ledger
 mod test {
     use soroban_env_host::xdr::{self, Operation, OperationBody, Transaction, Uint256};
 
-    use crate::emulator::Emulator;
     use crate::speculos::Speculos;
 
     use std::sync::Arc;
@@ -621,20 +618,6 @@ mod test {
         }
 
         node.stop();
-    }
-
-    async fn start_emulator(e: &mut Emulator) {
-        let start_result = e.run().await;
-        assert!(start_result.is_ok());
-
-        //TODO: handle this in a different way
-        // perhaps i can check the endpoint to see if its up before trying to send anything
-        sleep(Duration::from_secs(2)).await;
-    }
-
-    async fn stop_emulator(e: &mut Emulator) {
-        let stop_result = e.stop().await;
-        assert!(stop_result.is_ok());
     }
 
     // FIXME lol/sob
