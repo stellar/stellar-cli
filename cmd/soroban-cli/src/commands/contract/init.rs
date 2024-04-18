@@ -523,7 +523,7 @@ mod tests {
         let with_examples = vec![];
         init(
             project_dir.as_path(),
-            "https://github.com/AhaLabs/soroban-astro-template",
+            "https://github.com/stellar/soroban-astro-template",
             &with_examples,
         )
         .unwrap();
@@ -551,7 +551,7 @@ mod tests {
         let with_examples = vec![];
         init(
             project_dir.as_path(),
-            "https://github.com/AhaLabs/soroban-astro-template",
+            "https://github.com/stellar/soroban-astro-template",
             &with_examples,
         )
         .unwrap();
@@ -581,7 +581,7 @@ mod tests {
         let with_examples = vec![];
         init(
             project_dir.as_path(),
-            "https://github.com/AhaLabs/soroban-astro-template",
+            "https://github.com/stellar/soroban-astro-template",
             &with_examples,
         )
         .unwrap();
@@ -589,7 +589,7 @@ mod tests {
         // call init again to make sure the README.md's contents are not duplicated
         init(
             project_dir.as_path(),
-            "https://github.com/AhaLabs/soroban-astro-template",
+            "https://github.com/stellar/soroban-astro-template",
             &with_examples,
         )
         .unwrap();
