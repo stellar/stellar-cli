@@ -9,7 +9,7 @@ use ledger_transport_hid::{
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{Hash, Transaction};
-use std::{path::PathBuf, vec};
+use std::vec;
 use stellar_xdr::curr::{
     DecoratedSignature, Limits, Signature, SignatureHint, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
@@ -22,6 +22,7 @@ use crate::transport_zemu_http::TransportZemuHttp;
 mod docker;
 mod emulator;
 mod signer;
+mod speculos;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
@@ -349,97 +350,12 @@ pub fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, Ledger
     Ok(TransportZemuHttp::new(host, port))
 }
 
-use std::{collections::HashMap, str::FromStr, time::Duration};
-use testcontainers::{
-    core::{ContainerState, ExecCommand, WaitFor},
-    Image, ImageArgs,
-};
-
-const NAME: &str = "docker.io/zondax/builder-zemu";
-const TAG: &str = "speculos-3a3439f6b45eca7f56395673caaf434c202e7005";
-
-static ENV: &Map = &Map(phf::phf_map! {
-    "BOLOS_SDK"=> "/project/deps/nanos-secure-sdk",
-    "BOLOS_ENV" => "/opt/bolos",
-    "DISPLAY" => "host.docker.internal:0",
-});
-struct Map(phf::Map<&'static str, &'static str>);
-
-impl From<&Map> for HashMap<String, String> {
-    fn from(Map(map): &Map) -> Self {
-        map.into_iter()
-            .map(|(a, b)| ((*a).to_string(), (*b).to_string()))
-            .collect()
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct Speculos(
-    HashMap<String, String>,
-    HashMap<String, String>,
-    Vec<String>,
-);
-const DEFAULT_APP_PATH: &str = "/project/app/bin";
-impl Speculos {
-    pub fn new() -> Self {
-        #[allow(unused_mut)]
-        let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("apps");
-        let mut volumes = HashMap::new();
-        volumes.insert(
-            apps_dir.to_str().unwrap().to_string(),
-            DEFAULT_APP_PATH.to_string(),
-        );
-        let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
-        Speculos(ENV.into(), volumes, vec![command_string])
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct SpeculosArgs;
-
-impl ImageArgs for SpeculosArgs {
-    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
-        let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
-        Box::new(vec![command_string].into_iter())
-    }
-}
-
-impl Image for Speculos {
-    type Args = SpeculosArgs;
-
-    fn name(&self) -> String {
-        NAME.to_owned()
-    }
-
-    fn tag(&self) -> String {
-        TAG.to_owned()
-    }
-
-    // fn expose_ports(&self) -> Vec<u16> {
-    //     vec![5000, 9998, 41000]
-    // }
-
-    fn ready_conditions(&self) -> Vec<WaitFor> {
-        // vec![WaitFor::seconds(30)]
-        vec![WaitFor::message_on_stdout("HTTP proxy started...")]
-    }
-
-    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(self.0.iter())
-    }
-
-    fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(self.1.iter())
-    }
-}
-
 #[cfg(test)]
 mod test {
     use soroban_env_host::xdr::{self, Operation, OperationBody, Transaction, Uint256};
 
     use crate::emulator::Emulator;
+    use crate::speculos::Speculos;
 
     use std::sync::Arc;
     use std::{collections::HashMap, str::FromStr, time::Duration};
@@ -452,6 +368,7 @@ mod test {
         Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
     };
 
+    use testcontainers::{clients, Container};
     use tokio::time::sleep;
 
     const TEST_NETWORK_PASSPHRASE: &str = "Test SDF Network ; September 2015";
@@ -537,9 +454,6 @@ mod test {
         let node = docker.run(Speculos::new());
         let host_port = node.get_host_port_ipv4(9998);
         let ui_host_port = node.get_host_port_ipv4(5000);
-
-        // println!("sleeping for 10 to give me time to get the port");
-        // sleep(Duration::from_secs(15)).await;
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
