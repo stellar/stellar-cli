@@ -389,6 +389,7 @@ mod test {
     async fn test_get_public_key() {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
+        sleep(Duration::from_secs(2)).await;
         let host_port = node.get_host_port_ipv4(9998);
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
@@ -408,7 +409,6 @@ mod test {
                 assert_eq!(public_key_string, expected_public_key);
             }
             Err(e) => {
-                sleep(Duration::from_secs(10)).await;
                 node.stop();
                 println!("{e}");
                 assert!(false);
@@ -422,6 +422,8 @@ mod test {
     async fn test_get_app_configuration() {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
+
+        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
@@ -449,6 +451,8 @@ mod test {
     async fn test_sign_tx() {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
+
+        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
         let ui_host_port = node.get_host_port_ipv4(5000);
 
@@ -541,6 +545,8 @@ mod test {
         //when hash signing isn't enabled on the device we expect an error
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
+
+        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
@@ -571,10 +577,15 @@ mod test {
         //when hash signing isnt enabled on the device we expect an error
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
+
+        sleep(Duration::from_secs(1)).await;
+
         let host_port = node.get_host_port_ipv4(9998);
         let ui_host_port = node.get_host_port_ipv4(5000);
 
         enable_hash_signing(ui_host_port).await;
+
+        sleep(Duration::from_secs(2)).await;
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
@@ -622,7 +633,7 @@ mod test {
 
     // FIXME lol/sob
     async fn enable_hash_signing(ui_host_port: u16) {
-        println!("enabliing hash signing on the device");
+        println!("enabling hash signing on the device");
 
         let mut map = HashMap::new();
         map.insert("action", "press-and-release");
@@ -634,6 +645,7 @@ mod test {
             .json(&map)
             .send()
             .await
+            .map_err(|e| println!("error in enable_hash_signing: {e}"))
             .unwrap();
 
         // both button press
@@ -642,6 +654,7 @@ mod test {
             .json(&map)
             .send()
             .await
+            .map_err(|e| println!("error in enable_hash_signing: {e}"))
             .unwrap();
 
         // both button press
@@ -650,6 +663,7 @@ mod test {
             .json(&map)
             .send()
             .await
+            .map_err(|e| println!("error in enable_hash_signing: {e}"))
             .unwrap();
 
         // right button press
@@ -658,6 +672,7 @@ mod test {
             .json(&map)
             .send()
             .await
+            .map_err(|e| println!("error in enable_hash_signing: {e}"))
             .unwrap();
 
         // right button press
@@ -666,6 +681,7 @@ mod test {
             .json(&map)
             .send()
             .await
+            .map_err(|e| println!("error in enable_hash_signing: {e}"))
             .unwrap();
 
         // both button press
@@ -674,6 +690,7 @@ mod test {
             .json(&map)
             .send()
             .await
+            .map_err(|e| println!("error in enable_hash_signing: {e}"))
             .unwrap();
     }
 

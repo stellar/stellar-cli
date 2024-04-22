@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};
+use std::{collections::HashMap, path::PathBuf};
 use testcontainers::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "docker.io/zondax/builder-zemu";
@@ -62,10 +62,6 @@ impl Image for Speculos {
     fn tag(&self) -> String {
         TAG.to_owned()
     }
-
-    // fn expose_ports(&self) -> Vec<u16> {
-    //     vec![5000, 9998, 41000]
-    // }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         // vec![WaitFor::seconds(30)]
