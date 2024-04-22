@@ -14,6 +14,7 @@ fn create_token<'a>(e: &Env, admin: &Address) -> TokenClient<'a> {
     token
 }
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn test() {
     let e = Env::default();

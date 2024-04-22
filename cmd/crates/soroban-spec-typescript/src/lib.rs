@@ -7,7 +7,6 @@
 use std::{fs, io};
 
 use crate::types::Type;
-use heck::ToLowerCamelCase;
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
 use stellar_xdr::curr::{Limits, ScSpecEntry, WriteXdr};
@@ -61,49 +60,29 @@ pub fn generate_from_wasm(wasm: &[u8]) -> Result<String, FromWasmError> {
 }
 
 fn generate_class(fns: &[Entry], spec: &[ScSpecEntry]) -> String {
-    let methods = fns.iter().map(entry_to_method).join("\n\n    ");
-    let parsers = fns
-        .iter()
-        .filter_map(entry_to_parser)
-        .map(|(method, parser)| format!("{method}: {parser}"))
-        .join(",\n        ");
+    let method_types = fns.iter().map(entry_to_method_type).join("");
     let from_jsons = fns
         .iter()
-        .filter_map(entry_to_parser)
-        .map(|(method, _)| {
-            format!("{method}: this.txFromJSON<ReturnType<typeof this.parsers['{method}']>>")
-        })
+        .filter_map(entry_to_name_and_return_type)
+        .map(|(method, return_type)| format!("{method}: this.txFromJSON<{return_type}>"))
         .join(",\n        ");
     let spec = spec
         .iter()
         .map(|s| format!("\"{}\"", s.to_xdr_base64(Limits::none()).unwrap()))
         .join(",\n        ");
     format!(
-        r#"export class Contract {{
-    spec: ContractSpec;
-    constructor(public readonly options: ClassOptions) {{
-        this.spec = new ContractSpec([
-            {spec}
-        ]);
-    }}
-    private readonly parsers = {{
-        {parsers}
-    }};
-    private txFromJSON = <T>(json: string): AssembledTransaction<T> => {{
-        const {{ method, ...tx }} = JSON.parse(json)
-        return AssembledTransaction.fromJSON(
-            {{
-                ...this.options,
-                method,
-                parseResultXdr: this.parsers[method],
-            }},
-            tx,
-        );
-    }}
-    public readonly fromJSON = {{
-        {from_jsons}
-    }}
-    {methods}
+        r#"export interface Client {{{method_types}
+}}
+export class Client extends ContractClient {{
+  constructor(public readonly options: ContractClientOptions) {{
+    super(
+      new ContractSpec([ {spec} ]),
+      options
+    )
+  }}
+  public readonly fromJSON = {{
+    {from_jsons}
+  }}
 }}"#,
     )
 }
@@ -120,27 +99,36 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
     let (fns, other): (Vec<_>, Vec<_>) = collected
         .into_iter()
         .partition(|entry| matches!(entry, Entry::Function { .. }));
-    let top = other.iter().map(entry_to_method).join("\n");
+    let top = other.iter().map(entry_to_method_type).join("\n");
     let bottom = generate_class(&fns, spec);
     format!("{top}\n\n{bottom}")
 }
 
 fn doc_to_ts_doc(doc: &str, method: Option<&str>) -> String {
-    let header = if let Some(method) = method {
-        format!(
+    if let Some(method) = method {
+        let doc = if doc.is_empty() {
+            String::new()
+        } else {
+            format!("   *\n   * {}", doc.split('\n').join("\n   * "))
+        };
+        return format!(
             r#"/**
-    * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object."#
-        )
-    } else {
-        "/**\n    ".to_string()
-    };
-    let footer = "\n    */\n";
-    let body = if doc.is_empty() {
-        String::new()
-    } else {
-        doc.split('\n').join("\n    * ")
-    };
-    format!(r#"{header}{body}{footer}"#)
+   * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{doc}
+   */"#
+        );
+    }
+
+    if doc.is_empty() {
+        return String::new();
+    }
+
+    let doc = doc.split('\n').join("\n * ");
+    format!(
+        r#"/**
+ * {doc}
+ */
+"#
+    )
 }
 
 fn is_error_enum(entry: &ScSpecEntry) -> bool {
@@ -148,67 +136,46 @@ fn is_error_enum(entry: &ScSpecEntry) -> bool {
 }
 
 const METHOD_OPTIONS: &str = r"{
-        /**
-         * The fee to pay for the transaction. Default: 100.
-         */
-        fee?: number,
-    }";
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
 
-fn jsify_name(name: &String) -> String {
-    name.to_lower_camel_case()
-}
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
 
-pub fn entry_to_parser(entry: &Entry) -> Option<(String, String)> {
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }";
+
+pub fn entry_to_name_and_return_type(entry: &Entry) -> Option<(String, String)> {
     if let Entry::Function { name, outputs, .. } = entry {
-        let mut is_result = false;
-        let mut return_type: String;
-        if outputs.is_empty() {
-            return_type = "void".to_owned();
-        } else if outputs.len() == 1 {
-            return_type = type_to_ts(&outputs[0]);
-            is_result = return_type.starts_with("Result<");
-        } else {
-            return_type = format!("readonly [{}]", outputs.iter().map(type_to_ts).join(", "));
-        };
-
-        if is_result {
-            return_type = return_type
-                .strip_prefix("Result<")
-                .unwrap()
-                .strip_suffix('>')
-                .unwrap()
-                .to_owned();
-            return_type = format!("Ok<{return_type}> | Err<Error_>");
-        }
-
-        let output = outputs
-            .first()
-            .map(|_| format!("this.spec.funcResToNative(\"{name}\", result)"))
-            .unwrap_or_default();
-        let parse_result_xdr = if return_type == "void" {
-            r"() => {}".to_owned()
-        } else if is_result {
-            format!(
-                r"(result: XDR_BASE64 | Err): {return_type} => {{
-            if (result instanceof Err) return result
-            return new Ok({output})
-        }}"
-            )
-        } else {
-            format!(r"(result: XDR_BASE64): {return_type} => {output}")
-        };
-        let js_name = jsify_name(name);
-        Some((js_name, parse_result_xdr))
+        Some((name.to_owned(), outputs_to_return_type(outputs)))
     } else {
         None
     }
 }
+pub fn outputs_to_return_type(outputs: &[Type]) -> String {
+    match outputs {
+        [] => "null".to_owned(),
+        [output] => type_to_ts(output),
+        outputs => format!("readonly [{}]", outputs.iter().map(type_to_ts).join(", ")),
+    }
+}
 
 #[allow(clippy::too_many_lines)]
-pub fn entry_to_method(entry: &Entry) -> String {
+pub fn entry_to_method_type(entry: &Entry) -> String {
     match entry {
         Entry::Function {
-            doc, name, inputs, ..
+            doc,
+            name,
+            inputs,
+            outputs,
+            ..
         } => {
             let input_vals = inputs.iter().map(func_input_to_arg_name).join(", ");
             let input = (!inputs.is_empty())
@@ -219,33 +186,22 @@ pub fn entry_to_method(entry: &Entry) -> String {
                     )
                 })
                 .unwrap_or_default();
-            let ts_doc = doc_to_ts_doc(doc, Some(name));
-            let (js_name, _) = entry_to_parser(entry).unwrap();
-            let parsed_scvals = inputs.iter().map(parse_arg_to_scval).join(", ");
-            let args =
-                format!("args: this.spec.funcArgsToScVals(\"{name}\", {{{parsed_scvals}}}),");
-            let body = format!(
-                r#"return await AssembledTransaction.fromSimulation({{
-            method: '{name}',
-            {args}
-            ...options,
-            ...this.options,
-            errorTypes: Errors,
-            parseResultXdr: this.parsers['{js_name}'],
-        }});"#
-            );
+            let doc = doc_to_ts_doc(doc, Some(name));
+            let return_type = outputs_to_return_type(outputs);
             format!(
-                r#"    {ts_doc}    {js_name} = async ({input}options: {METHOD_OPTIONS} = {{}}) => {{
-        {body}
-    }}
+                r#"
+  {doc}
+  {name}: ({input}options?: {METHOD_OPTIONS}) => Promise<AssembledTransaction<{return_type}>>
 "#
             )
         }
+
         Entry::Struct { doc, name, fields } => {
             let docs = doc_to_ts_doc(doc, None);
             let fields = fields.iter().map(field_to_ts).join("\n  ");
             format!(
-                r#"{docs}export interface {name} {{
+                r#"
+{docs}export interface {name} {{
   {fields}
 }}
 "#
@@ -288,7 +244,7 @@ pub fn entry_to_method(entry: &Entry) -> String {
                 .join(",\n  ");
             format!(
                 r#"{doc}export const Errors = {{
-{cases}
+  {cases}
 }}"#
             )
         }
