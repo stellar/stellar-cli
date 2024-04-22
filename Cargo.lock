@@ -4289,7 +4289,6 @@ dependencies = [
  "ed25519-dalek 2.0.0",
  "env_logger",
  "futures",
- "futures-util",
  "hex",
  "hidapi",
  "home",

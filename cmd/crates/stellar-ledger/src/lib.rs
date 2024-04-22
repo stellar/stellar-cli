@@ -79,6 +79,9 @@ impl<T> LedgerSigner<T>
 where
     T: Exchange,
 {
+    /// Get the public key from the device
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or getting the public key from the device
     pub async fn get_public_key(
         &self,
         index: u32,
@@ -87,6 +90,9 @@ where
         Self::get_public_key_with_display_flag(self, hd_path, false).await
     }
 
+    /// Get the device app's configuration
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or getting the config from the device
     pub async fn get_app_configuration(&self) -> Result<Vec<u8>, LedgerError> {
         let command = APDUCommand {
             cla: CLA,
@@ -98,8 +104,11 @@ where
         self.send_command_to_ledger(command).await
     }
 
-    // based on impl from https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166
-    async fn sign_transaction_hash(
+    /// Sign a Stellar transaction hash with the account on the Ledger device
+    /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
+    pub async fn sign_transaction_hash(
         &self,
         hd_path: slip10::BIP32Path,
         transaction_hash: Vec<u8>,
@@ -125,6 +134,10 @@ where
         self.send_command_to_ledger(command).await
     }
 
+    /// Sign a Stellar transaction with the account on the Ledger device
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device
+    #[allow(clippy::missing_panics_doc)] // TODO: handle panics/unwraps
     pub async fn sign_transaction(
         &self,
         hd_path: slip10::BIP32Path,
@@ -159,8 +172,6 @@ where
         let chunks_count = chunks.len();
 
         let mut result = Vec::new();
-        println!("chunks_count: {:?}", chunks_count);
-
         // notes:
         // the first chunk has the hd_path_elements_count and the hd_path at the beginning, before the tx [3, 128...122...47]
         // the second chunk has just the end of the tx [224, 100... 0, 0, 0, 0]
@@ -198,7 +209,7 @@ where
         Ok(result)
     }
 
-    /// The display_and_confirm bool determines if the Ledger will display the public key on its screen and requires user approval to share
+    /// The `display_and_confirm` bool determines if the Ledger will display the public key on its screen and requires user approval to share
     async fn get_public_key_with_display_flag(
         &self,
         hd_path: slip10::BIP32Path,
@@ -209,8 +220,6 @@ where
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
         let hd_path_elements_count = hd_path.depth();
         hd_path_to_bytes.insert(0, hd_path_elements_count);
-
-        println!("data: {:?}", hd_path_to_bytes);
 
         let p2 = if display_and_confirm {
             P2_GET_PUBLIC_KEY_DISPLAY
@@ -227,15 +236,11 @@ where
             data: hd_path_to_bytes,
         };
 
-        tracing::info!("APDU in: {}", hex::encode(&command.serialize()));
+        tracing::info!("APDU in: {}", hex::encode(command.serialize()));
 
         match self.send_command_to_ledger(command).await {
-            Ok(value) => {
-                return Ok(stellar_strkey::ed25519::PublicKey::from_payload(&value).unwrap());
-            }
-            Err(err) => {
-                return Err(err);
-            }
+            Ok(value) => Ok(stellar_strkey::ed25519::PublicKey::from_payload(&value).unwrap()),
+            Err(err) => Err(err),
         }
     }
 
@@ -251,21 +256,19 @@ where
                     response.retcode(),
                 );
                 // Ok means we successfully connected with the Ledger but it doesn't mean our request succeeded. We still need to check the response.retcode
-                println!("RETCODE: {:?}", response.retcode());
-                println!("response: {:?}", response.data());
                 if response.retcode() == RETURN_CODE_OK {
                     return Ok(response.data().to_vec());
                 }
 
                 let retcode = response.retcode();
-                let error_string = format!("Ledger APDU retcode: 0x{:X}", retcode);
-                return Err(LedgerError::APDUExchangeError(error_string));
+                let error_string = format!("Ledger APDU retcode: 0x{retcode:X}");
+                Err(LedgerError::APDUExchangeError(error_string))
             }
             Err(_err) => {
                 //FIX ME!!!!
-                return Err(LedgerError::LedgerConnectionError("test".to_string()));
+                Err(LedgerError::LedgerConnectionError("test".to_string()))
             }
-        };
+        }
     }
 }
 
@@ -289,7 +292,7 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
     fn sign_txn_hash(
         &self,
         txn: [u8; 32],
-        source_account: &stellar_strkey::Strkey,
+        _source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
         let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), txn.to_vec())) //TODO: refactor sign_transaction_hash
             .unwrap(); // FIXME: handle error
@@ -304,7 +307,7 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
     fn sign_txn(
         &self,
         txn: Transaction,
-        source_account: &stellar_strkey::Strkey,
+        _source_account: &stellar_strkey::Strkey,
     ) -> Result<TransactionEnvelope, Error> {
         let signature = block_on(self.sign_transaction(self.hd_path.clone(), txn.clone())).unwrap(); // FIXME: handle error
 
@@ -330,20 +333,25 @@ fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
 
 fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
     (0..hd_path.depth())
-        .map(|index| {
+        .flat_map(|index| {
             let value = *hd_path.index(index).unwrap();
             value.to_be_bytes()
         })
-        .flatten()
         .collect::<Vec<u8>>()
 }
 
+/// Gets a transport connection for a ledger device
+/// # Errors
+/// Returns an error if there is an issue with connecting with the device
 pub fn get_transport() -> Result<impl Exchange, LedgerError> {
     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
     let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }
 
+/// Gets a transport connection for a the Zemu emulator
+/// # Errors
+/// Returns an error if there is an issue with connecting with the device
 pub fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, LedgerError> {
     Ok(TransportZemuHttp::new(host, port))
 }
@@ -365,7 +373,7 @@ mod test {
         Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
     };
 
-    use testcontainers::{clients, Container};
+    use testcontainers::clients;
     use tokio::time::sleep;
 
     const TEST_NETWORK_PASSPHRASE: &str = "Test SDF Network ; September 2015";
@@ -381,7 +389,6 @@ mod test {
         });
         let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
         let public_key = ledger.get_public_key(0).await;
-        println!("{public_key:?}");
         assert!(public_key.is_ok());
     }
 

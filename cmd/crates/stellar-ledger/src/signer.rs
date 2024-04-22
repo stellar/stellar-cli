@@ -2,8 +2,7 @@ use ed25519_dalek::Signer;
 use ledger_transport::async_trait;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    self, DecoratedSignature, InvokeHostFunctionOp, Limits, Operation, OperationBody, Signature,
-    SignatureHint, SorobanAuthorizedFunction, Transaction, TransactionEnvelope,
+    self, DecoratedSignature, Limits, Signature, SignatureHint, Transaction, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, WriteXdr,
 };
@@ -14,21 +13,6 @@ use soroban_rpc::Error as RpcError;
 pub enum Error {
     #[error(transparent)]
     RpcError(#[from] RpcError),
-}
-
-fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
-    let [op @ Operation {
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-        ..
-    }] = txn.operations.as_slice()
-    else {
-        return None;
-    };
-    matches!(
-        auth.first().map(|x| &x.root_invocation.function),
-        Some(&SorobanAuthorizedFunction::ContractFn(_))
-    )
-    .then(move || op.clone())
 }
 
 /// A trait for signing Stellar transactions and Soroban authorization entries

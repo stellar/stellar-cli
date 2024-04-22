@@ -4,6 +4,7 @@ use testcontainers::{core::WaitFor, Image, ImageArgs};
 const NAME: &str = "docker.io/zondax/builder-zemu";
 const TAG: &str = "speculos-3a3439f6b45eca7f56395673caaf434c202e7005";
 
+#[allow(dead_code)]
 static ENV: &Map = &Map(phf::phf_map! {
     "BOLOS_SDK"=> "/project/deps/nanos-secure-sdk",
     "BOLOS_ENV" => "/opt/bolos",
@@ -11,6 +12,7 @@ static ENV: &Map = &Map(phf::phf_map! {
 });
 struct Map(phf::Map<&'static str, &'static str>);
 
+#[allow(clippy::implicit_hasher)]
 impl From<&Map> for HashMap<String, String> {
     fn from(Map(map): &Map) -> Self {
         map.into_iter()
@@ -20,13 +22,10 @@ impl From<&Map> for HashMap<String, String> {
 }
 
 #[derive(Debug, Default)]
-pub struct Speculos(
-    HashMap<String, String>,
-    HashMap<String, String>,
-    Vec<String>,
-);
+pub struct Speculos(HashMap<String, String>, HashMap<String, String>);
 const DEFAULT_APP_PATH: &str = "/project/app/bin";
 impl Speculos {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         #[allow(unused_mut)]
         let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("apps");
@@ -35,16 +34,14 @@ impl Speculos {
             apps_dir.to_str().unwrap().to_string(),
             DEFAULT_APP_PATH.to_string(),
         );
-        let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
-        Speculos(ENV.into(), volumes, vec![command_string])
+        Speculos(ENV.into(), volumes)
     }
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct SpeculosArgs;
+pub struct Args;
 
-impl ImageArgs for SpeculosArgs {
+impl ImageArgs for Args {
     fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
         let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
@@ -53,7 +50,7 @@ impl ImageArgs for SpeculosArgs {
 }
 
 impl Image for Speculos {
-    type Args = SpeculosArgs;
+    type Args = Args;
 
     fn name(&self) -> String {
         NAME.to_owned()

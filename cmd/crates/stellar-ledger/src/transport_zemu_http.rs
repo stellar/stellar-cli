@@ -42,9 +42,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum LedgerZemuError {
-    /// Device not found error
-    #[error("Ledger connect error")]
-    ConnectError,
     /// zemu reponse error
     #[error("Zemu response error")]
     ResponseError,
@@ -72,7 +69,7 @@ struct ZemuResponse {
 impl TransportZemuHttp {
     pub fn new(host: &str, port: u16) -> Self {
         Self {
-            url: format!("http://{}:{}", host, port),
+            url: format!("http://{host}:{port}"),
         }
     }
 }
