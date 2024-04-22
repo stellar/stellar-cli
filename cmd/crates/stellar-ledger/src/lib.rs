@@ -389,7 +389,7 @@ mod test {
     async fn test_get_public_key() {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
-        sleep(Duration::from_secs(2)).await;
+        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
@@ -521,8 +521,6 @@ mod test {
         });
         let approve = tokio::task::spawn(approve_tx_signature(ui_host_port));
 
-        // sleep(Duration::from_secs(20)).await;
-
         let result = sign.await.unwrap();
         let _ = approve.await.unwrap();
 
@@ -585,8 +583,6 @@ mod test {
 
         enable_hash_signing(ui_host_port).await;
 
-        sleep(Duration::from_secs(2)).await;
-
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
@@ -603,7 +599,6 @@ mod test {
         ) {
             Ok(()) => {}
             Err(e) => {
-                sleep(Duration::from_secs(10)).await;
                 node.stop();
                 panic!("Unexpected result: {e}");
             }
