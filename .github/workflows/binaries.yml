@@ -38,7 +38,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - name: Setup Version and Name
       run: |
-        version=cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "soroban-cli") | .version'
+        version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "soroban-cli") | .version')"
         echo "VERSION=${version}" >> $GITHUB_ENV
         echo "NAME=soroban-cli-${version}-${{ matrix.target }}" >> $GITHUB_ENV
     - name: Package
