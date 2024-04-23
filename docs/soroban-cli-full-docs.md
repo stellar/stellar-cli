@@ -1740,14 +1740,7 @@ Show location of cache
 
 Delete all cached actions
 
-**Usage:** `soroban cache clean [OPTIONS]`
-
-###### **Options:**
-
-* `-a`, `--actions` — Actions only
-
-  Possible values: `true`, `false`
-
+**Usage:** `soroban cache clean`
 
 
 
@@ -1755,11 +1748,11 @@ Delete all cached actions
 
 Read cached action
 
-**Usage:** `soroban cache read [OPTIONS] --ulid <ULID>`
+**Usage:** `soroban cache read [OPTIONS] --id <ID>`
 
 ###### **Options:**
 
-* `--ulid <ULID>` — ULID of the cache entry
+* `--id <ID>` — ULID of the cache entry
 * `--output <OUTPUT>`
 
   Possible values: `envelope`
