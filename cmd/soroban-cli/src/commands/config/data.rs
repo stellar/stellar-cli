@@ -9,7 +9,7 @@ use crate::xdr::{self, WriteXdr};
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Failed to find project directories")]
-    FiledToFindProjectDirs,
+    FailedToFindProjectDirs,
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -27,7 +27,7 @@ pub const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
 pub fn project_dir() -> Result<directories::ProjectDirs, Error> {
     std::env::var(XDG_DATA_HOME)
         .map_or_else(
-            |_| ProjectDirs::from("com", "stellar", "soroban-cli"),
+            |_| ProjectDirs::from("com", "stellar", "stellar-cli"),
             |data_home| ProjectDirs::from_path(std::path::PathBuf::from(data_home)),
         )
         .ok_or(Error::FiledToFindProjectDirs)

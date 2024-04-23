@@ -27,8 +27,8 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// ULID of the cache entry
-    #[arg(long, visible_alias = "id")]
-    ulid: String,
+    #[arg(long)]
+    id: String,
     #[arg(long)]
     output: Option<OutputType>,
 }
