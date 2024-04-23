@@ -28,9 +28,9 @@ pub enum Error {
 pub struct Cmd {
     /// ULID of the cache entry
     #[arg(long)]
-    id: String,
+    pub id: String,
     #[arg(long)]
-    output: Option<OutputType>,
+    pub output: Option<OutputType>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
@@ -60,14 +60,14 @@ impl Cmd {
     }
 
     pub fn file(&self) -> Result<PathBuf, Error> {
-        Ok(data::actions_dir()?.join(&self.ulid).with_extension("json"))
+        Ok(data::actions_dir()?.join(&self.id).with_extension("json"))
     }
 
     pub fn read_file(&self, file: &Path) -> Result<String, Error> {
-        fs::read_to_string(file).map_err(|_| Error::NotFound(self.ulid.clone()))
+        fs::read_to_string(file).map_err(|_| Error::NotFound(self.id.clone()))
     }
 
     pub fn ulid(&self) -> Result<Ulid, Error> {
-        Ok(Ulid::from_string(&self.ulid)?)
+        Ok(Ulid::from_string(&self.id)?)
     }
 }

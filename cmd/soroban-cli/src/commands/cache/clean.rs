@@ -15,19 +15,12 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
-pub struct Cmd {
-    /// Actions only
-    #[arg(long, short = 'a')]
-    pub actions: bool,
-}
+pub struct Cmd {}
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let dir = if self.actions {
-            data::actions_dir()?
-        } else {
-            data::project_dir()?.data_dir().to_path_buf()
-        };
+        let binding = data::project_dir()?;
+        let dir = binding.data_dir();
         fs::remove_dir_all(dir)?;
         Ok(())
     }
