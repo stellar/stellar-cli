@@ -15,9 +15,7 @@ pub struct Cmd {}
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let binding = data::project_dir()?;
-        let dir = binding.data_dir();
-        println!("{}", dir.to_string_lossy());
+        println!("{:?}", data::data_local_dir()?);
         Ok(())
     }
 }

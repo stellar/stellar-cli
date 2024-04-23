@@ -30,17 +30,22 @@ pub fn project_dir() -> Result<directories::ProjectDirs, Error> {
             |_| ProjectDirs::from("com", "stellar", "stellar-cli"),
             |data_home| ProjectDirs::from_path(std::path::PathBuf::from(data_home)),
         )
-        .ok_or(Error::FiledToFindProjectDirs)
+        .ok_or(Error::FailedToFindProjectDirs)
+}
+
+#[allow(clippy::module_name_repetitions)]
+pub fn data_local_dir() -> Result<std::path::PathBuf, Error> {
+    Ok(project_dir()?.data_local_dir().to_path_buf())
 }
 
 pub fn actions_dir() -> Result<std::path::PathBuf, Error> {
-    let dir = project_dir()?.data_local_dir().join("actions");
+    let dir = data_local_dir()?.join("actions");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }
 
 pub fn spec_dir() -> Result<std::path::PathBuf, Error> {
-    let dir = project_dir()?.data_local_dir().join("spec");
+    let dir = data_local_dir()?.join("spec");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }
