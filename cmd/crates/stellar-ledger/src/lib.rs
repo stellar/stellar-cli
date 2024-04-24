@@ -466,9 +466,6 @@ mod test {
         let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
         wait_for_emulator_start_text(ui_host_port).await;
-        // wait for emulator to load  - check the events
-        // sleep to account for key delay
-        // for some things, waiting for the screen to change... but prob dont need that for this
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
@@ -597,10 +594,6 @@ mod test {
         let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
         wait_for_emulator_start_text(ui_host_port).await;
-        // wait for emulator to load  - check the events
-        // sleep to account for key delay
-        // for some things, waiting for the screen to change... but prob dont need that for this
-
         enable_hash_signing(ui_host_port).await;
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
@@ -646,70 +639,57 @@ mod test {
         node.stop();
     }
 
-    // FIXME lol/sob
+    // Based on the zemu click fn
+    async fn click(ui_host_port: u16, url: &str) {
+        let previous_events = get_emulator_events(ui_host_port).await;
+
+        let client = reqwest::Client::new();
+        let mut payload = HashMap::new();
+        payload.insert("action", "press-and-release");
+
+        let mut screen_has_changed = false;
+
+        client
+            .post(format!("http://localhost:{ui_host_port}/{url}"))
+            .json(&payload)
+            .send()
+            .await
+            .unwrap();
+
+        while !screen_has_changed {
+            let current_events = get_emulator_events(ui_host_port).await;
+
+            if !(previous_events == current_events) {
+                screen_has_changed = true
+            }
+        }
+
+        sleep(Duration::from_secs(1)).await;
+    }
+
     async fn enable_hash_signing(ui_host_port: u16) {
         println!("enabling hash signing on the device");
 
-        let mut map = HashMap::new();
-        map.insert("action", "press-and-release");
-
-        let client = reqwest::Client::new();
         // right button press
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/right"))
-            .json(&map)
-            .send()
-            .await
-            .map_err(|e| println!("error in enable_hash_signing: {e}"))
-            .unwrap();
+        click(ui_host_port, "button/right").await;
 
         // both button press
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/both"))
-            .json(&map)
-            .send()
-            .await
-            .map_err(|e| println!("error in enable_hash_signing: {e}"))
-            .unwrap();
+        click(ui_host_port, "button/both").await;
 
         // both button press
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/both"))
-            .json(&map)
-            .send()
-            .await
-            .map_err(|e| println!("error in enable_hash_signing: {e}"))
-            .unwrap();
+        click(ui_host_port, "button/both").await;
 
         // right button press
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/right"))
-            .json(&map)
-            .send()
-            .await
-            .map_err(|e| println!("error in enable_hash_signing: {e}"))
-            .unwrap();
+        click(ui_host_port, "button/right").await;
 
         // right button press
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/right"))
-            .json(&map)
-            .send()
-            .await
-            .map_err(|e| println!("error in enable_hash_signing: {e}"))
-            .unwrap();
+        click(ui_host_port, "button/right").await;
 
         // both button press
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/both"))
-            .json(&map)
-            .send()
-            .await
-            .map_err(|e| println!("error in enable_hash_signing: {e}"))
-            .unwrap();
+        click(ui_host_port, "button/both").await;
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Deserialize, PartialEq)]
     struct EmulatorEvent {
         text: String,
         x: u16,
@@ -751,27 +731,13 @@ mod test {
 
     async fn approve_tx_hash_signature(ui_host_port: u16) {
         println!("approving tx hash sig on the device");
-        let mut map = HashMap::new();
-        map.insert("action", "press-and-release");
-
-        let client = reqwest::Client::new();
         // press the right button 10 times
         for _ in 0..10 {
-            client
-                .post(format!("http://localhost:{ui_host_port}/button/right"))
-                .json(&map)
-                .send()
-                .await
-                .unwrap();
+            click(ui_host_port, "button/right").await;
         }
 
         // press both buttons
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/both"))
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
+        click(ui_host_port, "button/both").await;
     }
 
     async fn approve_tx_signature(ui_host_port: u16) {
