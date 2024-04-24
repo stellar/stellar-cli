@@ -358,6 +358,7 @@ pub fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, Ledger
 
 #[cfg(test)]
 mod test {
+    use serde::Deserialize;
     use soroban_env_host::xdr::{self, Operation, OperationBody, Transaction, Uint256};
 
     use crate::speculos::Speculos;
@@ -396,8 +397,10 @@ mod test {
     async fn test_get_public_key() {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
-        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
+        let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+
+        wait_for_emulator_start_text(ui_host_port).await;
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
@@ -429,9 +432,10 @@ mod test {
     async fn test_get_app_configuration() {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
-
-        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
+        let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+
+        wait_for_emulator_start_text(ui_host_port).await;
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
@@ -458,10 +462,13 @@ mod test {
     async fn test_sign_tx() {
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
-
-        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
-        let ui_host_port = node.get_host_port_ipv4(5000);
+        let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+
+        wait_for_emulator_start_text(ui_host_port).await;
+        // wait for emulator to load  - check the events
+        // sleep to account for key delay
+        // for some things, waiting for the screen to change... but prob dont need that for this
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
@@ -550,9 +557,13 @@ mod test {
         //when hash signing isn't enabled on the device we expect an error
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
-
-        sleep(Duration::from_secs(1)).await;
         let host_port = node.get_host_port_ipv4(9998);
+        let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+
+        wait_for_emulator_start_text(ui_host_port).await;
+        // wait for emulator to load  - check the events
+        // sleep to account for key delay
+        // for some things, waiting for the screen to change... but prob dont need that for this
 
         let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
         let ledger_options = Some(LedgerOptions {
@@ -582,11 +593,13 @@ mod test {
         //when hash signing isnt enabled on the device we expect an error
         let docker = clients::Cli::default();
         let node = docker.run(Speculos::new());
-
-        sleep(Duration::from_secs(1)).await;
-
         let host_port = node.get_host_port_ipv4(9998);
-        let ui_host_port = node.get_host_port_ipv4(5000);
+        let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+
+        wait_for_emulator_start_text(ui_host_port).await;
+        // wait for emulator to load  - check the events
+        // sleep to account for key delay
+        // for some things, waiting for the screen to change... but prob dont need that for this
 
         enable_hash_signing(ui_host_port).await;
 
@@ -694,6 +707,46 @@ mod test {
             .await
             .map_err(|e| println!("error in enable_hash_signing: {e}"))
             .unwrap();
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct EmulatorEvent {
+        text: String,
+        x: u16,
+        y: u16,
+        w: u16,
+        h: u16,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct EventsResponse {
+        events: Vec<EmulatorEvent>,
+    }
+
+    async fn wait_for_emulator_start_text(ui_host_port: u16) {
+        sleep(Duration::from_secs(1)).await;
+
+        let mut ready = false;
+        while !ready {
+            let events = get_emulator_events(ui_host_port).await;
+
+            if events.iter().any(|event| event.text == "is ready") {
+                ready = true;
+            }
+        }
+    }
+
+    async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(format!("http://localhost:{ui_host_port}/events"))
+            .send()
+            .await
+            .unwrap()
+            .json::<EventsResponse>()
+            .await
+            .unwrap(); // not worrying about unwraps for test helpers for now
+        resp.events
     }
 
     async fn approve_tx_hash_signature(ui_host_port: u16) {
