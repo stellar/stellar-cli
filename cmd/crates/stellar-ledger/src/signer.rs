@@ -1,8 +1,6 @@
-use ed25519_dalek::Signer;
-use ledger_transport::async_trait;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{
-    self, DecoratedSignature, Limits, Signature, SignatureHint, Transaction, TransactionEnvelope,
+    self, DecoratedSignature, Limits, Transaction, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, WriteXdr,
 };
@@ -16,7 +14,6 @@ pub enum Error {
 }
 
 /// A trait for signing Stellar transactions and Soroban authorization entries
-#[async_trait]
 pub trait Stellar {
     /// The type of the options that can be passed when creating a new signer
     type Init;
@@ -54,63 +51,5 @@ pub trait Stellar {
             tx: txn,
             signatures: vec![decorated_signature].try_into().unwrap(), //fixme: remove unwrap
         }))
-    }
-}
-struct DefaultSigner {
-    network_passphrase: String,
-    keypairs: Vec<ed25519_dalek::SigningKey>,
-}
-
-impl DefaultSigner {
-    pub fn get_key(
-        &self,
-        key: &stellar_strkey::Strkey,
-    ) -> Result<&ed25519_dalek::SigningKey, Error> {
-        match key {
-            stellar_strkey::Strkey::PublicKeyEd25519(stellar_strkey::ed25519::PublicKey(bytes)) => {
-                self.keypairs
-                    .iter()
-                    .find(|k| k.verifying_key().to_bytes() == *bytes)
-            }
-            _ => None,
-        }
-        .ok_or_else(|| {
-            Error::RpcError(RpcError::MissingSignerForAddress {
-                address: key.to_string(),
-            })
-        })
-    }
-}
-
-#[async_trait]
-impl Stellar for DefaultSigner {
-    type Init = Vec<ed25519_dalek::SigningKey>;
-    fn new(network_passphrase: &str, options: Option<Vec<ed25519_dalek::SigningKey>>) -> Self {
-        DefaultSigner {
-            network_passphrase: network_passphrase.to_string(),
-            keypairs: options.unwrap_or_default(),
-        }
-    }
-
-    fn sign_txn_hash(
-        &self,
-        txn: [u8; 32],
-        source_account: &stellar_strkey::Strkey,
-    ) -> Result<DecoratedSignature, Error> {
-        let source_account = self.get_key(source_account)?;
-        let tx_signature = source_account.sign(&txn);
-        Ok(DecoratedSignature {
-            // TODO: remove this unwrap. It's safe because we know the length of the array
-            hint: SignatureHint(
-                source_account.verifying_key().to_bytes()[28..]
-                    .try_into()
-                    .unwrap(),
-            ),
-            signature: Signature(tx_signature.to_bytes().try_into().unwrap()), //FIXME: remove unwrap
-        })
-    }
-
-    fn network_hash(&self) -> xdr::Hash {
-        xdr::Hash(Sha256::digest(self.network_passphrase.as_bytes()).into())
     }
 }

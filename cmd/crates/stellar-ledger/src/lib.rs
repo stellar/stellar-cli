@@ -1,5 +1,4 @@
 mod transport_zemu_http;
-use async_trait::async_trait;
 use futures::executor::block_on;
 use ledger_transport::{APDUCommand, Exchange};
 use ledger_transport_hid::{
@@ -272,7 +271,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T: Exchange> Stellar for LedgerSigner<T> {
     type Init = LedgerOptions<T>;
 

@@ -61,7 +61,6 @@ impl Image for Speculos {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        // vec![WaitFor::seconds(30)]
         vec![WaitFor::message_on_stdout("HTTP proxy started...")]
     }
 
