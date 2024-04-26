@@ -16,6 +16,7 @@ jobs:
           - 8000:8000
         env:
           ENABLE_LOGS: true
+          ENABLE_SOROBAN_DIAGNOSTIC_EVENTS: true
           NETWORK: local
         options: >-
           --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'"
