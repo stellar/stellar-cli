@@ -49,7 +49,6 @@ jobs:
         tar xvfz soroban-cli-$VERSION.crate
         echo "BUILD_WORKING_DIR=target/package/soroban-cli-$VERSION" >> $GITHUB_ENV
     - name: Build
-      if: github.event_name == 'release'
       env:
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       working-directory: ${{ env.BUILD_WORKING_DIR }}
