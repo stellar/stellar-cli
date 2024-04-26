@@ -145,8 +145,7 @@ where
         let tagged_transaction =
             TransactionSignaturePayloadTaggedTransaction::Tx(transaction.clone());
 
-        let passphrase = self.network_passphrase.clone();
-        let network_hash = Hash(Sha256::digest(passphrase.as_bytes()).into());
+        let network_hash = self.network_hash();
 
         let signature_payload = TransactionSignaturePayload {
             network_id: network_hash,
