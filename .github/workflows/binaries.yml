@@ -39,10 +39,10 @@ jobs:
         version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "soroban-cli") | .version')"
         echo "VERSION=${version}" >> $GITHUB_ENV
         echo "NAME=soroban-cli-${version}-${{ matrix.target }}" >> $GITHUB_ENV
-    - name: Package
+    - name: Package (release only)
       if: github.event_name == 'release'
       run: cargo package --no-verify
-    - name: Package Extract
+    - name: Package Extract (release only)
       if: github.event_name == 'release'
       run: |
         cd target/package
@@ -62,7 +62,7 @@ jobs:
       with:
         name: ${{ env.NAME }}
         path: 'target/${{ matrix.target }}/release/${{ env.NAME }}.tar.gz'
-    - name: Upload to Release
+    - name: Upload to Release (release only)
       if: github.event_name == 'release'
       uses: actions/github-script@v6
       with:
