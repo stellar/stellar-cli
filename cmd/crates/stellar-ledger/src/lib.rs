@@ -23,8 +23,13 @@ mod speculos;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
+const HD_PATH_ELEMENTS_COUNT: u8 = 3;
+const BUFFER_SIZE: u8 = 1 + HD_PATH_ELEMENTS_COUNT * 4;
+const CHUNK_SIZE: u8 = APDU_MAX_SIZE - BUFFER_SIZE;
 
-// these constant values are from https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
+// These constant values are from https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
+const SIGN_TX_RESPONSE_SIZE: usize = 64;
+
 const CLA: u8 = 0xE0;
 
 const GET_PUBLIC_KEY: u8 = 0x02;
@@ -112,14 +117,13 @@ where
         hd_path: slip10::BIP32Path,
         transaction_hash: Vec<u8>,
     ) -> Result<Vec<u8>, LedgerError> {
-        // convert the hd_path into bytes to be sent as `data` to the Ledger
-        // the first element of the data should be the number of elements in the path
-
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
-        let hd_path_elements_count = hd_path.depth();
-        hd_path_to_bytes.insert(0, hd_path_elements_count);
 
-        let mut data = hd_path_to_bytes;
+        let capacity = 1 + hd_path_to_bytes.len() + transaction_hash.len();
+        let mut data: Vec<u8> = Vec::with_capacity(capacity);
+
+        data.insert(0, HD_PATH_ELEMENTS_COUNT);
+        data.append(&mut hd_path_to_bytes);
         data.append(&mut transaction_hash.clone());
 
         let command = APDUCommand {
@@ -144,36 +148,26 @@ where
     ) -> Result<Vec<u8>, LedgerError> {
         let tagged_transaction =
             TransactionSignaturePayloadTaggedTransaction::Tx(transaction.clone());
-
         let network_hash = self.network_hash();
-
         let signature_payload = TransactionSignaturePayload {
             network_id: network_hash,
             tagged_transaction,
         };
-
         let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none()).unwrap();
 
-        let mut data: Vec<u8> = Vec::new();
-
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
-        let hd_path_elements_count = hd_path.depth();
 
-        data.insert(0, hd_path_elements_count);
+        let capacity = 1 + hd_path_to_bytes.len() + signature_payload_as_bytes.len();
+        let mut data: Vec<u8> = Vec::with_capacity(capacity);
+
+        data.insert(0, HD_PATH_ELEMENTS_COUNT);
         data.append(&mut hd_path_to_bytes);
         data.append(&mut signature_payload_as_bytes);
 
-        let buffer_size = 1 + hd_path_elements_count * 4;
-        let chunk_size = APDU_MAX_SIZE - buffer_size;
-
-        let chunks = data.chunks(chunk_size as usize);
+        let chunks = data.chunks(CHUNK_SIZE as usize);
         let chunks_count = chunks.len();
 
-        let mut result = Vec::new();
-        // notes:
-        // the first chunk has the hd_path_elements_count and the hd_path at the beginning, before the tx [3, 128...122...47]
-        // the second chunk has just the end of the tx [224, 100... 0, 0, 0, 0]
-
+        let mut result = Vec::with_capacity(SIGN_TX_RESPONSE_SIZE);
         for (i, chunk) in chunks.enumerate() {
             let is_first_chunk = i == 0;
             let is_last_chunk = chunks_count == i + 1;
