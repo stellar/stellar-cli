@@ -31,7 +31,7 @@ jobs:
 
       # the pre-compiled image to use of quickstart, or the git ref to build
       # from source.
-      SYSTEM_TEST_QUICKSTART_IMAGE: stellar/quickstart@v423-testing
+      SYSTEM_TEST_QUICKSTART_IMAGE: stellar/quickstart:v423-testing
       # SYSTEM_TEST_QUICKSTART_GIT_REF: "https://github.com/stellar/quickstart.git#master"
 
       # the soroban CLI & RPC source code to compile and run from system test
