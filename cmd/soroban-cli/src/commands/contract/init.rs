@@ -422,14 +422,14 @@ fn append_contents(from: &Path, to: &Path) -> Result<(), Error> {
 
 fn get_merged_file_delimiter(file_path: &Path) -> String {
     let comment = if file_path.to_string_lossy().contains("README.md") {
-        "[//]: # \"The following is the Frontend Template's README.md\"".to_string()
+        "---\n<!-- The following is the Frontend Template's README.md -->".to_string()
     } else if file_path.to_string_lossy().contains("gitignore") {
         "# The following is from the Frontend Template's .gitignore".to_string()
     } else {
         String::new()
     };
 
-    format!("\n\n---\n\n{comment}\n\n").to_string()
+    format!("\n\n{comment}\n\n").to_string()
 }
 
 #[cfg(test)]
@@ -691,13 +691,12 @@ mod tests {
         let readme_path = project_dir.join("README.md");
         let readme_str = read_to_string(readme_path).unwrap();
         assert!(readme_str.contains("Soroban Frontend in Astro"));
-        let expected = "[//]: # \"The following is the Frontend Template's README.md\"";
+        let expected = "The following is the Frontend Template's README.md";
         assert!(readme_str.contains(expected));
 
         let readme_path = project_dir.join("README.md");
         let readme_str = read_to_string(readme_path).unwrap();
-        let readme_frontend_merge_delimiter =
-            "[//]: # \"The following is the Frontend Template's README.md\"";
+        let readme_frontend_merge_delimiter = "The following is the Frontend Template's README.md";
         let count = readme_str.matches(readme_frontend_merge_delimiter).count();
         // making sure it is in there just once so that it isn't duplicated if `contract init` is run again
         assert!(count == 1);
