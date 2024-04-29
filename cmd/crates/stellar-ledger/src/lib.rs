@@ -21,7 +21,7 @@ mod signer;
 mod speculos;
 mod transport_zemu_http;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "emulator-tests"))]
 mod emulator_tests;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
