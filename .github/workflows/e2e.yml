@@ -14,7 +14,11 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run
-      SYSTEM_TEST_GIT_REF: master
+      SYSTEM_TEST_GIT_REF: 94d12576fc0752def3a1e40cf3e441b389052e2d
+
+      # set the default protocol version used for the system tests
+      # should be the maximum supported version of all software.
+      SYSTEM_TEST_PROTOCOL_VERSION_DEFAULT: 21
 
       # the soroban CLI & RPC source code to compile and run from system test
       # refers to checked out source of current git hub ref context
@@ -92,6 +96,7 @@ jobs:
             JS_STELLAR_SDK_REF="file:/home/tester/js-stellar-sdk"; \
           fi
           make \
+            PROTOCOL_VERSION_DEFAULT=$SYSTEM_TEST_PROTOCOL_VERSION_DEFAULT \
             CORE_GIT_REF=$SYSTEM_TEST_CORE_GIT_REF \
             CORE_COMPILE_CONFIGURE_FLAGS="$SYSTEM_TEST_CORE_COMPILE_CONFIGURE_FLAGS" \
             CORE_IMAGE=$SYSTEM_TEST_CORE_IMAGE \
