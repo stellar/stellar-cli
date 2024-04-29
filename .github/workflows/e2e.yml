@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest-4-cores
     env:
       # the gh tag of system-test repo version to run
-      SYSTEM_TEST_GIT_REF: 94d12576fc0752def3a1e40cf3e441b389052e2d
+      SYSTEM_TEST_GIT_REF: 92ed9148b63684925a619737119ec7953d9353e1
 
       # set the default protocol version used for the system tests
       # should be the maximum supported version of all software.
@@ -53,7 +53,7 @@ jobs:
 
       # system test will build quickstart image internally to use for running
       # the service stack configured in standalone network mode(core, rpc)
-      SYSTEM_TEST_QUICKSTART_GIT_REF: "https://github.com/stellar/quickstart.git#a9990bfd430e7a7869c06c4b0a49abb6c6e367c7"
+      SYSTEM_TEST_QUICKSTART_GIT_REF: "https://github.com/stellar/quickstart.git#00fd155ca091e3cb475c2c36b6ab3ffb122bd9b0"
 
       # triggers system test to log out details from quickstart's logs and test steps
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
