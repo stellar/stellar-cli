@@ -1,28 +1,17 @@
-use ledger_transport::{APDUCommand, Exchange};
-use ledger_transport_hid::{
-    hidapi::{HidApi, HidError},
-    LedgerHIDError, TransportNativeHID,
-};
-use sha2::{Digest, Sha256};
-
-use soroban_env_host::xdr::{Hash, Transaction};
-use std::vec;
-
-use crate::signer::{Error, Stellar};
-use crate::transport_zemu_http::TransportZemuHttp;
-
 #[cfg(feature = "emulator-tests")]
 mod emulator_tests {
+    use soroban_env_host::xdr::Transaction;
+    use std::vec;
+
+    use crate::signer::Stellar;
     use serde::Deserialize;
-    use soroban_env_host::xdr::{self, Operation, OperationBody, Transaction, Uint256};
+    use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 
     use crate::speculos::Speculos;
     use crate::{get_zemu_transport, LedgerError, LedgerOptions, LedgerSigner};
 
     use std::sync::Arc;
     use std::{collections::HashMap, str::FromStr, time::Duration};
-
-    use super::*;
 
     use stellar_xdr::curr::{
         Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
