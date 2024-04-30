@@ -1,12 +1,13 @@
+use crate::signer::Stellar;
+use ledger_transport::Exchange;
+use serde::Deserialize;
 use soroban_env_host::xdr::Transaction;
+use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 use std::vec;
 
-use crate::signer::Stellar;
-use serde::Deserialize;
-use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
-
 use crate::speculos::Speculos;
-use crate::{get_zemu_transport, LedgerError, LedgerOptions, LedgerSigner};
+use crate::transport_zemu_http::TransportZemuHttp;
+use crate::{LedgerError, LedgerOptions, LedgerSigner};
 
 use std::sync::Arc;
 use std::{collections::HashMap, str::FromStr, time::Duration};
@@ -340,6 +341,10 @@ struct EmulatorEvent {
 #[derive(Debug, Deserialize)]
 struct EventsResponse {
     events: Vec<EmulatorEvent>,
+}
+
+fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, LedgerError> {
+    Ok(TransportZemuHttp::new(host, port))
 }
 
 async fn wait_for_emulator_start_text(ui_host_port: u16) {
