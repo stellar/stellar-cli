@@ -46,12 +46,12 @@ soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 soroban-rpc = { workspace = true }
-
+cargo_toml = "0.20.1"
 clap = { workspace = true, features = [
-  "derive",
-  "env",
-  "deprecated",
-  "string",
+    "derive",
+    "env",
+    "deprecated",
+    "string",
 ] }
 clap_complete = { workspace = true }
 async-trait = { workspace = true }
@@ -100,8 +100,8 @@ ulid = { workspace = true, features = ["serde"] }
 strum = "0.17.1"
 strum_macros = "0.17.1"
 gix = { version = "0.58.0", default-features = false, features = [
-  "blocking-http-transport-reqwest-rust-tls",
-  "worktree-mutation",
+    "blocking-http-transport-reqwest-rust-tls",
+    "worktree-mutation",
 ] }
 ureq = { version = "2.9.1", features = ["json"] }
 
