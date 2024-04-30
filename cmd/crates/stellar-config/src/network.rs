@@ -112,9 +112,14 @@ impl Network {
         let rpc_uri = Uri::from_str(&self.rpc_url)
             .map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))?;
         if self.network_passphrase.as_str() == passphrase::LOCAL {
-            let auth = rpc_uri.authority().ok_or_else(|| Error::MissingAuthority(self.rpc_url.clone()))?.clone();
-            let scheme = rpc_uri.scheme_str().ok_or_else(|| Error::MissingScheme(self.rpc_url.clone()))?;
-            
+            let auth = rpc_uri
+                .authority()
+                .ok_or_else(|| Error::MissingAuthority(self.rpc_url.clone()))?
+                .clone();
+            let scheme = rpc_uri
+                .scheme_str()
+                .ok_or_else(|| Error::MissingScheme(self.rpc_url.clone()))?;
+
             Ok(Uri::builder()
                 .authority(auth)
                 .scheme(scheme)
