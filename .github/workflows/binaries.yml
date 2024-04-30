@@ -34,21 +34,25 @@ jobs:
     - run: rustup target add ${{ matrix.target }}
     - if: matrix.target == 'aarch64-unknown-linux-gnu'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-    - name: Setup Version and Name
+    - name: Setup vars
       run: |
         version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "soroban-cli") | .version')"
         echo "VERSION=${version}" >> $GITHUB_ENV
         echo "NAME=soroban-cli-${version}-${{ matrix.target }}" >> $GITHUB_ENV
-    - name: Package
+    - name: Package (release only)
+      if: github.event_name == 'release'
       run: cargo package --no-verify
-    - name: Build
-      env:
-        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+    - name: Package Extract (release only)
+      if: github.event_name == 'release'
       run: |
         cd target/package
         tar xvfz soroban-cli-$VERSION.crate
-        cd soroban-cli-$VERSION
-        cargo build --target-dir=../.. --features opt --release --target ${{ matrix.target }}
+        echo "BUILD_WORKING_DIR=target/package/soroban-cli-$VERSION" >> $GITHUB_ENV
+    - name: Build
+      env:
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      working-directory: ${{ env.BUILD_WORKING_DIR }}
+      run: cargo build --target-dir="$GITHUB_WORKSPACE/target" --features opt --release --target ${{ matrix.target }}
     - name: Compress
       run: |
           cd target/${{ matrix.target }}/release
@@ -58,7 +62,7 @@ jobs:
       with:
         name: ${{ env.NAME }}
         path: 'target/${{ matrix.target }}/release/${{ env.NAME }}.tar.gz'
-    - name: Upload to Release
+    - name: Upload to Release (release only)
       if: github.event_name == 'release'
       uses: actions/github-script@v6
       with:

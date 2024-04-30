@@ -1506,7 +1506,7 @@ Decode XDR
 
   Default value: `json`
 
-  Possible values: `json`, `json-formatted`
+  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
 
 
 
