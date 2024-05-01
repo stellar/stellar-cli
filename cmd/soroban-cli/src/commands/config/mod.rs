@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{arg, command, Parser};
+use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
 use crate::Pwd;
@@ -13,16 +13,6 @@ pub mod data;
 pub mod locator;
 pub mod secret;
 
-#[derive(Debug, Parser)]
-pub enum Cmd {
-    /// Configure different networks. Depraecated, use `soroban network` instead.
-    #[command(subcommand)]
-    Network(network::Cmd),
-    /// Identity management. Deprecated, use `soroban keys` instead.
-    #[command(subcommand)]
-    Identity(keys::Cmd),
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -33,16 +23,6 @@ pub enum Error {
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Config(#[from] locator::Error),
-}
-
-impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        match &self {
-            Cmd::Identity(identity) => identity.run().await?,
-            Cmd::Network(network) => network.run().await?,
-        }
-        Ok(())
-    }
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]

@@ -6,21 +6,6 @@ This document contains the help content for the `soroban` command-line program.
 
 * [`soroban`↴](#soroban)
 * [`soroban completion`↴](#soroban-completion)
-* [`soroban config`↴](#soroban-config)
-* [`soroban config network`↴](#soroban-config-network)
-* [`soroban config network add`↴](#soroban-config-network-add)
-* [`soroban config network rm`↴](#soroban-config-network-rm)
-* [`soroban config network ls`↴](#soroban-config-network-ls)
-* [`soroban config network start`↴](#soroban-config-network-start)
-* [`soroban config network stop`↴](#soroban-config-network-stop)
-* [`soroban config identity`↴](#soroban-config-identity)
-* [`soroban config identity add`↴](#soroban-config-identity-add)
-* [`soroban config identity address`↴](#soroban-config-identity-address)
-* [`soroban config identity fund`↴](#soroban-config-identity-fund)
-* [`soroban config identity generate`↴](#soroban-config-identity-generate)
-* [`soroban config identity ls`↴](#soroban-config-identity-ls)
-* [`soroban config identity rm`↴](#soroban-config-identity-rm)
-* [`soroban config identity show`↴](#soroban-config-identity-show)
 * [`soroban contract`↴](#soroban-contract)
 * [`soroban contract asset`↴](#soroban-contract-asset)
 * [`soroban contract asset id`↴](#soroban-contract-asset-id)
@@ -53,9 +38,6 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban keys rm`↴](#soroban-keys-rm)
 * [`soroban keys show`↴](#soroban-keys-show)
 * [`soroban lab`↴](#soroban-lab)
-* [`soroban lab token`↴](#soroban-lab-token)
-* [`soroban lab token wrap`↴](#soroban-lab-token-wrap)
-* [`soroban lab token id`↴](#soroban-lab-token-id)
 * [`soroban lab xdr`↴](#soroban-lab-xdr)
 * [`soroban lab xdr types`↴](#soroban-lab-xdr-types)
 * [`soroban lab xdr types list`↴](#soroban-lab-xdr-types-list)
@@ -63,6 +45,13 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban lab xdr decode`↴](#soroban-lab-xdr-decode)
 * [`soroban lab xdr encode`↴](#soroban-lab-xdr-encode)
 * [`soroban lab xdr version`↴](#soroban-lab-xdr-version)
+* [`soroban xdr`↴](#soroban-xdr)
+* [`soroban xdr types`↴](#soroban-xdr-types)
+* [`soroban xdr types list`↴](#soroban-xdr-types-list)
+* [`soroban xdr guess`↴](#soroban-xdr-guess)
+* [`soroban xdr decode`↴](#soroban-xdr-decode)
+* [`soroban xdr encode`↴](#soroban-xdr-encode)
+* [`soroban xdr version`↴](#soroban-xdr-version)
 * [`soroban network`↴](#soroban-network)
 * [`soroban network add`↴](#soroban-network-add)
 * [`soroban network rm`↴](#soroban-network-rm)
@@ -108,11 +97,11 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 ###### **Subcommands:**
 
 * `completion` — Print shell completion code for the specified shell
-* `config` — Deprecated, use `soroban keys` and `soroban network` instead
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
 * `lab` — Experiment with early features and expert tools
+* `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
 * `cache` — Cache for tranasctions and contract specs
@@ -169,336 +158,6 @@ To enable autocomplete permanently, run:
 
   Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
 
-
-
-
-## `soroban config`
-
-Deprecated, use `soroban keys` and `soroban network` instead
-
-**Usage:** `soroban config <COMMAND>`
-
-###### **Subcommands:**
-
-* `network` — Configure different networks. Depraecated, use `soroban network` instead
-* `identity` — Identity management. Deprecated, use `soroban keys` instead
-
-
-
-## `soroban config network`
-
-Configure different networks. Depraecated, use `soroban network` instead
-
-**Usage:** `soroban config network <COMMAND>`
-
-###### **Subcommands:**
-
-* `add` — Add a new network
-* `rm` — Remove a network
-* `ls` — List networks
-* `start` — Start network
-* `stop` — Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
-
-
-
-## `soroban config network add`
-
-Add a new network
-
-**Usage:** `soroban config network add [OPTIONS] --rpc-url <RPC_URL> --network-passphrase <NETWORK_PASSPHRASE> <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of network
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `soroban config network rm`
-
-Remove a network
-
-**Usage:** `soroban config network rm [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Network to remove
-
-###### **Options:**
-
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `soroban config network ls`
-
-List networks
-
-**Usage:** `soroban config network ls [OPTIONS]`
-
-###### **Options:**
-
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-l`, `--long` — Get more info about the networks
-
-  Possible values: `true`, `false`
-
-
-
-
-## `soroban config network start`
-
-Start network
-
-Start a container running a Stellar node, RPC, API, and friendbot (faucet).
-
-soroban network start <NETWORK> [OPTIONS]
-
-By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
-
-**Usage:** `soroban config network start [OPTIONS] <NETWORK>`
-
-###### **Arguments:**
-
-* `<NETWORK>` — Network to start
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
-* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
-
-  Default value: `8000:8000`
-* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
-
-
-
-## `soroban config network stop`
-
-Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
-
-**Usage:** `soroban config network stop [OPTIONS] <NETWORK>`
-
-###### **Arguments:**
-
-* `<NETWORK>` — Network to stop
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-
-
-
-## `soroban config identity`
-
-Identity management. Deprecated, use `soroban keys` instead
-
-**Usage:** `soroban config identity <COMMAND>`
-
-###### **Subcommands:**
-
-* `add` — Add a new identity (keypair, ledger, macOS keychain)
-* `address` — Given an identity return its address (public key)
-* `fund` — Fund an identity on a test network
-* `generate` — Generate a new identity with a seed phrase, currently 12 words
-* `ls` — List identities
-* `rm` — Remove an identity
-* `show` — Given an identity return its private key
-
-
-
-## `soroban config identity add`
-
-Add a new identity (keypair, ledger, macOS keychain)
-
-**Usage:** `soroban config identity add [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity
-
-###### **Options:**
-
-* `--secret-key` — Add using secret_key Can provide with SOROBAN_SECRET_KEY
-
-  Possible values: `true`, `false`
-
-* `--seed-phrase` — Add using 12 word seed phrase to generate secret_key
-
-  Possible values: `true`, `false`
-
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `soroban config identity address`
-
-Given an identity return its address (public key)
-
-**Usage:** `soroban config identity address [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
-
-###### **Options:**
-
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `soroban config identity fund`
-
-Fund an identity on a test network
-
-**Usage:** `soroban config identity fund [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `soroban config identity generate`
-
-Generate a new identity with a seed phrase, currently 12 words
-
-**Usage:** `soroban config identity generate [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity
-
-###### **Options:**
-
-* `--no-fund` — Do not fund address
-
-  Possible values: `true`, `false`
-
-* `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
-* `-s`, `--as-secret` — Output the generated identity as a secret key
-
-  Possible values: `true`, `false`
-
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
-* `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
-
-  Possible values: `true`, `false`
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-
-
-
-## `soroban config identity ls`
-
-List identities
-
-**Usage:** `soroban config identity ls [OPTIONS]`
-
-###### **Options:**
-
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-l`, `--long`
-
-  Possible values: `true`, `false`
-
-
-
-
-## `soroban config identity rm`
-
-Remove an identity
-
-**Usage:** `soroban config identity rm [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Identity to remove
-
-###### **Options:**
-
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `soroban config identity show`
-
-Given an identity return its private key
-
-**Usage:** `soroban config identity show [OPTIONS] <NAME>`
-
-###### **Arguments:**
-
-* `<NAME>` — Name of identity to lookup, default is test identity
-
-###### **Options:**
-
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -1341,73 +1000,7 @@ Experiment with early features and expert tools
 
 ###### **Subcommands:**
 
-* `token` — Wrap, create, and manage token contracts
 * `xdr` — Decode xdr
-
-
-
-## `soroban lab token`
-
-Wrap, create, and manage token contracts
-
-**Usage:** `soroban lab token <COMMAND>`
-
-###### **Subcommands:**
-
-* `wrap` — Deploy a token contract to wrap an existing Stellar classic asset for smart contract usage Deprecated, use `soroban contract deploy asset` instead
-* `id` — Compute the expected contract id for the given asset Deprecated, use `soroban contract id asset` instead
-
-
-
-## `soroban lab token wrap`
-
-Deploy a token contract to wrap an existing Stellar classic asset for smart contract usage Deprecated, use `soroban contract deploy asset` instead
-
-**Usage:** `soroban lab token wrap [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
-
-###### **Options:**
-
-* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-
-  Default value: `100`
-* `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
-* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-
-
-
-## `soroban lab token id`
-
-Compute the expected contract id for the given asset Deprecated, use `soroban contract id asset` instead
-
-**Usage:** `soroban lab token id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
-
-###### **Options:**
-
-* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -1554,6 +1147,152 @@ Encode XDR
 Print version information
 
 **Usage:** `soroban lab xdr version`
+
+
+
+## `soroban xdr`
+
+Decode and encode XDR
+
+**Usage:** `soroban xdr [CHANNEL] <COMMAND>`
+
+###### **Subcommands:**
+
+* `types` — View information about types
+* `guess` — Guess the XDR type
+* `decode` — Decode XDR
+* `encode` — Encode XDR
+* `version` — Print version information
+
+###### **Arguments:**
+
+* `<CHANNEL>` — Channel of XDR to operate on
+
+  Default value: `+curr`
+
+  Possible values: `+curr`, `+next`
+
+
+
+
+## `soroban xdr types`
+
+View information about types
+
+**Usage:** `soroban xdr types <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — 
+
+
+
+## `soroban xdr types list`
+
+**Usage:** `soroban xdr types list [OPTIONS]`
+
+###### **Options:**
+
+* `--output <OUTPUT>`
+
+  Default value: `plain`
+
+  Possible values: `plain`, `json`, `json-formatted`
+
+
+
+
+## `soroban xdr guess`
+
+Guess the XDR type
+
+**Usage:** `soroban xdr guess [OPTIONS] [FILE]`
+
+###### **Arguments:**
+
+* `<FILE>` — File to decode, or stdin if omitted
+
+###### **Options:**
+
+* `--input <INPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
+
+* `--output <OUTPUT>`
+
+  Default value: `list`
+
+  Possible values: `list`
+
+* `--certainty <CERTAINTY>` — Certainty as an arbitrary value
+
+  Default value: `2`
+
+
+
+## `soroban xdr decode`
+
+Decode XDR
+
+**Usage:** `soroban xdr decode [OPTIONS] --type <TYPE> [FILES]...`
+
+###### **Arguments:**
+
+* `<FILES>` — Files to decode, or stdin if omitted
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to decode
+* `--input <INPUT>`
+
+  Default value: `stream-base64`
+
+  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
+
+* `--output <OUTPUT>`
+
+  Default value: `json`
+
+  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
+
+
+
+
+## `soroban xdr encode`
+
+Encode XDR
+
+**Usage:** `soroban xdr encode [OPTIONS] --type <TYPE> [FILES]...`
+
+###### **Arguments:**
+
+* `<FILES>` — Files to encode, or stdin if omitted
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to encode
+* `--input <INPUT>`
+
+  Default value: `json`
+
+  Possible values: `json`
+
+* `--output <OUTPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`
+
+
+
+
+## `soroban xdr version`
+
+Print version information
+
+**Usage:** `soroban xdr version`
 
 
 
