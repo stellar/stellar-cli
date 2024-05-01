@@ -41,6 +41,11 @@ build-test-wasms:
 
 build-test: build-test-wasms install
 
+generate-examples-list:
+	curl -sSL https://api.github.com/repos/stellar/soroban-examples/git/trees/main \
+		| jq -r '.tree[] | select(.type != "blob" and .path != "hello_world" and (.path | startswith(".") | not)) | .path' \
+		> cmd/soroban-cli/example_contracts.list
+
 test: build-test
 	cargo test
 

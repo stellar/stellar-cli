@@ -50,7 +50,9 @@ pub struct Cmd {
 }
 
 fn possible_example_values() -> ValueParser {
-    let example_contracts = env!("EXAMPLE_CONTRACTS").split(',').collect::<Vec<&str>>();
+    let example_contracts = include_str!("../../../example_contracts.list")
+        .lines()
+        .collect::<Vec<&str>>();
     let parser = PossibleValuesParser::new(example_contracts.iter().map(PossibleValue::new));
     parser.into()
 }
