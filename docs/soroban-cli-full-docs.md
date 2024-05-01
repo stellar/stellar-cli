@@ -53,9 +53,6 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban keys rm`↴](#soroban-keys-rm)
 * [`soroban keys show`↴](#soroban-keys-show)
 * [`soroban lab`↴](#soroban-lab)
-* [`soroban lab token`↴](#soroban-lab-token)
-* [`soroban lab token wrap`↴](#soroban-lab-token-wrap)
-* [`soroban lab token id`↴](#soroban-lab-token-id)
 * [`soroban lab xdr`↴](#soroban-lab-xdr)
 * [`soroban lab xdr types`↴](#soroban-lab-xdr-types)
 * [`soroban lab xdr types list`↴](#soroban-lab-xdr-types-list)
@@ -1339,73 +1336,7 @@ Experiment with early features and expert tools
 
 ###### **Subcommands:**
 
-* `token` — Wrap, create, and manage token contracts
 * `xdr` — Decode xdr
-
-
-
-## `soroban lab token`
-
-Wrap, create, and manage token contracts
-
-**Usage:** `soroban lab token <COMMAND>`
-
-###### **Subcommands:**
-
-* `wrap` — Deploy a token contract to wrap an existing Stellar classic asset for smart contract usage Deprecated, use `soroban contract deploy asset` instead
-* `id` — Compute the expected contract id for the given asset Deprecated, use `soroban contract id asset` instead
-
-
-
-## `soroban lab token wrap`
-
-Deploy a token contract to wrap an existing Stellar classic asset for smart contract usage Deprecated, use `soroban contract deploy asset` instead
-
-**Usage:** `soroban lab token wrap [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
-
-###### **Options:**
-
-* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-
-  Default value: `100`
-* `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
-* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-
-
-
-## `soroban lab token id`
-
-Compute the expected contract id for the given asset Deprecated, use `soroban contract id asset` instead
-
-**Usage:** `soroban lab token id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
-
-###### **Options:**
-
-* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-
-  Possible values: `true`, `false`
-
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
