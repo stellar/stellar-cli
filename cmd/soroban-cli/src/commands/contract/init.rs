@@ -1,3 +1,11 @@
+use cargo_toml;
+use clap::{
+    builder::{PossibleValue, PossibleValuesParser, ValueParser},
+    Parser, ValueEnum,
+};
+use gix::{clone, create, open, progress, remote};
+use rust_embed::RustEmbed;
+use serde_json::{from_str, json, to_string_pretty, Error as JsonError, Value as JsonValue};
 use std::{
     env,
     ffi::OsStr,
@@ -11,15 +19,6 @@ use std::{
     str,
     sync::atomic::AtomicBool,
 };
-
-use clap::{
-    builder::{PossibleValue, PossibleValuesParser, ValueParser},
-    Parser, ValueEnum,
-};
-use gix::{clone, create, open, progress, remote};
-use rust_embed::RustEmbed;
-use serde_json::{from_str, json, to_string_pretty, Error as JsonError, Value as JsonValue};
-use toml_edit::{Document, Formatted, InlineTable, Item, TomlError, Value as TomlValue};
 use ureq::get;
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
@@ -51,7 +50,9 @@ pub struct Cmd {
 }
 
 fn possible_example_values() -> ValueParser {
-    let example_contracts = env!("EXAMPLE_CONTRACTS").split(',').collect::<Vec<&str>>();
+    let example_contracts = include_str!("../../../example_contracts.list")
+        .lines()
+        .collect::<Vec<&str>>();
     let parser = PossibleValuesParser::new(example_contracts.iter().map(PossibleValue::new));
     parser.into()
 }
@@ -73,7 +74,7 @@ pub enum Error {
     CheckoutError(#[from] clone::checkout::main_worktree::Error),
 
     #[error("Failed to parse toml file: {0}")]
-    TomlParseError(#[from] TomlError),
+    CargoTomlParseError(#[from] cargo_toml::Error),
 
     #[error("Failed to parse package.json file: {0}")]
     JsonParseError(#[from] JsonError),
@@ -314,27 +315,49 @@ fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Resul
     Ok(())
 }
 
+fn inherit_sdk(mut deps: cargo_toml::DepsSet) -> cargo_toml::DepsSet {
+    if let Some(sdk_dep) = deps.get("soroban-sdk") {
+        match sdk_dep {
+            cargo_toml::Dependency::Simple(_) => {
+                deps.insert(
+                    "soroban-sdk".to_string(),
+                    cargo_toml::Dependency::Inherited(cargo_toml::InheritedDependencyDetail {
+                        workspace: true,
+                        ..Default::default()
+                    }),
+                );
+            }
+
+            cargo_toml::Dependency::Detailed(details) => {
+                deps.insert(
+                    "soroban-sdk".to_string(),
+                    cargo_toml::Dependency::Inherited(cargo_toml::InheritedDependencyDetail {
+                        features: details.features.clone(),
+                        optional: details.optional,
+                        workspace: true,
+                    }),
+                );
+            }
+
+            // we don't need to do anything, it already has `workspace = true`
+            cargo_toml::Dependency::Inherited(_) => (),
+        }
+    }
+    deps
+}
+
 fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     let cargo_path = contract_path.join("Cargo.toml");
-    let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
-        eprint!("Error reading Cargo.toml file in: {contract_path:?}");
-        e
-    })?;
-    let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
+    let mut doc = cargo_toml::Manifest::from_path(cargo_path.clone()).map_err(|e| {
         eprintln!("Error parsing Cargo.toml file in: {contract_path:?}");
         e
     })?;
 
-    let mut workspace_table = InlineTable::new();
-    workspace_table.insert("workspace", TomlValue::Boolean(Formatted::new(true)));
+    doc.dependencies = inherit_sdk(doc.dependencies);
+    doc.dev_dependencies = inherit_sdk(doc.dev_dependencies);
+    doc.profile = cargo_toml::Profiles::default();
 
-    doc["dependencies"]["soroban-sdk"] =
-        Item::Value(TomlValue::InlineTable(workspace_table.clone()));
-    doc["dev_dependencies"]["soroban-sdk"] = Item::Value(TomlValue::InlineTable(workspace_table));
-
-    doc.remove("profile");
-
-    write(&cargo_path, doc.to_string()).map_err(|e| {
+    write(&cargo_path, toml::to_string(&doc).unwrap()).map_err(|e| {
         eprintln!("Error writing to Cargo.toml file in: {contract_path:?}");
         e
     })?;
@@ -637,8 +660,48 @@ mod tests {
     fn assert_contract_cargo_file_uses_workspace(project_dir: &Path, contract_name: &str) {
         let contract_dir = project_dir.join("contracts").join(contract_name);
         let cargo_toml_path = contract_dir.as_path().join("Cargo.toml");
-        let cargo_toml_str = read_to_string(cargo_toml_path).unwrap();
-        assert!(cargo_toml_str.contains("soroban-sdk = { workspace = true }"));
+        let cargo_toml_str = read_to_string(cargo_toml_path.clone()).unwrap();
+        let doc = cargo_toml_str.parse::<toml_edit::Document>().unwrap();
+        println!("{cargo_toml_path:?} contents:\n{cargo_toml_str}");
+        assert!(
+            doc.get("dependencies")
+                .unwrap()
+                .get("soroban-sdk")
+                .unwrap()
+                .get("workspace")
+                .unwrap()
+                .as_bool()
+                .unwrap(),
+            "expected [dependencies.soroban-sdk] to be a workspace dependency"
+        );
+        assert!(
+            doc.get("dev-dependencies")
+                .unwrap()
+                .get("soroban-sdk")
+                .unwrap()
+                .get("workspace")
+                .unwrap()
+                .as_bool()
+                .unwrap(),
+            "expected [dev-dependencies.soroban-sdk] to be a workspace dependency"
+        );
+        assert_ne!(
+            0,
+            doc.get("dev-dependencies")
+                .unwrap()
+                .get("soroban-sdk")
+                .unwrap()
+                .get("features")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            "expected [dev-dependencies.soroban-sdk] to have a features list"
+        );
+        assert!(
+            doc.get("dev_dependencies").is_none(),
+            "erroneous 'dev_dependencies' section"
+        );
     }
 
     fn assert_example_contract_excluded_files_do_not_exist(
