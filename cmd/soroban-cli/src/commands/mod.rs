@@ -100,7 +100,6 @@ impl Root {
             Cmd::Network(network) => network.run().await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
-            Cmd::Config(c) => c.run().await?,
         };
         Ok(())
     }
@@ -119,9 +118,6 @@ pub enum Cmd {
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
-    /// Deprecated, use `soroban keys` and `soroban network` instead
-    #[command(subcommand)]
-    Config(config::Cmd),
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
@@ -155,8 +151,6 @@ pub enum Error {
     Lab(#[from] lab::Error),
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
-    #[error(transparent)]
-    Config(#[from] config::Error),
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
     #[error(transparent)]
