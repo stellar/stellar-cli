@@ -96,10 +96,10 @@ impl Root {
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Lab(lab) => lab.run()?,
+            Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run().await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
-            Cmd::Config(c) => c.run().await?,
         };
         Ok(())
     }
@@ -118,9 +118,6 @@ pub enum Cmd {
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
-    /// Deprecated, use `soroban keys` and `soroban network` instead
-    #[command(subcommand)]
-    Config(config::Cmd),
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
@@ -132,6 +129,8 @@ pub enum Cmd {
     /// Experiment with early features and expert tools
     #[command(subcommand)]
     Lab(lab::Cmd),
+    /// Decode and encode XDR
+    Xdr(stellar_xdr::cli::Root),
     /// Start and configure networks
     #[command(subcommand)]
     Network(network::Cmd),
@@ -151,7 +150,7 @@ pub enum Error {
     #[error(transparent)]
     Lab(#[from] lab::Error),
     #[error(transparent)]
-    Config(#[from] config::Error),
+    Xdr(#[from] stellar_xdr::cli::Error),
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
     #[error(transparent)]
