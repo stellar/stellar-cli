@@ -14,7 +14,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub fn run(&self) -> Result<(), Error> {
         match &self {
             Cmd::Xdr(xdr) => xdr.run()?,
         }
