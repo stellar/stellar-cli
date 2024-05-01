@@ -66,6 +66,7 @@ async fn invoke() {
     extend_contract(sandbox, id).await;
     let uid = sandbox
         .new_assert_cmd("cache")
+        .arg("actionlog")
         .arg("ls")
         .assert()
         .stdout_as_str();

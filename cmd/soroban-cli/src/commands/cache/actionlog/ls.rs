@@ -1,6 +1,6 @@
 use clap::command;
 
-use super::super::config::locator;
+use super::super::super::config::locator;
 use crate::commands::config::data;
 
 #[derive(thiserror::Error, Debug)]
