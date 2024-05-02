@@ -151,8 +151,8 @@ pub enum Action {
 impl Action {
     pub fn type_str(&self) -> String {
         match self {
-            Action::Simulate(_) => "Sim",
-            Action::Send(_) => "Txn",
+            Action::Simulate(_) => "Simulate",
+            Action::Send(_) => "Send    ",
         }
         .to_string()
     }
