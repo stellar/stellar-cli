@@ -135,12 +135,14 @@ fn to_datatime(id: &ulid::Ulid) -> chrono::DateTime<chrono::Utc> {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 struct Data {
     action: Action,
     rpc_url: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum Action {
     Simulate(SimulateTransactionResponse),
     Send(GetTransactionResponseRaw),
