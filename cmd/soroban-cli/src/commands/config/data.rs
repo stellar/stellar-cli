@@ -27,7 +27,7 @@ pub const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
 pub fn project_dir() -> Result<directories::ProjectDirs, Error> {
     std::env::var(XDG_DATA_HOME)
         .map_or_else(
-            |_| ProjectDirs::from("com", "stellar", "stellar-cli"),
+            |_| ProjectDirs::from("org", "stellar", "stellar-cli"),
             |data_home| ProjectDirs::from_path(std::path::PathBuf::from(data_home)),
         )
         .ok_or(Error::FailedToFindProjectDirs)
