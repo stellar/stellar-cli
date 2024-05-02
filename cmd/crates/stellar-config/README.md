@@ -1,3 +1,3 @@
 # stellar-config
 
-Configuration for stellar, includes, keys, networks and contract aliases.
+Configuration for Stellar, includes keys, networks, and contract aliases.

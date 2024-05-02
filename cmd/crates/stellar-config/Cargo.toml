@@ -17,7 +17,6 @@ soroban-spec = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 soroban-rpc = { workspace = true }
-# config_inner =  {version = "0.14.0", package = "config", features = ["toml"]}
 
 clap = { workspace = true, features = [
   "derive",
