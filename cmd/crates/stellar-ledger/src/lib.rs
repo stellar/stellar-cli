@@ -1,6 +1,9 @@
 use futures::executor::block_on;
 use ledger_transport::{APDUCommand, Exchange};
-use ledger_transport_hid::{hidapi::HidError, LedgerHIDError};
+use ledger_transport_hid::{
+    hidapi::{self, HidError},
+    LedgerHIDError, TransportNativeHID,
+};
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{Hash, Transaction};
@@ -11,7 +14,7 @@ use stellar_xdr::curr::{
     TransactionV1Envelope, WriteXdr,
 };
 
-use crate::signer::{Error, Stellar};
+pub use crate::signer::{Error, Stellar};
 
 mod signer;
 mod speculos;
@@ -71,11 +74,41 @@ pub struct LedgerOptions<T: Exchange> {
     exchange: T,
     hd_path: slip10::BIP32Path,
 }
+// let hidapi = HidApi::new().map_err(NEARLedgerError::HidApiError)?;
+// TransportNativeHID::new(&hidapi).map_err(NEARLedgerError::LedgerHidError)
+impl LedgerOptions<TransportNativeHID> {
+    pub fn new(hd_path: u32) -> Self {
+        let hd_path = bip_path_from_index(hd_path);
+        let hidapi = hidapi::HidApi::new().unwrap();
+        LedgerOptions {
+            exchange: TransportNativeHID::new(&hidapi).unwrap(),
+            hd_path,
+        }
+    }
+}
 
 pub struct LedgerSigner<T: Exchange> {
     network_passphrase: String,
     transport: T,
-    hd_path: slip10::BIP32Path,
+    pub hd_path: slip10::BIP32Path,
+}
+
+pub struct NativeSigner(LedgerSigner<TransportNativeHID>);
+
+impl AsRef<LedgerSigner<TransportNativeHID>> for NativeSigner {
+    fn as_ref(&self) -> &LedgerSigner<TransportNativeHID> {
+        &self.0
+    }
+}
+
+impl From<(String, u32)> for NativeSigner {
+    fn from((network_passphrase, hd_path): (String, u32)) -> Self {
+        Self(LedgerSigner {
+            network_passphrase,
+            transport: TransportNativeHID::new(&hidapi::HidApi::new().unwrap()).unwrap(),
+            hd_path: bip_path_from_index(hd_path),
+        })
+    }
 }
 
 impl<T> LedgerSigner<T>
@@ -114,7 +147,7 @@ where
     pub async fn sign_transaction_hash(
         &self,
         hd_path: slip10::BIP32Path,
-        transaction_hash: Vec<u8>,
+        transaction_hash: &[u8],
     ) -> Result<Vec<u8>, LedgerError> {
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
 
@@ -123,7 +156,7 @@ where
 
         data.insert(0, HD_PATH_ELEMENTS_COUNT);
         data.append(&mut hd_path_to_bytes);
-        data.append(&mut transaction_hash.clone());
+        data.extend_from_slice(transaction_hash);
 
         let command = APDUCommand {
             cla: CLA,
@@ -284,7 +317,7 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
         txn: [u8; 32],
         _source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
-        let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), txn.to_vec())) //TODO: refactor sign_transaction_hash
+        let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), &txn)) //TODO: refactor sign_transaction_hash
             .unwrap(); // FIXME: handle error
 
         let sig_bytes = signature.try_into().unwrap(); // FIXME: handle error
@@ -516,10 +549,9 @@ mod test {
         let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
 
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
-        let test_hash =
-            "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889".as_bytes();
+        let test_hash = b"3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889";
 
-        let result = ledger.sign_transaction_hash(path, test_hash.into()).await;
+        let result = ledger.sign_transaction_hash(path, test_hash).await;
         if let Err(LedgerError::APDUExchangeError(msg)) = result {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
             // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
@@ -563,7 +595,7 @@ mod test {
             }
         }
 
-        let result = ledger.sign_transaction_hash(path, test_hash).await;
+        let result = ledger.sign_transaction_hash(path, &test_hash).await;
 
         match result {
             Ok(response) => {

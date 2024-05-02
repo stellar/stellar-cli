@@ -5,7 +5,9 @@ use std::io;
 //     execute,
 //     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 // };
-use soroban_sdk::xdr::{self, Limits, TransactionEnvelope, WriteXdr};
+use soroban_sdk::xdr::{self, Limits, Transaction, TransactionEnvelope, WriteXdr};
+use stellar_ledger::NativeSigner;
+use stellar_strkey::Strkey;
 
 use crate::signer::{self, InMemory, Stellar};
 
@@ -31,35 +33,39 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Confirm that a signature can be signed by the given keypair automatically.
-    #[arg(long, short = 'y')]
+    #[arg(long, short = 'y', short = 'Y')]
     yes: bool,
     #[clap(flatten)]
     pub xdr_args: super::xdr::Args,
     #[clap(flatten)]
     pub config: super::super::config::Args,
+
+    #[arg(long, value_enum, default_value = "file")]
+    pub signer: SignerType,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum SignerType {
+    File,
+    Ledger,
 }
 
 impl Cmd {
     #[allow(clippy::unused_async)]
     pub async fn run(&self) -> Result<(), Error> {
-        let envelope = self.sign()?;
+        let envelope = self.sign().await?;
         println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
         Ok(())
     }
 
-    pub fn sign(&self) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign(&self) -> Result<TransactionEnvelope, Error> {
         let source = &self.config.source_account;
         tracing::debug!("signing transaction with source account {}", source);
         let txn = self.xdr_args.txn()?;
-        let key = self.config.key_pair()?;
-        let address =
-            stellar_strkey::ed25519::PublicKey::from_payload(key.verifying_key().as_bytes())?;
-        let in_memory = InMemory {
-            network_passphrase: self.config.get_network()?.network_passphrase,
-            keypairs: vec![key],
-        };
-        self.prompt_user()?;
-        Ok(in_memory.sign_txn(txn, &stellar_strkey::Strkey::PublicKeyEd25519(address))?)
+        match self.signer {
+            SignerType::File => self.sign_file(txn).await,
+            SignerType::Ledger => self.sign_ledger(txn).await,
+        }
     }
 
     pub fn prompt_user(&self) -> Result<(), Error> {
@@ -93,5 +99,33 @@ impl Cmd {
         // terminal::disable_raw_mode()?;
         // execute!(stdout, LeaveAlternateScreen)?;
         // Ok(())
+    }
+
+    pub async fn sign_file(&self, txn: Transaction) -> Result<TransactionEnvelope, Error> {
+        let key = self.config.key_pair()?;
+        let address =
+            stellar_strkey::ed25519::PublicKey::from_payload(key.verifying_key().as_bytes())?;
+        let in_memory = InMemory {
+            network_passphrase: self.config.get_network()?.network_passphrase,
+            keypairs: vec![key],
+        };
+        self.prompt_user()?;
+        Ok(in_memory
+            .sign_txn(txn, &Strkey::PublicKeyEd25519(address))
+            .await?)
+    }
+
+    pub async fn sign_ledger(&self, txn: Transaction) -> Result<TransactionEnvelope, Error> {
+        let index: u32 = self
+            .config
+            .hd_path
+            .unwrap_or_default()
+            .try_into()
+            .expect("usize bigger than u32");
+        let signer: NativeSigner = (self.config.get_network()?.network_passphrase, index).into();
+        let account =
+            Strkey::PublicKeyEd25519(signer.as_ref().get_public_key(index).await.unwrap());
+        let bx_signer = Box::new(signer);
+        Ok(bx_signer.sign_txn(txn, &account).await.unwrap())
     }
 }

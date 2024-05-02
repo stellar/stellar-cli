@@ -1,14 +1,15 @@
 use ed25519_dalek::Signer;
-use sha2::{Digest, Sha256};
+use sha2::{digest::typenum::Le, Digest, Sha256};
 
 use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ReadXdr, ScAddress, ScMap,
+    ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
+    SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanCredentials, Transaction,
+    TransactionEnvelope, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, Uint256, WriteXdr,
 };
+use stellar_ledger::{LedgerSigner, NativeSigner};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -50,7 +51,7 @@ pub trait Stellar {
         &self,
         txn: [u8; 32],
         source_account: &stellar_strkey::Strkey,
-    ) -> Result<DecoratedSignature, Error>;
+    ) -> impl std::future::Future<Output = Result<DecoratedSignature, Error>> + Send;
 
     /// Sign a Soroban authorization entry with the given address
     /// # Errors
@@ -60,13 +61,13 @@ pub trait Stellar {
         unsigned_entry: &SorobanAuthorizationEntry,
         signature_expiration_ledger: u32,
         address: &[u8; 32],
-    ) -> Result<SorobanAuthorizationEntry, Error>;
+    ) -> impl std::future::Future<Output = Result<SorobanAuthorizationEntry, Error>> + Send;
 
     /// Sign a Stellar transaction with the given source account
     /// This is a default implementation that signs the transaction hash and returns a decorated signature
     /// # Errors
     /// Returns an error if the source account is not found
-    fn sign_txn(
+    async fn sign_txn(
         &self,
         txn: Transaction,
         source_account: &stellar_strkey::Strkey,
@@ -76,7 +77,7 @@ pub trait Stellar {
             tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(txn.clone()),
         };
         let hash = Sha256::digest(signature_payload.to_xdr(Limits::none())?).into();
-        let decorated_signature = self.sign_txn_hash(hash, source_account)?;
+        let decorated_signature = self.sign_txn_hash(hash, source_account).await?;
         Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
             tx: txn,
             signatures: vec![decorated_signature].try_into()?,
@@ -86,7 +87,7 @@ pub trait Stellar {
     /// Sign a Soroban authorization entries for a given transaction and set the expiration ledger
     /// # Errors
     /// Returns an error if the address is not found
-    fn sign_soroban_authorizations(
+    async fn sign_soroban_authorizations(
         &self,
         raw: &Transaction,
         signature_expiration_ledger: u32,
@@ -104,16 +105,13 @@ pub trait Stellar {
             return Ok(None);
         };
 
-        let signed_auths = body
-            .auth
-            .as_slice()
-            .iter()
-            .map(|raw_auth| {
-                self.maybe_sign_soroban_authorization_entry(raw_auth, signature_expiration_ledger)
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-
-        body.auth = signed_auths.try_into()?;
+        let mut auths = body.auth.to_vec();
+        for auth in auths.iter_mut() {
+            *auth = self
+                .maybe_sign_soroban_authorization_entry(auth, signature_expiration_ledger)
+                .await?;
+        }
+        body.auth = auths.try_into()?;
         tx.operations = vec![op].try_into()?;
         Ok(Some(tx))
     }
@@ -121,7 +119,7 @@ pub trait Stellar {
     /// Sign a Soroban authorization entry if the address is public key
     /// # Errors
     /// Returns an error if the address in entry is a contract
-    fn maybe_sign_soroban_authorization_entry(
+    async fn maybe_sign_soroban_authorization_entry(
         &self,
         unsigned_entry: &SorobanAuthorizationEntry,
         signature_expiration_ledger: u32,
@@ -149,6 +147,7 @@ pub trait Stellar {
                 signature_expiration_ledger,
                 needle,
             )
+            .await
         } else {
             Ok(unsigned_entry.clone())
         }
@@ -190,7 +189,7 @@ impl Stellar for InMemory {
         }
     }
 
-    fn sign_txn_hash(
+    async fn sign_txn_hash(
         &self,
         txn: [u8; 32],
         source_account: &stellar_strkey::Strkey,
@@ -208,7 +207,7 @@ impl Stellar for InMemory {
         })
     }
 
-    fn sign_soroban_authorization_entry(
+    async fn sign_soroban_authorization_entry(
         &self,
         unsigned_entry: &SorobanAuthorizationEntry,
         signature_expiration_ledger: u32,
@@ -273,5 +272,43 @@ impl Stellar for InMemory {
 
     fn network_hash(&self) -> xdr::Hash {
         xdr::Hash(Sha256::digest(self.network_passphrase.as_bytes()).into())
+    }
+}
+
+impl Stellar for Box<NativeSigner> {
+    type Init = u32;
+
+    fn new(network_passphrase: &str, options: Option<Self::Init>) -> Self {
+        Box::new((network_passphrase.to_owned(), options.unwrap_or_default()).into())
+    }
+
+    fn network_hash(&self) -> xdr::Hash {
+        use stellar_ledger::Stellar;
+        self.as_ref().as_ref().network_hash()
+    }
+
+    async fn sign_txn_hash(
+        &self,
+        txn: [u8; 32],
+        _source_account: &stellar_strkey::Strkey,
+    ) -> Result<DecoratedSignature, Error> {
+        Ok(DecoratedSignature::from_xdr(
+            self.as_ref()
+                .as_ref()
+                .sign_transaction_hash(self.as_ref().as_ref().hd_path.clone(), &txn)
+                .await
+                .unwrap(),
+            Limits::none(),
+        )
+        .unwrap())
+    }
+
+    async fn sign_soroban_authorization_entry(
+        &self,
+        unsigned_entry: &SorobanAuthorizationEntry,
+        signature_expiration_ledger: u32,
+        address: &[u8; 32],
+    ) -> Result<SorobanAuthorizationEntry, Error> {
+        todo!()
     }
 }
