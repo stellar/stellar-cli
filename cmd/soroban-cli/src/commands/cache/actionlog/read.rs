@@ -49,8 +49,8 @@ impl Cmd {
         let (action, _) = data::read(&self.ulid()?)?;
         let output = if self.output.is_some() {
             match action {
-                data::Action::Transaction(sim) => sim.envelope_xdr.expect("missing envelope"),
-                data::Action::Simulation(_) => todo!("Only read transactions"),
+                data::Action::Send(sim) => sim.envelope_xdr.expect("missing envelope"),
+                data::Action::Simulate(_) => todo!("Only read transactions"),
             }
         } else {
             serde_json::to_string_pretty(&action)?

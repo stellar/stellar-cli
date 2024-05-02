@@ -118,11 +118,11 @@ impl std::fmt::Display for DatedAction {
         let (id, a, uri) = (&self.0, &self.1, &self.2);
         let datetime = to_datatime(id).format("%b %d %H:%M");
         let status = match a {
-            Action::Simulation(sim) => sim
+            Action::Simulate(sim) => sim
                 .error
                 .as_ref()
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
-            Action::Transaction(txn) => txn.status.to_string(),
+            Action::Send(txn) => txn.status.to_string(),
         };
         write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
     }
@@ -142,15 +142,15 @@ struct Data {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Action {
-    Simulation(SimulateTransactionResponse),
-    Transaction(GetTransactionResponseRaw),
+    Simulate(SimulateTransactionResponse),
+    Send(GetTransactionResponseRaw),
 }
 
 impl Action {
     pub fn type_str(&self) -> String {
         match self {
-            Action::Simulation(_) => "Sim",
-            Action::Transaction(_) => "Txn",
+            Action::Simulate(_) => "Sim",
+            Action::Send(_) => "Txn",
         }
         .to_string()
     }
@@ -158,14 +158,14 @@ impl Action {
 
 impl From<SimulateTransactionResponse> for Action {
     fn from(res: SimulateTransactionResponse) -> Self {
-        Self::Simulation(res)
+        Self::Simulate(res)
     }
 }
 
 impl TryFrom<GetTransactionResponse> for Action {
     type Error = xdr::Error;
     fn try_from(res: GetTransactionResponse) -> Result<Self, Self::Error> {
-        Ok(Self::Transaction(GetTransactionResponseRaw {
+        Ok(Self::Send(GetTransactionResponseRaw {
             status: res.status,
             envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
             result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
@@ -194,7 +194,7 @@ mod test {
         let (action, new_rpc_uri) = read(&id).unwrap();
         assert_eq!(rpc_uri, new_rpc_uri);
         match (action, original_action) {
-            (Action::Simulation(a), Action::Simulation(b)) => {
+            (Action::Simulate(a), Action::Simulate(b)) => {
                 assert_eq!(a.cost.cpu_insns, b.cost.cpu_insns);
             }
             _ => panic!("Action mismatch"),
