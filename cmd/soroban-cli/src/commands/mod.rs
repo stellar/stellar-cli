@@ -95,7 +95,6 @@ impl Root {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
-            Cmd::Lab(lab) => lab.run()?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run().await?,
             Cmd::Version(version) => version.run(),
@@ -126,9 +125,6 @@ pub enum Cmd {
     /// Create and manage identities including keys and addresses
     #[command(subcommand)]
     Keys(keys::Cmd),
-    /// Experiment with early features and expert tools
-    #[command(subcommand)]
-    Lab(lab::Cmd),
     /// Decode and encode XDR
     Xdr(stellar_xdr::cli::Root),
     /// Start and configure networks
