@@ -23,7 +23,7 @@ pub enum LedgerZemuError {
     InnerError,
 }
 
-pub struct TransportZemuHttp {
+pub struct EmulatorHttpTransport {
     url: String,
 }
 
@@ -39,7 +39,7 @@ struct ZemuResponse {
     error: Option<String>,
 }
 
-impl TransportZemuHttp {
+impl EmulatorHttpTransport {
     #[allow(dead_code)] //this is being used in tests only
     pub fn new(host: &str, port: u16) -> Self {
         Self {
@@ -49,7 +49,7 @@ impl TransportZemuHttp {
 }
 
 #[async_trait]
-impl Exchange for TransportZemuHttp {
+impl Exchange for EmulatorHttpTransport {
     type Error = LedgerZemuError;
     type AnswerType = Vec<u8>;
 

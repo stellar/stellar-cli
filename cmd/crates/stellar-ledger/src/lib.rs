@@ -13,9 +13,9 @@ use stellar_xdr::curr::{
 
 use crate::signer::{Error, Stellar};
 
+mod emulator_http_transport;
 mod signer;
 mod speculos;
-mod transport_zemu_http;
 
 #[cfg(all(test, feature = "emulator-tests"))]
 mod emulator_tests;
@@ -337,7 +337,7 @@ mod test {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use crate::transport_zemu_http::TransportZemuHttp;
+    use crate::emulator_http_transport::EmulatorHttpTransport;
 
     use soroban_env_host::xdr::Transaction;
     use std::vec;
@@ -367,7 +367,7 @@ mod test {
                 .json_body(json!({"data": "e93388bbfd2fbd11806dd0bd59cea9079e7cc70ce7b1e154f114cdfe4e466ecd9000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -405,7 +405,7 @@ mod test {
                 .json_body(json!({"data": "000500039000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -450,7 +450,7 @@ mod test {
                 .json_body(json!({"data": "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e9000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -508,7 +508,7 @@ mod test {
                 .json_body(json!({"data": "6c66"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -544,8 +544,8 @@ mod test {
                 .json_body(json!({"data": "6970b9c9d3a6f4de7fb93e8d3920ec704fc4fece411873c40570015bbb1a60a197622bc3bf5644bb38ae73e1b96e4d487d716d142d46c7e944f008dece92df079000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
-        let ledger_options = Some(LedgerOptions {
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
+        let ledger_options: Option<LedgerOptions<_>> = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
         });
