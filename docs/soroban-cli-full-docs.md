@@ -37,14 +37,6 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban keys ls`↴](#soroban-keys-ls)
 * [`soroban keys rm`↴](#soroban-keys-rm)
 * [`soroban keys show`↴](#soroban-keys-show)
-* [`soroban lab`↴](#soroban-lab)
-* [`soroban lab xdr`↴](#soroban-lab-xdr)
-* [`soroban lab xdr types`↴](#soroban-lab-xdr-types)
-* [`soroban lab xdr types list`↴](#soroban-lab-xdr-types-list)
-* [`soroban lab xdr guess`↴](#soroban-lab-xdr-guess)
-* [`soroban lab xdr decode`↴](#soroban-lab-xdr-decode)
-* [`soroban lab xdr encode`↴](#soroban-lab-xdr-encode)
-* [`soroban lab xdr version`↴](#soroban-lab-xdr-version)
 * [`soroban xdr`↴](#soroban-xdr)
 * [`soroban xdr types`↴](#soroban-xdr-types)
 * [`soroban xdr types list`↴](#soroban-xdr-types-list)
@@ -59,6 +51,12 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network start`↴](#soroban-network-start)
 * [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
+* [`soroban cache`↴](#soroban-cache)
+* [`soroban cache clean`↴](#soroban-cache-clean)
+* [`soroban cache path`↴](#soroban-cache-path)
+* [`soroban cache actionlog`↴](#soroban-cache-actionlog)
+* [`soroban cache actionlog ls`↴](#soroban-cache-actionlog-ls)
+* [`soroban cache actionlog read`↴](#soroban-cache-actionlog-read)
 
 ## `soroban`
 
@@ -95,10 +93,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
-* `lab` — Experiment with early features and expert tools
 * `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
+* `cache` — Cache for tranasctions and contract specs
 
 ###### **Options:**
 
@@ -121,6 +119,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
   Possible values: `true`, `false`
 
 * `--list` — List installed plugins. E.g. `soroban-hello`
+
+  Possible values: `true`, `false`
+
+* `--no-cache` — Do not cache your simulations and transactions
 
   Possible values: `true`, `false`
 
@@ -982,164 +984,6 @@ Given an identity return its private key
 
 
 
-## `soroban lab`
-
-Experiment with early features and expert tools
-
-**Usage:** `soroban lab <COMMAND>`
-
-###### **Subcommands:**
-
-* `xdr` — Decode xdr
-
-
-
-## `soroban lab xdr`
-
-Decode xdr
-
-**Usage:** `soroban lab xdr [CHANNEL] <COMMAND>`
-
-###### **Subcommands:**
-
-* `types` — View information about types
-* `guess` — Guess the XDR type
-* `decode` — Decode XDR
-* `encode` — Encode XDR
-* `version` — Print version information
-
-###### **Arguments:**
-
-* `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
-
-
-
-
-## `soroban lab xdr types`
-
-View information about types
-
-**Usage:** `soroban lab xdr types <COMMAND>`
-
-###### **Subcommands:**
-
-* `list` — 
-
-
-
-## `soroban lab xdr types list`
-
-**Usage:** `soroban lab xdr types list [OPTIONS]`
-
-###### **Options:**
-
-* `--output <OUTPUT>`
-
-  Default value: `plain`
-
-  Possible values: `plain`, `json`, `json-formatted`
-
-
-
-
-## `soroban lab xdr guess`
-
-Guess the XDR type
-
-**Usage:** `soroban lab xdr guess [OPTIONS] [FILE]`
-
-###### **Arguments:**
-
-* `<FILE>` — File to decode, or stdin if omitted
-
-###### **Options:**
-
-* `--input <INPUT>`
-
-  Default value: `single-base64`
-
-  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
-
-* `--output <OUTPUT>`
-
-  Default value: `list`
-
-  Possible values: `list`
-
-* `--certainty <CERTAINTY>` — Certainty as an arbitrary value
-
-  Default value: `2`
-
-
-
-## `soroban lab xdr decode`
-
-Decode XDR
-
-**Usage:** `soroban lab xdr decode [OPTIONS] --type <TYPE> [FILES]...`
-
-###### **Arguments:**
-
-* `<FILES>` — Files to decode, or stdin if omitted
-
-###### **Options:**
-
-* `--type <TYPE>` — XDR type to decode
-* `--input <INPUT>`
-
-  Default value: `stream-base64`
-
-  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
-
-* `--output <OUTPUT>`
-
-  Default value: `json`
-
-  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
-
-
-
-
-## `soroban lab xdr encode`
-
-Encode XDR
-
-**Usage:** `soroban lab xdr encode [OPTIONS] --type <TYPE> [FILES]...`
-
-###### **Arguments:**
-
-* `<FILES>` — Files to encode, or stdin if omitted
-
-###### **Options:**
-
-* `--type <TYPE>` — XDR type to encode
-* `--input <INPUT>`
-
-  Default value: `json`
-
-  Possible values: `json`
-
-* `--output <OUTPUT>`
-
-  Default value: `single-base64`
-
-  Possible values: `single`, `single-base64`
-
-
-
-
-## `soroban lab xdr version`
-
-Print version information
-
-**Usage:** `soroban lab xdr version`
-
-
-
 ## `soroban xdr`
 
 Decode and encode XDR
@@ -1419,6 +1263,81 @@ Stop a network started with `network start`. For example, if you ran `soroban ne
 Print version information
 
 **Usage:** `soroban version`
+
+
+
+## `soroban cache`
+
+Cache for tranasctions and contract specs
+
+**Usage:** `soroban cache <COMMAND>`
+
+###### **Subcommands:**
+
+* `clean` — Delete the cache
+* `path` — Show the location of the cache
+* `actionlog` — Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+
+
+## `soroban cache clean`
+
+Delete the cache
+
+**Usage:** `soroban cache clean`
+
+
+
+## `soroban cache path`
+
+Show the location of the cache
+
+**Usage:** `soroban cache path`
+
+
+
+## `soroban cache actionlog`
+
+Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+**Usage:** `soroban cache actionlog <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — List cached actions (transactions, simulations)
+* `read` — Read cached action
+
+
+
+## `soroban cache actionlog ls`
+
+List cached actions (transactions, simulations)
+
+**Usage:** `soroban cache actionlog ls [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-l`, `--long`
+
+  Possible values: `true`, `false`
+
+
+
+
+## `soroban cache actionlog read`
+
+Read cached action
+
+**Usage:** `soroban cache actionlog read --id <ID>`
+
+###### **Options:**
+
+* `--id <ID>` — ID of the cache entry
 
 
 

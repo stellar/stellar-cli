@@ -10,6 +10,7 @@ use crate::integration::util::extend_contract;
 
 use super::util::{deploy_hello, extend, HELLO_WORLD};
 
+#[allow(clippy::too_many_lines)]
 #[tokio::test]
 async fn invoke() {
     let sandbox = &TestEnv::new();
@@ -63,6 +64,13 @@ async fn invoke() {
     };
     let id = &deploy_hello(sandbox).await;
     extend_contract(sandbox, id).await;
+    let uid = sandbox
+        .new_assert_cmd("cache")
+        .arg("actionlog")
+        .arg("ls")
+        .assert()
+        .stdout_as_str();
+    ulid::Ulid::from_string(&uid).expect("invalid ulid");
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
 

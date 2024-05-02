@@ -3,13 +3,13 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
+pub mod cache;
 pub mod completion;
 pub mod config;
 pub mod contract;
 pub mod events;
 pub mod global;
 pub mod keys;
-pub mod lab;
 pub mod network;
 pub mod plugin;
 pub mod version;
@@ -95,11 +95,11 @@ impl Root {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
-            Cmd::Lab(lab) => lab.run()?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run().await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
+            Cmd::Cache(data) => data.run()?,
         };
         Ok(())
     }
@@ -126,9 +126,6 @@ pub enum Cmd {
     /// Create and manage identities including keys and addresses
     #[command(subcommand)]
     Keys(keys::Cmd),
-    /// Experiment with early features and expert tools
-    #[command(subcommand)]
-    Lab(lab::Cmd),
     /// Decode and encode XDR
     Xdr(stellar_xdr::cli::Root),
     /// Start and configure networks
@@ -136,6 +133,9 @@ pub enum Cmd {
     Network(network::Cmd),
     /// Print version information
     Version(version::Cmd),
+    /// Cache for tranasctions and contract specs
+    #[command(subcommand)]
+    Cache(cache::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -148,8 +148,6 @@ pub enum Error {
     #[error(transparent)]
     Keys(#[from] keys::Error),
     #[error(transparent)]
-    Lab(#[from] lab::Error),
-    #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
@@ -157,6 +155,8 @@ pub enum Error {
     Plugin(#[from] plugin::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Cache(#[from] cache::Error),
 }
 
 #[async_trait]
