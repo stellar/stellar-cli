@@ -292,15 +292,24 @@ impl Stellar for Box<NativeSigner> {
         txn: [u8; 32],
         _source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
-        Ok(DecoratedSignature::from_xdr(
-            self.as_ref()
-                .as_ref()
-                .sign_transaction_hash(self.as_ref().as_ref().hd_path.clone(), &txn)
-                .await
-                .unwrap(),
-            Limits::none(),
-        )
-        .unwrap())
+        let index = self.as_ref().as_ref().hd_path.clone();
+        let mut res = self
+            .as_ref()
+            .as_ref()
+            .sign_transaction_hash(index, &txn)
+            .await
+            .unwrap();
+        println!("{}", base64::encode(&res));
+        println!("{}", res.len());
+        println!("{:#?}", Signature::from_xdr(&res, Limits::none()));
+
+        todo!("Need to figure out how to get Signature");
+        let source_account = self.as_ref().as_ref().get_public_key(0).await.unwrap();
+        // Ok(DecoratedSignature {
+        //     // TODO: remove this unwrap. It's safe because we know the length of the array
+        //     hint: SignatureHint(source_account.0[28..].try_into().unwrap()),
+        //     signature,
+        // })
     }
 
     async fn sign_soroban_authorization_entry(
