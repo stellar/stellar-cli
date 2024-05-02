@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, io::ErrorKind};
 
 use super::super::config::locator;
 use crate::commands::config::data;
@@ -21,7 +21,10 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let binding = data::project_dir()?;
         let dir = binding.data_dir();
-        fs::remove_dir_all(dir)?;
+        match fs::remove_dir_all(dir) {
+            Err(err) if err.kind() == ErrorKind::NotFound => (),
+            r => r?,
+        }
         Ok(())
     }
 }
