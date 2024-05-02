@@ -17,7 +17,9 @@ use soroban_env_host::{
 use crate::commands::{
     config::data,
     contract::{self, id::wasm::get_contract_id},
-    global, network, NetworkRunnable,
+    global, network,
+    txn_result::{self, TxnResult},
+    NetworkRunnable,
 };
 use crate::{
     commands::{config, contract::install, HEADING_RPC},
@@ -93,6 +95,8 @@ pub enum Error {
     #[error(transparent)]
     WasmId(#[from] contract::id::wasm::Error),
     #[error(transparent)]
+    TxnResult(#[from] txn_result::Error),
+    #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
@@ -115,18 +119,20 @@ impl NetworkRunnable for Cmd {
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<String, Error> {
+    ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
+            let mut fee = self.fee.clone();
+            fee.build_only = false;
             let hash = install::Cmd {
                 wasm: wasm::Args { wasm: wasm.clone() },
                 config: config.clone(),
-                fee: self.fee.clone(),
+                fee,
                 ignore_checks: self.ignore_checks,
             }
             .run_against_rpc_server(global_args, Some(config))
             .await?;
-            hex::encode(hash)
+            hex::encode(hash.try_res()?)
         } else {
             self.wasm_hash
                 .as_ref()
@@ -169,8 +175,12 @@ impl NetworkRunnable for Cmd {
             salt,
             &key,
         )?;
+        if self.fee.build_only {
+            return Ok(TxnResult::from_xdr(&txn)?);
+        }
+
         let txn = client.create_assembled_transaction(&txn).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let txn = self.fee.apply_to_assembled_txn(txn)?;
         let get_txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?
@@ -178,7 +188,9 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
-        Ok(stellar_strkey::Contract(contract_id.0).to_string())
+        Ok(TxnResult::Res(
+            stellar_strkey::Contract(contract_id.0).to_string(),
+        ))
     }
 }
 

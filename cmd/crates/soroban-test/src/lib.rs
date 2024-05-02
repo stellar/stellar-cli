@@ -236,22 +236,25 @@ impl TestEnv {
             },
             hd_path: None,
         };
-        cmd.run_against_rpc_server(
-            Some(&global::Args {
-                locator: config::locator::Args {
-                    global: false,
-                    config_dir,
-                },
-                filter_logs: Vec::default(),
-                quiet: false,
-                verbose: false,
-                very_verbose: false,
-                list: false,
-                no_cache: false,
-            }),
-            Some(&config),
-        )
-        .await
+        Ok(cmd
+            .run_against_rpc_server(
+                Some(&global::Args {
+                    locator: config::locator::Args {
+                        global: false,
+                        config_dir,
+                    },
+                    filter_logs: Vec::default(),
+                    quiet: false,
+                    verbose: false,
+                    very_verbose: false,
+                    list: false,
+                    no_cache: false,
+                }),
+                Some(&config),
+            )
+            .await?
+            .res()
+            .unwrap())
     }
 
     /// Reference to current directory of the `TestEnv`.

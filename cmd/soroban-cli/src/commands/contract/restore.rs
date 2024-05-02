@@ -13,7 +13,9 @@ use crate::{
     commands::{
         config::{self, data, locator},
         contract::extend,
-        global, network, NetworkRunnable,
+        global, network,
+        txn_result::{self, TxnResult},
+        NetworkRunnable,
     },
     key,
     rpc::{self, Client},
@@ -87,13 +89,21 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+
+    #[error(transparent)]
+    TxnResult(#[from] txn_result::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = self.run_against_rpc_server(None, None).await?;
-
+        let expiration_ledger_seq = match self.run_against_rpc_server(None, None).await? {
+            TxnResult::Res(res) => res,
+            TxnResult::Xdr(xdr) => {
+                println!("{xdr}");
+                return Ok(());
+            }
+        };
         if let Some(ledgers_to_extend) = self.ledgers_to_extend {
             extend::Cmd {
                 key: self.key.clone(),
@@ -121,7 +131,7 @@ impl NetworkRunnable for Cmd {
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<u32, Error> {
+    ) -> Result<TxnResult<u32>, Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
@@ -162,7 +172,9 @@ impl NetworkRunnable for Cmd {
                 resource_fee: 0,
             }),
         };
-
+        if self.fee.build_only {
+            return Ok(TxnResult::from_xdr(&tx)?);
+        }
         let res = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
@@ -198,7 +210,9 @@ impl NetworkRunnable for Cmd {
                 operations[0].changes.len()
             );
         }
-        parse_operations(operations).ok_or(Error::MissingOperationResult)
+        Ok(TxnResult::Res(
+            parse_operations(operations).ok_or(Error::MissingOperationResult)?,
+        ))
     }
 }
 
