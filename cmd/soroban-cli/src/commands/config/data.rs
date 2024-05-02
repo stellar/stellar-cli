@@ -118,11 +118,11 @@ impl std::fmt::Display for DatedAction {
         let (id, a, uri) = (&self.0, &self.1, &self.2);
         let datetime = to_datatime(id).format("%b %d %H:%M");
         let status = match a {
-            Action::Simulate(sim) => sim
+            Action::Simulate { response } => response
                 .error
                 .as_ref()
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
-            Action::Send(txn) => txn.status.to_string(),
+            Action::Send { response } => response.status.to_string(),
         };
         write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
     }
@@ -144,35 +144,41 @@ struct Data {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
-    Simulate(SimulateTransactionResponse),
-    Send(GetTransactionResponseRaw),
+    Simulate {
+        response: SimulateTransactionResponse,
+    },
+    Send {
+        response: GetTransactionResponseRaw,
+    },
 }
 
 impl Action {
     pub fn type_str(&self) -> String {
         match self {
-            Action::Simulate(_) => "Simulate",
-            Action::Send(_) => "Send    ",
+            Action::Simulate { .. } => "Simulate",
+            Action::Send { .. } => "Send    ",
         }
         .to_string()
     }
 }
 
 impl From<SimulateTransactionResponse> for Action {
-    fn from(res: SimulateTransactionResponse) -> Self {
-        Self::Simulate(res)
+    fn from(response: SimulateTransactionResponse) -> Self {
+        Self::Simulate { response }
     }
 }
 
 impl TryFrom<GetTransactionResponse> for Action {
     type Error = xdr::Error;
     fn try_from(res: GetTransactionResponse) -> Result<Self, Self::Error> {
-        Ok(Self::Send(GetTransactionResponseRaw {
-            status: res.status,
-            envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
-            result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
-            result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
-        }))
+        Ok(Self::Send {
+            response: GetTransactionResponseRaw {
+                status: res.status,
+                envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
+                result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
+                result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
+            },
+        })
     }
 }
 
@@ -196,7 +202,7 @@ mod test {
         let (action, new_rpc_uri) = read(&id).unwrap();
         assert_eq!(rpc_uri, new_rpc_uri);
         match (action, original_action) {
-            (Action::Simulate(a), Action::Simulate(b)) => {
+            (Action::Simulate { response: a }, Action::Simulate { response: b }) => {
                 assert_eq!(a.cost.cpu_insns, b.cost.cpu_insns);
             }
             _ => panic!("Action mismatch"),
