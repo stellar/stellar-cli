@@ -1,34 +1,7 @@
-// I was getting an error when trying to install this as a crate, so i'm just going to take the pieces that i need an put them here since i am not using the gRpc transport right now anyway
-// error: failed to run custom build command for `ledger-transport-zemu v0.10.0 (/Users/elizabethengelman/Projects/Aha-Labs/ledger-rs/ledger-transport-zemu)`
-
-// Caused by:
-//   process didn't exit successfully: `/Users/elizabethengelman/Projects/Aha-Labs/ledger-rs/target/debug/build/ledger-transport-zemu-e14fd4e52eee79e2/build-script-build` (exit status: 101)
-//   --- stdout
-//   cargo:rerun-if-changed=zemu.proto
-
-//   --- stderr
-//   thread 'main' panicked at /Users/elizabethengelman/.cargo/registry/src/index.crates.io-6f17d22bba15001f/protoc-2.18.2/src/lib.rs:203:17:
-//   protoc binary not found: cannot find binary path
-//   note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-// warning: build failed, waiting for other jobs to finish...
-
-// this if from: https://github.com/Zondax/ledger-rs/blob/master/ledger-transport-zemu/src/lib.rs
-// removed the grpc stuff
-/*******************************************************************************
-*   (c) 2022 Zondax AG
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-*  Unless required by applicable law or agreed to in writing, software
-*  distributed under the License is distributed on an "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*  See the License for the specific language governing permissions and
-*  limitations under the License.
-********************************************************************************/
+// This is based on the `ledger-transport-zemu` crate's TransportZemuHttp: https://github.com/Zondax/ledger-rs/tree/master/ledger-transport-zemu
+// Instead of using TransportZemuHttp mod from the crate, we are including a custom copy here for a couple of reasons:
+// - we get more control over the mod for our testing purposes
+// - the ledger-transport-zemu TransportZemuHttp includes a Grpc implementation that we don't need right now, and was causing some errors with dependency mismatches when trying to use the whole TransportZemuHttp mod.
 
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
 use reqwest::{Client as HttpClient, Response};
@@ -67,6 +40,7 @@ struct ZemuResponse {
 }
 
 impl TransportZemuHttp {
+    #[allow(dead_code)] //this is being used in tests only
     pub fn new(host: &str, port: u16) -> Self {
         Self {
             url: format!("http://{host}:{port}"),
