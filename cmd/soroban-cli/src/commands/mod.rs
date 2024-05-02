@@ -9,7 +9,6 @@ pub mod contract;
 pub mod events;
 pub mod global;
 pub mod keys;
-pub mod lab;
 pub mod network;
 pub mod plugin;
 pub mod version;
