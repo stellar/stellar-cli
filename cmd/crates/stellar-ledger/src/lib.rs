@@ -5,8 +5,9 @@ use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{Hash, Transaction};
 use std::vec;
+use stellar_strkey::DecodeError;
 use stellar_xdr::curr::{
-    DecoratedSignature, Limits, Signature, SignatureHint, TransactionEnvelope,
+    DecoratedSignature, Error as XdrError, Limits, Signature, SignatureHint, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, WriteXdr,
 };
@@ -60,11 +61,20 @@ pub enum LedgerError {
     #[error("Error occurred while initializing Ledger HID transport: {0}")]
     LedgerHidError(#[from] LedgerHIDError),
 
-    #[error("Error with ADPU exchange with Ledger device: {0}")] //TODO update this message
+    #[error("Error with ADPU exchange with Ledger device: {0}")]
     APDUExchangeError(String),
 
     #[error("Error occurred while exchanging with Ledger device: {0}")]
     LedgerConnectionError(String),
+
+    #[error("Error occurred while parsing BIP32 path: {0}")]
+    Bip32PathError(String),
+
+    #[error(transparent)]
+    XdrError(#[from] XdrError),
+
+    #[error(transparent)]
+    DecodeError(#[from] DecodeError),
 }
 
 pub struct LedgerOptions<T: Exchange> {
@@ -89,7 +99,7 @@ where
         &self,
         index: u32,
     ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
-        let hd_path = bip_path_from_index(index);
+        let hd_path = bip_path_from_index(index)?;
         Self::get_public_key_with_display_flag(self, hd_path, false).await
     }
 
@@ -111,12 +121,12 @@ where
     /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
-    pub async fn sign_transaction_hash(
+    async fn sign_transaction_hash(
         &self,
         hd_path: slip10::BIP32Path,
         transaction_hash: Vec<u8>,
     ) -> Result<Vec<u8>, LedgerError> {
-        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path)?;
 
         let capacity = 1 + hd_path_to_bytes.len() + transaction_hash.len();
         let mut data: Vec<u8> = Vec::with_capacity(capacity);
@@ -139,8 +149,8 @@ where
     /// Sign a Stellar transaction with the account on the Ledger device
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device
-    #[allow(clippy::missing_panics_doc)] // TODO: handle panics/unwraps
-    pub async fn sign_transaction(
+    #[allow(clippy::missing_panics_doc)]
+    async fn sign_transaction(
         &self,
         hd_path: slip10::BIP32Path,
         transaction: Transaction,
@@ -152,9 +162,9 @@ where
             network_id: network_hash,
             tagged_transaction,
         };
-        let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none()).unwrap();
+        let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none())?;
 
-        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path)?;
 
         let capacity = 1 + hd_path_to_bytes.len() + signature_payload_as_bytes.len();
         let mut data: Vec<u8> = Vec::with_capacity(capacity);
@@ -208,7 +218,7 @@ where
     ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
         // convert the hd_path into bytes to be sent as `data` to the Ledger
         // the first element of the data should be the number of elements in the path
-        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
+        let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path)?;
         let hd_path_elements_count = hd_path.depth();
         hd_path_to_bytes.insert(0, hd_path_elements_count);
 
@@ -230,7 +240,7 @@ where
         tracing::info!("APDU in: {}", hex::encode(command.serialize()));
 
         match self.send_command_to_ledger(command).await {
-            Ok(value) => Ok(stellar_strkey::ed25519::PublicKey::from_payload(&value).unwrap()),
+            Ok(value) => Ok(stellar_strkey::ed25519::PublicKey::from_payload(&value)?),
             Err(err) => Err(err),
         }
     }
@@ -267,7 +277,7 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
     type Init = LedgerOptions<T>;
 
     fn new(network_passphrase: &str, options: Option<LedgerOptions<T>>) -> Self {
-        let options_unwrapped = options.unwrap();
+        let options_unwrapped = options.expect("LedgerSigner should have LedgerOptions passed in");
         LedgerSigner {
             network_passphrase: network_passphrase.to_string(),
             transport: options_unwrapped.exchange,
@@ -282,12 +292,17 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
     fn sign_txn_hash(
         &self,
         txn: [u8; 32],
-        _source_account: &stellar_strkey::Strkey,
+        source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
         let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), txn.to_vec())) //TODO: refactor sign_transaction_hash
-            .unwrap(); // FIXME: handle error
+            .map_err(|e| {
+                tracing::error!("Error signing transaction hash with Ledger device: {e}");
+                Error::MissingSignerForAddress {
+                    address: source_account.to_string(),
+                }
+            })?;
 
-        let sig_bytes = signature.try_into().unwrap(); // FIXME: handle error
+        let sig_bytes = signature.try_into()?;
         Ok(DecoratedSignature {
             hint: SignatureHint([0u8; 4]), //FIXME
             signature: Signature(sig_bytes),
@@ -299,9 +314,15 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
         txn: Transaction,
         _source_account: &stellar_strkey::Strkey,
     ) -> Result<TransactionEnvelope, Error> {
-        let signature = block_on(self.sign_transaction(self.hd_path.clone(), txn.clone())).unwrap(); // FIXME: handle error
+        let signature = block_on(self.sign_transaction(self.hd_path.clone(), txn.clone()))
+            .map_err(|e| {
+                tracing::error!("Error signing transaction with Ledger device: {e}");
+                Error::MissingSignerForAddress {
+                    address: "source_account".to_string(),
+                }
+            })?;
 
-        let sig_bytes = signature.try_into().unwrap(); // FIXME: handle error
+        let sig_bytes = signature.try_into()?;
         let decorated_signature = DecoratedSignature {
             hint: SignatureHint([0u8; 4]), //FIXME
             signature: Signature(sig_bytes),
@@ -309,25 +330,36 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
 
         Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
             tx: txn,
-            signatures: vec![decorated_signature].try_into().unwrap(), //fixme: remove unwrap
+            signatures: vec![decorated_signature].try_into()?,
         }))
     }
 }
 
-fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
+fn bip_path_from_index(index: u32) -> Result<slip10::BIP32Path, LedgerError> {
     let path = format!("m/44'/148'/{index}'");
-    path.parse().unwrap() // this is basically the same thing as slip10::BIP32Path::from_str
-
-    // the device handles this part: https://github.com/AhaLabs/rs-sep5/blob/9d6e3886b4b424dd7b730ec24c865f6fad5d770c/src/seed_phrase.rs#L86
+    path.parse().map_err(|e| {
+        let error_string = format!("Error parsing BIP32 path: {e}");
+        LedgerError::Bip32PathError(error_string)
+    })
 }
 
-fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
-    (0..hd_path.depth())
-        .flat_map(|index| {
-            let value = *hd_path.index(index).unwrap();
-            value.to_be_bytes()
-        })
-        .collect::<Vec<u8>>()
+fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Result<Vec<u8>, LedgerError> {
+    let hd_path_indices = 0..hd_path.depth();
+    let mut result = Vec::with_capacity(hd_path.depth() as usize);
+
+    for index in hd_path_indices {
+        let value = hd_path.index(index);
+        if let Some(v) = value {
+            let value_bytes = v.to_be_bytes();
+            result.push(value_bytes);
+        } else {
+            return Err(LedgerError::Bip32PathError(
+                "Error getting index of hd path".to_string(),
+            ));
+        }
+    }
+
+    Ok(result.into_iter().flatten().collect())
 }
 
 #[cfg(test)]
