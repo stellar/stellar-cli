@@ -12,9 +12,9 @@ pub mod global;
 pub mod keys;
 pub mod network;
 pub mod plugin;
-pub mod version;
-
+pub mod txn;
 pub mod txn_result;
+pub mod version;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
@@ -101,6 +101,7 @@ impl Root {
             Cmd::Network(network) => network.run().await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
+            Cmd::Txn(tx) => tx.run().await?,
             Cmd::Cache(data) => data.run()?,
         };
         Ok(())
@@ -135,6 +136,9 @@ pub enum Cmd {
     Network(network::Cmd),
     /// Print version information
     Version(version::Cmd),
+    /// Sign, Simulate, and Send transactions
+    #[command(subcommand)]
+    Txn(txn::Cmd),
     /// Cache for tranasctions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
@@ -157,6 +161,8 @@ pub enum Error {
     Plugin(#[from] plugin::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Txn(#[from] txn::Error),
     #[error(transparent)]
     Cache(#[from] cache::Error),
 }

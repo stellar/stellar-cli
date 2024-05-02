@@ -51,6 +51,17 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network start`↴](#soroban-network-start)
 * [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
+* [`soroban txn`↴](#soroban-txn)
+* [`soroban txn inspect`↴](#soroban-txn-inspect)
+* [`soroban txn inspect types`↴](#soroban-txn-inspect-types)
+* [`soroban txn inspect types list`↴](#soroban-txn-inspect-types-list)
+* [`soroban txn inspect guess`↴](#soroban-txn-inspect-guess)
+* [`soroban txn inspect decode`↴](#soroban-txn-inspect-decode)
+* [`soroban txn inspect encode`↴](#soroban-txn-inspect-encode)
+* [`soroban txn inspect version`↴](#soroban-txn-inspect-version)
+* [`soroban txn sign`↴](#soroban-txn-sign)
+* [`soroban txn send`↴](#soroban-txn-send)
+* [`soroban txn simulate`↴](#soroban-txn-simulate)
 * [`soroban cache`↴](#soroban-cache)
 * [`soroban cache clean`↴](#soroban-cache-clean)
 * [`soroban cache path`↴](#soroban-cache-path)
@@ -96,6 +107,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
+* `txn` — Sign, Simulate, and Send transactions
 * `cache` — Cache for tranasctions and contract specs
 
 ###### **Options:**
@@ -1311,6 +1323,240 @@ Stop a network started with `network start`. For example, if you ran `soroban ne
 Print version information
 
 **Usage:** `soroban version`
+
+
+
+## `soroban txn`
+
+Sign, Simulate, and Send transactions
+
+**Usage:** `soroban txn <COMMAND>`
+
+###### **Subcommands:**
+
+* `inspect` — Add a new identity (keypair, ledger, macOS keychain)
+* `sign` — Given an identity return its address (public key)
+* `send` — Submit a transaction to the network
+* `simulate` — Simulate a transaction
+
+
+
+## `soroban txn inspect`
+
+Add a new identity (keypair, ledger, macOS keychain)
+
+**Usage:** `soroban txn inspect [CHANNEL] <COMMAND>`
+
+###### **Subcommands:**
+
+* `types` — View information about types
+* `guess` — Guess the XDR type
+* `decode` — Decode XDR
+* `encode` — Encode XDR
+* `version` — Print version information
+
+###### **Arguments:**
+
+* `<CHANNEL>` — Channel of XDR to operate on
+
+  Default value: `+curr`
+
+  Possible values: `+curr`, `+next`
+
+
+
+
+## `soroban txn inspect types`
+
+View information about types
+
+**Usage:** `soroban txn inspect types <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — 
+
+
+
+## `soroban txn inspect types list`
+
+**Usage:** `soroban txn inspect types list [OPTIONS]`
+
+###### **Options:**
+
+* `--output <OUTPUT>`
+
+  Default value: `plain`
+
+  Possible values: `plain`, `json`, `json-formatted`
+
+
+
+
+## `soroban txn inspect guess`
+
+Guess the XDR type
+
+**Usage:** `soroban txn inspect guess [OPTIONS] [FILE]`
+
+###### **Arguments:**
+
+* `<FILE>` — File to decode, or stdin if omitted
+
+###### **Options:**
+
+* `--input <INPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
+
+* `--output <OUTPUT>`
+
+  Default value: `list`
+
+  Possible values: `list`
+
+* `--certainty <CERTAINTY>` — Certainty as an arbitrary value
+
+  Default value: `2`
+
+
+
+## `soroban txn inspect decode`
+
+Decode XDR
+
+**Usage:** `soroban txn inspect decode [OPTIONS] --type <TYPE> [FILES]...`
+
+###### **Arguments:**
+
+* `<FILES>` — Files to decode, or stdin if omitted
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to decode
+* `--input <INPUT>`
+
+  Default value: `stream-base64`
+
+  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
+
+* `--output <OUTPUT>`
+
+  Default value: `json`
+
+  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
+
+
+
+
+## `soroban txn inspect encode`
+
+Encode XDR
+
+**Usage:** `soroban txn inspect encode [OPTIONS] --type <TYPE> [FILES]...`
+
+###### **Arguments:**
+
+* `<FILES>` — Files to encode, or stdin if omitted
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to encode
+* `--input <INPUT>`
+
+  Default value: `json`
+
+  Possible values: `json`
+
+* `--output <OUTPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`
+
+
+
+
+## `soroban txn inspect version`
+
+Print version information
+
+**Usage:** `soroban txn inspect version`
+
+
+
+## `soroban txn sign`
+
+Given an identity return its address (public key)
+
+**Usage:** `soroban txn sign [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
+* `--xdr-base64 <XDR_BASE64>` — Base64 encoded XDR transaction
+* `--xdr-file <XDR_FILE>`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `soroban txn send`
+
+Submit a transaction to the network
+
+**Usage:** `soroban txn send [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--xdr-base64 <XDR_BASE64>` — Base64 encoded XDR transaction
+* `--xdr-file <XDR_FILE>`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `soroban txn simulate`
+
+Simulate a transaction
+
+**Usage:** `soroban txn simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--xdr-base64 <XDR_BASE64>` — Base64 encoded XDR transaction
+* `--xdr-file <XDR_FILE>`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 

@@ -12,6 +12,7 @@ pub mod commands;
 pub mod fee;
 pub mod key;
 pub mod log;
+pub mod signer;
 pub mod toid;
 pub mod utils;
 pub mod wasm;
