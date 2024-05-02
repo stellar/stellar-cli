@@ -2,35 +2,36 @@ use clap::Parser;
 
 pub mod actionlog;
 pub mod clean;
-pub mod info;
+pub mod path;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Access details about (transactions, simulations)
+    /// Delete the cache
+    Clean(clean::Cmd),
+    /// Show the location of the cache
+    Path(path::Cmd),
+    /// Access details about cached actions like transactions, and simulations.
+    /// (Experimental. May see breaking changes at any time.)
     #[command(subcommand)]
     Actionlog(actionlog::Cmd),
-    /// Delete all cached actions
-    Clean(clean::Cmd),
-    /// Show location of cache
-    Info(info::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Actionlog(#[from] actionlog::Error),
-    #[error(transparent)]
     Clean(#[from] clean::Error),
     #[error(transparent)]
-    Info(#[from] info::Error),
+    Path(#[from] path::Error),
+    #[error(transparent)]
+    Actionlog(#[from] actionlog::Error),
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
-            Cmd::Actionlog(cmd) => cmd.run()?,
-            Cmd::Info(cmd) => cmd.run()?,
             Cmd::Clean(cmd) => cmd.run()?,
+            Cmd::Path(cmd) => cmd.run()?,
+            Cmd::Actionlog(cmd) => cmd.run()?,
         };
         Ok(())
     }
