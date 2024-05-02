@@ -143,8 +143,6 @@ pub enum Error {
     #[error(transparent)]
     Keys(#[from] keys::Error),
     #[error(transparent)]
-    Lab(#[from] lab::Error),
-    #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
