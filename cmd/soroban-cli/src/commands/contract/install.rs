@@ -123,6 +123,10 @@ impl NetworkRunnable for Cmd {
         let code_key =
             xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
         let contract_data = client.get_ledger_entries(&[code_key]).await?;
+        // Skip install if the contract is already installed, and the contract has an extension version that isn't V0.
+        // In protocol 21 extension V1 was added that stores additional information about a contract making execution
+        // of the contract cheaper. So if folks want to reinstall we should let them which is why the install will still
+        // go ahead if the contract has a V0 extension.
         if let Some(entries) = contract_data.entries {
             if let Some(entry_result) = entries.first() {
                 let entry: LedgerEntryData =
