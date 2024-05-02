@@ -51,6 +51,12 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network start`↴](#soroban-network-start)
 * [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
+* [`soroban cache`↴](#soroban-cache)
+* [`soroban cache clean`↴](#soroban-cache-clean)
+* [`soroban cache path`↴](#soroban-cache-path)
+* [`soroban cache actionlog`↴](#soroban-cache-actionlog)
+* [`soroban cache actionlog ls`↴](#soroban-cache-actionlog-ls)
+* [`soroban cache actionlog read`↴](#soroban-cache-actionlog-read)
 
 ## `soroban`
 
@@ -90,6 +96,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
+* `cache` — Cache for tranasctions and contract specs
 
 ###### **Options:**
 
@@ -112,6 +119,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
   Possible values: `true`, `false`
 
 * `--list` — List installed plugins. E.g. `soroban-hello`
+
+  Possible values: `true`, `false`
+
+* `--no-cache` — Do not cache your simulations and transactions
 
   Possible values: `true`, `false`
 
@@ -1252,6 +1263,81 @@ Stop a network started with `network start`. For example, if you ran `soroban ne
 Print version information
 
 **Usage:** `soroban version`
+
+
+
+## `soroban cache`
+
+Cache for tranasctions and contract specs
+
+**Usage:** `soroban cache <COMMAND>`
+
+###### **Subcommands:**
+
+* `clean` — Delete the cache
+* `path` — Show the location of the cache
+* `actionlog` — Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+
+
+## `soroban cache clean`
+
+Delete the cache
+
+**Usage:** `soroban cache clean`
+
+
+
+## `soroban cache path`
+
+Show the location of the cache
+
+**Usage:** `soroban cache path`
+
+
+
+## `soroban cache actionlog`
+
+Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+**Usage:** `soroban cache actionlog <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — List cached actions (transactions, simulations)
+* `read` — Read cached action
+
+
+
+## `soroban cache actionlog ls`
+
+List cached actions (transactions, simulations)
+
+**Usage:** `soroban cache actionlog ls [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-l`, `--long`
+
+  Possible values: `true`, `false`
+
+
+
+
+## `soroban cache actionlog read`
+
+Read cached action
+
+**Usage:** `soroban cache actionlog read --id <ID>`
+
+###### **Options:**
+
+* `--id <ID>` — ID of the cache entry
 
 
 
