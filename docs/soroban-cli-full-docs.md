@@ -52,10 +52,11 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
 * [`soroban cache`↴](#soroban-cache)
-* [`soroban cache ls`↴](#soroban-cache-ls)
-* [`soroban cache info`↴](#soroban-cache-info)
 * [`soroban cache clean`↴](#soroban-cache-clean)
-* [`soroban cache read`↴](#soroban-cache-read)
+* [`soroban cache path`↴](#soroban-cache-path)
+* [`soroban cache actionlog`↴](#soroban-cache-actionlog)
+* [`soroban cache actionlog ls`↴](#soroban-cache-actionlog-ls)
+* [`soroban cache actionlog read`↴](#soroban-cache-actionlog-read)
 
 ## `soroban`
 
@@ -1273,18 +1274,46 @@ Cache for tranasctions and contract specs
 
 ###### **Subcommands:**
 
+* `clean` — Delete the cache
+* `path` — Show the location of the cache
+* `actionlog` — Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+
+
+## `soroban cache clean`
+
+Delete the cache
+
+**Usage:** `soroban cache clean`
+
+
+
+## `soroban cache path`
+
+Show the location of the cache
+
+**Usage:** `soroban cache path`
+
+
+
+## `soroban cache actionlog`
+
+Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+**Usage:** `soroban cache actionlog <COMMAND>`
+
+###### **Subcommands:**
+
 * `ls` — List cached actions (transactions, simulations)
-* `info` — Show location of cache
-* `clean` — Delete all cached actions
 * `read` — Read cached action
 
 
 
-## `soroban cache ls`
+## `soroban cache actionlog ls`
 
 List cached actions (transactions, simulations)
 
-**Usage:** `soroban cache ls [OPTIONS]`
+**Usage:** `soroban cache actionlog ls [OPTIONS]`
 
 ###### **Options:**
 
@@ -1300,35 +1329,15 @@ List cached actions (transactions, simulations)
 
 
 
-## `soroban cache info`
-
-Show location of cache
-
-**Usage:** `soroban cache info`
-
-
-
-## `soroban cache clean`
-
-Delete all cached actions
-
-**Usage:** `soroban cache clean`
-
-
-
-## `soroban cache read`
+## `soroban cache actionlog read`
 
 Read cached action
 
-**Usage:** `soroban cache read [OPTIONS] --id <ID>`
+**Usage:** `soroban cache actionlog read --id <ID>`
 
 ###### **Options:**
 
-* `--id <ID>` — ULID of the cache entry
-* `--output <OUTPUT>`
-
-  Possible values: `envelope`
-
+* `--id <ID>` — ID of the cache entry
 
 
 
