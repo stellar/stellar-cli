@@ -11,7 +11,9 @@ use soroban_env_host::xdr::{
 use crate::{
     commands::{
         config::{self, data},
-        global, network, NetworkRunnable,
+        global, network,
+        txn_result::TxnResult,
+        NetworkRunnable,
     },
     key,
     rpc::{self, Client},
@@ -87,7 +89,11 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let ttl_ledger = self.run_against_rpc_server(None, None).await?;
+        let res = self.run_against_rpc_server(None, None).await?;
+        let TxnResult::Res(ttl_ledger) = &res else {
+            println!("{}", res.xdr().unwrap());
+            return Ok(());
+        };
         if self.ttl_ledger_only {
             println!("{ttl_ledger}");
         } else {
@@ -117,7 +123,7 @@ impl NetworkRunnable for Cmd {
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<u32, Self::Error> {
+    ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
@@ -161,7 +167,9 @@ impl NetworkRunnable for Cmd {
                 resource_fee: 0,
             }),
         };
-
+        if self.fee.build_only {
+            return Ok(TxnResult::from_xdr(&tx)?);
+        }
         let res = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
@@ -194,7 +202,7 @@ impl NetworkRunnable for Cmd {
             let entry = client.get_full_ledger_entries(&keys).await?;
             let extension = entry.entries[0].live_until_ledger_seq;
             if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
-                return Ok(extension);
+                return Ok(TxnResult::Res(extension));
             }
         }
 
@@ -209,7 +217,7 @@ impl NetworkRunnable for Cmd {
                         }),
                     ..
                 }),
-            ) => Ok(*live_until_ledger_seq),
+            ) => Ok(TxnResult::Res(*live_until_ledger_seq)),
             _ => Err(Error::LedgerEntryNotFound),
         }
     }
