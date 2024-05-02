@@ -37,14 +37,13 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban keys ls`↴](#soroban-keys-ls)
 * [`soroban keys rm`↴](#soroban-keys-rm)
 * [`soroban keys show`↴](#soroban-keys-show)
-* [`soroban lab`↴](#soroban-lab)
-* [`soroban lab xdr`↴](#soroban-lab-xdr)
-* [`soroban lab xdr types`↴](#soroban-lab-xdr-types)
-* [`soroban lab xdr types list`↴](#soroban-lab-xdr-types-list)
-* [`soroban lab xdr guess`↴](#soroban-lab-xdr-guess)
-* [`soroban lab xdr decode`↴](#soroban-lab-xdr-decode)
-* [`soroban lab xdr encode`↴](#soroban-lab-xdr-encode)
-* [`soroban lab xdr version`↴](#soroban-lab-xdr-version)
+* [`soroban xdr`↴](#soroban-xdr)
+* [`soroban xdr types`↴](#soroban-xdr-types)
+* [`soroban xdr types list`↴](#soroban-xdr-types-list)
+* [`soroban xdr guess`↴](#soroban-xdr-guess)
+* [`soroban xdr decode`↴](#soroban-xdr-decode)
+* [`soroban xdr encode`↴](#soroban-xdr-encode)
+* [`soroban xdr version`↴](#soroban-xdr-version)
 * [`soroban network`↴](#soroban-network)
 * [`soroban network add`↴](#soroban-network-add)
 * [`soroban network rm`↴](#soroban-network-rm)
@@ -52,6 +51,12 @@ This document contains the help content for the `soroban` command-line program.
 * [`soroban network start`↴](#soroban-network-start)
 * [`soroban network stop`↴](#soroban-network-stop)
 * [`soroban version`↴](#soroban-version)
+* [`soroban cache`↴](#soroban-cache)
+* [`soroban cache clean`↴](#soroban-cache-clean)
+* [`soroban cache path`↴](#soroban-cache-path)
+* [`soroban cache actionlog`↴](#soroban-cache-actionlog)
+* [`soroban cache actionlog ls`↴](#soroban-cache-actionlog-ls)
+* [`soroban cache actionlog read`↴](#soroban-cache-actionlog-read)
 
 ## `soroban`
 
@@ -88,9 +93,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
-* `lab` — Experiment with early features and expert tools
+* `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
+* `cache` — Cache for tranasctions and contract specs
 
 ###### **Options:**
 
@@ -113,6 +119,10 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
   Possible values: `true`, `false`
 
 * `--list` — List installed plugins. E.g. `soroban-hello`
+
+  Possible values: `true`, `false`
+
+* `--no-cache` — Do not cache your simulations and transactions
 
   Possible values: `true`, `false`
 
@@ -974,23 +984,11 @@ Given an identity return its private key
 
 
 
-## `soroban lab`
+## `soroban xdr`
 
-Experiment with early features and expert tools
+Decode and encode XDR
 
-**Usage:** `soroban lab <COMMAND>`
-
-###### **Subcommands:**
-
-* `xdr` — Decode xdr
-
-
-
-## `soroban lab xdr`
-
-Decode xdr
-
-**Usage:** `soroban lab xdr [CHANNEL] <COMMAND>`
+**Usage:** `soroban xdr [CHANNEL] <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -1011,11 +1009,11 @@ Decode xdr
 
 
 
-## `soroban lab xdr types`
+## `soroban xdr types`
 
 View information about types
 
-**Usage:** `soroban lab xdr types <COMMAND>`
+**Usage:** `soroban xdr types <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -1023,9 +1021,9 @@ View information about types
 
 
 
-## `soroban lab xdr types list`
+## `soroban xdr types list`
 
-**Usage:** `soroban lab xdr types list [OPTIONS]`
+**Usage:** `soroban xdr types list [OPTIONS]`
 
 ###### **Options:**
 
@@ -1038,11 +1036,11 @@ View information about types
 
 
 
-## `soroban lab xdr guess`
+## `soroban xdr guess`
 
 Guess the XDR type
 
-**Usage:** `soroban lab xdr guess [OPTIONS] [FILE]`
+**Usage:** `soroban xdr guess [OPTIONS] [FILE]`
 
 ###### **Arguments:**
 
@@ -1068,11 +1066,11 @@ Guess the XDR type
 
 
 
-## `soroban lab xdr decode`
+## `soroban xdr decode`
 
 Decode XDR
 
-**Usage:** `soroban lab xdr decode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `soroban xdr decode [OPTIONS] --type <TYPE> [FILES]...`
 
 ###### **Arguments:**
 
@@ -1096,11 +1094,11 @@ Decode XDR
 
 
 
-## `soroban lab xdr encode`
+## `soroban xdr encode`
 
 Encode XDR
 
-**Usage:** `soroban lab xdr encode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `soroban xdr encode [OPTIONS] --type <TYPE> [FILES]...`
 
 ###### **Arguments:**
 
@@ -1124,11 +1122,11 @@ Encode XDR
 
 
 
-## `soroban lab xdr version`
+## `soroban xdr version`
 
 Print version information
 
-**Usage:** `soroban lab xdr version`
+**Usage:** `soroban xdr version`
 
 
 
@@ -1265,6 +1263,81 @@ Stop a network started with `network start`. For example, if you ran `soroban ne
 Print version information
 
 **Usage:** `soroban version`
+
+
+
+## `soroban cache`
+
+Cache for tranasctions and contract specs
+
+**Usage:** `soroban cache <COMMAND>`
+
+###### **Subcommands:**
+
+* `clean` — Delete the cache
+* `path` — Show the location of the cache
+* `actionlog` — Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+
+
+## `soroban cache clean`
+
+Delete the cache
+
+**Usage:** `soroban cache clean`
+
+
+
+## `soroban cache path`
+
+Show the location of the cache
+
+**Usage:** `soroban cache path`
+
+
+
+## `soroban cache actionlog`
+
+Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
+
+**Usage:** `soroban cache actionlog <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — List cached actions (transactions, simulations)
+* `read` — Read cached action
+
+
+
+## `soroban cache actionlog ls`
+
+List cached actions (transactions, simulations)
+
+**Usage:** `soroban cache actionlog ls [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-l`, `--long`
+
+  Possible values: `true`, `false`
+
+
+
+
+## `soroban cache actionlog read`
+
+Read cached action
+
+**Usage:** `soroban cache actionlog read --id <ID>`
+
+###### **Options:**
+
+* `--id <ID>` — ID of the cache entry
 
 
 

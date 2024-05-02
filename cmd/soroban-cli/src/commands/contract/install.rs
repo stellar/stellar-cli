@@ -4,13 +4,15 @@ use std::num::ParseIntError;
 
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
-    self, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo, MuxedAccount,
-    Operation, OperationBody, Preconditions, ScMetaEntry, ScMetaV0, SequenceNumber, Transaction,
-    TransactionExt, TransactionResult, TransactionResultResult, Uint256, VecM,
+    self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
+    LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
+    ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt, TransactionResult,
+    TransactionResultResult, Uint256, VecM,
 };
 
 use super::restore;
-use crate::commands::{global, NetworkRunnable};
+use crate::commands::network;
+use crate::commands::{config::data, global, NetworkRunnable};
 use crate::key;
 use crate::rpc::{self, Client};
 use crate::{commands::config, utils, wasm};
@@ -62,6 +64,10 @@ pub enum Error {
         wasm: std::path::PathBuf,
         version: String,
     },
+    #[error(transparent)]
+    Network(#[from] network::Error),
+    #[error(transparent)]
+    Data(#[from] data::Error),
 }
 
 impl Cmd {
@@ -122,24 +128,45 @@ impl NetworkRunnable for Cmd {
         let code_key =
             xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
         let contract_data = client.get_ledger_entries(&[code_key]).await?;
-        if !contract_data.entries.unwrap_or_default().is_empty() {
-            return Ok(hash);
+        // Skip install if the contract is already installed, and the contract has an extension version that isn't V0.
+        // In protocol 21 extension V1 was added that stores additional information about a contract making execution
+        // of the contract cheaper. So if folks want to reinstall we should let them which is why the install will still
+        // go ahead if the contract has a V0 extension.
+        if let Some(entries) = contract_data.entries {
+            if let Some(entry_result) = entries.first() {
+                let entry: LedgerEntryData =
+                    LedgerEntryData::from_xdr_base64(&entry_result.xdr, Limits::none())?;
+
+                match &entry {
+                    LedgerEntryData::ContractCode(code) => {
+                        // Skip reupload if this isn't V0 because V1 extension already
+                        // exists.
+                        if code.ext.ne(&ContractCodeEntryExt::V0) {
+                            return Ok(hash);
+                        }
+                    }
+                    _ => {
+                        tracing::warn!("Entry retrieved should be of type ContractCode");
+                    }
+                }
+            }
         }
 
         let txn = client
             .create_assembled_transaction(&tx_without_preflight)
             .await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
-
+        let txn_resp = client
+            .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
+            .await?;
+        if args.map_or(true, |a| !a.no_cache) {
+            data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
+        }
         // Currently internal errors are not returned if the contract code is expired
         if let Some(TransactionResult {
             result: TransactionResultResult::TxInternalError,
             ..
-        }) = client
-            .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
-            .await?
-            .result
-            .as_ref()
+        }) = txn_resp.result.as_ref()
         {
             // Now just need to restore it and don't have to install again
             restore::Cmd {
@@ -159,7 +186,9 @@ impl NetworkRunnable for Cmd {
             .run_against_rpc_server(args, None)
             .await?;
         }
-
+        if args.map_or(true, |a| !a.no_cache) {
+            data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
+        }
         Ok(hash)
     }
 }

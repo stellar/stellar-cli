@@ -12,11 +12,11 @@ use heck::ToKebabCase;
 
 use soroban_env_host::{
     xdr::{
-        self, Error as XdrError, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
-        LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody,
-        Preconditions, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
-        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction, TransactionExt,
-        Uint256, VecM,
+        self, ContractDataEntry, Error as XdrError, Hash, HostFunction, InvokeContractArgs,
+        InvokeHostFunctionOp, LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation,
+        OperationBody, Preconditions, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef,
+        ScVal, ScVec, SequenceNumber, SorobanAuthorizationEntry, SorobanResources, Transaction,
+        TransactionExt, Uint256, VecM,
     },
     HostError,
 };
@@ -29,7 +29,10 @@ use super::super::{
     events,
 };
 use crate::commands::NetworkRunnable;
-use crate::{commands::global, rpc, Pwd};
+use crate::{
+    commands::{config::data, global, network},
+    rpc, Pwd,
+};
 use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -139,6 +142,12 @@ pub enum Error {
     ContractSpec(#[from] contract::Error),
     #[error("")]
     MissingFileArg(PathBuf),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Data(#[from] data::Error),
+    #[error(transparent)]
+    Network(#[from] network::Error),
 }
 
 impl From<Infallible> for Error {
@@ -324,8 +333,33 @@ impl NetworkRunnable for Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
+        let r = client.get_contract_data(&contract_id).await?;
+        tracing::trace!("{r:?}");
+        let ContractDataEntry {
+            val: xdr::ScVal::ContractInstance(xdr::ScContractInstance { executable, .. }),
+            ..
+        } = r
+        else {
+            return Err(Error::MissingResult);
+        };
         // Get the contract
-        let spec_entries = client.get_remote_contract_spec(&contract_id).await?;
+        let spec_entries = match executable {
+            xdr::ContractExecutable::Wasm(hash) => {
+                let hash = hash.to_string();
+                if let Ok(entries) = data::read_spec(&hash) {
+                    entries
+                } else {
+                    let res = client.get_remote_contract_spec(&contract_id).await?;
+                    if global_args.map_or(true, |a| !a.no_cache) {
+                        data::write_spec(&hash, &res)?;
+                    }
+                    res
+                }
+            }
+            xdr::ContractExecutable::StellarAsset => {
+                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
+            }
+        };
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
@@ -338,15 +372,17 @@ impl NetworkRunnable for Cmd {
         )?;
         let txn = client.create_assembled_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
+        let sim_res = txn.sim_response();
+        if global_args.map_or(true, |a| !a.no_cache) {
+            data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
+        }
         let (return_value, events) = if self.is_view() {
-            (
-                txn.sim_response().results()?[0].xdr.clone(),
-                txn.sim_response().events()?,
-            )
+            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         } else {
             let global::Args {
                 verbose,
                 very_verbose,
+                no_cache,
                 ..
             } = global_args.map(Clone::clone).unwrap_or_default();
             let res = client
@@ -359,6 +395,9 @@ impl NetworkRunnable for Cmd {
                     (verbose || very_verbose || self.fee.cost).then_some(log_resources),
                 )
                 .await?;
+            if !no_cache {
+                data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
+            }
             (res.return_value()?, res.contract_events()?)
         };
 
