@@ -12,6 +12,7 @@ use soroban_env_host::xdr::{
 
 use super::restore;
 use crate::commands::network;
+use crate::commands::txn_result::TxnResult;
 use crate::commands::{config::data, global, NetworkRunnable};
 use crate::key;
 use crate::rpc::{self, Client};
@@ -72,7 +73,10 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = hex::encode(self.run_against_rpc_server(None, None).await?);
+        let res_str = match self.run_against_rpc_server(None, None).await? {
+            TxnResult::Xdr(xdr) => xdr,
+            TxnResult::Res(hash) => hex::encode(hash),
+        };
         println!("{res_str}");
         Ok(())
     }
@@ -86,7 +90,7 @@ impl NetworkRunnable for Cmd {
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<Hash, Error> {
+    ) -> Result<TxnResult<Hash>, Error> {
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
@@ -125,6 +129,9 @@ impl NetworkRunnable for Cmd {
         let (tx_without_preflight, hash) =
             build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &key)?;
 
+        if self.fee.build_only {
+            return Ok(TxnResult::from_xdr(&tx_without_preflight)?);
+        }
         let code_key =
             xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
         let contract_data = client.get_ledger_entries(&[code_key]).await?;
@@ -142,7 +149,7 @@ impl NetworkRunnable for Cmd {
                         // Skip reupload if this isn't V0 because V1 extension already
                         // exists.
                         if code.ext.ne(&ContractCodeEntryExt::V0) {
-                            return Ok(hash);
+                            return Ok(TxnResult::Res(hash));
                         }
                     }
                     _ => {
@@ -151,11 +158,10 @@ impl NetworkRunnable for Cmd {
                 }
             }
         }
-
         let txn = client
             .create_assembled_transaction(&tx_without_preflight)
             .await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let txn = self.fee.apply_to_assembled_txn(txn)?;
         let txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?;
@@ -189,7 +195,7 @@ impl NetworkRunnable for Cmd {
         if args.map_or(true, |a| !a.no_cache) {
             data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
         }
-        Ok(hash)
+        Ok(TxnResult::Res(hash))
     }
 }
 

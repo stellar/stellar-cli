@@ -5,7 +5,9 @@ use soroban_env_host::xdr::{self, Limits, ReadXdr};
 
 use super::{
     config::{self, locator},
-    global, network, NetworkRunnable,
+    global, network,
+    txn_result::TxnResult,
+    NetworkRunnable,
 };
 use crate::{rpc, utils};
 
@@ -124,6 +126,8 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    TxnResult(#[from] super::txn_result::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
@@ -167,7 +171,8 @@ impl Cmd {
             })?;
         }
 
-        let response = self.run_against_rpc_server(None, None).await?;
+        let txn_res = self.run_against_rpc_server(None, None).await?;
+        let response = txn_res.try_res()?;
 
         for event in &response.events {
             match self.output {
@@ -214,7 +219,7 @@ impl NetworkRunnable for Cmd {
         &self,
         _args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<rpc::GetEventsResponse, Error> {
+    ) -> Result<TxnResult<rpc::GetEventsResponse>, Error> {
         let start = self.start()?;
         let network = if let Some(config) = config {
             Ok(config.get_network()?)
@@ -226,15 +231,17 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        client
-            .get_events(
-                start,
-                Some(self.event_type),
-                &self.contract_ids,
-                &self.topic_filters,
-                Some(self.count),
-            )
-            .await
-            .map_err(Error::Rpc)
+        Ok(TxnResult::Res(
+            client
+                .get_events(
+                    start,
+                    Some(self.event_type),
+                    &self.contract_ids,
+                    &self.topic_filters,
+                    Some(self.count),
+                )
+                .await
+                .map_err(Error::Rpc)?,
+        ))
     }
 }

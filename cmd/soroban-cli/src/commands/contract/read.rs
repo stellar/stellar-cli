@@ -14,7 +14,7 @@ use soroban_env_host::{
 use soroban_sdk::xdr::Limits;
 
 use crate::{
-    commands::{config, global, NetworkRunnable},
+    commands::{config, global, txn_result::TxnResult, NetworkRunnable},
     key,
     rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
 };
@@ -91,7 +91,13 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let entries = self.run_against_rpc_server(None, None).await?;
+        let entries = match self.run_against_rpc_server(None, None).await? {
+            TxnResult::Res(res) => res,
+            TxnResult::Xdr(xdr) => {
+                println!("{xdr}");
+                return Ok(());
+            }
+        };
         self.output_entries(&entries)
     }
 
@@ -178,12 +184,12 @@ impl NetworkRunnable for Cmd {
         &self,
         _: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<FullLedgerEntries, Error> {
+    ) -> Result<TxnResult<FullLedgerEntries>, Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
         let client = Client::new(&network.rpc_url)?;
         let keys = self.key.parse_keys()?;
-        Ok(client.get_full_ledger_entries(&keys).await?)
+        Ok(TxnResult::Res(client.get_full_ledger_entries(&keys).await?))
     }
 }

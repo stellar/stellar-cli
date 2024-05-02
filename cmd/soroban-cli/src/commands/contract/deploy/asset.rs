@@ -14,7 +14,9 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 use crate::{
     commands::{
         config::{self, data},
-        global, network, NetworkRunnable,
+        global, network,
+        txn_result::TxnResult,
+        NetworkRunnable,
     },
     rpc::{Client, Error as SorobanRpcError},
     utils::{contract_id_hash_from_asset, parsing::parse_asset},
@@ -80,7 +82,7 @@ impl NetworkRunnable for Cmd {
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<String, Error> {
+    ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
         let asset = parse_asset(&self.asset)?;
@@ -108,8 +110,11 @@ impl NetworkRunnable for Cmd {
             network_passphrase,
             &key,
         )?;
+        if self.fee.build_only {
+            return Ok(TxnResult::from_xdr(&tx)?);
+        }
         let txn = client.create_assembled_transaction(&tx).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let txn = self.fee.apply_to_assembled_txn(txn)?;
         let get_txn_resp = client
             .send_assembled_transaction(txn, &key, &[], network_passphrase, None, None)
             .await?
@@ -118,7 +123,9 @@ impl NetworkRunnable for Cmd {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 
-        Ok(stellar_strkey::Contract(contract_id.0).to_string())
+        Ok(TxnResult::Xdr(
+            stellar_strkey::Contract(contract_id.0).to_string(),
+        ))
     }
 }
 
