@@ -266,10 +266,9 @@ where
                 let error_string = format!("Ledger APDU retcode: 0x{retcode:X}");
                 Err(LedgerError::APDUExchangeError(error_string))
             }
-            Err(_err) => {
-                //FIX ME!!!!
-                Err(LedgerError::LedgerConnectionError("test".to_string()))
-            }
+            Err(_err) => Err(LedgerError::LedgerConnectionError(
+                "Error connecting to ledger device".to_string(),
+            )),
         }
     }
 }
