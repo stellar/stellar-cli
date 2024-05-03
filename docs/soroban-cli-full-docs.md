@@ -1387,9 +1387,6 @@ Read cached action
 
 * `--id <ID>` — ID of the cache entry
 
-  Possible values: `envelope`
-
-
 
 
 <hr/>

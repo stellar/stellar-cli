@@ -21,7 +21,9 @@ use soroban_env_host::{
     HostError,
 };
 
-use soroban_sdk::xdr::{AccountEntry, AccountEntryExt, AccountId, ContractDataEntry, DiagnosticEvent, Thresholds};
+use soroban_sdk::xdr::{
+    AccountEntry, AccountEntryExt, AccountId, ContractDataEntry, DiagnosticEvent, Thresholds,
+};
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
