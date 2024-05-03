@@ -302,9 +302,17 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
                 }
             })?;
 
+        let hint = source_account.to_string().into_bytes()[28..]
+            .try_into()
+            .map_err(|e| {
+                tracing::error!("Error converting source_account to string: {e}");
+                Error::MissingSignerForAddress {
+                    address: source_account.to_string(),
+                }
+            })?;
         let sig_bytes = signature.try_into()?;
         Ok(DecoratedSignature {
-            hint: SignatureHint([0u8; 4]), //FIXME
+            hint: SignatureHint(hint),
             signature: Signature(sig_bytes),
         })
     }
@@ -312,7 +320,7 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
     fn sign_txn(
         &self,
         txn: Transaction,
-        _source_account: &stellar_strkey::Strkey,
+        source_account: &stellar_strkey::Strkey,
     ) -> Result<TransactionEnvelope, Error> {
         let signature = block_on(self.sign_transaction(self.hd_path.clone(), txn.clone()))
             .map_err(|e| {
@@ -322,9 +330,17 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
                 }
             })?;
 
+        let hint = source_account.to_string().into_bytes()[28..]
+            .try_into()
+            .map_err(|e| {
+                tracing::error!("Error converting source_account to string: {e}");
+                Error::MissingSignerForAddress {
+                    address: source_account.to_string(),
+                }
+            })?;
         let sig_bytes = signature.try_into()?;
         let decorated_signature = DecoratedSignature {
-            hint: SignatureHint([0u8; 4]), //FIXME
+            hint: SignatureHint(hint),
             signature: Signature(sig_bytes),
         };
 
