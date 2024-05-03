@@ -204,9 +204,10 @@ impl Cmd {
                     let mut s = val.next().unwrap().to_string_lossy().to_string();
                     if matches!(i.type_, ScSpecTypeDef::Address) {
                         let cmd = crate::commands::keys::address::Cmd {
-                            name: s.clone(),
+                            name: Some(s.clone()),
                             hd_path: Some(0),
                             locator: config.locator.clone(),
+                            use_ledger: false,
                         };
                         if let Ok(address) = cmd.public_key() {
                             s = address.to_string();

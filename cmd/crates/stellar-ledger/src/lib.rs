@@ -114,7 +114,7 @@ impl AsRef<LedgerSigner<TransportNativeHID>> for NativeSigner {
 
 impl TryFrom<(String, u32)> for NativeSigner {
     type Error = LedgerError;
-    fn try_from((network_passphrase, hd_path): (String, u32)) -> Result<Self, LedgerError> {
+    fn try_from((network_passphrase, hd_path): (String, u32)) -> Result<Self, Self::Error> {
         Ok(Self(LedgerSigner {
             network_passphrase,
             transport: transport_native_hid()?,
@@ -138,6 +138,13 @@ where
         Self::get_public_key_with_display_flag(self, hd_path, false).await
     }
 
+    pub fn get_public_key_sync(
+        &self,
+        index: u32,
+    ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
+        block_on(self.get_public_key(index))
+    }
+
     /// Get the device app's configuration
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or getting the config from the device
@@ -152,7 +159,7 @@ where
         self.send_command_to_ledger(command).await
     }
 
-        /// Sign a Stellar transaction hash with the account on the Ledger device
+    /// Sign a Stellar transaction hash with the account on the Ledger device
     /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing

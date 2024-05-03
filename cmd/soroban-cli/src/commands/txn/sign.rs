@@ -1,12 +1,13 @@
 use std::io;
 
+use soroban_rpc::Client;
 // use crossterm::{
 //     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
 //     execute,
 //     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 // };
 use soroban_sdk::xdr::{
-    self, Limits, MuxedAccount, Transaction, TransactionEnvelope, Uint256, WriteXdr,
+    self, Limits, MuxedAccount, SequenceNumber, Transaction, TransactionEnvelope, Uint256, WriteXdr,
 };
 use stellar_ledger::{LedgerError, NativeSigner};
 use stellar_strkey::Strkey;
@@ -31,6 +32,8 @@ pub enum Error {
     UserCancelledSigning,
     #[error(transparent)]
     Ledger(#[from] LedgerError),
+    #[error(transparent)]
+    Rpc(#[from] soroban_rpc::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -43,7 +46,6 @@ pub struct Cmd {
     pub xdr_args: super::xdr::Args,
     #[clap(flatten)]
     pub config: super::super::config::Args,
-
     #[arg(long, value_enum, default_value = "file")]
     pub signer: SignerType,
 }
@@ -63,8 +65,6 @@ impl Cmd {
     }
 
     pub async fn sign(&self) -> Result<TransactionEnvelope, Error> {
-        let source = &self.config.source_account;
-        tracing::debug!("signing transaction with source account {}", source);
         let txn = self.xdr_args.txn()?;
         match self.signer {
             SignerType::File => self.sign_file(txn).await,
@@ -105,7 +105,7 @@ impl Cmd {
         // Ok(())
     }
 
-    pub async fn sign_file(&self, txn: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign_file(&self, mut txn: Transaction) -> Result<TransactionEnvelope, Error> {
         let key = self.config.key_pair()?;
         let address =
             stellar_strkey::ed25519::PublicKey::from_payload(key.verifying_key().as_bytes())?;
@@ -113,6 +113,8 @@ impl Cmd {
             network_passphrase: self.config.get_network()?.network_passphrase,
             keypairs: vec![key],
         };
+        let client = Client::new(&self.config.get_network()?.rpc_url)?;
+        txn.seq_num = SequenceNumber(client.get_account(&address.to_string()).await?.seq_num.0 + 1);
         self.prompt_user()?;
         Ok(in_memory
             .sign_txn(txn, &Strkey::PublicKeyEd25519(address))
@@ -130,7 +132,10 @@ impl Cmd {
             (self.config.get_network()?.network_passphrase, index).try_into()?;
         let key = signer.as_ref().get_public_key(index).await.unwrap();
         let account = Strkey::PublicKeyEd25519(key);
+        let client = Client::new(&self.config.get_network()?.rpc_url)?;
+        txn.seq_num = SequenceNumber(client.get_account(&account.to_string()).await?.seq_num.0 + 1);
         txn.source_account = MuxedAccount::Ed25519(Uint256(key.0));
+        eprintln!("Account {account}");
         let bx_signer = Box::new(signer);
         Ok(bx_signer.sign_txn(txn, &account).await.unwrap())
     }
