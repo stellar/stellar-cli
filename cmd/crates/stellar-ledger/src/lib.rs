@@ -86,17 +86,6 @@ pub struct LedgerOptions<T: Exchange> {
     exchange: T,
     hd_path: slip10::BIP32Path,
 }
-// let hidapi = HidApi::new().map_err(NEARLedgerError::HidApiError)?;
-// TransportNativeHID::new(&hidapi).map_err(NEARLedgerError::LedgerHidError)
-impl LedgerOptions<TransportNativeHID> {
-    pub fn new(hd_path: u32) -> Result<Self, LedgerError> {
-        let hd_path = bip_path_from_index(hd_path)?;
-        Ok(LedgerOptions {
-            exchange: transport_native_hid()?,
-            hd_path,
-        })
-    }
-}
 
 pub struct LedgerSigner<T: Exchange> {
     network_passphrase: String,
@@ -137,7 +126,9 @@ where
         let hd_path = bip_path_from_index(index)?;
         Self::get_public_key_with_display_flag(self, hd_path, false).await
     }
-
+    /// Synchronous version of get_public_key
+    /// # Errors
+    ///
     pub fn get_public_key_sync(
         &self,
         index: u32,

@@ -1,16 +1,15 @@
 use ed25519_dalek::Signer;
-use sha2::{digest::typenum::Le, Digest, Sha256};
+use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ReadXdr, ScAddress, ScMap,
-    ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
-    SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanCredentials, Transaction,
-    TransactionEnvelope, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
+    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
+    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
+    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, Uint256, WriteXdr,
 };
-use soroban_sdk::xdr::BytesM;
-use stellar_ledger::{LedgerSigner, NativeSigner};
+use stellar_ledger::NativeSigner;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -38,6 +37,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 }
 
 /// A trait for signing Stellar transactions and Soroban authorization entries
+#[allow(async_fn_in_trait)]
 pub trait Stellar {
     /// The type of the options that can be passed when creating a new signer
     type Init;
