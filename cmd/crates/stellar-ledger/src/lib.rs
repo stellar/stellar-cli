@@ -1,6 +1,7 @@
 use futures::executor::block_on;
+use hidapi::HidApi;
 use ledger_transport::{APDUCommand, Exchange};
-use ledger_transport_hid::{hidapi::HidError, LedgerHIDError};
+use ledger_transport_hid::{hidapi::HidError, LedgerHIDError, TransportNativeHID};
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{Hash, Transaction};
@@ -376,6 +377,12 @@ fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Result<Vec<u8>, LedgerError>
     }
 
     Ok(result.into_iter().flatten().collect())
+}
+
+pub fn get_transport() -> Result<impl Exchange, LedgerError> {
+    // instantiate the connection to Ledger, this will return an error if Ledger is not connected
+    let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
+    TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }
 
 #[cfg(test)]
