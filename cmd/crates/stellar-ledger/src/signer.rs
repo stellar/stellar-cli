@@ -5,12 +5,12 @@ use soroban_env_host::xdr::{
     TransactionV1Envelope, WriteXdr,
 };
 
-use soroban_rpc::Error as RpcError;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    RpcError(#[from] RpcError),
+    Xdr(#[from] xdr::Error),
+    #[error("Error signing transaction {address}")]
+    MissingSignerForAddress { address: String },
 }
 
 /// A trait for signing Stellar transactions and Soroban authorization entries

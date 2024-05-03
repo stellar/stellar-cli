@@ -45,7 +45,6 @@ features = ["curr", "std", "serde"]
 env_logger = "0.11.3"
 futures = "0.3.30"
 hidapi = { version = "1.4.1", features = ["linux-static-hidraw"], default-features = false }
-ledger-zondax-generic = "0.10.0"
 log = "0.4.21"
 once_cell = "1.19.0"
 pretty_assertions = "1.2.1"

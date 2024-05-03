@@ -5,8 +5,8 @@ use soroban_env_host::xdr::Transaction;
 use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 use std::vec;
 
+use crate::emulator_http_transport::EmulatorHttpTransport;
 use crate::speculos::Speculos;
-use crate::transport_zemu_http::TransportZemuHttp;
 use crate::{LedgerError, LedgerOptions, LedgerSigner};
 
 use std::sync::Arc;
@@ -344,7 +344,7 @@ struct EventsResponse {
 }
 
 fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, LedgerError> {
-    Ok(TransportZemuHttp::new(host, port))
+    Ok(EmulatorHttpTransport::new(host, port))
 }
 
 async fn wait_for_emulator_start_text(ui_host_port: u16) {

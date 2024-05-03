@@ -3184,18 +3184,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ledger-zondax-generic"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02036c84eab9c48e85bc568d269221ba4f5e1cfbc785c3c2c2f6bb8c131f9287"
-dependencies = [
- "async-trait",
- "ledger-transport",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "levenshtein"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5021,7 +5009,6 @@ dependencies = [
  "httpmock",
  "ledger-transport",
  "ledger-transport-hid",
- "ledger-zondax-generic",
  "log",
  "once_cell",
  "phf",

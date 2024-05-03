@@ -16,9 +16,9 @@ use stellar_xdr::curr::{
 
 pub use crate::signer::{Error, Stellar};
 
+mod emulator_http_transport;
 mod signer;
 mod speculos;
-mod transport_zemu_http;
 
 #[cfg(all(test, feature = "emulator-tests"))]
 mod emulator_tests;
@@ -63,11 +63,23 @@ pub enum LedgerError {
     #[error("Error occurred while initializing Ledger HID transport: {0}")]
     LedgerHidError(#[from] LedgerHIDError),
 
-    #[error("Error with ADPU exchange with Ledger device: {0}")] //TODO update this message
+    #[error("Error with ADPU exchange with Ledger device: {0}")]
     APDUExchangeError(String),
 
     #[error("Error occurred while exchanging with Ledger device: {0}")]
     LedgerConnectionError(String),
+
+    #[error("Error occurred while parsing BIP32 path: {0}")]
+    Bip32PathError(String),
+}
+
+fn hid_api() -> Result<hidapi::HidApi, LedgerError> {
+    hidapi::HidApi::new().map_err(LedgerError::HidApiError)
+}
+
+fn transport_native_hid() -> Result<TransportNativeHID, LedgerError> {
+    let hidapi = hid_api()?;
+    TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }
 
 pub struct LedgerOptions<T: Exchange> {
@@ -77,13 +89,12 @@ pub struct LedgerOptions<T: Exchange> {
 // let hidapi = HidApi::new().map_err(NEARLedgerError::HidApiError)?;
 // TransportNativeHID::new(&hidapi).map_err(NEARLedgerError::LedgerHidError)
 impl LedgerOptions<TransportNativeHID> {
-    pub fn new(hd_path: u32) -> Self {
-        let hd_path = bip_path_from_index(hd_path);
-        let hidapi = hidapi::HidApi::new().unwrap();
-        LedgerOptions {
-            exchange: TransportNativeHID::new(&hidapi).unwrap(),
+    pub fn new(hd_path: u32) -> Result<Self, LedgerError> {
+        let hd_path = bip_path_from_index(hd_path)?;
+        Ok(LedgerOptions {
+            exchange: transport_native_hid()?,
             hd_path,
-        }
+        })
     }
 }
 
@@ -101,13 +112,14 @@ impl AsRef<LedgerSigner<TransportNativeHID>> for NativeSigner {
     }
 }
 
-impl From<(String, u32)> for NativeSigner {
-    fn from((network_passphrase, hd_path): (String, u32)) -> Self {
-        Self(LedgerSigner {
+impl TryFrom<(String, u32)> for NativeSigner {
+    type Error = LedgerError;
+    fn try_from((network_passphrase, hd_path): (String, u32)) -> Result<Self, LedgerError> {
+        Ok(Self(LedgerSigner {
             network_passphrase,
-            transport: TransportNativeHID::new(&hidapi::HidApi::new().unwrap()).unwrap(),
-            hd_path: bip_path_from_index(hd_path),
-        })
+            transport: transport_native_hid()?,
+            hd_path: bip_path_from_index(hd_path)?,
+        }))
     }
 }
 
@@ -122,7 +134,7 @@ where
         &self,
         index: u32,
     ) -> Result<stellar_strkey::ed25519::PublicKey, LedgerError> {
-        let hd_path = bip_path_from_index(index);
+        let hd_path = bip_path_from_index(index)?;
         Self::get_public_key_with_display_flag(self, hd_path, false).await
     }
 
@@ -144,7 +156,7 @@ where
     /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
-    pub async fn sign_transaction_hash(
+    async fn sign_transaction_hash(
         &self,
         hd_path: slip10::BIP32Path,
         transaction_hash: &[u8],
@@ -172,8 +184,8 @@ where
     /// Sign a Stellar transaction with the account on the Ledger device
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device
-    #[allow(clippy::missing_panics_doc)] // TODO: handle panics/unwraps
-    pub async fn sign_transaction(
+    #[allow(clippy::missing_panics_doc)]
+    async fn sign_transaction(
         &self,
         hd_path: slip10::BIP32Path,
         transaction: Transaction,
@@ -185,7 +197,9 @@ where
             network_id: network_hash,
             tagged_transaction,
         };
-        let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none()).unwrap();
+        let mut signature_payload_as_bytes = signature_payload
+            .to_xdr(Limits::none())
+            .expect("tx payload should be able to be written as xdr");
 
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
 
@@ -263,7 +277,8 @@ where
         tracing::info!("APDU in: {}", hex::encode(command.serialize()));
 
         match self.send_command_to_ledger(command).await {
-            Ok(value) => Ok(stellar_strkey::ed25519::PublicKey::from_payload(&value).unwrap()),
+            Ok(value) => Ok(stellar_strkey::ed25519::PublicKey::from_payload(&value)
+                .expect("payload should be able to be converted into PublicKey")),
             Err(err) => Err(err),
         }
     }
@@ -300,7 +315,7 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
     type Init = LedgerOptions<T>;
 
     fn new(network_passphrase: &str, options: Option<LedgerOptions<T>>) -> Self {
-        let options_unwrapped = options.unwrap();
+        let options_unwrapped = options.expect("LedgerSigner should have LedgerOptions passed in");
         LedgerSigner {
             network_passphrase: network_passphrase.to_string(),
             transport: options_unwrapped.exchange,
@@ -315,12 +330,17 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
     fn sign_txn_hash(
         &self,
         txn: [u8; 32],
-        _source_account: &stellar_strkey::Strkey,
+        source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
         let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), &txn)) //TODO: refactor sign_transaction_hash
-            .unwrap(); // FIXME: handle error
+            .map_err(|e| {
+                tracing::error!("Error signing transaction hash with Ledger device: {e}");
+                Error::MissingSignerForAddress {
+                    address: source_account.to_string(),
+                }
+            })?;
 
-        let sig_bytes = signature.try_into().unwrap(); // FIXME: handle error
+        let sig_bytes = signature.try_into()?;
         Ok(DecoratedSignature {
             hint: SignatureHint([0u8; 4]), //FIXME
             signature: Signature(sig_bytes),
@@ -332,9 +352,15 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
         txn: Transaction,
         _source_account: &stellar_strkey::Strkey,
     ) -> Result<TransactionEnvelope, Error> {
-        let signature = block_on(self.sign_transaction(self.hd_path.clone(), txn.clone())).unwrap(); // FIXME: handle error
+        let signature = block_on(self.sign_transaction(self.hd_path.clone(), txn.clone()))
+            .map_err(|e| {
+                tracing::error!("Error signing transaction with Ledger device: {e}");
+                Error::MissingSignerForAddress {
+                    address: "source_account".to_string(),
+                }
+            })?;
 
-        let sig_bytes = signature.try_into().unwrap(); // FIXME: handle error
+        let sig_bytes = signature.try_into()?;
         let decorated_signature = DecoratedSignature {
             hint: SignatureHint([0u8; 4]), //FIXME
             signature: Signature(sig_bytes),
@@ -342,22 +368,25 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
 
         Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
             tx: txn,
-            signatures: vec![decorated_signature].try_into().unwrap(), //fixme: remove unwrap
+            signatures: vec![decorated_signature].try_into()?,
         }))
     }
 }
 
-fn bip_path_from_index(index: u32) -> slip10::BIP32Path {
+fn bip_path_from_index(index: u32) -> Result<slip10::BIP32Path, LedgerError> {
     let path = format!("m/44'/148'/{index}'");
-    path.parse().unwrap() // this is basically the same thing as slip10::BIP32Path::from_str
-
-    // the device handles this part: https://github.com/AhaLabs/rs-sep5/blob/9d6e3886b4b424dd7b730ec24c865f6fad5d770c/src/seed_phrase.rs#L86
+    path.parse().map_err(|e| {
+        let error_string = format!("Error parsing BIP32 path: {e}");
+        LedgerError::Bip32PathError(error_string)
+    })
 }
 
 fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Vec<u8> {
     (0..hd_path.depth())
         .flat_map(|index| {
-            let value = *hd_path.index(index).unwrap();
+            let value = *hd_path
+                .index(index)
+                .expect("should be able to get index of hd path");
             value.to_be_bytes()
         })
         .collect::<Vec<u8>>()
@@ -370,7 +399,7 @@ mod test {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use crate::transport_zemu_http::TransportZemuHttp;
+    use crate::emulator_http_transport::EmulatorHttpTransport;
 
     use soroban_env_host::xdr::Transaction;
     use std::vec;
@@ -400,7 +429,7 @@ mod test {
                 .json_body(json!({"data": "e93388bbfd2fbd11806dd0bd59cea9079e7cc70ce7b1e154f114cdfe4e466ecd9000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -438,7 +467,7 @@ mod test {
                 .json_body(json!({"data": "000500039000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -483,7 +512,7 @@ mod test {
                 .json_body(json!({"data": "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e9000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -541,7 +570,7 @@ mod test {
                 .json_body(json!({"data": "6c66"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
         let ledger_options = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
@@ -576,8 +605,8 @@ mod test {
                 .json_body(json!({"data": "6970b9c9d3a6f4de7fb93e8d3920ec704fc4fece411873c40570015bbb1a60a197622bc3bf5644bb38ae73e1b96e4d487d716d142d46c7e944f008dece92df079000"}));
         });
 
-        let transport = TransportZemuHttp::new(&server.host(), server.port());
-        let ledger_options = Some(LedgerOptions {
+        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
+        let ledger_options: Option<LedgerOptions<_>> = Some(LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
         });
