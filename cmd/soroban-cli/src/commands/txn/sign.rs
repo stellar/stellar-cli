@@ -5,8 +5,10 @@ use std::io;
 //     execute,
 //     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 // };
-use soroban_sdk::xdr::{self, Limits, Transaction, TransactionEnvelope, WriteXdr};
-use stellar_ledger::NativeSigner;
+use soroban_sdk::xdr::{
+    self, Limits, MuxedAccount, Transaction, TransactionEnvelope, Uint256, WriteXdr,
+};
+use stellar_ledger::{LedgerError, NativeSigner};
 use stellar_strkey::Strkey;
 
 use crate::signer::{self, InMemory, Stellar};
@@ -27,6 +29,8 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error("User cancelled signing, perhaps need to add -y")]
     UserCancelledSigning,
+    #[error(transparent)]
+    Ledger(#[from] LedgerError),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -115,16 +119,18 @@ impl Cmd {
             .await?)
     }
 
-    pub async fn sign_ledger(&self, txn: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign_ledger(&self, mut txn: Transaction) -> Result<TransactionEnvelope, Error> {
         let index: u32 = self
             .config
             .hd_path
             .unwrap_or_default()
             .try_into()
             .expect("usize bigger than u32");
-        let signer: NativeSigner = (self.config.get_network()?.network_passphrase, index).into();
-        let account =
-            Strkey::PublicKeyEd25519(signer.as_ref().get_public_key(index).await.unwrap());
+        let signer: NativeSigner =
+            (self.config.get_network()?.network_passphrase, index).try_into()?;
+        let key = signer.as_ref().get_public_key(index).await.unwrap();
+        let account = Strkey::PublicKeyEd25519(key);
+        txn.source_account = MuxedAccount::Ed25519(Uint256(key.0));
         let bx_signer = Box::new(signer);
         Ok(bx_signer.sign_txn(txn, &account).await.unwrap())
     }

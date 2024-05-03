@@ -152,23 +152,23 @@ where
         self.send_command_to_ledger(command).await
     }
 
-    /// Sign a Stellar transaction hash with the account on the Ledger device
+        /// Sign a Stellar transaction hash with the account on the Ledger device
     /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
-    async fn sign_transaction_hash(
+    pub async fn sign_blob(
         &self,
         hd_path: slip10::BIP32Path,
-        transaction_hash: &[u8],
+        blob: &[u8],
     ) -> Result<Vec<u8>, LedgerError> {
         let mut hd_path_to_bytes = hd_path_to_bytes(&hd_path);
 
-        let capacity = 1 + hd_path_to_bytes.len() + transaction_hash.len();
+        let capacity = 1 + hd_path_to_bytes.len() + blob.len();
         let mut data: Vec<u8> = Vec::with_capacity(capacity);
 
         data.insert(0, HD_PATH_ELEMENTS_COUNT);
         data.append(&mut hd_path_to_bytes);
-        data.extend_from_slice(transaction_hash);
+        data.extend_from_slice(blob);
 
         let command = APDUCommand {
             cla: CLA,
@@ -179,6 +179,18 @@ where
         };
 
         self.send_command_to_ledger(command).await
+    }
+
+    /// Sign a Stellar transaction hash with the account on the Ledger device
+    /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
+    pub async fn sign_transaction_hash(
+        &self,
+        hd_path: slip10::BIP32Path,
+        transaction_hash: &[u8],
+    ) -> Result<Vec<u8>, LedgerError> {
+        self.sign_blob(hd_path, transaction_hash).await
     }
 
     /// Sign a Stellar transaction with the account on the Ledger device
