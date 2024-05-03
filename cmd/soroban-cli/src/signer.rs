@@ -310,6 +310,8 @@ impl Stellar for Box<NativeSigner> {
         txn: [u8; 32],
         source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
+        let hash = hex::encode(&txn);
+        eprintln!("You should see the following on your ledger:\n{hash}");
         let index = self.as_ref().as_ref().hd_path.clone();
         let res = self
             .as_ref()
