@@ -1,5 +1,6 @@
 use clap::arg;
-use soroban_env_host::xdr::{self, LedgerKey, LedgerKeyContractCode};
+use sha2::{Digest, Sha256};
+use soroban_env_host::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
 use soroban_spec_tools::contract::{self, Spec};
 use std::{
     fs, io,
@@ -64,6 +65,10 @@ impl Args {
     pub fn parse(&self) -> Result<Spec, Error> {
         let contents = self.read()?;
         Ok(Spec::new(&contents)?)
+    }
+
+    pub fn hash(&self) -> Result<Hash, Error> {
+        Ok(Hash(Sha256::digest(self.read()?).into()))
     }
 }
 

@@ -383,6 +383,10 @@ impl NetworkRunnable for Cmd {
         }
         let txn = client.create_assembled_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn)?;
+        let txn = match txn {
+            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
+            TxnResult::Res(txn) => txn,
+        };
         let sim_res = txn.sim_response();
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;

@@ -76,13 +76,13 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = String;
+    type Result = stellar_strkey::Contract;
 
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<TxnResult<String>, Error> {
+    ) -> Result<TxnResult<Self::Result>, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
         let asset = parse_asset(&self.asset)?;
@@ -115,6 +115,10 @@ impl NetworkRunnable for Cmd {
         }
         let txn = client.create_assembled_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn)?;
+        let txn = match txn {
+            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
+            TxnResult::Res(txn) => txn,
+        };
         let get_txn_resp = client
             .send_assembled_transaction(txn, &key, &[], network_passphrase, None, None)
             .await?
@@ -123,9 +127,7 @@ impl NetworkRunnable for Cmd {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 
-        Ok(TxnResult::Xdr(
-            stellar_strkey::Contract(contract_id.0).to_string(),
-        ))
+        Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)))
     }
 }
 

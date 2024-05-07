@@ -75,6 +75,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("missing result")]
     MissingResult,
+    #[error("Unexpected XDR")]
+    UnexpectedXdr,
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("reading file {0:?}: {1}")]
@@ -117,13 +119,9 @@ impl Cmd {
     }
 
     pub async fn get_bytes(&self) -> Result<Vec<u8>, Error> {
-        // This is safe because fetch doesn't create a transaction
-        unsafe {
-            Ok(self
-                .run_against_rpc_server(None, None)
-                .await?
-                .res()
-                .unwrap_unchecked())
+        match self.run_against_rpc_server(None, None).await? {
+            TxnResult::Xdr(_) => Err(Error::UnexpectedXdr),
+            TxnResult::Res(v) => Ok(v),
         }
     }
 
@@ -153,7 +151,6 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        // async closures are not yet stable
         Ok(TxnResult::Res(client.get_remote_wasm(&contract_id).await?))
     }
 }

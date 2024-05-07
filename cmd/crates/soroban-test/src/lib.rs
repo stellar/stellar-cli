@@ -253,7 +253,7 @@ impl TestEnv {
                 Some(&config),
             )
             .await?
-            .res()
+            .into_res()
             .unwrap())
     }
 

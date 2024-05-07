@@ -1,9 +1,9 @@
 use clap::arg;
 
-use soroban_env_host::xdr::{self, WriteXdr};
+use soroban_env_host::xdr;
 use soroban_rpc::Assembled;
 
-use crate::commands::HEADING_RPC;
+use crate::commands::{txn_result::TxnResult, HEADING_RPC};
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -26,22 +26,20 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn apply_to_assembled_txn(&self, txn: Assembled) -> Result<Assembled, xdr::Error> {
+    pub fn apply_to_assembled_txn(
+        &self,
+        txn: Assembled,
+    ) -> Result<TxnResult<Assembled>, xdr::Error> {
         let simulated_txn = if let Some(instructions) = self.instructions {
             txn.set_max_instructions(instructions)
         } else {
             add_padding_to_instructions(txn)
         };
         if self.sim_only {
-            println!(
-                "{}",
-                simulated_txn
-                    .transaction()
-                    .to_xdr_base64(xdr::Limits::none())?
-            );
-            std::process::exit(0);
+            TxnResult::from_xdr(simulated_txn.transaction())
+        } else {
+            Ok(TxnResult::Res(simulated_txn))
         }
-        Ok(simulated_txn)
     }
 }
 

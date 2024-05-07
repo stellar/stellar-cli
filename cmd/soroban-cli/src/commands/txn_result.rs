@@ -27,7 +27,14 @@ impl<T> TxnResult<T> {
         }
     }
 
-    pub fn res(self) -> Option<T> {
+    pub fn res(&self) -> Option<&T> {
+        match self {
+            TxnResult::Res(res) => Some(res),
+            TxnResult::Xdr(_) => None,
+        }
+    }
+
+    pub fn into_res(self) -> Option<T> {
         match self {
             TxnResult::Res(res) => Some(res),
             TxnResult::Xdr(_) => None,
@@ -38,8 +45,14 @@ impl<T> TxnResult<T> {
         self.xdr().ok_or(Error::XdrStringExpected)
     }
 
-    pub fn try_res(self) -> Result<T, Error> {
+    pub fn try_res(&self) -> Result<&T, Error> {
         self.res().ok_or(Error::ResultExpected)
+    }
+    pub fn try_into_res(self) -> Result<T, Error> {
+        match self {
+            TxnResult::Res(res) => Ok(res),
+            TxnResult::Xdr(_) => Err(Error::XdrStringExpected),
+        }
     }
 }
 

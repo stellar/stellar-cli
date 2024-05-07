@@ -162,6 +162,10 @@ impl NetworkRunnable for Cmd {
             .create_assembled_transaction(&tx_without_preflight)
             .await?;
         let txn = self.fee.apply_to_assembled_txn(txn)?;
+        let txn = match txn {
+            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
+            TxnResult::Res(txn) => txn,
+        };
         let txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?;

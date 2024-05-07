@@ -100,6 +100,8 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
@@ -122,17 +124,22 @@ impl NetworkRunnable for Cmd {
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let mut fee = self.fee.clone();
-            fee.build_only = false;
-            let hash = install::Cmd {
-                wasm: wasm::Args { wasm: wasm.clone() },
-                config: config.clone(),
-                fee,
-                ignore_checks: self.ignore_checks,
-            }
-            .run_against_rpc_server(global_args, Some(config))
-            .await?;
-            hex::encode(hash.try_res()?)
+            let hash = if self.fee.build_only {
+                wasm::Args { wasm: wasm.clone() }.hash()?
+            } else {
+                let mut fee = self.fee.clone();
+                fee.build_only = false;
+                install::Cmd {
+                    wasm: wasm::Args { wasm: wasm.clone() },
+                    config: config.clone(),
+                    fee,
+                    ignore_checks: self.ignore_checks,
+                }
+                .run_against_rpc_server(global_args, Some(config))
+                .await?
+                .try_into_res()?
+            };
+            hex::encode(hash)
         } else {
             self.wasm_hash
                 .as_ref()
@@ -181,6 +188,10 @@ impl NetworkRunnable for Cmd {
 
         let txn = client.create_assembled_transaction(&txn).await?;
         let txn = self.fee.apply_to_assembled_txn(txn)?;
+        let txn = match txn {
+            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
+            TxnResult::Res(txn) => txn,
+        };
         let get_txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?
