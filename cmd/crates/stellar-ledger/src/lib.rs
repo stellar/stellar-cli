@@ -1,8 +1,7 @@
 use futures::executor::block_on;
-use hidapi::HidApi;
 use ledger_transport::{APDUCommand, Exchange};
 use ledger_transport_hid::{
-    hidapi::{self, HidError},
+    hidapi::{self, HidApi, HidError},
     LedgerHIDError, TransportNativeHID,
 };
 use sha2::{Digest, Sha256};
@@ -134,7 +133,7 @@ where
         let hd_path = bip_path_from_index(index)?;
         Self::get_public_key_with_display_flag(self, hd_path, false).await
     }
-    /// Synchronous version of get_public_key
+    /// Synchronous version of `get_public_key`
     /// # Errors
     ///
     pub fn get_public_key_sync(
@@ -346,7 +345,7 @@ impl<T: Exchange> Stellar for LedgerSigner<T> {
         txn: [u8; 32],
         source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
-        let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), txn.to_vec())) //TODO: refactor sign_transaction_hash
+        let signature = block_on(self.sign_transaction_hash(self.hd_path.clone(), &txn)) //TODO: refactor sign_transaction_hash
             .map_err(|e| {
                 tracing::error!("Error signing transaction hash with Ledger device: {e}");
                 Error::MissingSignerForAddress {

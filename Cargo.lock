@@ -5004,7 +5004,6 @@ dependencies = [
  "env_logger",
  "futures",
  "hex",
- "hidapi",
  "home",
  "httpmock",
  "ledger-transport",
