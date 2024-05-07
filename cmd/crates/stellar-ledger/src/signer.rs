@@ -22,7 +22,14 @@ pub trait Stellar {
 
     /// Get the network hash
     fn network_hash(&self) -> xdr::Hash;
-
+    
+    /// Sign a blob with a given source account
+    /// 
+    fn sign_blob(&self,
+        txn: &[u8],
+        source_account: &stellar_strkey::Strkey,
+    ) -> Result<Vec<u8>, Error>;
+    
     /// Sign a transaction hash with the given source account
     /// # Errors
     /// Returns an error if the source account is not found
