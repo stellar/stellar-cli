@@ -10,6 +10,25 @@ use soroban_env_host::xdr::{
     TransactionV1Envelope, Uint256, WriteXdr,
 };
 use stellar_ledger::NativeSigner;
+use stellar_strkey::Strkey;
+
+trait ToBytes{
+    fn to_bytes(&self) -> Vec<u8>;
+}
+
+impl ToBytes for Strkey {
+    fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            Strkey::PublicKeyEd25519(i) => i.0,
+            Strkey::PrivateKeyEd25519(i) => i.0,
+            Strkey::PreAuthTx(i) => i.0,
+            Strkey::HashX(i) => i.0,
+            Strkey::MuxedAccountEd25519(_) => todo!("Muxed account"),
+            Strkey::SignedPayloadEd25519(_) => todo!("Signed Payload"),
+            Strkey::Contract(i) => i.0,
+        }.to_vec()
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -50,11 +69,22 @@ pub trait Stellar {
     /// Sign a transaction hash with the given source account
     /// # Errors
     /// Returns an error if the source account is not found
-    fn sign_txn_hash(
+    async fn sign_txn_hash(
         &self,
         txn: [u8; 32],
         source_account: &stellar_strkey::Strkey,
-    ) -> impl std::future::Future<Output = Result<DecoratedSignature, Error>> + Send;
+    ) -> Result<DecoratedSignature, Error>{
+        let tx_signature = self.sign_blob(&txn, source_account).await?;
+        Ok(DecoratedSignature {
+            // TODO: remove this unwrap. It's safe because we know the length of the array
+            hint: SignatureHint(
+                source_account.to_bytes()[28..]
+                    .try_into()
+                    .unwrap(),
+            ),
+            signature: Signature(tx_signature.try_into()?),
+        })
+    }
 
     async fn sign_blob(
         &self,
@@ -257,24 +287,6 @@ impl Stellar for InMemory {
         Ok(sig.to_bytes().to_vec())
     }
 
-    async fn sign_txn_hash(
-        &self,
-        txn: [u8; 32],
-        source_account: &stellar_strkey::Strkey,
-    ) -> Result<DecoratedSignature, Error> {
-        let source_account = self.get_key(source_account)?;
-        let tx_signature = source_account.sign(&txn);
-        Ok(DecoratedSignature {
-            // TODO: remove this unwrap. It's safe because we know the length of the array
-            hint: SignatureHint(
-                source_account.verifying_key().to_bytes()[28..]
-                    .try_into()
-                    .unwrap(),
-            ),
-            signature: Signature(tx_signature.to_bytes().try_into()?),
-        })
-    }
-
     fn network_hash(&self) -> xdr::Hash {
         xdr::Hash(Sha256::digest(self.network_passphrase.as_bytes()).into())
     }
@@ -299,9 +311,10 @@ impl Stellar for Box<NativeSigner> {
     async fn sign_blob(
         &self,
         data: &[u8],
-        _source_account: &stellar_strkey::Strkey,
+        _: &stellar_strkey::Strkey,
     ) -> Result<Vec<u8>, Error> {
         let index = self.as_ref().as_ref().hd_path.clone();
+        eprintln!("You should see the following on your ledger:\n{}", hex::encode(data));
         Ok(self.as_ref().as_ref().sign_blob(index, data).await?)
     }
 
@@ -310,8 +323,6 @@ impl Stellar for Box<NativeSigner> {
         txn: [u8; 32],
         source_account: &stellar_strkey::Strkey,
     ) -> Result<DecoratedSignature, Error> {
-        let hash = hex::encode(&txn);
-        eprintln!("You should see the following on your ledger:\n{hash}");
         let index = self.as_ref().as_ref().hd_path.clone();
         let res = self
             .as_ref()

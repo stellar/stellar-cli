@@ -412,20 +412,15 @@ fn bip_path_from_index(index: u32) -> Result<slip10::BIP32Path, LedgerError> {
 
 fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Result<Vec<u8>, LedgerError> {
     let hd_path_indices = 0..hd_path.depth();
-    let mut result = Vec::with_capacity(hd_path.depth() as usize);
-
-    for index in hd_path_indices {
-        let value = hd_path.index(index);
-        if let Some(v) = value {
-            let value_bytes = v.to_be_bytes();
-            result.push(value_bytes);
-        } else {
-            return Err(LedgerError::Bip32PathError(
-                "Error getting index of hd path".to_string(),
-            ));
-        }
-    }
-
+    let result = hd_path_indices
+        .into_iter()
+        .map(|index| {
+            Ok(hd_path
+                .index(index)
+                .ok_or_else(|| LedgerError::Bip32PathError(format!("{hd_path}")))?
+                .to_be_bytes())
+        })
+        .collect::<Result<Vec<_>, LedgerError>>()?;
     Ok(result.into_iter().flatten().collect())
 }
 
@@ -434,7 +429,6 @@ pub fn get_transport() -> Result<impl Exchange, LedgerError> {
     let hidapi = HidApi::new().map_err(LedgerError::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(LedgerError::LedgerHidError)
 }
-
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
@@ -473,25 +467,16 @@ mod test {
         });
 
         let transport = EmulatorHttpTransport::new(&server.host(), server.port());
-        let ledger_options = Some(LedgerOptions {
+        let ledger_options = LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-        });
+        };
 
-        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
-        match ledger.get_public_key(0).await {
-            Ok(public_key) => {
-                let public_key_string = public_key.to_string();
-                // This is determined by the seed phrase used to start up the emulator
-                let expected_public_key =
-                    "GDUTHCF37UX32EMANXIL2WOOVEDZ47GHBTT3DYKU6EKM37SOIZXM2FN7";
-                assert_eq!(public_key_string, expected_public_key);
-            }
-            Err(e) => {
-                println!("{e}");
-                assert!(false);
-            }
-        }
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, Some(ledger_options));
+        let public_key = ledger.get_public_key(0).await.unwrap();
+        let public_key_string = public_key.to_string();
+        let expected_public_key = "GDUTHCF37UX32EMANXIL2WOOVEDZ47GHBTT3DYKU6EKM37SOIZXM2FN7";
+        assert_eq!(public_key_string, expected_public_key);
 
         mock_server.assert();
     }
@@ -511,21 +496,14 @@ mod test {
         });
 
         let transport = EmulatorHttpTransport::new(&server.host(), server.port());
-        let ledger_options = Some(LedgerOptions {
+        let ledger_options = LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-        });
-
-        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
-        match ledger.get_app_configuration().await {
-            Ok(config) => {
-                assert_eq!(config, vec![0, 5, 0, 3]);
-            }
-            Err(e) => {
-                println!("{e}");
-                assert!(false);
-            }
         };
+
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, Some(ledger_options));
+        let config = ledger.get_app_configuration().await.unwrap();
+        assert_eq!(config, vec![0, 5, 0, 3]);
 
         mock_server.assert();
     }
@@ -556,15 +534,15 @@ mod test {
         });
 
         let transport = EmulatorHttpTransport::new(&server.host(), server.port());
-        let ledger_options = Some(LedgerOptions {
+        let ledger_options = LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-        });
-        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+        };
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, Some(ledger_options));
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
 
-        let fake_source_acct = [0 as u8; 32];
-        let fake_dest_acct = [0 as u8; 32];
+        let fake_source_acct = [0; 32];
+        let fake_dest_acct = [0; 32];
         let tx = Transaction {
             source_account: MuxedAccount::Ed25519(Uint256(fake_source_acct)),
             fee: 100,
@@ -584,23 +562,18 @@ mod test {
             .unwrap(),
         };
 
-        let result = ledger.sign_transaction(path, tx).await;
-        match result {
-            Ok(response) => {
-                assert_eq!( hex::encode(response), "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e");
-            }
-            Err(e) => {
-                println!("{e}");
-                assert!(false);
-            }
-        };
+        let response = ledger.sign_transaction(path, tx).await.unwrap();
+        assert_eq!(
+            hex::encode(response),
+            "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e"
+        );
+
         mock_request_1.assert();
         mock_request_2.assert();
     }
 
     #[tokio::test]
     async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
-        //when hash signing isn't enabled on the device we expect an error
         let server = MockServer::start();
         let mock_server = server.mock(|when, then| {
             when.method(POST)
@@ -614,21 +587,23 @@ mod test {
         });
 
         let transport = EmulatorHttpTransport::new(&server.host(), server.port());
-        let ledger_options = Some(LedgerOptions {
+        let ledger_options = LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-        });
-        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+        };
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, Some(ledger_options));
 
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
         let test_hash = b"3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889";
 
-        let result = ledger.sign_transaction_hash(path, test_hash).await;
-        if let Err(LedgerError::APDUExchangeError(msg)) = result {
+        let err = ledger
+            .sign_transaction_hash(path, test_hash)
+            .await
+            .unwrap_err();
+        if let LedgerError::APDUExchangeError(msg) = err {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
-            // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
         } else {
-            panic!("Unexpected result: {:?}", result);
+            panic!("Unexpected error: {err:?}");
         }
 
         mock_server.assert();
@@ -649,34 +624,29 @@ mod test {
         });
 
         let transport = EmulatorHttpTransport::new(&server.host(), server.port());
-        let ledger_options: Option<LedgerOptions<_>> = Some(LedgerOptions {
+        let ledger_options = LedgerOptions {
             exchange: transport,
             hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-        });
-        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+        };
+        let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, Some(ledger_options));
         let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
         let mut test_hash = vec![0u8; 32];
 
-        match hex::decode_to_slice(
+        hex::decode_to_slice(
             "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
             &mut test_hash as &mut [u8],
-        ) {
-            Ok(()) => {}
-            Err(e) => {
-                panic!("Unexpected result: {e}");
-            }
-        }
+        )
+        .unwrap();
 
-        let result = ledger.sign_transaction_hash(path, &test_hash).await;
+        let response = ledger
+            .sign_transaction_hash(path, &test_hash)
+            .await
+            .unwrap();
 
-        match result {
-            Ok(response) => {
-                assert_eq!( hex::encode(response), "6970b9c9d3a6f4de7fb93e8d3920ec704fc4fece411873c40570015bbb1a60a197622bc3bf5644bb38ae73e1b96e4d487d716d142d46c7e944f008dece92df07");
-            }
-            Err(e) => {
-                panic!("Unexpected result: {e}");
-            }
-        }
+        assert_eq!(
+            hex::encode(response),
+            "6970b9c9d3a6f4de7fb93e8d3920ec704fc4fece411873c40570015bbb1a60a197622bc3bf5644bb38ae73e1b96e4d487d716d142d46c7e944f008dece92df07"
+        );
 
         mock_server.assert();
     }
