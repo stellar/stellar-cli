@@ -48,7 +48,6 @@ impl Cmd {
             wasm_out.set_extension("optimized.wasm");
             wasm_out
         });
-        println!("Writing to: {}...", wasm_out.to_string_lossy());
 
         let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
         options.converge = true;
