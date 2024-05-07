@@ -1,7 +1,9 @@
 use futures::executor::block_on;
-use hidapi::HidApi;
 use ledger_transport::{APDUCommand, Exchange};
-use ledger_transport_hid::{hidapi::HidError, LedgerHIDError, TransportNativeHID};
+use ledger_transport_hid::{
+    hidapi::{HidApi, HidError},
+    LedgerHIDError, TransportNativeHID,
+};
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{Hash, Transaction};
