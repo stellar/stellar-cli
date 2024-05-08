@@ -104,7 +104,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output. To turn on "soroban_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`
+* `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output. To turn on "stellar_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`
 * `-q`, `--quiet` — Do not write logs to stderr including `INFO`
 
   Possible values: `true`, `false`
@@ -117,7 +117,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
   Possible values: `true`, `false`
 
-* `--list` — List installed plugins. E.g. `soroban-hello`
+* `--list` — List installed plugins. E.g. `stellar-hello`
 
   Possible values: `true`, `false`
 
