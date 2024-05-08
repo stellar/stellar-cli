@@ -31,7 +31,7 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, visible_alias = "source", env = "SOROBAN_ACCOUNT")]
+    #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
     /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
     pub source_account: String,
 

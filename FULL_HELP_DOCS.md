@@ -1,91 +1,90 @@
-# Command-Line Help for `soroban`
+# Command-Line Help for `stellar`
 
-This document contains the help content for the `soroban` command-line program.
+This document contains the help content for the `stellar` command-line program.
 
 **Command Overview:**
 
-* [`soroban`↴](#soroban)
-* [`soroban completion`↴](#soroban-completion)
-* [`soroban contract`↴](#soroban-contract)
-* [`soroban contract asset`↴](#soroban-contract-asset)
-* [`soroban contract asset id`↴](#soroban-contract-asset-id)
-* [`soroban contract asset deploy`↴](#soroban-contract-asset-deploy)
-* [`soroban contract bindings`↴](#soroban-contract-bindings)
-* [`soroban contract bindings json`↴](#soroban-contract-bindings-json)
-* [`soroban contract bindings rust`↴](#soroban-contract-bindings-rust)
-* [`soroban contract bindings typescript`↴](#soroban-contract-bindings-typescript)
-* [`soroban contract build`↴](#soroban-contract-build)
-* [`soroban contract extend`↴](#soroban-contract-extend)
-* [`soroban contract deploy`↴](#soroban-contract-deploy)
-* [`soroban contract fetch`↴](#soroban-contract-fetch)
-* [`soroban contract id`↴](#soroban-contract-id)
-* [`soroban contract id asset`↴](#soroban-contract-id-asset)
-* [`soroban contract id wasm`↴](#soroban-contract-id-wasm)
-* [`soroban contract init`↴](#soroban-contract-init)
-* [`soroban contract inspect`↴](#soroban-contract-inspect)
-* [`soroban contract install`↴](#soroban-contract-install)
-* [`soroban contract invoke`↴](#soroban-contract-invoke)
-* [`soroban contract optimize`↴](#soroban-contract-optimize)
-* [`soroban contract read`↴](#soroban-contract-read)
-* [`soroban contract restore`↴](#soroban-contract-restore)
-* [`soroban events`↴](#soroban-events)
-* [`soroban keys`↴](#soroban-keys)
-* [`soroban keys add`↴](#soroban-keys-add)
-* [`soroban keys address`↴](#soroban-keys-address)
-* [`soroban keys fund`↴](#soroban-keys-fund)
-* [`soroban keys generate`↴](#soroban-keys-generate)
-* [`soroban keys ls`↴](#soroban-keys-ls)
-* [`soroban keys rm`↴](#soroban-keys-rm)
-* [`soroban keys show`↴](#soroban-keys-show)
-* [`soroban xdr`↴](#soroban-xdr)
-* [`soroban xdr types`↴](#soroban-xdr-types)
-* [`soroban xdr types list`↴](#soroban-xdr-types-list)
-* [`soroban xdr guess`↴](#soroban-xdr-guess)
-* [`soroban xdr decode`↴](#soroban-xdr-decode)
-* [`soroban xdr encode`↴](#soroban-xdr-encode)
-* [`soroban xdr version`↴](#soroban-xdr-version)
-* [`soroban network`↴](#soroban-network)
-* [`soroban network add`↴](#soroban-network-add)
-* [`soroban network rm`↴](#soroban-network-rm)
-* [`soroban network ls`↴](#soroban-network-ls)
-* [`soroban network start`↴](#soroban-network-start)
-* [`soroban network stop`↴](#soroban-network-stop)
-* [`soroban version`↴](#soroban-version)
-* [`soroban cache`↴](#soroban-cache)
-* [`soroban cache clean`↴](#soroban-cache-clean)
-* [`soroban cache path`↴](#soroban-cache-path)
-* [`soroban cache actionlog`↴](#soroban-cache-actionlog)
-* [`soroban cache actionlog ls`↴](#soroban-cache-actionlog-ls)
-* [`soroban cache actionlog read`↴](#soroban-cache-actionlog-read)
+* [`stellar`↴](#stellar)
+* [`stellar completion`↴](#stellar-completion)
+* [`stellar contract`↴](#stellar-contract)
+* [`stellar contract asset`↴](#stellar-contract-asset)
+* [`stellar contract asset id`↴](#stellar-contract-asset-id)
+* [`stellar contract asset deploy`↴](#stellar-contract-asset-deploy)
+* [`stellar contract bindings`↴](#stellar-contract-bindings)
+* [`stellar contract bindings json`↴](#stellar-contract-bindings-json)
+* [`stellar contract bindings rust`↴](#stellar-contract-bindings-rust)
+* [`stellar contract bindings typescript`↴](#stellar-contract-bindings-typescript)
+* [`stellar contract build`↴](#stellar-contract-build)
+* [`stellar contract extend`↴](#stellar-contract-extend)
+* [`stellar contract deploy`↴](#stellar-contract-deploy)
+* [`stellar contract fetch`↴](#stellar-contract-fetch)
+* [`stellar contract id`↴](#stellar-contract-id)
+* [`stellar contract id asset`↴](#stellar-contract-id-asset)
+* [`stellar contract id wasm`↴](#stellar-contract-id-wasm)
+* [`stellar contract init`↴](#stellar-contract-init)
+* [`stellar contract inspect`↴](#stellar-contract-inspect)
+* [`stellar contract install`↴](#stellar-contract-install)
+* [`stellar contract invoke`↴](#stellar-contract-invoke)
+* [`stellar contract optimize`↴](#stellar-contract-optimize)
+* [`stellar contract read`↴](#stellar-contract-read)
+* [`stellar contract restore`↴](#stellar-contract-restore)
+* [`stellar events`↴](#stellar-events)
+* [`stellar keys`↴](#stellar-keys)
+* [`stellar keys add`↴](#stellar-keys-add)
+* [`stellar keys address`↴](#stellar-keys-address)
+* [`stellar keys fund`↴](#stellar-keys-fund)
+* [`stellar keys generate`↴](#stellar-keys-generate)
+* [`stellar keys ls`↴](#stellar-keys-ls)
+* [`stellar keys rm`↴](#stellar-keys-rm)
+* [`stellar keys show`↴](#stellar-keys-show)
+* [`stellar xdr`↴](#stellar-xdr)
+* [`stellar xdr types`↴](#stellar-xdr-types)
+* [`stellar xdr types list`↴](#stellar-xdr-types-list)
+* [`stellar xdr guess`↴](#stellar-xdr-guess)
+* [`stellar xdr decode`↴](#stellar-xdr-decode)
+* [`stellar xdr encode`↴](#stellar-xdr-encode)
+* [`stellar xdr version`↴](#stellar-xdr-version)
+* [`stellar network`↴](#stellar-network)
+* [`stellar network add`↴](#stellar-network-add)
+* [`stellar network rm`↴](#stellar-network-rm)
+* [`stellar network ls`↴](#stellar-network-ls)
+* [`stellar network start`↴](#stellar-network-start)
+* [`stellar network stop`↴](#stellar-network-stop)
+* [`stellar version`↴](#stellar-version)
+* [`stellar cache`↴](#stellar-cache)
+* [`stellar cache clean`↴](#stellar-cache-clean)
+* [`stellar cache path`↴](#stellar-cache-path)
+* [`stellar cache actionlog`↴](#stellar-cache-actionlog)
+* [`stellar cache actionlog ls`↴](#stellar-cache-actionlog-ls)
+* [`stellar cache actionlog read`↴](#stellar-cache-actionlog-read)
 
-## `soroban`
+## `stellar`
 
 Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
-Intro: https://soroban.stellar.org/docs
-CLI Reference: https://github.com/stellar/soroban-cli/tree/main/docs/soroban-cli-full-docs.md
+Stellar Docs: https://developers.stellar.org
+CLI Full Hep Docs: https://github.com/stellar/soroban-cli/tree/main/FULL_HELP_DOCS.md
 
 The easiest way to get started is to generate a new identity:
 
-    soroban config identity generate alice
+    stellar config identity generate alice
 
 You can use identities with the `--source` flag in other commands later.
 
 Commands that relate to smart contract interactions are organized under the `contract` subcommand. List them:
 
-    soroban contract --help
+    stellar contract --help
 
-A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. `soroban contract invoke` makes use of this:
+A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. The invoke subcommand makes use of this:
 
-    soroban contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the "slop") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    soroban contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 
-Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md
 
-**Usage:** `soroban [OPTIONS] <COMMAND>`
+**Usage:** `stellar [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -129,7 +128,7 @@ Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soro
 
 
 
-## `soroban completion`
+## `stellar completion`
 
 Print shell completion code for the specified shell
 
@@ -142,7 +141,7 @@ To enable autocomplete in the current bash shell, run:
 To enable autocomplete permanently, run:
   echo "source <(soroban completion --shell bash)" >> ~/.bashrc
 
-**Usage:** `soroban completion --shell <SHELL>`
+**Usage:** `stellar completion --shell <SHELL>`
 
 ###### **Options:**
 
@@ -153,11 +152,11 @@ To enable autocomplete permanently, run:
 
 
 
-## `soroban contract`
+## `stellar contract`
 
 Tools for smart contract developers
 
-**Usage:** `soroban contract <COMMAND>`
+**Usage:** `stellar contract <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -178,11 +177,11 @@ Tools for smart contract developers
 
 
 
-## `soroban contract asset`
+## `stellar contract asset`
 
 Utilities to deploy a Stellar Asset Contract or get its id
 
-**Usage:** `soroban contract asset <COMMAND>`
+**Usage:** `stellar contract asset <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -191,11 +190,11 @@ Utilities to deploy a Stellar Asset Contract or get its id
 
 
 
-## `soroban contract asset id`
+## `stellar contract asset id`
 
 Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
 
-**Usage:** `soroban contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -213,11 +212,11 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id a
 
 
 
-## `soroban contract asset deploy`
+## `stellar contract asset deploy`
 
 Deploy builtin Soroban Asset Contract
 
-**Usage:** `soroban contract asset deploy [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -243,11 +242,11 @@ Deploy builtin Soroban Asset Contract
 
 
 
-## `soroban contract bindings`
+## `stellar contract bindings`
 
 Generate code client bindings for a contract
 
-**Usage:** `soroban contract bindings <COMMAND>`
+**Usage:** `stellar contract bindings <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -257,11 +256,11 @@ Generate code client bindings for a contract
 
 
 
-## `soroban contract bindings json`
+## `stellar contract bindings json`
 
 Generate Json Bindings
 
-**Usage:** `soroban contract bindings json --wasm <WASM>`
+**Usage:** `stellar contract bindings json --wasm <WASM>`
 
 ###### **Options:**
 
@@ -269,11 +268,11 @@ Generate Json Bindings
 
 
 
-## `soroban contract bindings rust`
+## `stellar contract bindings rust`
 
 Generate Rust bindings
 
-**Usage:** `soroban contract bindings rust --wasm <WASM>`
+**Usage:** `stellar contract bindings rust --wasm <WASM>`
 
 ###### **Options:**
 
@@ -281,11 +280,11 @@ Generate Rust bindings
 
 
 
-## `soroban contract bindings typescript`
+## `stellar contract bindings typescript`
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `soroban contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
+**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
 
 ###### **Options:**
 
@@ -307,7 +306,7 @@ Generate a TypeScript / JavaScript package
 
 
 
-## `soroban contract build`
+## `stellar contract build`
 
 Build a contract from source
 
@@ -315,7 +314,7 @@ Builds all crates that are referenced by the cargo manifest (Cargo.toml) that ha
 
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
-**Usage:** `soroban contract build [OPTIONS]`
+**Usage:** `stellar contract build [OPTIONS]`
 
 ###### **Options:**
 
@@ -343,13 +342,13 @@ To view the commands that will be executed, without executing them, use the --pr
 
 
 
-## `soroban contract extend`
+## `stellar contract extend`
 
 Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `soroban contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -394,11 +393,11 @@ If no keys are specified the contract itself is extended.
 
 
 
-## `soroban contract deploy`
+## `stellar contract deploy`
 
 Deploy a wasm contract
 
-**Usage:** `soroban contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
+**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
 
 ###### **Options:**
 
@@ -432,11 +431,11 @@ Deploy a wasm contract
 
 
 
-## `soroban contract fetch`
+## `stellar contract fetch`
 
 Fetch a contract's Wasm binary
 
-**Usage:** `soroban contract fetch [OPTIONS] --id <CONTRACT_ID>`
+**Usage:** `stellar contract fetch [OPTIONS] --id <CONTRACT_ID>`
 
 ###### **Options:**
 
@@ -453,11 +452,11 @@ Fetch a contract's Wasm binary
 
 
 
-## `soroban contract id`
+## `stellar contract id`
 
 Generate the contract id for a given contract or asset
 
-**Usage:** `soroban contract id <COMMAND>`
+**Usage:** `stellar contract id <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -466,11 +465,11 @@ Generate the contract id for a given contract or asset
 
 
 
-## `soroban contract id asset`
+## `stellar contract id asset`
 
 Deploy builtin Soroban Asset Contract
 
-**Usage:** `soroban contract id asset [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract id asset [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -488,11 +487,11 @@ Deploy builtin Soroban Asset Contract
 
 
 
-## `soroban contract id wasm`
+## `stellar contract id wasm`
 
 Deploy normal Wasm Contract
 
-**Usage:** `soroban contract id wasm [OPTIONS] --salt <SALT> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -510,11 +509,11 @@ Deploy normal Wasm Contract
 
 
 
-## `soroban contract init`
+## `stellar contract init`
 
 Initialize a Soroban project with an example contract
 
-**Usage:** `soroban contract init [OPTIONS] <PROJECT_PATH>`
+**Usage:** `stellar contract init [OPTIONS] <PROJECT_PATH>`
 
 ###### **Arguments:**
 
@@ -532,11 +531,11 @@ Initialize a Soroban project with an example contract
 
 
 
-## `soroban contract inspect`
+## `stellar contract inspect`
 
 Inspect a WASM file listing contract functions, meta, etc
 
-**Usage:** `soroban contract inspect [OPTIONS] --wasm <WASM>`
+**Usage:** `stellar contract inspect [OPTIONS] --wasm <WASM>`
 
 ###### **Options:**
 
@@ -561,11 +560,11 @@ Inspect a WASM file listing contract functions, meta, etc
 
 
 
-## `soroban contract install`
+## `stellar contract install`
 
 Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `soroban contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
 ###### **Options:**
 
@@ -597,7 +596,7 @@ Install a WASM file to the ledger without creating a contract instance
 
 
 
-## `soroban contract invoke`
+## `stellar contract invoke`
 
 Invoke a contract function
 
@@ -605,7 +604,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 soroban contract invoke ... -- --help
 
-**Usage:** `soroban contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -639,11 +638,11 @@ soroban contract invoke ... -- --help
 
 
 
-## `soroban contract optimize`
+## `stellar contract optimize`
 
 Optimize a WASM file
 
-**Usage:** `soroban contract optimize [OPTIONS] --wasm <WASM>`
+**Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>`
 
 ###### **Options:**
 
@@ -652,11 +651,11 @@ Optimize a WASM file
 
 
 
-## `soroban contract read`
+## `stellar contract read`
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `soroban contract read [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract read [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -700,13 +699,13 @@ Print the current value of a contract-data ledger entry
 
 
 
-## `soroban contract restore`
+## `stellar contract restore`
 
 Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `soroban contract restore [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract restore [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -751,11 +750,11 @@ If no keys are specificed the contract itself is restored.
 
 
 
-## `soroban events`
+## `stellar events`
 
 Watch the network for contract events
 
-**Usage:** `soroban events [OPTIONS]`
+**Usage:** `stellar events [OPTIONS]`
 
 ###### **Options:**
 
@@ -795,11 +794,11 @@ Watch the network for contract events
 
 
 
-## `soroban keys`
+## `stellar keys`
 
 Create and manage identities including keys and addresses
 
-**Usage:** `soroban keys <COMMAND>`
+**Usage:** `stellar keys <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -813,11 +812,11 @@ Create and manage identities including keys and addresses
 
 
 
-## `soroban keys add`
+## `stellar keys add`
 
 Add a new identity (keypair, ledger, macOS keychain)
 
-**Usage:** `soroban keys add [OPTIONS] <NAME>`
+**Usage:** `stellar keys add [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -841,11 +840,11 @@ Add a new identity (keypair, ledger, macOS keychain)
 
 
 
-## `soroban keys address`
+## `stellar keys address`
 
 Given an identity return its address (public key)
 
-**Usage:** `soroban keys address [OPTIONS] <NAME>`
+**Usage:** `stellar keys address [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -862,11 +861,11 @@ Given an identity return its address (public key)
 
 
 
-## `soroban keys fund`
+## `stellar keys fund`
 
 Fund an identity on a test network
 
-**Usage:** `soroban keys fund [OPTIONS] <NAME>`
+**Usage:** `stellar keys fund [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -886,11 +885,11 @@ Fund an identity on a test network
 
 
 
-## `soroban keys generate`
+## `stellar keys generate`
 
 Generate a new identity with a seed phrase, currently 12 words
 
-**Usage:** `soroban keys generate [OPTIONS] <NAME>`
+**Usage:** `stellar keys generate [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -923,11 +922,11 @@ Generate a new identity with a seed phrase, currently 12 words
 
 
 
-## `soroban keys ls`
+## `stellar keys ls`
 
 List identities
 
-**Usage:** `soroban keys ls [OPTIONS]`
+**Usage:** `stellar keys ls [OPTIONS]`
 
 ###### **Options:**
 
@@ -943,11 +942,11 @@ List identities
 
 
 
-## `soroban keys rm`
+## `stellar keys rm`
 
 Remove an identity
 
-**Usage:** `soroban keys rm [OPTIONS] <NAME>`
+**Usage:** `stellar keys rm [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -963,11 +962,11 @@ Remove an identity
 
 
 
-## `soroban keys show`
+## `stellar keys show`
 
 Given an identity return its private key
 
-**Usage:** `soroban keys show [OPTIONS] <NAME>`
+**Usage:** `stellar keys show [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -984,11 +983,11 @@ Given an identity return its private key
 
 
 
-## `soroban xdr`
+## `stellar xdr`
 
 Decode and encode XDR
 
-**Usage:** `soroban xdr [CHANNEL] <COMMAND>`
+**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -1009,11 +1008,11 @@ Decode and encode XDR
 
 
 
-## `soroban xdr types`
+## `stellar xdr types`
 
 View information about types
 
-**Usage:** `soroban xdr types <COMMAND>`
+**Usage:** `stellar xdr types <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -1021,9 +1020,9 @@ View information about types
 
 
 
-## `soroban xdr types list`
+## `stellar xdr types list`
 
-**Usage:** `soroban xdr types list [OPTIONS]`
+**Usage:** `stellar xdr types list [OPTIONS]`
 
 ###### **Options:**
 
@@ -1036,11 +1035,11 @@ View information about types
 
 
 
-## `soroban xdr guess`
+## `stellar xdr guess`
 
 Guess the XDR type
 
-**Usage:** `soroban xdr guess [OPTIONS] [FILE]`
+**Usage:** `stellar xdr guess [OPTIONS] [FILE]`
 
 ###### **Arguments:**
 
@@ -1066,11 +1065,11 @@ Guess the XDR type
 
 
 
-## `soroban xdr decode`
+## `stellar xdr decode`
 
 Decode XDR
 
-**Usage:** `soroban xdr decode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `stellar xdr decode [OPTIONS] --type <TYPE> [FILES]...`
 
 ###### **Arguments:**
 
@@ -1094,11 +1093,11 @@ Decode XDR
 
 
 
-## `soroban xdr encode`
+## `stellar xdr encode`
 
 Encode XDR
 
-**Usage:** `soroban xdr encode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `stellar xdr encode [OPTIONS] --type <TYPE> [FILES]...`
 
 ###### **Arguments:**
 
@@ -1122,19 +1121,19 @@ Encode XDR
 
 
 
-## `soroban xdr version`
+## `stellar xdr version`
 
 Print version information
 
-**Usage:** `soroban xdr version`
+**Usage:** `stellar xdr version`
 
 
 
-## `soroban network`
+## `stellar network`
 
 Start and configure networks
 
-**Usage:** `soroban network <COMMAND>`
+**Usage:** `stellar network <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -1146,11 +1145,11 @@ Start and configure networks
 
 
 
-## `soroban network add`
+## `stellar network add`
 
 Add a new network
 
-**Usage:** `soroban network add [OPTIONS] --rpc-url <RPC_URL> --network-passphrase <NETWORK_PASSPHRASE> <NAME>`
+**Usage:** `stellar network add [OPTIONS] --rpc-url <RPC_URL> --network-passphrase <NETWORK_PASSPHRASE> <NAME>`
 
 ###### **Arguments:**
 
@@ -1168,11 +1167,11 @@ Add a new network
 
 
 
-## `soroban network rm`
+## `stellar network rm`
 
 Remove a network
 
-**Usage:** `soroban network rm [OPTIONS] <NAME>`
+**Usage:** `stellar network rm [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -1188,11 +1187,11 @@ Remove a network
 
 
 
-## `soroban network ls`
+## `stellar network ls`
 
 List networks
 
-**Usage:** `soroban network ls [OPTIONS]`
+**Usage:** `stellar network ls [OPTIONS]`
 
 ###### **Options:**
 
@@ -1208,7 +1207,7 @@ List networks
 
 
 
-## `soroban network start`
+## `stellar network start`
 
 Start network
 
@@ -1218,7 +1217,7 @@ soroban network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
-**Usage:** `soroban network start [OPTIONS] <NETWORK>`
+**Usage:** `stellar network start [OPTIONS] <NETWORK>`
 
 ###### **Arguments:**
 
@@ -1239,11 +1238,11 @@ By default, when starting a testnet container, without any optional arguments, i
 
 
 
-## `soroban network stop`
+## `stellar network stop`
 
 Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
 
-**Usage:** `soroban network stop [OPTIONS] <NETWORK>`
+**Usage:** `stellar network stop [OPTIONS] <NETWORK>`
 
 ###### **Arguments:**
 
@@ -1258,19 +1257,19 @@ Stop a network started with `network start`. For example, if you ran `soroban ne
 
 
 
-## `soroban version`
+## `stellar version`
 
 Print version information
 
-**Usage:** `soroban version`
+**Usage:** `stellar version`
 
 
 
-## `soroban cache`
+## `stellar cache`
 
 Cache for tranasctions and contract specs
 
-**Usage:** `soroban cache <COMMAND>`
+**Usage:** `stellar cache <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -1280,27 +1279,27 @@ Cache for tranasctions and contract specs
 
 
 
-## `soroban cache clean`
+## `stellar cache clean`
 
 Delete the cache
 
-**Usage:** `soroban cache clean`
+**Usage:** `stellar cache clean`
 
 
 
-## `soroban cache path`
+## `stellar cache path`
 
 Show the location of the cache
 
-**Usage:** `soroban cache path`
+**Usage:** `stellar cache path`
 
 
 
-## `soroban cache actionlog`
+## `stellar cache actionlog`
 
 Access details about cached actions like transactions, and simulations. (Experimental. May see breaking changes at any time.)
 
-**Usage:** `soroban cache actionlog <COMMAND>`
+**Usage:** `stellar cache actionlog <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -1309,11 +1308,11 @@ Access details about cached actions like transactions, and simulations. (Experim
 
 
 
-## `soroban cache actionlog ls`
+## `stellar cache actionlog ls`
 
 List cached actions (transactions, simulations)
 
-**Usage:** `soroban cache actionlog ls [OPTIONS]`
+**Usage:** `stellar cache actionlog ls [OPTIONS]`
 
 ###### **Options:**
 
@@ -1329,11 +1328,11 @@ List cached actions (transactions, simulations)
 
 
 
-## `soroban cache actionlog read`
+## `stellar cache actionlog read`
 
 Read cached action
 
-**Usage:** `soroban cache actionlog read --id <ID>`
+**Usage:** `stellar cache actionlog read --id <ID>`
 
 ###### **Options:**
 
