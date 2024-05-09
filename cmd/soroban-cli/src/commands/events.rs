@@ -226,7 +226,7 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        client
+        Ok(client
             .get_events(
                 start,
                 Some(self.event_type),
@@ -235,6 +235,6 @@ impl NetworkRunnable for Cmd {
                 Some(self.count),
             )
             .await
-            .map_err(Error::Rpc)
+            .map_err(Error::Rpc)?)
     }
 }

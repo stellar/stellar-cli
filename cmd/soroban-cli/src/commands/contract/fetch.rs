@@ -145,7 +145,6 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        // async closures are not yet stable
         Ok(client.get_remote_wasm(&contract_id).await?)
     }
 }

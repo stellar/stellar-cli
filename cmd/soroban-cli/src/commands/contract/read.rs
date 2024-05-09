@@ -7,11 +7,10 @@ use clap::{command, Parser, ValueEnum};
 use soroban_env_host::{
     xdr::{
         ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
-        ScVal, WriteXdr,
+        Limits, ScVal, WriteXdr,
     },
     HostError,
 };
-use soroban_sdk::xdr::Limits;
 
 use crate::{
     commands::{config, global, NetworkRunnable},

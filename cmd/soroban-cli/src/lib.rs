@@ -3,9 +3,10 @@
     clippy::must_use_candidate,
     clippy::missing_panics_doc
 )]
+use std::path::Path;
+
 pub(crate) use soroban_env_host::xdr;
 pub(crate) use soroban_rpc as rpc;
-use std::path::Path;
 
 mod cli;
 pub use cli::main;

@@ -239,6 +239,14 @@ Deploy builtin Soroban Asset Contract
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -390,6 +398,14 @@ If no keys are specified the contract itself is extended.
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -422,6 +438,14 @@ Deploy a wasm contract
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
@@ -586,6 +610,14 @@ Install a WASM file to the ledger without creating a contract instance
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -635,6 +667,14 @@ soroban contract invoke ... -- --help
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -747,6 +787,14 @@ If no keys are specificed the contract itself is restored.
   Possible values: `true`, `false`
 
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
+
+  Possible values: `true`, `false`
+
 
 
 

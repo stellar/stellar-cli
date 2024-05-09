@@ -3,15 +3,17 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-    LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-    TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
+    LedgerEntryData, LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
 };
 
 use crate::{
     commands::{
         config::{self, data},
-        global, network, NetworkRunnable,
+        global, network,
+        txn_result::TxnResult,
+        NetworkRunnable,
     },
     key,
     rpc::{self, Client},
@@ -87,11 +89,16 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let ttl_ledger = self.run_against_rpc_server(None, None).await?;
-        if self.ttl_ledger_only {
-            println!("{ttl_ledger}");
-        } else {
-            println!("New ttl ledger: {ttl_ledger}");
+        let res = self.run_against_rpc_server(None, None).await?;
+        match res {
+            TxnResult::Txn(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnResult::Res(ttl_ledger) => {
+                if self.ttl_ledger_only {
+                    println!("{ttl_ledger}");
+                } else {
+                    println!("New ttl ledger: {ttl_ledger}");
+                }
+            }
         }
 
         Ok(())
@@ -111,13 +118,13 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = u32;
+    type Result = TxnResult<u32>;
 
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<u32, Self::Error> {
+    ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
@@ -161,7 +168,9 @@ impl NetworkRunnable for Cmd {
                 resource_fee: 0,
             }),
         };
-
+        if self.fee.build_only {
+            return Ok(TxnResult::Txn(tx));
+        }
         let res = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
@@ -194,7 +203,7 @@ impl NetworkRunnable for Cmd {
             let entry = client.get_full_ledger_entries(&keys).await?;
             let extension = entry.entries[0].live_until_ledger_seq;
             if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
-                return Ok(extension);
+                return Ok(TxnResult::Res(extension));
             }
         }
 
@@ -209,7 +218,7 @@ impl NetworkRunnable for Cmd {
                         }),
                     ..
                 }),
-            ) => Ok(*live_until_ledger_seq),
+            ) => Ok(TxnResult::Res(*live_until_ledger_seq)),
             _ => Err(Error::LedgerEntryNotFound),
         }
     }
