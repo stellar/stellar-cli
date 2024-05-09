@@ -14,6 +14,8 @@ pub mod network;
 pub mod plugin;
 pub mod version;
 
+pub mod txn_result;
+
 pub const HEADING_RPC: &str = "Options (RPC)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 

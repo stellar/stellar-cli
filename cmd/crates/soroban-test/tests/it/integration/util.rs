@@ -38,7 +38,12 @@ pub async fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm<'static>) -> String 
         TEST_SALT,
         "--ignore-checks",
     ]);
-    sandbox.run_cmd_with(cmd, "test").await.unwrap()
+    sandbox
+        .run_cmd_with(cmd, "test")
+        .await
+        .unwrap()
+        .into_result()
+        .unwrap()
 }
 
 pub async fn extend_contract(sandbox: &TestEnv, id: &str) {

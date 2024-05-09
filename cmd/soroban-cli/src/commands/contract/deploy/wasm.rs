@@ -17,7 +17,9 @@ use soroban_env_host::{
 use crate::commands::{
     config::data,
     contract::{self, id::wasm::get_contract_id},
-    global, network, NetworkRunnable,
+    global, network,
+    txn_result::TxnResult,
+    NetworkRunnable,
 };
 use crate::{
     commands::{config, contract::install, HEADING_RPC},
@@ -96,6 +98,8 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
@@ -109,23 +113,29 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = String;
+    type Result = TxnResult<String>;
 
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<String, Error> {
+    ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let hash = install::Cmd {
-                wasm: wasm::Args { wasm: wasm.clone() },
-                config: config.clone(),
-                fee: self.fee.clone(),
-                ignore_checks: self.ignore_checks,
-            }
-            .run_against_rpc_server(global_args, Some(config))
-            .await?;
+            let hash = if self.fee.build_only {
+                wasm::Args { wasm: wasm.clone() }.hash()?
+            } else {
+                install::Cmd {
+                    wasm: wasm::Args { wasm: wasm.clone() },
+                    config: config.clone(),
+                    fee: self.fee.clone(),
+                    ignore_checks: self.ignore_checks,
+                }
+                .run_against_rpc_server(global_args, Some(config))
+                .await?
+                .into_result()
+                .expect("the value (hash) is expected because it should always be available since build-only is a shared parameter")
+            };
             hex::encode(hash)
         } else {
             self.wasm_hash
@@ -169,8 +179,15 @@ impl NetworkRunnable for Cmd {
             salt,
             &key,
         )?;
+        if self.fee.build_only {
+            return Ok(TxnResult::Txn(txn));
+        }
+
         let txn = client.create_assembled_transaction(&txn).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
+        if self.fee.sim_only {
+            return Ok(TxnResult::Txn(txn.transaction().clone()));
+        }
         let get_txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?
@@ -178,7 +195,9 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
-        Ok(stellar_strkey::Contract(contract_id.0).to_string())
+        Ok(TxnResult::Res(
+            stellar_strkey::Contract(contract_id.0).to_string(),
+        ))
     }
 }
 
