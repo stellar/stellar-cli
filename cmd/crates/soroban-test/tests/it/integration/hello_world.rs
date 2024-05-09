@@ -2,6 +2,7 @@ use predicates::boolean::PredicateBooleanExt;
 use soroban_cli::commands::{
     config::{locator, secret},
     contract::{self, fetch},
+    txn_result::TxnResult,
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
@@ -20,7 +21,7 @@ async fn invoke_view_with_non_existent_source_account() {
     cmd.config.source_account = String::new();
     cmd.is_view = true;
     let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
-    assert_eq!(res, format!(r#"["Hello",{world:?}]"#));
+    assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
 }
 
 #[tokio::test]
@@ -163,7 +164,7 @@ fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
 async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
     let cmd = hello_world_cmd(id, "world");
     let res = e.run_cmd_with(cmd, "test").await.unwrap();
-    assert_eq!(res, r#"["Hello","world"]"#);
+    assert_eq!(res, TxnResult::Res(r#"["Hello","world"]"#.to_string()));
 }
 
 fn invoke_auth(sandbox: &TestEnv, id: &str, addr: &str) {

@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use soroban_env_host::xdr::{Limits, Transaction, WriteXdr};
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TxnResult<R> {
     Txn(Transaction),
     Res(R),
