@@ -161,11 +161,10 @@ impl NetworkRunnable for Cmd {
         let txn = client
             .create_assembled_transaction(&tx_without_preflight)
             .await?;
-        let txn = self.fee.apply_to_assembled_txn(txn)?;
-        let txn = match txn {
-            TxnResult::Txn(raw) => return Ok(TxnResult::Txn(raw)),
-            TxnResult::Res(txn) => txn,
-        };
+        let txn = self.fee.apply_to_assembled_txn(txn);
+        if self.fee.sim_only {
+            return Ok(TxnResult::Txn(txn.transaction().clone()));
+        }
         let txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?;
