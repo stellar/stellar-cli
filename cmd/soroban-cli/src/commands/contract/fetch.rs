@@ -21,7 +21,6 @@ use stellar_strkey::DecodeError;
 
 use super::super::config::{self, locator};
 use crate::commands::network::{self, Network};
-use crate::commands::txn_result::TxnResult;
 use crate::commands::{global, NetworkRunnable};
 use crate::{
     rpc::{self, Client},
@@ -75,8 +74,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("missing result")]
     MissingResult,
-    #[error("Unexpected XDR")]
-    UnexpectedXdr,
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("reading file {0:?}: {1}")]
@@ -119,10 +116,7 @@ impl Cmd {
     }
 
     pub async fn get_bytes(&self) -> Result<Vec<u8>, Error> {
-        match self.run_against_rpc_server(None, None).await? {
-            TxnResult::Xdr(_) => Err(Error::UnexpectedXdr),
-            TxnResult::Res(v) => Ok(v),
-        }
+        self.run_against_rpc_server(None, None).await
     }
 
     pub fn network(&self) -> Result<Network, Error> {
@@ -143,7 +137,7 @@ impl NetworkRunnable for Cmd {
         &self,
         _args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<TxnResult<Vec<u8>>, Error> {
+    ) -> Result<Vec<u8>, Error> {
         let network = config.map_or_else(|| self.network(), |c| Ok(c.get_network()?))?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
@@ -151,7 +145,7 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        Ok(TxnResult::Res(client.get_remote_wasm(&contract_id).await?))
+        Ok(client.get_remote_wasm(&contract_id).await?)
     }
 }
 pub fn get_contract_wasm_from_storage(

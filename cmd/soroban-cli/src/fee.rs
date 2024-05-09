@@ -36,7 +36,8 @@ impl Args {
             add_padding_to_instructions(txn)
         };
         if self.sim_only {
-            TxnResult::from_xdr(simulated_txn.transaction())
+            // TODO: Move into callers.
+            Ok(TxnResult::Txn(simulated_txn.transaction().clone()))
         } else {
             Ok(TxnResult::Res(simulated_txn))
         }

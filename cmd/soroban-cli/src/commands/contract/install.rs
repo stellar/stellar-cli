@@ -7,7 +7,7 @@ use soroban_env_host::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
     LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
     ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt, TransactionResult,
-    TransactionResultResult, Uint256, VecM,
+    TransactionResultResult, Uint256, VecM, WriteXdr,
 };
 
 use super::restore;
@@ -74,7 +74,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let res_str = match self.run_against_rpc_server(None, None).await? {
-            TxnResult::Xdr(xdr) => xdr,
+            TxnResult::Txn(tx) => tx.to_xdr_base64(Limits::none())?,
             TxnResult::Res(hash) => hex::encode(hash),
         };
         println!("{res_str}");
@@ -85,7 +85,7 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = Hash;
+    type Result = TxnResult<Hash>;
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
@@ -130,7 +130,7 @@ impl NetworkRunnable for Cmd {
             build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &key)?;
 
         if self.fee.build_only {
-            return Ok(TxnResult::from_xdr(&tx_without_preflight)?);
+            return Ok(TxnResult::Txn(tx_without_preflight));
         }
         let code_key =
             xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
@@ -163,7 +163,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         let txn = self.fee.apply_to_assembled_txn(txn)?;
         let txn = match txn {
-            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
+            TxnResult::Txn(raw) => return Ok(TxnResult::Txn(raw)),
             TxnResult::Res(txn) => txn,
         };
         let txn_resp = client

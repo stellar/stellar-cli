@@ -21,7 +21,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use soroban_sdk::xdr::{
+use soroban_env_host::xdr::{
     AccountEntry, AccountEntryExt, AccountId, ContractDataEntry, DiagnosticEvent, Thresholds,
 };
 use soroban_spec::read::FromWasmError;
@@ -308,7 +308,7 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = String;
+    type Result = TxnResult<String>;
 
     async fn run_against_rpc_server(
         &self,
@@ -379,12 +379,12 @@ impl NetworkRunnable for Cmd {
             account_id,
         )?;
         if self.fee.build_only {
-            return Ok(TxnResult::from_xdr(&tx)?);
+            return Ok(TxnResult::Txn(tx));
         }
         let txn = client.create_assembled_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn)?;
         let txn = match txn {
-            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
+            TxnResult::Txn(raw) => return Ok(TxnResult::Txn(raw)),
             TxnResult::Res(txn) => txn,
         };
         let sim_res = txn.sim_response();

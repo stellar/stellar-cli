@@ -3,9 +3,9 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta, Preconditions,
-    RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
+    LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
+    Preconditions, RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
+    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
 };
 use stellar_strkey::DecodeError;
 
@@ -14,7 +14,7 @@ use crate::{
         config::{self, data, locator},
         contract::extend,
         global, network,
-        txn_result::{self, TxnResult},
+        txn_result::TxnResult,
         NetworkRunnable,
     },
     key,
@@ -89,9 +89,6 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
-
-    #[error(transparent)]
-    TxnResult(#[from] txn_result::Error),
 }
 
 impl Cmd {
@@ -99,8 +96,8 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let expiration_ledger_seq = match self.run_against_rpc_server(None, None).await? {
             TxnResult::Res(res) => res,
-            TxnResult::Xdr(xdr) => {
-                println!("{xdr}");
+            TxnResult::Txn(xdr) => {
+                println!("{}", xdr.to_xdr_base64(Limits::none())?);
                 return Ok(());
             }
         };
@@ -125,7 +122,7 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = u32;
+    type Result = TxnResult<u32>;
 
     async fn run_against_rpc_server(
         &self,
@@ -173,7 +170,7 @@ impl NetworkRunnable for Cmd {
             }),
         };
         if self.fee.build_only {
-            return Ok(TxnResult::from_xdr(&tx)?);
+            return Ok(TxnResult::Txn(tx));
         }
         let res = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)

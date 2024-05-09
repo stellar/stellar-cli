@@ -193,7 +193,9 @@ impl TestEnv {
         source: &str,
     ) -> Result<String, invoke::Error> {
         let cmd = self.cmd_with_config::<I, invoke::Cmd>(command_str);
-        self.run_cmd_with(cmd, source).await
+        self.run_cmd_with(cmd, source)
+            .await
+            .map(|r| r.into_result().unwrap())
     }
 
     /// A convenience method for using the invoke command.
@@ -236,25 +238,22 @@ impl TestEnv {
             },
             hd_path: None,
         };
-        Ok(cmd
-            .run_against_rpc_server(
-                Some(&global::Args {
-                    locator: config::locator::Args {
-                        global: false,
-                        config_dir,
-                    },
-                    filter_logs: Vec::default(),
-                    quiet: false,
-                    verbose: false,
-                    very_verbose: false,
-                    list: false,
-                    no_cache: false,
-                }),
-                Some(&config),
-            )
-            .await?
-            .into_res()
-            .unwrap())
+        cmd.run_against_rpc_server(
+            Some(&global::Args {
+                locator: config::locator::Args {
+                    global: false,
+                    config_dir,
+                },
+                filter_logs: Vec::default(),
+                quiet: false,
+                verbose: false,
+                very_verbose: false,
+                list: false,
+                no_cache: false,
+            }),
+            Some(&config),
+        )
+        .await
     }
 
     /// Reference to current directory of the `TestEnv`.
