@@ -13,10 +13,10 @@ use heck::ToKebabCase;
 use soroban_env_host::{
     xdr::{
         self, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-        ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber,
-        SorobanAuthorizationEntry, SorobanResources, String32, StringM, Transaction,
-        TransactionExt, Uint256, VecM,
+        LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, String32, StringM,
+        Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -31,7 +31,7 @@ use super::super::{
     config::{self, locator},
     events,
 };
-use crate::commands::txn_result::TxnResult;
+use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::{
     commands::{config::data, global, network},
@@ -272,8 +272,13 @@ impl Cmd {
     }
 
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.invoke(global_args).await?;
-        println!("{res}");
+        let res = self.invoke(global_args).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(output) => {
+                println!("{output}");
+            }
+        }
         Ok(())
     }
 

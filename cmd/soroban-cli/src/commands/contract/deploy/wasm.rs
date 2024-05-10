@@ -7,9 +7,9 @@ use rand::Rng;
 use soroban_env_host::{
     xdr::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo,
-        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
+        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits,
+        Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
+        SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -18,7 +18,7 @@ use crate::commands::{
     config::data,
     contract::{self, id::wasm::get_contract_id},
     global, network,
-    txn_result::TxnResult,
+    txn_result::{TxnEnvelopeResult, TxnResult},
     NetworkRunnable,
 };
 use crate::{
@@ -104,8 +104,13 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = self.run_against_rpc_server(None, None).await?;
-        println!("{res_str}");
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(contract) => {
+                println!("{contract}");
+            }
+        }
         Ok(())
     }
 }
