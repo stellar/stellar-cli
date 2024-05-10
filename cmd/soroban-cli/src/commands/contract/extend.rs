@@ -5,7 +5,8 @@ use soroban_env_host::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
     LedgerEntryData, LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody,
     Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
+    TransactionEnvelope, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionV1Envelope,
+    TtlEntry, Uint256, VecM, WriteXdr,
 };
 
 use crate::{
@@ -91,7 +92,14 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let res = self.run_against_rpc_server(None, None).await?;
         match res {
-            TxnResult::Txn(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnResult::Txn(tx) => println!(
+                "{}",
+                TransactionEnvelope::Tx(TransactionV1Envelope {
+                    tx,
+                    signatures: VecM::default()
+                })
+                .to_xdr_base64(Limits::none())?
+            ),
             TxnResult::Res(ttl_ledger) => {
                 if self.ttl_ledger_only {
                     println!("{ttl_ledger}");

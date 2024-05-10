@@ -7,9 +7,10 @@ use rand::Rng;
 use soroban_env_host::{
     xdr::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Memo,
-        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
+        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits,
+        Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
+        SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope,
+        Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -104,8 +105,20 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = self.run_against_rpc_server(None, None).await?;
-        println!("{res_str}");
+        let res = self.run_against_rpc_server(None, None).await?;
+        match res {
+            TxnResult::Txn(tx) => println!(
+                "{}",
+                TransactionEnvelope::Tx(TransactionV1Envelope {
+                    tx,
+                    signatures: VecM::default()
+                })
+                .to_xdr_base64(Limits::none())?
+            ),
+            TxnResult::Res(contract) => {
+                println!("{contract}");
+            }
+        }
         Ok(())
     }
 }

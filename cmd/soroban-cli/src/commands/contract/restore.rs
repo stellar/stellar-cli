@@ -5,7 +5,8 @@ use soroban_env_host::xdr::{
     Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
     LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
     Preconditions, RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
+    Transaction, TransactionEnvelope, TransactionExt, TransactionMeta, TransactionMetaV3,
+    TransactionV1Envelope, TtlEntry, Uint256, VecM, WriteXdr,
 };
 use stellar_strkey::DecodeError;
 
@@ -96,8 +97,15 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let expiration_ledger_seq = match self.run_against_rpc_server(None, None).await? {
             TxnResult::Res(res) => res,
-            TxnResult::Txn(xdr) => {
-                println!("{}", xdr.to_xdr_base64(Limits::none())?);
+            TxnResult::Txn(tx) => {
+                println!(
+                    "{}",
+                    TransactionEnvelope::Tx(TransactionV1Envelope {
+                        tx,
+                        signatures: VecM::default()
+                    })
+                    .to_xdr_base64(Limits::none())?
+                );
                 return Ok(());
             }
         };

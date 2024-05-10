@@ -13,10 +13,11 @@ use heck::ToKebabCase;
 use soroban_env_host::{
     xdr::{
         self, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-        ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber,
-        SorobanAuthorizationEntry, SorobanResources, String32, StringM, Transaction,
-        TransactionExt, Uint256, VecM,
+        LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, String32, StringM,
+        Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
     },
     HostError,
 };
@@ -273,7 +274,19 @@ impl Cmd {
 
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.invoke(global_args).await?;
-        println!("{res}");
+        match res {
+            TxnResult::Txn(tx) => println!(
+                "{}",
+                TransactionEnvelope::Tx(TransactionV1Envelope {
+                    tx,
+                    signatures: VecM::default()
+                })
+                .to_xdr_base64(Limits::none())?
+            ),
+            TxnResult::Res(contract) => {
+                println!("{contract}");
+            }
+        }
         Ok(())
     }
 

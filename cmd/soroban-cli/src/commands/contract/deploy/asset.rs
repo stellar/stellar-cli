@@ -3,8 +3,9 @@ use soroban_env_host::{
     xdr::{
         Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
         Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
-        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
+        LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        ScAddress, ScVal, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -67,8 +68,20 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = self.run_against_rpc_server(None, None).await?;
-        println!("{res_str}");
+        let res = self.run_against_rpc_server(None, None).await?;
+        match res {
+            TxnResult::Txn(tx) => println!(
+                "{}",
+                TransactionEnvelope::Tx(TransactionV1Envelope {
+                    tx,
+                    signatures: VecM::default()
+                })
+                .to_xdr_base64(Limits::none())?
+            ),
+            TxnResult::Res(contract) => {
+                println!("{contract}");
+            }
+        }
         Ok(())
     }
 }
