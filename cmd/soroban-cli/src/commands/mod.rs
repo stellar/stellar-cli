@@ -12,7 +12,7 @@ pub mod global;
 pub mod keys;
 pub mod network;
 pub mod plugin;
-pub mod txn;
+pub mod tx;
 pub mod version;
 
 pub mod txn_result;
@@ -102,7 +102,7 @@ impl Root {
             Cmd::Network(network) => network.run().await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
-            Cmd::Txn(tx) => tx.run().await?,
+            Cmd::Tx(tx) => tx.run().await?,
             Cmd::Cache(data) => data.run()?,
         };
         Ok(())
@@ -139,7 +139,7 @@ pub enum Cmd {
     Version(version::Cmd),
     /// Sign, Simulate, and Send transactions
     #[command(subcommand)]
-    Txn(txn::Cmd),
+    Tx(tx::Cmd),
     /// Cache for tranasctions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
@@ -163,7 +163,7 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    Txn(#[from] txn::Error),
+    Tx(#[from] tx::Error),
     #[error(transparent)]
     Cache(#[from] cache::Error),
 }
