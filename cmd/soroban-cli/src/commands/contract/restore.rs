@@ -14,7 +14,7 @@ use crate::{
         config::{self, data, locator},
         contract::extend,
         global, network,
-        txn_result::TxnResult,
+        txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     key,
@@ -94,12 +94,13 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = match self.run_against_rpc_server(None, None).await? {
-            TxnResult::Res(res) => res,
-            TxnResult::Txn(xdr) => {
-                println!("{}", xdr.to_xdr_base64(Limits::none())?);
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        let expiration_ledger_seq = match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::none())?);
                 return Ok(());
             }
+            TxnEnvelopeResult::Res(res) => res,
         };
         if let Some(ledgers_to_extend) = self.ledgers_to_extend {
             extend::Cmd {

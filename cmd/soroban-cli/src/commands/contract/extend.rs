@@ -12,7 +12,7 @@ use crate::{
     commands::{
         config::{self, data},
         global, network,
-        txn_result::TxnResult,
+        txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     key,
@@ -89,10 +89,10 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?;
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
-            TxnResult::Txn(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnResult::Res(ttl_ledger) => {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(ttl_ledger) => {
                 if self.ttl_ledger_only {
                     println!("{ttl_ledger}");
                 } else {

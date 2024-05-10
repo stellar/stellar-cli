@@ -3,8 +3,8 @@ use soroban_env_host::{
     xdr::{
         Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
         Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
-        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
+        LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -15,7 +15,7 @@ use crate::{
     commands::{
         config::{self, data},
         global, network,
-        txn_result::TxnResult,
+        txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     rpc::{Client, Error as SorobanRpcError},
@@ -67,8 +67,13 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = self.run_against_rpc_server(None, None).await?;
-        println!("{res_str}");
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(contract) => {
+                println!("{contract}");
+            }
+        }
         Ok(())
     }
 }
