@@ -23,6 +23,6 @@ Can invoke a contract method as a subcommand with different arguments. Anything 
 ## Example
 
 ```
-soroban invoke --id <CONTRACT_ID> --wasm <WASMFILE> -- --help
-soroban invoke --id <CONTRACT_ID> --network futurenet -- --help
+stellar invoke --id <CONTRACT_ID> --wasm <WASMFILE> -- --help
+stellar invoke --id <CONTRACT_ID> --network futurenet -- --help
 ```
