@@ -16,8 +16,7 @@ use soroban_env_host::{
         LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
         PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
         SequenceNumber, SorobanAuthorizationEntry, SorobanResources, String32, StringM,
-        Transaction, TransactionExt, Uint256, VecM,
-        WriteXdr,
+        Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
