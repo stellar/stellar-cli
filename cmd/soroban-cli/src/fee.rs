@@ -3,7 +3,7 @@ use clap::arg;
 use soroban_env_host::xdr;
 use soroban_rpc::Assembled;
 
-use crate::commands::{txn_result::TxnResult, HEADING_RPC};
+use crate::commands::HEADING_RPC;
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -26,19 +26,11 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn apply_to_assembled_txn(
-        &self,
-        txn: Assembled,
-    ) -> Result<TxnResult<Assembled>, xdr::Error> {
-        let simulated_txn = if let Some(instructions) = self.instructions {
+    pub fn apply_to_assembled_txn(&self, txn: Assembled) -> Assembled {
+        if let Some(instructions) = self.instructions {
             txn.set_max_instructions(instructions)
         } else {
             add_padding_to_instructions(txn)
-        };
-        if self.sim_only {
-            TxnResult::from_xdr(simulated_txn.transaction())
-        } else {
-            Ok(TxnResult::Res(simulated_txn))
         }
     }
 }

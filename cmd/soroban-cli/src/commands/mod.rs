@@ -176,5 +176,5 @@ pub trait NetworkRunnable {
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<txn_result::TxnResult<Self::Result>, Self::Error>;
+    ) -> Result<Self::Result, Self::Error>;
 }

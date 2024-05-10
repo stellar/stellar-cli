@@ -18,7 +18,7 @@ use crate::commands::{
     config::data,
     contract::{self, id::wasm::get_contract_id},
     global, network,
-    txn_result::{self, TxnResult},
+    txn_result::TxnResult,
     NetworkRunnable,
 };
 use crate::{
@@ -95,8 +95,6 @@ pub enum Error {
     #[error(transparent)]
     WasmId(#[from] contract::id::wasm::Error),
     #[error(transparent)]
-    TxnResult(#[from] txn_result::Error),
-    #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
@@ -115,7 +113,7 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = String;
+    type Result = TxnResult<String>;
 
     async fn run_against_rpc_server(
         &self,
@@ -127,17 +125,16 @@ impl NetworkRunnable for Cmd {
             let hash = if self.fee.build_only {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
-                let mut fee = self.fee.clone();
-                fee.build_only = false;
                 install::Cmd {
                     wasm: wasm::Args { wasm: wasm.clone() },
                     config: config.clone(),
-                    fee,
+                    fee: self.fee.clone(),
                     ignore_checks: self.ignore_checks,
                 }
                 .run_against_rpc_server(global_args, Some(config))
                 .await?
-                .try_into_res()?
+                .into_result()
+                .expect("the value (hash) is expected because it should always be available since build-only is a shared parameter")
             };
             hex::encode(hash)
         } else {
@@ -183,15 +180,14 @@ impl NetworkRunnable for Cmd {
             &key,
         )?;
         if self.fee.build_only {
-            return Ok(TxnResult::from_xdr(&txn)?);
+            return Ok(TxnResult::Txn(txn));
         }
 
         let txn = client.create_assembled_transaction(&txn).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn)?;
-        let txn = match txn {
-            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
-            TxnResult::Res(txn) => txn,
-        };
+        let txn = self.fee.apply_to_assembled_txn(txn);
+        if self.fee.sim_only {
+            return Ok(TxnResult::Txn(txn.transaction().clone()));
+        }
         let get_txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?

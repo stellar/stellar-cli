@@ -3,9 +3,9 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-    LedgerEntryData, LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-    TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
+    LedgerEntryData, LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
 };
 
 use crate::{
@@ -90,14 +90,15 @@ impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
         let res = self.run_against_rpc_server(None, None).await?;
-        let TxnResult::Res(ttl_ledger) = &res else {
-            println!("{}", res.xdr().unwrap());
-            return Ok(());
-        };
-        if self.ttl_ledger_only {
-            println!("{ttl_ledger}");
-        } else {
-            println!("New ttl ledger: {ttl_ledger}");
+        match res {
+            TxnResult::Txn(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnResult::Res(ttl_ledger) => {
+                if self.ttl_ledger_only {
+                    println!("{ttl_ledger}");
+                } else {
+                    println!("New ttl ledger: {ttl_ledger}");
+                }
+            }
         }
 
         Ok(())
@@ -117,7 +118,7 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = u32;
+    type Result = TxnResult<u32>;
 
     async fn run_against_rpc_server(
         &self,
@@ -168,7 +169,7 @@ impl NetworkRunnable for Cmd {
             }),
         };
         if self.fee.build_only {
-            return Ok(TxnResult::from_xdr(&tx)?);
+            return Ok(TxnResult::Txn(tx));
         }
         let res = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)

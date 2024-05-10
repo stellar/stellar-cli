@@ -7,7 +7,7 @@ use soroban_env_host::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
     LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
     ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt, TransactionResult,
-    TransactionResultResult, Uint256, VecM,
+    TransactionResultResult, Uint256, VecM, WriteXdr,
 };
 
 use super::restore;
@@ -74,7 +74,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let res_str = match self.run_against_rpc_server(None, None).await? {
-            TxnResult::Xdr(xdr) => xdr,
+            TxnResult::Txn(tx) => tx.to_xdr_base64(Limits::none())?,
             TxnResult::Res(hash) => hex::encode(hash),
         };
         println!("{res_str}");
@@ -85,7 +85,7 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = Hash;
+    type Result = TxnResult<Hash>;
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
@@ -130,30 +130,35 @@ impl NetworkRunnable for Cmd {
             build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &key)?;
 
         if self.fee.build_only {
-            return Ok(TxnResult::from_xdr(&tx_without_preflight)?);
+            return Ok(TxnResult::Txn(tx_without_preflight));
         }
-        let code_key =
-            xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
-        let contract_data = client.get_ledger_entries(&[code_key]).await?;
-        // Skip install if the contract is already installed, and the contract has an extension version that isn't V0.
-        // In protocol 21 extension V1 was added that stores additional information about a contract making execution
-        // of the contract cheaper. So if folks want to reinstall we should let them which is why the install will still
-        // go ahead if the contract has a V0 extension.
-        if let Some(entries) = contract_data.entries {
-            if let Some(entry_result) = entries.first() {
-                let entry: LedgerEntryData =
-                    LedgerEntryData::from_xdr_base64(&entry_result.xdr, Limits::none())?;
+        // Don't check whether the contract is already installed when the user
+        // has requested to perform simulation only and is hoping to get a
+        // transaction back.
+        if !self.fee.sim_only {
+            let code_key =
+                xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
+            let contract_data = client.get_ledger_entries(&[code_key]).await?;
+            // Skip install if the contract is already installed, and the contract has an extension version that isn't V0.
+            // In protocol 21 extension V1 was added that stores additional information about a contract making execution
+            // of the contract cheaper. So if folks want to reinstall we should let them which is why the install will still
+            // go ahead if the contract has a V0 extension.
+            if let Some(entries) = contract_data.entries {
+                if let Some(entry_result) = entries.first() {
+                    let entry: LedgerEntryData =
+                        LedgerEntryData::from_xdr_base64(&entry_result.xdr, Limits::none())?;
 
-                match &entry {
-                    LedgerEntryData::ContractCode(code) => {
-                        // Skip reupload if this isn't V0 because V1 extension already
-                        // exists.
-                        if code.ext.ne(&ContractCodeEntryExt::V0) {
-                            return Ok(TxnResult::Res(hash));
+                    match &entry {
+                        LedgerEntryData::ContractCode(code) => {
+                            // Skip reupload if this isn't V0 because V1 extension already
+                            // exists.
+                            if code.ext.ne(&ContractCodeEntryExt::V0) {
+                                return Ok(TxnResult::Res(hash));
+                            }
                         }
-                    }
-                    _ => {
-                        tracing::warn!("Entry retrieved should be of type ContractCode");
+                        _ => {
+                            tracing::warn!("Entry retrieved should be of type ContractCode");
+                        }
                     }
                 }
             }
@@ -161,11 +166,10 @@ impl NetworkRunnable for Cmd {
         let txn = client
             .create_assembled_transaction(&tx_without_preflight)
             .await?;
-        let txn = self.fee.apply_to_assembled_txn(txn)?;
-        let txn = match txn {
-            TxnResult::Xdr(raw) => return Ok(TxnResult::Xdr(raw)),
-            TxnResult::Res(txn) => txn,
-        };
+        let txn = self.fee.apply_to_assembled_txn(txn);
+        if self.fee.sim_only {
+            return Ok(TxnResult::Txn(txn.transaction().clone()));
+        }
         let txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?;
