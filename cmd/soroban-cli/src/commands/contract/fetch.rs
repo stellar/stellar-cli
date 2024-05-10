@@ -74,8 +74,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("missing result")]
     MissingResult,
-    #[error("Unexpected XDR")]
-    UnexpectedXdr,
     #[error("unexpected contract code data type: {0:?}")]
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("reading file {0:?}: {1}")]
