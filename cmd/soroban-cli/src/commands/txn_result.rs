@@ -1,4 +1,4 @@
-use soroban_env_host::xdr::Transaction;
+use soroban_env_host::xdr::{Transaction, TransactionEnvelope, TransactionV1Envelope, VecM};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TxnResult<R> {
@@ -13,4 +13,22 @@ impl<R> TxnResult<R> {
             TxnResult::Txn(_) => None,
         }
     }
+
+    pub fn to_envelope(self) -> TxnEnvelopeResult<R> {
+        match self {
+            TxnResult::Txn(tx) => {
+                TxnEnvelopeResult::TxnEnvelope(TransactionEnvelope::Tx(TransactionV1Envelope {
+                    tx,
+                    signatures: VecM::default(),
+                }))
+            }
+            TxnResult::Res(res) => TxnEnvelopeResult::Res(res),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TxnEnvelopeResult<R> {
+    TxnEnvelope(TransactionEnvelope),
+    Res(R),
 }

@@ -4,16 +4,15 @@ use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
     LedgerEntryData, LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionEnvelope, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionV1Envelope,
-    TtlEntry, Uint256, VecM, WriteXdr,
+    Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
+    TtlEntry, Uint256, WriteXdr,
 };
 
 use crate::{
     commands::{
         config::{self, data},
         global, network,
-        txn_result::TxnResult,
+        txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     key,
@@ -90,17 +89,10 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?;
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
-            TxnResult::Txn(tx) => println!(
-                "{}",
-                TransactionEnvelope::Tx(TransactionV1Envelope {
-                    tx,
-                    signatures: VecM::default()
-                })
-                .to_xdr_base64(Limits::none())?
-            ),
-            TxnResult::Res(ttl_ledger) => {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(ttl_ledger) => {
                 if self.ttl_ledger_only {
                     println!("{ttl_ledger}");
                 } else {

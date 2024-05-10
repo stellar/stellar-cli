@@ -9,7 +9,7 @@ use soroban_env_host::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
         CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits,
         Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
-        SequenceNumber, Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope,
+        SequenceNumber, Transaction, TransactionExt,
         Uint256, VecM, WriteXdr,
     },
     HostError,
@@ -19,7 +19,7 @@ use crate::commands::{
     config::data,
     contract::{self, id::wasm::get_contract_id},
     global, network,
-    txn_result::TxnResult,
+    txn_result::{TxnEnvelopeResult, TxnResult},
     NetworkRunnable,
 };
 use crate::{
@@ -105,17 +105,10 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?;
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
-            TxnResult::Txn(tx) => println!(
-                "{}",
-                TransactionEnvelope::Tx(TransactionV1Envelope {
-                    tx,
-                    signatures: VecM::default()
-                })
-                .to_xdr_base64(Limits::none())?
-            ),
-            TxnResult::Res(contract) => {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(contract) => {
                 println!("{contract}");
             }
         }

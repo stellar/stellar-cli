@@ -6,13 +6,13 @@ use clap::{command, Parser};
 use soroban_env_host::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
     LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
-    ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionEnvelope, TransactionExt,
-    TransactionResult, TransactionResultResult, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt,
+    TransactionResult, TransactionResultResult, Uint256, VecM, WriteXdr,
 };
 
 use super::restore;
 use crate::commands::network;
-use crate::commands::txn_result::TxnResult;
+use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::{config::data, global, NetworkRunnable};
 use crate::key;
 use crate::rpc::{self, Client};
@@ -73,16 +73,10 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        match self.run_against_rpc_server(None, None).await? {
-            TxnResult::Txn(tx) => println!(
-                "{}",
-                TransactionEnvelope::Tx(TransactionV1Envelope {
-                    tx,
-                    signatures: VecM::default()
-                })
-                .to_xdr_base64(Limits::none())?
-            ),
-            TxnResult::Res(hash) => println!("{}", hex::encode(hash)),
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
         };
         Ok(())
     }
