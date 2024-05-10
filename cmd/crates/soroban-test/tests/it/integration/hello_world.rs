@@ -33,7 +33,8 @@ async fn invoke() {
         .new_assert_cmd("keys")
         .arg("fund")
         .arg("test")
-        .assert();
+        .assert()
+        .stderr(predicates::str::contains("Account already exists"));
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
