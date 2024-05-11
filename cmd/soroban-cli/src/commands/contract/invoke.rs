@@ -44,13 +44,13 @@ use soroban_spec_tools::{contract, Spec};
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
+    #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: String,
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
     /// View the result simulating and do not sign and submit transaction
-    #[arg(long, env = "SOROBAN_INVOKE_VIEW")]
+    #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]

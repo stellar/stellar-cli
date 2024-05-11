@@ -18,8 +18,8 @@ jobs:
       # this looks goofy to get GITHUB_OUTPUT to work with multi-line return values;
       # see https://stackoverflow.com/a/74266196/249801
       run: |
-        cargo md-gen
-        raw_diff=$(git diff docs/soroban-cli-full-docs.md)
+        make generate-full-help-doc
+        raw_diff=$(git diff FULL_HELP_DOCS.md)
         if [ "$raw_diff" != "" ]; then echo ""; echo "Unexpected docs change:"; echo "======================="; echo ""; echo "$raw_diff"; echo ""; echo "======================="; echo ""; fi
         echo diff=$raw_diff >> $GITHUB_OUTPUT
       id: doc-gen

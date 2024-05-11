@@ -9,7 +9,7 @@ use crate::commands::HEADING_RPC;
 #[group(skip)]
 pub struct Args {
     /// fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-    #[arg(long, default_value = "100", env = "SOROBAN_FEE", help_heading = HEADING_RPC)]
+    #[arg(long, default_value = "100", env = "STELLAR_FEE", help_heading = HEADING_RPC)]
     pub fee: u32,
     /// Output the cost execution to stderr
     #[arg(long = "cost", help_heading = HEADING_RPC)]
