@@ -17,7 +17,6 @@ pub use crate::signer::Blob;
 
 mod emulator_http_transport;
 mod signer;
-mod speculos;
 
 #[cfg(all(test, feature = "emulator-tests"))]
 mod emulator_tests;

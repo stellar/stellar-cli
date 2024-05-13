@@ -37,6 +37,9 @@ phf = { version = "0.11.2", features = ["macros"] }
 futures = "0.3.30"
 async-trait = { workspace = true }
 
+[dependencies.ledger-testing]
+path = "../ledger-testing"
+
 [dependencies.stellar-xdr]
 workspace = true
 features = ["curr", "std", "serde"]

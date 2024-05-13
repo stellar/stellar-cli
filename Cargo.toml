@@ -8,7 +8,7 @@ members = [
     "cmd/crates/soroban-test/tests/fixtures/hello",
 ]
 default-members = ["cmd/soroban-cli", "cmd/crates/soroban-spec-tools", "cmd/crates/soroban-test"]
-exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
+exclude = ["cmd/crates/soroban-test/tests/fixtures/hello", "cmd/crates/ledger-testing"]
 
 [workspace.package]
 version = "21.0.0-rc.1"

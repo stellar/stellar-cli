@@ -26,9 +26,8 @@ pub struct Speculos(HashMap<String, String>, HashMap<String, String>);
 const DEFAULT_APP_PATH: &str = "/project/app/bin";
 impl Speculos {
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub fn new(apps_dir: PathBuf) -> Self {
         #[allow(unused_mut)]
-        let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("apps");
         let mut volumes = HashMap::new();
         volumes.insert(
             apps_dir.to_str().unwrap().to_string(),

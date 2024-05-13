@@ -3137,6 +3137,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ledger-testing"
+version = "0.1.0"
+dependencies = [
+ "phf",
+ "testcontainers",
+]
+
+[[package]]
 name = "ledger-transport"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5014,6 +5022,7 @@ dependencies = [
  "hex",
  "home",
  "httpmock",
+ "ledger-testing",
  "ledger-transport",
  "ledger-transport-hid",
  "log",

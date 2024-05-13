@@ -2,12 +2,15 @@ use ledger_transport::Exchange;
 use serde::Deserialize;
 use soroban_env_host::xdr::Transaction;
 use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
+use std::path::PathBuf;
 use std::vec;
 
 use crate::emulator_http_transport::EmulatorHttpTransport;
 use crate::hd_path::HdPath;
-use crate::speculos::Speculos;
 use crate::{test_network_hash, Blob, Error, LedgerSigner};
+use crate::{LedgerError, LedgerOptions, LedgerSigner};
+
+use ledger_testing::speculos::Speculos;
 
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
@@ -26,7 +29,7 @@ fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
 #[tokio::test]
 async fn test_get_public_key() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run(Speculos::new(apps_dir()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
@@ -55,7 +58,7 @@ async fn test_get_public_key() {
 #[tokio::test]
 async fn test_get_app_configuration() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run(Speculos::new(apps_dir()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
@@ -80,7 +83,7 @@ async fn test_get_app_configuration() {
 #[tokio::test]
 async fn test_sign_tx() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run(Speculos::new(apps_dir()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
@@ -166,7 +169,7 @@ async fn test_sign_tx() {
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run(Speculos::new(apps_dir()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
@@ -192,7 +195,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run(Speculos::new(apps_dir()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
@@ -350,4 +353,8 @@ async fn approve_tx_signature(ui_host_port: u16) {
         .send()
         .await
         .unwrap();
+}
+
+fn apps_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("apps")
 }

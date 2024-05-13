@@ -1,0 +1,8 @@
+[package]
+name = "ledger-testing"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+testcontainers = { git = "https://github.com/testcontainers/testcontainers-rs.git", rev = "4b3e4f08a2c0bdf521636b03f959f004e6d216aa" }
+phf = { version = "0.11.2", features = ["macros"] }
