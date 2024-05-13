@@ -8,6 +8,8 @@ pub enum Error {
     Config(#[from] super::super::config::Error),
     #[error(transparent)]
     Rpc(#[from] crate::rpc::Error),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -22,7 +24,7 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let response = self.send().await?;
-        println!("{response:#?}");
+        println!("{}", serde_json::to_string_pretty(&response)?);
         Ok(())
     }
 
