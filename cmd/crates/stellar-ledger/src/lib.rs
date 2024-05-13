@@ -15,7 +15,6 @@ use stellar_xdr::curr::{
 
 pub use crate::signer::Blob;
 
-mod emulator_http_transport;
 mod signer;
 
 #[cfg(all(test, feature = "emulator-tests"))]
@@ -308,7 +307,8 @@ mod test {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use crate::{emulator_http_transport::EmulatorHttpTransport, Blob};
+    use crate::Blob;
+    use ledger_testing::emulator_http_transport::EmulatorHttpTransport;
 
     use soroban_env_host::xdr::Transaction;
     use std::vec;

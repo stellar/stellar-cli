@@ -5,12 +5,11 @@ use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 use std::path::PathBuf;
 use std::vec;
 
-use crate::emulator_http_transport::EmulatorHttpTransport;
 use crate::hd_path::HdPath;
 use crate::{test_network_hash, Blob, Error, LedgerSigner};
 use crate::{LedgerError, LedgerOptions, LedgerSigner};
 
-use ledger_testing::speculos::Speculos;
+use ledger_testing::{emulator_http_transport::EmulatorHttpTransport, speculos::Speculos};
 
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
