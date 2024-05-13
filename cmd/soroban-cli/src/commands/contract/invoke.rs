@@ -13,10 +13,10 @@ use heck::ToKebabCase;
 use soroban_env_host::{
     xdr::{
         self, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-        ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec, SequenceNumber,
-        SorobanAuthorizationEntry, SorobanResources, String32, StringM, Transaction,
-        TransactionExt, Uint256, VecM,
+        LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, String32, StringM,
+        Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -31,7 +31,7 @@ use super::super::{
     config::{self, locator},
     events,
 };
-use crate::commands::txn_result::TxnResult;
+use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::{
     commands::{config::data, global, network},
@@ -44,13 +44,13 @@ use soroban_spec_tools::{contract, Spec};
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
+    #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: String,
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
     /// View the result simulating and do not sign and submit transaction
-    #[arg(long, env = "SOROBAN_INVOKE_VIEW")]
+    #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
@@ -272,8 +272,13 @@ impl Cmd {
     }
 
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.invoke(global_args).await?;
-        println!("{res}");
+        let res = self.invoke(global_args).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(output) => {
+                println!("{output}");
+            }
+        }
         Ok(())
     }
 

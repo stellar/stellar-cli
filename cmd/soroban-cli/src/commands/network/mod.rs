@@ -101,7 +101,7 @@ pub struct Args {
         long = "rpc-url",
         requires = "network_passphrase",
         required_unless_present = "network",
-        env = "SOROBAN_RPC_URL",
+        env = "STELLAR_RPC_URL",
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
@@ -110,7 +110,7 @@ pub struct Args {
         long = "network-passphrase",
         requires = "rpc_url",
         required_unless_present = "network",
-        env = "SOROBAN_NETWORK_PASSPHRASE",
+        env = "STELLAR_NETWORK_PASSPHRASE",
         help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
@@ -118,7 +118,7 @@ pub struct Args {
     #[arg(
         long,
         required_unless_present = "rpc_url",
-        env = "SOROBAN_NETWORK",
+        env = "STELLAR_NETWORK",
         help_heading = HEADING_RPC,
     )]
     pub network: Option<String>,
@@ -150,14 +150,14 @@ pub struct Network {
     /// RPC server endpoint
     #[arg(
         long = "rpc-url",
-        env = "SOROBAN_RPC_URL",
+        env = "STELLAR_RPC_URL",
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
             long,
-            env = "SOROBAN_NETWORK_PASSPHRASE",
+            env = "STELLAR_NETWORK_PASSPHRASE",
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,

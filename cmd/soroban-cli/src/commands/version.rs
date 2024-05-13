@@ -11,7 +11,7 @@ pub struct Cmd;
 impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) {
-        println!("soroban {}", long());
+        println!("stellar {}", long());
     }
 }
 

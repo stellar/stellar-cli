@@ -20,37 +20,36 @@ pub mod txn_result;
 pub const HEADING_RPC: &str = "Options (RPC)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
-Intro: https://soroban.stellar.org/docs
-CLI Reference: https://github.com/stellar/soroban-cli/tree/main/docs/soroban-cli-full-docs.md";
+Stellar Docs: https://developers.stellar.org
+CLI Full Hep Docs: https://github.com/stellar/soroban-cli/tree/main/FULL_HELP_DOCS.md";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
 
 The easiest way to get started is to generate a new identity:
 
-    soroban config identity generate alice
+    stellar config identity generate alice
 
 You can use identities with the `--source` flag in other commands later.
 
 Commands that relate to smart contract interactions are organized under the `contract` subcommand. List them:
 
-    soroban contract --help
+    stellar contract --help
 
-A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. `soroban contract invoke` makes use of this:
+A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. The invoke subcommand makes use of this:
 
-    soroban contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
                             --help
 
 Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    soroban contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
                             hello --to world
-
-Full CLI reference: https://github.com/stellar/soroban-tools/tree/main/docs/soroban-cli-full-docs.md";
+";
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "soroban",
+    name = "stellar",
     about = ABOUT,
     version = version::long(),
     long_about = ABOUT.to_string() + LONG_ABOUT,
