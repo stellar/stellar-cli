@@ -13,11 +13,11 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
+/// Command to simulate a transaction envelope via rpc
+/// e.g. `cat file.txt | soroban tx simulate`
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    #[clap(flatten)]
-    pub xdr_args: super::xdr::Args,
     #[clap(flatten)]
     pub config: super::super::config::Args,
 }
@@ -30,7 +30,7 @@ impl Cmd {
     }
 
     pub async fn simulate(&self) -> Result<Assembled, Error> {
-        let tx = self.xdr_args.txn()?;
+        let tx = super::xdr::unwrap_envelope_v1()?;
         let network = self.config.get_network()?;
         let client = crate::rpc::Client::new(&network.rpc_url)?;
         Ok(client.create_assembled_transaction(&tx).await?)

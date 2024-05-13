@@ -14,9 +14,8 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
+/// Command to send a transaction envelope to the network
 pub struct Cmd {
-    #[clap(flatten)]
-    pub xdr_args: super::xdr::Args,
     #[clap(flatten)]
     pub config: super::super::config::Args,
 }
@@ -29,7 +28,7 @@ impl Cmd {
     }
 
     pub async fn send(&self) -> Result<GetTransactionResponse, Error> {
-        let txn_env = self.xdr_args.txn_envelope()?;
+        let txn_env = super::xdr::txn_envelope_from_stdin()?;
         let network = self.config.get_network()?;
         let client = crate::rpc::Client::new(&network.rpc_url)?;
         Ok(client.send_transaction(&txn_env).await?)

@@ -11,9 +11,9 @@ use stellar_xdr::cli as xdr_cli;
 pub enum Cmd {
     /// Add a new identity (keypair, ledger, macOS keychain)
     Inspect(xdr_cli::Root),
-    /// Submit a transaction to the network
+    /// Submit a transaction envelope from stdin to the network
     Send(send::Cmd),
-    /// Simulate a transaction
+    /// Simulate a transaction envelope from stdin
     Simulate(simulate::Cmd),
 }
 
