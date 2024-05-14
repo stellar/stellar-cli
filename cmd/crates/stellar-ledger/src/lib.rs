@@ -118,11 +118,7 @@ where
     /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
-    async fn sign_blob(
-        &self,
-        index: impl Into<Self::Key>,
-        blob: &[u8],
-    ) -> Result<Vec<u8>, Error> {
+    async fn sign_blob(&self, index: impl Into<Self::Key>, blob: &[u8]) -> Result<Vec<u8>, Error> {
         let mut hd_path_to_bytes = index.into().as_vec()?;
 
         let capacity = 1 + hd_path_to_bytes.len() + blob.len();
@@ -292,7 +288,6 @@ where
         }
     }
 }
-
 
 fn get_transport() -> Result<TransportNativeHID, Error> {
     // instantiate the connection to Ledger, this will return an error if Ledger is not connected
