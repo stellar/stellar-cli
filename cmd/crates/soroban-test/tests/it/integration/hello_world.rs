@@ -40,7 +40,8 @@ async fn invoke() {
         .arg("fund")
         .arg("test")
         .arg("--hd-path=1")
-        .assert();
+        .assert()
+        .success();
     let addr = sandbox
         .new_assert_cmd("keys")
         .arg("address")
