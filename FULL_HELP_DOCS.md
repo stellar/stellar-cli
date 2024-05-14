@@ -52,13 +52,6 @@ This document contains the help content for the `stellar` command-line program.
 * [`stellar network stop`↴](#stellar-network-stop)
 * [`stellar version`↴](#stellar-version)
 * [`stellar tx`↴](#stellar-tx)
-* [`stellar tx inspect`↴](#stellar-tx-inspect)
-* [`stellar tx inspect types`↴](#stellar-tx-inspect-types)
-* [`stellar tx inspect types list`↴](#stellar-tx-inspect-types-list)
-* [`stellar tx inspect guess`↴](#stellar-tx-inspect-guess)
-* [`stellar tx inspect decode`↴](#stellar-tx-inspect-decode)
-* [`stellar tx inspect encode`↴](#stellar-tx-inspect-encode)
-* [`stellar tx inspect version`↴](#stellar-tx-inspect-version)
 * [`stellar tx send`↴](#stellar-tx-send)
 * [`stellar tx simulate`↴](#stellar-tx-simulate)
 * [`stellar cache`↴](#stellar-cache)
@@ -1332,168 +1325,19 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
-* `inspect` — Add a new identity (keypair, ledger, macOS keychain)
-* `send` — Submit a transaction to the network
-* `simulate` — Simulate a transaction
-
-
-
-## `stellar tx inspect`
-
-Add a new identity (keypair, ledger, macOS keychain)
-
-**Usage:** `stellar tx inspect [CHANNEL] <COMMAND>`
-
-###### **Subcommands:**
-
-* `types` — View information about types
-* `guess` — Guess the XDR type
-* `decode` — Decode XDR
-* `encode` — Encode XDR
-* `version` — Print version information
-
-###### **Arguments:**
-
-* `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
-
-
-
-
-## `stellar tx inspect types`
-
-View information about types
-
-**Usage:** `stellar tx inspect types <COMMAND>`
-
-###### **Subcommands:**
-
-* `list` — 
-
-
-
-## `stellar tx inspect types list`
-
-**Usage:** `stellar tx inspect types list [OPTIONS]`
-
-###### **Options:**
-
-* `--output <OUTPUT>`
-
-  Default value: `plain`
-
-  Possible values: `plain`, `json`, `json-formatted`
-
-
-
-
-## `stellar tx inspect guess`
-
-Guess the XDR type
-
-**Usage:** `stellar tx inspect guess [OPTIONS] [FILE]`
-
-###### **Arguments:**
-
-* `<FILE>` — File to decode, or stdin if omitted
-
-###### **Options:**
-
-* `--input <INPUT>`
-
-  Default value: `single-base64`
-
-  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
-
-* `--output <OUTPUT>`
-
-  Default value: `list`
-
-  Possible values: `list`
-
-* `--certainty <CERTAINTY>` — Certainty as an arbitrary value
-
-  Default value: `2`
-
-
-
-## `stellar tx inspect decode`
-
-Decode XDR
-
-**Usage:** `stellar tx inspect decode [OPTIONS] --type <TYPE> [FILES]...`
-
-###### **Arguments:**
-
-* `<FILES>` — Files to decode, or stdin if omitted
-
-###### **Options:**
-
-* `--type <TYPE>` — XDR type to decode
-* `--input <INPUT>`
-
-  Default value: `stream-base64`
-
-  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
-
-* `--output <OUTPUT>`
-
-  Default value: `json`
-
-  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
-
-
-
-
-## `stellar tx inspect encode`
-
-Encode XDR
-
-**Usage:** `stellar tx inspect encode [OPTIONS] --type <TYPE> [FILES]...`
-
-###### **Arguments:**
-
-* `<FILES>` — Files to encode, or stdin if omitted
-
-###### **Options:**
-
-* `--type <TYPE>` — XDR type to encode
-* `--input <INPUT>`
-
-  Default value: `json`
-
-  Possible values: `json`
-
-* `--output <OUTPUT>`
-
-  Default value: `single-base64`
-
-  Possible values: `single`, `single-base64`
-
-
-
-
-## `stellar tx inspect version`
-
-Print version information
-
-**Usage:** `stellar tx inspect version`
+* `send` — Submit a transaction envelope from stdin to the network
+* `simulate` — Simulate a transaction envelope from stdin
 
 
 
 ## `stellar tx send`
 
-Submit a transaction to the network
+Submit a transaction envelope from stdin to the network
 
 **Usage:** `stellar tx send [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
-* `--xdr-base64 <XDR_BASE64>` — Base64 encoded XDR transaction
-* `--xdr-file <XDR_FILE>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -1509,14 +1353,12 @@ Submit a transaction to the network
 
 ## `stellar tx simulate`
 
-Simulate a transaction
+Simulate a transaction envelope from stdin
 
 **Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
-* `--xdr-base64 <XDR_BASE64>` — Base64 encoded XDR transaction
-* `--xdr-file <XDR_FILE>`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
