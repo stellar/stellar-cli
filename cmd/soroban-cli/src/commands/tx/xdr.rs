@@ -4,8 +4,7 @@ use std::{
 };
 
 use soroban_env_host::xdr::ReadXdr;
-use soroban_sdk::xdr::{Limits, TransactionEnvelope, Transaction, TransactionV1Envelope};
-
+use soroban_sdk::xdr::{Limits, Transaction, TransactionEnvelope, TransactionV1Envelope};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -33,7 +32,8 @@ pub fn from_stdin<T: ReadXdr>() -> Result<T, Error> {
 }
 
 pub fn unwrap_envelope_v1() -> Result<Transaction, Error> {
-    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = txn_envelope_from_stdin()? else {
+    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = txn_envelope_from_stdin()?
+    else {
         return Err(Error::OnlyTransactionV1Supported);
     };
     Ok(tx)
