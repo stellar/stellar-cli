@@ -32,7 +32,7 @@ use crate::{
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to fetch
-    #[arg(long = "id", env = "SOROBAN_CONTRACT_ID")]
+    #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: String,
     /// Where to write output otherwise stdout is used
     #[arg(long, short = 'o')]
@@ -145,7 +145,6 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        // async closures are not yet stable
         Ok(client.get_remote_wasm(&contract_id).await?)
     }
 }

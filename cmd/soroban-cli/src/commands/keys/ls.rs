@@ -26,11 +26,7 @@ impl Cmd {
     }
 
     pub fn ls(&self) -> Result<Vec<String>, Error> {
-        let mut list = self.config_locator.list_identities()?;
-        let test = "test".to_string();
-        if !list.contains(&test) {
-            list.push(test);
-        }
+        let list = self.config_locator.list_identities()?;
         Ok(list)
     }
 

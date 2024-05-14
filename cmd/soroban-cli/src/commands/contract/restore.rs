@@ -3,9 +3,9 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, Memo, MuxedAccount, Operation, OperationBody, OperationMeta, Preconditions,
-    RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256,
+    LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, OperationMeta,
+    Preconditions, RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
+    Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
 };
 use stellar_strkey::DecodeError;
 
@@ -13,7 +13,9 @@ use crate::{
     commands::{
         config::{self, data, locator},
         contract::extend,
-        global, network, NetworkRunnable,
+        global, network,
+        txn_result::{TxnEnvelopeResult, TxnResult},
+        NetworkRunnable,
     },
     key,
     rpc::{self, Client},
@@ -92,8 +94,14 @@ pub enum Error {
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let expiration_ledger_seq = self.run_against_rpc_server(None, None).await?;
-
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        let expiration_ledger_seq = match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::none())?);
+                return Ok(());
+            }
+            TxnEnvelopeResult::Res(res) => res,
+        };
         if let Some(ledgers_to_extend) = self.ledgers_to_extend {
             extend::Cmd {
                 key: self.key.clone(),
@@ -115,13 +123,13 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = u32;
+    type Result = TxnResult<u32>;
 
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<u32, Error> {
+    ) -> Result<TxnResult<u32>, Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
@@ -162,7 +170,9 @@ impl NetworkRunnable for Cmd {
                 resource_fee: 0,
             }),
         };
-
+        if self.fee.build_only {
+            return Ok(TxnResult::Txn(tx));
+        }
         let res = client
             .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
             .await?;
@@ -198,7 +208,9 @@ impl NetworkRunnable for Cmd {
                 operations[0].changes.len()
             );
         }
-        parse_operations(operations).ok_or(Error::MissingOperationResult)
+        Ok(TxnResult::Res(
+            parse_operations(operations).ok_or(Error::MissingOperationResult)?,
+        ))
     }
 }
 

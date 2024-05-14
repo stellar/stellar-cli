@@ -7,11 +7,12 @@ use soroban_env_host::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
     LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
     ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt, TransactionResult,
-    TransactionResultResult, Uint256, VecM,
+    TransactionResultResult, Uint256, VecM, WriteXdr,
 };
 
 use super::restore;
 use crate::commands::network;
+use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::{config::data, global, NetworkRunnable};
 use crate::key;
 use crate::rpc::{self, Client};
@@ -72,8 +73,11 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = hex::encode(self.run_against_rpc_server(None, None).await?);
-        println!("{res_str}");
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
+        };
         Ok(())
     }
 }
@@ -81,12 +85,12 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = Hash;
+    type Result = TxnResult<Hash>;
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<Hash, Error> {
+    ) -> Result<TxnResult<Hash>, Error> {
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
@@ -125,37 +129,47 @@ impl NetworkRunnable for Cmd {
         let (tx_without_preflight, hash) =
             build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &key)?;
 
-        let code_key =
-            xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
-        let contract_data = client.get_ledger_entries(&[code_key]).await?;
-        // Skip install if the contract is already installed, and the contract has an extension version that isn't V0.
-        // In protocol 21 extension V1 was added that stores additional information about a contract making execution
-        // of the contract cheaper. So if folks want to reinstall we should let them which is why the install will still
-        // go ahead if the contract has a V0 extension.
-        if let Some(entries) = contract_data.entries {
-            if let Some(entry_result) = entries.first() {
-                let entry: LedgerEntryData =
-                    LedgerEntryData::from_xdr_base64(&entry_result.xdr, Limits::none())?;
+        if self.fee.build_only {
+            return Ok(TxnResult::Txn(tx_without_preflight));
+        }
+        // Don't check whether the contract is already installed when the user
+        // has requested to perform simulation only and is hoping to get a
+        // transaction back.
+        if !self.fee.sim_only {
+            let code_key =
+                xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
+            let contract_data = client.get_ledger_entries(&[code_key]).await?;
+            // Skip install if the contract is already installed, and the contract has an extension version that isn't V0.
+            // In protocol 21 extension V1 was added that stores additional information about a contract making execution
+            // of the contract cheaper. So if folks want to reinstall we should let them which is why the install will still
+            // go ahead if the contract has a V0 extension.
+            if let Some(entries) = contract_data.entries {
+                if let Some(entry_result) = entries.first() {
+                    let entry: LedgerEntryData =
+                        LedgerEntryData::from_xdr_base64(&entry_result.xdr, Limits::none())?;
 
-                match &entry {
-                    LedgerEntryData::ContractCode(code) => {
-                        // Skip reupload if this isn't V0 because V1 extension already
-                        // exists.
-                        if code.ext.ne(&ContractCodeEntryExt::V0) {
-                            return Ok(hash);
+                    match &entry {
+                        LedgerEntryData::ContractCode(code) => {
+                            // Skip reupload if this isn't V0 because V1 extension already
+                            // exists.
+                            if code.ext.ne(&ContractCodeEntryExt::V0) {
+                                return Ok(TxnResult::Res(hash));
+                            }
                         }
-                    }
-                    _ => {
-                        tracing::warn!("Entry retrieved should be of type ContractCode");
+                        _ => {
+                            tracing::warn!("Entry retrieved should be of type ContractCode");
+                        }
                     }
                 }
             }
         }
-
         let txn = client
             .create_assembled_transaction(&tx_without_preflight)
             .await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
+        if self.fee.sim_only {
+            return Ok(TxnResult::Txn(txn.transaction().clone()));
+        }
         let txn_resp = client
             .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
             .await?;
@@ -189,7 +203,7 @@ impl NetworkRunnable for Cmd {
         if args.map_or(true, |a| !a.no_cache) {
             data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
         }
-        Ok(hash)
+        Ok(TxnResult::Res(hash))
     }
 }
 

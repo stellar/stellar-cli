@@ -1,4 +1,5 @@
 use clap::arg;
+
 use soroban_env_host::xdr;
 use soroban_rpc::Assembled;
 
@@ -8,7 +9,7 @@ use crate::commands::HEADING_RPC;
 #[group(skip)]
 pub struct Args {
     /// fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-    #[arg(long, default_value = "100", env = "SOROBAN_FEE", help_heading = HEADING_RPC)]
+    #[arg(long, default_value = "100", env = "STELLAR_FEE", help_heading = HEADING_RPC)]
     pub fee: u32,
     /// Output the cost execution to stderr
     #[arg(long = "cost", help_heading = HEADING_RPC)]
@@ -16,6 +17,12 @@ pub struct Args {
     /// Number of instructions to simulate
     #[arg(long, help_heading = HEADING_RPC)]
     pub instructions: Option<u32>,
+    /// Build the transaction only write the base64 xdr to stdout
+    #[arg(long, help_heading = HEADING_RPC)]
+    pub build_only: bool,
+    /// Simulation the transaction only write the base64 xdr to stdout
+    #[arg(long, help_heading = HEADING_RPC, conflicts_with = "build_only")]
+    pub sim_only: bool,
 }
 
 impl Args {
@@ -47,6 +54,8 @@ impl Default for Args {
             fee: 100,
             cost: false,
             instructions: None,
+            build_only: false,
+            sim_only: false,
         }
     }
 }

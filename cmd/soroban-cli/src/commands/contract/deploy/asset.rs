@@ -3,8 +3,8 @@ use soroban_env_host::{
     xdr::{
         Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
         Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
-        LedgerKeyContractData, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM,
+        LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -14,7 +14,9 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 use crate::{
     commands::{
         config::{self, data},
-        global, network, NetworkRunnable,
+        global, network,
+        txn_result::{TxnEnvelopeResult, TxnResult},
+        NetworkRunnable,
     },
     rpc::{Client, Error as SorobanRpcError},
     utils::{contract_id_hash_from_asset, parsing::parse_asset},
@@ -65,8 +67,13 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = self.run_against_rpc_server(None, None).await?;
-        println!("{res_str}");
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(contract) => {
+                println!("{contract}");
+            }
+        }
         Ok(())
     }
 }
@@ -74,13 +81,13 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = String;
+    type Result = TxnResult<stellar_strkey::Contract>;
 
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<String, Error> {
+    ) -> Result<Self::Result, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
         let asset = parse_asset(&self.asset)?;
@@ -108,8 +115,14 @@ impl NetworkRunnable for Cmd {
             network_passphrase,
             &key,
         )?;
+        if self.fee.build_only {
+            return Ok(TxnResult::Txn(tx));
+        }
         let txn = client.create_assembled_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
+        if self.fee.sim_only {
+            return Ok(TxnResult::Txn(txn.transaction().clone()));
+        }
         let get_txn_resp = client
             .send_assembled_transaction(txn, &key, &[], network_passphrase, None, None)
             .await?
@@ -118,7 +131,7 @@ impl NetworkRunnable for Cmd {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 
-        Ok(stellar_strkey::Contract(contract_id.0).to_string())
+        Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)))
     }
 }
 

@@ -10,7 +10,7 @@ pub struct Args {
     #[clap(flatten)]
     pub locator: config::locator::Args,
 
-    /// Filter logs output. To turn on "soroban_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`.
+    /// Filter logs output. To turn on "stellar_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`.
     #[arg(long, short = 'f')]
     pub filter_logs: Vec<String>,
 
@@ -26,12 +26,12 @@ pub struct Args {
     #[arg(long, visible_alias = "vv")]
     pub very_verbose: bool,
 
-    /// List installed plugins. E.g. `soroban-hello`
+    /// List installed plugins. E.g. `stellar-hello`
     #[arg(long)]
     pub list: bool,
 
     /// Do not cache your simulations and transactions
-    #[arg(long, env = "SOROBAN_NO_CACHE")]
+    #[arg(long, env = "STELLAR_NO_CACHE")]
     pub no_cache: bool,
 }
 

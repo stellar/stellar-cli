@@ -2,6 +2,7 @@ use predicates::boolean::PredicateBooleanExt;
 use soroban_cli::commands::{
     config::{locator, secret},
     contract::{self, fetch},
+    txn_result::TxnResult,
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
@@ -11,6 +12,18 @@ use crate::integration::util::extend_contract;
 use super::util::{deploy_hello, extend, HELLO_WORLD};
 
 #[allow(clippy::too_many_lines)]
+#[tokio::test]
+async fn invoke_view_with_non_existent_source_account() {
+    let sandbox = &TestEnv::new();
+    let id = deploy_hello(sandbox).await;
+    let world = "world";
+    let mut cmd = hello_world_cmd(&id, world);
+    cmd.config.source_account = String::new();
+    cmd.is_view = true;
+    let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
+    assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
+}
+
 #[tokio::test]
 async fn invoke() {
     let sandbox = &TestEnv::new();
@@ -140,14 +153,18 @@ fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
         .success();
 }
 
-async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
-    let cmd = contract::invoke::Cmd {
+fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
+    contract::invoke::Cmd {
         contract_id: id.to_string(),
-        slop: vec!["hello".into(), "--world=world".into()],
+        slop: vec!["hello".into(), format!("--world={arg}").into()],
         ..Default::default()
-    };
+    }
+}
+
+async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
+    let cmd = hello_world_cmd(id, "world");
     let res = e.run_cmd_with(cmd, "test").await.unwrap();
-    assert_eq!(res, r#"["Hello","world"]"#);
+    assert_eq!(res, TxnResult::Res(r#"["Hello","world"]"#.to_string()));
 }
 
 fn invoke_auth(sandbox: &TestEnv, id: &str, addr: &str) {

@@ -1,5 +1,5 @@
 use std::{
-    env, fs,
+    env,
     path::{Path, PathBuf},
 };
 
@@ -11,12 +11,10 @@ fn main() -> Result<(), DynError> {
 }
 
 fn doc_gen() -> std::io::Result<()> {
-    let out_dir = docs_dir();
-
-    fs::create_dir_all(out_dir.clone())?;
+    let out_dir = project_root();
 
     std::fs::write(
-        out_dir.join("soroban-cli-full-docs.md"),
+        out_dir.join("FULL_HELP_DOCS.md"),
         clap_markdown::help_markdown::<soroban_cli::Root>(),
     )?;
 
@@ -29,8 +27,4 @@ fn project_root() -> PathBuf {
         .nth(2)
         .unwrap()
         .to_path_buf()
-}
-
-fn docs_dir() -> PathBuf {
-    project_root().join("docs")
 }
