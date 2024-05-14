@@ -12,7 +12,7 @@ use soroban_env_host::xdr::{
 
 use super::restore;
 use crate::commands::network;
-use crate::commands::txn_result::TxnResult;
+use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::{config::data, global, NetworkRunnable};
 use crate::key;
 use crate::rpc::{self, Client};
@@ -73,11 +73,11 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let res_str = match self.run_against_rpc_server(None, None).await? {
-            TxnResult::Txn(tx) => tx.to_xdr_base64(Limits::none())?,
-            TxnResult::Res(hash) => hex::encode(hash),
+        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
         };
-        println!("{res_str}");
         Ok(())
     }
 }

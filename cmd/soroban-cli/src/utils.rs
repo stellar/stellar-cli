@@ -71,16 +71,32 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
 /// # Errors
 /// May not find a config dir
 pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path::PathBuf> {
-    let soroban_dir = |p: &std::path::Path| p.join(".soroban");
-    while !soroban_dir(&pwd).exists() {
+    loop {
+        let stellar_dir = pwd.join(".stellar");
+        let stellar_exists = stellar_dir.exists();
+
+        let soroban_dir = pwd.join(".soroban");
+        let soroban_exists = soroban_dir.exists();
+
+        if stellar_exists && soroban_exists {
+            tracing::warn!("the .stellar and .soroban config directories exist at path {pwd:?}, using the .stellar");
+        }
+
+        if stellar_exists {
+            return Ok(stellar_dir);
+        }
+
+        if soroban_exists {
+            return Ok(soroban_dir);
+        }
         if !pwd.pop() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "soroban directory not found",
-            ));
+            break;
         }
     }
-    Ok(soroban_dir(&pwd))
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        "stellar directory not found",
+    ))
 }
 
 pub(crate) fn into_signing_key(key: &PrivateKey) -> ed25519_dalek::SigningKey {

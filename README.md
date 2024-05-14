@@ -4,7 +4,7 @@ This repo is home to the Soroban CLI, the command-line multi-tool for running an
 
 ## Documentation
 
-For installation options see below, for usage instructions [see the manual](/docs/soroban-cli-full-docs.md).
+For installation options see below, for usage instructions [see the full help docs](FULL_HELP_DOCS.md).
 
 ## Install
 Install the latest version from source:

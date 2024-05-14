@@ -1,0 +1,28 @@
+[package]
+name = "stellar-cli"
+description = "Stellar CLI"
+homepage = "https://github.com/stellar/soroban-cli"
+repository = "https://github.com/stellar/soroban-cli"
+authors = ["Stellar Development Foundation <info@stellar.org>"]
+license = "Apache-2.0"
+readme = "README.md"
+version = "21.0.0-preview.1"
+edition = "2021"
+rust-version.workspace = true
+autobins = false
+default-run = "stellar"
+
+[[bin]]
+name = "stellar"
+path = "src/bin/main.rs"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+
+[features]
+default = []
+opt = ["soroban-cli/opt"]
+
+[dependencies]
+soroban-cli = { workspace = true }

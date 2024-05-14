@@ -8,6 +8,9 @@ use std::path::Path;
 pub(crate) use soroban_env_host::xdr;
 pub(crate) use soroban_rpc as rpc;
 
+mod cli;
+pub use cli::main;
+
 pub mod commands;
 pub mod fee;
 pub mod key;
