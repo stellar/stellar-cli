@@ -1,7 +1,6 @@
 import test from 'ava'
 import { root, rpcUrl, signer } from './util.js'
-import { Client, networks } from 'test-custom-types'
-import { Ok, Err } from '@stellar/stellar-sdk/lib/rust_types/index.js'
+import { Client, networks, contract as ContractClient } from 'test-custom-types'
 
 const publicKey = root.keypair.publicKey();
 
@@ -25,11 +24,11 @@ test('woid', async t => {
 test('u32_fail_on_even', async t => {
   t.deepEqual(
     (await contract.u32_fail_on_even({ u32_: 1 })).result,
-    new Ok(1)
+    new ContractClient.Ok(1)
   )
   t.deepEqual(
     (await contract.u32_fail_on_even({ u32_: 0 })).result,
-    new Err({ message: "Please provide an odd number" })
+    new ContractClient.Err({ message: "Please provide an odd number" })
   )
 })
 
