@@ -110,7 +110,6 @@ where
         &self,
         index: impl Into<Self::Key>,
     ) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        // let hd_path = bip_path_from_index(index)?;
         Self::get_public_key_with_display_flag(self, index.into(), false).await
     }
 
