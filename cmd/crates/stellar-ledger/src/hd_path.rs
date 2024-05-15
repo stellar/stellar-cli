@@ -1,5 +1,6 @@
 use crate::Error;
 
+#[derive(Clone, Copy)]
 pub struct HdPath(u32);
 
 impl HdPath {
@@ -16,7 +17,7 @@ impl From<u32> for HdPath {
 }
 
 impl HdPath {
-    pub fn as_vec(&self) -> Result<Vec<u8>, Error> {
+    pub fn to_vec(&self) -> Result<Vec<u8>, Error> {
         hd_path_to_bytes(&self.into())
     }
 }

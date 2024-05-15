@@ -83,6 +83,9 @@ pub struct LedgerSigner<T: Exchange> {
     transport: T,
 }
 
+unsafe impl<T> Send for LedgerSigner<T> where T: Exchange {}
+unsafe impl<T> Sync for LedgerSigner<T> where T: Exchange {}
+
 impl<T> LedgerSigner<T>
 where
     T: Exchange,
@@ -95,54 +98,6 @@ where
             transport: get_transport()?,
         })
     }
-}
-
-impl<T> Blob for LedgerSigner<T>
-where
-    T: Exchange,
-{
-    type Key = HdPath;
-    type Error = Error;
-    /// Get the public key from the device
-    /// # Errors
-    /// Returns an error if there is an issue with connecting with the device or getting the public key from the device
-    async fn get_public_key(
-        &self,
-        index: impl Into<Self::Key>,
-    ) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Self::get_public_key_with_display_flag(self, index.into(), false).await
-    }
-
-    /// Sign a Stellar transaction hash with the account on the Ledger device
-    /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
-    /// # Errors
-    /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
-    async fn sign_blob(&self, index: impl Into<Self::Key>, blob: &[u8]) -> Result<Vec<u8>, Error> {
-        let mut hd_path_to_bytes = index.into().as_vec()?;
-
-        let capacity = 1 + hd_path_to_bytes.len() + blob.len();
-        let mut data: Vec<u8> = Vec::with_capacity(capacity);
-
-        data.insert(0, HD_PATH_ELEMENTS_COUNT);
-        data.append(&mut hd_path_to_bytes);
-        data.extend_from_slice(blob);
-
-        let command = APDUCommand {
-            cla: CLA,
-            ins: SIGN_TX_HASH,
-            p1: P1_SIGN_TX_HASH,
-            p2: P2_SIGN_TX_HASH,
-            data,
-        };
-
-        self.send_command_to_ledger(command).await
-    }
-}
-
-impl<T> LedgerSigner<T>
-where
-    T: Exchange,
-{
     /// Get the device app's configuration
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or getting the config from the device
@@ -166,7 +121,7 @@ where
         hd_path: impl Into<HdPath>,
         transaction_hash: &[u8; 32],
     ) -> Result<Vec<u8>, Error> {
-        self.sign_blob(hd_path, transaction_hash).await
+        self.sign_blob(&hd_path.into(), transaction_hash).await
     }
 
     /// Sign a Stellar transaction with the account on the Ledger device
@@ -186,7 +141,7 @@ where
         };
         let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none())?;
 
-        let mut hd_path_to_bytes = hd_path.into().as_vec()?;
+        let mut hd_path_to_bytes = hd_path.into().to_vec()?;
 
         let capacity = 1 + hd_path_to_bytes.len() + signature_payload_as_bytes.len();
         let mut data: Vec<u8> = Vec::with_capacity(capacity);
@@ -236,7 +191,7 @@ where
         // the first element of the data should be the number of elements in the path
         let hd_path = hd_path.into();
         let hd_path_elements_count = hd_path.depth();
-        let mut hd_path_to_bytes = hd_path.as_vec()?;
+        let mut hd_path_to_bytes = hd_path.to_vec()?;
         hd_path_to_bytes.insert(0, hd_path_elements_count);
 
         let p2 = if display_and_confirm {
@@ -285,6 +240,49 @@ where
                 "Error connecting to ledger device".to_string(),
             )),
         }
+    }
+}
+
+#[async_trait::async_trait]
+impl<T> Blob for LedgerSigner<T>
+where
+    T: Exchange,
+{
+    type Key = HdPath;
+    type Error = Error;
+    /// Get the public key from the device
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or getting the public key from the device
+    async fn get_public_key(
+        &self,
+        index: &Self::Key,
+    ) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        self.get_public_key_with_display_flag(*index, false).await
+    }
+
+    /// Sign a blob of data with the account on the Ledger device
+    /// based on impl from [https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166](https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L166)
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
+    async fn sign_blob(&self, index: &Self::Key, blob: &[u8]) -> Result<Vec<u8>, Error> {
+        let mut hd_path_to_bytes = index.to_vec()?;
+
+        let capacity = 1 + hd_path_to_bytes.len() + blob.len();
+        let mut data: Vec<u8> = Vec::with_capacity(capacity);
+
+        data.insert(0, HD_PATH_ELEMENTS_COUNT);
+        data.append(&mut hd_path_to_bytes);
+        data.extend_from_slice(blob);
+
+        let command = APDUCommand {
+            cla: CLA,
+            ins: SIGN_TX_HASH,
+            p1: P1_SIGN_TX_HASH,
+            p2: P2_SIGN_TX_HASH,
+            data,
+        };
+
+        self.send_command_to_ledger(command).await
     }
 }
 
@@ -337,7 +335,7 @@ mod test {
                 .json_body(json!({"data": "e93388bbfd2fbd11806dd0bd59cea9079e7cc70ce7b1e154f114cdfe4e466ecd9000"}));
         });
         let ledger = ledger(&server);
-        let public_key = ledger.get_public_key(0).await.unwrap();
+        let public_key = ledger.get_public_key(&0u32.into()).await.unwrap();
         let public_key_string = public_key.to_string();
         let expected_public_key = "GDUTHCF37UX32EMANXIL2WOOVEDZ47GHBTT3DYKU6EKM37SOIZXM2FN7";
         assert_eq!(public_key_string, expected_public_key);
@@ -444,7 +442,7 @@ mod test {
         let path = 0;
         let test_hash = b"3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889";
 
-        let err = ledger.sign_blob(path, test_hash).await.unwrap_err();
+        let err = ledger.sign_blob(&path.into(), test_hash).await.unwrap_err();
         if let Error::APDUExchangeError(msg) = err {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
         } else {
@@ -478,7 +476,7 @@ mod test {
         )
         .unwrap();
 
-        let response = ledger.sign_blob(path, &test_hash).await.unwrap();
+        let response = ledger.sign_blob(&path.into(), &test_hash).await.unwrap();
 
         assert_eq!(
             hex::encode(response),

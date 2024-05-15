@@ -5004,6 +5004,7 @@ dependencies = [
 name = "stellar-ledger"
 version = "21.0.0-preview.1"
 dependencies = [
+ "async-trait",
  "bollard",
  "byteorder",
  "ed25519-dalek 2.0.0",
