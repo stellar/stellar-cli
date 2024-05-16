@@ -3,3 +3,4 @@ mod dotenv;
 mod hello_world;
 mod util;
 mod wrap;
+mod bindings;

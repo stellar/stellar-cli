@@ -1,14 +1,15 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec_tools::contract as contract_spec;
+use soroban_spec_tools::contract::{self as contract_spec};
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
+use stellar_strkey::DecodeError;
 
-use crate::commands::{
-    config::locator,
-    contract::{self, fetch},
-    network::{self, Network},
-};
+use crate::{commands::{
+    config::{self, locator}, contract::fetch, 
+    global, network::{self, Network}, 
+    NetworkRunnable
+}, utils::{get_remote_contract_spec, UtilsError}};
 use crate::wasm;
 
 #[derive(Parser, Debug, Clone)]
@@ -61,22 +62,38 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error("Failed to get file name from path: {0:?}")]
     FailedToGetFileName(PathBuf),
+    #[error("cannot parse contract ID {0}: {1}")]
+    CannotParseContractId(String, DecodeError),
+    #[error("Missing RPC Url")]
+    MissingRpcUrl,
+    #[error(transparent)]
+    UtilsError(#[from] UtilsError)
 }
 
-impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+#[async_trait::async_trait]
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = ();
+
+    async fn run_against_rpc_server(
+        &self,
+        global_args: Option<&global::Args>,
+        _config: Option<&config::Args>,
+    ) -> Result<(), Error> {
         let spec = if let Some(wasm) = &self.wasm {
             let wasm: wasm::Args = wasm.into();
             wasm.parse()?.spec
         } else {
-            let fetch = contract::fetch::Cmd {
-                contract_id: self.contract_id.clone(),
-                out_file: None,
-                locator: self.locator.clone(),
-                network: self.network.clone(),
-            };
-            let bytes = fetch.get_bytes().await?;
-            contract_spec::Spec::new(&bytes)?.spec
+            let contract_id = soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
+                .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))?;
+            let spec_entries = get_remote_contract_spec(
+                &contract_id,
+                self.network.rpc_url.as_deref().ok_or(Error::MissingRpcUrl)?,
+                global_args
+            )
+                .await
+                .map_err(Error::from)?; 
+            spec_entries
         };
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));
@@ -125,5 +142,11 @@ impl Cmd {
             .spawn()?
             .wait()?;
         Ok(())
+    }
+}
+
+impl Cmd {
+    pub async fn run(&self) -> Result<(), Error> {
+        self.run_against_rpc_server(None, None).await
     }
 }

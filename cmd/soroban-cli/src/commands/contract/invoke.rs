@@ -22,7 +22,7 @@ use soroban_env_host::{
 };
 
 use soroban_env_host::xdr::{
-    AccountEntry, AccountEntryExt, AccountId, ContractDataEntry, DiagnosticEvent, Thresholds,
+    AccountEntry, AccountEntryExt, AccountId, DiagnosticEvent, Thresholds,
 };
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
@@ -37,6 +37,7 @@ use crate::{
     commands::{config::data, global, network},
     rpc, Pwd,
 };
+use crate::utils::{get_remote_contract_spec, UtilsError};
 use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -102,7 +103,6 @@ pub enum Error {
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
-    // },
     #[error("function name {0} is too long")]
     FunctionNameTooLong(String),
     #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
@@ -122,8 +122,6 @@ pub enum Error {
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing operation result")]
     MissingOperationResult,
-    #[error("missing result")]
-    MissingResult,
     #[error(transparent)]
     StrVal(#[from] soroban_spec_tools::Error),
     #[error("error loading signing key: {0}")]
@@ -152,6 +150,8 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    UtilsError(#[from] UtilsError)
 }
 
 impl From<Infallible> for Error {
@@ -346,33 +346,10 @@ impl NetworkRunnable for Cmd {
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
-        let r = client.get_contract_data(&contract_id).await?;
-        tracing::trace!("{r:?}");
-        let ContractDataEntry {
-            val: xdr::ScVal::ContractInstance(xdr::ScContractInstance { executable, .. }),
-            ..
-        } = r
-        else {
-            return Err(Error::MissingResult);
-        };
-        // Get the contract
-        let spec_entries = match executable {
-            xdr::ContractExecutable::Wasm(hash) => {
-                let hash = hash.to_string();
-                if let Ok(entries) = data::read_spec(&hash) {
-                    entries
-                } else {
-                    let res = client.get_remote_contract_spec(&contract_id).await?;
-                    if global_args.map_or(true, |a| !a.no_cache) {
-                        data::write_spec(&hash, &res)?;
-                    }
-                    res
-                }
-            }
-            xdr::ContractExecutable::StellarAsset => {
-                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
-            }
-        };
+        let spec_entries = get_remote_contract_spec(&contract_id, &network.rpc_url, global_args)
+            .await
+            .map_err(Error::from)?; 
+
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
