@@ -26,24 +26,40 @@ pub struct Speculos(HashMap<String, String>, HashMap<String, String>);
 const DEFAULT_APP_PATH: &str = "/project/app/bin";
 impl Speculos {
     #[allow(dead_code)]
-    pub fn new(apps_dir: PathBuf) -> Self {
+    pub fn new(local_elfs_dir: PathBuf) -> Self {
         #[allow(unused_mut)]
         let mut volumes = HashMap::new();
         volumes.insert(
-            apps_dir.to_str().unwrap().to_string(),
+            local_elfs_dir.to_str().unwrap().to_string(),
             DEFAULT_APP_PATH.to_string(),
         );
         Speculos(ENV.into(), volumes)
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Args;
+#[derive(Debug, Clone)]
+pub struct Args {
+    pub ledger_device_model: String,
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            ledger_device_model: "nanos".to_string(),
+        }
+    }
+}
 
 impl ImageArgs for Args {
     fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
-        let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
+        let device_model = self.ledger_device_model;
+        let container_elf_path = match device_model.as_str() {
+            "nanos" => format!("{DEFAULT_APP_PATH}/stellarNanoSApp.elf"),
+            "nanox" => format!("{DEFAULT_APP_PATH}/stellarNanoXApp.elf"),
+            "nanosp" => format!("{DEFAULT_APP_PATH}/stellarNanoSPApp.elf"),
+            _ => panic!("Unsupported device model"),
+        };
+        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m {device_model} {container_elf_path}");
         Box::new(vec![command_string].into_iter())
     }
 }
