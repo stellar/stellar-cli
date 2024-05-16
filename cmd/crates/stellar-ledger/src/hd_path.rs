@@ -1,7 +1,7 @@
 use crate::Error;
 
 #[derive(Clone, Copy)]
-pub struct HdPath(u32);
+pub struct HdPath(pub(crate) u32);
 
 impl HdPath {
     pub fn depth(&self) -> u8 {
@@ -13,6 +13,12 @@ impl HdPath {
 impl From<u32> for HdPath {
     fn from(index: u32) -> Self {
         HdPath(index)
+    }
+}
+
+impl From<&u32> for HdPath {
+    fn from(index: &u32) -> Self {
+        HdPath(*index)
     }
 }
 

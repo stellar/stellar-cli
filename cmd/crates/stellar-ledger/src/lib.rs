@@ -86,6 +86,12 @@ pub struct LedgerSigner<T: Exchange> {
 unsafe impl<T> Send for LedgerSigner<T> where T: Exchange {}
 unsafe impl<T> Sync for LedgerSigner<T> where T: Exchange {}
 
+pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
+    Ok(LedgerSigner {
+        transport: get_transport()?,
+    })
+}
+
 impl<T> LedgerSigner<T>
 where
     T: Exchange,
@@ -291,11 +297,17 @@ fn get_transport() -> Result<TransportNativeHID, Error> {
     let hidapi = HidApi::new().map_err(Error::HidApiError)?;
     TransportNativeHID::new(&hidapi).map_err(Error::LedgerHidError)
 }
+
+pub const TEST_NETWORK_PASSPHRASE: &[u8] = b"Test SDF Network ; September 2015";
+
+fn test_network_hash() -> Hash {
+    use sha2::Digest;
+    Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
+}
 #[cfg(test)]
 mod test {
     use httpmock::prelude::*;
     use serde_json::json;
-    use sha2::{Digest, Sha256};
 
     use crate::{emulator_http_transport::EmulatorHttpTransport, Blob};
 
@@ -304,17 +316,11 @@ mod test {
 
     use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 
-    use crate::{Error, LedgerSigner};
+    use crate::{Error, LedgerSigner, test_network_hash};
 
     use stellar_xdr::curr::{
-        Hash, Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
+        Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
     };
-
-    const TEST_NETWORK_PASSPHRASE: &[u8] = b"Test SDF Network ; September 2015";
-
-    fn network_hash() -> Hash {
-        Hash(Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
-    }
 
     fn ledger(server: &MockServer) -> LedgerSigner<EmulatorHttpTransport> {
         let transport = EmulatorHttpTransport::new(&server.host(), server.port());
@@ -412,7 +418,7 @@ mod test {
         };
 
         let response = ledger
-            .sign_transaction(0, tx, network_hash())
+            .sign_transaction(0, tx, test_network_hash())
             .await
             .unwrap();
         assert_eq!(
