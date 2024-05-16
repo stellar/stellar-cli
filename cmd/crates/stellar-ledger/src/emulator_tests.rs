@@ -21,6 +21,10 @@ use tokio::time::sleep;
 
 const TEST_NETWORK_PASSPHRASE: &str = "Test SDF Network ; September 2015";
 
+fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
+    LedgerSigner::new(get_zemu_transport("127.0.0.1", host_port).unwrap())
+}
+
 // #[ignore]
 // #[tokio::test]
 // #[serial]
@@ -44,9 +48,7 @@ async fn test_get_public_key() {
 
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-
-    let ledger = native().unwrap();
+    let ledger = ledger(host_port);
 
     match ledger.get_public_key(&0.into()).await {
         Ok(public_key) => {
@@ -75,8 +77,7 @@ async fn test_get_app_configuration() {
 
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    let ledger = native().unwrap();
+    let ledger = ledger(host_port);
 
     match ledger.get_app_configuration().await {
         Ok(config) => {
@@ -101,8 +102,7 @@ async fn test_sign_tx() {
 
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    let ledger = Arc::new(native().unwrap());
+    let ledger = Arc::new(ledger(host_port));
 
     let path = HdPath(0);
 
@@ -192,9 +192,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
     // sleep to account for key delay
     // for some things, waiting for the screen to change... but prob dont need that for this
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    
-    let ledger = native().unwrap();
+    let ledger = ledger(host_port);
 
     let path = 0;
     let test_hash = b"313e8447f569233bb8db39aa607c8889";
@@ -222,15 +220,13 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     wait_for_emulator_start_text(ui_host_port).await;
     enable_hash_signing(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    
-    let ledger = Arc::new(native().unwrap());
+    let ledger = Arc::new(ledger(host_port));
 
     let path = 0;
     let mut test_hash = [0u8; 32];
 
     match hex::decode_to_slice(
-        "313e8447f569233bb8db39aa607c8889",
+        "313e8447f569233bb8db39aa607c8889313e8447f569233bb8db39aa607c8889",
         &mut test_hash as &mut [u8],
     ) {
         Ok(()) => {}

@@ -316,7 +316,7 @@ mod test {
 
     use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 
-    use crate::{Error, LedgerSigner, test_network_hash};
+    use crate::{test_network_hash, Error, LedgerSigner};
 
     use stellar_xdr::curr::{
         Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
