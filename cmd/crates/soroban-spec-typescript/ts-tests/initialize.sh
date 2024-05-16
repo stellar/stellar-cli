@@ -13,7 +13,7 @@ echo Network
 echo "  RPC:        $SOROBAN_RPC_URL"
 echo "  Passphrase: \"$SOROBAN_NETWORK_PASSPHRASE\""
 
-NETWORK_STATUS=$(curl -s -X POST "http://localhost:8000/soroban/rpc" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "id": 8675309, "method": "getHealth" }' | sed 's/.*"status":"\(.*\)".*/\1/') || { echo "Make sure you're running local RPC network on localhost:8000" && exit 1; }
+NETWORK_STATUS=$(curl -s -X POST "http://localhost:8000/soroban/rpc" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "id": 8675309, "method": "getHealth" }' | sed 's/.*"status":"\([^"]*\)".*/\1/') || { echo "Make sure you're running local RPC network on localhost:8000" && exit 1; }
 echo "  Status:     $NETWORK_STATUS"
 
 if [[ "$NETWORK_STATUS" != "healthy" ]]; then
