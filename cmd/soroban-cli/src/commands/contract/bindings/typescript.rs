@@ -69,8 +69,6 @@ pub enum Error {
     FailedToGetFileName(PathBuf),
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
-    #[error("Missing RPC Url")]
-    MissingRpcUrl,
     #[error(transparent)]
     UtilsError(#[from] get_spec::Error),
 }
