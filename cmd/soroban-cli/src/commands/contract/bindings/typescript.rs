@@ -89,7 +89,7 @@ impl NetworkRunnable for Cmd {
         } else {
             let contract_id = soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
                 .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))?;
-            let spec_entries = get_remote_contract_spec(
+            get_remote_contract_spec(
                 &contract_id,
                 self.locator.clone(),
                 self.network.clone(),
@@ -97,8 +97,7 @@ impl NetworkRunnable for Cmd {
                 config,
             )
             .await
-            .map_err(Error::from)?;
-            spec_entries
+            .map_err(Error::from)?
         };
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));

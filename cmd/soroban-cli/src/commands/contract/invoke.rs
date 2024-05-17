@@ -320,15 +320,15 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
-        let c = config;
-        let config = config.unwrap_or(&self.config);
-        let network = config.get_network()?;
+        let unwrap_config = config.unwrap_or(&self.config);
+        let network = unwrap_config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            let _ = self.build_host_function_parameters(contract_id, spec_entries, config)?;
+            let _ =
+                self.build_host_function_parameters(contract_id, spec_entries, unwrap_config)?;
         }
         let client = rpc::Client::new(&network.rpc_url)?;
         let account_details = if self.is_view {
@@ -337,7 +337,7 @@ impl NetworkRunnable for Cmd {
             client
                 .verify_network_passphrase(Some(&network.network_passphrase))
                 .await?;
-            let key = config.key_pair()?;
+            let key = unwrap_config.key_pair()?;
 
             // Get the account sequence number
             let public_strkey =
@@ -349,17 +349,17 @@ impl NetworkRunnable for Cmd {
 
         let spec_entries = get_remote_contract_spec(
             &contract_id,
-            config.locator.clone(),
-            config.network.clone(),
+            unwrap_config.locator.clone(),
+            unwrap_config.network.clone(),
             global_args,
-            c,
+            config,
         )
         .await
         .map_err(Error::from)?;
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
-            self.build_host_function_parameters(contract_id, &spec_entries, config)?;
+            self.build_host_function_parameters(contract_id, &spec_entries, unwrap_config)?;
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
@@ -390,7 +390,7 @@ impl NetworkRunnable for Cmd {
             let res = client
                 .send_assembled_transaction(
                     txn,
-                    &config.key_pair()?,
+                    &unwrap_config.key_pair()?,
                     &signers,
                     &network.network_passphrase,
                     Some(log_events),
