@@ -9,7 +9,7 @@ use crate::{commands::{
     config::{self, locator}, contract::fetch, 
     global, network::{self, Network}, 
     NetworkRunnable
-}, get_spec::{get_remote_contract_spec, GetSpecError}};
+}, get_spec::{self, get_remote_contract_spec}};
 use crate::wasm;
 
 #[derive(Parser, Debug, Clone)]
@@ -67,7 +67,7 @@ pub enum Error {
     #[error("Missing RPC Url")]
     MissingRpcUrl,
     #[error(transparent)]
-    UtilsError(#[from] GetSpecError)
+    UtilsError(#[from] get_spec::Error)
 }
 
 #[async_trait::async_trait]

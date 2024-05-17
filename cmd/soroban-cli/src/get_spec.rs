@@ -12,7 +12,7 @@ use crate::commands::{config::data, global};
 
 
 #[derive(thiserror::Error, Debug)]
-pub enum GetSpecError {
+pub enum Error {
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
     #[error(transparent)]
@@ -31,7 +31,7 @@ pub async fn get_remote_contract_spec(
     contract_id: &[u8; 32],
     rpc_url: &str,
     global_args: Option<&global::Args>,
-) -> Result<Vec<ScSpecEntry>, GetSpecError> {
+) -> Result<Vec<ScSpecEntry>, Error> {
     let client = rpc::Client::new(rpc_url)?;
     // Get contract data
     let r = client.get_contract_data(&contract_id).await?;
@@ -42,7 +42,7 @@ pub async fn get_remote_contract_spec(
         ..
     } = r
     else {
-        return Err(GetSpecError::MissingResult);
+        return Err(Error::MissingResult);
     };
 
     // Get the contract spec entries based on the executable type

@@ -37,7 +37,7 @@ use crate::{
     commands::{config::data, global, network},
     rpc, Pwd,
 };
-use crate::get_spec::{get_remote_contract_spec, GetSpecError};
+use crate::get_spec::{self, get_remote_contract_spec};
 use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -151,7 +151,7 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    GetSpecError(#[from] GetSpecError)
+    GetSpecError(#[from] get_spec::Error)
 }
 
 impl From<Infallible> for Error {
