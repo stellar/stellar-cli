@@ -46,7 +46,7 @@ pub async fn get_remote_contract_spec(
     tracing::trace!(?network);
     let client = rpc::Client::new(&network.rpc_url)?;
     // Get contract data
-    let r = client.get_contract_data(&contract_id).await?;
+    let r = client.get_contract_data(contract_id).await?;
     tracing::trace!("{r:?}");
 
     let ContractDataEntry {
@@ -64,7 +64,7 @@ pub async fn get_remote_contract_spec(
             if let Ok(entries) = data::read_spec(&hash) {
                 entries
             } else {
-                let res = client.get_remote_contract_spec(&contract_id).await?;
+                let res = client.get_remote_contract_spec(contract_id).await?;
                 if global_args.map_or(true, |a| !a.no_cache) {
                     data::write_spec(&hash, &res)?;
                 }

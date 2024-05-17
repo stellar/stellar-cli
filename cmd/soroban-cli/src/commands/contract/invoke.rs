@@ -386,7 +386,7 @@ impl NetworkRunnable for Cmd {
                 very_verbose,
                 no_cache,
                 ..
-            } = global_args.map(Clone::clone).unwrap_or_default();
+            } = global_args.cloned().unwrap_or_default();
             let res = client
                 .send_assembled_transaction(
                     txn,
