@@ -29,4 +29,7 @@ async fn invoke_test_generate_typescript_bindings() {
 
     let files = std::fs::read_dir(output_dir).expect("Failed to read output directory");
     assert!(files.count() > 0, "No files generated in the output directory");
+
+    // Clean up: remove the output directory and its contents
+    std::fs::remove_dir_all(OUTPUT_DIR).expect("Failed to delete output directory");
 }
