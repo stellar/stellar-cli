@@ -8,7 +8,7 @@ use soroban_spec::read::FromWasmError;
 pub use soroban_spec_tools::contract as contract_spec;
 
 use crate::commands::config::{self, locator};
-use crate::commands::network::{self, Network};
+use crate::commands::network;
 use crate::commands::{config::data, global};
 use crate::rpc;
 
@@ -39,10 +39,10 @@ pub async fn get_remote_contract_spec(
     global_args: Option<&global::Args>,
     config: Option<&config::Args>,
 ) -> Result<Vec<ScSpecEntry>, Error> {
-    fn net(network: network::Args, locator: locator::Args) -> Result<Network, Error> {
-        Ok(network.get(&locator)?)
-    }
-    let network = config.map_or_else(|| net(network, locator), |c| Ok(c.get_network()?))?;
+    let network = config.map_or_else(
+    || network.get(&locator).map_err(Error::from),
+        |c| c.get_network().map_err(Error::from),
+    )?;
     tracing::trace!(?network);
     let client = rpc::Client::new(&network.rpc_url)?;
     // Get contract data
