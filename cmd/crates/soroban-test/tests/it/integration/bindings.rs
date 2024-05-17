@@ -31,5 +31,4 @@ async fn invoke_test_generate_typescript_bindings() {
         files.count() > 0,
         "No files generated in the output directory"
     );
-
 }

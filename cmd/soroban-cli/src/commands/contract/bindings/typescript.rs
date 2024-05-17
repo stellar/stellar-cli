@@ -83,7 +83,7 @@ impl NetworkRunnable for Cmd {
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
-        _config: Option<&config::Args>,
+        config: Option<&config::Args>,
     ) -> Result<(), Error> {
         let spec = if let Some(wasm) = &self.wasm {
             let wasm: wasm::Args = wasm.into();
@@ -93,11 +93,10 @@ impl NetworkRunnable for Cmd {
                 .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))?;
             let spec_entries = get_remote_contract_spec(
                 &contract_id,
-                self.network
-                    .rpc_url
-                    .as_deref()
-                    .ok_or(Error::MissingRpcUrl)?,
+                self.locator.clone(),
+                self.network.clone(),
                 global_args,
+                config,
             )
             .await
             .map_err(Error::from)?;

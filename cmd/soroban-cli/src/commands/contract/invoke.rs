@@ -320,6 +320,7 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
+        let c = config;
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
@@ -346,9 +347,15 @@ impl NetworkRunnable for Cmd {
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
-        let spec_entries = get_remote_contract_spec(&contract_id, &network.rpc_url, global_args)
-            .await
-            .map_err(Error::from)?;
+        let spec_entries = get_remote_contract_spec(
+            &contract_id,
+            config.locator.clone(),
+            config.network.clone(),
+            global_args,
+            c,
+        )
+        .await
+        .map_err(Error::from)?;
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =

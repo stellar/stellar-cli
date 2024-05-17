@@ -7,6 +7,8 @@ use soroban_env_host::xdr::{
 use soroban_spec::read::FromWasmError;
 pub use soroban_spec_tools::contract as contract_spec;
 
+use crate::commands::config::{self, locator};
+use crate::commands::network::{self, Network};
 use crate::commands::{config::data, global};
 use crate::rpc;
 
@@ -22,16 +24,27 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Network(#[from] network::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
 }
 
 ///
 /// # Errors
 pub async fn get_remote_contract_spec(
     contract_id: &[u8; 32],
-    rpc_url: &str,
+    locator: locator::Args,
+    network: network::Args,
     global_args: Option<&global::Args>,
+    config: Option<&config::Args>,
 ) -> Result<Vec<ScSpecEntry>, Error> {
-    let client = rpc::Client::new(rpc_url)?;
+    fn net(network: network::Args, locator: locator::Args) -> Result<Network, Error> {
+        Ok(network.get(&locator)?)
+    }
+    let network = config.map_or_else(|| net(network, locator), |c| Ok(c.get_network()?))?;
+    tracing::trace!(?network);
+    let client = rpc::Client::new(&network.rpc_url)?;
     // Get contract data
     let r = client.get_contract_data(&contract_id).await?;
     tracing::trace!("{r:?}");
