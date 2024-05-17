@@ -1,8 +1,7 @@
-use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
 use super::util::deploy_swap;
+use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
 const OUTPUT_DIR: &str = "./bindings-output";
-
 
 #[tokio::test]
 async fn invoke_test_generate_typescript_bindings() {
@@ -28,7 +27,10 @@ async fn invoke_test_generate_typescript_bindings() {
     assert!(output_dir.exists(), "Output directory does not exist");
 
     let files = std::fs::read_dir(output_dir).expect("Failed to read output directory");
-    assert!(files.count() > 0, "No files generated in the output directory");
+    assert!(
+        files.count() > 0,
+        "No files generated in the output directory"
+    );
 
     // Clean up: remove the output directory and its contents
     std::fs::remove_dir_all(OUTPUT_DIR).expect("Failed to delete output directory");

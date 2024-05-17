@@ -5,12 +5,17 @@ use soroban_spec_tools::contract as contract_spec;
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 use stellar_strkey::DecodeError;
 
-use crate::{commands::{
-    config::{self, locator}, contract::fetch, 
-    global, network::{self, Network}, 
-    NetworkRunnable
-}, get_spec::{self, get_remote_contract_spec}};
 use crate::wasm;
+use crate::{
+    commands::{
+        config::{self, locator},
+        contract::fetch,
+        global,
+        network::{self, Network},
+        NetworkRunnable,
+    },
+    get_spec::{self, get_remote_contract_spec},
+};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -67,7 +72,7 @@ pub enum Error {
     #[error("Missing RPC Url")]
     MissingRpcUrl,
     #[error(transparent)]
-    UtilsError(#[from] get_spec::Error)
+    UtilsError(#[from] get_spec::Error),
 }
 
 #[async_trait::async_trait]
@@ -88,11 +93,14 @@ impl NetworkRunnable for Cmd {
                 .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))?;
             let spec_entries = get_remote_contract_spec(
                 &contract_id,
-                self.network.rpc_url.as_deref().ok_or(Error::MissingRpcUrl)?,
-                global_args
+                self.network
+                    .rpc_url
+                    .as_deref()
+                    .ok_or(Error::MissingRpcUrl)?,
+                global_args,
             )
-                .await
-                .map_err(Error::from)?; 
+            .await
+            .map_err(Error::from)?;
             spec_entries
         };
         if self.output_dir.is_file() {

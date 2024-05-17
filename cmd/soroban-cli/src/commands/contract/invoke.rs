@@ -33,11 +33,11 @@ use super::super::{
 };
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
+use crate::get_spec::{self, get_remote_contract_spec};
 use crate::{
     commands::{config::data, global, network},
     rpc, Pwd,
 };
-use crate::get_spec::{self, get_remote_contract_spec};
 use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -151,7 +151,7 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    GetSpecError(#[from] get_spec::Error)
+    GetSpecError(#[from] get_spec::Error),
 }
 
 impl From<Infallible> for Error {
@@ -348,8 +348,7 @@ impl NetworkRunnable for Cmd {
 
         let spec_entries = get_remote_contract_spec(&contract_id, &network.rpc_url, global_args)
             .await
-            .map_err(Error::from)?; 
-
+            .map_err(Error::from)?;
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =

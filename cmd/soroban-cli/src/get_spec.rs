@@ -1,15 +1,14 @@
 use soroban_env_host::xdr;
 
 use soroban_env_host::xdr::{
-    ContractDataEntry, ContractExecutable, ScSpecEntry, ScVal, ScContractInstance,
+    ContractDataEntry, ContractExecutable, ScContractInstance, ScSpecEntry, ScVal,
 };
 
 use soroban_spec::read::FromWasmError;
 pub use soroban_spec_tools::contract as contract_spec;
 
-use crate::rpc;
 use crate::commands::{config::data, global};
-
+use crate::rpc;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -36,7 +35,7 @@ pub async fn get_remote_contract_spec(
     // Get contract data
     let r = client.get_contract_data(&contract_id).await?;
     tracing::trace!("{r:?}");
-    
+
     let ContractDataEntry {
         val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
         ..
@@ -66,4 +65,3 @@ pub async fn get_remote_contract_spec(
 
     Ok(spec_entries)
 }
-
