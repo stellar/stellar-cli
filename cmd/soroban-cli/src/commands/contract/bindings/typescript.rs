@@ -1,7 +1,7 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec_tools::contract::{self as contract_spec};
+use soroban_spec_tools::contract as contract_spec;
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 use stellar_strkey::DecodeError;
 
@@ -9,7 +9,7 @@ use crate::{commands::{
     config::{self, locator}, contract::fetch, 
     global, network::{self, Network}, 
     NetworkRunnable
-}, utils::{get_remote_contract_spec, UtilsError}};
+}, get_spec::{get_remote_contract_spec, GetSpecError}};
 use crate::wasm;
 
 #[derive(Parser, Debug, Clone)]
@@ -67,7 +67,7 @@ pub enum Error {
     #[error("Missing RPC Url")]
     MissingRpcUrl,
     #[error(transparent)]
-    UtilsError(#[from] UtilsError)
+    UtilsError(#[from] GetSpecError)
 }
 
 #[async_trait::async_trait]
