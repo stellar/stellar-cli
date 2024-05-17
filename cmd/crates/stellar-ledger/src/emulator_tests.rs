@@ -1,4 +1,3 @@
-use crate::signer::Stellar;
 use ledger_transport::Exchange;
 use serde::Deserialize;
 use soroban_env_host::xdr::Transaction;
@@ -6,8 +5,9 @@ use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 use std::vec;
 
 use crate::emulator_http_transport::EmulatorHttpTransport;
+use crate::hd_path::HdPath;
 use crate::speculos::Speculos;
-use crate::{LedgerError, LedgerOptions, LedgerSigner};
+use crate::{native, test_network_hash, Blob, Error, LedgerSigner};
 
 use std::sync::Arc;
 use std::{collections::HashMap, str::FromStr, time::Duration};
@@ -20,6 +20,10 @@ use testcontainers::clients;
 use tokio::time::sleep;
 
 const TEST_NETWORK_PASSPHRASE: &str = "Test SDF Network ; September 2015";
+
+fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
+    LedgerSigner::new(get_zemu_transport("127.0.0.1", host_port).unwrap())
+}
 
 // #[ignore]
 // #[tokio::test]
@@ -44,14 +48,9 @@ async fn test_get_public_key() {
 
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    let ledger_options = Some(LedgerOptions {
-        exchange: transport,
-        hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-    });
-    let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+    let ledger = ledger(host_port);
 
-    match ledger.get_public_key(0).await {
+    match ledger.get_public_key(&0.into()).await {
         Ok(public_key) => {
             let public_key_string = public_key.to_string();
             // This is determined by the seed phrase used to start up the emulator
@@ -78,12 +77,7 @@ async fn test_get_app_configuration() {
 
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    let ledger_options = Some(LedgerOptions {
-        exchange: transport,
-        hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-    });
-    let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+    let ledger = ledger(host_port);
 
     match ledger.get_app_configuration().await {
         Ok(config) => {
@@ -108,14 +102,9 @@ async fn test_sign_tx() {
 
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    let ledger_options = Some(LedgerOptions {
-        exchange: transport,
-        hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-    });
-    let ledger = Arc::new(LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options));
+    let ledger = Arc::new(ledger(host_port));
 
-    let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
+    let path = HdPath(0);
 
     let source_account_str = "GAQNVGMLOXSCWH37QXIHLQJH6WZENXYSVWLPAEF4673W64VRNZLRHMFM";
     let source_account_bytes = match stellar_strkey::Strkey::from_string(source_account_str) {
@@ -169,7 +158,7 @@ async fn test_sign_tx() {
 
     let sign = tokio::task::spawn({
         let ledger = Arc::clone(&ledger);
-        async move { ledger.sign_transaction(path, tx).await }
+        async move { ledger.sign_transaction(path, tx, test_network_hash()).await }
     });
     let approve = tokio::task::spawn(approve_tx_signature(ui_host_port));
 
@@ -203,18 +192,13 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
     // sleep to account for key delay
     // for some things, waiting for the screen to change... but prob dont need that for this
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    let ledger_options = Some(LedgerOptions {
-        exchange: transport,
-        hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-    });
-    let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
+    let ledger = ledger(host_port);
 
-    let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
-    let test_hash = "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889".as_bytes();
+    let path = 0;
+    let test_hash = b"313e8447f569233bb8db39aa607c8889";
 
-    let result = ledger.sign_transaction_hash(path, test_hash.into()).await;
-    if let Err(LedgerError::APDUExchangeError(msg)) = result {
+    let result = ledger.sign_transaction_hash(path, test_hash).await;
+    if let Err(Error::APDUExchangeError(msg)) = result {
         assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
         // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
     } else {
@@ -236,18 +220,13 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     wait_for_emulator_start_text(ui_host_port).await;
     enable_hash_signing(ui_host_port).await;
 
-    let transport = get_zemu_transport("127.0.0.1", host_port).unwrap();
-    let ledger_options = Some(LedgerOptions {
-        exchange: transport,
-        hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-    });
-    let ledger = Arc::new(LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options));
+    let ledger = Arc::new(ledger(host_port));
 
-    let path = slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap();
-    let mut test_hash = vec![0u8; 32];
+    let path = 0;
+    let mut test_hash = [0u8; 32];
 
     match hex::decode_to_slice(
-        "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
+        "313e8447f569233bb8db39aa607c8889313e8447f569233bb8db39aa607c8889",
         &mut test_hash as &mut [u8],
     ) {
         Ok(()) => {}
@@ -259,7 +238,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
 
     let sign = tokio::task::spawn({
         let ledger = Arc::clone(&ledger);
-        async move { ledger.sign_transaction_hash(path, test_hash).await }
+        async move { ledger.sign_transaction_hash(path, &test_hash).await }
     });
     let approve = tokio::task::spawn(approve_tx_hash_signature(ui_host_port));
 
@@ -343,7 +322,7 @@ struct EventsResponse {
     events: Vec<EmulatorEvent>,
 }
 
-fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, LedgerError> {
+fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
     Ok(EmulatorHttpTransport::new(host, port))
 }
 
