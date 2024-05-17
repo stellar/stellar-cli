@@ -1,7 +1,7 @@
 use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
 use super::util::deploy_swap;
 
-pub const OUTPUT_DIR: &str = "./bindings-output";
+const OUTPUT_DIR: &str = "./bindings-output";
 
 
 #[tokio::test]
