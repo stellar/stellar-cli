@@ -7,13 +7,14 @@ const OUTPUT_DIR: &str = "./bindings-output";
 async fn invoke_test_generate_typescript_bindings() {
     let sandbox = &TestEnv::new();
     let contract_id = deploy_swap(sandbox).await;
+    let outdir = sandbox.dir().join(OUTPUT_DIR);
     let cmd = sandbox.cmd_arr::<soroban_cli::commands::contract::bindings::typescript::Cmd>(&[
         "--network-passphrase",
         LOCAL_NETWORK_PASSPHRASE,
         "--rpc-url",
         &sandbox.rpc_url,
         "--output-dir",
-        OUTPUT_DIR,
+        &outdir.display().to_string(),
         "--overwrite",
         "--contract-id",
         &contract_id.to_string(),
@@ -23,15 +24,12 @@ async fn invoke_test_generate_typescript_bindings() {
 
     assert!(result.is_ok(), "Failed to generate TypeScript bindings");
 
-    let output_dir = std::path::Path::new(OUTPUT_DIR);
-    assert!(output_dir.exists(), "Output directory does not exist");
+    assert!(outdir.exists(), "Output directory does not exist");
 
-    let files = std::fs::read_dir(output_dir).expect("Failed to read output directory");
+    let files = std::fs::read_dir(outdir).expect("Failed to read output directory");
     assert!(
         files.count() > 0,
         "No files generated in the output directory"
     );
 
-    // Clean up: remove the output directory and its contents
-    std::fs::remove_dir_all(OUTPUT_DIR).expect("Failed to delete output directory");
 }
