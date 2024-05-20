@@ -3959,6 +3959,7 @@ version = "21.0.0-preview.1"
 dependencies = [
  "assert_cmd",
  "assert_fs",
+ "ed25519-dalek 2.0.0",
  "fs_extra",
  "predicates 2.1.5",
  "sep5",

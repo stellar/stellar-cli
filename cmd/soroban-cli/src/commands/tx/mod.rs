@@ -1,5 +1,7 @@
 use clap::Parser;
 
+use super::global;
+
 pub mod send;
 pub mod simulate;
 pub mod xdr;
@@ -23,10 +25,10 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::Send(cmd) => cmd.run().await?,
-            Cmd::Simulate(cmd) => cmd.run().await?,
+            Cmd::Send(cmd) => cmd.run(global_args).await?,
+            Cmd::Simulate(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }

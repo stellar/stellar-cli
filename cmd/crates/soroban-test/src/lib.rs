@@ -115,7 +115,7 @@ impl TestEnv {
             .as_deref()
             .ok()
             .and_then(|n| n.parse().ok())
-            .unwrap_or(8889);
+            .unwrap_or(8000);
         Self::with_port(host_port)
     }
     /// Create a new `assert_cmd::Command` for a given subcommand and set's the current directory
@@ -218,14 +218,9 @@ impl TestEnv {
         T::parse_arg_vec(&arg).unwrap()
     }
 
-    /// Invoke an already parsed invoke command
-    pub async fn run_cmd_with<T: NetworkRunnable>(
-        &self,
-        cmd: T,
-        account: &str,
-    ) -> Result<T::Result, T::Error> {
+    pub fn clone_config(&self, account: &str) -> config::Args {
         let config_dir = Some(self.dir().to_path_buf());
-        let config = config::Args {
+        config::Args {
             network: network::Args {
                 rpc_url: Some(self.rpc_url.clone()),
                 network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
@@ -234,16 +229,22 @@ impl TestEnv {
             source_account: account.to_string(),
             locator: config::locator::Args {
                 global: false,
-                config_dir: config_dir.clone(),
+                config_dir,
             },
             hd_path: None,
-        };
+        }
+    }
+
+    /// Invoke an already parsed invoke command
+    pub async fn run_cmd_with<T: NetworkRunnable>(
+        &self,
+        cmd: T,
+        account: &str,
+    ) -> Result<T::Result, T::Error> {
+        let config = self.clone_config(account);
         cmd.run_against_rpc_server(
             Some(&global::Args {
-                locator: config::locator::Args {
-                    global: false,
-                    config_dir,
-                },
+                locator: config.locator.clone(),
                 filter_logs: Vec::default(),
                 quiet: false,
                 verbose: false,
@@ -288,6 +289,10 @@ impl TestEnv {
     pub fn save(&self, dst: &Path) -> Result<(), Error> {
         fs_extra::dir::copy(&self.temp_dir, dst, &CopyOptions::new())?;
         Ok(())
+    }
+
+    pub fn client(&self) -> soroban_rpc::Client {
+        soroban_rpc::Client::new(&self.rpc_url).unwrap()
     }
 }
 

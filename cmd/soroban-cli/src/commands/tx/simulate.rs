@@ -1,5 +1,8 @@
+use async_trait::async_trait;
 use soroban_rpc::Assembled;
-use soroban_sdk::xdr::{self, WriteXdr};
+use soroban_sdk::xdr::{self, Transaction, WriteXdr};
+
+use crate::commands::{config, global, NetworkRunnable};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -15,7 +18,7 @@ pub enum Error {
 
 /// Command to simulate a transaction envelope via rpc
 /// e.g. `cat file.txt | soroban tx simulate`
-#[derive(Debug, clap::Parser, Clone)]
+#[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {
     #[clap(flatten)]
@@ -23,16 +26,37 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.simulate().await?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self
+            .run_against_rpc_server(Some(global_args), Some(&self.config))
+            .await?;
         println!("{}", res.transaction().to_xdr_base64(xdr::Limits::none())?);
         Ok(())
     }
 
-    pub async fn simulate(&self) -> Result<Assembled, Error> {
-        let tx = super::xdr::unwrap_envelope_v1()?;
-        let network = self.config.get_network()?;
+    pub async fn simulate(
+        &self,
+        tx: &Transaction,
+        client: &crate::rpc::Client,
+    ) -> Result<Assembled, Error> {
+        Ok(client.create_assembled_transaction(tx).await?)
+    }
+}
+
+#[async_trait]
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+
+    type Result = Assembled;
+    async fn run_against_rpc_server(
+        &self,
+        _: Option<&global::Args>,
+        config: Option<&config::Args>,
+    ) -> Result<Self::Result, Self::Error> {
+        let config = config.unwrap_or(&self.config);
+        let network = config.get_network()?;
         let client = crate::rpc::Client::new(&network.rpc_url)?;
-        Ok(client.create_assembled_transaction(&tx).await?)
+        let tx = super::xdr::unwrap_envelope_v1()?;
+        self.simulate(&tx, &client).await
     }
 }

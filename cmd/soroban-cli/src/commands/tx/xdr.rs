@@ -20,7 +20,7 @@ pub enum Error {
     OnlyTransactionV1Supported,
 }
 
-pub fn txn_envelope_from_stdin() -> Result<TransactionEnvelope, Error> {
+pub fn tx_envelope_from_stdin() -> Result<TransactionEnvelope, Error> {
     from_stdin()
 }
 pub fn from_stdin<T: ReadXdr>() -> Result<T, Error> {
@@ -32,7 +32,7 @@ pub fn from_stdin<T: ReadXdr>() -> Result<T, Error> {
 }
 
 pub fn unwrap_envelope_v1() -> Result<Transaction, Error> {
-    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = txn_envelope_from_stdin()?
+    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_envelope_from_stdin()?
     else {
         return Err(Error::OnlyTransactionV1Supported);
     };

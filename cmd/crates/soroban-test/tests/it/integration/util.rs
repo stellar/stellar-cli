@@ -1,4 +1,5 @@
 use soroban_cli::commands;
+use soroban_sdk::xdr::{Limits, WriteXdr};
 use soroban_test::{TestEnv, Wasm};
 use std::fmt::Display;
 
@@ -21,14 +22,14 @@ where
 pub const TEST_SALT: &str = "f55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114";
 
 pub async fn deploy_hello(sandbox: &TestEnv) -> String {
-    deploy_contract(sandbox, HELLO_WORLD).await
+    deploy_contract(sandbox, HELLO_WORLD, false).await
 }
 
 pub async fn deploy_custom(sandbox: &TestEnv) -> String {
-    deploy_contract(sandbox, CUSTOM_TYPES).await
+    deploy_contract(sandbox, CUSTOM_TYPES, false).await
 }
 
-pub async fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm<'static>) -> String {
+pub async fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm<'static>, build_only: bool) -> String {
     let cmd = sandbox.cmd_with_config::<_, commands::contract::deploy::wasm::Cmd>(&[
         "--fee",
         "1000000",
@@ -37,13 +38,18 @@ pub async fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm<'static>) -> String 
         "--salt",
         TEST_SALT,
         "--ignore-checks",
+        build_only.then_some("--build-only").unwrap_or_default(),
     ]);
-    sandbox
-        .run_cmd_with(cmd, "test")
-        .await
-        .unwrap()
-        .into_result()
-        .unwrap()
+    let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
+    if build_only {
+        match res.to_envelope() {
+            commands::txn_result::TxnEnvelopeResult::TxnEnvelope(e) => {
+                return e.to_xdr_base64(Limits::none()).unwrap()
+            }
+            commands::txn_result::TxnEnvelopeResult::Res(_) => todo!(),
+        }
+    }
+    res.into_result().unwrap()
 }
 
 pub async fn extend_contract(sandbox: &TestEnv, id: &str) {

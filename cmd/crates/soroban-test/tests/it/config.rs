@@ -3,9 +3,7 @@ use soroban_test::{AssertExt, TestEnv};
 use std::{fs, path::Path};
 
 use crate::util::{add_key, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
-use soroban_cli::commands::network;
-
-const NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
+use soroban_cli::commands::network::{self, LOCAL_NETWORK_PASSPHRASE};
 
 fn ls(sandbox: &TestEnv) -> Vec<String> {
     sandbox
@@ -51,7 +49,7 @@ fn add_network(sandbox: &TestEnv, name: &str) {
         .args([
             "--rpc-url=https://127.0.0.1",
             "--network-passphrase",
-            NETWORK_PASSPHRASE,
+            LOCAL_NETWORK_PASSPHRASE,
             name,
         ])
         .assert()
