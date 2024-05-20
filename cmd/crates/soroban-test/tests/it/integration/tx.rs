@@ -17,7 +17,6 @@ use crate::{
 
 #[tokio::test]
 async fn txn_simulate() {
-    
     let sandbox = &TestEnv::new();
     let xdr_base64 = deploy_contract(sandbox, HELLO_WORLD, true).await;
     println!("{xdr_base64}");
@@ -46,7 +45,6 @@ async fn txn_simulate() {
 
 #[tokio::test]
 async fn txn_send() {
-    
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("contract")
