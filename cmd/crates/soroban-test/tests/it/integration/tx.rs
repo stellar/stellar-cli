@@ -17,8 +17,8 @@ use crate::{
 
 #[tokio::test]
 async fn txn_simulate() {
-    let host_port = 8000;
-    let sandbox = &TestEnv::with_rpc_url(&format!("http://moss:{host_port}/soroban/rpc"));
+    
+    let sandbox = &TestEnv::new();
     let xdr_base64 = deploy_contract(sandbox, HELLO_WORLD, true).await;
     println!("{xdr_base64}");
     let cmd = tx::simulate::Cmd::default();
@@ -46,8 +46,8 @@ async fn txn_simulate() {
 
 #[tokio::test]
 async fn txn_send() {
-    let host_port = 8000;
-    let sandbox = &TestEnv::with_rpc_url(&format!("http://moss:{host_port}/soroban/rpc"));
+    
+    let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("contract")
         .arg("install")
