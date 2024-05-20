@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { Address, Keypair } from "@stellar/stellar-sdk";
-import { basicNodeSigner } from "@stellar/stellar-sdk/lib/contract_client/index.js";
+import { basicNodeSigner } from "@stellar/stellar-sdk/ContractClient";
 
 const rootKeypair = Keypair.fromSecret(spawnSync("./soroban", ["keys", "show", "root"], { shell: true, encoding: "utf8" }).stdout.trim());
 
