@@ -1,60 +1,31 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Client = exports.Errors = exports.RoyalCard = exports.networks = exports.rpc = exports.contract = void 0;
-const buffer_1 = require("buffer");
-const contract_1 = require("@stellar/stellar-sdk/contract");
-__exportStar(require("@stellar/stellar-sdk"), exports);
-exports.contract = __importStar(require("@stellar/stellar-sdk/contract"));
-exports.rpc = __importStar(require("@stellar/stellar-sdk/rpc"));
+import { Buffer } from "buffer";
+import { Client as ContractClient, Spec as ContractSpec, } from '@stellar/stellar-sdk/contract';
+export * from '@stellar/stellar-sdk';
+export * as contract from '@stellar/stellar-sdk/contract';
+export * as rpc from '@stellar/stellar-sdk/rpc';
 if (typeof window !== 'undefined') {
     //@ts-ignore Buffer exists
-    window.Buffer = window.Buffer || buffer_1.Buffer;
+    window.Buffer = window.Buffer || Buffer;
 }
-exports.networks = {
+export const networks = {
     futurenet: {
         networkPassphrase: "Test SDF Future Network ; October 2022",
         contractId: "CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK",
     }
 };
-var RoyalCard;
+export var RoyalCard;
 (function (RoyalCard) {
     RoyalCard[RoyalCard["Jack"] = 11] = "Jack";
     RoyalCard[RoyalCard["Queen"] = 12] = "Queen";
     RoyalCard[RoyalCard["King"] = 13] = "King";
-})(RoyalCard || (exports.RoyalCard = RoyalCard = {}));
-exports.Errors = {
+})(RoyalCard || (RoyalCard = {}));
+export const Errors = {
     1: { message: "Please provide an odd number" }
 };
-class Client extends contract_1.Client {
+export class Client extends ContractClient {
     options;
     constructor(options) {
-        super(new contract_1.Spec(["AAAAAQAAAC9UaGlzIGlzIGZyb20gdGhlIHJ1c3QgZG9jIGFib3ZlIHRoZSBzdHJ1Y3QgVGVzdAAAAAAAAAAABFRlc3QAAAADAAAAAAAAAAFhAAAAAAAABAAAAAAAAAABYgAAAAAAAAEAAAAAAAAAAWMAAAAAAAAR",
+        super(new ContractSpec(["AAAAAQAAAC9UaGlzIGlzIGZyb20gdGhlIHJ1c3QgZG9jIGFib3ZlIHRoZSBzdHJ1Y3QgVGVzdAAAAAAAAAAABFRlc3QAAAADAAAAAAAAAAFhAAAAAAAABAAAAAAAAAABYgAAAAAAAAEAAAAAAAAAAWMAAAAAAAAR",
             "AAAAAgAAAAAAAAAAAAAAClNpbXBsZUVudW0AAAAAAAMAAAAAAAAAAAAAAAVGaXJzdAAAAAAAAAAAAAAAAAAABlNlY29uZAAAAAAAAAAAAAAAAAAFVGhpcmQAAAA=",
             "AAAAAwAAAAAAAAAAAAAACVJveWFsQ2FyZAAAAAAAAAMAAAAAAAAABEphY2sAAAALAAAAAAAAAAVRdWVlbgAAAAAAAAwAAAAAAAAABEtpbmcAAAAN",
             "AAAAAQAAAAAAAAAAAAAAC1R1cGxlU3RydWN0AAAAAAIAAAAAAAAAATAAAAAAAAfQAAAABFRlc3QAAAAAAAAAATEAAAAAAAfQAAAAClNpbXBsZUVudW0AAA==",
@@ -121,4 +92,3 @@ class Client extends contract_1.Client {
         tuple_strukt: (this.txFromJSON)
     };
 }
-exports.Client = Client;
