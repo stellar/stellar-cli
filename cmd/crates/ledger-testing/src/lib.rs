@@ -52,6 +52,14 @@ impl<'a> LedgerTesting<'a> {
         self.wait_for_emulator_start_text().await;
     }
 
+    pub fn get_transport_port(&self) -> u16 {
+        self.transport_port.unwrap()
+    }
+
+    pub fn get_speculos_api_port(&self) -> u16 {
+        self.speculos_api_port.unwrap()
+    }
+
     async fn wait_for_emulator_start_text(&self) {
         let mut ready = false;
         while !ready {
@@ -107,9 +115,9 @@ mod test {
         ledger_testing.start(&docker).await;
 
         // it exposes the transport port
-        assert!(ledger_testing.transport_port.is_some());
+        assert!(ledger_testing.get_transport_port());
 
         // it exposes the speculos api port
-        assert!(ledger_testing.speculos_api_port.is_some());
+        assert!(ledger_testing.get_speculos_api_port());
     }
 }
