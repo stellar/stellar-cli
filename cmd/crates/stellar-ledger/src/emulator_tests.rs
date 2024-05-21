@@ -9,7 +9,9 @@ use crate::hd_path::HdPath;
 use crate::{test_network_hash, Blob, Error, LedgerSigner};
 use crate::{LedgerError, LedgerOptions, LedgerSigner};
 
-use ledger_testing::{emulator_http_transport::EmulatorHttpTransport, speculos::Speculos};
+use ledger_testing::{
+    emulator_http_transport::EmulatorHttpTransport, speculos::Speculos, LedgerTesting,
+};
 
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
@@ -28,13 +30,12 @@ fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
 #[tokio::test]
 async fn test_get_public_key() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new(apps_dir()));
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    ledger_testing.start(&docker).await;
 
-    wait_for_emulator_start_text(ui_host_port).await;
+    let transport_port = ledger_testing.get_transport_port();
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(transport_port);
 
     match ledger.get_public_key(&0.into()).await {
         Ok(public_key) => {
@@ -45,50 +46,42 @@ async fn test_get_public_key() {
             assert_eq!(public_key_string, expected_public_key);
         }
         Err(e) => {
-            node.stop();
             println!("{e}");
             assert!(false);
         }
     }
-
-    node.stop();
 }
 
 #[tokio::test]
 async fn test_get_app_configuration() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new(apps_dir()));
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    ledger_testing.start(&docker).await;
 
-    wait_for_emulator_start_text(ui_host_port).await;
-
-    let ledger = ledger(host_port);
+    let transport_port = ledger_testing.get_transport_port();
+    let ledger = ledger(transport_port);
 
     match ledger.get_app_configuration().await {
         Ok(config) => {
             assert_eq!(config, vec![0, 5, 0, 3]);
         }
         Err(e) => {
-            node.stop();
             println!("{e}");
             assert!(false);
         }
     };
-
-    node.stop();
 }
 
 #[tokio::test]
 async fn test_sign_tx() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new(apps_dir()));
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    ledger_testing.start(&docker).await;
 
-    wait_for_emulator_start_text(ui_host_port).await;
+    let transport_port = ledger_testing.get_transport_port();
+    let ui_host_port: u16 = ledger_testing.get_speculos_api_port();
 
-    let ledger = Arc::new(ledger(host_port));
+    let ledger = Arc::new(ledger(transport_port));
 
     let path = HdPath(0);
 
@@ -156,25 +149,22 @@ async fn test_sign_tx() {
             assert_eq!( hex::encode(response), "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e");
         }
         Err(e) => {
-            node.stop();
             println!("{e}");
             assert!(false);
         }
     };
-
-    node.stop();
 }
 
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new(apps_dir()));
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    ledger_testing.start(&docker).await;
 
-    wait_for_emulator_start_text(ui_host_port).await;
+    let transport_port = ledger_testing.get_transport_port();
+    let ui_host_port: u16 = ledger_testing.get_speculos_api_port();
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(transport_port);
 
     let path = 0;
     let test_hash = b"313e8447f569233bb8db39aa607c8889";
@@ -184,24 +174,22 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
         assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
         // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
     } else {
-        node.stop();
         panic!("Unexpected result: {:?}", result);
     }
-
-    node.stop();
 }
 
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new(apps_dir()));
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    ledger_testing.start(&docker).await;
 
-    wait_for_emulator_start_text(ui_host_port).await;
+    let transport_port = ledger_testing.get_transport_port();
+    let ui_host_port: u16 = ledger_testing.get_speculos_api_port();
+
     enable_hash_signing(ui_host_port).await;
 
-    let ledger = Arc::new(ledger(host_port));
+    let ledger = Arc::new(ledger(transport_port));
 
     let path = 0;
     let mut test_hash = [0u8; 32];
@@ -212,7 +200,6 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     ) {
         Ok(()) => {}
         Err(e) => {
-            node.stop();
             panic!("Unexpected result: {e}");
         }
     }
@@ -231,12 +218,9 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
             assert_eq!( hex::encode(response), "e0fa9d19f34ddd494bbb794645fc82eb5ebab29e74160f1b1d5697e749aada7c6b367236df87326b0fdc921ed39702242fc8b14414f4e0ee3e775f1fd0208101");
         }
         Err(e) => {
-            node.stop();
             panic!("Unexpected result: {e}");
         }
     }
-
-    node.stop();
 }
 
 async fn click(ui_host_port: u16, url: &str) {
