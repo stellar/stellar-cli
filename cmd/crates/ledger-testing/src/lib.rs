@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf, thread::sleep, time::Duration};
 use testcontainers::{clients::Cli, Container};
 
 use speculos::{Args, Speculos};
@@ -74,7 +74,7 @@ impl<'a> LedgerTesting<'a> {
         }
     }
 
-    async fn get_emulator_events(&self) -> Vec<EmulatorEvent> {
+    pub async fn get_emulator_events(&self) -> Vec<EmulatorEvent> {
         let host = &self.host;
         let port = self.speculos_api_port.unwrap();
         let client = reqwest::Client::new();
@@ -88,10 +88,41 @@ impl<'a> LedgerTesting<'a> {
             .unwrap(); // not worrying about unwraps for test helpers for now
         resp.events
     }
+
+    // TODO: make button into an enum
+    async fn click(&self, button: &str) {
+        let host = &self.host;
+        let port = self.speculos_api_port.unwrap();
+
+        let previous_events = self.get_emulator_events().await;
+
+        let http_client = reqwest::Client::new();
+        let mut payload = HashMap::new();
+        payload.insert("action", "press-and-release");
+
+        let mut screen_has_changed = false;
+
+        http_client
+            .post(format!("http://{host}:{port}/button/{button}"))
+            .json(&payload)
+            .send()
+            .await
+            .unwrap();
+
+        while !screen_has_changed {
+            let current_events = self.get_emulator_events().await;
+
+            if !(previous_events == current_events) {
+                screen_has_changed = true
+            }
+        }
+
+        sleep(Duration::from_secs(1));
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-struct EmulatorEvent {
+pub struct EmulatorEvent {
     text: String,
     x: u16,
     y: u16,
@@ -115,9 +146,59 @@ mod test {
         ledger_testing.start(&docker).await;
 
         // it exposes the transport port
-        assert!(ledger_testing.get_transport_port());
+        assert!(ledger_testing.get_transport_port() > 0);
 
         // it exposes the speculos api port
-        assert!(ledger_testing.get_speculos_api_port());
+        assert!(ledger_testing.get_speculos_api_port() > 0);
+
+        // it gets the emulator events and waits for the emulator to be ready
+        let events = ledger_testing.get_emulator_events().await;
+        assert!(events.len() > 0);
+        assert!(events.iter().any(|event| event.text == "is ready"));
     }
+
+    #[tokio::test]
+    async fn test_clicking_the_left_button() {
+        let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
+        let docker = Cli::default();
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
+        ledger_testing.start(&docker).await;
+
+        ledger_testing.click("left").await;
+        let events = ledger_testing.get_emulator_events().await;
+
+        // on a nano s, after the "Stellar is Ready" screen appears, when you click the "left" button you get a screen that says "Quit"
+        assert!(events.iter().any(|event| event.text == "Quit"));
+    }
+
+    #[tokio::test]
+    async fn test_clicking_the_right_button() {
+        let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
+        let docker = Cli::default();
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
+        ledger_testing.start(&docker).await;
+
+        ledger_testing.click("right").await;
+        let events = ledger_testing.get_emulator_events().await;
+
+        // on a nano s, after the "Stellar is Ready" screen appears, when you click the "right" button you get a screen that says "Settings"
+        assert!(events.iter().any(|event| event.text == "Settings"));
+    }
+
+    #[tokio::test]
+    async fn test_clicking_the_both_button() {
+        let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
+        let docker = Cli::default();
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
+        ledger_testing.start(&docker).await;
+
+        ledger_testing.click("right").await;
+        ledger_testing.click("both").await;
+        let events = ledger_testing.get_emulator_events().await;
+
+        // on a nano s, after the "Stellar is Ready" screen appears, when you click the "right" button and then the "both" button you get a screen that says "Hash signing" "NOT Enabled" (as two separate events)
+        assert!(events.iter().any(|event| event.text == "Hash signing"));
+        assert!(events.iter().any(|event| event.text == "NOT Enabled"));
+    }
+
 }
