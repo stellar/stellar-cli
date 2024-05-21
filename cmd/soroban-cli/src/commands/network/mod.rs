@@ -213,7 +213,7 @@ impl Network {
         tracing::debug!("{res:#?}");
         if let Some(detail) = res.get("detail").and_then(Value::as_str) {
             if detail.contains("createAccountAlreadyExist") {
-                tracing::warn!("Account already exists");
+                eprintln!("Account already exists");
             }
         } else if res.get("successful").is_none() {
             return Err(Error::InproperResponse(res.to_string()));
