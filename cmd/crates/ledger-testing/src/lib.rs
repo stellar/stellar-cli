@@ -49,34 +49,37 @@ impl<'a> LedgerTesting<'a> {
         self.speculos_api_port = Some(speculos_api_port);
         self.container = Some(container);
 
-        wait_for_emulator_start_text(speculos_api_port).await;
+        self.wait_for_emulator_start_text().await;
     }
-}
 
-async fn wait_for_emulator_start_text(ui_host_port: u16) {
-    let mut ready = false;
-    while !ready {
-        if get_emulator_events(ui_host_port)
-            .await
-            .iter()
-            .any(|event| event.text == "is ready")
-        {
-            ready = true;
+    async fn wait_for_emulator_start_text(&self) {
+        let mut ready = false;
+        while !ready {
+            if self
+                .get_emulator_events()
+                .await
+                .iter()
+                .any(|event| event.text == "is ready")
+            {
+                ready = true;
+            }
         }
     }
-}
 
-async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(format!("http://localhost:{ui_host_port}/events"))
-        .send()
-        .await
-        .unwrap()
-        .json::<EventsResponse>()
-        .await
-        .unwrap(); // not worrying about unwraps for test helpers for now
-    resp.events
+    async fn get_emulator_events(&self) -> Vec<EmulatorEvent> {
+        let host = &self.host;
+        let port = self.speculos_api_port.unwrap();
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(format!("http://{host}:{port}/events"))
+            .send()
+            .await
+            .unwrap()
+            .json::<EventsResponse>()
+            .await
+            .unwrap(); // not worrying about unwraps for test helpers for now
+        resp.events
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -103,6 +106,10 @@ mod test {
         let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
         ledger_testing.start(&docker).await;
 
+        // it exposes the transport port
         assert!(ledger_testing.transport_port.is_some());
+
+        // it exposes the speculos api port
+        assert!(ledger_testing.speculos_api_port.is_some());
     }
 }
