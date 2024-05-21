@@ -187,7 +187,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     let transport_port = ledger_testing.get_transport_port();
     let ui_host_port: u16 = ledger_testing.get_speculos_api_port();
 
-    enable_hash_signing(ui_host_port).await;
+    enable_hash_signing(&ledger_testing).await;
 
     let ledger = Arc::new(ledger(transport_port));
 
@@ -250,18 +250,18 @@ async fn click(ui_host_port: u16, url: &str) {
     sleep(Duration::from_secs(1)).await;
 }
 
-async fn enable_hash_signing(ui_host_port: u16) {
-    click(ui_host_port, "button/right").await;
+async fn enable_hash_signing(ledger_tester: &LedgerTesting<'_>) {
+    ledger_tester.click("right").await;
 
-    click(ui_host_port, "button/both").await;
+    ledger_tester.click("both").await;
 
-    click(ui_host_port, "button/both").await;
+    ledger_tester.click("both").await;
 
-    click(ui_host_port, "button/right").await;
+    ledger_tester.click("right").await;
 
-    click(ui_host_port, "button/right").await;
+    ledger_tester.click("right").await;
 
-    click(ui_host_port, "button/both").await;
+    ledger_tester.click("both").await;
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

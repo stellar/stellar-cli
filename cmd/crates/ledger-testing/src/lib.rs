@@ -90,7 +90,7 @@ impl<'a> LedgerTesting<'a> {
     }
 
     // TODO: make button into an enum
-    async fn click(&self, button: &str) {
+    pub async fn click(&self, button: &str) {
         let host = &self.host;
         let port = self.speculos_api_port.unwrap();
 
