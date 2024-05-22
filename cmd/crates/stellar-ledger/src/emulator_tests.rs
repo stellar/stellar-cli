@@ -7,8 +7,6 @@ use std::vec;
 
 use crate::hd_path::HdPath;
 use crate::{test_network_hash, Blob, Error, LedgerSigner};
-use crate::{LedgerError, LedgerOptions, LedgerSigner};
-
 use ledger_testing::{
     emulator_http_transport::EmulatorHttpTransport, speculos::Speculos, LedgerTesting,
 };
