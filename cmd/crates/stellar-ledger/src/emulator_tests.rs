@@ -7,9 +7,7 @@ use std::vec;
 
 use crate::hd_path::HdPath;
 use crate::{test_network_hash, Blob, Error, LedgerSigner};
-use ledger_testing::{
-    emulator_http_transport::EmulatorHttpTransport, speculos::Speculos, LedgerTesting,
-};
+use ledger_testing::{emulator_http_transport::EmulatorHttpTransport, LedgerModel, LedgerTesting};
 
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
@@ -28,7 +26,7 @@ fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
 #[tokio::test]
 async fn test_get_public_key() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
     ledger_testing.start(&docker).await;
 
     let transport_port = ledger_testing.get_transport_port();
@@ -53,7 +51,7 @@ async fn test_get_public_key() {
 #[tokio::test]
 async fn test_get_app_configuration() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
     ledger_testing.start(&docker).await;
 
     let transport_port = ledger_testing.get_transport_port();
@@ -73,7 +71,7 @@ async fn test_get_app_configuration() {
 #[tokio::test]
 async fn test_sign_tx() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
     ledger_testing.start(&docker).await;
 
     let transport_port = ledger_testing.get_transport_port();
@@ -156,7 +154,7 @@ async fn test_sign_tx() {
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
     ledger_testing.start(&docker).await;
 
     let transport_port = ledger_testing.get_transport_port();
@@ -179,7 +177,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), "nanos".to_string());
+    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
     ledger_testing.start(&docker).await;
 
     let transport_port = ledger_testing.get_transport_port();

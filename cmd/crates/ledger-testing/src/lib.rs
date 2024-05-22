@@ -1,3 +1,4 @@
+use core::fmt;
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf, thread::sleep, time::Duration};
 use testcontainers::{clients::Cli, Container};
@@ -12,17 +13,31 @@ const TRANSPORT_PORT: u16 = 9998;
 const SPECULOS_API_PORT: u16 = 5000;
 
 #[derive(Debug)]
+pub enum LedgerModel {
+    NanoS,
+    NanoX,
+    NanoSP,
+}
+
+impl fmt::Display for LedgerModel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = format!("{:?}", self);
+        write!(f, "{}", s.to_lowercase())
+    }
+}
+
+#[derive(Debug)]
 pub struct LedgerTesting<'a> {
     host: String,
     local_elfs_dir: PathBuf,
-    device_model: String,
+    device_model: LedgerModel,
     transport_port: Option<u16>,
     speculos_api_port: Option<u16>,
     container: Option<Container<'a, Speculos>>,
 }
 
 impl<'a> LedgerTesting<'a> {
-    pub fn new(local_elfs_dir: PathBuf, device_model: String) -> Self {
+    pub fn new(local_elfs_dir: PathBuf, device_model: LedgerModel) -> Self {
         Self {
             host: DEFAULT_HOST.to_string(),
             local_elfs_dir,
@@ -35,7 +50,7 @@ impl<'a> LedgerTesting<'a> {
 
     pub async fn start(&mut self, docker: &'a Cli) {
         let container_args = Args {
-            ledger_device_model: self.device_model.clone(),
+            ledger_device_model: self.device_model.to_string(),
         };
 
         let emulator_image = Speculos::new(self.local_elfs_dir.clone());
@@ -142,7 +157,7 @@ mod test {
     async fn test_start_nano_s() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
         ledger_testing.start(&docker).await;
 
         // it exposes the transport port
@@ -161,7 +176,7 @@ mod test {
     async fn test_clicking_the_left_button() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
         ledger_testing.start(&docker).await;
 
         ledger_testing.click("left").await;
@@ -175,7 +190,7 @@ mod test {
     async fn test_clicking_the_right_button() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
         ledger_testing.start(&docker).await;
 
         ledger_testing.click("right").await;
@@ -189,7 +204,7 @@ mod test {
     async fn test_clicking_the_both_button() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, "nanos".to_string());
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
         ledger_testing.start(&docker).await;
 
         ledger_testing.click("right").await;
@@ -200,5 +215,4 @@ mod test {
         assert!(events.iter().any(|event| event.text == "Hash signing"));
         assert!(events.iter().any(|event| event.text == "NOT Enabled"));
     }
-
 }
