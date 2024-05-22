@@ -7,10 +7,10 @@ use std::vec;
 use crate::emulator_http_transport::EmulatorHttpTransport;
 use crate::hd_path::HdPath;
 use crate::speculos::Speculos;
-use crate::{native, test_network_hash, Blob, Error, LedgerSigner};
+use crate::{test_network_hash, Blob, Error, LedgerSigner};
 
 use std::sync::Arc;
-use std::{collections::HashMap, str::FromStr, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use stellar_xdr::curr::{
     Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
@@ -19,25 +19,9 @@ use stellar_xdr::curr::{
 use testcontainers::clients;
 use tokio::time::sleep;
 
-const TEST_NETWORK_PASSPHRASE: &str = "Test SDF Network ; September 2015";
-
 fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
-    LedgerSigner::new(get_zemu_transport("127.0.0.1", host_port).unwrap())
+    LedgerSigner::new(get_http_transport("127.0.0.1", host_port).unwrap())
 }
-
-// #[ignore]
-// #[tokio::test]
-// #[serial]
-// async fn test_get_public_key_with_ledger_device() {
-//     let transport = get_transport().unwrap();
-//     let ledger_options = Some(LedgerOptions {
-//         exchange: transport,
-//         hd_path: slip10::BIP32Path::from_str("m/44'/148'/0'").unwrap(),
-//     });
-//     let ledger = LedgerSigner::new(TEST_NETWORK_PASSPHRASE, ledger_options);
-//     let public_key = ledger.get_public_key(0).await;
-//     assert!(public_key.is_ok());
-// }
 
 #[tokio::test]
 async fn test_get_public_key() {
@@ -138,7 +122,7 @@ async fn test_sign_tx() {
         };
 
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(source_account_bytes)), // was struggling to create a real account in this way with the G... address
+        source_account: MuxedAccount::Ed25519(Uint256(source_account_bytes)),
         fee: 100,
         seq_num: SequenceNumber(1),
         cond: Preconditions::None,
@@ -181,16 +165,12 @@ async fn test_sign_tx() {
 
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
-    //when hash signing isn't enabled on the device we expect an error
     let docker = clients::Cli::default();
     let node = docker.run(Speculos::new());
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
     wait_for_emulator_start_text(ui_host_port).await;
-    // wait for emulator to load  - check the events
-    // sleep to account for key delay
-    // for some things, waiting for the screen to change... but prob dont need that for this
 
     let ledger = ledger(host_port);
 
@@ -211,7 +191,6 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
 
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
-    //when hash signing isnt enabled on the device we expect an error
     let docker = clients::Cli::default();
     let node = docker.run(Speculos::new());
     let host_port = node.get_host_port_ipv4(9998);
@@ -242,12 +221,12 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     });
     let approve = tokio::task::spawn(approve_tx_hash_signature(ui_host_port));
 
-    let result = sign.await.unwrap();
+    let response = sign.await.unwrap();
     let _ = approve.await.unwrap();
 
-    match result {
-        Ok(result) => {
-            println!("this is the response from signing the hash: {result:?}");
+    match response {
+        Ok(response) => {
+            assert_eq!( hex::encode(response), "e0fa9d19f34ddd494bbb794645fc82eb5ebab29e74160f1b1d5697e749aada7c6b367236df87326b0fdc921ed39702242fc8b14414f4e0ee3e775f1fd0208101");
         }
         Err(e) => {
             node.stop();
@@ -258,7 +237,6 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     node.stop();
 }
 
-// Based on the zemu click fn
 async fn click(ui_host_port: u16, url: &str) {
     let previous_events = get_emulator_events(ui_host_port).await;
 
@@ -287,24 +265,16 @@ async fn click(ui_host_port: u16, url: &str) {
 }
 
 async fn enable_hash_signing(ui_host_port: u16) {
-    println!("enabling hash signing on the device");
-
-    // right button press
     click(ui_host_port, "button/right").await;
 
-    // both button press
     click(ui_host_port, "button/both").await;
 
-    // both button press
     click(ui_host_port, "button/both").await;
 
-    // right button press
     click(ui_host_port, "button/right").await;
 
-    // right button press
     click(ui_host_port, "button/right").await;
 
-    // both button press
     click(ui_host_port, "button/both").await;
 }
 
@@ -322,7 +292,7 @@ struct EventsResponse {
     events: Vec<EmulatorEvent>,
 }
 
-fn get_zemu_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
+fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
     Ok(EmulatorHttpTransport::new(host, port))
 }
 
@@ -348,27 +318,22 @@ async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
         .unwrap()
         .json::<EventsResponse>()
         .await
-        .unwrap(); // not worrying about unwraps for test helpers for now
+        .unwrap();
     resp.events
 }
 
 async fn approve_tx_hash_signature(ui_host_port: u16) {
-    println!("approving tx hash sig on the device");
-    // press the right button 10 times
     for _ in 0..10 {
         click(ui_host_port, "button/right").await;
     }
 
-    // press both buttons
     click(ui_host_port, "button/both").await;
 }
 
 async fn approve_tx_signature(ui_host_port: u16) {
-    println!("approving tx on the device");
     let mut map = HashMap::new();
     map.insert("action", "press-and-release");
 
-    // press right button 17 times
     let client = reqwest::Client::new();
     for _ in 0..17 {
         client
@@ -379,7 +344,6 @@ async fn approve_tx_signature(ui_host_port: u16) {
             .unwrap();
     }
 
-    // press both buttons
     client
         .post(format!("http://localhost:{ui_host_port}/button/both"))
         .json(&map)

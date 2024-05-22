@@ -299,7 +299,7 @@ fn get_transport() -> Result<TransportNativeHID, Error> {
 }
 
 pub const TEST_NETWORK_PASSPHRASE: &[u8] = b"Test SDF Network ; September 2015";
-
+#[cfg(test)]
 fn test_network_hash() -> Hash {
     use sha2::Digest;
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
