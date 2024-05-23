@@ -278,19 +278,6 @@ fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
     Ok(EmulatorHttpTransport::new(host, port))
 }
 
-async fn wait_for_emulator_start_text(ui_host_port: u16) {
-    sleep(Duration::from_secs(1)).await;
-
-    let mut ready = false;
-    while !ready {
-        let events = get_emulator_events(ui_host_port).await;
-
-        if events.iter().any(|event| event.text == "is ready") {
-            ready = true;
-        }
-    }
-}
-
 async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
     let client = reqwest::Client::new();
     let resp = client
