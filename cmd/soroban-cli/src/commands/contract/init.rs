@@ -194,7 +194,14 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
 }
 
 fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
-    let contents_to_exclude_from_copy = [".git", ".github", "Makefile", ".vscode", "target"];
+    let contents_to_exclude_from_copy = [
+        ".git",
+        ".github",
+        "Makefile",
+        ".vscode",
+        "target",
+        "Cargo.lock",
+    ];
     for entry in read_dir(from).map_err(|e| {
         eprintln!("Error reading directory: {from:?}");
         e
@@ -457,7 +464,8 @@ fn get_merged_file_delimiter(file_path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::read_to_string;
+    use itertools::Itertools;
+    use std::fs::{self, read_to_string};
 
     use super::*;
 
@@ -472,12 +480,12 @@ mod tests {
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that the contract's Cargo.toml file uses the workspace for dependencies
         assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
 
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         temp_dir.close().unwrap();
     }
@@ -491,7 +499,7 @@ mod tests {
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that alloc contract files exist
         assert_contract_files_exist(&project_dir, "alloc");
@@ -514,7 +522,7 @@ mod tests {
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that account contract files exist and that expected files are excluded
         assert_contract_files_exist(&project_dir, "account");
@@ -553,11 +561,11 @@ mod tests {
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that the contract's Cargo.toml file uses the workspace for dependencies
         assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         assert_astro_files_exist(&project_dir);
         assert_gitignore_includes_astro_paths(&project_dir);
@@ -581,11 +589,11 @@ mod tests {
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that the contract's Cargo.toml file uses the workspace for dependencies
         assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         assert_astro_files_exist(&project_dir);
         assert_gitignore_includes_astro_paths(&project_dir);
@@ -619,11 +627,11 @@ mod tests {
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that the contract's Cargo.toml file uses the workspace for dependencies
         assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
-        assert_base_excluded_paths_do_not_exist(&project_dir);
+        assert_excluded_paths_do_not_exist(&project_dir);
 
         assert_astro_files_exist(&project_dir);
         assert_gitignore_includes_astro_paths(&project_dir);
@@ -712,11 +720,22 @@ mod tests {
         assert!(!contract_dir.as_path().join("Makefile").exists());
     }
 
-    fn assert_base_excluded_paths_do_not_exist(project_dir: &Path) {
-        let excluded_paths = [".git", ".github", "Makefile", ".vscode", "target"];
-        for path in &excluded_paths {
-            assert!(!project_dir.join(path).exists());
+    fn assert_excluded_paths_do_not_exist(project_dir: &Path) {
+        let base_excluded_paths = [".git", ".github", "Makefile", ".vscode", "target"];
+        for path in &base_excluded_paths {
+            let filepath = project_dir.join(path);
+            assert!(!filepath.exists(), "{filepath:?} should not exist");
         }
+        let contract_excluded_paths = ["Makefile", "target", "Cargo.lock"];
+        let contract_dirs = fs::read_dir(project_dir.join("contracts"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path());
+        contract_dirs
+            .cartesian_product(contract_excluded_paths.iter())
+            .for_each(|(contract_dir, excluded_path)| {
+                let filepath = contract_dir.join(excluded_path);
+                assert!(!filepath.exists(), "{filepath:?} should not exist");
+            });
     }
 
     fn assert_gitignore_includes_astro_paths(project_dir: &Path) {
