@@ -1,4 +1,3 @@
-use cargo_toml;
 use clap::{
     builder::{PossibleValue, PossibleValuesParser, ValueParser},
     Parser, ValueEnum,
@@ -19,6 +18,7 @@ use std::{
     str,
     sync::atomic::AtomicBool,
 };
+use toml_edit::{Document, TomlError};
 use ureq::get;
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
@@ -74,7 +74,7 @@ pub enum Error {
     CheckoutError(#[from] clone::checkout::main_worktree::Error),
 
     #[error("Failed to parse toml file: {0}")]
-    CargoTomlParseError(#[from] cargo_toml::Error),
+    TomlParseError(#[from] TomlError),
 
     #[error("Failed to parse package.json file: {0}")]
     JsonParseError(#[from] JsonError),
@@ -322,49 +322,31 @@ fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Resul
     Ok(())
 }
 
-fn inherit_sdk(mut deps: cargo_toml::DepsSet) -> cargo_toml::DepsSet {
-    if let Some(sdk_dep) = deps.get("soroban-sdk") {
-        match sdk_dep {
-            cargo_toml::Dependency::Simple(_) => {
-                deps.insert(
-                    "soroban-sdk".to_string(),
-                    cargo_toml::Dependency::Inherited(cargo_toml::InheritedDependencyDetail {
-                        workspace: true,
-                        ..Default::default()
-                    }),
-                );
-            }
-
-            cargo_toml::Dependency::Detailed(details) => {
-                deps.insert(
-                    "soroban-sdk".to_string(),
-                    cargo_toml::Dependency::Inherited(cargo_toml::InheritedDependencyDetail {
-                        features: details.features.clone(),
-                        optional: details.optional,
-                        workspace: true,
-                    }),
-                );
-            }
-
-            // we don't need to do anything, it already has `workspace = true`
-            cargo_toml::Dependency::Inherited(_) => (),
-        }
-    }
-    deps
-}
-
 fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     let cargo_path = contract_path.join("Cargo.toml");
-    let mut doc = cargo_toml::Manifest::from_path(cargo_path.clone()).map_err(|e| {
-        eprintln!("Error parsing Cargo.toml file in: {contract_path:?}");
+    let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
+        eprint!("Error reading Cargo.toml file in: {contract_path:?}");
         e
     })?;
 
-    doc.dependencies = inherit_sdk(doc.dependencies);
-    doc.dev_dependencies = inherit_sdk(doc.dev_dependencies);
-    doc.profile = cargo_toml::Profiles::default();
+    let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = "[^\"]+""#)
+        .unwrap()
+        .replace_all(
+            cargo_toml_str.as_str(),
+            "soroban-sdk = { workspace = true }",
+        );
 
-    write(&cargo_path, toml::to_string(&doc).unwrap()).map_err(|e| {
+    let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = \{(.*) version = "[^"]+"(.+)}"#)
+        .unwrap()
+        .replace_all(&*cargo_toml_str, "soroban-sdk = {$1 workspace = true$2}");
+
+    let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
+        eprintln!("Error parsing Cargo.toml file in: {contract_path:?}");
+        e
+    })?;
+    doc.remove("profile");
+
+    write(&cargo_path, doc.to_string()).map_err(|e| {
         eprintln!("Error writing to Cargo.toml file in: {contract_path:?}");
         e
     })?;
@@ -482,8 +464,7 @@ mod tests {
         assert_default_hello_world_contract_files_exist(&project_dir);
         assert_excluded_paths_do_not_exist(&project_dir);
 
-        // check that the contract's Cargo.toml file uses the workspace for dependencies
-        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_contract_cargo_file_is_well_formed(&project_dir, "hello_world");
 
         assert_excluded_paths_do_not_exist(&project_dir);
 
@@ -508,7 +489,7 @@ mod tests {
         assert_example_contract_excluded_files_do_not_exist(&project_dir, "alloc");
 
         // check that the alloc contract's Cargo.toml file uses the workspace for dependencies
-        assert_contract_cargo_file_uses_workspace(&project_dir, "alloc");
+        assert_contract_cargo_file_is_well_formed(&project_dir, "alloc");
 
         temp_dir.close().unwrap();
     }
@@ -527,12 +508,12 @@ mod tests {
         // check that account contract files exist and that expected files are excluded
         assert_contract_files_exist(&project_dir, "account");
         assert_example_contract_excluded_files_do_not_exist(&project_dir, "account");
-        assert_contract_cargo_file_uses_workspace(&project_dir, "account");
+        assert_contract_cargo_file_is_well_formed(&project_dir, "account");
 
         // check that atomic_swap contract files exist and that expected files are excluded
         assert_contract_files_exist(&project_dir, "atomic_swap");
         assert_example_contract_excluded_files_do_not_exist(&project_dir, "atomic_swap");
-        assert_contract_cargo_file_uses_workspace(&project_dir, "atomic_swap");
+        assert_contract_cargo_file_is_well_formed(&project_dir, "atomic_swap");
 
         temp_dir.close().unwrap();
     }
@@ -564,7 +545,7 @@ mod tests {
         assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that the contract's Cargo.toml file uses the workspace for dependencies
-        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_contract_cargo_file_is_well_formed(&project_dir, "hello_world");
         assert_excluded_paths_do_not_exist(&project_dir);
 
         assert_astro_files_exist(&project_dir);
@@ -592,7 +573,7 @@ mod tests {
         assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that the contract's Cargo.toml file uses the workspace for dependencies
-        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_contract_cargo_file_is_well_formed(&project_dir, "hello_world");
         assert_excluded_paths_do_not_exist(&project_dir);
 
         assert_astro_files_exist(&project_dir);
@@ -630,7 +611,7 @@ mod tests {
         assert_excluded_paths_do_not_exist(&project_dir);
 
         // check that the contract's Cargo.toml file uses the workspace for dependencies
-        assert_contract_cargo_file_uses_workspace(&project_dir, "hello_world");
+        assert_contract_cargo_file_is_well_formed(&project_dir, "hello_world");
         assert_excluded_paths_do_not_exist(&project_dir);
 
         assert_astro_files_exist(&project_dir);
@@ -665,7 +646,7 @@ mod tests {
         assert!(contract_dir.as_path().join("src").join("test.rs").exists());
     }
 
-    fn assert_contract_cargo_file_uses_workspace(project_dir: &Path, contract_name: &str) {
+    fn assert_contract_cargo_file_is_well_formed(project_dir: &Path, contract_name: &str) {
         let contract_dir = project_dir.join("contracts").join(contract_name);
         let cargo_toml_path = contract_dir.as_path().join("Cargo.toml");
         let cargo_toml_str = read_to_string(cargo_toml_path.clone()).unwrap();
@@ -710,6 +691,20 @@ mod tests {
             doc.get("dev_dependencies").is_none(),
             "erroneous 'dev_dependencies' section"
         );
+        assert_eq!(
+            doc.get("lib")
+                .unwrap()
+                .get("crate-type")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "cdylib",
+            "expected [lib.crate-type] to be 'cdylib'"
+        )
     }
 
     fn assert_example_contract_excluded_files_do_not_exist(
