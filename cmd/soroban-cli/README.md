@@ -2,7 +2,7 @@
 
 CLI for interacting with the Stellar network and Soroban contracts locally in a test VM. Executes WASM files built using the [rs-soroban-sdk](https://github.com/stellar/rs-soroban-sdk).
 
-Docs: https://developer.stellar.org
+Docs: https://developers.stellar.org
 
 ## Install
 
