@@ -21,4 +21,4 @@ There are several unit tests in lib.rs, as well as integration-like tests in the
 - The Ledger emulator we're using for integration-style tests is LedgerHQ's [Speculos](https://github.com/LedgerHQ/speculos).
 - The testing setup was also partially based on Zondax's [Zemu](https://github.com/Zondax/zemu) testing framework, which makes use of Speculos.
 - To connect with a real ledger device, we use Zondax's [ledger-rs](https://github.com/Zondax/ledger-rs) crate.
-- To connect with the emulated ledger (Speculos), we use created a custom `EmulatorHttpTransport` that can connect to the emulated ledger via HTTP. This is based on [Zondax's `ledger-transport-zemu` crate](https://github.com/Zondax/ledger-rs/blob/20e2a2076d799d449ff6f07eb0128548b358d9bc/ledger-transport-zemu) (which has since been deprecated).
+- To connect with the emulated ledger (Speculos), we created a custom `EmulatorHttpTransport` that can connect to the emulated ledger via HTTP. This is based on [Zondax's `ledger-transport-zemu` crate](https://github.com/Zondax/ledger-rs/blob/20e2a2076d799d449ff6f07eb0128548b358d9bc/ledger-transport-zemu) (which has since been deprecated).
