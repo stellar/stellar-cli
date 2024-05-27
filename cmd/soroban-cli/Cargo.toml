@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.0.0-preview.1"
+version = "21.0.0-rc.1"
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -46,7 +46,6 @@ soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 soroban-rpc = { workspace = true }
-cargo_toml = "0.20.1"
 clap = { workspace = true, features = [
     "derive",
     "env",
