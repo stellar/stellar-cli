@@ -338,7 +338,7 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
 
     let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = \{(.*) version = "[^"]+"(.+)}"#)
         .unwrap()
-        .replace_all(&*cargo_toml_str, "soroban-sdk = {$1 workspace = true$2}");
+        .replace_all(&cargo_toml_str, "soroban-sdk = {$1 workspace = true$2}");
 
     let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
         eprintln!("Error parsing Cargo.toml file in: {contract_path:?}");
@@ -704,7 +704,7 @@ mod tests {
                 .unwrap(),
             "cdylib",
             "expected [lib.crate-type] to be 'cdylib'"
-        )
+        );
     }
 
     fn assert_example_contract_excluded_files_do_not_exist(
