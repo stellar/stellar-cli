@@ -315,8 +315,6 @@ impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<String>;
 
-    //TODO: remove
-    #[allow(clippy::map_clone)]
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
