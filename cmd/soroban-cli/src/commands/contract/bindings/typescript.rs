@@ -91,8 +91,8 @@ impl NetworkRunnable for Cmd {
                 .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))?;
             get_remote_contract_spec(
                 &contract_id,
-                self.locator.clone(),
-                self.network.clone(),
+                &self.locator,
+                &self.network,
                 global_args,
                 config,
             )

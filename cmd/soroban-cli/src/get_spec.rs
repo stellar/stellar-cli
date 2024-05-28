@@ -58,7 +58,7 @@ pub async fn get_remote_contract_spec(
     };
 
     // Get the contract spec entries based on the executable type
-    let spec_entries = match executable {
+    Ok(match executable {
         ContractExecutable::Wasm(hash) => {
             let hash = hash.to_string();
             if let Ok(entries) = data::read_spec(&hash) {
@@ -74,7 +74,5 @@ pub async fn get_remote_contract_spec(
         ContractExecutable::StellarAsset => {
             soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
         }
-    };
-
-    Ok(spec_entries)
+    })
 }

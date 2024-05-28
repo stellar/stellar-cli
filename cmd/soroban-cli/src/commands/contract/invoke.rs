@@ -349,8 +349,8 @@ impl NetworkRunnable for Cmd {
 
         let spec_entries = get_remote_contract_spec(
             &contract_id,
-            unwrap_config.locator.clone(),
-            unwrap_config.network.clone(),
+            &unwrap_config.locator,
+            &unwrap_config.network,
             global_args,
             config,
         )
