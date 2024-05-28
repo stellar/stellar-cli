@@ -34,8 +34,8 @@ pub enum Error {
 /// # Errors
 pub async fn get_remote_contract_spec(
     contract_id: &[u8; 32],
-    locator: locator::Args,
-    network: network::Args,
+    locator: &locator::Args,
+    network: &network::Args,
     global_args: Option<&global::Args>,
     config: Option<&config::Args>,
 ) -> Result<Vec<ScSpecEntry>, Error> {
