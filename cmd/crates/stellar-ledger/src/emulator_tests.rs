@@ -4,9 +4,8 @@ use soroban_env_host::xdr::Transaction;
 use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 use std::vec;
 
-use crate::emulator_http_transport::EmulatorHttpTransport;
 use crate::hd_path::HdPath;
-use crate::test_fixtures::speculos::Speculos;
+use crate::test_fixtures::{emulator_http_transport::EmulatorHttpTransport, speculos::Speculos};
 use crate::{test_network_hash, Blob, Error, LedgerSigner};
 
 use std::sync::Arc;
