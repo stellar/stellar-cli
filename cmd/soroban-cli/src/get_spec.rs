@@ -40,7 +40,7 @@ pub async fn get_remote_contract_spec(
     config: Option<&config::Args>,
 ) -> Result<Vec<ScSpecEntry>, Error> {
     let network = config.map_or_else(
-        || network.get(&locator).map_err(Error::from),
+        || network.get(locator).map_err(Error::from),
         |c| c.get_network().map_err(Error::from),
     )?;
     tracing::trace!(?network);
