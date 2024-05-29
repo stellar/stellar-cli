@@ -49,7 +49,7 @@ async fn current_env_not_overwritten() {
 #[tokio::test]
 async fn cli_args_have_priority() {
     let e = &TestEnv::new();
-    std::thread::sleep(core::time::Duration::from_millis(2000));
+    std::thread::sleep(core::time::Duration::from_millis(6000));
     let id = deploy_hello(e).await;
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
