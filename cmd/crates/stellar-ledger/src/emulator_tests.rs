@@ -6,7 +6,7 @@ use std::vec;
 
 use crate::emulator_http_transport::EmulatorHttpTransport;
 use crate::hd_path::HdPath;
-use crate::speculos::Speculos;
+use crate::test_fixtures::speculos::Speculos;
 use crate::{test_network_hash, Blob, Error, LedgerSigner};
 
 use std::sync::Arc;

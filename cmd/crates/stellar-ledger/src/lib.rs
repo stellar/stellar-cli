@@ -14,14 +14,13 @@ use stellar_xdr::curr::{
 };
 
 pub use crate::signer::Blob;
-
 mod emulator_http_transport;
+pub mod hd_path;
 mod signer;
-mod speculos;
+mod test_fixtures;
 
 #[cfg(all(test, feature = "emulator-tests"))]
 mod emulator_tests;
-pub mod hd_path;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
