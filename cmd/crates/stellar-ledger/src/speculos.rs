@@ -3,6 +3,8 @@ use testcontainers::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "docker.io/zondax/builder-zemu";
 const TAG: &str = "speculos-3a3439f6b45eca7f56395673caaf434c202e7005";
+const TEST_SEED_PHRASE: &str =
+    "\"other base behind follow wet put glad muscle unlock sell income october\"";
 
 #[allow(dead_code)]
 static ENV: &Map = &Map(phf::phf_map! {
@@ -47,7 +49,7 @@ pub struct Args;
 impl ImageArgs for Args {
     fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
+        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s {TEST_SEED_PHRASE} -m nanos {container_elf_path}");
         Box::new(vec![command_string].into_iter())
     }
 }
