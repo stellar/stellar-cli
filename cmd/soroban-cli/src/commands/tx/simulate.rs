@@ -1,6 +1,6 @@
+use crate::xdr::{self, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM, WriteXdr};
 use async_trait::async_trait;
 use soroban_rpc::Assembled;
-use soroban_sdk::xdr::{self, Transaction, WriteXdr};
 
 use crate::commands::{config, global, NetworkRunnable};
 
@@ -30,7 +30,15 @@ impl Cmd {
         let res = self
             .run_against_rpc_server(Some(global_args), Some(&self.config))
             .await?;
-        println!("{}", res.transaction().to_xdr_base64(xdr::Limits::none())?);
+        let tx = res.transaction().clone();
+        println!(
+            "{}",
+            TransactionEnvelope::Tx(TransactionV1Envelope {
+                tx,
+                signatures: VecM::default()
+            })
+            .to_xdr_base64(xdr::Limits::none())?
+        );
         Ok(())
     }
 
