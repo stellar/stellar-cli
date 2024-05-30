@@ -199,7 +199,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
         let ledger = Arc::clone(&ledger);
         async move { ledger.sign_transaction_hash(path, &test_hash).await }
     });
-    let approve = tokio::task::spawn(approve_tx_hash_signature(ui_host_port));
+    let approve = tokio::task::spawn(approve_tx_hash_signature_2(&ledger_testing));
 
     let response = sign.await.unwrap();
     let _ = approve.await.unwrap();
@@ -285,13 +285,20 @@ async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
         .unwrap();
     resp.events
 }
-
 async fn approve_tx_hash_signature(ui_host_port: u16) {
     for _ in 0..10 {
         click(ui_host_port, "button/right").await;
     }
 
     click(ui_host_port, "button/both").await;
+}
+
+async fn approve_tx_hash_signature_2(ledger_tester: &LedgerTesting<'_>) {
+    for _ in 0..10 {
+        ledger_tester.click("right").await;
+    }
+
+    ledger_tester.click("both").await;
 }
 
 async fn approve_tx_signature(ui_host_port: u16) {
