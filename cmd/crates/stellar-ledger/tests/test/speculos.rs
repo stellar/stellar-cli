@@ -31,7 +31,7 @@ impl Speculos {
     pub fn new() -> Self {
         #[allow(unused_mut)]
         let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("src")
+            .join("tests")
             .join("test_fixtures")
             .join("apps");
         let mut volumes = HashMap::new();
