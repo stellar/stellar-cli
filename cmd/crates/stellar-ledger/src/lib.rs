@@ -16,7 +16,6 @@ use stellar_xdr::curr::{
 pub use crate::signer::Blob;
 pub mod hd_path;
 mod signer;
-mod test_fixtures;
 
 #[cfg(all(test, feature = "emulator-tests"))]
 mod emulator_tests;
@@ -302,13 +301,19 @@ fn test_network_hash() -> Hash {
     use sha2::Digest;
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
+
 #[cfg(test)]
 mod test {
+    mod test_helpers {
+        pub mod test {
+            include!("../tests/test/mod.rs");
+        }
+    }
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use crate::test_fixtures::emulator_http_transport::EmulatorHttpTransport;
     use crate::Blob;
+    use test_helpers::test::emulator_http_transport::EmulatorHttpTransport;
 
     use soroban_env_host::xdr::Transaction;
     use std::vec;
