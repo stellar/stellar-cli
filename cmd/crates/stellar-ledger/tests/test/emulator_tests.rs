@@ -33,15 +33,29 @@ mod test_helpers {
     }
 }
 
-use test_helpers::test::{emulator_http_transport::EmulatorHttpTransport, speculos::Speculos};
+use test_helpers::test::{
+    emulator_http_transport::EmulatorHttpTransport,
+    speculos::{Args, Speculos},
+};
 
 #[tokio::test]
-async fn test_get_public_key() {
+async fn test_get_public_key_for_different_ledger_devices() {
+    let device_models = ["nanos", "nanox", "nanosp"];
+    for device_model in device_models.iter() {
+        let args = Args {
+            ledger_device_model: device_model.to_string(),
+        };
+        println!("Running test_get_public_key for {device_model}");
+        test_get_public_key(args).await;
+    }
+}
+
+async fn test_get_public_key(image_args: Args) {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let args = image_args.clone();
+    let node = docker.run((Speculos::new(), args));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
-
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = ledger(host_port);
@@ -65,12 +79,22 @@ async fn test_get_public_key() {
 }
 
 #[tokio::test]
-async fn test_get_app_configuration() {
+async fn test_get_app_configuration_for_different_ledger_devices() {
+    let device_models = ["nanos", "nanox", "nanosp"];
+    for device_model in device_models.iter() {
+        let args = Args {
+            ledger_device_model: device_model.to_string(),
+        };
+        println!("Running test_get_app_configuration for {device_model}");
+        test_get_app_configuration(args).await;
+    }
+}
+
+async fn test_get_app_configuration(image_args: Args) {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run((Speculos::new(), image_args.clone()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
-
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = ledger(host_port);
@@ -90,12 +114,22 @@ async fn test_get_app_configuration() {
 }
 
 #[tokio::test]
-async fn test_sign_tx() {
+async fn test_sign_tx_for_different_ledger_devices() {
+    let device_models = ["nanos", "nanox", "nanosp"];
+    for device_model in device_models.iter() {
+        let args = Args {
+            ledger_device_model: device_model.to_string(),
+        };
+        println!("Running test_sign_tx for {device_model}");
+        test_sign_tx(args).await;
+    }
+}
+
+async fn test_sign_tx(image_args: Args) {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run((Speculos::new(), image_args.clone()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
-
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = Arc::new(ledger(host_port));
@@ -156,7 +190,8 @@ async fn test_sign_tx() {
         let ledger = Arc::clone(&ledger);
         async move { ledger.sign_transaction(path, tx, test_network_hash()).await }
     });
-    let approve = tokio::task::spawn(approve_tx_signature(ui_host_port));
+    let args = image_args.clone();
+    let approve = tokio::task::spawn(approve_tx_signature(ui_host_port, args.ledger_device_model));
 
     let result = sign.await.unwrap();
     let _ = approve.await.unwrap();
@@ -176,12 +211,22 @@ async fn test_sign_tx() {
 }
 
 #[tokio::test]
-async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
+async fn test_sign_tx_hash_when_hash_signing_is_not_enabled_for_different_ledger_devices() {
+    let device_models = ["nanos", "nanox", "nanosp"];
+    for device_model in device_models.iter() {
+        let args = Args {
+            ledger_device_model: device_model.to_string(),
+        };
+        println!("Running test_sign_tx_hash_when_hash_signing_is_not_enabled for {device_model}");
+        test_sign_tx_hash_when_hash_signing_is_not_enabled(args).await;
+    }
+}
+
+async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(image_args: Args) {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run((Speculos::new(), image_args.clone()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
-
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = ledger(host_port);
@@ -202,9 +247,20 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
 }
 
 #[tokio::test]
-async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
+async fn test_sign_tx_hash_when_hash_signing_is_enabled_for_different_ledger_devices() {
+    let device_models = ["nanos", "nanosp", "nanox"];
+    for device_model in device_models.iter() {
+        let args = Args {
+            ledger_device_model: device_model.to_string(),
+        };
+        println!("Running test_sign_tx_hash_when_hash_signing_is_enabled for {device_model}");
+        test_sign_tx_hash_when_hash_signing_is_enabled(args).await;
+    }
+}
+
+async fn test_sign_tx_hash_when_hash_signing_is_enabled(image_args: Args) {
     let docker = clients::Cli::default();
-    let node = docker.run(Speculos::new());
+    let node = docker.run((Speculos::new(), image_args.clone()));
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
@@ -231,7 +287,11 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
         let ledger = Arc::clone(&ledger);
         async move { ledger.sign_transaction_hash(path, &test_hash).await }
     });
-    let approve = tokio::task::spawn(approve_tx_hash_signature(ui_host_port));
+    let args = image_args.clone();
+    let approve = tokio::task::spawn(approve_tx_hash_signature(
+        ui_host_port,
+        args.ledger_device_model,
+    ));
 
     let response = sign.await.unwrap();
     let _ = approve.await.unwrap();
@@ -334,32 +394,19 @@ async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
     resp.events
 }
 
-async fn approve_tx_hash_signature(ui_host_port: u16) {
-    for _ in 0..10 {
+async fn approve_tx_hash_signature(ui_host_port: u16, device_model: String) {
+    let number_of_right_clicks = if device_model == "nanos" { 10 } else { 6 };
+    for _ in 0..number_of_right_clicks {
         click(ui_host_port, "button/right").await;
     }
 
     click(ui_host_port, "button/both").await;
 }
 
-async fn approve_tx_signature(ui_host_port: u16) {
-    let mut map = HashMap::new();
-    map.insert("action", "press-and-release");
-
-    let client = reqwest::Client::new();
-    for _ in 0..17 {
-        client
-            .post(format!("http://localhost:{ui_host_port}/button/right"))
-            .json(&map)
-            .send()
-            .await
-            .unwrap();
+async fn approve_tx_signature(ui_host_port: u16, device_model: String) {
+    let number_of_right_clicks = if device_model == "nanos" { 17 } else { 11 };
+    for _ in 0..number_of_right_clicks {
+        click(ui_host_port, "button/right").await;
     }
-
-    client
-        .post(format!("http://localhost:{ui_host_port}/button/both"))
-        .json(&map)
-        .send()
-        .await
-        .unwrap();
+    click(ui_host_port, "button/both").await;
 }
