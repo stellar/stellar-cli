@@ -5,6 +5,7 @@ use std::fmt::Display;
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
+pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");
 
 pub async fn invoke_with_roundtrip<D>(e: &TestEnv, id: &str, func: &str, data: D)
 where
@@ -29,7 +30,11 @@ pub async fn deploy_custom(sandbox: &TestEnv) -> String {
     deploy_contract(sandbox, CUSTOM_TYPES, false).await
 }
 
-pub async fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm<'static>, build_only: bool) -> String {
+pub async fn deploy_swap(sandbox: &TestEnv) -> String {
+    deploy_contract(sandbox, SWAP).await
+}
+
+pub async fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm<'static>) -> String {
     let cmd = sandbox.cmd_with_config::<_, commands::contract::deploy::wasm::Cmd>(&[
         "--fee",
         "1000000",

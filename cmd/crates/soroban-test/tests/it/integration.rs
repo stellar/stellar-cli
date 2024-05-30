@@ -1,3 +1,4 @@
+mod bindings;
 mod custom_types;
 mod dotenv;
 mod hello_world;

@@ -13,6 +13,7 @@ pub use cli::main;
 
 pub mod commands;
 pub mod fee;
+pub mod get_spec;
 pub mod key;
 pub mod log;
 pub mod signer;

@@ -1,6 +1,6 @@
-# Contributing to soroban-cli
+# Contributing to stellar-cli
 
-Thanks for taking the time to improve soroban-cli!
+Thanks for taking the time to improve stellar-cli!
 
 The following is a set of guidelines for contributions and may change over time.
 Feel free to suggest improvements to this document in a pull request.We want to make it as easy as possible to contribute changes that help the Stellar network grow and
@@ -38,29 +38,29 @@ Of course, feel free to create a new issue if you think something needs to be ad
 
 ## Making Changes
 
-* Fork the soroban-cli repo to your own Github account
+* Fork the stellar-cli repo to your own Github account
 
 * List the current configured remote repository for your fork. Your git remote
 should initially look like this. 
    ```
    $ git remote -v
-   > origin  https://github.com/YOUR_USERNAME/soroban-cli.git (fetch)
-   > origin  https://github.com/YOUR_USERNAME/soroban-cli.git (push)
+   > origin  https://github.com/YOUR_USERNAME/stellar-cli.git (fetch)
+   > origin  https://github.com/YOUR_USERNAME/stellar-cli.git (push)
    ```
 
-* Set the `stellar/soroban-cli` repo as new remote upstream repository that will
+* Set the `stellar/stellar-cli` repo as new remote upstream repository that will
 sync with your fork. 
   ```
-  git remote add upstream https://github.com/stellar/soroban-cli.git
+  git remote add upstream https://github.com/stellar/stellar-cli.git
   ```
 
 * Verify the new upstream repository you've specified for your fork.
   ```
   $ git remote -v
-  > origin    https://github.com/YOUR_USERNAME/soroban-cli.git (fetch)
-  > origin    https://github.com/YOUR_USERNAME/soroban-cli.git (push)
-  > upstream  https://github.com/stellar/soroban-cli.git (fetch)
-  > upstream  https://github.com/stellar/soroban-cli.git (push)
+  > origin    https://github.com/YOUR_USERNAME/stellar-cli.git (fetch)
+  > origin    https://github.com/YOUR_USERNAME/stellar-cli.git (push)
+  > upstream  https://github.com/stellar/stellar-cli.git (fetch)
+  > upstream  https://github.com/stellar/stellar-cli.git (push)
   ```
 
 * Add git hooks for commits and pushes so that checks run before pushing:
@@ -69,7 +69,7 @@ sync with your fork.
   ```
 
 * Create a topic branch for your changes in your local repo. When you push you should be able
-to create PR based on upstream stellar/soroban-cli.
+to create PR based on upstream stellar/stellar-cli.
 
 * Make sure you have added the necessary tests for your changes and make sure all tests pass.
 
@@ -95,6 +95,6 @@ alternatives.
 
 This document is inspired by:
 
-[help-wanted]: https://github.com/stellar/soroban-cli/contribute 
+[help-wanted]: https://github.com/stellar/stellar-cli/contribute 
 [commit-msg]: https://github.com/erlang/otp/wiki/Writing-good-commit-messages
 [coc]: https://github.com/stellar/.github/blob/master/CODE_OF_CONDUCT.md
