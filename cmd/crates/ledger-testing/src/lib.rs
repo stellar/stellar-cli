@@ -29,52 +29,34 @@ impl fmt::Display for LedgerModel {
 #[derive(Debug)]
 pub struct LedgerTesting<'a> {
     host: String,
-    local_elfs_dir: PathBuf,
-    device_model: LedgerModel,
-    transport_port: Option<u16>,
-    speculos_api_port: Option<u16>,
-    container: Option<Container<'a, Speculos>>,
+    container: Container<'a, Speculos>,
 }
 
 impl<'a> LedgerTesting<'a> {
-    pub fn new(local_elfs_dir: PathBuf, device_model: LedgerModel) -> Self {
-        Self {
-            host: DEFAULT_HOST.to_string(),
-            local_elfs_dir,
-            device_model,
-            transport_port: None,
-            speculos_api_port: None,
-            container: None,
-        }
-    }
-
-    pub async fn start(&mut self, docker: &'a Cli) {
+    pub fn new(local_elfs_dir: PathBuf, device_model: LedgerModel, docker: &'a Cli) -> Self {
         let container_args = Args {
-            ledger_device_model: self.device_model.to_string(),
+            ledger_device_model: device_model.to_string(),
         };
 
-        let emulator_image = Speculos::new(self.local_elfs_dir.clone());
+        let emulator_image = Speculos::new(local_elfs_dir.clone());
 
         let container = docker.run((emulator_image, container_args));
 
-        let transport_port = container.get_host_port_ipv4(TRANSPORT_PORT);
-        let speculos_api_port = container.get_host_port_ipv4(SPECULOS_API_PORT);
-
-        self.transport_port = Some(transport_port);
-        self.speculos_api_port = Some(speculos_api_port);
-        self.container = Some(container);
-
-        self.wait_for_emulator_start_text().await;
+        Self {
+            host: DEFAULT_HOST.to_string(),
+            container: container,
+        }
     }
 
     pub fn get_transport_port(&self) -> u16 {
-        self.transport_port.unwrap()
+        self.container.get_host_port_ipv4(TRANSPORT_PORT)
     }
 
     pub fn get_speculos_api_port(&self) -> u16 {
-        self.speculos_api_port.unwrap()
+        self.container.get_host_port_ipv4(SPECULOS_API_PORT)
     }
 
+    // TODO: add this logic into wait_for method on the container
     async fn wait_for_emulator_start_text(&self) {
         let mut ready = false;
         while !ready {
@@ -91,7 +73,7 @@ impl<'a> LedgerTesting<'a> {
 
     pub async fn get_emulator_events(&self) -> Vec<EmulatorEvent> {
         let host = &self.host;
-        let port = self.speculos_api_port.unwrap();
+        let port = self.get_speculos_api_port();
         let client = reqwest::Client::new();
         let resp = client
             .get(format!("http://{host}:{port}/events"))
@@ -107,7 +89,7 @@ impl<'a> LedgerTesting<'a> {
     // TODO: make button into an enum
     pub async fn click(&self, button: &str) {
         let host = &self.host;
-        let port = self.speculos_api_port.unwrap();
+        let port = self.get_speculos_api_port();
 
         let previous_events = self.get_emulator_events().await;
 
@@ -157,8 +139,7 @@ mod test {
     async fn test_start_nano_s() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
-        ledger_testing.start(&docker).await;
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS, &docker);
 
         // it exposes the transport port
         assert!(ledger_testing.get_transport_port() > 0);
@@ -176,8 +157,7 @@ mod test {
     async fn test_clicking_the_left_button() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
-        ledger_testing.start(&docker).await;
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS, &docker);
 
         ledger_testing.click("left").await;
         let events = ledger_testing.get_emulator_events().await;
@@ -190,8 +170,7 @@ mod test {
     async fn test_clicking_the_right_button() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
-        ledger_testing.start(&docker).await;
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS, &docker);
 
         ledger_testing.click("right").await;
         let events = ledger_testing.get_emulator_events().await;
@@ -204,8 +183,7 @@ mod test {
     async fn test_clicking_the_both_button() {
         let test_elfs_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_elfs");
         let docker = Cli::default();
-        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS);
-        ledger_testing.start(&docker).await;
+        let mut ledger_testing = LedgerTesting::new(test_elfs_dir, LedgerModel::NanoS, &docker);
 
         ledger_testing.click("right").await;
         ledger_testing.click("both").await;

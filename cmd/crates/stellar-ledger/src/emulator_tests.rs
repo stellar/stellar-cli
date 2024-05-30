@@ -26,8 +26,7 @@ fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
 #[tokio::test]
 async fn test_get_public_key() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
-    ledger_testing.start(&docker).await;
+    let ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS, &docker);
 
     let transport_port = ledger_testing.get_transport_port();
 
@@ -51,8 +50,7 @@ async fn test_get_public_key() {
 #[tokio::test]
 async fn test_get_app_configuration() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
-    ledger_testing.start(&docker).await;
+    let ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS, &docker);
 
     let transport_port = ledger_testing.get_transport_port();
     let ledger = ledger(transport_port);
@@ -71,8 +69,7 @@ async fn test_get_app_configuration() {
 #[tokio::test]
 async fn test_sign_tx() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
-    ledger_testing.start(&docker).await;
+    let ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS, &docker);
 
     let transport_port = ledger_testing.get_transport_port();
     let ui_host_port: u16 = ledger_testing.get_speculos_api_port();
@@ -154,8 +151,7 @@ async fn test_sign_tx() {
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
-    ledger_testing.start(&docker).await;
+    let ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS, &docker);
 
     let transport_port = ledger_testing.get_transport_port();
     let ui_host_port: u16 = ledger_testing.get_speculos_api_port();
@@ -177,8 +173,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled() {
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_enabled() {
     let docker = clients::Cli::default();
-    let mut ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS);
-    ledger_testing.start(&docker).await;
+    let ledger_testing = LedgerTesting::new(apps_dir(), LedgerModel::NanoS, &docker);
 
     let transport_port = ledger_testing.get_transport_port();
     let ui_host_port: u16 = ledger_testing.get_speculos_api_port();
