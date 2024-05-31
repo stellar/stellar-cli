@@ -1,8 +1,9 @@
 use hd_path::HdPath;
-use ledger_transport::{APDUCommand, Exchange};
+use ledger_transport::APDUCommand;
+pub use ledger_transport_hid::TransportNativeHID;
 use ledger_transport_hid::{
     hidapi::{HidApi, HidError},
-    LedgerHIDError, TransportNativeHID,
+    LedgerHIDError,
 };
 
 use soroban_env_host::xdr::{Hash, Transaction};
@@ -14,6 +15,7 @@ use stellar_xdr::curr::{
 };
 
 pub use crate::signer::Blob;
+pub use ledger_transport::Exchange;
 
 mod emulator_http_transport;
 mod signer;
@@ -188,7 +190,7 @@ where
     }
 
     /// The `display_and_confirm` bool determines if the Ledger will display the public key on its screen and requires user approval to share
-    async fn get_public_key_with_display_flag(
+    pub async fn get_public_key_with_display_flag(
         &self,
         hd_path: impl Into<HdPath>,
         display_and_confirm: bool,
@@ -247,6 +249,27 @@ where
             )),
         }
     }
+
+    pub async fn sign_data(&self, index: &HdPath, blob: &[u8]) -> Result<Vec<u8>, Error> {
+        let mut hd_path_to_bytes = index.to_vec()?;
+
+        let capacity = 1 + hd_path_to_bytes.len() + blob.len();
+        let mut data: Vec<u8> = Vec::with_capacity(capacity);
+
+        data.insert(0, HD_PATH_ELEMENTS_COUNT);
+        data.append(&mut hd_path_to_bytes);
+        data.extend_from_slice(blob);
+
+        let command = APDUCommand {
+            cla: CLA,
+            ins: SIGN_TX_HASH,
+            p1: P1_SIGN_TX_HASH,
+            p2: P2_SIGN_TX_HASH,
+            data,
+        };
+
+        self.send_command_to_ledger(command).await
+    }
 }
 
 #[async_trait::async_trait]
@@ -271,24 +294,7 @@ where
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device. Or, if the device has not enabled hash signing
     async fn sign_blob(&self, index: &Self::Key, blob: &[u8]) -> Result<Vec<u8>, Error> {
-        let mut hd_path_to_bytes = index.to_vec()?;
-
-        let capacity = 1 + hd_path_to_bytes.len() + blob.len();
-        let mut data: Vec<u8> = Vec::with_capacity(capacity);
-
-        data.insert(0, HD_PATH_ELEMENTS_COUNT);
-        data.append(&mut hd_path_to_bytes);
-        data.extend_from_slice(blob);
-
-        let command = APDUCommand {
-            cla: CLA,
-            ins: SIGN_TX_HASH,
-            p1: P1_SIGN_TX_HASH,
-            p2: P2_SIGN_TX_HASH,
-            data,
-        };
-
-        self.send_command_to_ledger(command).await
+        self.sign_data(index, blob).await
     }
 }
 

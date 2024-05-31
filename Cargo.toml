@@ -51,6 +51,10 @@ version = "=21.0.1-preview.1"
 version = "=21.0.0-rc.1"
 path = "cmd/soroban-cli"
 
+[workspace.dependencies.stellar-ledger]
+version = "=21.0.0-rc.1"
+path = "cmd/crates/stellar-ledger"
+
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
 version = "=21.0.1"
