@@ -53,6 +53,8 @@ This document contains the help content for the `stellar` command-line program.
 * [`stellar version`↴](#stellar-version)
 * [`stellar tx`↴](#stellar-tx)
 * [`stellar tx simulate`↴](#stellar-tx-simulate)
+* [`stellar tx sign`↴](#stellar-tx-sign)
+* [`stellar tx send`↴](#stellar-tx-send)
 * [`stellar cache`↴](#stellar-cache)
 * [`stellar cache clean`↴](#stellar-cache-clean)
 * [`stellar cache path`↴](#stellar-cache-path)
@@ -1325,6 +1327,8 @@ Sign, Simulate, and Send transactions
 ###### **Subcommands:**
 
 * `simulate` — Simulate a transaction envelope from stdin
+* `sign` — Sign a transaction with a ledger or local key
+* `send` — Send a transaction envelope to the network
 
 
 
@@ -1333,6 +1337,58 @@ Sign, Simulate, and Send transactions
 Simulate a transaction envelope from stdin
 
 **Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `stellar tx sign`
+
+Sign a transaction with a ledger or local key
+
+**Usage:** `stellar tx sign [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--signer <SIGNER>` — How to sign transaction
+
+  Default value: `file`
+
+  Possible values: `file`, `ledger`
+
+
+
+
+## `stellar tx send`
+
+Send a transaction envelope to the network
+
+**Usage:** `stellar tx send [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
