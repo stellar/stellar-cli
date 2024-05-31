@@ -13,6 +13,10 @@ autobins = false
 default-run = "soroban"
 
 [[bin]]
+name = "stellar"
+path = "src/bin/main.rs"
+
+[[bin]]
 name = "soroban"
 path = "src/bin/main.rs"
 
