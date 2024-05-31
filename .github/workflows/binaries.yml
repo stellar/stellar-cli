@@ -15,53 +15,58 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        crate:
+          - name: stellar-cli
+            binary: stellar
+          - name: soroban-cli
+            binary: soroban
+        sys:
           - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
             target: aarch64-unknown-linux-gnu
-          - os: macos-latest
+          - os: macos-14
             target: x86_64-apple-darwin
-          - os: macos-latest
+          - os: macos-12
             target: aarch64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             ext: .exe
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.sys.os }}
     steps:
     - uses: actions/checkout@v3
     - run: rustup update
-    - run: rustup target add ${{ matrix.target }}
-    - if: matrix.target == 'aarch64-unknown-linux-gnu'
+    - run: rustup target add ${{ matrix.sys.target }}
+    - if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - name: Setup vars
       run: |
-        version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "soroban-cli") | .version')"
+        version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
         echo "VERSION=${version}" >> $GITHUB_ENV
-        echo "NAME=soroban-cli-${version}-${{ matrix.target }}" >> $GITHUB_ENV
+        echo "NAME=${{ matrix.crate.name }}-${version}-${{ matrix.sys.target }}" >> $GITHUB_ENV
     - name: Package (release only)
       if: github.event_name == 'release'
-      run: cargo package --no-verify
+      run: cargo package --no-verify --package ${{ matrix.crate.name }}
     - name: Package Extract (release only)
       if: github.event_name == 'release'
       run: |
         cd target/package
-        tar xvfz soroban-cli-$VERSION.crate
-        echo "BUILD_WORKING_DIR=target/package/soroban-cli-$VERSION" >> $GITHUB_ENV
+        tar xvfz ${{ matrix.crate.name }}-$VERSION.crate
+        echo "BUILD_WORKING_DIR=target/package/${{ matrix.crate.name }}-$VERSION" >> $GITHUB_ENV
     - name: Build
       env:
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       working-directory: ${{ env.BUILD_WORKING_DIR }}
-      run: cargo build --target-dir="$GITHUB_WORKSPACE/target" --features opt --release --target ${{ matrix.target }}
+      run: cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
     - name: Compress
       run: |
-          cd target/${{ matrix.target }}/release
-          tar czvf $NAME.tar.gz soroban${{ matrix.ext }}
+          cd target/${{ matrix.sys.target }}/release
+          tar czvf $NAME.tar.gz ${{ matrix.crate.binary }}${{ matrix.sys.ext }}
     - name: Upload to Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.NAME }}
-        path: 'target/${{ matrix.target }}/release/${{ env.NAME }}.tar.gz'
+        path: 'target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'
     - name: Upload to Release (release only)
       if: github.event_name == 'release'
       uses: actions/github-script@v6
@@ -73,5 +78,5 @@ jobs:
             repo: context.repo.repo,
             release_id: ${{ github.event.release.id }},
             name: '${{ env.NAME }}.tar.gz',
-            data: fs.readFileSync('target/${{ matrix.target }}/release/${{ env.NAME }}.tar.gz'),
+            data: fs.readFileSync('target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'),
           });
