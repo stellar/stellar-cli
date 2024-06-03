@@ -20,7 +20,7 @@ pub const HEADING_RPC: &str = "Options (RPC)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
 Stellar Docs: https://developers.stellar.org
-CLI Full Hep Docs: https://github.com/stellar/soroban-cli/tree/main/FULL_HELP_DOCS.md";
+CLI Full Hep Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "

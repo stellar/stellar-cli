@@ -1,8 +1,8 @@
 [package]
 name = "stellar-cli"
 description = "Stellar CLI"
-homepage = "https://github.com/stellar/soroban-cli"
-repository = "https://github.com/stellar/soroban-cli"
+homepage = "https://github.com/stellar/stellar-cli"
+repository = "https://github.com/stellar/stellar-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
@@ -14,6 +14,10 @@ default-run = "stellar"
 
 [[bin]]
 name = "stellar"
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "soroban"
 path = "src/bin/main.rs"
 
 [package.metadata.binstall]
