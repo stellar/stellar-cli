@@ -47,7 +47,6 @@ impl CustomAccountInterface for Contract {
         signature: Signature,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-
         // Only the sudo signer can `add_sig`, `rm_sig` and `resudo`
         for context in auth_contexts.iter() {
             match context {

@@ -1,5 +1,5 @@
-use super::util::deploy_swap;
 use super::util::deploy_custom_account;
+use super::util::deploy_swap;
 use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
 const OUTPUT_DIR: &str = "./bindings-output";
@@ -57,9 +57,19 @@ async fn invoke_test_bindings_context_failure() {
 
     assert!(outdir.exists(), "Output directory does not exist");
 
-    let files = std::fs::read_dir(outdir).expect("Failed to read output directory");
+    let files = std::fs::read_dir(&outdir).expect("Failed to read output directory");
     assert!(
         files.count() > 0,
         "No files generated in the output directory"
+    );
+    // Read the src/index.ts file and check for `__check_auth:`
+    let index_ts_path = outdir.join("src/index.ts");
+
+    assert!(index_ts_path.exists(), "src/index.ts file does not exist");
+
+    let content = std::fs::read_to_string(&index_ts_path).expect("Failed to read index.ts file");
+    assert!(
+        !content.contains("__check_auth"),
+        "Test failed: `__check_auth` found in src/index.ts"
     );
 }
