@@ -1,8 +1,8 @@
 [package]
 name = "soroban-cli"
 description = "Soroban CLI"
-homepage = "https://github.com/stellar/soroban-cli"
-repository = "https://github.com/stellar/soroban-cli"
+homepage = "https://github.com/stellar/stellar-cli"
+repository = "https://github.com/stellar/stellar-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
@@ -11,6 +11,10 @@ edition = "2021"
 rust-version.workspace = true
 autobins = false
 default-run = "soroban"
+
+[[bin]]
+name = "stellar"
+path = "src/bin/main.rs"
 
 [[bin]]
 name = "soroban"

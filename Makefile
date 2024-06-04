@@ -27,9 +27,8 @@ endif
 install_rust: install
 
 install:
-	cargo install --locked --path ./cmd/soroban-cli --debug
-	cargo install --locked --path ./cmd/stellar-cli --debug
-	cargo install --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
+	cargo install --force --locked --path ./cmd/stellar-cli --debug
+	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
 
 # regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
 build-snapshot: typescript-bindings-fixtures

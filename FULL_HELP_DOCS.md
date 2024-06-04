@@ -63,7 +63,7 @@ This document contains the help content for the `stellar` command-line program.
 Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
 Stellar Docs: https://developers.stellar.org
-CLI Full Hep Docs: https://github.com/stellar/soroban-cli/tree/main/FULL_HELP_DOCS.md
+CLI Full Hep Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md
 
 The easiest way to get started is to generate a new identity:
 
