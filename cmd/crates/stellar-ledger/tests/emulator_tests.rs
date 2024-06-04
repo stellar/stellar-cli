@@ -29,7 +29,7 @@ fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
 
 mod test_helpers {
     pub mod test {
-        include!("../tests/test/mod.rs");
+        include!("./utils/mod.rs");
     }
 }
 

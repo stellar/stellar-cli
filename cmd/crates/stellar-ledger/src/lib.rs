@@ -303,7 +303,7 @@ pub fn test_network_hash() -> Hash {
 mod test {
     mod test_helpers {
         pub mod test {
-            include!("../tests/test/mod.rs");
+            include!("../tests/utils/mod.rs");
         }
     }
     use httpmock::prelude::*;
