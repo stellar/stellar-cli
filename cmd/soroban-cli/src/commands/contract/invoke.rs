@@ -305,8 +305,33 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+        let contract_id = match self.load_contract_id() {
+            Some(id) => id,
+            None => self.contract_id.clone(),
+        };
+
+        soroban_spec_tools::utils::contract_id_from_str(&contract_id)
+            .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
+    }
+
+    fn load_contract_id(&self) -> Option<String> {
+        let file_name = format!("{}.txt", self.contract_id);
+
+        let path = self
+            .config
+            .config_dir()
+            .unwrap()
+            .join("contract-ids")
+            .join(file_name);
+
+        if path.exists() {
+            match fs::read_to_string(path) {
+                Ok(content) => Some(content),
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 }
 
