@@ -452,6 +452,13 @@ Deploy a wasm contract
 
   Possible values: `true`, `false`
 
+* `--alias <ALIAS>` — The alias that will be used to save the contract's id
+* `-f`, `--force` — Force saving the contract id file even if it already exists
+
+  Default value: `false`
+
+  Possible values: `true`, `false`
+
 
 
 
