@@ -1,11 +1,11 @@
 use ledger_transport::Exchange;
 use serde::Deserialize;
-use soroban_env_host::xdr::Transaction;
 use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
+use soroban_env_host::xdr::{Hash, Transaction};
 use std::vec;
 
-use crate::hd_path::HdPath;
-use crate::{test_network_hash, Blob, Error, LedgerSigner};
+use stellar_ledger::hd_path::HdPath;
+use stellar_ledger::{Blob, Error, LedgerSigner};
 
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
@@ -16,6 +16,12 @@ use stellar_xdr::curr::{
 
 use testcontainers::clients;
 use tokio::time::sleep;
+
+pub const TEST_NETWORK_PASSPHRASE: &[u8] = b"Test SDF Network ; September 2015";
+pub fn test_network_hash() -> Hash {
+    use sha2::Digest;
+    Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
+}
 
 fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
     LedgerSigner::new(get_http_transport("127.0.0.1", host_port).unwrap())
