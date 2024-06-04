@@ -1,7 +1,8 @@
 use std::fmt::Debug;
+use std::fs::create_dir_all;
 use std::io::Write;
 use std::num::ParseIntError;
-use std::path::Path;
+use std::path::PathBuf;
 use std::{array::TryFromSliceError, fs::OpenOptions};
 
 use clap::{arg, command, Parser};
@@ -135,9 +136,8 @@ impl Cmd {
         }
 
         let path = self.alias_path();
-        let to = Path::new(&path);
 
-        if to.exists() && !self.force {
+        if path.exists() && !self.force {
             Err(Error::AliasAlreadyExist { alias })
         } else {
             Ok(())
@@ -151,15 +151,23 @@ impl Cmd {
         }
     }
 
-    fn alias_path(&self) -> String {
-        format!("./.soroban/contract-ids/{}.txt", self.alias())
+    fn alias_path(&self) -> PathBuf {
+        let config_dir = self.config.config_dir().unwrap();
+        let name = format!("{}.txt", self.alias());
+
+        config_dir.join("contract-ids").join(name)
     }
 
     fn save_contract_id(&self, contract: &String) {
+        let file_path = self.alias_path();
+        let dir = file_path.parent().unwrap();
+
+        let _ = create_dir_all(dir);
+
         let mut to_file = OpenOptions::new()
             .create(true)
             .write(true)
-            .open(self.alias_path())
+            .open(file_path)
             .unwrap();
         let _ = to_file.write_all(contract.as_bytes());
     }
