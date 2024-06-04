@@ -1,6 +1,8 @@
-use std::array::TryFromSliceError;
 use std::fmt::Debug;
+use std::io::Write;
 use std::num::ParseIntError;
+use std::path::Path;
+use std::{array::TryFromSliceError, fs::OpenOptions};
 
 use clap::{arg, command, Parser};
 use rand::Rng;
@@ -54,6 +56,12 @@ pub struct Cmd {
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
+    /// The alias that will be used to save the contract's id.
+    #[arg(long)]
+    pub alias: Option<String>,
+    /// Force saving the contract id file even if it already exists.
+    #[arg(long, short = 'f', default_value = "false")]
+    pub force: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -100,18 +108,60 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[error("alias \"{alias}\" already exist. Use --force to override it.")]
+    AliasAlreadyExist { alias: String },
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
+        self.validate_alias()?;
+
         let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
+                self.save_contract_id(&contract);
                 println!("{contract}");
             }
         }
         Ok(())
+    }
+
+    fn validate_alias(&self) -> Result<(), Error> {
+        let alias = self.alias();
+
+        if alias.is_empty() {
+            return Ok(());
+        }
+
+        let path = self.alias_path();
+        let to = Path::new(&path);
+
+        if to.exists() && !self.force {
+            Err(Error::AliasAlreadyExist { alias })
+        } else {
+            Ok(())
+        }
+    }
+
+    fn alias(&self) -> String {
+        match &self.alias {
+            Some(n) => n.to_string(),
+            None => String::new(),
+        }
+    }
+
+    fn alias_path(&self) -> String {
+        format!("./.soroban/contract-ids/{}.txt", self.alias())
+    }
+
+    fn save_contract_id(&self, contract: &String) {
+        let mut to_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(self.alias_path())
+            .unwrap();
+        let _ = to_file.write_all(contract.as_bytes());
     }
 }
 
