@@ -5286,6 +5286,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
+name = "test_custom_account"
+version = "21.0.0-rc.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "test_custom_types"
 version = "21.0.0-rc.1"
 dependencies = [

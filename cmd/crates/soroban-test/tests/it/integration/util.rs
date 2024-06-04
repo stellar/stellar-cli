@@ -4,6 +4,7 @@ use std::fmt::Display;
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
+pub const CUSTOM_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_custom_account");
 pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");
 
 pub async fn invoke_with_roundtrip<D>(e: &TestEnv, id: &str, func: &str, data: D)
@@ -31,6 +32,10 @@ pub async fn deploy_custom(sandbox: &TestEnv) -> String {
 
 pub async fn deploy_swap(sandbox: &TestEnv) -> String {
     deploy_contract(sandbox, SWAP).await
+}
+
+pub async fn deploy_custom_account(sandbox: &TestEnv) -> String {
+    deploy_contract(sandbox, CUSTOM_ACCOUNT).await
 }
 
 pub async fn deploy_contract(sandbox: &TestEnv, wasm: &Wasm<'static>) -> String {
