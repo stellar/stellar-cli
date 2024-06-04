@@ -43,7 +43,7 @@ impl CustomAccountInterface for Contract {
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
-        _signature_payload: Hash<32>,
+        signature_payload: Hash<32>,
         signature: Signature,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
@@ -55,16 +55,14 @@ impl CustomAccountInterface for Contract {
                         && (c.fn_name == Symbol::new(&env, "add_sig")
                             || c.fn_name == Symbol::new(&env, "rm_sig")
                             || c.fn_name == Symbol::new(&env, "resudo"))
-                    {
-                        if signature.id
+                        && signature.id
                             != env
                                 .storage()
                                 .instance()
                                 .get::<Symbol, BytesN<32>>(&SUDO_SIGNER)
                                 .ok_or(Error::NotFound)?
-                        {
-                            return Err(Error::NotPermitted);
-                        }
+                    {
+                        return Err(Error::NotPermitted);
                     }
                 }
                 Context::CreateContractHostFn(_) => return Err(Error::InvalidContext),
@@ -76,6 +74,9 @@ impl CustomAccountInterface for Contract {
             .persistent()
             .get::<BytesN<32>, Bytes>(&signature.id)
             .ok_or(Error::NotFound)?;
+        if signature_payload.to_bytes().len() != 32 {
+            return Err(Error::NotPermitted);
+        }
 
         let client_data = ClientDataJson {
             challenge: "dummy_challenge",
