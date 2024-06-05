@@ -136,10 +136,10 @@ Ensure the completion package for your shell is installed,
 e.g., bash-completion for bash.
 
 To enable autocomplete in the current bash shell, run:
-  source <(soroban completion --shell bash)
+  source <(stellar completion --shell bash)
 
 To enable autocomplete permanently, run:
-  echo "source <(soroban completion --shell bash)" >> ~/.bashrc
+  echo "source <(stellar completion --shell bash)" >> ~/.bashrc
 
 **Usage:** `stellar completion --shell <SHELL>`
 
