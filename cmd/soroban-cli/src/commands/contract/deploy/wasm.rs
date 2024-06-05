@@ -7,6 +7,7 @@ use std::{array::TryFromSliceError, fs::OpenOptions};
 
 use clap::{arg, command, Parser};
 use rand::Rng;
+use regex::Regex;
 use soroban_env_host::{
     xdr::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
@@ -60,9 +61,6 @@ pub struct Cmd {
     /// The alias that will be used to save the contract's id.
     #[arg(long)]
     pub alias: Option<String>,
-    /// Force saving the contract id file even if it already exists.
-    #[arg(long, short = 'f', default_value = "false")]
-    pub force: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -109,12 +107,14 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[error("alias \"{alias}\" already exist. Use --force to override it.")]
-    AliasAlreadyExist { alias: String },
     #[error("cannot access config dir for alias file")]
     CannotAccessConfigDir,
     #[error("cannot create alias file")]
     CannotCreateAliasFile,
+    #[error(
+        "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
+    )]
+    InvalidAliasFormat { alias: String },
 }
 
 impl Cmd {
@@ -139,12 +139,12 @@ impl Cmd {
             return Ok(());
         }
 
-        let path = self.alias_path()?;
+        let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
 
-        if path.exists() && !self.force {
-            Err(Error::AliasAlreadyExist { alias })
-        } else {
+        if regex.is_match(&alias) {
             Ok(())
+        } else {
+            Err(Error::InvalidAliasFormat { alias })
         }
     }
 
