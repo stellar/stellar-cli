@@ -18,6 +18,7 @@ use soroban_env_host::{
     HostError,
 };
 
+use crate::commands::contract::AliasData;
 use crate::commands::{
     config::data,
     contract::{self, id::wasm::get_contract_id},
@@ -109,12 +110,14 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error("cannot access config dir for alias file")]
     CannotAccessConfigDir,
-    #[error("cannot create alias file")]
-    CannotCreateAliasFile,
     #[error(
         "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
     )]
     InvalidAliasFormat { alias: String },
+    #[error(transparent)]
+    JSONSerialization(#[from] serde_json::Error),
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
 }
 
 impl Cmd {
@@ -155,12 +158,13 @@ impl Cmd {
     fn alias_path(&self) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
         let network = self.config.network.network.clone().expect("must be set");
+        let alias = self.alias();
+        let file_name = format!("{alias}.json");
 
-        Ok(self
-            .alias
-            .as_ref()
-            .map(|alias| config_dir.join("contract-ids").join(network).join(alias))
-            .expect("must be set"))
+        Ok(config_dir
+            .join("contract-ids")
+            .join(network)
+            .join(file_name))
     }
 
     fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
@@ -179,12 +183,15 @@ impl Cmd {
             .create(true)
             .write(true)
             .open(file_path)
-            .expect("cannot open file");
+            .map_err(Error::IO)?;
 
-        match to_file.write_all(contract.as_bytes()) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(Error::CannotCreateAliasFile),
-        }
+        let payload = AliasData {
+            id: contract.into(),
+        };
+
+        let content = serde_json::to_string(&payload).map_err(Error::JSONSerialization)?;
+
+        to_file.write_all(content.as_bytes()).map_err(Error::IO)
     }
 }
 

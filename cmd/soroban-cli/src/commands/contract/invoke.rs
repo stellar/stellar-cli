@@ -31,6 +31,7 @@ use super::super::{
     config::{self, locator},
     events,
 };
+use super::AliasData;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
@@ -156,6 +157,8 @@ pub enum Error {
     UnableToReadAliasFile,
     #[error("alias file not found")]
     NoAliasFileFound,
+    #[error(transparent)]
+    JSONDeserialization(#[from] serde_json::Error),
 }
 
 impl From<Infallible> for Error {
@@ -321,20 +324,27 @@ impl Cmd {
     fn alias_path(&self) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
         let network = self.config.network.network.clone().expect("must be set");
+        let file_name = format!("{}.json", self.contract_id);
 
         Ok(config_dir
             .join("contract-ids")
             .join(network)
-            .join(&self.contract_id))
+            .join(file_name))
     }
 
     fn load_contract_id(&self) -> Result<Option<String>, Error> {
         let file_path = self.alias_path()?;
 
-        Ok(file_path
-            .exists()
-            .then(|| fs::read_to_string(file_path))
-            .transpose()?)
+        if !file_path.exists() {
+            return Ok(None);
+        }
+
+        let content = fs::read_to_string(file_path).map_err(Error::Io)?;
+
+        let data: AliasData =
+            serde_json::from_str(content.as_str()).map_err(Error::JSONDeserialization)?;
+
+        Ok(Some(data.id))
     }
 }
 

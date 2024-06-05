@@ -13,6 +13,8 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 
+use serde::{Deserialize, Serialize};
+
 use crate::commands::global;
 
 #[derive(Debug, clap::Subcommand)]
@@ -164,4 +166,9 @@ pub enum SpecOutput {
     XdrBase64Array,
     /// Pretty print of contract spec entries
     Docs,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AliasData {
+    id: String,
 }
