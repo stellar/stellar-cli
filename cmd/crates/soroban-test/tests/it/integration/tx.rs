@@ -1,6 +1,6 @@
 use soroban_cli::commands::tx;
 use soroban_sdk::xdr::{
-    Limits, ReadXdr, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM, WriteXdr,
+    Limits, ReadXdr, TransactionEnvelope, TransactionV1Envelope, VecM, WriteXdr,
 };
 use soroban_test::{AssertExt, TestEnv};
 

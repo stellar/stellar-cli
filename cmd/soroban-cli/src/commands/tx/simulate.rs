@@ -64,7 +64,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         let client = crate::rpc::Client::new(&network.rpc_url)?;
-        let tx = super::xdr::unwrap_envelope_v1()?;
+        let tx = super::xdr::unwrap_envelope_v1_from_stdin()?;
         self.simulate(&tx, &client).await
     }
 }

@@ -1,5 +1,6 @@
 use ed25519_dalek::ed25519::signature::Signer;
 use sha2::{Digest, Sha256};
+use termion::{event::Key, get_tty, input::TermRead};
 
 use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
@@ -19,6 +20,8 @@ pub enum Error {
     MissingSignerForAddress { address: String },
     #[error(transparent)]
     Ledger(#[from] stellar_ledger::Error),
+    #[error("User cancelled signing, perhaps need to add -y")]
+    UserCancelledSigning,
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -47,8 +50,13 @@ pub trait Stellar {
     /// # Errors
     /// Returns an error if the source account is not found
     async fn sign_txn_hash(&self, txn: [u8; 32]) -> Result<DecoratedSignature, Error> {
-        let tx_signature = self.sign_blob(&txn).await?;
         let source_account = self.get_public_key().await?;
+        eprintln!(
+            "{} about to sign hash: {}",
+            source_account.to_string(),
+            hex::encode(txn)
+        );
+        let tx_signature = self.sign_blob(&txn).await?;
         Ok(DecoratedSignature {
             // TODO: remove this unwrap. It's safe because we know the length of the array
             hint: SignatureHint(source_account.0[28..].try_into().unwrap()),
@@ -211,15 +219,33 @@ fn hash(network_passphrase: &str) -> xdr::Hash {
     xdr::Hash(Sha256::digest(network_passphrase.as_bytes()).into())
 }
 
-impl Stellar for ed25519_dalek::SigningKey {
+pub struct LocalKey {
+    key: ed25519_dalek::SigningKey,
+    prompt: bool,
+}
+
+impl LocalKey {
+    pub fn new(key: ed25519_dalek::SigningKey, prompt: bool) -> Self {
+        Self { key, prompt }
+    }
+}
+
+impl Stellar for LocalKey {
     async fn sign_blob(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
-        let sig = self.sign(data);
+        if self.prompt {
+            eprintln!("Press 'y' or 'Y' for yes, any other key for no:");
+            match read_key() {
+                'y' | 'Y' => (),
+                _ => return Err(Error::UserCancelledSigning),
+            };
+        }
+        let sig = self.key.sign(data);
         Ok(sig.to_bytes().to_vec())
     }
 
     async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         Ok(stellar_strkey::ed25519::PublicKey(
-            self.verifying_key().to_bytes(),
+            self.key.verifying_key().to_bytes(),
         ))
     }
 }
@@ -246,10 +272,18 @@ where
     }
 
     async fn sign_blob(&self, blob: &[u8]) -> Result<Vec<u8>, Error> {
-        eprintln!(
-            "The following should be visible on the Ledger device: {}",
-            hex::encode(blob)
-        );
         Ok(self.signer.sign_data(&self.index.into(), blob).await?)
+    }
+}
+
+pub fn read_key() -> char {
+    let tty = get_tty().unwrap();
+    if let Some(key) = tty.keys().next() {
+        match key.unwrap() {
+            Key::Char(c) => c,
+            _ => '_',
+        }
+    } else {
+        ' '
     }
 }

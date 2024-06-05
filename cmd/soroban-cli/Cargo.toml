@@ -116,6 +116,7 @@ rust-embed = { version = "8.2.0", features = ["debug-embed"] }
 bollard = { workspace=true }
 futures-util = "0.3.30"
 home = "0.5.9"
+termion = "4.0.0"
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "=0.10.55", features = ["vendored"] }

@@ -1,17 +1,8 @@
 use std::io;
 
-use soroban_rpc::Client;
-// use crossterm::{
-//     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-//     execute,
-//     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
-// };
-use soroban_sdk::xdr::{
-    self, Limits, MuxedAccount, SequenceNumber, Transaction, TransactionEnvelope, Uint256, WriteXdr,
-};
-use stellar_strkey::Strkey;
+use crate::xdr::{self, Limits, Transaction, TransactionEnvelope, WriteXdr};
 
-use crate::signer::{self, native, Stellar};
+use crate::signer::{self, native, LocalKey};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -27,12 +18,12 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
     Io(#[from] io::Error),
-    #[error("User cancelled signing, perhaps need to add -y")]
-    UserCancelledSigning,
     #[error(transparent)]
     Ledger(#[from] stellar_ledger::Error),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
+    #[error("only transaction v1 is supported")]
+    TransactionV1Expected,
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -57,83 +48,23 @@ pub enum SignerType {
 impl Cmd {
     #[allow(clippy::unused_async)]
     pub async fn run(&self) -> Result<(), Error> {
-        let envelope = self.sign().await?;
+        let txn = super::xdr::unwrap_envelope_v1_from_stdin()?;
+        let envelope = self.sign(txn).await?;
         println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
         Ok(())
     }
 
-    pub async fn sign(&self) -> Result<TransactionEnvelope, Error> {
-        let txn = super::xdr::unwrap_envelope_v1()?;
+    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         match self.signer {
-            SignerType::File => self.sign_file(txn).await,
-            SignerType::Ledger => self.sign_ledger(txn).await,
+            SignerType::File => Ok(self
+                .config
+                .sign(&LocalKey::new(self.config.key_pair()?, !self.yes), tx)
+                .await?),
+            SignerType::Ledger => self.sign_ledger(tx).await,
         }
     }
 
-    pub fn prompt_user(&self) -> Result<(), Error> {
-        if self.yes {
-            return Ok(());
-        }
-        Err(Error::UserCancelledSigning)
-        // TODO use crossterm to prompt user for confirmation
-        // // Set up the terminal
-        // let mut stdout = io::stdout();
-        // execute!(stdout, EnterAlternateScreen)?;
-        // terminal::enable_raw_mode()?;
-
-        // println!("Press 'y' or 'Y' for yes, any other key for no:");
-
-        // loop {
-        //     if let Event::Key(KeyEvent {
-        //         code,
-        //         modifiers: KeyModifiers::NONE,
-        //         ..
-        //     }) = event::read()?
-        //     {
-        //         match code {
-        //             KeyCode::Char('y' | 'Y') => break,
-        //             _ => return Err(Error::UserCancelledSigning),
-        //         }
-        //     }
-        // }
-
-        // // Clean up the terminal
-        // terminal::disable_raw_mode()?;
-        // execute!(stdout, LeaveAlternateScreen)?;
-        // Ok(())
-    }
-
-    pub fn network_passphrase(&self) -> Result<String, Error> {
-        Ok(self.config.get_network()?.network_passphrase)
-    }
-
-    pub async fn sign_with_signer(
-        &self,
-        signer: &impl Stellar,
-        mut txn: Transaction,
-    ) -> Result<TransactionEnvelope, Error> {
-        let key = signer.get_public_key().await.unwrap();
-        let account = Strkey::PublicKeyEd25519(key);
-        let client = Client::new(&self.config.get_network()?.rpc_url)?;
-        txn.seq_num = SequenceNumber(client.get_account(&account.to_string()).await?.seq_num.0 + 1);
-        txn.source_account = MuxedAccount::Ed25519(Uint256(key.0));
-        eprintln!("Account {account}");
-        Ok(signer
-            .sign_txn(txn, &self.network_passphrase()?)
-            .await
-            .unwrap())
-    }
-
-    pub async fn sign_file(&self, mut txn: Transaction) -> Result<TransactionEnvelope, Error> {
-        let key = self.config.key_pair()?;
-        let address = key.get_public_key().await?;
-        let client = Client::new(&self.config.get_network()?.rpc_url)?;
-        txn.seq_num = SequenceNumber(client.get_account(&address.to_string()).await?.seq_num.0 + 1);
-        self.prompt_user()?;
-        Ok(key.sign_txn(txn, &self.network_passphrase()?).await?)
-    }
-
-    pub async fn sign_ledger(&self, txn: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign_ledger(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let index: u32 = self
             .config
             .hd_path
@@ -141,6 +72,6 @@ impl Cmd {
             .try_into()
             .expect("usize bigger than u32");
         let signer = native(index)?;
-        self.sign_with_signer(&signer, txn).await
+        Ok(self.config.sign(&signer, tx).await?)
     }
 }
