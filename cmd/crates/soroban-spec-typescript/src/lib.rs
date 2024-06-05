@@ -96,13 +96,10 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
             cases: vec![],
         });
     }
-    // Filter out function entries with names that start with "__"
-    let filtered_collected: Vec<_> = collected
+    // Filter out function entries with names that start with "__" and partition the results
+    let (fns, other): (Vec<_>, Vec<_>) = collected
         .into_iter()
         .filter(|entry| matches!(entry, Entry::Function { name, .. } if !name.starts_with("__")))
-        .collect();
-    let (fns, other): (Vec<_>, Vec<_>) = filtered_collected
-        .into_iter()
         .partition(|entry| matches!(entry, Entry::Function { .. }));
     let top = other.iter().map(entry_to_method_type).join("\n");
     let bottom = generate_class(&fns, spec);
