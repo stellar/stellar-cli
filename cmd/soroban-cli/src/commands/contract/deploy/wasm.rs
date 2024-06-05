@@ -145,10 +145,7 @@ impl Cmd {
     }
 
     fn alias(&self) -> String {
-        match &self.alias {
-            Some(n) => n.to_string(),
-            None => String::new(),
-        }
+        self.alias.as_ref().map(Clone::clone).unwrap_or_default()
     }
 
     fn alias_path(&self) -> PathBuf {
