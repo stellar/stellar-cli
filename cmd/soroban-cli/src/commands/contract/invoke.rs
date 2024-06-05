@@ -152,6 +152,10 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
+    #[error("unable to read alias file")]
+    UnableToReadAliasFile,
+    #[error("alias file not found")]
+    NoAliasFileFound,
 }
 
 impl From<Infallible> for Error {
@@ -306,32 +310,27 @@ impl Cmd {
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
         let contract_id = match self.load_contract_id() {
-            Some(id) => id,
-            None => self.contract_id.clone(),
+            Ok(Some(id)) => id,
+            _ => self.contract_id.clone(),
         };
 
         soroban_spec_tools::utils::contract_id_from_str(&contract_id)
             .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
     }
 
-    fn load_contract_id(&self) -> Option<String> {
-        let file_name = format!("{}.txt", self.contract_id);
+    fn alias_path(&self) -> Result<PathBuf, Error> {
+        let config_dir = self.config.config_dir()?;
 
-        let path = self
-            .config
-            .config_dir()
-            .unwrap()
-            .join("contract-ids")
-            .join(file_name);
+        Ok(config_dir.join("contract-ids").join(&self.contract_id))
+    }
 
-        if path.exists() {
-            match fs::read_to_string(path) {
-                Ok(content) => Some(content),
-                _ => None,
-            }
-        } else {
-            None
-        }
+    fn load_contract_id(&self) -> Result<Option<String>, Error> {
+        let file_path = self.alias_path()?;
+
+        Ok(file_path
+            .exists()
+            .then(|| fs::read_to_string(file_path))
+            .transpose()?)
     }
 }
 

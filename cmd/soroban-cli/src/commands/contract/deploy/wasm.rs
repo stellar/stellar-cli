@@ -111,6 +111,10 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error("alias \"{alias}\" already exist. Use --force to override it.")]
     AliasAlreadyExist { alias: String },
+    #[error("cannot access config dir for alias file")]
+    CannotAccessConfigDir,
+    #[error("cannot create alias file")]
+    CannotCreateAliasFile,
 }
 
 impl Cmd {
@@ -121,7 +125,7 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
-                self.save_contract_id(&contract);
+                self.save_contract_id(&contract)?;
                 println!("{contract}");
             }
         }
@@ -135,7 +139,7 @@ impl Cmd {
             return Ok(());
         }
 
-        let path = self.alias_path();
+        let path = self.alias_path()?.expect("should not be empty");
 
         if path.exists() && !self.force {
             Err(Error::AliasAlreadyExist { alias })
@@ -148,25 +152,36 @@ impl Cmd {
         self.alias.as_ref().map(Clone::clone).unwrap_or_default()
     }
 
-    fn alias_path(&self) -> PathBuf {
-        let config_dir = self.config.config_dir().unwrap();
-        let name = format!("{}.txt", self.alias());
+    fn alias_path(&self) -> Result<Option<PathBuf>, Error> {
+        let config_dir = self.config.config_dir()?;
 
-        config_dir.join("contract-ids").join(name)
+        Ok(self
+            .alias
+            .as_ref()
+            .map(|alias| config_dir.join("contract-ids").join(alias)))
     }
 
-    fn save_contract_id(&self, contract: &String) {
-        let file_path = self.alias_path();
-        let dir = file_path.parent().unwrap();
+    fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
+        let file_path = self.alias_path()?.expect("must be set");
+        let Some(dir) = file_path.parent() else {
+            return Err(Error::CannotAccessConfigDir);
+        };
 
-        let _ = create_dir_all(dir);
+        match create_dir_all(dir) {
+            Ok(()) => {}
+            _ => return Err(Error::CannotAccessConfigDir),
+        };
 
         let mut to_file = OpenOptions::new()
             .create(true)
             .write(true)
             .open(file_path)
-            .unwrap();
-        let _ = to_file.write_all(contract.as_bytes());
+            .expect("cannot open file");
+
+        match to_file.write_all(contract.as_bytes()) {
+            Ok(()) => Ok(()),
+            Err(_) => Err(Error::CannotCreateAliasFile),
+        }
     }
 }
 
