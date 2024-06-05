@@ -3,7 +3,7 @@ use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
     contract, contracterror, contractimpl, contracttype,
     crypto::Hash,
-    symbol_short, Bytes, BytesN, Env, Symbol, Vec,
+    symbol_short, vec, Address, Bytes, BytesN, Env, Symbol, Vec,
 };
 
 #[contract]
@@ -15,11 +15,52 @@ pub enum Error {
     NotFound = 1,
     NotPermitted = 2,
     ClientDataJsonChallengeIncorrect = 3,
+    Secp256r1PublicKeyParse = 4,
+    Secp256r1SignatureParse = 5,
+    Secp256r1VerifyFailed = 6,
     JsonParseError = 7,
     InvalidContext = 8,
+    AlreadyInited = 9,
+    NotInited = 10,
 }
 
+const SIGNERS: Symbol = symbol_short!("sigs");
+const FACTORY: Symbol = symbol_short!("factory");
 const SUDO_SIGNER: Symbol = symbol_short!("sudo_sig");
+
+#[contractimpl]
+impl Contract {
+    pub fn extend_ttl(env: &Env) {
+        let max_ttl = env.storage().max_ttl();
+        let contract_address = env.current_contract_address();
+
+        env.storage().instance().extend_ttl(max_ttl, max_ttl);
+        env.deployer()
+            .extend_ttl(contract_address.clone(), max_ttl, max_ttl);
+        env.deployer()
+            .extend_ttl_for_code(contract_address.clone(), max_ttl, max_ttl);
+        env.deployer()
+            .extend_ttl_for_contract_instance(contract_address.clone(), max_ttl, max_ttl);
+    }
+    pub fn init(env: Env, id: Bytes, pk: BytesN<65>, factory: Address) -> Result<(), Error> {
+        if env.storage().instance().has(&SUDO_SIGNER) {
+            return Err(Error::AlreadyInited);
+        }
+
+        let max_ttl = env.storage().max_ttl();
+
+        env.storage().persistent().set(&id, &pk);
+        env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+
+        env.storage().instance().set(&SUDO_SIGNER, &id);
+        env.storage().instance().set(&FACTORY, &factory);
+        env.storage().instance().set(&SIGNERS, &vec![&env, id]);
+
+        Self::extend_ttl(&env);
+
+        Ok(())
+    }
+}
 
 #[contracttype]
 pub struct Signature {
@@ -29,7 +70,6 @@ pub struct Signature {
     pub signature: BytesN<64>,
 }
 
-// Dummy implementation for the demo
 #[derive(Debug)]
 struct ClientDataJson<'a> {
     challenge: &'a str,
