@@ -139,7 +139,7 @@ impl Cmd {
             return Ok(());
         }
 
-        let path = self.alias_path()?.expect("should not be empty");
+        let path = self.alias_path()?;
 
         if path.exists() && !self.force {
             Err(Error::AliasAlreadyExist { alias })
@@ -152,17 +152,19 @@ impl Cmd {
         self.alias.as_ref().map(Clone::clone).unwrap_or_default()
     }
 
-    fn alias_path(&self) -> Result<Option<PathBuf>, Error> {
+    fn alias_path(&self) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
+        let network = self.config.network.network.clone().expect("must be set");
 
         Ok(self
             .alias
             .as_ref()
-            .map(|alias| config_dir.join("contract-ids").join(alias)))
+            .map(|alias| config_dir.join("contract-ids").join(network).join(alias))
+            .expect("must be set"))
     }
 
     fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
-        let file_path = self.alias_path()?.expect("must be set");
+        let file_path = self.alias_path()?;
         let Some(dir) = file_path.parent() else {
             return Err(Error::CannotAccessConfigDir);
         };
