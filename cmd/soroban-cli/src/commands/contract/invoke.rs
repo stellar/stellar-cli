@@ -320,8 +320,12 @@ impl Cmd {
 
     fn alias_path(&self) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
+        let network = self.config.network.network.clone().expect("must be set");
 
-        Ok(config_dir.join("contract-ids").join(&self.contract_id))
+        Ok(config_dir
+            .join("contract-ids")
+            .join(network)
+            .join(&self.contract_id))
     }
 
     fn load_contract_id(&self) -> Result<Option<String>, Error> {
