@@ -99,7 +99,7 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
     // Filter out function entries with names that start with "__"
     let filtered_collected: Vec<_> = collected
         .into_iter()
-        .filter(|entry| !matches!(entry, Entry::Function { name, .. } if name.starts_with("__")))
+        .filter(|entry| matches!(entry, Entry::Function { name, .. } if !name.starts_with("__")))
         .collect();
     let (fns, other): (Vec<_>, Vec<_>) = filtered_collected
         .into_iter()
