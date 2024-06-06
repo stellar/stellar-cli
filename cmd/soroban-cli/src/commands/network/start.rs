@@ -139,11 +139,9 @@ fn get_image_name(cmd: &Cmd) -> String {
         _ => "latest", // default to latest for local and pubnet
     };
 
-    if cmd.image_tag_override.is_some() {
-        let override_tag = cmd.image_tag_override.as_ref().unwrap();
-        println!("Overriding docker image tag to use '{override_tag}' instead of '{image_tag}'");
-
-        image_tag = override_tag;
+    if let Some(image_override) = &cmd.image_tag_override {
+        println!("Overriding docker image tag to use '{image_override}' instead of '{image_tag}'");
+        image_tag = image_override;
     }
 
     format!("{DOCKER_IMAGE}:{image_tag}")
