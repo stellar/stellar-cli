@@ -190,9 +190,9 @@ impl Cmd {
             id: contract.into(),
         };
 
-        let content = serde_json::to_string(&payload).map_err(Error::JsonSerialization)?;
+        let content = serde_json::to_string(&payload)?;
 
-        to_file.write_all(content.as_bytes()).map_err(Error::Io)
+        Ok(to_file.write_all(content.as_bytes())?)
     }
 }
 
