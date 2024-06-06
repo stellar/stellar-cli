@@ -168,6 +168,10 @@ impl Cmd {
     }
 
     fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
+        if self.alias().is_empty() {
+            return Ok(());
+        }
+
         let file_path = self.alias_path()?;
 
         let Some(dir) = file_path.parent() else {
