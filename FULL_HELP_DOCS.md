@@ -1323,8 +1323,8 @@ Commands to start, stop and get logs for a quickstart container
 ###### **Subcommands:**
 
 * `logs` — Tail logs of a running network container
-* `start` — 
-* `stop` — 
+* `start` — Start network
+* `stop` — Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it
 
 
 
@@ -1349,6 +1349,14 @@ Tail logs of a running network container
 
 ## `stellar network container start`
 
+Start network
+
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+soroban network start <NETWORK> [OPTIONS]
+
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
+
 **Usage:** `stellar network container start [OPTIONS] <NETWORK>`
 
 ###### **Arguments:**
@@ -1371,6 +1379,8 @@ Tail logs of a running network container
 
 
 ## `stellar network container stop`
+
+Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it
 
 **Usage:** `stellar network container stop [OPTIONS] <NETWORK>`
 

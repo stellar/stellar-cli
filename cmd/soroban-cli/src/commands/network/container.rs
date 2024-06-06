@@ -12,7 +12,16 @@ pub type StopCmd = stop::Cmd;
 pub enum Cmd {
     /// Tail logs of a running network container
     Logs(logs::Cmd),
+    /// Start network
+    ///
+    /// Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+    ///
+    /// soroban network start <NETWORK> [OPTIONS]
+    ///
+    /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
+    /// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
     Start(start::Cmd),
+    /// Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it.
     Stop(stop::Cmd),
 }
 
