@@ -115,9 +115,9 @@ pub enum Error {
     )]
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
-    JSONSerialization(#[from] serde_json::Error),
+    JsonSerialization(#[from] serde_json::Error),
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 }
 
 impl Cmd {
@@ -183,15 +183,15 @@ impl Cmd {
             .create(true)
             .write(true)
             .open(file_path)
-            .map_err(Error::IO)?;
+            .map_err(Error::Io)?;
 
         let payload = AliasData {
             id: contract.into(),
         };
 
-        let content = serde_json::to_string(&payload).map_err(Error::JSONSerialization)?;
+        let content = serde_json::to_string(&payload).map_err(Error::JsonSerialization)?;
 
-        to_file.write_all(content.as_bytes()).map_err(Error::IO)
+        to_file.write_all(content.as_bytes()).map_err(Error::Io)
     }
 }
 

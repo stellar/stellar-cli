@@ -158,7 +158,7 @@ pub enum Error {
     #[error("alias file not found")]
     NoAliasFileFound,
     #[error(transparent)]
-    JSONDeserialization(#[from] serde_json::Error),
+    JsonDeserialization(#[from] serde_json::Error),
 }
 
 impl From<Infallible> for Error {
@@ -342,7 +342,7 @@ impl Cmd {
         let content = fs::read_to_string(file_path).map_err(Error::Io)?;
 
         let data: AliasData =
-            serde_json::from_str(content.as_str()).map_err(Error::JSONDeserialization)?;
+            serde_json::from_str(content.as_str()).map_err(Error::JsonDeserialization)?;
 
         Ok(Some(data.id))
     }
