@@ -115,14 +115,13 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
             format!(
                 "\n{}   * {}",
                 indent,
-                doc.split('\n').join(&format!("\n{}   * ", indent))
+                doc.split('\n').join(&format!("\n{indent}   * "))
             )
         };
         return format!(
-            r#"{0}/**
-{0}   * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{doc}
-{0}   */"#,
-            indent
+            r#"{indent}/**
+{indent}   * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{doc}
+{indent}   */"#
         );
     }
 
@@ -130,13 +129,12 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
         return String::new();
     }
 
-    let doc = doc.split('\n').join(&format!("\n{} * ", indent));
+    let doc = doc.split('\n').join(&format!("\n{indent} * "));
     format!(
-        r#"{0}/**
-{0} * {doc}
-{0} */
-"#,
-        indent
+        r#"{indent}/**
+{indent} * {doc}
+{indent} */
+"#
     )
 }
 
@@ -251,7 +249,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
                 .iter()
                 .enumerate()
                 .map(|(i, c)| {
-                    let formatted_doc = if c.doc.is_empty() {
+                    if c.doc.is_empty() {
                         format!(
                             "{}  {}: {{message:\"{}\"}}",
                             if i != 0 { "\n" } else { "" },
@@ -266,16 +264,8 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
                             c.value,
                             c.name
                         )
-                    };
-                    formatted_doc
-                })
-                /*.map(|c|
-                    if c.doc.is_empty() {
-                        format!("  {}: {{message:\"{}\"}}", c.value, c.name)
-                    } else {
-                        format!("{}  {}: {{message:\"{}\"}}", doc_to_ts_doc(&c.doc, None, 1), c.value, c.name)
                     }
-                )*/
+                })
                 .join(",\n");
             format!("{doc}export const Errors = {{\n{cases}\n}}")
         }
