@@ -114,6 +114,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
             String::new()
         }
     );
+
     println!("{stop_message}");
     Ok(())
 }

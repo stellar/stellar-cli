@@ -15,6 +15,7 @@ use super::config::locator;
 pub const LOCAL_NETWORK_PASSPHRASE: &str = "Standalone Network ; February 2017";
 
 pub mod add;
+pub mod logs;
 pub mod ls;
 pub mod rm;
 pub mod shared;
@@ -40,6 +41,8 @@ pub enum Cmd {
     Start(start::Cmd),
     /// Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
     Stop(stop::Cmd),
+    /// Tail logs of a running network container
+    Logs(logs::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -58,6 +61,9 @@ pub enum Error {
 
     #[error(transparent)]
     Stop(#[from] stop::Error),
+
+    #[error(transparent)]
+    Logs(#[from] logs::Error),
 
     #[error(transparent)]
     Config(#[from] locator::Error),
@@ -88,6 +94,7 @@ impl Cmd {
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Start(cmd) => cmd.run().await?,
             Cmd::Stop(cmd) => cmd.run().await?,
+            Cmd::Logs(cmd) => cmd.run().await?,
         };
         Ok(())
     }
