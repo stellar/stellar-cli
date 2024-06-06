@@ -352,6 +352,7 @@ async fn wait_for_emulator_start_text(ui_host_port: u16) {
         if events.iter().any(|event| event.text == "is ready") {
             ready = true;
         }
+        sleep(Duration::from_secs(1)).await;
     }
 }
 
