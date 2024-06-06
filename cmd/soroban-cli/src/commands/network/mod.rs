@@ -18,7 +18,6 @@ pub mod add;
 pub mod container;
 pub mod ls;
 pub mod rm;
-pub mod shared;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {

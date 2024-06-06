@@ -1,6 +1,7 @@
-pub mod logs;
-pub mod start;
-pub mod stop;
+pub(crate) mod logs;
+mod shared;
+pub(crate) mod start;
+pub(crate) mod stop;
 
 // TODO: remove once `network start` is removed
 pub type StartCmd = start::Cmd;

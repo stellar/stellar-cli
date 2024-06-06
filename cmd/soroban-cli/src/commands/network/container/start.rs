@@ -7,7 +7,7 @@ use bollard::{
 };
 use futures_util::TryStreamExt;
 
-use crate::commands::network::shared::{
+use crate::commands::network::container::shared::{
     connect_to_docker, Error as ConnectionError, Network, DOCKER_HOST_HELP,
 };
 
