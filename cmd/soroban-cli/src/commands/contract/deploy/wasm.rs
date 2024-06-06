@@ -152,7 +152,7 @@ impl Cmd {
     }
 
     fn alias(&self) -> String {
-        self.alias.as_ref().map(Clone::clone).unwrap_or_default()
+        self.alias.clone().unwrap_or_default()
     }
 
     fn alias_path(&self) -> Result<PathBuf, Error> {
