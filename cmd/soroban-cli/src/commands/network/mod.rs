@@ -19,7 +19,6 @@ pub mod container;
 pub mod ls;
 pub mod rm;
 pub mod shared;
-pub mod start;
 pub mod stop;
 
 #[derive(Debug, Parser)]
@@ -30,6 +29,8 @@ pub enum Cmd {
     Rm(rm::Cmd),
     /// List networks
     Ls(ls::Cmd),
+    /// ⚠️ Deprecated: use `soroban container start` instead
+    ///
     /// Start network
     ///
     /// Start a container running a Stellar node, RPC, API, and friendbot (faucet).
@@ -38,11 +39,11 @@ pub enum Cmd {
     ///
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
     /// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
-    Start(start::Cmd),
+    Start(container::StartCmd),
     /// Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
     Stop(stop::Cmd),
 
-    // Commands dealing with the local instance of the quickstart container
+    /// Commands to start, stop and get logs for a quickstart container
     #[command(subcommand)]
     Container(container::Cmd),
 }
@@ -58,8 +59,9 @@ pub enum Error {
     #[error(transparent)]
     Ls(#[from] ls::Error),
 
+    // TODO: remove once `network start` is removed
     #[error(transparent)]
-    Start(#[from] start::Error),
+    Start(#[from] container::start::Error),
 
     #[error(transparent)]
     Stop(#[from] stop::Error),
@@ -94,9 +96,14 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::Start(cmd) => cmd.run().await?,
             Cmd::Stop(cmd) => cmd.run().await?,
             Cmd::Container(cmd) => cmd.run().await?,
+
+            // TODO Remove this once `network start` is removed
+            Cmd::Start(cmd) => {
+                println!("⚠️ Warning: `network start` has been deprecated. Use `network container start` instead");
+                cmd.run().await?
+            }
         };
         Ok(())
     }
