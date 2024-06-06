@@ -181,6 +181,7 @@ impl Cmd {
 
         let mut to_file = OpenOptions::new()
             .create(true)
+            .truncate(true)
             .write(true)
             .open(file_path)
             .map_err(Error::Io)?;
