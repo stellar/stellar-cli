@@ -19,7 +19,6 @@ pub mod container;
 pub mod ls;
 pub mod rm;
 pub mod shared;
-pub mod stop;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -40,8 +39,10 @@ pub enum Cmd {
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
     /// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
     Start(container::StartCmd),
+    /// ⚠️ Deprecated: use `soroban container stop` instead
+    ///
     /// Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
-    Stop(stop::Cmd),
+    Stop(container::StopCmd),
 
     /// Commands to start, stop and get logs for a quickstart container
     #[command(subcommand)]
@@ -63,8 +64,9 @@ pub enum Error {
     #[error(transparent)]
     Start(#[from] container::start::Error),
 
+    // TODO: remove once `network stop` is removed
     #[error(transparent)]
-    Stop(#[from] stop::Error),
+    Stop(#[from] container::stop::Error),
 
     #[error(transparent)]
     Container(#[from] container::Error),
@@ -96,12 +98,16 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::Stop(cmd) => cmd.run().await?,
             Cmd::Container(cmd) => cmd.run().await?,
 
             // TODO Remove this once `network start` is removed
             Cmd::Start(cmd) => {
                 println!("⚠️ Warning: `network start` has been deprecated. Use `network container start` instead");
+                cmd.run().await?
+            }
+            // TODO Remove this once `network stop` is removed
+            Cmd::Stop(cmd) => {
+                println!("⚠️ Warning: `network stop` has been deprecated. Use `network container stop` instead");
                 cmd.run().await?
             }
         };
