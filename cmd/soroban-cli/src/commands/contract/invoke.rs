@@ -312,8 +312,11 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        let contract_id = match self.load_contract_id() {
-            Ok(Some(id)) => id,
+        let contract_id = match &self.config.network.network {
+            Some(network) => match self.load_contract_id(network) {
+                Ok(Some(id)) => id,
+                _ => self.contract_id.clone(),
+            },
             _ => self.contract_id.clone(),
         };
 
@@ -321,9 +324,8 @@ impl Cmd {
             .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
     }
 
-    fn alias_path(&self) -> Result<PathBuf, Error> {
+    fn alias_path_for(&self, network: &str) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
-        let network = self.config.network.network.clone().expect("must be set");
         let file_name = format!("{}.json", self.contract_id);
 
         Ok(config_dir
@@ -332,8 +334,8 @@ impl Cmd {
             .join(file_name))
     }
 
-    fn load_contract_id(&self) -> Result<Option<String>, Error> {
-        let file_path = self.alias_path()?;
+    fn load_contract_id(&self, network: &str) -> Result<Option<String>, Error> {
+        let file_path = self.alias_path_for(network)?;
 
         if !file_path.exists() {
             return Ok(None);
