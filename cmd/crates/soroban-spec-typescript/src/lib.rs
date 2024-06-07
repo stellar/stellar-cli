@@ -252,14 +252,14 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
                     if c.doc.is_empty() {
                         format!(
                             "{}  {}: {{message:\"{}\"}}",
-                            if i != 0 { "\n" } else { "" },
+                            if i == 0 { "" } else { "\n" },
                             c.value,
                             c.name
                         )
                     } else {
                         format!(
                             "{}{}  {}: {{message:\"{}\"}}",
-                            if i != 0 { "\n" } else { "" },
+                            if i == 0 { "" } else { "\n" },
                             doc_to_ts_doc(&c.doc, None, 1),
                             c.value,
                             c.name
