@@ -26,7 +26,6 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let container_name = format!("stellar-{}", self.network);
-        println!("ℹ️  Tailing logs for {container_name}");
         let docker = connect_to_docker(&self.docker_host).await?;
         let logs_stream = &mut docker.logs(
             &container_name,
