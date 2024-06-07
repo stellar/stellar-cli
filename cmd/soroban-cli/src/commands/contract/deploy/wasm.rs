@@ -136,29 +136,24 @@ impl Cmd {
     }
 
     fn validate_alias(&self) -> Result<(), Error> {
-        let alias = self.alias();
+        match self.alias.clone() {
+            Some(alias) => {
+                let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
 
-        if alias.is_empty() {
-            return Ok(());
+                if regex.is_match(&alias) {
+                    Ok(())
+                } else {
+                    Err(Error::InvalidAliasFormat { alias })
+                }
+            }
+            None => Ok(()),
         }
-
-        let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
-
-        if regex.is_match(&alias) {
-            Ok(())
-        } else {
-            Err(Error::InvalidAliasFormat { alias })
-        }
-    }
-
-    fn alias(&self) -> String {
-        self.alias.clone().unwrap_or_default()
     }
 
     fn alias_path(&self) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
         let network = self.config.network.network.clone().expect("must be set");
-        let alias = self.alias();
+        let alias = self.alias.clone().expect("must be set");
         let file_name = format!("{alias}.json");
 
         Ok(config_dir
@@ -168,35 +163,36 @@ impl Cmd {
     }
 
     fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
-        if self.alias().is_empty() {
-            return Ok(());
+        match &self.alias {
+            Some(_alias) => {
+                let file_path = self.alias_path()?;
+
+                let Some(dir) = file_path.parent() else {
+                    return Err(Error::CannotAccessConfigDir);
+                };
+
+                match create_dir_all(dir) {
+                    Ok(()) => {}
+                    _ => return Err(Error::CannotAccessConfigDir),
+                };
+
+                let mut to_file = OpenOptions::new()
+                    .create(true)
+                    .truncate(true)
+                    .write(true)
+                    .open(file_path)
+                    .map_err(Error::Io)?;
+
+                let payload = AliasData {
+                    id: contract.into(),
+                };
+
+                let content = serde_json::to_string(&payload)?;
+
+                Ok(to_file.write_all(content.as_bytes())?)
+            }
+            _ => Ok(()),
         }
-
-        let file_path = self.alias_path()?;
-
-        let Some(dir) = file_path.parent() else {
-            return Err(Error::CannotAccessConfigDir);
-        };
-
-        match create_dir_all(dir) {
-            Ok(()) => {}
-            _ => return Err(Error::CannotAccessConfigDir),
-        };
-
-        let mut to_file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(file_path)
-            .map_err(Error::Io)?;
-
-        let payload = AliasData {
-            id: contract.into(),
-        };
-
-        let content = serde_json::to_string(&payload)?;
-
-        Ok(to_file.write_all(content.as_bytes())?)
     }
 }
 

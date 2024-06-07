@@ -340,7 +340,7 @@ impl Cmd {
         }
 
         let content = fs::read_to_string(file_path)?;
-        let data: AliasData = serde_json::from_str(content.as_str())?;
+        let data: AliasData = serde_json::from_str(&content)?;
 
         Ok(Some(data.id))
     }
