@@ -1,4 +1,3 @@
-use chrono::offset::Local;
 use futures_util::TryStreamExt;
 
 use crate::commands::network::container::shared::{
@@ -39,12 +38,7 @@ impl Cmd {
         );
 
         while let Some(log) = logs_stream.try_next().await? {
-            print!(
-                "{}: {} {}",
-                container_name,
-                Local::now().format("%Y-%m-%d %H:%M:%S"),
-                log
-            );
+            print!("{log}");
         }
         Ok(())
     }
