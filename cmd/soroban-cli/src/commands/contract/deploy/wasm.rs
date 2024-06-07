@@ -150,10 +150,9 @@ impl Cmd {
         }
     }
 
-    fn alias_path(&self) -> Result<PathBuf, Error> {
+    fn alias_path_for(&self, alias: &str) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
         let network = self.config.network.network.clone().expect("must be set");
-        let alias = self.alias.clone().expect("must be set");
         let file_name = format!("{alias}.json");
 
         Ok(config_dir
@@ -163,36 +162,28 @@ impl Cmd {
     }
 
     fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
-        match &self.alias {
-            Some(_alias) => {
-                let file_path = self.alias_path()?;
+        let Some(alias) = &self.alias else {
+            return Ok(());
+        };
 
-                let Some(dir) = file_path.parent() else {
-                    return Err(Error::CannotAccessConfigDir);
-                };
+        let file_path = self.alias_path_for(alias)?;
+        let dir = file_path.parent().ok_or(Error::CannotAccessConfigDir)?;
 
-                match create_dir_all(dir) {
-                    Ok(()) => {}
-                    _ => return Err(Error::CannotAccessConfigDir),
-                };
+        create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
 
-                let mut to_file = OpenOptions::new()
-                    .create(true)
-                    .truncate(true)
-                    .write(true)
-                    .open(file_path)
-                    .map_err(Error::Io)?;
+        let mut to_file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(file_path)?;
 
-                let payload = AliasData {
-                    id: contract.into(),
-                };
+        let payload = AliasData {
+            id: contract.into(),
+        };
 
-                let content = serde_json::to_string(&payload)?;
+        let content = serde_json::to_string(&payload)?;
 
-                Ok(to_file.write_all(content.as_bytes())?)
-            }
-            _ => Ok(()),
-        }
+        Ok(to_file.write_all(content.as_bytes())?)
     }
 }
 
