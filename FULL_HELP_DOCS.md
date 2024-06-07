@@ -50,6 +50,10 @@ This document contains the help content for the `stellar` command-line program.
 * [`stellar network ls`↴](#stellar-network-ls)
 * [`stellar network start`↴](#stellar-network-start)
 * [`stellar network stop`↴](#stellar-network-stop)
+* [`stellar network container`↴](#stellar-network-container)
+* [`stellar network container logs`↴](#stellar-network-container-logs)
+* [`stellar network container start`↴](#stellar-network-container-start)
+* [`stellar network container stop`↴](#stellar-network-container-stop)
 * [`stellar version`↴](#stellar-version)
 * [`stellar cache`↴](#stellar-cache)
 * [`stellar cache clean`↴](#stellar-cache-clean)
@@ -1188,8 +1192,9 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — Start network
-* `stop` — Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
+* `start` — ⚠️ Deprecated: use `soroban container start` instead
+* `stop` — ⚠️ Deprecated: use `soroban container stop` instead
+* `container` — Commands to start, stop and get logs for a quickstart container
 
 
 
@@ -1257,6 +1262,8 @@ List networks
 
 ## `stellar network start`
 
+⚠️ Deprecated: use `soroban container start` instead
+
 Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
@@ -1288,9 +1295,94 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network stop`
 
-Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it
+⚠️ Deprecated: use `soroban container stop` instead
+
+Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
 
 **Usage:** `stellar network stop [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to stop
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar network container`
+
+Commands to start, stop and get logs for a quickstart container
+
+**Usage:** `stellar network container <COMMAND>`
+
+###### **Subcommands:**
+
+* `logs` — Tail logs of a running network container
+* `start` — Start network
+* `stop` — Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it
+
+
+
+## `stellar network container logs`
+
+Tail logs of a running network container
+
+**Usage:** `stellar network container logs [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to tail
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar network container start`
+
+Start network
+
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+soroban network start <NETWORK> [OPTIONS]
+
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
+
+**Usage:** `stellar network container start [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to start
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
+* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
+
+  Default value: `8000:8000`
+* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
+* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+
+
+
+## `stellar network container stop`
+
+Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it
+
+**Usage:** `stellar network container stop [OPTIONS] <NETWORK>`
 
 ###### **Arguments:**
 
