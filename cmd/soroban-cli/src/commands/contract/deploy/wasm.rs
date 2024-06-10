@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::fs::create_dir_all;
+use std::fs::{self, create_dir_all};
 use std::io::Write;
 use std::num::ParseIntError;
 use std::path::PathBuf;
@@ -152,13 +152,9 @@ impl Cmd {
 
     fn alias_path_for(&self, alias: &str) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
-        let network = self.config.network.network.clone().expect("must be set");
         let file_name = format!("{alias}.json");
 
-        Ok(config_dir
-            .join("contract-ids")
-            .join(network)
-            .join(file_name))
+        Ok(config_dir.join("contract-ids").join(file_name))
     }
 
     fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
@@ -171,17 +167,21 @@ impl Cmd {
 
         create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
 
+        let content = fs::read_to_string(&file_path).unwrap_or_default();
+        let mut data: AliasData = serde_json::from_str(&content).unwrap_or_default();
+
         let mut to_file = OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
             .open(file_path)?;
 
-        let payload = AliasData {
-            id: contract.into(),
-        };
+        data.ids.insert(
+            self.config.get_network()?.network_passphrase,
+            contract.into(),
+        );
 
-        let content = serde_json::to_string(&payload)?;
+        let content = serde_json::to_string(&data)?;
 
         Ok(to_file.write_all(content.as_bytes())?)
     }

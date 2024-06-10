@@ -13,6 +13,8 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::commands::global;
@@ -168,7 +170,7 @@ pub enum SpecOutput {
     Docs,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct AliasData {
-    id: String,
+    ids: HashMap<String, String>,
 }

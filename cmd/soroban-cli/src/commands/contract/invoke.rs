@@ -312,11 +312,8 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        let contract_id = match &self.config.network.network {
-            Some(network) => match self.load_contract_id(network) {
-                Ok(Some(id)) => id,
-                _ => self.contract_id.clone(),
-            },
+        let contract_id: String = match self.load_contract_id() {
+            Ok(Some(id)) => id.to_string(),
             _ => self.contract_id.clone(),
         };
 
@@ -324,18 +321,16 @@ impl Cmd {
             .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
     }
 
-    fn alias_path_for(&self, network: &str) -> Result<PathBuf, Error> {
+    fn alias_path(&self) -> Result<PathBuf, Error> {
         let config_dir = self.config.config_dir()?;
         let file_name = format!("{}.json", self.contract_id);
 
-        Ok(config_dir
-            .join("contract-ids")
-            .join(network)
-            .join(file_name))
+        Ok(config_dir.join("contract-ids").join(file_name))
     }
 
-    fn load_contract_id(&self, network: &str) -> Result<Option<String>, Error> {
-        let file_path = self.alias_path_for(network)?;
+    fn load_contract_id(&self) -> Result<Option<String>, Error> {
+        let network = &self.config.get_network()?.network_passphrase;
+        let file_path = self.alias_path()?;
 
         if !file_path.exists() {
             return Ok(None);
@@ -344,7 +339,10 @@ impl Cmd {
         let content = fs::read_to_string(file_path)?;
         let data: AliasData = serde_json::from_str(&content)?;
 
-        Ok(Some(data.id))
+        match data.ids.get(network) {
+            Some(id) => Ok(Some(id.into())),
+            _ => Ok(None),
+        }
     }
 }
 
