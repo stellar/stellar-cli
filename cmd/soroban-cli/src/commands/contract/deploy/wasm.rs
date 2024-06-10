@@ -37,18 +37,18 @@ use crate::{
 pub struct Cmd {
     /// WASM file to deploy
     #[arg(long, group = "wasm_src")]
-    wasm: Option<std::path::PathBuf>,
+    pub wasm: Option<std::path::PathBuf>,
     /// Hash of the already installed/deployed WASM file
     #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
-    wasm_hash: Option<String>,
+    pub wasm_hash: Option<String>,
     /// Custom salt 32-byte salt for the token id
     #[arg(
         long,
         help_heading = HEADING_RPC,
     )]
-    salt: Option<String>,
+    pub salt: Option<String>,
     #[command(flatten)]
-    config: config::Args,
+    pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
     #[arg(long, short = 'i', default_value = "false")]
