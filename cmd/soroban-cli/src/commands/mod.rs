@@ -12,6 +12,7 @@ pub mod global;
 pub mod keys;
 pub mod network;
 pub mod plugin;
+pub mod snapshot;
 pub mod version;
 
 pub mod txn_result;
@@ -98,6 +99,7 @@ impl Root {
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run().await?,
+            Cmd::Snapshot(snapshot) => snapshot.run().await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
             Cmd::Cache(data) => data.run()?,
@@ -132,6 +134,8 @@ pub enum Cmd {
     /// Start and configure networks
     #[command(subcommand)]
     Network(network::Cmd),
+    /// Download a snapshot of a ledger.
+    Snapshot(snapshot::Cmd),
     /// Print version information
     Version(version::Cmd),
     /// Cache for tranasctions and contract specs
@@ -156,6 +160,8 @@ pub enum Error {
     Plugin(#[from] plugin::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Snapshot(#[from] snapshot::Error),
     #[error(transparent)]
     Cache(#[from] cache::Error),
 }
