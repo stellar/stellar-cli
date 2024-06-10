@@ -25,17 +25,17 @@ pub struct Cmd {
     pub wasm: Option<std::path::PathBuf>,
     /// Where to place generated project
     #[arg(long)]
-    output_dir: PathBuf,
+    pub output_dir: PathBuf,
     /// Whether to overwrite output directory if it already exists
     #[arg(long)]
-    overwrite: bool,
+    pub overwrite: bool,
     /// The contract ID/address on the network
     #[arg(long, visible_alias = "id")]
-    contract_id: String,
+    pub contract_id: String,
     #[command(flatten)]
-    locator: locator::Args,
+    pub locator: locator::Args,
     #[command(flatten)]
-    network: network::Args,
+    pub network: network::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
