@@ -7,7 +7,7 @@ use io_tee::TeeReader;
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
     collections::HashSet,
-    fs::OpenOptions,
+    fs::{self, OpenOptions},
     io::{self, BufReader, Read},
     path::PathBuf,
     str::FromStr,
@@ -209,6 +209,7 @@ impl Cmd {
             let contract_ids = self.contract_ids.clone();
             let wasm_hashes = self.wasm_hashes.clone();
             (seen, snapshot) = tokio::task::spawn_blocking(move || {
+                let dl_path = cache_path.with_extension("dl");
                 let buf = BufReader::new(read);
                 let read: Box<dyn Read + Sync + Send> = if gz {
                     let gz = GzDecoder::new(buf);
@@ -217,7 +218,7 @@ impl Cmd {
                         .create(true)
                         .truncate(true)
                         .write(true)
-                        .open(&cache_path)
+                        .open(&dl_path)
                         .unwrap();
                     let tee = TeeReader::new(buf, file);
                     Box::new(tee)
@@ -273,6 +274,9 @@ impl Cmd {
                             count_saved += 1;
                         }
                     }
+                }
+                if gz {
+                    fs::rename(&dl_path, &cache_path).unwrap();
                 }
                 if count_saved > 0 {
                     println!("🔎 Found {count_saved} entries");
