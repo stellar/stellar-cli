@@ -135,9 +135,9 @@ fn get_container_args(cmd: &Cmd) -> Vec<String> {
 fn get_image_name(cmd: &Cmd) -> String {
     // this can be overriden with the `-t` flag
     let mut image_tag = match cmd.network {
-        Network::Testnet => "testing",
+        Network::Pubnet => "latest",
         Network::Futurenet => "future",
-        _ => "latest", // default to latest for local and pubnet
+        _ => "testing", // default to testing for local and testnet
     };
 
     if let Some(image_override) = &cmd.image_tag_override {
