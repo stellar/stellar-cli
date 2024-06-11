@@ -3,6 +3,7 @@ use clap::{arg, Parser};
 use flate2::bufread::GzDecoder;
 use futures::TryStreamExt;
 use http::Uri;
+use humantime::format_duration;
 use io_tee::TeeReader;
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
@@ -11,6 +12,7 @@ use std::{
     io::{self, BufReader, Read},
     path::PathBuf,
     str::FromStr,
+    time::{Duration, Instant},
 };
 use stellar_xdr::curr::{
     BucketEntry, ConfigSettingEntry, ConfigSettingId, Frame, LedgerEntry, LedgerEntryData,
@@ -106,21 +108,27 @@ pub enum Error {
     Config(#[from] config::Error),
 }
 
+const CHECKPOINT_FREQUENCY: u32 = 64;
+
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         const BASE_URL: &str = "http://history.stellar.org/prd/core-live/core_live_001";
         let ledger = self.ledger;
 
-        let ledger_offset = (ledger + 1) % 64;
+        let start = Instant::now();
+
+        // Check ledger is a checkpoint ledger and available in archives.
+        let ledger_offset = (ledger + 1) % CHECKPOINT_FREQUENCY;
         if ledger_offset != 0 {
             println!(
                 "ledger {ledger} not a checkpoint ledger, use {} or {}",
                 ledger - ledger_offset,
-                ledger + (64 - ledger_offset),
+                ledger + (CHECKPOINT_FREQUENCY - ledger_offset),
             );
             return Ok(());
         }
 
+        // Download history JSON file.
         let ledger_hex = format!("{ledger:08x}");
         let ledger_hex_0 = &ledger_hex[0..=1];
         let ledger_hex_1 = &ledger_hex[2..=3];
@@ -128,7 +136,6 @@ impl Cmd {
         let history_url = format!("{BASE_URL}/history/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/history-{ledger_hex}.json");
         let history_url = Uri::from_str(&history_url).unwrap();
         println!("🌎 Downloading history {history_url}");
-
         let https = hyper_tls::HttpsConnector::new();
         let response = hyper::Client::builder()
             .build::<_, hyper::Body>(https)
@@ -136,9 +143,10 @@ impl Cmd {
             .await
             .unwrap();
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-
         let history = serde_json::from_slice::<History>(&body).unwrap();
 
+        // Prepare a flat list of buckets to read. They'll be ordered by their
+        // level so that they can iterated higher level to lower level.
         let buckets = history
             .current_buckets
             .iter()
@@ -146,7 +154,15 @@ impl Cmd {
             .filter(|b| b != "0000000000000000000000000000000000000000000000000000000000000000")
             .collect::<Vec<_>>();
 
+        // Track ledger keys seen, so that we can ignore old versions of
+        // entries. Entries can appear in both higher level and lower level
+        // buckets, and to get the latest version of the entry the version in
+        // the higher level bucket should be used.
         let mut seen = HashSet::<LedgerKey>::new();
+
+        // The snapshot is what will be written to file at the end. Fields will
+        // be updated while parsing the history archive.
+        // TODO: Update more of the fields.
         let mut snapshot = LedgerSnapshot {
             protocol_version: 0,
             sequence_number: ledger,
@@ -160,11 +176,12 @@ impl Cmd {
         };
 
         for (i, bucket) in buckets.iter().enumerate() {
+            // Defined where the bucket will be read from, either from cache on
+            // disk, or streamed from the archive.
             let cache_path = data::bucket_dir()
                 .unwrap()
                 .join(format!("bucket-{bucket}.xdr"));
-
-            let (read, gz): (Box<dyn Read + Sync + Send>, bool) = if cache_path.exists() {
+            let (read, stream): (Box<dyn Read + Sync + Send>, bool) = if cache_path.exists() {
                 println!("🪣  Loading cached bucket {i} {bucket}");
                 let file = OpenOptions::new().read(true).open(&cache_path).unwrap();
                 (Box::new(file), false)
@@ -175,16 +192,14 @@ impl Cmd {
                 let bucket_url = format!(
                     "{BASE_URL}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz"
                 );
-                print!("🪣  Downloading bucket {i} {bucket_url}");
+                print!("🪣  Downloading bucket {i} {bucket}");
                 let bucket_url = Uri::from_str(&bucket_url).unwrap();
-
                 let https = hyper_tls::HttpsConnector::new();
                 let response = hyper::Client::builder()
                     .build::<_, hyper::Body>(https)
                     .get(bucket_url)
                     .await
                     .unwrap();
-
                 if let Some(val) = response.headers().get("Content-Length") {
                     if let Ok(str) = val.to_str() {
                         if let Ok(len) = str.parse::<u64>() {
@@ -193,7 +208,6 @@ impl Cmd {
                     }
                 }
                 println!();
-
                 let read = tokio_util::io::SyncIoBridge::new(
                     response
                         .into_body()
@@ -211,7 +225,9 @@ impl Cmd {
             (seen, snapshot) = tokio::task::spawn_blocking(move || {
                 let dl_path = cache_path.with_extension("dl");
                 let buf = BufReader::new(read);
-                let read: Box<dyn Read + Sync + Send> = if gz {
+                let read: Box<dyn Read + Sync + Send> = if stream {
+                    // When streamed from the archive the bucket will be
+                    // uncompressed, and also be streamed to cache.
                     let gz = GzDecoder::new(buf);
                     let buf = BufReader::new(gz);
                     let file = OpenOptions::new()
@@ -275,7 +291,7 @@ impl Cmd {
                         }
                     }
                 }
-                if gz {
+                if stream {
                     fs::rename(&dl_path, &cache_path).unwrap();
                 }
                 if count_saved > 0 {
@@ -293,6 +309,9 @@ impl Cmd {
             snapshot.ledger_entries.len(),
             self.out
         );
+
+        let duration = Duration::from_secs(start.elapsed().as_secs());
+        println!("✅ Completed in {}", format_duration(duration));
 
         Ok(())
     }
