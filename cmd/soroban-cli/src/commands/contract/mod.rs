@@ -13,6 +13,10 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
 use crate::commands::global;
 
 #[derive(Debug, clap::Subcommand)]
@@ -164,4 +168,9 @@ pub enum SpecOutput {
     XdrBase64Array,
     /// Pretty print of contract spec entries
     Docs,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct AliasData {
+    ids: HashMap<String, String>,
 }

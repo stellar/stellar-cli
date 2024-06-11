@@ -456,6 +456,7 @@ Deploy a wasm contract
 
   Possible values: `true`, `false`
 
+* `--alias <ALIAS>` — The alias that will be used to save the contract's id
 
 
 

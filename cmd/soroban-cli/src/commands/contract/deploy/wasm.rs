@@ -1,9 +1,13 @@
-use std::array::TryFromSliceError;
 use std::fmt::Debug;
+use std::fs::{self, create_dir_all};
+use std::io::Write;
 use std::num::ParseIntError;
+use std::path::PathBuf;
+use std::{array::TryFromSliceError, fs::OpenOptions};
 
 use clap::{arg, command, Parser};
 use rand::Rng;
+use regex::Regex;
 use soroban_env_host::{
     xdr::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
@@ -14,6 +18,7 @@ use soroban_env_host::{
     HostError,
 };
 
+use crate::commands::contract::AliasData;
 use crate::commands::{
     config::data,
     contract::{self, id::wasm::get_contract_id},
@@ -54,6 +59,9 @@ pub struct Cmd {
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
+    /// The alias that will be used to save the contract's id.
+    #[arg(long)]
+    pub alias: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -100,18 +108,82 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[error("cannot access config dir for alias file")]
+    CannotAccessConfigDir,
+    #[error(
+        "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
+    )]
+    InvalidAliasFormat { alias: String },
+    #[error(transparent)]
+    JsonSerialization(#[from] serde_json::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
+        self.validate_alias()?;
+
         let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
+                self.save_contract_id(&contract)?;
                 println!("{contract}");
             }
         }
         Ok(())
+    }
+
+    fn validate_alias(&self) -> Result<(), Error> {
+        match self.alias.clone() {
+            Some(alias) => {
+                let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
+
+                if regex.is_match(&alias) {
+                    Ok(())
+                } else {
+                    Err(Error::InvalidAliasFormat { alias })
+                }
+            }
+            None => Ok(()),
+        }
+    }
+
+    fn alias_path_for(&self, alias: &str) -> Result<PathBuf, Error> {
+        let config_dir = self.config.config_dir()?;
+        let file_name = format!("{alias}.json");
+
+        Ok(config_dir.join("contract-ids").join(file_name))
+    }
+
+    fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
+        let Some(alias) = &self.alias else {
+            return Ok(());
+        };
+
+        let file_path = self.alias_path_for(alias)?;
+        let dir = file_path.parent().ok_or(Error::CannotAccessConfigDir)?;
+
+        create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
+
+        let content = fs::read_to_string(&file_path).unwrap_or_default();
+        let mut data: AliasData = serde_json::from_str(&content).unwrap_or_default();
+
+        let mut to_file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(file_path)?;
+
+        data.ids.insert(
+            self.config.get_network()?.network_passphrase,
+            contract.into(),
+        );
+
+        let content = serde_json::to_string(&data)?;
+
+        Ok(to_file.write_all(content.as_bytes())?)
     }
 }
 
