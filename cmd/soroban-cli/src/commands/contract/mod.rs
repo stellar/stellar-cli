@@ -13,9 +13,15 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fs::{self, create_dir_all, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
+use stellar_strkey::DecodeError;
 
 use crate::commands::global;
 
@@ -173,4 +179,102 @@ pub enum SpecOutput {
 #[derive(Serialize, Deserialize, Default)]
 pub struct AliasData {
     ids: HashMap<String, String>,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum AliasDataError {
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("cannot access config dir for alias file")]
+    CannotAccessConfigDir,
+    #[error("cannot parse contract ID {0}: {1}")]
+    CannotParseContractId(String, DecodeError),
+}
+
+impl AliasData {
+    pub fn load(config_dir: &Path, alias: Option<&str>) -> Result<Option<Self>, AliasDataError> {
+        let Some(alias) = alias else {
+            return Ok(None);
+        };
+
+        let path = Self::alias_path(config_dir, alias);
+
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let content = fs::read_to_string(path)?;
+        let data: Self = serde_json::from_str(&content).unwrap_or_default();
+
+        Ok(Some(data))
+    }
+
+    pub fn alias_path(config_dir: &Path, alias: &str) -> PathBuf {
+        let file_name = format!("{alias}.json");
+        config_dir.join("contract-ids").join(file_name)
+    }
+
+    pub fn save_contract_id(
+        config_dir: &Path,
+        contract_id: &str,
+        alias: Option<&String>,
+        network_passphrase: &str,
+    ) -> Result<(), AliasDataError> {
+        let Some(alias) = alias else {
+            return Ok(());
+        };
+
+        let path = Self::alias_path(config_dir, alias);
+        let dir = path.parent().ok_or(AliasDataError::CannotAccessConfigDir)?;
+
+        create_dir_all(dir).map_err(|_| AliasDataError::CannotAccessConfigDir)?;
+
+        let content = fs::read_to_string(&path).unwrap_or_default();
+        let mut data: Self = serde_json::from_str(&content).unwrap_or_default();
+
+        let mut to_file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(path)?;
+
+        data.ids
+            .insert(network_passphrase.into(), contract_id.into());
+
+        let content = serde_json::to_string(&data)?;
+
+        Ok(to_file.write_all(content.as_bytes())?)
+    }
+
+    pub fn get_contract_id(
+        alias: &str,
+        config_dir: &Path,
+        network_passphrase: &str,
+    ) -> Result<Option<String>, AliasDataError> {
+        let alias_data = Self::load(config_dir, Some(alias))?;
+        let Some(alias_data) = alias_data else {
+            return Ok(None);
+        };
+
+        match alias_data.ids.get(network_passphrase) {
+            Some(id) => Ok(Some(id.into())),
+            _ => Ok(None),
+        }
+    }
+
+    pub fn load_contract_id_or_default(
+        alias: &str,
+        config_dir: &Path,
+        network_passphrase: &str,
+    ) -> Result<[u8; 32], AliasDataError> {
+        let contract_id = match Self::get_contract_id(alias, config_dir, network_passphrase)? {
+            None => alias.to_string(),
+            Some(id) => id,
+        };
+
+        soroban_spec_tools::utils::contract_id_from_str(&contract_id)
+            .map_err(|e| AliasDataError::CannotParseContractId(contract_id.clone(), e))
+    }
 }
