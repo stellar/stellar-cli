@@ -1,11 +1,12 @@
+use bytesize::ByteSize;
 use clap::{arg, Parser};
-use flate2::read::GzDecoder;
+use flate2::bufread::GzDecoder;
 use futures::TryStreamExt;
 use http::Uri;
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
     collections::HashSet,
-    io::{self, Read},
+    io::{self, BufReader},
     str::FromStr,
 };
 use stellar_xdr::curr::{
@@ -36,6 +37,9 @@ pub struct Cmd {
     /// Contract IDs to filter by.
     #[arg(long = "contract-id", help_heading = "FILTERS")]
     contract_ids: Vec<String>,
+    /// Contract IDs to filter by.
+    #[arg(long = "wasm-hash", help_heading = "FILTERS")]
+    wasm_hashes: Vec<String>,
     // #[command(flatten)]
     // locator: locator::Args,
     // #[command(flatten)]
@@ -97,13 +101,23 @@ impl Cmd {
         const BASE_URL: &str = "http://history.stellar.org/prd/core-live/core_live_001";
         let ledger = self.ledger;
 
+        let ledger_offset = (ledger + 1) % 64;
+        if ledger_offset != 0 {
+            println!(
+                "ledger {ledger} not a checkpoint ledger, use {} or {}",
+                ledger - ledger_offset,
+                ledger + (64 - ledger_offset),
+            );
+            return Ok(());
+        }
+
         let ledger_hex = format!("{ledger:08x}");
         let ledger_hex_0 = &ledger_hex[0..=1];
         let ledger_hex_1 = &ledger_hex[2..=3];
         let ledger_hex_2 = &ledger_hex[4..=5];
         let history_url = format!("{BASE_URL}/history/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/history-{ledger_hex}.json");
-        tracing::debug!(?history_url);
         let history_url = Uri::from_str(&history_url).unwrap();
+        println!("🌎 Downloading history {history_url}");
 
         let https = hyper_tls::HttpsConnector::new();
         let response = hyper::Client::builder()
@@ -142,8 +156,7 @@ impl Cmd {
             let bucket_url = format!(
                 "{BASE_URL}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz"
             );
-            println!("bucket {i}: {} {}", &bucket[0..8], bucket_url);
-            tracing::debug!(?bucket_url);
+            print!("🪣  Downloading bucket {i} {bucket_url}");
             let bucket_url = Uri::from_str(&bucket_url).unwrap();
 
             let https = hyper_tls::HttpsConnector::new();
@@ -152,40 +165,81 @@ impl Cmd {
                 .get(bucket_url)
                 .await
                 .unwrap();
+
+            if let Some(val) = response.headers().get("Content-Length") {
+                if let Ok(str) = val.to_str() {
+                    if let Ok(len) = str.parse::<u64>() {
+                        print!(" ({})", ByteSize(len));
+                    }
+                }
+            }
+            println!();
+
             let read = tokio_util::io::SyncIoBridge::new(
                 response
                     .into_body()
-                    .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                     .into_async_read()
                     .compat(),
             );
+
+            let account_ids = self.account_ids.clone();
+            let contract_ids = self.contract_ids.clone();
+            let wasm_hashes = self.wasm_hashes.clone();
             (seen, snapshot) = tokio::task::spawn_blocking(move || {
-                let mut counter = ReadCount::new(read);
-                {
-                    let gz = GzDecoder::new(&mut counter);
-                    let lz = &mut Limited::new(gz, Limits::none());
-                    let sz = Frame::<BucketEntry>::read_xdr_iter(lz);
-                    for entry in sz {
-                        let Frame(entry) = entry.unwrap();
-                        let (key, val) = match entry {
-                            BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
-                                (data_into_key(&l), Some(l))
-                            }
-                            BucketEntry::Deadentry(k) => (k, None),
-                            BucketEntry::Metaentry(_) => continue,
-                        };
-                        if seen.contains(&key) {
-                            continue;
+                let buf = BufReader::new(read);
+                let gz = GzDecoder::new(buf);
+                let buf = BufReader::new(gz);
+                let limited = &mut Limited::new(buf, Limits::none());
+                let sz = Frame::<BucketEntry>::read_xdr_iter(limited);
+                let mut count_saved = 0;
+                for entry in sz {
+                    let Frame(entry) = entry.unwrap();
+                    let (key, val) = match entry {
+                        BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
+                            let k = data_into_key(&l);
+                            (k, Some(l))
                         }
+                        BucketEntry::Deadentry(k) => (k, None),
+                        BucketEntry::Metaentry(_) => continue,
+                    };
+                    if seen.contains(&key) {
+                        continue;
+                    }
+                    if let Some(val) = val {
+                        let keep = match &val.data {
+                            LedgerEntryData::Account(e) => {
+                                account_ids.contains(&e.account_id.to_string())
+                            }
+                            LedgerEntryData::Trustline(e) => {
+                                account_ids.contains(&e.account_id.to_string())
+                            }
+                            LedgerEntryData::ContractData(e) => {
+                                contract_ids.contains(&e.contract.to_string())
+                            }
+                            LedgerEntryData::ContractCode(e) => {
+                                let hash = hex::encode(e.hash.0);
+                                wasm_hashes.contains(&hash)
+                            }
+                            LedgerEntryData::Offer(_)
+                            | LedgerEntryData::Data(_)
+                            | LedgerEntryData::ClaimableBalance(_)
+                            | LedgerEntryData::LiquidityPool(_)
+                            | LedgerEntryData::ConfigSetting(_)
+                            | LedgerEntryData::Ttl(_) => false,
+                        };
                         seen.insert(key.clone());
-                        if let Some(val) = val {
+                        if keep {
                             snapshot
                                 .ledger_entries
                                 .push((Box::new(key), (Box::new(val), None)));
+                            count_saved += 1;
                         }
                     }
                 }
-                println!("size {}", counter.count());
+                if count_saved > 0 {
+                    println!("🔎 Found {count_saved} entries");
+                }
                 (seen, snapshot)
             })
             .await
@@ -195,6 +249,7 @@ impl Cmd {
         snapshot
             .write_file(format!("snapshot-{ledger}.json"))
             .unwrap();
+        println!("💾 Saved {} entries", snapshot.ledger_entries.len());
 
         Ok(())
     }
@@ -211,30 +266,6 @@ struct History {
 struct HistoryBucket {
     curr: String,
     snap: String,
-}
-
-struct ReadCount<R: Read> {
-    inner: R,
-    count: usize,
-}
-
-impl<R: Read> ReadCount<R> {
-    fn new(r: R) -> Self {
-        ReadCount { inner: r, count: 0 }
-    }
-
-    pub fn count(&self) -> usize {
-        self.count
-    }
-}
-
-impl<R: Read> Read for ReadCount<R> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.inner.read(buf).map(|n| {
-            self.count += n;
-            n
-        })
-    }
 }
 
 fn data_into_key(d: &LedgerEntry) -> LedgerKey {
