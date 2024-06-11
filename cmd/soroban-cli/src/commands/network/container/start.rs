@@ -122,7 +122,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
     [
         format!("--{}", cmd.network),
-        "--enable-soroban-rpc".to_string(),
+        "--enable rpc,horizon".to_string(),
         get_protocol_version_arg(cmd),
         get_limits_arg(cmd),
     ]
