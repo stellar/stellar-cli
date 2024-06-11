@@ -63,6 +63,7 @@ impl Args {
         self.sign(tx).await
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let key = self.key_pair()?;
         let Network {
