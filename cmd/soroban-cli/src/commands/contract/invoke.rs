@@ -15,8 +15,8 @@ use soroban_env_host::{
         self, AccountEntry, AccountEntryExt, AccountId, Hash, HostFunction, InvokeContractArgs,
         InvokeHostFunctionOp, LedgerEntryData, Limits, Memo, MuxedAccount, Operation,
         OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0,
-        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM,
-        Thresholds, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM, Thresholds, Transaction,
+        TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
