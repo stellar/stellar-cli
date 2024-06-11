@@ -64,15 +64,12 @@ impl Args {
         self.sign(tx).await
     }
 
-    pub async fn sign(&self, mut tx: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let key = self.key_pair()?;
-        let verifying_key = key.verifying_key().to_bytes();
-        let account = Strkey::PublicKeyEd25519(stellar_strkey::ed25519::PublicKey(verifying_key));
-        let network = self.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
-        tx.seq_num = SequenceNumber(client.get_account(&account.to_string()).await?.seq_num.0 + 1);
-        tx.source_account = MuxedAccount::Ed25519(Uint256(verifying_key));
-        Ok(signer::sign_tx(&key, &tx, &network.network_passphrase)?)
+        let Network {
+            network_passphrase, ..
+        } = &self.get_network()?;
+        Ok(signer::sign_tx(&key, &tx, network_passphrase)?)
     }
 
     pub async fn sign_soroban_authorizations(
