@@ -7,6 +7,7 @@ use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
     collections::HashSet,
     io::{self, BufReader},
+    path::PathBuf,
     str::FromStr,
 };
 use stellar_xdr::curr::{
@@ -25,12 +26,19 @@ use super::{
 };
 use crate::rpc;
 
+fn default_out_path() -> PathBuf {
+    PathBuf::new().join("snapshot.json")
+}
+
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// The ledger sequence number to snapshot.
     #[arg(long)]
     ledger: u32,
+    /// The out path that the snapshot is written to.
+    #[arg(long, default_value=default_out_path().into_os_string())]
+    out: PathBuf,
     /// Account IDs to filter by.
     #[arg(long = "account-id", help_heading = "FILTERS")]
     account_ids: Vec<String>,
@@ -138,7 +146,7 @@ impl Cmd {
 
         let mut seen = HashSet::<LedgerKey>::new();
         let mut snapshot = LedgerSnapshot {
-            protocol_version: 20,
+            protocol_version: 0,
             sequence_number: ledger,
             timestamp: 0,
             network_id: [0u8; 32],
@@ -201,7 +209,10 @@ impl Cmd {
                             (k, Some(l))
                         }
                         BucketEntry::Deadentry(k) => (k, None),
-                        BucketEntry::Metaentry(_) => continue,
+                        BucketEntry::Metaentry(m) => {
+                            snapshot.protocol_version = m.ledger_version;
+                            continue;
+                        }
                     };
                     if seen.contains(&key) {
                         continue;
@@ -246,10 +257,12 @@ impl Cmd {
             .unwrap();
         }
 
-        snapshot
-            .write_file(format!("snapshot-{ledger}.json"))
-            .unwrap();
-        println!("💾 Saved {} entries", snapshot.ledger_entries.len());
+        snapshot.write_file(&self.out).unwrap();
+        println!(
+            "💾 Saved {} entries to {:?}",
+            snapshot.ledger_entries.len(),
+            self.out
+        );
 
         Ok(())
     }
