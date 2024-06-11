@@ -15,8 +15,7 @@ use soroban_env_host::{
         self, AccountEntry, AccountEntryExt, AccountId, Hash, HostFunction, InvokeContractArgs,
         InvokeHostFunctionOp, LedgerEntryData, Limits, Memo, MuxedAccount, Operation,
         OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0,
-        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, SorobanAuthorizationEntry,
-        SorobanAuthorizedFunction, SorobanResources, SorobanTransactionData, String32, StringM,
+        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM,
         Thresholds, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
@@ -441,33 +440,33 @@ impl NetworkRunnable for Cmd {
 
 const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32])));
 
-fn log_auth_cost_and_footprint(resources: Option<&SorobanResources>) {
-    if let Some(resources) = resources {
-        crate::log::footprint(&resources.footprint);
-        crate::log::cost(resources);
-    }
-}
+// fn log_auth_cost_and_footprint(resources: Option<&SorobanResources>) {
+//     if let Some(resources) = resources {
+//         crate::log::footprint(&resources.footprint);
+//         crate::log::cost(resources);
+//     }
+// }
 
-fn resources(tx: &Transaction) -> Option<&SorobanResources> {
-    let TransactionExt::V1(SorobanTransactionData { resources, .. }) = &tx.ext else {
-        return None;
-    };
-    Some(resources)
-}
+// fn resources(tx: &Transaction) -> Option<&SorobanResources> {
+//     let TransactionExt::V1(SorobanTransactionData { resources, .. }) = &tx.ext else {
+//         return None;
+//     };
+//     Some(resources)
+// }
 
-fn auth_entries(tx: &Transaction) -> VecM<SorobanAuthorizationEntry> {
-    tx.operations
-        .first()
-        .and_then(|op| match op.body {
-            OperationBody::InvokeHostFunction(ref body) => (matches!(
-                body.auth.first().map(|x| &x.root_invocation.function),
-                Some(&SorobanAuthorizedFunction::ContractFn(_))
-            ))
-            .then_some(body.auth.clone()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
+// fn auth_entries(tx: &Transaction) -> VecM<SorobanAuthorizationEntry> {
+//     tx.operations
+//         .first()
+//         .and_then(|op| match op.body {
+//             OperationBody::InvokeHostFunction(ref body) => (matches!(
+//                 body.auth.first().map(|x| &x.root_invocation.function),
+//                 Some(&SorobanAuthorizedFunction::ContractFn(_))
+//             ))
+//             .then_some(body.auth.clone()),
+//             _ => None,
+//         })
+//         .unwrap_or_default()
+// }
 
 fn default_account_entry() -> AccountEntry {
     AccountEntry {
