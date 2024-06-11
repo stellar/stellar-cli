@@ -241,6 +241,9 @@ impl Cmd {
                 } else {
                     Box::new(buf)
                 };
+                // Stream the bucket entries from the bucket, identifying
+                // entries that match the filters, and including only the
+                // entries that match in the snapshot.
                 let limited = &mut Limited::new(read, Limits::none());
                 let sz = Frame::<BucketEntry>::read_xdr_iter(limited);
                 let mut count_saved = 0;
