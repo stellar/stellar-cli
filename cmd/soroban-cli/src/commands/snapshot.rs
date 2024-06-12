@@ -28,7 +28,7 @@ use super::{
     config::{self, locator},
     network,
 };
-use crate::{commands::config::data, rpc};
+use crate::commands::config::data;
 
 fn default_out_path() -> PathBuf {
     PathBuf::new().join("snapshot.json")
@@ -90,8 +90,6 @@ pub enum Error {
     MissingStartLedgerAndCursor,
     #[error("missing target")]
     MissingTarget,
-    #[error(transparent)]
-    Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Generic(#[from] Box<dyn std::error::Error>),
     #[error(transparent)]
