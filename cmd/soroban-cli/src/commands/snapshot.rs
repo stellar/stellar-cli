@@ -38,6 +38,7 @@ fn default_out_path() -> PathBuf {
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
+#[command(arg_required_else_help = true)]
 pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
