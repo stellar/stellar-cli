@@ -5083,8 +5083,7 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "21.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5fed71587e14c36c47089090f7c2b45cd5ffd3ca0cadbdb4e25cc8407b481dc"
+source = "git+https://github.com/ahalabs/soroban-rpc?rev=f61d65dff57a7ffd5b37278490204a0e1bbf9b65#f61d65dff57a7ffd5b37278490204a0e1bbf9b65"
 dependencies = [
  "clap",
  "hex",
