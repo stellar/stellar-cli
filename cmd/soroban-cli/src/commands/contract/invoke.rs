@@ -30,7 +30,7 @@ use super::super::{
     config::{self, locator},
     events,
 };
-use super::{AliasData, AliasDataError};
+use crate::commands::config::alias;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
@@ -151,7 +151,7 @@ pub enum Error {
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
     #[error(transparent)]
-    AliasData(#[from] AliasDataError),
+    Alias(#[from] alias::Error),
 }
 
 impl From<Infallible> for Error {
@@ -316,7 +316,7 @@ impl NetworkRunnable for Cmd {
         let unwrap_config = config.unwrap_or(&self.config);
         let network = unwrap_config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = AliasData::load_contract_id_or_default(
+        let contract_id = alias::Data::load_contract_id_or_default(
             &self.contract_id,
             &self.config.config_dir()?,
             &network.network_passphrase,

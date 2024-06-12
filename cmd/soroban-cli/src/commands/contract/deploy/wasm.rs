@@ -15,9 +15,8 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::commands::contract::{AliasData, AliasDataError};
 use crate::commands::{
-    config::data,
+    config::{alias, data},
     contract::{self, id::wasm::get_contract_id},
     global, network,
     txn_result::{TxnEnvelopeResult, TxnResult},
@@ -110,7 +109,7 @@ pub enum Error {
     )]
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
-    AliasData(#[from] AliasDataError),
+    Alias(#[from] alias::Error),
 }
 
 impl Cmd {
@@ -121,7 +120,7 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
-                AliasData::save_contract_id(
+                alias::Data::save_contract_id(
                     &self.config.config_dir()?,
                     &contract,
                     self.alias.as_ref(),
