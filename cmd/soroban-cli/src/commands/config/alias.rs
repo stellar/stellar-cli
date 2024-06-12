@@ -93,12 +93,13 @@ impl Data {
     }
 
     pub fn load_contract_id_or_default(
-        alias: &str,
+        alias_or_contract_id: &str,
         config_dir: &Path,
         network_passphrase: &str,
     ) -> Result<[u8; 32], Error> {
-        let contract_id = Self::get_contract_id(alias, config_dir, network_passphrase)?
-            .unwrap_or_else(|| alias.to_string());
+        let contract_id =
+            Self::get_contract_id(alias_or_contract_id, config_dir, network_passphrase)?
+                .unwrap_or_else(|| alias_or_contract_id.to_string());
 
         soroban_spec_tools::utils::contract_id_from_str(&contract_id)
             .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
