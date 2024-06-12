@@ -31,6 +31,7 @@ use super::super::{
     config::{self, locator},
     events,
 };
+use super::AliasData;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
@@ -152,6 +153,12 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
+    #[error("unable to read alias file")]
+    UnableToReadAliasFile,
+    #[error("alias file not found")]
+    NoAliasFileFound,
+    #[error(transparent)]
+    JsonDeserialization(#[from] serde_json::Error),
 }
 
 impl From<Infallible> for Error {
@@ -305,8 +312,37 @@ impl Cmd {
 
 impl Cmd {
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+        let contract_id: String = match self.load_contract_id() {
+            Ok(Some(id)) => id.to_string(),
+            _ => self.contract_id.clone(),
+        };
+
+        soroban_spec_tools::utils::contract_id_from_str(&contract_id)
+            .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
+    }
+
+    fn alias_path(&self) -> Result<PathBuf, Error> {
+        let config_dir = self.config.config_dir()?;
+        let file_name = format!("{}.json", self.contract_id);
+
+        Ok(config_dir.join("contract-ids").join(file_name))
+    }
+
+    fn load_contract_id(&self) -> Result<Option<String>, Error> {
+        let network = &self.config.get_network()?.network_passphrase;
+        let file_path = self.alias_path()?;
+
+        if !file_path.exists() {
+            return Ok(None);
+        }
+
+        let content = fs::read_to_string(file_path)?;
+        let data: AliasData = serde_json::from_str(&content)?;
+
+        match data.ids.get(network) {
+            Some(id) => Ok(Some(id.into())),
+            _ => Ok(None),
+        }
     }
 }
 
