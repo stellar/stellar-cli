@@ -42,9 +42,6 @@ pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
     ledger: Option<u32>,
-    /// The out path that the snapshot is written to.
-    #[arg(long, default_value=default_out_path().into_os_string())]
-    out: PathBuf,
     /// Account IDs to filter by.
     #[arg(long = "account-id", help_heading = "FILTERS")]
     account_ids: Vec<String>,
@@ -54,6 +51,9 @@ pub struct Cmd {
     /// Contract IDs to filter by.
     #[arg(long = "wasm-hash", help_heading = "FILTERS")]
     wasm_hashes: Vec<String>,
+    /// The out path that the snapshot is written to.
+    #[arg(long, default_value=default_out_path().into_os_string())]
+    out: PathBuf,
     #[command(flatten)]
     locator: locator::Args,
     // #[command(flatten)]
