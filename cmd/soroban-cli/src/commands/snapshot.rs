@@ -63,38 +63,16 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("cursor is not valid")]
-    InvalidCursor,
-    #[error("filepath does not exist: {path}")]
-    InvalidFile { path: String },
-    #[error("filepath ({path}) cannot be read: {error}")]
-    CannotReadFile { path: String, error: String },
-    #[error("cannot parse topic filter {topic} into 1-4 segments")]
-    InvalidTopicFilter { topic: String },
-    #[error("invalid segment ({segment}) in topic filter ({topic}): {error}")]
-    InvalidSegment {
-        topic: String,
-        segment: String,
-        error: xdr::Error,
-    },
-    #[error("cannot parse contract ID {contract_id}: {error}")]
-    InvalidContractId {
-        contract_id: String,
-        error: stellar_strkey::DecodeError,
-    },
-    #[error("invalid JSON string: {error} ({debug})")]
-    InvalidJson {
-        debug: String,
-        error: serde_json::Error,
-    },
-    #[error("invalid timestamp in event: {ts}")]
-    InvalidTimestamp { ts: String },
-    #[error("missing start_ledger and cursor")]
-    MissingStartLedgerAndCursor,
-    #[error("missing target")]
-    MissingTarget,
     #[error(transparent)]
-    Generic(#[from] Box<dyn std::error::Error>),
+    LedgerSnapshot(#[from] soroban_ledger_snapshot::Error),
+    #[error(transparent)]
+    Join(#[from] tokio::task::JoinError),
+    #[error(transparent)]
+    InvalidUri(#[from] http::uri::InvalidUri),
+    #[error(transparent)]
+    Data(#[from] data::Error),
+    #[error(transparent)]
+    Hyper(#[from] hyper::Error),
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
@@ -145,10 +123,9 @@ impl Cmd {
         let response = hyper::Client::builder()
             .build::<_, hyper::Body>(https)
             .get(history_url)
-            .await
-            .unwrap();
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let history = serde_json::from_slice::<History>(&body).unwrap();
+            .await?;
+        let body = hyper::body::to_bytes(response.into_body()).await?;
+        let history = serde_json::from_slice::<History>(&body)?;
 
         let ledger = history.current_ledger;
         let network_passphrase = &history.network_passphrase;
@@ -193,12 +170,10 @@ impl Cmd {
         for (i, bucket) in buckets.iter().enumerate() {
             // Defined where the bucket will be read from, either from cache on
             // disk, or streamed from the archive.
-            let cache_path = data::bucket_dir()
-                .unwrap()
-                .join(format!("bucket-{bucket}.xdr"));
+            let cache_path = data::bucket_dir()?.join(format!("bucket-{bucket}.xdr"));
             let (read, stream): (Box<dyn Read + Sync + Send>, bool) = if cache_path.exists() {
                 println!("🪣  Loading cached bucket {i} {bucket}");
-                let file = OpenOptions::new().read(true).open(&cache_path).unwrap();
+                let file = OpenOptions::new().read(true).open(&cache_path)?;
                 (Box::new(file), false)
             } else {
                 let bucket_0 = &bucket[0..=1];
@@ -208,13 +183,12 @@ impl Cmd {
                     "{BASE_URL}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz"
                 );
                 print!("🪣  Downloading bucket {i} {bucket}");
-                let bucket_url = Uri::from_str(&bucket_url).unwrap();
+                let bucket_url = Uri::from_str(&bucket_url)?;
                 let https = hyper_tls::HttpsConnector::new();
                 let response = hyper::Client::builder()
                     .build::<_, hyper::Body>(https)
                     .get(bucket_url)
-                    .await
-                    .unwrap();
+                    .await?;
                 if let Some(val) = response.headers().get("Content-Length") {
                     if let Ok(str) = val.to_str() {
                         if let Ok(len) = str.parse::<u64>() {
@@ -235,7 +209,7 @@ impl Cmd {
 
             let cache_path = cache_path.clone();
             (seen, snapshot, account_ids, contract_ids, wasm_hashes) =
-                tokio::task::spawn_blocking(move || {
+                tokio::task::spawn_blocking(move || -> Result<_, Error> {
                     let dl_path = cache_path.with_extension("dl");
                     let buf = BufReader::new(read);
                     let read: Box<dyn Read + Sync + Send> = if stream {
@@ -247,8 +221,7 @@ impl Cmd {
                             .create(true)
                             .truncate(true)
                             .write(true)
-                            .open(&dl_path)
-                            .unwrap();
+                            .open(&dl_path)?;
                         let tee = TeeReader::new(buf, file);
                         Box::new(tee)
                     } else {
@@ -261,7 +234,7 @@ impl Cmd {
                     let sz = Frame::<BucketEntry>::read_xdr_iter(limited);
                     let mut count_saved = 0;
                     for entry in sz {
-                        let Frame(entry) = entry.unwrap();
+                        let Frame(entry) = entry?;
                         let (key, val) = match entry {
                             BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
                                 let k = data_into_key(&l);
@@ -330,18 +303,17 @@ impl Cmd {
                         }
                     }
                     if stream {
-                        fs::rename(&dl_path, &cache_path).unwrap();
+                        fs::rename(&dl_path, &cache_path)?;
                     }
                     if count_saved > 0 {
                         println!("🔎 Found {count_saved} entries");
                     }
-                    (seen, snapshot, account_ids, contract_ids, wasm_hashes)
+                    Ok((seen, snapshot, account_ids, contract_ids, wasm_hashes))
                 })
-                .await
-                .unwrap();
+                .await??;
         }
 
-        snapshot.write_file(&self.out).unwrap();
+        snapshot.write_file(&self.out)?;
         println!(
             "💾 Saved {} entries to {:?}",
             snapshot.ledger_entries.len(),
