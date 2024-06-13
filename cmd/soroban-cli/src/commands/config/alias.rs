@@ -26,11 +26,7 @@ pub enum Error {
 }
 
 impl Data {
-    pub fn load(config_dir: &Path, alias: Option<&str>) -> Result<Option<Self>, Error> {
-        let Some(alias) = alias else {
-            return Ok(None);
-        };
-
+    pub fn load(config_dir: &Path, alias: &str) -> Result<Option<Self>, Error> {
         let path = Self::alias_path(config_dir, alias);
 
         if !path.exists() {
@@ -85,7 +81,7 @@ impl Data {
         config_dir: &Path,
         network_passphrase: &str,
     ) -> Result<Option<String>, Error> {
-        let Some(alias_data) = Self::load(config_dir, Some(alias))? else {
+        let Some(alias_data) = Self::load(config_dir, alias)? else {
             return Ok(None);
         };
 
