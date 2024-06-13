@@ -316,11 +316,9 @@ impl NetworkRunnable for Cmd {
         let unwrap_config = config.unwrap_or(&self.config);
         let network = unwrap_config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = alias::Data::load_contract_id_or_default(
-            &self.contract_id,
-            &self.config.config_dir()?,
-            &network.network_passphrase,
-        )?;
+        let contract_id = self
+            .config
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing

@@ -120,12 +120,8 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
-                alias::Data::save_contract_id(
-                    &self.config.config_dir()?,
-                    &contract,
-                    self.alias.as_ref(),
-                    &self.config.get_network()?.network_passphrase,
-                )?;
+                self.config
+                    .save_contract_id(&contract, self.alias.as_ref())?;
 
                 println!("{contract}");
             }
