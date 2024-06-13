@@ -17,7 +17,7 @@ pub mod version;
 
 pub mod txn_result;
 
-pub const HEADING_RPC: &str = "Options (RPC)";
+pub const HEADING_NETWORK: &str = "Options (Network)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
 Stellar Docs: https://developers.stellar.org
@@ -134,7 +134,7 @@ pub enum Cmd {
     /// Start and configure networks
     #[command(subcommand)]
     Network(network::Cmd),
-    /// Download a snapshot of a ledger.
+    /// Download a snapshot of a ledger from an archive.
     Snapshot(snapshot::Cmd),
     /// Print version information
     Version(version::Cmd),

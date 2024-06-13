@@ -57,8 +57,8 @@ pub struct Cmd {
     out: PathBuf,
     #[command(flatten)]
     locator: locator::Args,
-    // #[command(flatten)]
-    // network: network::Args,
+    #[command(flatten)]
+    network: network::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -99,7 +99,7 @@ const CHECKPOINT_FREQUENCY: u32 = 64;
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        const BASE_URL: &str = "http://history.stellar.org/prd/core-live/core_live_001";
+        let archive_url = self.network.get(&self.locator)?.archive_url()?.to_string();
 
         let start = Instant::now();
 
@@ -120,9 +120,9 @@ impl Cmd {
             let ledger_hex_0 = &ledger_hex[0..=1];
             let ledger_hex_1 = &ledger_hex[2..=3];
             let ledger_hex_2 = &ledger_hex[4..=5];
-            format!("{BASE_URL}/history/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/history-{ledger_hex}.json")
+            format!("{archive_url}/history/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/history-{ledger_hex}.json")
         } else {
-            format!("{BASE_URL}/.well-known/stellar-history.json")
+            format!("{archive_url}/.well-known/stellar-history.json")
         };
 
         let history_url = Uri::from_str(&history_url).unwrap();
@@ -196,7 +196,7 @@ impl Cmd {
                 let bucket_1 = &bucket[2..=3];
                 let bucket_2 = &bucket[4..=5];
                 let bucket_url = format!(
-                    "{BASE_URL}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz"
+                    "{archive_url}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz"
                 );
                 print!("🪣  Downloading bucket {i} {bucket}");
                 let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
