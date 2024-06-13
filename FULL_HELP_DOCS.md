@@ -1193,8 +1193,8 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — ⚠️ Deprecated: use `soroban container start` instead
-* `stop` — ⚠️ Deprecated: use `soroban container stop` instead
+* `start` — ⚠️ Deprecated: use `stellar container start` instead
+* `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `container` — Commands to start, stop and get logs for a quickstart container
 
 
@@ -1263,13 +1263,13 @@ List networks
 
 ## `stellar network start`
 
-⚠️ Deprecated: use `soroban container start` instead
+⚠️ Deprecated: use `stellar container start` instead
 
 Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-soroban network start <NETWORK> [OPTIONS]
+stellar network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
@@ -1296,9 +1296,9 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network stop`
 
-⚠️ Deprecated: use `soroban container stop` instead
+⚠️ Deprecated: use `stellar container stop` instead
 
-Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
+Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
 **Usage:** `stellar network stop [OPTIONS] <NETWORK>`
 
