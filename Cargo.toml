@@ -53,9 +53,7 @@ path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "21.3.0"
-git = "https://github.com/stellar/rs-stellar-rpc-client"
-rev = "4cfa0645351b5d5bc48aa846726932de69f21419"
+version = "21.3.1"
 
 [workspace.dependencies.stellar-xdr]
 version = "21.1.0"
