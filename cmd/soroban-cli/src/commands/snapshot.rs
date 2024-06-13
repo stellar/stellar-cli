@@ -63,22 +63,30 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    LedgerSnapshot(#[from] soroban_ledger_snapshot::Error),
+    #[error("downloading history: {0}")]
+    DownloadingHistory(hyper::Error),
+    #[error("json decoding history: {0}")]
+    JsonDecodingHistory(serde_json::Error),
+    #[error("opening cached bucket to read: {0}")]
+    ReadOpeningCachedBucket(io::Error),
+    #[error("parsing bucket url: {0}")]
+    ParsingBucketUrl(http::uri::InvalidUri),
+    #[error("getting bucket: {0}")]
+    GettingBucket(hyper::Error),
+    #[error("opening cached bucket to write: {0}")]
+    WriteOpeningCachedBucket(io::Error),
+    #[error("read XDR frame bucket entry: {0}")]
+    ReadXdrFrameBucketEntry(xdr::Error),
+    #[error("renaming temporary downloaded file to final destination: {0}")]
+    RenameDownloadFile(io::Error),
+    #[error("getting bucket directory: {0}")]
+    GetBucketDir(data::Error),
+    #[error("reading history http stream: {0}")]
+    ReadHistoryHttpStream(hyper::Error),
+    #[error("writing ledger snapshot: {0}")]
+    WriteLedgerSnapshot(soroban_ledger_snapshot::Error),
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
-    #[error(transparent)]
-    InvalidUri(#[from] http::uri::InvalidUri),
-    #[error(transparent)]
-    Data(#[from] data::Error),
-    #[error(transparent)]
-    Hyper(#[from] hyper::Error),
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    #[error(transparent)]
-    Xdr(#[from] xdr::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
@@ -123,9 +131,13 @@ impl Cmd {
         let response = hyper::Client::builder()
             .build::<_, hyper::Body>(https)
             .get(history_url)
-            .await?;
-        let body = hyper::body::to_bytes(response.into_body()).await?;
-        let history = serde_json::from_slice::<History>(&body)?;
+            .await
+            .map_err(Error::DownloadingHistory)?;
+        let body = hyper::body::to_bytes(response.into_body())
+            .await
+            .map_err(Error::ReadHistoryHttpStream)?;
+        let history =
+            serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)?;
 
         let ledger = history.current_ledger;
         let network_passphrase = &history.network_passphrase;
@@ -170,10 +182,14 @@ impl Cmd {
         for (i, bucket) in buckets.iter().enumerate() {
             // Defined where the bucket will be read from, either from cache on
             // disk, or streamed from the archive.
-            let cache_path = data::bucket_dir()?.join(format!("bucket-{bucket}.xdr"));
+            let bucket_dir = data::bucket_dir().map_err(Error::GetBucketDir)?;
+            let cache_path = bucket_dir.join(format!("bucket-{bucket}.xdr"));
             let (read, stream): (Box<dyn Read + Sync + Send>, bool) = if cache_path.exists() {
                 println!("🪣  Loading cached bucket {i} {bucket}");
-                let file = OpenOptions::new().read(true).open(&cache_path)?;
+                let file = OpenOptions::new()
+                    .read(true)
+                    .open(&cache_path)
+                    .map_err(Error::ReadOpeningCachedBucket)?;
                 (Box::new(file), false)
             } else {
                 let bucket_0 = &bucket[0..=1];
@@ -183,12 +199,13 @@ impl Cmd {
                     "{BASE_URL}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz"
                 );
                 print!("🪣  Downloading bucket {i} {bucket}");
-                let bucket_url = Uri::from_str(&bucket_url)?;
+                let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
                 let https = hyper_tls::HttpsConnector::new();
                 let response = hyper::Client::builder()
                     .build::<_, hyper::Body>(https)
                     .get(bucket_url)
-                    .await?;
+                    .await
+                    .map_err(Error::GettingBucket)?;
                 if let Some(val) = response.headers().get("Content-Length") {
                     if let Ok(str) = val.to_str() {
                         if let Ok(len) = str.parse::<u64>() {
@@ -221,7 +238,8 @@ impl Cmd {
                             .create(true)
                             .truncate(true)
                             .write(true)
-                            .open(&dl_path)?;
+                            .open(&dl_path)
+                            .map_err(Error::WriteOpeningCachedBucket)?;
                         let tee = TeeReader::new(buf, file);
                         Box::new(tee)
                     } else {
@@ -234,7 +252,7 @@ impl Cmd {
                     let sz = Frame::<BucketEntry>::read_xdr_iter(limited);
                     let mut count_saved = 0;
                     for entry in sz {
-                        let Frame(entry) = entry?;
+                        let Frame(entry) = entry.map_err(Error::ReadXdrFrameBucketEntry)?;
                         let (key, val) = match entry {
                             BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
                                 let k = data_into_key(&l);
@@ -303,7 +321,7 @@ impl Cmd {
                         }
                     }
                     if stream {
-                        fs::rename(&dl_path, &cache_path)?;
+                        fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
                     }
                     if count_saved > 0 {
                         println!("🔎 Found {count_saved} entries");
@@ -313,7 +331,9 @@ impl Cmd {
                 .await??;
         }
 
-        snapshot.write_file(&self.out)?;
+        snapshot
+            .write_file(&self.out)
+            .map_err(Error::WriteLedgerSnapshot)?;
         println!(
             "💾 Saved {} entries to {:?}",
             snapshot.ledger_entries.len(),
