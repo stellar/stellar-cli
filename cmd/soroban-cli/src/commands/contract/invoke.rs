@@ -12,18 +12,15 @@ use heck::ToKebabCase;
 
 use soroban_env_host::{
     xdr::{
-        self, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
-        SequenceNumber, SorobanAuthorizationEntry, SorobanResources, String32, StringM,
-        Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+        self, AccountEntry, AccountEntryExt, AccountId, Hash, HostFunction, InvokeContractArgs,
+        InvokeHostFunctionOp, LedgerEntryData, Limits, Memo, MuxedAccount, Operation,
+        OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0,
+        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM, Thresholds, Transaction,
+        TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
 
-use soroban_env_host::xdr::{
-    AccountEntry, AccountEntryExt, AccountId, DiagnosticEvent, Thresholds,
-};
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
@@ -356,15 +353,14 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
-        let unwrap_config = config.unwrap_or(&self.config);
-        let network = unwrap_config.get_network()?;
+        let config = config.unwrap_or(&self.config);
+        let network = config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self.contract_id()?;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            let _ =
-                self.build_host_function_parameters(contract_id, spec_entries, unwrap_config)?;
+            let _ = self.build_host_function_parameters(contract_id, spec_entries, config)?;
         }
         let client = rpc::Client::new(&network.rpc_url)?;
         let account_details = if self.is_view {
@@ -373,7 +369,7 @@ impl NetworkRunnable for Cmd {
             client
                 .verify_network_passphrase(Some(&network.network_passphrase))
                 .await?;
-            let key = unwrap_config.key_pair()?;
+            let key = config.key_pair()?;
 
             // Get the account sequence number
             let public_strkey =
@@ -385,17 +381,17 @@ impl NetworkRunnable for Cmd {
 
         let spec_entries = get_remote_contract_spec(
             &contract_id,
-            &unwrap_config.locator,
-            &unwrap_config.network,
+            &config.locator,
+            &config.network,
             global_args,
-            config,
+            Some(config),
         )
         .await
         .map_err(Error::from)?;
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
-            self.build_host_function_parameters(contract_id, &spec_entries, unwrap_config)?;
+            self.build_host_function_parameters(contract_id, &spec_entries, config)?;
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
@@ -405,7 +401,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let txn = client.create_assembled_transaction(&tx).await?;
+        let txn = client.simulate_and_assemble_transaction(&tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn.transaction().clone()));
@@ -415,23 +411,21 @@ impl NetworkRunnable for Cmd {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
         let (return_value, events) = if self.is_view() {
+            // log_auth_cost_and_footprint(Some(&sim_res.transaction_data()?.resources));
             (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         } else {
-            let global::Args {
-                verbose,
-                very_verbose,
-                no_cache,
-                ..
-            } = global_args.cloned().unwrap_or_default();
+            let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
+            // Need to sign all auth entries
+            let mut txn = txn.transaction().clone();
+            // let auth = auth_entries(&txn);
+            // crate::log::auth(&[auth]);
+
+            if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
+                txn = tx;
+            }
+            // log_auth_cost_and_footprint(resources(&txn));
             let res = client
-                .send_assembled_transaction(
-                    txn,
-                    &unwrap_config.key_pair()?,
-                    &signers,
-                    &network.network_passphrase,
-                    Some(log_events),
-                    (verbose || very_verbose || self.fee.cost).then_some(log_resources),
-                )
+                .send_transaction_polling(&config.sign_with_local_key(txn).await?)
                 .await?;
             if !no_cache {
                 data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
@@ -446,6 +440,34 @@ impl NetworkRunnable for Cmd {
 
 const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32])));
 
+// fn log_auth_cost_and_footprint(resources: Option<&SorobanResources>) {
+//     if let Some(resources) = resources {
+//         crate::log::footprint(&resources.footprint);
+//         crate::log::cost(resources);
+//     }
+// }
+
+// fn resources(tx: &Transaction) -> Option<&SorobanResources> {
+//     let TransactionExt::V1(SorobanTransactionData { resources, .. }) = &tx.ext else {
+//         return None;
+//     };
+//     Some(resources)
+// }
+
+// fn auth_entries(tx: &Transaction) -> VecM<SorobanAuthorizationEntry> {
+//     tx.operations
+//         .first()
+//         .and_then(|op| match op.body {
+//             OperationBody::InvokeHostFunction(ref body) => (matches!(
+//                 body.auth.first().map(|x| &x.root_invocation.function),
+//                 Some(&SorobanAuthorizedFunction::ContractFn(_))
+//             ))
+//             .then_some(body.auth.clone()),
+//             _ => None,
+//         })
+//         .unwrap_or_default()
+// }
+
 fn default_account_entry() -> AccountEntry {
     AccountEntry {
         account_id: DEFAULT_ACCOUNT_ID,
@@ -459,20 +481,6 @@ fn default_account_entry() -> AccountEntry {
         signers: unsafe { [].try_into().unwrap_unchecked() },
         ext: AccountEntryExt::V0,
     }
-}
-
-fn log_events(
-    footprint: &LedgerFootprint,
-    auth: &[VecM<SorobanAuthorizationEntry>],
-    events: &[DiagnosticEvent],
-) {
-    crate::log::auth(auth);
-    crate::log::diagnostic_events(events, tracing::Level::TRACE);
-    crate::log::footprint(footprint);
-}
-
-fn log_resources(resources: &SorobanResources) {
-    crate::log::cost(resources);
 }
 
 pub fn output_to_string(
