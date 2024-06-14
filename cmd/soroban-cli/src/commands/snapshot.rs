@@ -281,10 +281,12 @@ impl Cmd {
                                     // contract executable stored in another
                                     // ledger entry, add that ledger entry to
                                     // the filter so that Wasm for any filtered
-                                    // contract is collected too.  TODO: Change
+                                    // contract is collected too. TODO: Change
                                     // this to support Wasm ledger entries
-                                    // appearing in earlier buckets after state
-                                    // archival is rolled out.
+                                    // appearing in earlier buckets. In some
+                                    // cases that won't be sufficient and a dev
+                                    // will need to specify the wasm hash
+                                    // manually until this todo is complete.
                                     if keep && e.key == ScVal::LedgerKeyContractInstance {
                                         if let ScVal::ContractInstance(ScContractInstance {
                                             executable: ContractExecutable::Wasm(Hash(hash)),
