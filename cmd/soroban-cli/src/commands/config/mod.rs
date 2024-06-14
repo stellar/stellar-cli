@@ -15,6 +15,7 @@ use self::{network::Network, secret::Secret};
 
 use super::{keys, network};
 
+pub mod alias;
 pub mod data;
 pub mod locator;
 pub mod secret;

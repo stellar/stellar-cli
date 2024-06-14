@@ -22,13 +22,12 @@ use soroban_env_host::{
 };
 
 use soroban_spec::read::FromWasmError;
-use stellar_strkey::DecodeError;
 
 use super::super::{
     config::{self, locator},
     events,
 };
-use super::AliasData;
+use crate::commands::config::alias;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
@@ -95,8 +94,6 @@ pub enum Error {
         filepath: std::path::PathBuf,
         error: events::Error,
     },
-    #[error("cannot parse contract ID {0}: {1}")]
-    CannotParseContractId(String, DecodeError),
     #[error("function {0} was not found in the contract")]
     FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
@@ -150,12 +147,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
-    #[error("unable to read alias file")]
-    UnableToReadAliasFile,
-    #[error("alias file not found")]
-    NoAliasFileFound,
     #[error(transparent)]
-    JsonDeserialization(#[from] serde_json::Error),
+    Alias(#[from] alias::Error),
 }
 
 impl From<Infallible> for Error {
@@ -307,42 +300,6 @@ impl Cmd {
     }
 }
 
-impl Cmd {
-    fn contract_id(&self) -> Result<[u8; 32], Error> {
-        let contract_id: String = match self.load_contract_id() {
-            Ok(Some(id)) => id.to_string(),
-            _ => self.contract_id.clone(),
-        };
-
-        soroban_spec_tools::utils::contract_id_from_str(&contract_id)
-            .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
-    }
-
-    fn alias_path(&self) -> Result<PathBuf, Error> {
-        let config_dir = self.config.config_dir()?;
-        let file_name = format!("{}.json", self.contract_id);
-
-        Ok(config_dir.join("contract-ids").join(file_name))
-    }
-
-    fn load_contract_id(&self) -> Result<Option<String>, Error> {
-        let network = &self.config.get_network()?.network_passphrase;
-        let file_path = self.alias_path()?;
-
-        if !file_path.exists() {
-            return Ok(None);
-        }
-
-        let content = fs::read_to_string(file_path)?;
-        let data: AliasData = serde_json::from_str(&content)?;
-
-        match data.ids.get(network) {
-            Some(id) => Ok(Some(id.into())),
-            _ => Ok(None),
-        }
-    }
-}
-
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
@@ -356,7 +313,9 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = self.contract_id()?;
+        let contract_id = self
+            .config
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
