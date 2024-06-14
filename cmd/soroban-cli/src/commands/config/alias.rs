@@ -32,7 +32,7 @@ pub enum Error {
 }
 
 impl Args {
-    pub fn load(&self, alias: &str) -> Result<Option<Data>, Error> {
+    fn load(&self, alias: &str) -> Result<Option<Data>, Error> {
         let path = self.alias_path(alias)?;
 
         if !path.exists() {
@@ -51,11 +51,7 @@ impl Args {
         Ok(config_dir.join("contract-ids").join(file_name))
     }
 
-    pub fn save_contract_id(&self, contract_id: &str, alias: Option<&String>) -> Result<(), Error> {
-        let Some(alias) = alias else {
-            return Ok(());
-        };
-
+    pub fn save_contract_id(&self, contract_id: &str, alias: &str) -> Result<(), Error> {
         let path = self.alias_path(alias)?;
         let dir = path.parent().ok_or(Error::CannotAccessConfigDir)?;
 

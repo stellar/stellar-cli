@@ -120,8 +120,9 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
-                self.config
-                    .save_contract_id(&contract, self.alias.as_ref())?;
+                if let Some(alias) = self.alias.clone() {
+                    self.config.save_contract_id(&contract, &alias)?;
+                }
 
                 println!("{contract}");
             }
