@@ -98,6 +98,7 @@ pub enum Error {
 const CHECKPOINT_FREQUENCY: u32 = 64;
 
 impl Cmd {
+    #[allow(clippy::too-many-lines)]
     pub async fn run(&self) -> Result<(), Error> {
         let archive_url = self.network.get(&self.locator)?.archive_url()?.to_string();
 
