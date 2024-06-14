@@ -43,13 +43,29 @@ impl Speculos {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Args;
+#[derive(Debug, Clone)]
+pub struct Args {
+    pub ledger_device_model: String,
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            ledger_device_model: "nanos".to_string(),
+        }
+    }
+}
 
 impl ImageArgs for Args {
     fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
-        let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s {TEST_SEED_PHRASE} -m nanos {container_elf_path}");
+        let device_model = self.ledger_device_model.clone();
+        let container_elf_path = match device_model.as_str() {
+            "nanos" => format!("{DEFAULT_APP_PATH}/stellarNanoSApp.elf"),
+            "nanosp" => format!("{DEFAULT_APP_PATH}/stellarNanoSPApp.elf"),
+            "nanox" => format!("{DEFAULT_APP_PATH}/stellarNanoXApp.elf"),
+            _ => panic!("Unsupported device model"),
+        };
+        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s {TEST_SEED_PHRASE} -m {device_model}  {container_elf_path}");
         Box::new(vec![command_string].into_iter())
     }
 }
