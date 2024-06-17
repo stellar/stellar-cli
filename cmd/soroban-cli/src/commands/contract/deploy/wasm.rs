@@ -1,9 +1,6 @@
+use std::array::TryFromSliceError;
 use std::fmt::Debug;
-use std::fs::{self, create_dir_all};
-use std::io::Write;
 use std::num::ParseIntError;
-use std::path::PathBuf;
-use std::{array::TryFromSliceError, fs::OpenOptions};
 
 use clap::{arg, command, Parser};
 use rand::Rng;
@@ -18,9 +15,8 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::commands::contract::AliasData;
 use crate::commands::{
-    config::data,
+    config::{alias, data},
     contract::{self, id::wasm::get_contract_id},
     global, network,
     txn_result::{TxnEnvelopeResult, TxnResult},
@@ -108,16 +104,12 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[error("cannot access config dir for alias file")]
-    CannotAccessConfigDir,
     #[error(
         "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
     )]
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
-    JsonSerialization(#[from] serde_json::Error),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
+    Alias(#[from] alias::Error),
 }
 
 impl Cmd {
@@ -128,7 +120,10 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
-                self.save_contract_id(&contract)?;
+                if let Some(alias) = self.alias.clone() {
+                    self.config.save_contract_id(&contract, &alias)?;
+                }
+
                 println!("{contract}");
             }
         }
@@ -148,42 +143,6 @@ impl Cmd {
             }
             None => Ok(()),
         }
-    }
-
-    fn alias_path_for(&self, alias: &str) -> Result<PathBuf, Error> {
-        let config_dir = self.config.config_dir()?;
-        let file_name = format!("{alias}.json");
-
-        Ok(config_dir.join("contract-ids").join(file_name))
-    }
-
-    fn save_contract_id(&self, contract: &String) -> Result<(), Error> {
-        let Some(alias) = &self.alias else {
-            return Ok(());
-        };
-
-        let file_path = self.alias_path_for(alias)?;
-        let dir = file_path.parent().ok_or(Error::CannotAccessConfigDir)?;
-
-        create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
-
-        let content = fs::read_to_string(&file_path).unwrap_or_default();
-        let mut data: AliasData = serde_json::from_str(&content).unwrap_or_default();
-
-        let mut to_file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(file_path)?;
-
-        data.ids.insert(
-            self.config.get_network()?.network_passphrase,
-            contract.into(),
-        );
-
-        let content = serde_json::to_string(&data)?;
-
-        Ok(to_file.write_all(content.as_bytes())?)
     }
 }
 
@@ -260,13 +219,13 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        let txn = client.create_assembled_transaction(&txn).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let txn = client.simulate_and_assemble_transaction(&txn).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn.transaction().clone()));
+            return Ok(TxnResult::Txn(txn));
         }
         let get_txn_resp = client
-            .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
+            .send_transaction_polling(&config.sign_with_local_key(txn).await?)
             .await?
             .try_into()?;
         if global_args.map_or(true, |a| !a.no_cache) {

@@ -32,7 +32,6 @@ home = "0.5.9"
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.11", features = ["json"] }
 soroban-rpc.workspace = true
-testcontainers = { git = "https://github.com/testcontainers/testcontainers-rs.git", rev = "4b3e4f08a2c0bdf521636b03f959f004e6d216aa" }
 phf = { version = "0.11.2", features = ["macros"] }
 futures = "0.3.30"
 async-trait = { workspace = true }
@@ -50,6 +49,7 @@ pretty_assertions = "1.2.1"
 serial_test = "3.0.0"
 httpmock = "0.7.0-rc.1"
 test-case = "*"
+testcontainers = { git = "https://github.com/testcontainers/testcontainers-rs.git", rev = "4b3e4f08a2c0bdf521636b03f959f004e6d216aa" }
 
 
 [features]
