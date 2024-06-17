@@ -1,0 +1,113 @@
+name: Publish Dry Run v2
+
+on:
+  workflow_call:
+    inputs:
+      crates:
+        description: 'Space separated list of crate names in the order to be published.'
+        required: true
+        type: string
+      runs-on:
+        required: false
+        default: 'ubuntu-latest'
+        type: string
+      target:
+        required: false
+        default: 'x86_64-unknown-linux-gnu'
+        type: string
+      cargo-hack-feature-options:
+        required: false
+        default: '--feature-powerset'
+        type: string
+
+jobs:
+
+  publish-dry-run:
+    runs-on: ${{ inputs.runs-on }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_BUILD_TARGET: ${{ inputs.target }}
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      RUST_BACKTRACE: 1
+    steps:
+    - uses: actions/checkout@v4
+
+    - run: df -h
+    - run: |
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo rm -rf /opt/hostedtoolcache
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo docker image prune --all --force
+    - run: df -h
+
+    - uses: stellar/actions/rust-cache@main
+
+    - run: rustup update
+    - run: rustup target add ${{ inputs.target }}
+
+    - name: Install add'l compilers (Linux arm64 only)
+      if: inputs.target == 'aarch64-unknown-linux-gnu'
+      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+    # macOS comes with an old version of `make` that causes issues when building
+    # some projects
+    - name: Update GNU Make (macOS only)
+      if: inputs.target == 'x86_64-apple-darwin' || inputs.target == 'aarch64-apple-darwin'
+      run: |
+        brew update && brew install make
+        echo "$(brew --prefix)/opt/make/libexec/gnubin/" >> $GITHUB_PATH
+
+    - uses: stellar/binaries@v21
+      with:
+        name: cargo-hack
+        version: 0.5.28
+
+    # Vendor all the dependencies into the vendor/ folder. Temporarily remove
+    # [patch.crates-io] entries in the workspace Cargo.toml that reference git
+    # repos. These will be removed when published.
+    - name: Vendor Dependencies
+      run: |
+        cp Cargo.toml Cargo.toml.bak
+        sed -r '/(git|rev) ?=/d' Cargo.toml.bak > Cargo.toml
+        cargo vendor --versioned-dirs
+        rm Cargo.toml
+        mv Cargo.toml.bak Cargo.toml
+
+    # Package the crates that will be published. Verification is disabled
+    # because we aren't ready to verify yet. Add each crate that was packaged to
+    # the vendor/ directory.
+    - name: Package Crates ${{ inputs.crates }}
+      run: |
+        for name in ${{ inputs.crates }}
+        do
+          version=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name=="'$name'") | .version')
+          cargo package \
+            --no-verify \
+            --package $name \
+            --config "source.crates-io.replace-with = 'vendored-sources'" \
+            --config "source.vendored-sources.directory = 'vendor'"
+          path="target/package/${name}-${version}.crate"
+          tar xvfz "$path" -C vendor/
+          # Crates in the vendor directory require a checksum file, but it doesn't
+          # matter if it is empty.
+          echo '{"files":{}}' > vendor/$name-$version/.cargo-checksum.json
+        done
+
+    # Rerun the package command but with verification enabled this time. Tell
+    # cargo to use the local vendor/ directory as the source for all packages. Run
+    # the package command on the full feature powerset so that all features of
+    # each crate are verified to compile.
+    - name: Verify Crates with ${{ inputs.cargo-hack-feature-options }}
+      run: >
+        cargo-hack hack
+        ${{ inputs.cargo-hack-feature-options }}
+        --ignore-private
+        --config "source.crates-io.replace-with = 'vendored-sources'"
+        --config "source.vendored-sources.directory = 'vendor'"
+        package
+        --target ${{ inputs.target }}
