@@ -28,6 +28,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    ContractSpec(#[from] contract_spec::Error),
 }
 
 ///
@@ -60,13 +62,15 @@ pub async fn get_remote_contract_spec(
     // Get the contract spec entries based on the executable type
     Ok(match executable {
         ContractExecutable::Wasm(hash) => {
-            let hash = hash.to_string();
-            if let Ok(entries) = data::read_spec(&hash) {
+            let hash_str = hash.to_string();
+            if let Ok(entries) = data::read_spec(&hash_str) {
                 entries
             } else {
-                let res = client.get_remote_contract_spec(contract_id).await?;
+                let raw_wasm = client.get_remote_wasm_from_hash(hash).await?;
+                let res = contract_spec::Spec::new(&raw_wasm)?;
+                let res = res.spec;
                 if global_args.map_or(true, |a| !a.no_cache) {
-                    data::write_spec(&hash, &res)?;
+                    data::write_spec(&hash_str, &res)?;
                 }
                 res
             }

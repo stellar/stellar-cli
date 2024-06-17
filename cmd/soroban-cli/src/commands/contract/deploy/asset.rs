@@ -118,13 +118,13 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let txn = client.create_assembled_transaction(&tx).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let txn = client.simulate_and_assemble_transaction(&tx).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn.transaction().clone()));
+            return Ok(TxnResult::Txn(txn));
         }
         let get_txn_resp = client
-            .send_assembled_transaction(txn, &key, &[], network_passphrase, None, None)
+            .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
             .await?
             .try_into()?;
         if args.map_or(true, |a| !a.no_cache) {
