@@ -15,15 +15,11 @@ use stellar_xdr::curr::{
 };
 
 pub use crate::signer::Blob;
+pub mod hd_path;
 pub use ledger_transport::Exchange;
 
 mod emulator_http_transport;
 mod signer;
-mod speculos;
-
-#[cfg(all(test, feature = "emulator-tests"))]
-mod emulator_tests;
-pub mod hd_path;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
@@ -306,16 +302,23 @@ fn get_transport() -> Result<TransportNativeHID, Error> {
 
 pub const TEST_NETWORK_PASSPHRASE: &[u8] = b"Test SDF Network ; September 2015";
 #[cfg(test)]
-fn test_network_hash() -> Hash {
+pub fn test_network_hash() -> Hash {
     use sha2::Digest;
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
+
 #[cfg(test)]
 mod test {
+    mod test_helpers {
+        pub mod test {
+            include!("../tests/utils/mod.rs");
+        }
+    }
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use crate::{emulator_http_transport::EmulatorHttpTransport, Blob};
+    use crate::Blob;
+    use test_helpers::test::emulator_http_transport::EmulatorHttpTransport;
 
     use soroban_env_host::xdr::Transaction;
     use std::vec;

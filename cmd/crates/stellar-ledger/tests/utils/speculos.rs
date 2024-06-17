@@ -3,6 +3,8 @@ use testcontainers::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "docker.io/zondax/builder-zemu";
 const TAG: &str = "speculos-3a3439f6b45eca7f56395673caaf434c202e7005";
+const TEST_SEED_PHRASE: &str =
+    "\"other base behind follow wet put glad muscle unlock sell income october\"";
 
 #[allow(dead_code)]
 static ENV: &Map = &Map(phf::phf_map! {
@@ -28,7 +30,10 @@ impl Speculos {
     #[allow(dead_code)]
     pub fn new() -> Self {
         #[allow(unused_mut)]
-        let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("apps");
+        let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("test_fixtures")
+            .join("apps");
         let mut volumes = HashMap::new();
         volumes.insert(
             apps_dir.to_str().unwrap().to_string(),
@@ -38,13 +43,29 @@ impl Speculos {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Args;
+#[derive(Debug, Clone)]
+pub struct Args {
+    pub ledger_device_model: String,
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            ledger_device_model: "nanos".to_string(),
+        }
+    }
+}
 
 impl ImageArgs for Args {
     fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
-        let container_elf_path = format!("{DEFAULT_APP_PATH}/stellarNanosApp.elf");
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s \"other base behind follow wet put glad muscle unlock sell income october\" -m nanos {container_elf_path}");
+        let device_model = self.ledger_device_model.clone();
+        let container_elf_path = match device_model.as_str() {
+            "nanos" => format!("{DEFAULT_APP_PATH}/stellarNanoSApp.elf"),
+            "nanosp" => format!("{DEFAULT_APP_PATH}/stellarNanoSPApp.elf"),
+            "nanox" => format!("{DEFAULT_APP_PATH}/stellarNanoXApp.elf"),
+            _ => panic!("Unsupported device model"),
+        };
+        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s {TEST_SEED_PHRASE} -m {device_model}  {container_elf_path}");
         Box::new(vec![command_string].into_iter())
     }
 }

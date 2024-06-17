@@ -14,9 +14,11 @@ use stellar_ledger::{Exchange, LedgerSigner};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("Contract addresses are not supported to sign auth entries {address}")]
+    ContractAddressAreNotSupported { address: String },
     #[error(transparent)]
-    Xdr(#[from] xdr::Error),
-    #[error("Error signing transaction {address}")]
+    Ed25519(#[from] ed25519_dalek::SignatureError),
+    #[error("Missing signing key for account {address}")]
     MissingSignerForAddress { address: String },
     #[error(transparent)]
     Ledger(#[from] stellar_ledger::Error),

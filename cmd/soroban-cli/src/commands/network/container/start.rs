@@ -7,7 +7,7 @@ use bollard::{
 };
 use futures_util::TryStreamExt;
 
-use crate::commands::network::shared::{
+use crate::commands::network::container::shared::{
     connect_to_docker, Error as ConnectionError, Network, DOCKER_HOST_HELP,
 };
 
@@ -114,6 +114,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
             String::new()
         }
     );
+
     println!("{stop_message}");
     Ok(())
 }
@@ -121,7 +122,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
     [
         format!("--{}", cmd.network),
-        "--enable-soroban-rpc".to_string(),
+        "--enable rpc,horizon".to_string(),
         get_protocol_version_arg(cmd),
         get_limits_arg(cmd),
     ]
@@ -134,16 +135,14 @@ fn get_container_args(cmd: &Cmd) -> Vec<String> {
 fn get_image_name(cmd: &Cmd) -> String {
     // this can be overriden with the `-t` flag
     let mut image_tag = match cmd.network {
-        Network::Testnet => "testing",
+        Network::Pubnet => "latest",
         Network::Futurenet => "future",
-        _ => "latest", // default to latest for local and pubnet
+        _ => "testing", // default to testing for local and testnet
     };
 
-    if cmd.image_tag_override.is_some() {
-        let override_tag = cmd.image_tag_override.as_ref().unwrap();
-        println!("Overriding docker image tag to use '{override_tag}' instead of '{image_tag}'");
-
-        image_tag = override_tag;
+    if let Some(image_override) = &cmd.image_tag_override {
+        println!("Overriding docker image tag to use '{image_override}' instead of '{image_tag}'");
+        image_tag = image_override;
     }
 
     format!("{DOCKER_IMAGE}:{image_tag}")
