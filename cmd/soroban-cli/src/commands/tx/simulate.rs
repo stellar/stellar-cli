@@ -47,7 +47,7 @@ impl Cmd {
         tx: &Transaction,
         client: &crate::rpc::Client,
     ) -> Result<Assembled, Error> {
-        Ok(client.create_assembled_transaction(tx).await?)
+        Ok(client.simulate_and_assemble_transaction(tx).await?)
     }
 }
 
