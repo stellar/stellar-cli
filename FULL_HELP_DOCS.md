@@ -100,7 +100,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
-* `cache` — Cache for tranasctions and contract specs
+* `cache` — Cache for transactions and contract specs
 
 ###### **Options:**
 
@@ -1426,7 +1426,7 @@ Print version information
 
 ## `stellar cache`
 
-Cache for tranasctions and contract specs
+Cache for transactions and contract specs
 
 **Usage:** `stellar cache <COMMAND>`
 
