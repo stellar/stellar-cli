@@ -640,7 +640,7 @@ Invoke a contract function
 
 Generates an "implicit CLI" for the specified contract on-the-fly using the contract's schema, which gets embedded into every Soroban contract. The "slop" in this command, everything after the `--`, gets passed to this implicit CLI. Get in-depth help for a given contract:
 
-soroban contract invoke ... -- --help
+stellar contract invoke ... -- --help
 
 **Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
@@ -1287,7 +1287,7 @@ Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-soroban network start <NETWORK> [OPTIONS]
+stellar network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
@@ -1372,7 +1372,7 @@ Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-soroban network start <NETWORK> [OPTIONS]
+stellar network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
