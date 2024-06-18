@@ -190,14 +190,14 @@ Utilities to deploy a Stellar Asset Contract or get its id
 
 ###### **Subcommands:**
 
-* `id` — Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+* `id` — Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 * `deploy` — Deploy builtin Soroban Asset Contract
 
 
 
 ## `stellar contract asset id`
 
-Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 
 **Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
@@ -1211,8 +1211,8 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — ⚠️ Deprecated: use `soroban container start` instead
-* `stop` — ⚠️ Deprecated: use `soroban container stop` instead
+* `start` — ⚠️ Deprecated: use `stellar container start` instead
+* `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `container` — Commands to start, stop and get logs for a quickstart container
 
 
@@ -1281,7 +1281,7 @@ List networks
 
 ## `stellar network start`
 
-⚠️ Deprecated: use `soroban container start` instead
+⚠️ Deprecated: use `stellar container start` instead
 
 Start network
 
@@ -1314,9 +1314,9 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network stop`
 
-⚠️ Deprecated: use `soroban container stop` instead
+⚠️ Deprecated: use `stellar container stop` instead
 
-Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
+Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
 **Usage:** `stellar network stop [OPTIONS] <NETWORK>`
 

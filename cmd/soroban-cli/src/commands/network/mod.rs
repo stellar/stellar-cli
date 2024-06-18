@@ -27,7 +27,7 @@ pub enum Cmd {
     Rm(rm::Cmd),
     /// List networks
     Ls(ls::Cmd),
-    /// ⚠️ Deprecated: use `soroban container start` instead
+    /// ⚠️ Deprecated: use `stellar container start` instead
     ///
     /// Start network
     ///
@@ -38,9 +38,9 @@ pub enum Cmd {
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
     /// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
     Start(container::StartCmd),
-    /// ⚠️ Deprecated: use `soroban container stop` instead
+    /// ⚠️ Deprecated: use `stellar container stop` instead
     ///
-    /// Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
+    /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
     Stop(container::StopCmd),
 
     /// Commands to start, stop and get logs for a quickstart container
