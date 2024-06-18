@@ -14,20 +14,20 @@ jobs:
   complete:
     if: always()
     needs: [fmt, build-and-test, publish-dry-run]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores
     steps:
     - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
       run: exit 1
 
   fmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores
     steps:
     - uses: actions/checkout@v3
     - run: rustup update
     - run: cargo fmt --all --check
 
   check-generated-examples-list:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores
     steps:
     - uses: actions/checkout@v4
     - run: make generate-examples-list
@@ -40,9 +40,9 @@ jobs:
       matrix:
         rust: [msrv, latest]
         include:
-        - os: ubuntu-latest
+        - os: ubuntu-latest-16-cores
           target: x86_64-unknown-linux-gnu
-        - os: ubuntu-latest
+        - os: ubuntu-latest-16-cores
           target: aarch64-unknown-linux-gnu
         - os: macos-latest
           target: x86_64-apple-darwin
@@ -88,10 +88,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - os: ubuntu-latest
+        - os: ubuntu-latest-16-cores
           target: x86_64-unknown-linux-gnu
           cargo-hack-feature-options: --feature-powerset
-        - os: ubuntu-latest
+        - os: ubuntu-latest-16-cores
           target: aarch64-unknown-linux-gnu
           cargo-hack-feature-options: --feature-powerset
         - os: macos-latest
