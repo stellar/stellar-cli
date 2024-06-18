@@ -126,3 +126,4 @@ jobs:
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
       cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options }}
+      additional-deb-packages: ${{ matrix.additional-deb-packages }}
