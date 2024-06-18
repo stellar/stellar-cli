@@ -4660,7 +4660,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -4814,7 +4814,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
@@ -4884,7 +4884,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-json"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "pretty_assertions",
  "serde",
@@ -4914,7 +4914,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "base64 0.21.7",
  "ethnum",
@@ -4933,7 +4933,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "base64 0.21.7",
  "heck 0.4.1",
@@ -4954,7 +4954,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -5026,14 +5026,14 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stellar-cli"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "soroban-cli",
 ]
 
 [[package]]
 name = "stellar-ledger"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "async-trait",
  "bollard",
@@ -5338,35 +5338,35 @@ dependencies = [
 
 [[package]]
 name = "test_custom_account"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_types"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_swap"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_token"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5374,7 +5374,7 @@ dependencies = [
 
 [[package]]
 name = "test_udt"
-version = "21.0.0-rc.1"
+version = "21.0.0"
 dependencies = [
  "soroban-sdk",
 ]
