@@ -134,7 +134,7 @@ pub enum Cmd {
     Network(network::Cmd),
     /// Print version information
     Version(version::Cmd),
-    /// Cache for tranasctions and contract specs
+    /// Cache for transactions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
 }
