@@ -139,7 +139,7 @@ pub enum Cmd {
     /// Sign, Simulate, and Send transactions
     #[command(subcommand)]
     Tx(tx::Cmd),
-    /// Cache for tranasctions and contract specs
+    /// Cache for transactions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
 }
