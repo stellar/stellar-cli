@@ -45,7 +45,8 @@ pub async fn main() {
     if let Some(level) = root.global_args.log_level() {
         let mut e_filter = EnvFilter::from_default_env()
             .add_directive("hyper=off".parse().unwrap())
-            .add_directive(format!("stellar_cli={level}").parse().unwrap());
+            .add_directive(format!("stellar_cli={level}").parse().unwrap())
+            .add_directive(format!("soroban_cli={level}").parse().unwrap());
 
         for filter in &root.global_args.filter_logs {
             e_filter = e_filter.add_directive(
