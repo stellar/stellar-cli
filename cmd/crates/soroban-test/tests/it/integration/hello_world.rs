@@ -147,6 +147,7 @@ fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
         .arg("--is-view")
         .arg("--id")
         .arg(id)
+        .arg("--yes")
         .arg("--")
         .arg("hello")
         .arg("--world=world")
@@ -175,6 +176,7 @@ fn invoke_auth(sandbox: &TestEnv, id: &str, addr: &str) {
         .arg("invoke")
         .arg("--id")
         .arg(id)
+        .arg("--yes")
         .arg("--")
         .arg("auth")
         .arg("--addr=test")
@@ -189,6 +191,7 @@ fn invoke_auth(sandbox: &TestEnv, id: &str, addr: &str) {
         .arg("invoke")
         .arg("--id")
         .arg(id)
+        .arg("--yes")
         .arg("--")
         .arg("auth")
         .arg("--addr=test")
@@ -206,6 +209,7 @@ fn invoke_auth_with_identity(sandbox: &TestEnv, id: &str, key: &str, addr: &str)
         .arg(key)
         .arg("--id")
         .arg(id)
+        .arg("--yes")
         .arg("--")
         .arg("auth")
         .arg("--addr")
@@ -279,6 +283,7 @@ async fn contract_data_read() {
         .arg("invoke")
         .arg("--id")
         .arg(id)
+        .arg("--yes")
         .arg("--")
         .arg("inc")
         .assert()
@@ -331,7 +336,7 @@ async fn invoke_with_id(sandbox: &TestEnv, id: &str) {
 
 async fn invoke_with_source(sandbox: &TestEnv, source: &str, id: &str) {
     let cmd = sandbox
-        .invoke_with(&["--id", id, "--", "hello", "--world=world"], source)
+        .invoke_with(&["--id", id, "--yes", "--", "hello", "--world=world"], source)
         .await
         .unwrap();
     assert_eq!(cmd, "[\"Hello\",\"world\"]");
@@ -365,6 +370,7 @@ async fn invoke_prng_u64_in_range_test(sandbox: &TestEnv, id: &str) {
         .invoke_with_test(&[
             "--id",
             id,
+            "--yes",
             "--",
             "prng_u64_in_range",
             "--low=0",
