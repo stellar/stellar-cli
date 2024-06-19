@@ -84,7 +84,7 @@ unsafe impl<T> Send for LedgerSigner<T> where T: Exchange {}
 unsafe impl<T> Sync for LedgerSigner<T> where T: Exchange {}
 
 /// Returns a new `LedgerSigner` with a native HID transport, e.i. the transport is connected to the Ledger device
-/// 
+///
 /// # Errors
 /// Returns an error if there is an issue with connecting with the device
 pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
