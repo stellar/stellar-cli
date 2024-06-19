@@ -10,7 +10,7 @@ use std::{
 
 use crate::{utils::find_config_dir, Pwd};
 
-use super::{network::Network, secret::Secret};
+use super::{network::Network, secret::Signer};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -139,7 +139,7 @@ impl Args {
         )
     }
 
-    pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
+    pub fn write_identity(&self, name: &str, secret: &Signer) -> Result<(), Error> {
         KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 
@@ -192,8 +192,17 @@ impl Args {
             })
             .collect::<Vec<_>>())
     }
-    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
+
+    pub fn read_identity(&self, name: &str) -> Result<Signer, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
+    }
+
+    pub fn account(&self, account_str: &str) -> Result<Signer, Error> {
+        if let Ok(secret) = self.read_identity(account_str) {
+            Ok(secret)
+        } else {
+            Ok(account_str.parse::<Signer>()?)
+        }
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {

@@ -1,18 +1,15 @@
 use std::path::PathBuf;
 
 use clap::{arg, command};
+use secret::StellarSigner;
 use serde::{Deserialize, Serialize};
+use stellar_strkey::ed25519::PublicKey;
 
-use soroban_rpc::Client;
-use stellar_strkey::Strkey;
+use crate::signer;
+use crate::xdr::{Transaction, TransactionEnvelope};
+use crate::{signer::Stellar, Pwd};
 
-use crate::xdr::{MuxedAccount, SequenceNumber, Transaction, TransactionEnvelope, Uint256};
-use crate::{
-    signer::{LocalKey, Stellar},
-    Pwd,
-};
-
-use self::{network::Network, secret::Secret};
+use self::network::Network;
 
 use super::{keys, network};
 
@@ -33,6 +30,8 @@ pub enum Error {
     Config(#[from] locator::Error),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -51,46 +50,54 @@ pub struct Args {
 
     #[command(flatten)]
     pub locator: locator::Args,
+
+    /// Confirm that a signature can be signed by the given keypair automatically.
+    #[arg(long, short = 'y')]
+    pub yes: bool,
 }
 
 impl Args {
+    pub fn signer(&self) -> Result<StellarSigner, Error> {
+        Ok(self
+            .locator
+            .account(&self.source_account)?
+            .signer(self.hd_path, !self.yes)?)
+    }
+
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = self.account(&self.source_account)?;
+        let key = self.locator.account(&self.source_account)?;
         Ok(key.key_pair(self.hd_path)?)
     }
 
+    pub async fn public_key(&self) -> Result<PublicKey, Error> {
+        Ok(self.signer()?.get_public_key().await?)
+    }
 
-    pub async fn sign_with_local_key(
-        &self,
-        tx: Transaction,
-    ) -> Result<TransactionEnvelope, Error> {
-        let signer = LocalKey::new(self.key_pair()?, false);
+    pub async fn sign_with_local_key(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+        let signer = self.signer()?;
         self.sign(&signer, tx).await
     }
 
     pub async fn sign(
         &self,
         signer: &impl Stellar,
-        mut tx: Transaction,
+        tx: Transaction,
     ) -> Result<TransactionEnvelope, Error> {
-        let key = signer.get_public_key().await.unwrap();
-        let account = Strkey::PublicKeyEd25519(key);
-        let network = self.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
-        tx.seq_num = SequenceNumber(client.get_account(&account.to_string()).await?.seq_num.0 + 1);
-        tx.source_account = MuxedAccount::Ed25519(Uint256(key.0));
-        Ok(signer
-            .sign_txn(tx, &network.network_passphrase)
-            .await
-            .unwrap())
+        let Network {
+            network_passphrase, ..
+        } = &self.get_network()?;
+        Ok(signer.sign_txn(tx, network_passphrase).await?)
     }
 
-    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
-        if let Ok(secret) = self.locator.read_identity(account_str) {
-            Ok(secret)
-        } else {
-            Ok(account_str.parse::<Secret>()?)
-        }
+    pub async fn sign_soroban_authorizations(
+        &self,
+        signer: &impl Stellar,
+        tx: &Transaction,
+    ) -> Result<Option<Transaction>, Error> {
+        let network = self.get_network()?;
+        Ok(signer
+            .sign_soroban_authorizations(tx, &network.network_passphrase)
+            .await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {

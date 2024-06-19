@@ -2,7 +2,7 @@ use ed25519_dalek::ed25519::signature::Signer;
 use sha2::{Digest, Sha256};
 use termion::{event::Key, get_tty, input::TermRead};
 
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
@@ -22,6 +22,8 @@ pub enum Error {
     MissingSignerForAddress { address: String },
     #[error(transparent)]
     Ledger(#[from] stellar_ledger::Error),
+    #[error(transparent)]
+    Xdr(#[from] xdr::Error),
     #[error("User cancelled signing, perhaps need to add -y")]
     UserCancelledSigning,
 }
@@ -72,7 +74,6 @@ pub trait Stellar {
     async fn sign_soroban_authorization_entry(
         &self,
         unsigned_entry: &SorobanAuthorizationEntry,
-        signature_expiration_ledger: u32,
         network_passphrase: &str,
     ) -> Result<SorobanAuthorizationEntry, Error> {
         let address = self.get_public_key().await?;
@@ -85,13 +86,17 @@ pub trait Stellar {
             // Doesn't need special signing
             return Ok(auth);
         };
-        let SorobanAddressCredentials { nonce, .. } = credentials;
+        let SorobanAddressCredentials {
+            nonce,
+            signature_expiration_ledger,
+            ..
+        } = credentials;
 
         let preimage = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
             network_id: hash(network_passphrase),
             invocation: auth.root_invocation.clone(),
             nonce: *nonce,
-            signature_expiration_ledger,
+            signature_expiration_ledger: *signature_expiration_ledger,
         })
         .to_xdr(Limits::none())?;
 
@@ -109,7 +114,6 @@ pub trait Stellar {
             ),
         ])?;
         credentials.signature = ScVal::Vec(Some(vec![ScVal::Map(Some(map))].try_into()?));
-        credentials.signature_expiration_ledger = signature_expiration_ledger;
         auth.credentials = SorobanCredentials::Address(credentials.clone());
 
         Ok(auth)
@@ -142,7 +146,6 @@ pub trait Stellar {
     async fn sign_soroban_authorizations(
         &self,
         raw: &Transaction,
-        signature_expiration_ledger: u32,
         network_passphrase: &str,
     ) -> Result<Option<Transaction>, Error> {
         let mut tx = raw.clone();
@@ -161,11 +164,7 @@ pub trait Stellar {
         let mut auths = body.auth.to_vec();
         for auth in &mut auths {
             *auth = self
-                .maybe_sign_soroban_authorization_entry(
-                    auth,
-                    signature_expiration_ledger,
-                    network_passphrase,
-                )
+                .maybe_sign_soroban_authorization_entry(auth, network_passphrase)
                 .await?;
         }
         body.auth = auths.try_into()?;
@@ -179,7 +178,6 @@ pub trait Stellar {
     async fn maybe_sign_soroban_authorization_entry(
         &self,
         unsigned_entry: &SorobanAuthorizationEntry,
-        signature_expiration_ledger: u32,
         network_passphrase: &str,
     ) -> Result<SorobanAuthorizationEntry, Error> {
         if let SorobanAuthorizationEntry {
@@ -205,12 +203,8 @@ pub trait Stellar {
             if needle == self.get_public_key().await? {
                 return Ok(unsigned_entry.clone());
             }
-            self.sign_soroban_authorization_entry(
-                unsigned_entry,
-                signature_expiration_ledger,
-                network_passphrase,
-            )
-            .await
+            self.sign_soroban_authorization_entry(unsigned_entry, network_passphrase)
+                .await
         } else {
             Ok(unsigned_entry.clone())
         }
@@ -237,7 +231,9 @@ impl Stellar for LocalKey {
         if self.prompt {
             eprintln!("Press 'y' or 'Y' for yes, any other key for no:");
             match read_key() {
-                'y' | 'Y' => (),
+                'y' | 'Y' => {
+                    eprintln!("Signing now...");
+                }
                 _ => return Err(Error::UserCancelledSigning),
             };
         }

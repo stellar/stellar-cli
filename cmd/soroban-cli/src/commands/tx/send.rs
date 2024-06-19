@@ -48,6 +48,6 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         let client = crate::rpc::Client::new(&network.rpc_url)?;
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
-        Ok(client.send_transaction(&tx_env).await?)
+        Ok(client.send_transaction_polling(&tx_env).await?)
     }
 }

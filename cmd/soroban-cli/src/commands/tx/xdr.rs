@@ -35,7 +35,7 @@ pub fn stdin_to_string() -> Result<String, Error> {
 }
 
 pub fn stdin_one_line() -> Result<String, Error> {
-    let mut buf: [u8;1] = [0];
+    let mut buf: [u8; 1] = [0];
     stdin().read_exact(&mut buf)?;
     Ok(String::from_utf8(buf.to_vec()).unwrap())
 }

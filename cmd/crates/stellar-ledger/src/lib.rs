@@ -18,7 +18,6 @@ pub use crate::signer::Blob;
 pub mod hd_path;
 pub use ledger_transport::Exchange;
 
-mod emulator_http_transport;
 mod signer;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
@@ -84,6 +83,10 @@ pub struct LedgerSigner<T: Exchange> {
 unsafe impl<T> Send for LedgerSigner<T> where T: Exchange {}
 unsafe impl<T> Sync for LedgerSigner<T> where T: Exchange {}
 
+/// Returns a new `LedgerSigner` with a native HID transport, e.i. the transport is connected to the Ledger device
+/// 
+/// # Errors
+/// Returns an error if there is an issue with connecting with the device
 pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
     Ok(LedgerSigner {
         transport: get_transport()?,
@@ -145,7 +148,7 @@ where
         };
         let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none())?;
 
-        let mut hd_path_to_bytes = hd_path.into().to_vec()?;
+        let mut hd_path_to_bytes = hd_path.into().to_vec();
 
         let capacity = 1 + hd_path_to_bytes.len() + signature_payload_as_bytes.len();
         let mut data: Vec<u8> = Vec::with_capacity(capacity);
@@ -186,6 +189,8 @@ where
     }
 
     /// The `display_and_confirm` bool determines if the Ledger will display the public key on its screen and requires user approval to share
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or getting the public key from the device
     pub async fn get_public_key_with_display_flag(
         &self,
         hd_path: impl Into<HdPath>,
@@ -195,7 +200,7 @@ where
         // the first element of the data should be the number of elements in the path
         let hd_path = hd_path.into();
         let hd_path_elements_count = hd_path.depth();
-        let mut hd_path_to_bytes = hd_path.to_vec()?;
+        let mut hd_path_to_bytes = hd_path.to_vec();
         hd_path_to_bytes.insert(0, hd_path_elements_count);
 
         let p2 = if display_and_confirm {
@@ -246,8 +251,11 @@ where
         }
     }
 
+    /// Sign a blob of data with the account on the Ledger device
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device
     pub async fn sign_data(&self, index: &HdPath, blob: &[u8]) -> Result<Vec<u8>, Error> {
-        let mut hd_path_to_bytes = index.to_vec()?;
+        let mut hd_path_to_bytes = index.to_vec();
 
         let capacity = 1 + hd_path_to_bytes.len() + blob.len();
         let mut data: Vec<u8> = Vec::with_capacity(capacity);
