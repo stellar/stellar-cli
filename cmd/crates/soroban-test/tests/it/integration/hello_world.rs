@@ -136,6 +136,7 @@ async fn invoke() {
     handles_kebab_case(sandbox, id).await;
     fetch(sandbox, id).await;
     invoke_prng_u64_in_range_test(sandbox, id).await;
+    invoke_log(sandbox, id).await;
 }
 
 fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
@@ -370,4 +371,26 @@ async fn invoke_prng_u64_in_range_test(sandbox: &TestEnv, id: &str) {
         ])
         .await
         .is_ok());
+}
+async fn invoke_log(sandbox: &TestEnv, id: &str) {
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("log")
+        .arg("--str=world")
+        .assert()
+        .success()
+        .stderr(predicates::str::contains(
+            "INFO soroban_cli::log::contract_event: 0: DiagnosticEvent {",
+        ))
+        .stderr(predicates::str::contains("StringM(hello)"))
+        .stderr(predicates::str::contains(
+            "INFO soroban_cli::log::log_event: 0: DiagnosticEvent",
+            ))
+        .stderr(predicates::str::contains("StringM(hello {})"))
+        .stderr(predicates::str::contains("StringM(world)"))
+        ;
 }
