@@ -73,6 +73,7 @@ wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
 ed25519-dalek = "=2.0.0"
+olaf = { git = "https://github.com/Fiono11/Olaf_ed25519", branch = "ed25519_dalek_2" }
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
 hyper = "0.14.27"
@@ -111,7 +112,7 @@ ureq = { version = "2.9.1", features = ["json"] }
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
-bollard = { workspace=true }
+bollard = { workspace = true }
 futures-util = "0.3.30"
 home = "0.5.9"
 # For hyper-tls

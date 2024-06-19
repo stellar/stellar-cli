@@ -11,6 +11,7 @@ pub mod events;
 pub mod global;
 pub mod keys;
 pub mod network;
+pub mod payment;
 pub mod plugin;
 pub mod version;
 
@@ -101,6 +102,7 @@ impl Root {
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
             Cmd::Cache(data) => data.run()?,
+            Cmd::Payment(payment) => payment.run().await?,
         };
         Ok(())
     }
@@ -137,6 +139,9 @@ pub enum Cmd {
     /// Cache for transactions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
+    /// Create a payment transaction
+    #[command(subcommand)]
+    Payment(payment::threshold_payment::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]

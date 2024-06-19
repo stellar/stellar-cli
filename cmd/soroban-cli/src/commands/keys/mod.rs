@@ -7,6 +7,7 @@ pub mod generate;
 pub mod ls;
 pub mod rm;
 pub mod show;
+pub mod threshold_account;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -18,6 +19,10 @@ pub enum Cmd {
     Fund(fund::Cmd),
     /// Generate a new identity with a seed phrase, currently 12 words
     Generate(generate::Cmd),
+    /// Round 1 of the SimplPedPoP protocol
+    GenerateThresholdRound1(threshold_account::generate_threshold_round1::Cmd),
+    /// Round 2 of the SimplPedPoP protocol
+    GenerateThresholdRound2(threshold_account::generate_threshold_round2::Cmd),
     /// List identities
     Ls(ls::Cmd),
     /// Remove an identity
@@ -33,11 +38,13 @@ pub enum Error {
 
     #[error(transparent)]
     Address(#[from] address::Error),
+
     #[error(transparent)]
     Fund(#[from] fund::Error),
 
     #[error(transparent)]
     Generate(#[from] generate::Error),
+
     #[error(transparent)]
     Rm(#[from] rm::Error),
     #[error(transparent)]
@@ -57,6 +64,8 @@ impl Cmd {
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Rm(cmd) => cmd.run()?,
             Cmd::Show(cmd) => cmd.run()?,
+            Cmd::GenerateThresholdRound1(cmd) => cmd.run()?,
+            Cmd::GenerateThresholdRound2(cmd) => cmd.run()?,
         };
         Ok(())
     }

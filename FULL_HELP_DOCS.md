@@ -34,9 +34,14 @@ This document contains the help content for the `stellar` command-line program.
 * [`stellar keys address`↴](#stellar-keys-address)
 * [`stellar keys fund`↴](#stellar-keys-fund)
 * [`stellar keys generate`↴](#stellar-keys-generate)
+* [`stellar keys generate_threshold_round1`↴](#stellar-keys-generate-threshold-round1)
+* [`stellar keys generate_threshold_round2`↴](#stellar-keys-generate-threshold-round2)
 * [`stellar keys ls`↴](#stellar-keys-ls)
 * [`stellar keys rm`↴](#stellar-keys-rm)
 * [`stellar keys show`↴](#stellar-keys-show)
+* [`stellar payment sign_threshold_round1`↴](#stellar-payment-sign-threshold-round1)
+* [`stellar payment sign_threshold_round2`↴](#stellar-payment-sign-threshold-round2)
+* [`stellar payment sign_aggregate`↴](#stellar-payment-sign-aggregate)
 * [`stellar xdr`↴](#stellar-xdr)
 * [`stellar xdr types`↴](#stellar-xdr-types)
 * [`stellar xdr types list`↴](#stellar-xdr-types-list)
@@ -974,27 +979,27 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
+## `stellar keys generate-threshold-round1`
 
+Round 1 to generate a threshold account
 
-## `stellar keys ls`
-
-List identities
-
-**Usage:** `stellar keys ls [OPTIONS]`
+**Usage:** `stellar keys generate-threshold-round1 [OPTIONS] --threshold <THRESHOLD> --files <FILES>`
 
 ###### **Options:**
 
-* `--global` — Use global config
+* `--threshold <THRESHOLD>` — The minimum number of shares to sign the threshold account
 
-  Possible values: `true`, `false`
+* `--files <FILES>` — The folder that contains the files for the execution of round 1
 
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-l`, `--long`
+## `stellar keys generate-threshold-round2`
 
-  Possible values: `true`, `false`
+Round 2 to generate a threshold account
 
+**Usage:** `stellar keys generate-threshold-round2 [OPTIONS] --files <FILES>`
 
+###### **Options:**
 
+* `--files <FILES>` — The folder that contains the files for the execution of round 2
 
 ## `stellar keys rm`
 
@@ -1070,8 +1075,12 @@ View information about types
 
 ###### **Subcommands:**
 
+<<<<<<< HEAD
+* `list` —
+=======
 * `list` — 
 * `schema` — 
+>>>>>>> main
 
 
 
@@ -1497,7 +1506,53 @@ Read cached action
 
 * `--id <ID>` — ID of the cache entry
 
+## `stellar payment sign-threshold-round1`
 
+Round 1 to partially sign a payment from a share of a threshold account
+
+**Usage:** `stellar payment sign-threshold-round1 [OPTIONS] --files <FILES>`
+
+###### **Options:**
+
+* `--files <FILES>` — The folder that contains the files for the execution of round 1
+
+## `stellar payment sign-threshold-round2`
+
+Round 2 to partially sign a payment from a share of a threshold account
+
+**Usage:** `stellar payment sign-threshold-round1 [OPTIONS] --destination <DESTINATION> --amount <AMOUNT> --asset <ASSET> --files <FILES>`
+
+###### **Options:**
+
+* `--destination <DESTINATION>` — Account that receives the payment
+
+* `--amount <AMOUNT>` — The amount of the payment
+
+* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+
+* `--network <NETWORK>` — Name of network to use from config
+
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+* `--files <FILES>` — The folder that contains the files for the execution of round 2
+
+## `stellar payment sign-threshold-aggregate`
+
+Aggregate the partial signatures of the shares to form a threshold signature of a threshold account
+
+**Usage:** `stellar payment sign-threshold-aggregate [OPTIONS] --files <FILES>`
+
+###### **Arguments:**
+
+* --files `<FILES>` — The folder that contains the files for the execution of the aggregation
 
 <hr/>
 
