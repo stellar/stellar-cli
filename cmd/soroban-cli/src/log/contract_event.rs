@@ -13,7 +13,7 @@ pub fn contract_events(events: &[impl std::fmt::Debug], level: tracing::Level) {
             tracing::Level::DEBUG => {
                 tracing::debug!("{i}: {event:#?}");
             }
-            _ => {}   
+            _ => {}
         }
     }
 }

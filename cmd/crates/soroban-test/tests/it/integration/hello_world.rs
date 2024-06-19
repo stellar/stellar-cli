@@ -389,8 +389,7 @@ async fn invoke_log(sandbox: &TestEnv, id: &str) {
         .stderr(predicates::str::contains("StringM(hello)"))
         .stderr(predicates::str::contains(
             "INFO soroban_cli::log::log_event: 0: DiagnosticEvent",
-            ))
+        ))
         .stderr(predicates::str::contains("StringM(hello {})"))
-        .stderr(predicates::str::contains("StringM(world)"))
-        ;
+        .stderr(predicates::str::contains("StringM(world)"));
 }
