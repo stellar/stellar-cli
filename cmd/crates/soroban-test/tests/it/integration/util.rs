@@ -52,7 +52,7 @@ pub async fn deploy_swap(sandbox: &TestEnv) -> String {
 }
 
 pub async fn deploy_custom_account(sandbox: &TestEnv) -> String {
-    deploy_contract(sandbox, CUSTOM_ACCOUNT).await
+    deploy_contract(sandbox, CUSTOM_ACCOUNT, DeployKind::Normal).await
 }
 
 pub async fn deploy_contract(

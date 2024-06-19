@@ -73,8 +73,8 @@ async fn invoke() {
         .stdout_as_str();
     let dir = sandbox.dir();
     let seed_phrase = std::fs::read_to_string(dir.join(".soroban/identity/test.toml")).unwrap();
-    let s = toml::from_str::<secret::Secret>(&seed_phrase).unwrap();
-    let secret::Secret::SeedPhrase { seed_phrase } = s else {
+    let s = toml::from_str::<secret::Signer>(&seed_phrase).unwrap();
+    let secret::Signer::SeedPhrase { seed_phrase } = s else {
         panic!("Expected seed phrase")
     };
     let id = &deploy_hello(sandbox).await;
@@ -106,7 +106,7 @@ async fn invoke() {
     config_locator
         .write_identity(
             "testone",
-            &secret::Secret::SecretKey {
+            &secret::Signer::SecretKey {
                 secret_key: secret_key_1.clone(),
             },
         )
