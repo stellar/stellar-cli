@@ -1001,6 +1001,23 @@ Round 2 to generate a threshold account
 
 * `--files <FILES>` — The folder that contains the files for the execution of round 2
 
+## `stellar keys ls`
+
+List identities
+
+**Usage:** `stellar keys ls [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-l`, `--long`
+
+  Possible values: `true`, `false`
+
 ## `stellar keys rm`
 
 Remove an identity
@@ -1078,8 +1095,8 @@ View information about types
 <<<<<<< HEAD
 * `list` —
 =======
-* `list` — 
-* `schema` — 
+* `list` —
+* `schema` —
 >>>>>>> main
 
 
