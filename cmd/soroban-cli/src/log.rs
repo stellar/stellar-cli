@@ -6,6 +6,7 @@ pub mod cost;
 pub mod diagnostic_event;
 pub mod footprint;
 pub mod host_event;
+#[allow(clippy::module_name_repetitions)]
 pub mod log_event;
 
 pub use auth::*;
@@ -46,7 +47,7 @@ fn is_log_event(event: &xdr::DiagnosticEvent) -> bool {
         xdr::ContractEventBody::V0(xdr::ContractEventV0 { topics, .. }) if topics.len() == 1 => {
             topics[0] == xdr::ScVal::Symbol(str_to_sc_string("log"))
         }
-        _ => false,
+        xdr::ContractEventBody::V0(_) => false,
     }
 }
 
