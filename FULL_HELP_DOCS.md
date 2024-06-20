@@ -103,7 +103,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `network` — Start and configure networks
 * `version` — Print version information
 * `tx` — Sign, Simulate, and Send transactions
-* `cache` — Cache for tranasctions and contract specs
+* `cache` — Cache for transactions and contract specs
 
 ###### **Options:**
 
