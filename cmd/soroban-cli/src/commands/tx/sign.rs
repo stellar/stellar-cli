@@ -1,8 +1,6 @@
-use std::io;
-
 use crate::xdr::{self, Limits, Transaction, TransactionEnvelope, WriteXdr};
 
-use crate::signer::{self, native, LocalKey};
+use crate::signer;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -13,36 +11,14 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] super::super::config::Error),
     #[error(transparent)]
-    StellarStrkey(#[from] stellar_strkey::DecodeError),
-    #[error(transparent)]
     Xdr(#[from] xdr::Error),
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    #[error(transparent)]
-    Ledger(#[from] stellar_ledger::Error),
-    #[error(transparent)]
-    Rpc(#[from] soroban_rpc::Error),
-    #[error("only transaction v1 is supported")]
-    TransactionV1Expected,
 }
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Confirm that a signature can be signed by the given keypair automatically.
-    #[arg(long, short = 'y')]
-    pub yes: bool,
     #[clap(flatten)]
     pub config: super::super::config::Args,
-    /// How to sign transaction
-    #[arg(long, value_enum, default_value = "file")]
-    pub signer: SignerType,
-}
-
-#[derive(clap::ValueEnum, Clone, Debug)]
-pub enum SignerType {
-    File,
-    Ledger,
 }
 
 impl Cmd {
@@ -55,23 +31,6 @@ impl Cmd {
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        match self.signer {
-            SignerType::File => Ok(self
-                .config
-                .sign(&LocalKey::new(self.config.key_pair()?, !self.yes), tx)
-                .await?),
-            SignerType::Ledger => self.sign_ledger(tx).await,
-        }
-    }
-
-    pub async fn sign_ledger(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let index: u32 = self
-            .config
-            .hd_path
-            .unwrap_or_default()
-            .try_into()
-            .expect("usize bigger than u32");
-        let signer = native(index)?;
-        Ok(self.config.sign(&signer, tx).await?)
+        Ok(self.config.sign_with_local_key(tx).await?)
     }
 }

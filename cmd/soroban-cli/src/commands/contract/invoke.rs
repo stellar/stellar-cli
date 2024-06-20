@@ -199,7 +199,7 @@ impl Cmd {
         let mut signers: Vec<StellarSigner> = vec![];
         let mut parsed_args: Vec<ScVal> = Vec::new();
         for i in func.inputs.iter() {
-            let (val, signer) = self.parse_arg(i, &matches_, config, &spec).await?;
+            let (val, signer) = self.parse_arg(i, matches_, config, &spec).await?;
             parsed_args.push(val);
             if let Some(signer) = signer {
                 signers.push(signer);

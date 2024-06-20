@@ -86,6 +86,7 @@ unsafe impl<T> Sync for LedgerSigner<T> where T: Exchange {}
 /// Returns a new `LedgerSigner` with a native HID transport, e.i. the transport is connected to the Ledger device
 ///
 /// # Errors
+///
 /// Returns an error if there is an issue with connecting with the device
 pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
     Ok(LedgerSigner {
@@ -100,11 +101,7 @@ where
     pub fn new(transport: T) -> Self {
         Self { transport }
     }
-    pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
-        Ok(LedgerSigner {
-            transport: get_transport()?,
-        })
-    }
+
     /// Get the device app's configuration
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or getting the config from the device
