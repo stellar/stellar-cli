@@ -1462,7 +1462,7 @@ Simulate a transaction envelope from stdin
 
 ## `stellar cache`
 
-Cache for tranasctions and contract specs
+Cache for transactions and contract specs
 
 **Usage:** `stellar cache <COMMAND>`
 
