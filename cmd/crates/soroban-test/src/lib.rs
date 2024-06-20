@@ -232,7 +232,7 @@ impl TestEnv {
                 config_dir,
             },
             hd_path: None,
-            check: true,
+            check: false,
         }
     }
 
