@@ -336,7 +336,10 @@ async fn invoke_with_id(sandbox: &TestEnv, id: &str) {
 
 async fn invoke_with_source(sandbox: &TestEnv, source: &str, id: &str) {
     let cmd = sandbox
-        .invoke_with(&["--id", id, "--yes", "--", "hello", "--world=world"], source)
+        .invoke_with(
+            &["--id", id, "--yes", "--", "hello", "--world=world"],
+            source,
+        )
         .await
         .unwrap();
     assert_eq!(cmd, "[\"Hello\",\"world\"]");
