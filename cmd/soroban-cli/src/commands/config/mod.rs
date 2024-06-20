@@ -51,9 +51,9 @@ pub struct Args {
     #[command(flatten)]
     pub locator: locator::Args,
 
-    /// Confirm that a signature can be signed by the given keypair automatically.
+    /// Check with user before signature
     #[arg(long, short = 'y')]
-    pub yes: bool,
+    pub check: bool,
 }
 
 impl Args {
@@ -61,7 +61,7 @@ impl Args {
         Ok(self
             .locator
             .account(&self.source_account)?
-            .signer(self.hd_path, !self.yes)?)
+            .signer(self.hd_path, self.check)?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {

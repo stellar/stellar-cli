@@ -244,7 +244,7 @@ impl Cmd {
                 if let Ok(signer_) = config
                     .locator
                     .read_identity(&s)
-                    .and_then(|signer| Ok(signer.signer(config.hd_path, config.yes)?))
+                    .and_then(|signer| Ok(signer.signer(config.hd_path, config.check)?))
                 {
                     s = signer_.get_public_key().await?.to_string();
                     signer = Some(signer_);

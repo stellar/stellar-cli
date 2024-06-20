@@ -12,7 +12,6 @@ fn invoke_custom(e: &TestEnv, id: &str, func: &str) -> assert_cmd::Command {
     s.arg("invoke")
         .arg("--id")
         .arg(id)
-        .arg("--yes")
         .arg("--")
         .arg(func);
     s

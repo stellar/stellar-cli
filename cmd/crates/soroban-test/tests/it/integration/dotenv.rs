@@ -18,7 +18,6 @@ async fn can_read_file() {
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
         .arg("invoke")
-        .arg("--yes")
         .arg("--")
         .arg("hello")
         .arg("--world=world")
@@ -38,7 +37,6 @@ async fn current_env_not_overwritten() {
             "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
         )
         .arg("invoke")
-        .arg("--yes")
         .arg("--")
         .arg("hello")
         .arg("--world=world")
@@ -62,7 +60,6 @@ async fn cli_args_have_priority() {
         .arg("invoke")
         .arg("--id")
         .arg(id)
-        .arg("--yes")
         .arg("--")
         .arg("hello")
         .arg("--world=world")

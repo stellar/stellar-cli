@@ -63,7 +63,6 @@ pub async fn deploy_contract(
     let cmd = sandbox.cmd_with_config::<_, commands::contract::deploy::wasm::Cmd>(&[
         "--fee",
         "1000000",
-        "--yes",
         "--wasm",
         &wasm.path().to_string_lossy(),
         "--salt",
@@ -94,7 +93,6 @@ pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
         id,
         "--durability",
         "persistent",
-        "--yes",
         "--ledgers-to-extend",
         "100000",
     ];
