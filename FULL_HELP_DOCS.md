@@ -105,7 +105,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `network` — Start and configure networks
 * `version` — Print version information
 * `tx` — Sign, Simulate, and Send transactions
-* `cache` — Cache for tranasctions and contract specs
+* `cache` — Cache for transactions and contract specs
 
 ###### **Options:**
 
@@ -219,6 +219,10 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id a
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -241,6 +245,10 @@ Deploy builtin Soroban Asset Contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -400,6 +408,10 @@ If no keys are specified the contract itself is extended.
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -440,6 +452,10 @@ Deploy a wasm contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -519,6 +535,10 @@ Deploy builtin Soroban Asset Contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -541,6 +561,10 @@ Deploy normal Wasm Contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -613,6 +637,10 @@ Install a WASM file to the ledger without creating a contract instance
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -670,6 +698,10 @@ soroban contract invoke ... -- --help
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -747,6 +779,10 @@ Print the current value of a contract-data ledger entry
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -790,6 +826,10 @@ If no keys are specificed the contract itself is restored.
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -1461,6 +1501,10 @@ Simulate a transaction envelope from stdin
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -1472,10 +1516,6 @@ Sign a transaction with a ledger or local key
 
 ###### **Options:**
 
-* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
-
-  Possible values: `true`, `false`
-
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -1486,11 +1526,9 @@ Sign a transaction with a ledger or local key
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--signer <SIGNER>` — How to sign transaction
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
 
-  Default value: `file`
-
-  Possible values: `file`, `ledger`
+  Possible values: `true`, `false`
 
 
 
@@ -1513,6 +1551,10 @@ Send a transaction envelope to the network
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `-y`, `--yes` — Confirm that a signature can be signed by the given keypair automatically
+
+  Possible values: `true`, `false`
+
 
 
 
