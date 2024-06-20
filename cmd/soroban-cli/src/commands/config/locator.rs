@@ -1,11 +1,7 @@
 use clap::arg;
 use serde::de::DeserializeOwned;
 use std::{
-    ffi::OsStr,
-    fmt::Display,
-    fs, io,
-    path::{Path, PathBuf},
-    str::FromStr,
+    ffi::OsStr, fmt::Display, fs, io, ops::Deref, path::{Path, PathBuf}, str::FromStr
 };
 
 use crate::{utils::find_config_dir, Pwd};
@@ -60,6 +56,10 @@ pub enum Error {
     String(#[from] std::string::FromUtf8Error),
     #[error(transparent)]
     Secret(#[from] crate::commands::config::secret::Error),
+    #[error("Incorrect Key name")]
+    IncorrectKeyName,
+    #[error("Cannot name a Key ledger")]
+    LedgerKeyName,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -90,6 +90,28 @@ impl Display for Location {
             },
             self.as_ref().parent().unwrap().parent().unwrap()
         )
+    }
+}
+
+pub struct KeyName(String);
+
+impl Deref for KeyName {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+
+}
+
+impl FromStr for KeyName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "ledger" {
+            return Err(Error::LedgerKeyName);
+        }
+        Ok(KeyName(s.to_string()))
     }
 }
 
@@ -139,7 +161,7 @@ impl Args {
         )
     }
 
-    pub fn write_identity(&self, name: &str, secret: &Signer) -> Result<(), Error> {
+    pub fn write_identity(&self, name: &KeyName, secret: &Signer) -> Result<(), Error> {
         KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 

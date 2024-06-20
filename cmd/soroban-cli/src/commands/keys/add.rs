@@ -28,6 +28,6 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         Ok(self
             .config_locator
-            .write_identity(&self.name, &self.secrets.read_secret()?)?)
+            .write_identity(&self.name.parse()?, &self.secrets.read_secret()?)?)
     }
 }
