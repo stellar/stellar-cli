@@ -50,3 +50,4 @@ For upcoming features, please see the [project board](https://github.com/orgs/st
 Find issues to contribute to [here](https://github.com/stellar/stellar-cli/contribute) and review [CONTRIBUTING.md](/CONTRIBUTING.md).
 
 Developer Docs: https://developers.stellar.org/docs
+Developer Docs CLI Examples: https://developers.stellar.org/docs/smart-contracts/guides/cli
