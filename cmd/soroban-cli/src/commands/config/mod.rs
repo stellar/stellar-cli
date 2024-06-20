@@ -73,12 +73,12 @@ impl Args {
         Ok(self.signer()?.get_public_key().await?)
     }
 
-    pub async fn sign_with_local_key(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let signer = self.signer()?;
-        self.sign(&signer, tx).await
+        self.sign_with_signer(&signer, tx).await
     }
 
-    pub async fn sign(
+    pub async fn sign_with_signer(
         &self,
         signer: &impl Stellar,
         tx: Transaction,

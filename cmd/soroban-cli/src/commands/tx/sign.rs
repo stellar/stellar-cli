@@ -31,6 +31,6 @@ impl Cmd {
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        Ok(self.config.sign_with_local_key(tx).await?)
+        Ok(self.config.sign(tx).await?)
     }
 }
