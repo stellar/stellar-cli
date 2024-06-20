@@ -222,6 +222,7 @@ async fn invoke_auth_with_different_test_account_fail(sandbox: &TestEnv, id: &st
             "--hd-path=0",
             "--id",
             id,
+            "--fee=1000000",
             "--",
             "auth",
             &format!("--addr={addr}"),
