@@ -24,7 +24,7 @@ pub enum Error {
     Ledger(#[from] stellar_ledger::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
-    #[error("User cancelled signing, perhaps need to add -y")]
+    #[error("User cancelled signing, perhaps need to remove --check")]
     UserCancelledSigning,
 }
 
