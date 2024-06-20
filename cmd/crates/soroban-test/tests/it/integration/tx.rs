@@ -76,7 +76,6 @@ fn sign(sandbox: &TestEnv, tx_env: TransactionEnvelope) -> TransactionEnvelope {
             .new_assert_cmd("tx")
             .arg("sign")
             .arg("--source=test")
-            .arg("-y")
             .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap().as_bytes())
             .assert()
             .success()

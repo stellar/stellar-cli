@@ -51,8 +51,8 @@ pub struct Args {
     #[command(flatten)]
     pub locator: locator::Args,
 
-    /// Check with user before signature
-    #[arg(long, short = 'y')]
+    /// Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
+    #[arg(long)]
     pub check: bool,
 }
 

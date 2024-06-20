@@ -219,7 +219,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id a
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -245,7 +245,7 @@ Deploy builtin Soroban Asset Contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -408,7 +408,7 @@ If no keys are specified the contract itself is extended.
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -452,7 +452,7 @@ Deploy a wasm contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -535,7 +535,7 @@ Deploy builtin Soroban Asset Contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -561,7 +561,7 @@ Deploy normal Wasm Contract
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -637,7 +637,7 @@ Install a WASM file to the ledger without creating a contract instance
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -698,7 +698,7 @@ soroban contract invoke ... -- --help
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -779,7 +779,7 @@ Print the current value of a contract-data ledger entry
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -826,7 +826,7 @@ If no keys are specificed the contract itself is restored.
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -1501,7 +1501,7 @@ Simulate a transaction envelope from stdin
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -1526,7 +1526,7 @@ Sign a transaction with a ledger or local key
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
@@ -1551,7 +1551,7 @@ Send a transaction envelope to the network
   Possible values: `true`, `false`
 
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-y`, `--check` — Check with user before signature
+* `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
 
   Possible values: `true`, `false`
 
