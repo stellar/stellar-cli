@@ -7,13 +7,13 @@ Docs: https://developers.stellar.org
 ## Install
 
 ```
-cargo install --locked soroban-cli
+cargo install --locked stellar-cli
 ```
 
 To install with the `opt` feature, which includes a WASM optimization feature and wasm-opt built in:
 
 ```
-cargo install --locked soroban-cli --features opt
+cargo install --locked stellar-cli --features opt
 ```
 
 ## Usage
@@ -23,6 +23,6 @@ Can invoke a contract method as a subcommand with different arguments. Anything 
 ## Example
 
 ```
-soroban invoke --id <CONTRACT_ID> --wasm <WASMFILE> -- --help
-soroban invoke --id <CONTRACT_ID> --network futurenet -- --help
+stellar invoke --id <CONTRACT_ID> --wasm <WASMFILE> -- --help
+stellar invoke --id <CONTRACT_ID> --network futurenet -- --help
 ```

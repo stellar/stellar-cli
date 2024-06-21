@@ -72,11 +72,11 @@ This document contains the help content for the `stellar` command-line program.
 Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
 Stellar Docs: https://developers.stellar.org
-CLI Full Hep Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md
+CLI Full Help Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md
 
 The easiest way to get started is to generate a new identity:
 
-    stellar config identity generate alice
+    stellar keys generate alice
 
 You can use identities with the `--source` flag in other commands later.
 
@@ -195,14 +195,14 @@ Utilities to deploy a Stellar Asset Contract or get its id
 
 ###### **Subcommands:**
 
-* `id` — Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+* `id` — Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 * `deploy` — Deploy builtin Soroban Asset Contract
 
 
 
 ## `stellar contract asset id`
 
-Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 
 **Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
@@ -673,7 +673,7 @@ Invoke a contract function
 
 Generates an "implicit CLI" for the specified contract on-the-fly using the contract's schema, which gets embedded into every Soroban contract. The "slop" in this command, everything after the `--`, gets passed to this implicit CLI. Get in-depth help for a given contract:
 
-soroban contract invoke ... -- --help
+stellar contract invoke ... -- --help
 
 **Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
@@ -1256,8 +1256,8 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — ⚠️ Deprecated: use `soroban container start` instead
-* `stop` — ⚠️ Deprecated: use `soroban container stop` instead
+* `start` — ⚠️ Deprecated: use `stellar container start` instead
+* `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `container` — Commands to start, stop and get logs for a quickstart container
 
 
@@ -1326,13 +1326,13 @@ List networks
 
 ## `stellar network start`
 
-⚠️ Deprecated: use `soroban container start` instead
+⚠️ Deprecated: use `stellar container start` instead
 
 Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-soroban network start <NETWORK> [OPTIONS]
+stellar network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
@@ -1359,9 +1359,9 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network stop`
 
-⚠️ Deprecated: use `soroban container stop` instead
+⚠️ Deprecated: use `stellar container stop` instead
 
-Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
+Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
 **Usage:** `stellar network stop [OPTIONS] <NETWORK>`
 
@@ -1417,7 +1417,7 @@ Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-soroban network start <NETWORK> [OPTIONS]
+stellar network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 

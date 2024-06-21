@@ -57,7 +57,7 @@ pub enum Cmd {
     /// everything after the `--`, gets passed to this implicit CLI. Get in-depth help for a given
     /// contract:
     ///
-    ///     soroban contract invoke ... -- --help
+    ///     stellar contract invoke ... -- --help
     Invoke(invoke::Cmd),
 
     /// Optimize a WASM file

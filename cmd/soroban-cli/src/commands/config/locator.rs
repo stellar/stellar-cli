@@ -18,13 +18,9 @@ pub enum Error {
     NoConfigEnvVar,
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
-    #[error(
-        "Failed to read secret's file: {path}.\nProbably need to use `soroban config identity add`"
-    )]
+    #[error("Failed to read secret's file: {path}.\nProbably need to use `stellar keys add`")]
     SecretFileRead { path: PathBuf },
-    #[error(
-        "Failed to read network file: {path};\nProbably need to use `soroban config network add`"
-    )]
+    #[error("Failed to read network file: {path};\nProbably need to use `stellar network add`")]
     NetworkFileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
