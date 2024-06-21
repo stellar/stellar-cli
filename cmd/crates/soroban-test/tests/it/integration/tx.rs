@@ -11,14 +11,10 @@ async fn txn_simulate() {
     let sandbox = &TestEnv::new();
     let xdr_base64_build_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::BuildOnly).await;
     let xdr_base64_sim_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
-    println!("{xdr_base64_build_only}");
     let cmd = tx::simulate::Cmd::default();
     let tx_env =
         TransactionEnvelope::from_xdr_base64(&xdr_base64_build_only, Limits::none()).unwrap();
-    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = &tx_env else {
-        panic!("Only transaction v1 is supported")
-    };
-    let assembled = cmd.simulate(tx, &sandbox.client()).await.unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     let assembled_str = sandbox
         .new_assert_cmd("tx")
         .arg("simulate")
@@ -26,13 +22,9 @@ async fn txn_simulate() {
         .assert()
         .success()
         .stdout_as_str();
-    println!("{assembled_str}");
     assert_eq!(xdr_base64_sim_only, assembled_str);
-    let txn_env = TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx: assembled.transaction().clone(),
-        signatures: VecM::default(),
-    });
-
+    let assembled = cmd.simulate(tx, &sandbox.client()).await.unwrap();
+    let txn_env: TransactionEnvelope = assembled.transaction().clone().into();
     assert_eq!(
         txn_env.to_xdr_base64(Limits::none()).unwrap(),
         assembled_str

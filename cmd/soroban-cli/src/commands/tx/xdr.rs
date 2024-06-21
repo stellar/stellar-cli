@@ -31,9 +31,8 @@ pub fn from_stdin<T: ReadXdr>() -> Result<T, Error> {
     T::from_xdr_base64(buf.trim(), Limits::none()).map_err(|_| Error::StdinDecode)
 }
 
-pub fn unwrap_envelope_v1() -> Result<Transaction, Error> {
-    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_envelope_from_stdin()?
-    else {
+pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Error> {
+    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_env else {
         return Err(Error::OnlyTransactionV1Supported);
     };
     Ok(tx)
