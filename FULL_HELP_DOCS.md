@@ -56,6 +56,8 @@ This document contains the help content for the `stellar` command-line program.
 * [`stellar network container start`↴](#stellar-network-container-start)
 * [`stellar network container stop`↴](#stellar-network-container-stop)
 * [`stellar version`↴](#stellar-version)
+* [`stellar tx`↴](#stellar-tx)
+* [`stellar tx simulate`↴](#stellar-tx-simulate)
 * [`stellar cache`↴](#stellar-cache)
 * [`stellar cache clean`↴](#stellar-cache-clean)
 * [`stellar cache path`↴](#stellar-cache-path)
@@ -100,6 +102,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
+* `tx` — Sign, Simulate, and Send transactions
 * `cache` — Cache for transactions and contract specs
 
 ###### **Options:**
@@ -1421,6 +1424,39 @@ Stop a network started with `network container start`. For example, if you ran `
 Print version information
 
 **Usage:** `stellar version`
+
+
+
+## `stellar tx`
+
+Sign, Simulate, and Send transactions
+
+**Usage:** `stellar tx <COMMAND>`
+
+###### **Subcommands:**
+
+* `simulate` — Simulate a transaction envelope from stdin
+
+
+
+## `stellar tx simulate`
+
+Simulate a transaction envelope from stdin
+
+**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 

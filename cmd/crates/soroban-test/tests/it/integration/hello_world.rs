@@ -25,6 +25,7 @@ async fn invoke_view_with_non_existent_source_account() {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn invoke() {
     let sandbox = &TestEnv::new();
     let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
@@ -40,7 +41,8 @@ async fn invoke() {
         .arg("fund")
         .arg("test")
         .arg("--hd-path=1")
-        .assert();
+        .assert()
+        .success();
     let addr = sandbox
         .new_assert_cmd("keys")
         .arg("address")

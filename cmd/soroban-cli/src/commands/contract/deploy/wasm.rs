@@ -158,7 +158,7 @@ impl NetworkRunnable for Cmd {
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let hash = if self.fee.build_only {
+            let hash = if self.fee.build_only || self.fee.sim_only {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
                 install::Cmd {

@@ -60,3 +60,5 @@ pub async fn invoke_custom(
 }
 
 pub const DEFAULT_CONTRACT_ID: &str = "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z";
+#[allow(dead_code)]
+pub const LOCAL_NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
