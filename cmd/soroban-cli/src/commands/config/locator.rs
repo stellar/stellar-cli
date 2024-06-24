@@ -1,7 +1,12 @@
 use clap::arg;
 use serde::de::DeserializeOwned;
 use std::{
-    ffi::OsStr, fmt::Display, fs, io, ops::Deref, path::{Path, PathBuf}, str::FromStr
+    ffi::OsStr,
+    fmt::Display,
+    fs, io,
+    ops::Deref,
+    path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use crate::{utils::find_config_dir, Pwd};
@@ -97,7 +102,6 @@ impl Deref for KeyName {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
-
 }
 
 impl FromStr for KeyName {

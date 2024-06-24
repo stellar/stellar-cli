@@ -1,4 +1,4 @@
-use crate::xdr::{self, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM, WriteXdr};
+use crate::xdr::{self, TransactionEnvelope, WriteXdr};
 use async_trait::async_trait;
 use soroban_rpc::Assembled;
 
@@ -30,24 +30,9 @@ impl Cmd {
         let res = self
             .run_against_rpc_server(Some(global_args), Some(&self.config))
             .await?;
-        let tx = res.transaction().clone();
-        println!(
-            "{}",
-            TransactionEnvelope::Tx(TransactionV1Envelope {
-                tx,
-                signatures: VecM::default()
-            })
-            .to_xdr_base64(xdr::Limits::none())?
-        );
+        let tx_env: TransactionEnvelope = res.transaction().clone().into();
+        println!("{}", tx_env.to_xdr_base64(xdr::Limits::none())?);
         Ok(())
-    }
-
-    pub async fn simulate(
-        &self,
-        tx: &Transaction,
-        client: &crate::rpc::Client,
-    ) -> Result<Assembled, Error> {
-        Ok(client.simulate_and_assemble_transaction(tx).await?)
     }
 }
 
@@ -64,7 +49,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         let client = crate::rpc::Client::new(&network.rpc_url)?;
-        let tx = super::xdr::unwrap_envelope_v1_from_stdin()?;
-        self.simulate(&tx, &client).await
+        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
+        Ok(client.simulate_and_assemble_transaction(&tx).await?)
     }
 }

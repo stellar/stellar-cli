@@ -1,13 +1,9 @@
 use crate::xdr::{self, Limits, Transaction, TransactionEnvelope, WriteXdr};
 
-use crate::signer;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     XdrArgs(#[from] super::xdr::Error),
-    #[error(transparent)]
-    Signer(#[from] signer::Error),
     #[error(transparent)]
     Config(#[from] super::super::config::Error),
     #[error(transparent)]
@@ -24,13 +20,20 @@ pub struct Cmd {
 impl Cmd {
     #[allow(clippy::unused_async)]
     pub async fn run(&self) -> Result<(), Error> {
-        let txn = super::xdr::unwrap_envelope_v1_from_stdin()?;
-        let envelope = self.sign(txn).await?;
+        let txn_env = super::xdr::tx_envelope_from_stdin()?;
+        let envelope = self.sign_env(txn_env).await?;
         println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
         Ok(())
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         Ok(self.config.sign(tx).await?)
+    }
+
+    pub async fn sign_env(
+        &self,
+        tx_env: TransactionEnvelope,
+    ) -> Result<TransactionEnvelope, Error> {
+        self.sign(super::xdr::unwrap_envelope_v1(tx_env)?).await
     }
 }
