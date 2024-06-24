@@ -24,7 +24,7 @@ use crate::commands::network::{self, Network};
 use crate::commands::{global, NetworkRunnable};
 use crate::{
     rpc::{self, Client},
-    utils, Pwd,
+    Pwd,
 };
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -124,8 +124,10 @@ impl Cmd {
     }
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
-        utils::contract_id_from_str(&self.contract_id)
-            .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))
+        let network = self.network()?;
+        self.locator
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)
+            .map_err(Error::from)
     }
 }
 
