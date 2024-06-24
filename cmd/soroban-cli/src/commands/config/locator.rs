@@ -13,7 +13,7 @@ use stellar_strkey::DecodeError;
 
 use crate::{utils::find_config_dir, Pwd};
 
-use super::{alias, network::Network, secret::Secret};
+use super::{alias, network::Network, secret::SignerKind};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -65,6 +65,10 @@ pub enum Error {
     CannotAccessConfigDir,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
+    #[error("Incorrect Key name")]
+    IncorrectKeyName,
+    #[error("Cannot name a Key ledger")]
+    LedgerKeyName,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -95,6 +99,27 @@ impl Display for Location {
             },
             self.as_ref().parent().unwrap().parent().unwrap()
         )
+    }
+}
+
+pub struct KeyName(String);
+
+impl std::ops::Deref for KeyName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FromStr for KeyName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "ledger" {
+            return Err(Error::LedgerKeyName);
+        }
+        Ok(KeyName(s.to_string()))
     }
 }
 
@@ -144,7 +169,7 @@ impl Args {
         )
     }
 
-    pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
+    pub fn write_identity(&self, name: &KeyName, secret: &SignerKind) -> Result<(), Error> {
         KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 
@@ -197,8 +222,17 @@ impl Args {
             })
             .collect::<Vec<_>>())
     }
-    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
+
+    pub fn read_identity(&self, name: &str) -> Result<SignerKind, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
+    }
+
+    pub fn account(&self, account_str: &str) -> Result<SignerKind, Error> {
+        if let Ok(secret) = self.read_identity(account_str) {
+            Ok(secret)
+        } else {
+            Ok(account_str.parse::<SignerKind>()?)
+        }
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
