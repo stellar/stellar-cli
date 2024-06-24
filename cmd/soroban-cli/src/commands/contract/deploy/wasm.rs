@@ -301,4 +301,34 @@ mod tests {
 
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_alias_validator_with_valid_inputs() {
+        let valid_inputs = [
+            "hello",
+            "123",
+            "hello123",
+            "hello_123",
+            "123_hello",
+            "123-hello",
+            "hello-123",
+            "HeLlo-123",
+        ];
+
+        for input in valid_inputs {
+            let result = alias_validator(input);
+            assert!(result.is_ok());
+            assert!(result.unwrap() == input);
+        }
+    }
+
+    #[test]
+    fn test_alias_validator_with_invalid_inputs() {
+        let invalid_inputs = ["", "invalid!", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
+
+        for input in invalid_inputs {
+            let result = alias_validator(input);
+            assert!(result.is_err());
+        }
+    }
 }
