@@ -16,7 +16,7 @@ use soroban_env_host::{
 };
 
 use crate::commands::{
-    config::{alias, data},
+    config::{data, locator},
     contract::{self, id::wasm::get_contract_id},
     global, network,
     txn_result::{TxnEnvelopeResult, TxnResult},
@@ -109,7 +109,7 @@ pub enum Error {
     )]
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
-    Alias(#[from] alias::Error),
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -120,8 +120,14 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
+                let network = self.config.get_network()?;
+
                 if let Some(alias) = self.alias.clone() {
-                    self.config.save_contract_id(&contract, &alias)?;
+                    self.config.locator.save_contract_id(
+                        &network.network_passphrase,
+                        &contract,
+                        &alias,
+                    )?;
                 }
 
                 println!("{contract}");
@@ -158,7 +164,7 @@ impl NetworkRunnable for Cmd {
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let hash = if self.fee.build_only {
+            let hash = if self.fee.build_only || self.fee.sim_only {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
                 install::Cmd {

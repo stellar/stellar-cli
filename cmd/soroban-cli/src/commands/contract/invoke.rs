@@ -27,7 +27,6 @@ use super::super::{
     config::{self, locator},
     events,
 };
-use crate::commands::config::alias;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
@@ -147,8 +146,6 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
-    #[error(transparent)]
-    Alias(#[from] alias::Error),
 }
 
 impl From<Infallible> for Error {
@@ -315,6 +312,7 @@ impl NetworkRunnable for Cmd {
         tracing::trace!(?network);
         let contract_id = self
             .config
+            .locator
             .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {

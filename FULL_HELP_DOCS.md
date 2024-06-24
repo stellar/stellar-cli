@@ -56,6 +56,8 @@ This document contains the help content for the `stellar` command-line program.
 * [`stellar network container start`↴](#stellar-network-container-start)
 * [`stellar network container stop`↴](#stellar-network-container-stop)
 * [`stellar version`↴](#stellar-version)
+* [`stellar tx`↴](#stellar-tx)
+* [`stellar tx simulate`↴](#stellar-tx-simulate)
 * [`stellar cache`↴](#stellar-cache)
 * [`stellar cache clean`↴](#stellar-cache-clean)
 * [`stellar cache path`↴](#stellar-cache-path)
@@ -68,11 +70,11 @@ This document contains the help content for the `stellar` command-line program.
 Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
 Stellar Docs: https://developers.stellar.org
-CLI Full Hep Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md
+CLI Full Help Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md
 
 The easiest way to get started is to generate a new identity:
 
-    stellar config identity generate alice
+    stellar keys generate alice
 
 You can use identities with the `--source` flag in other commands later.
 
@@ -100,6 +102,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
 * `version` — Print version information
+* `tx` — Sign, Simulate, and Send transactions
 * `cache` — Cache for transactions and contract specs
 
 ###### **Options:**
@@ -190,14 +193,14 @@ Utilities to deploy a Stellar Asset Contract or get its id
 
 ###### **Subcommands:**
 
-* `id` — Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+* `id` — Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 * `deploy` — Deploy builtin Soroban Asset Contract
 
 
 
 ## `stellar contract asset id`
 
-Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 
 **Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
 
@@ -207,7 +210,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id a
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -229,7 +232,7 @@ Deploy builtin Soroban Asset Contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -388,7 +391,7 @@ If no keys are specified the contract itself is extended.
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -428,7 +431,7 @@ Deploy a wasm contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -507,7 +510,7 @@ Deploy builtin Soroban Asset Contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -529,7 +532,7 @@ Deploy normal Wasm Contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -601,7 +604,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -640,7 +643,7 @@ Invoke a contract function
 
 Generates an "implicit CLI" for the specified contract on-the-fly using the contract's schema, which gets embedded into every Soroban contract. The "slop" in this command, everything after the `--`, gets passed to this implicit CLI. Get in-depth help for a given contract:
 
-soroban contract invoke ... -- --help
+stellar contract invoke ... -- --help
 
 **Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
@@ -658,7 +661,7 @@ soroban contract invoke ... -- --help
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -735,7 +738,7 @@ Print the current value of a contract-data ledger entry
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -778,7 +781,7 @@ If no keys are specificed the contract itself is restored.
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 
@@ -1211,8 +1214,8 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — ⚠️ Deprecated: use `soroban container start` instead
-* `stop` — ⚠️ Deprecated: use `soroban container stop` instead
+* `start` — ⚠️ Deprecated: use `stellar container start` instead
+* `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `container` — Commands to start, stop and get logs for a quickstart container
 
 
@@ -1281,13 +1284,13 @@ List networks
 
 ## `stellar network start`
 
-⚠️ Deprecated: use `soroban container start` instead
+⚠️ Deprecated: use `stellar container start` instead
 
 Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-soroban network start <NETWORK> [OPTIONS]
+stellar network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
@@ -1314,9 +1317,9 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network stop`
 
-⚠️ Deprecated: use `soroban container stop` instead
+⚠️ Deprecated: use `stellar container stop` instead
 
-Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
+Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
 **Usage:** `stellar network stop [OPTIONS] <NETWORK>`
 
@@ -1372,7 +1375,7 @@ Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-soroban network start <NETWORK> [OPTIONS]
+stellar network start <NETWORK> [OPTIONS]
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
 
@@ -1421,6 +1424,39 @@ Stop a network started with `network container start`. For example, if you ran `
 Print version information
 
 **Usage:** `stellar version`
+
+
+
+## `stellar tx`
+
+Sign, Simulate, and Send transactions
+
+**Usage:** `stellar tx <COMMAND>`
+
+###### **Subcommands:**
+
+* `simulate` — Simulate a transaction envelope from stdin
+
+
+
+## `stellar tx simulate`
+
+Simulate a transaction envelope from stdin
+
+**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+
+  Possible values: `true`, `false`
+
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
