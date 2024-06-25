@@ -125,9 +125,9 @@ impl Cmd {
 
     fn contract_id(&self) -> Result<[u8; 32], Error> {
         let network = self.network()?;
-        self.locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)
-            .map_err(Error::from)
+        Ok(self
+            .locator
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?)
     }
 }
 
