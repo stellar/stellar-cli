@@ -131,9 +131,9 @@ impl SignerKind {
 
     pub fn signer(&self, index: Option<usize>, prompt: bool) -> Result<StellarSigner, Error> {
         match self {
-            SignerKind::SecretKey { .. } | SignerKind::SeedPhrase { .. } => Ok(StellarSigner::Local(
-                LocalKey::new(self.key_pair(index)?, prompt),
-            )),
+            SignerKind::SecretKey { .. } | SignerKind::SeedPhrase { .. } => Ok(
+                StellarSigner::Local(LocalKey::new(self.key_pair(index)?, prompt)),
+            ),
             SignerKind::Ledger => {
                 let hd_path: u32 = index
                     .unwrap_or_default()

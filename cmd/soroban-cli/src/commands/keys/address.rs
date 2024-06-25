@@ -1,6 +1,9 @@
 use clap::arg;
 
-use super::super::config::{secret, locator::{self, KeyName}};
+use super::super::config::{
+    locator::{self, KeyName},
+    secret,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
