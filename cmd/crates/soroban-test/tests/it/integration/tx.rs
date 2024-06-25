@@ -1,6 +1,4 @@
-use soroban_sdk::xdr::{
-    Limits, ReadXdr, TransactionEnvelope, TransactionV1Envelope, VecM, WriteXdr,
-};
+use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
