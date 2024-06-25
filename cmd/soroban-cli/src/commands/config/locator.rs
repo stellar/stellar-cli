@@ -3,14 +3,17 @@ use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    fs, io,
+    fs::{self, create_dir_all, OpenOptions},
+    io,
+    io::Write,
     path::{Path, PathBuf},
     str::FromStr,
 };
+use stellar_strkey::DecodeError;
 
 use crate::{utils::find_config_dir, Pwd};
 
-use super::{network::Network, secret::Secret};
+use super::{alias, network::Network, secret::Secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,13 +25,9 @@ pub enum Error {
     NoConfigEnvVar,
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
-    #[error(
-        "Failed to read secret's file: {path}.\nProbably need to use `soroban config identity add`"
-    )]
+    #[error("Failed to read secret's file: {path}.\nProbably need to use `stellar keys add`")]
     SecretFileRead { path: PathBuf },
-    #[error(
-        "Failed to read network file: {path};\nProbably need to use `soroban config network add`"
-    )]
+    #[error("Failed to read network file: {path};\nProbably need to use `stellar network add`")]
     NetworkFileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
@@ -60,6 +59,12 @@ pub enum Error {
     String(#[from] std::string::FromUtf8Error),
     #[error(transparent)]
     Secret(#[from] crate::commands::config::secret::Error),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error("cannot access config dir for alias file")]
+    CannotAccessConfigDir,
+    #[error("cannot parse contract ID {0}: {1}")]
+    CannotParseContractId(String, DecodeError),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -214,6 +219,78 @@ impl Args {
 
     pub fn remove_network(&self, name: &str) -> Result<(), Error> {
         KeyType::Network.remove(name, &self.config_dir()?)
+    }
+
+    fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
+        let path = self.alias_path(alias)?;
+
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let content = fs::read_to_string(path)?;
+        let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+        Ok(Some(data))
+    }
+
+    fn alias_path(&self, alias: &str) -> Result<PathBuf, Error> {
+        let file_name = format!("{alias}.json");
+        let config_dir = self.config_dir()?;
+        Ok(config_dir.join("contract-ids").join(file_name))
+    }
+
+    pub fn save_contract_id(
+        &self,
+        network_passphrase: &str,
+        contract_id: &str,
+        alias: &str,
+    ) -> Result<(), Error> {
+        let path = self.alias_path(alias)?;
+        let dir = path.parent().ok_or(Error::CannotAccessConfigDir)?;
+
+        create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
+
+        let content = fs::read_to_string(&path).unwrap_or_default();
+        let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+        let mut to_file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(path)?;
+
+        data.ids
+            .insert(network_passphrase.into(), contract_id.into());
+
+        let content = serde_json::to_string(&data)?;
+
+        Ok(to_file.write_all(content.as_bytes())?)
+    }
+
+    pub fn get_contract_id(
+        &self,
+        alias: &str,
+        network_passphrase: &str,
+    ) -> Result<Option<String>, Error> {
+        let Some(alias_data) = self.load_contract_from_alias(alias)? else {
+            return Ok(None);
+        };
+
+        Ok(alias_data.ids.get(network_passphrase).cloned())
+    }
+
+    pub fn resolve_contract_id(
+        &self,
+        alias_or_contract_id: &str,
+        network_passphrase: &str,
+    ) -> Result<[u8; 32], Error> {
+        let contract_id = self
+            .get_contract_id(alias_or_contract_id, network_passphrase)?
+            .unwrap_or_else(|| alias_or_contract_id.to_string());
+
+        soroban_spec_tools::utils::contract_id_from_str(&contract_id)
+            .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
     }
 }
 

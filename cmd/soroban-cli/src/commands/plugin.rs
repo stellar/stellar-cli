@@ -7,14 +7,14 @@ use crate::{utils, Root};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Plugin not provided. Should be `soroban plugin` for a binary `soroban-plugin`")]
+    #[error("Plugin not provided. Should be `stellar plugin` for a binary `stellar-plugin`")]
     MissingSubcommand,
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(
         r#"error: no such command: `{0}`
         
-        {1}View all installed plugins with `soroban --list`"#
+        {1}View all installed plugins with `stellar --list`"#
     )]
     ExecutableNotFound(String, String),
     #[error(transparent)]
