@@ -56,7 +56,7 @@ pub struct Cmd {
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
     /// The alias that will be used to save the contract's id.
-    #[arg(long)]
+    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
     pub alias: Option<String>,
 }
 
@@ -114,8 +114,6 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        self.validate_alias()?;
-
         let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
@@ -135,20 +133,17 @@ impl Cmd {
         }
         Ok(())
     }
+}
 
-    fn validate_alias(&self) -> Result<(), Error> {
-        match self.alias.clone() {
-            Some(alias) => {
-                let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
+fn alias_validator(alias: &str) -> Result<String, Error> {
+    let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
 
-                if regex.is_match(&alias) {
-                    Ok(())
-                } else {
-                    Err(Error::InvalidAliasFormat { alias })
-                }
-            }
-            None => Ok(()),
-        }
+    if regex.is_match(alias) {
+        Ok(alias.into())
+    } else {
+        Err(Error::InvalidAliasFormat {
+            alias: alias.into(),
+        })
     }
 }
 
@@ -305,5 +300,35 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_alias_validator_with_valid_inputs() {
+        let valid_inputs = [
+            "hello",
+            "123",
+            "hello123",
+            "hello_123",
+            "123_hello",
+            "123-hello",
+            "hello-123",
+            "HeLlo-123",
+        ];
+
+        for input in valid_inputs {
+            let result = alias_validator(input);
+            assert!(result.is_ok());
+            assert!(result.unwrap() == input);
+        }
+    }
+
+    #[test]
+    fn test_alias_validator_with_invalid_inputs() {
+        let invalid_inputs = ["", "invalid!", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
+
+        for input in invalid_inputs {
+            let result = alias_validator(input);
+            assert!(result.is_err());
+        }
     }
 }
