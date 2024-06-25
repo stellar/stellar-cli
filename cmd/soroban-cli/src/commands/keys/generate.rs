@@ -1,6 +1,6 @@
 use clap::{arg, command};
 
-use crate::commands::network;
+use crate::commands::{config::locator::KeyName, network};
 
 use super::super::config::{
     locator,
@@ -21,7 +21,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity
-    pub name: String,
+    pub name: KeyName,
     /// Do not fund address
     #[arg(long)]
     pub no_fund: bool,
@@ -63,7 +63,7 @@ impl Cmd {
             seed_phrase
         };
         self.config_locator
-            .write_identity(&self.name.parse()?, &secret)?;
+            .write_identity(&self.name, &secret)?;
         if !self.no_fund {
             let addr = secret.public_key(self.hd_path).await?;
             let network = self.network.get(&self.config_locator)?;

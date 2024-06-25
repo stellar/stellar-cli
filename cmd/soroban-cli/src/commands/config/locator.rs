@@ -102,6 +102,7 @@ impl Display for Location {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct KeyName(String);
 
 impl std::ops::Deref for KeyName {
@@ -223,15 +224,15 @@ impl Args {
             .collect::<Vec<_>>())
     }
 
-    pub fn read_identity(&self, name: &str) -> Result<SignerKind, Error> {
+    pub fn read_identity(&self, name: &KeyName) -> Result<SignerKind, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
     pub fn account(&self, account_str: &str) -> Result<SignerKind, Error> {
-        if let Ok(secret) = self.read_identity(account_str) {
-            Ok(secret)
+        if let Ok(signer) = account_str.parse::<SignerKind>() {
+            Ok(signer)
         } else {
-            Ok(account_str.parse::<SignerKind>()?)
+            self.read_identity(&account_str.parse()?)
         }
     }
 
@@ -247,7 +248,7 @@ impl Args {
         res
     }
 
-    pub fn remove_identity(&self, name: &str) -> Result<(), Error> {
+    pub fn remove_identity(&self, name: &KeyName) -> Result<(), Error> {
         KeyType::Identity.remove(name, &self.config_dir()?)
     }
 
