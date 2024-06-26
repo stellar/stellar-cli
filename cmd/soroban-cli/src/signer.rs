@@ -1,6 +1,6 @@
+use crossterm::event::{read, Event, KeyCode};
 use ed25519_dalek::ed25519::signature::Signer;
 use sha2::{Digest, Sha256};
-use termion::{event::Key, get_tty, input::TermRead};
 
 use crate::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
@@ -246,13 +246,13 @@ impl Stellar for LocalKey {
 }
 
 pub fn read_key() -> char {
-    let tty = get_tty().unwrap();
-    if let Some(key) = tty.keys().next() {
-        match key.unwrap() {
-            Key::Char(c) => c,
-            _ => '_',
+    loop {
+        if let Event::Key(key) = read().unwrap() {
+            match key.code {
+                KeyCode::Char(c) => return c,
+                KeyCode::Esc => return '\x1b', // escape key
+                _ => (),
+            }
         }
-    } else {
-        ' '
     }
 }
