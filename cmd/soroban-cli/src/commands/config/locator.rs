@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use stellar_strkey::DecodeError;
+use stellar_strkey::{Contract, DecodeError};
 
 use crate::{utils::find_config_dir, Pwd};
 
@@ -319,13 +319,15 @@ impl Args {
         &self,
         alias_or_contract_id: &str,
         network_passphrase: &str,
-    ) -> Result<[u8; 32], Error> {
+    ) -> Result<Contract, Error> {
         let contract_id = self
             .get_contract_id(alias_or_contract_id, network_passphrase)?
             .unwrap_or_else(|| alias_or_contract_id.to_string());
 
-        soroban_spec_tools::utils::contract_id_from_str(&contract_id)
-            .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
+        Ok(Contract(
+            soroban_spec_tools::utils::contract_id_from_str(&contract_id)
+                .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))?,
+        ))
     }
 }
 

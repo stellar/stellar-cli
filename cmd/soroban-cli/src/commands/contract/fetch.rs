@@ -127,7 +127,8 @@ impl Cmd {
         let network = self.network()?;
         Ok(self
             .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?)
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
+            .0)
     }
 }
 
