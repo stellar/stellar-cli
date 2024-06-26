@@ -44,7 +44,7 @@ async fn txn_send() {
     let xdr_base64 = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
     println!("{xdr_base64}");
     let tx_env = TransactionEnvelope::from_xdr_base64(&xdr_base64, Limits::none()).unwrap();
-    let tx_env = sign(sandbox, tx_env);
+    let tx_env = sign(sandbox, &tx_env);
 
     println!(
         "Transaction to send:\n{}",
@@ -62,7 +62,7 @@ async fn txn_send() {
     println!("Transaction sent: {assembled_str}");
 }
 
-fn sign(sandbox: &TestEnv, tx_env: TransactionEnvelope) -> TransactionEnvelope {
+fn sign(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> TransactionEnvelope {
     TransactionEnvelope::from_xdr_base64(
         sandbox
             .new_assert_cmd("tx")
