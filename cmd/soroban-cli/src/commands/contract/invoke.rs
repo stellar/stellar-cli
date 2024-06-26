@@ -313,7 +313,8 @@ impl NetworkRunnable for Cmd {
         let contract_id = self
             .config
             .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
+            .0;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing

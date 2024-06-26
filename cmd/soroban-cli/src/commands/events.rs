@@ -232,7 +232,8 @@ impl NetworkRunnable for Cmd {
             .iter()
             .map(|id| {
                 self.locator
-                    .resolve_contract_id_as_string(id, &network.network_passphrase)
+                    .resolve_contract_id(id, &network.network_passphrase)
+                    .map(|contract| contract.to_string())
             })
             .collect::<Result<Vec<_>, _>>()?;
 

@@ -96,7 +96,8 @@ impl NetworkRunnable for Cmd {
 
             let contract_id = self
                 .locator
-                .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
+                .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
+                .0;
 
             get_remote_contract_spec(
                 &contract_id,
