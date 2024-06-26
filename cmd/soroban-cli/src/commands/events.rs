@@ -159,14 +159,6 @@ impl Cmd {
             }
         }
 
-        let network = self.network.get(&self.locator)?;
-
-        // Validate contract_ids
-        for id in &self.contract_ids {
-            self.locator
-                .resolve_contract_id(id, &network.network_passphrase)?;
-        }
-
         let response = self.run_against_rpc_server(None, None).await?;
 
         for event in &response.events {
