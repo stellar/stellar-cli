@@ -157,6 +157,7 @@ pub enum StellarSigner {
     Local(LocalKey),
 }
 
+#[async_trait::async_trait]
 impl Stellar for StellarSigner {
     async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, signer::Error> {
         match self {

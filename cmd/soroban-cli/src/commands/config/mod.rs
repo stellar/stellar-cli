@@ -80,7 +80,7 @@ impl Args {
 
     pub async fn sign_with_signer(
         &self,
-        signer: &impl Stellar,
+        signer: &(impl Stellar + std::marker::Sync),
         tx: Transaction,
     ) -> Result<TransactionEnvelope, Error> {
         let Network {
@@ -91,7 +91,7 @@ impl Args {
 
     pub async fn sign_soroban_authorizations(
         &self,
-        signer: &impl Stellar,
+        signer: &(impl Stellar + std::marker::Sync),
         tx: &Transaction,
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;

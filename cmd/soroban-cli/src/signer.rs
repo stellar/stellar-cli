@@ -41,7 +41,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 }
 
 /// A trait for signing Stellar transactions and Soroban authorization entries
-#[allow(async_fn_in_trait)]
+#[async_trait::async_trait]
 pub trait Stellar {
     async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error>;
 
@@ -223,6 +223,7 @@ impl LocalKey {
     }
 }
 
+#[async_trait::async_trait]
 impl Stellar for LocalKey {
     async fn sign_blob(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
         if self.prompt {
