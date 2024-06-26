@@ -223,13 +223,12 @@ impl NetworkRunnable for Cmd {
             .contract_ids
             .iter()
             .map(|id| {
-                Ok::<String, Error>(
-                    self.locator
-                        .resolve_contract_id(id, &network.network_passphrase)?
-                        .to_string(),
-                )
+                Ok(self
+                    .locator
+                    .resolve_contract_id(id, &network.network_passphrase)?
+                    .to_string())
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, Error>>()?;
 
         Ok(client
             .get_events(
