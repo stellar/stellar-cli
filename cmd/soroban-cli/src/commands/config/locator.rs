@@ -70,6 +70,8 @@ pub enum Error {
     CannotAccessConfigDir,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
+    #[error("cannot use \"ledger\" as a key name")]
+    LedgerKeyName,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -100,6 +102,47 @@ impl Display for Location {
             },
             self.as_ref()
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NewKeyName(KeyName);
+
+impl std::ops::Deref for NewKeyName {
+    type Target = KeyName;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FromStr for NewKeyName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "ledger" {
+            return Err(Error::LedgerKeyName);
+        }
+        Ok(NewKeyName(s.parse()?))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct KeyName(String);
+
+impl std::ops::Deref for KeyName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FromStr for KeyName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(KeyName(s.to_string()))
     }
 }
 
