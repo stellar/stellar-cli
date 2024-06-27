@@ -11,7 +11,7 @@ pub mod xdr;
 pub enum Cmd {
     /// Simulate a transaction envelope from stdin
     Simulate(simulate::Cmd),
-    /// Sign a transaction with a ledger or local key
+    /// Sign a transaction
     Sign(sign::Cmd),
     /// Send a transaction envelope to the network
     Send(send::Cmd),

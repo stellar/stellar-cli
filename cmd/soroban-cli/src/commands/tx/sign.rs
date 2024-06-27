@@ -1,11 +1,13 @@
 use crate::xdr::{self, Limits, Transaction, TransactionEnvelope, WriteXdr};
 
+use super::super::config;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     XdrArgs(#[from] super::xdr::Error),
     #[error(transparent)]
-    Config(#[from] super::super::config::Error),
+    Config(#[from] config::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
 }
@@ -14,7 +16,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     #[clap(flatten)]
-    pub config: super::super::config::Args,
+    pub config: config::Args,
 }
 
 impl Cmd {

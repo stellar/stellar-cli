@@ -1478,7 +1478,7 @@ Sign, Simulate, and Send transactions
 ###### **Subcommands:**
 
 * `simulate` — Simulate a transaction envelope from stdin
-* `sign` — Sign a transaction with a ledger or local key
+* `sign` — Sign a transaction
 * `send` — Send a transaction envelope to the network
 
 
@@ -1510,7 +1510,7 @@ Simulate a transaction envelope from stdin
 
 ## `stellar tx sign`
 
-Sign a transaction with a ledger or local key
+Sign a transaction
 
 **Usage:** `stellar tx sign [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
