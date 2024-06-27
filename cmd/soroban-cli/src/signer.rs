@@ -43,8 +43,10 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 /// A trait for signing Stellar transactions and Soroban authorization entries
 #[async_trait::async_trait]
 pub trait Stellar {
+    /// Currently only supports ed25519 keys
     async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error>;
 
+    /// Sign an abritatry byte array
     async fn sign_blob(&self, blob: &[u8]) -> Result<Vec<u8>, Error>;
 
     /// Sign a transaction hash with the given source account
@@ -118,6 +120,8 @@ pub trait Stellar {
 
     /// Sign a Stellar transaction with the given source account
     /// This is a default implementation that signs the transaction hash and returns a decorated signature
+    /// 
+    /// Todo: support signing the transaction directly.
     /// # Errors
     /// Returns an error if the source account is not found
     async fn sign_txn(
@@ -178,7 +182,7 @@ pub trait Stellar {
         network_passphrase: &str,
     ) -> Result<SorobanAuthorizationEntry, Error> {
         if let SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(SorobanAddressCredentials { ref address, .. }),
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials { address, .. }),
             ..
         } = unsigned_entry
         {
@@ -198,13 +202,12 @@ pub trait Stellar {
                 }
             };
             if needle == self.get_public_key().await? {
-                return Ok(unsigned_entry.clone());
+                return self
+                    .sign_soroban_authorization_entry(unsigned_entry, network_passphrase)
+                    .await;
             }
-            self.sign_soroban_authorization_entry(unsigned_entry, network_passphrase)
-                .await
-        } else {
-            Ok(unsigned_entry.clone())
         }
+        Ok(unsigned_entry.clone())
     }
 }
 
