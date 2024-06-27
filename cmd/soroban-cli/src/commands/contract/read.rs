@@ -13,7 +13,10 @@ use soroban_env_host::{
 };
 
 use crate::{
-    commands::{config, global, NetworkRunnable},
+    commands::{
+        config::{self, locator},
+        global, NetworkRunnable,
+    },
     key,
     rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
 };
@@ -86,6 +89,8 @@ pub enum Error {
     Key(#[from] key::Error),
     #[error("Only contract data and code keys are allowed")]
     OnlyDataAllowed,
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -173,6 +178,7 @@ impl Cmd {
 impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = FullLedgerEntries;
+
     async fn run_against_rpc_server(
         &self,
         _: Option<&global::Args>,
@@ -182,7 +188,11 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let client = Client::new(&network.rpc_url)?;
-        let keys = self.key.parse_keys()?;
+        let contract = config.locator.resolve_contract_id(
+            self.key.contract_id.as_ref().unwrap(),
+            &network.network_passphrase,
+        )?;
+        let keys = self.key.parse_keys(contract)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }

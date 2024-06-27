@@ -133,7 +133,11 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let entry_keys = self.key.parse_keys()?;
+        let contract = config.locator.resolve_contract_id(
+            self.key.contract_id.as_ref().unwrap(),
+            &network.network_passphrase,
+        )?;
+        let entry_keys = self.key.parse_keys(contract)?;
         let client = Client::new(&network.rpc_url)?;
         let key = config.key_pair()?;
 
