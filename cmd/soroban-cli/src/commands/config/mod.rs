@@ -100,9 +100,7 @@ impl Args {
         tx: &Transaction,
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        Ok(signer
-            .sign_soroban_authorizations(tx, &network)
-            .await?)
+        Ok(signer.sign_soroban_authorizations(tx, &network).await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {

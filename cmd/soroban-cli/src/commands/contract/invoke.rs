@@ -392,7 +392,10 @@ impl NetworkRunnable for Cmd {
             // let auth = auth_entries(&txn);
             // crate::log::auth(&[auth]);
             for signer in &signers {
-                if let Some(tx) = config.sign_soroban_authorizations_with_signer(signer, &txn).await? {
+                if let Some(tx) = config
+                    .sign_soroban_authorizations_with_signer(signer, &txn)
+                    .await?
+                {
                     txn = tx;
                 }
             }
