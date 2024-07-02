@@ -17,6 +17,8 @@ pub enum Error {
 pub struct Cmd {
     #[clap(flatten)]
     pub config: config::Args,
+    #[arg(long, visible_alias = "auth", short = 'a')]
+    pub auth_only: bool,
 }
 
 impl Cmd {
@@ -29,7 +31,16 @@ impl Cmd {
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        Ok(self.config.sign(tx).await?)
+        if self.auth_only {
+            Ok(self
+                .config
+                .sign_soroban_authorizations(&tx)
+                .await?
+                .unwrap_or(tx)
+                .into())
+        } else {
+            Ok(self.config.sign(tx).await?)
+        }
     }
 
     pub async fn sign_env(

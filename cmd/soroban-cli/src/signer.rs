@@ -2,13 +2,16 @@ use crossterm::event::{read, Event, KeyCode};
 use ed25519_dalek::ed25519::signature::Signer;
 use sha2::{Digest, Sha256};
 
-use crate::xdr::{
-    self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, Uint256, WriteXdr,
+use crate::{
+    commands::network::Network,
+    xdr::{
+        self, AccountId, DecoratedSignature, Hash, HashIdPreimage,
+        HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
+        PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature, SignatureHint,
+        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanCredentials, Transaction, TransactionEnvelope, TransactionSignaturePayload,
+        TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, Uint256, WriteXdr,
+    },
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -21,6 +24,8 @@ pub enum Error {
     MissingSignerForAddress { address: String },
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Rpc(#[from] crate::rpc::Error),
     #[error("User cancelled signing, perhaps need to remove --check")]
     UserCancelledSigning,
 }
@@ -66,6 +71,101 @@ pub trait Stellar {
             signature: Signature(tx_signature.try_into()?),
         })
     }
+    /// Sign a Stellar transaction with the given source account
+    /// This is a default implementation that signs the transaction hash and returns a decorated signature
+    ///
+    /// Todo: support signing the transaction directly.
+    /// # Errors
+    /// Returns an error if the source account is not found
+    async fn sign_txn(
+        &self,
+        txn: Transaction,
+        Network {
+            network_passphrase, ..
+        }: &Network,
+    ) -> Result<TransactionEnvelope, Error> {
+        let signature_payload = TransactionSignaturePayload {
+            network_id: hash(network_passphrase),
+            tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(txn.clone()),
+        };
+        let hash = Sha256::digest(signature_payload.to_xdr(Limits::none())?).into();
+        let decorated_signature = self.sign_txn_hash(hash).await?;
+        Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx: txn,
+            signatures: vec![decorated_signature].try_into()?,
+        }))
+    }
+
+    /// Sign a Soroban authorization entries for a given transaction and set the expiration ledger
+    /// # Errors
+    /// Returns an error if the address is not found
+    async fn sign_soroban_authorizations(
+        &self,
+        raw: &Transaction,
+        network: &Network,
+    ) -> Result<Option<Transaction>, Error> {
+        let mut tx = raw.clone();
+        let Some(mut op) = requires_auth(&tx) else {
+            return Ok(None);
+        };
+
+        let xdr::Operation {
+            body: OperationBody::InvokeHostFunction(ref mut body),
+            ..
+        } = op
+        else {
+            return Ok(None);
+        };
+        let client = crate::rpc::Client::new(&network.rpc_url)?;
+        let mut auths = body.auth.to_vec();
+        let current_ledger = client.get_latest_ledger().await?.sequence;
+        for auth in &mut auths {
+            *auth = self
+                .maybe_sign_soroban_authorization_entry(auth, network, current_ledger)
+                .await?;
+        }
+        body.auth = auths.try_into()?;
+        tx.operations = [op].try_into()?;
+        Ok(Some(tx))
+    }
+
+    /// Sign a Soroban authorization entry if the address is public key
+    /// # Errors
+    /// Returns an error if the address in entry is a contract
+    async fn maybe_sign_soroban_authorization_entry(
+        &self,
+        unsigned_entry: &SorobanAuthorizationEntry,
+        network: &Network,
+        current_ledger: u32,
+    ) -> Result<SorobanAuthorizationEntry, Error> {
+        if let SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials { address, .. }),
+            ..
+        } = unsigned_entry
+        {
+            // See if we have a signer for this authorizationEntry
+            // If not, then we Error
+            let key = match address {
+                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(a)))) => {
+                    stellar_strkey::ed25519::PublicKey(*a)
+                }
+                ScAddress::Contract(Hash(c)) => {
+                    // This address is for a contract. This means we're using a custom
+                    // smart-contract account. Currently the CLI doesn't support that yet.
+                    return Err(Error::MissingSignerForAddress {
+                        address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
+                            .to_string(),
+                    });
+                }
+            };
+            if key == self.get_public_key().await? {
+                return self
+                    .sign_soroban_authorization_entry(unsigned_entry, network, current_ledger)
+                    .await;
+            }
+        }
+        Ok(unsigned_entry.clone())
+    }
 
     /// Sign a Soroban authorization entry with the given address
     /// # Errors
@@ -73,7 +173,10 @@ pub trait Stellar {
     async fn sign_soroban_authorization_entry(
         &self,
         unsigned_entry: &SorobanAuthorizationEntry,
-        network_passphrase: &str,
+        Network {
+            network_passphrase, ..
+        }: &Network,
+        current_ledger: u32,
     ) -> Result<SorobanAuthorizationEntry, Error> {
         let address = self.get_public_key().await?;
         let mut auth = unsigned_entry.clone();
@@ -90,6 +193,8 @@ pub trait Stellar {
             signature_expiration_ledger,
             ..
         } = credentials;
+
+        *signature_expiration_ledger = current_ledger + 60;
 
         let preimage = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
             network_id: hash(network_passphrase),
@@ -116,98 +221,6 @@ pub trait Stellar {
         auth.credentials = SorobanCredentials::Address(credentials.clone());
 
         Ok(auth)
-    }
-
-    /// Sign a Stellar transaction with the given source account
-    /// This is a default implementation that signs the transaction hash and returns a decorated signature
-    /// 
-    /// Todo: support signing the transaction directly.
-    /// # Errors
-    /// Returns an error if the source account is not found
-    async fn sign_txn(
-        &self,
-        txn: Transaction,
-        network_passphrase: &str,
-    ) -> Result<TransactionEnvelope, Error> {
-        let signature_payload = TransactionSignaturePayload {
-            network_id: hash(network_passphrase),
-            tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(txn.clone()),
-        };
-        let hash = Sha256::digest(signature_payload.to_xdr(Limits::none())?).into();
-        let decorated_signature = self.sign_txn_hash(hash).await?;
-        Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
-            tx: txn,
-            signatures: vec![decorated_signature].try_into()?,
-        }))
-    }
-
-    /// Sign a Soroban authorization entries for a given transaction and set the expiration ledger
-    /// # Errors
-    /// Returns an error if the address is not found
-    async fn sign_soroban_authorizations(
-        &self,
-        raw: &Transaction,
-        network_passphrase: &str,
-    ) -> Result<Option<Transaction>, Error> {
-        let mut tx = raw.clone();
-        let Some(mut op) = requires_auth(&tx) else {
-            return Ok(None);
-        };
-
-        let xdr::Operation {
-            body: OperationBody::InvokeHostFunction(ref mut body),
-            ..
-        } = op
-        else {
-            return Ok(None);
-        };
-
-        let mut auths = body.auth.to_vec();
-        for auth in &mut auths {
-            *auth = self
-                .maybe_sign_soroban_authorization_entry(auth, network_passphrase)
-                .await?;
-        }
-        body.auth = auths.try_into()?;
-        tx.operations = vec![op].try_into()?;
-        Ok(Some(tx))
-    }
-
-    /// Sign a Soroban authorization entry if the address is public key
-    /// # Errors
-    /// Returns an error if the address in entry is a contract
-    async fn maybe_sign_soroban_authorization_entry(
-        &self,
-        unsigned_entry: &SorobanAuthorizationEntry,
-        network_passphrase: &str,
-    ) -> Result<SorobanAuthorizationEntry, Error> {
-        if let SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(SorobanAddressCredentials { address, .. }),
-            ..
-        } = unsigned_entry
-        {
-            // See if we have a signer for this authorizationEntry
-            // If not, then we Error
-            let needle = match address {
-                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(a)))) => {
-                    stellar_strkey::ed25519::PublicKey(*a)
-                }
-                ScAddress::Contract(Hash(c)) => {
-                    // This address is for a contract. This means we're using a custom
-                    // smart-contract account. Currently the CLI doesn't support that yet.
-                    return Err(Error::MissingSignerForAddress {
-                        address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
-                            .to_string(),
-                    });
-                }
-            };
-            if needle == self.get_public_key().await? {
-                return self
-                    .sign_soroban_authorization_entry(unsigned_entry, network_passphrase)
-                    .await;
-            }
-        }
-        Ok(unsigned_entry.clone())
     }
 }
 

@@ -83,20 +83,25 @@ impl Args {
         signer: &(impl Stellar + std::marker::Sync),
         tx: Transaction,
     ) -> Result<TransactionEnvelope, Error> {
-        let Network {
-            network_passphrase, ..
-        } = &self.get_network()?;
-        Ok(signer.sign_txn(tx, network_passphrase).await?)
+        let network = self.get_network()?;
+        Ok(signer.sign_txn(tx, &network).await?)
     }
 
     pub async fn sign_soroban_authorizations(
+        &self,
+        tx: &Transaction,
+    ) -> Result<Option<Transaction>, Error> {
+        self.sign_soroban_authorizations_with_signer(&self.signer()?, tx)
+            .await
+    }
+    pub async fn sign_soroban_authorizations_with_signer(
         &self,
         signer: &(impl Stellar + std::marker::Sync),
         tx: &Transaction,
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         Ok(signer
-            .sign_soroban_authorizations(tx, &network.network_passphrase)
+            .sign_soroban_authorizations(tx, &network)
             .await?)
     }
 
