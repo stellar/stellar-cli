@@ -1530,6 +1530,10 @@ Sign a transaction
 
   Possible values: `true`, `false`
 
+* `-a`, `--auth-only`
+
+  Possible values: `true`, `false`
+
 
 
 
