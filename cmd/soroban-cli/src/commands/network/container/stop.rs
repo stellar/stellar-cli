@@ -1,23 +1,23 @@
 use crate::commands::network::container::shared::{
-    connect_to_docker, get_container_name, Error as ConnectionError, Network,
+    connect_to_docker, get_container_name, Error as BollardConnectionError, Network,
 };
 
 use super::shared::ContainerArgs;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to stop container: {0}")]
-    StopConnectionContainerError(#[from] ConnectionError),
+    #[error("⛔ Failed to connect to docker: {0}")]
+    DockerConnectionFailed(#[from] BollardConnectionError),
 
-    #[error("Container {container_name} not found")]
-    ContainerNotFoundError {
+    #[error("⛔ Container {container_name} not found")]
+    ContainerNotFound {
         container_name: String,
         #[source]
         source: bollard::errors::Error,
     },
 
-    #[error("Failed to stop container: {0}")]
-    StopContainerError(#[from] bollard::errors::Error),
+    #[error("⛔ Failed to stop container: {0}")]
+    ContainerStopFailed(#[from] bollard::errors::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -42,12 +42,12 @@ impl Cmd {
             .map_err(|e| {
                 let msg = e.to_string();
                 if msg.contains("No such container") {
-                    Error::ContainerNotFoundError {
+                    Error::ContainerNotFound {
                         container_name: container_name.clone(),
                         source: e,
                     }
                 } else {
-                    Error::StopContainerError(e)
+                    Error::ContainerStopFailed(e)
                 }
             })?;
         println!("✅ Container stopped: {container_name}");

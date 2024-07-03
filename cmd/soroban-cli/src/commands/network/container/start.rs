@@ -19,10 +19,10 @@ const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("⛔ ️Failed to connect to docker: {0}")]
-    ConnectionError(#[from] ConnectionError),
+    DockerConnectionFailed(#[from] ConnectionError),
 
     #[error("⛔ ️Failed to create container: {0}")]
-    BollardErr(#[from] bollard::errors::Error),
+    CreateContainerFailed(#[from] bollard::errors::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -118,11 +118,11 @@ fn print_log_message(cmd: &Cmd) {
         "ℹ️ To see the logs for this container run: stellar network container logs {arg} {additional_flags}",
         arg = cmd.container_args.container_name.as_ref().map_or_else(
             || cmd.network.to_string(),
-            |container_name| format!("--container-name {}", container_name)
+            |container_name| format!("--container-name {container_name}")
         ),
         additional_flags = cmd.container_args.docker_host.as_ref().map_or_else(
-            || String::new(),
-            |docker_host| format!("--docker-host {}", docker_host)
+            String::new,
+            |docker_host| format!("--docker-host {docker_host}")
         )
     );
     println!("{log_message}");
@@ -133,12 +133,15 @@ fn print_stop_message(cmd: &Cmd) {
         "ℹ️ To stop this container run: stellar network container stop {arg} {additional_flags}",
         arg = cmd.container_args.container_name.as_ref().map_or_else(
             || cmd.network.to_string(),
-            |container_name| format!("--container-name {}", container_name)
+            |container_name| format!("--container-name {container_name}")
         ),
-        additional_flags = cmd.container_args.docker_host.as_ref().map_or_else(
-            || String::new(),
-            |docker_host| format!("--docker-host {}", docker_host)
-        )
+        additional_flags = cmd
+            .container_args
+            .docker_host
+            .as_ref()
+            .map_or_else(String::new, |docker_host| format!(
+                "--docker-host {docker_host}"
+            ))
     );
     println!("{stop_message}");
 }
