@@ -61,7 +61,7 @@ default-features = true
 
 [workspace.dependencies]
 stellar-strkey = "0.0.8"
-sep5 = "0.0.3"
+sep5 = "0.0.4"
 base64 = "0.21.2"
 thiserror = "1.0.46"
 sha2 = "0.10.7"
