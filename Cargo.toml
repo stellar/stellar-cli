@@ -99,15 +99,6 @@ jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
 tokio = "1.28.1"
 
-# [patch."https://github.com/stellar/rs-soroban-env"]
-# soroban-env-host = { path = "../rs-soroban-env/soroban-env-host/" }
-# [patch."https://github.com/stellar/rs-soroban-sdk"]
-# soroban-spec = { path = "../rs-soroban-sdk/soroban-spec/" }
-# soroban-token-spec = { path = "../rs-soroban-sdk/soroban-token-spec/" }
-# soroban-sdk = { path = "../rs-soroban-sdk/soroban-sdk/" }
-# [patch."https://github.com/stellar/rs-stellar-xdr"]
-# stellar-xdr = { path = "../rs-stellar-xdr/" }
-
 [profile.test-wasms]
 inherits = "release"
 opt-level = "z"
