@@ -72,7 +72,7 @@ rand = "0.8.5"
 wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
-ed25519-dalek = "=2.0.0"
+ed25519-dalek = { workspace = true }
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
 hyper = "0.14.27"
