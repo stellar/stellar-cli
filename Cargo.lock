@@ -4310,11 +4310,11 @@ dependencies = [
 
 [[package]]
 name = "sep5"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ba64dc259185fdb8dfea7ab0418292743251efba80c9b20e88afc83c17b2593"
+checksum = "cec6914e06f503f83e431e1762c82003c5233b1dffb6185e51e4c40dd1c26eaa"
 dependencies = [
- "slip10",
+ "slipped10",
  "stellar-strkey",
  "thiserror",
  "tiny-bip39",
@@ -4584,6 +4584,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28724a6e6f70b0cb115c580891483da6f3aa99e6a353598303a57f89d23aa6bc"
 dependencies = [
  "ed25519-dalek 1.0.1",
+ "hmac 0.9.0",
+ "sha2 0.9.9",
+]
+
+[[package]]
+name = "slipped10"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a45443e66aa5d96db5e02d17db056e1ca970232a4fe73e1f9bc1816d68f4e98"
+dependencies = [
+ "ed25519-dalek 2.1.1",
  "hmac 0.9.0",
  "sha2 0.9.9",
 ]
