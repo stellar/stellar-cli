@@ -13,10 +13,6 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 
-use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
-
 use crate::commands::global;
 
 #[derive(Debug, clap::Subcommand)]
@@ -61,7 +57,7 @@ pub enum Cmd {
     /// everything after the `--`, gets passed to this implicit CLI. Get in-depth help for a given
     /// contract:
     ///
-    ///     soroban contract invoke ... -- --help
+    ///     stellar contract invoke ... -- --help
     Invoke(invoke::Cmd),
 
     /// Optimize a WASM file
@@ -168,9 +164,4 @@ pub enum SpecOutput {
     XdrBase64Array,
     /// Pretty print of contract spec entries
     Docs,
-}
-
-#[derive(Serialize, Deserialize, Default)]
-pub struct AliasData {
-    ids: HashMap<String, String>,
 }

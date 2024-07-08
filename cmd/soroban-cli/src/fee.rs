@@ -17,10 +17,10 @@ pub struct Args {
     /// Number of instructions to simulate
     #[arg(long, help_heading = HEADING_RPC)]
     pub instructions: Option<u32>,
-    /// Build the transaction only write the base64 xdr to stdout
+    /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_RPC)]
     pub build_only: bool,
-    /// Simulation the transaction only write the base64 xdr to stdout
+    /// Simulate the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_RPC, conflicts_with = "build_only")]
     pub sim_only: bool,
 }

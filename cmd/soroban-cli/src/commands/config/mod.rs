@@ -3,12 +3,19 @@ use std::path::PathBuf;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
-use crate::Pwd;
+use soroban_rpc::Client;
+
+use crate::{
+    signer,
+    xdr::{Transaction, TransactionEnvelope},
+    Pwd,
+};
 
 use self::{network::Network, secret::Secret};
 
 use super::{keys, network};
 
+pub mod alias;
 pub mod data;
 pub mod locator;
 pub mod secret;
@@ -23,6 +30,10 @@ pub enum Error {
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Config(#[from] locator::Error),
+    #[error(transparent)]
+    Rpc(#[from] soroban_rpc::Error),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -32,7 +43,7 @@ pub struct Args {
     pub network: network::Args,
 
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
-    /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). Default: `identity generate --default-seed`
+    /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
     pub source_account: String,
 
     #[arg(long)]
@@ -47,6 +58,38 @@ impl Args {
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = self.account(&self.source_account)?;
         Ok(key.key_pair(self.hd_path)?)
+    }
+
+    pub async fn sign_with_local_key(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+        self.sign(tx).await
+    }
+
+    #[allow(clippy::unused_async)]
+    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+        let key = self.key_pair()?;
+        let Network {
+            network_passphrase, ..
+        } = &self.get_network()?;
+        Ok(signer::sign_tx(&key, &tx, network_passphrase)?)
+    }
+
+    pub async fn sign_soroban_authorizations(
+        &self,
+        tx: &Transaction,
+        signers: &[ed25519_dalek::SigningKey],
+    ) -> Result<Option<Transaction>, Error> {
+        let network = self.get_network()?;
+        let source_key = self.key_pair()?;
+        let client = Client::new(&network.rpc_url)?;
+        let latest_ledger = client.get_latest_ledger().await?.sequence;
+        let seq_num = latest_ledger + 60; // ~ 5 min
+        Ok(signer::sign_soroban_authorizations(
+            tx,
+            &source_key,
+            signers,
+            seq_num,
+            &network.network_passphrase,
+        )?)
     }
 
     pub fn account(&self, account_str: &str) -> Result<Secret, Error> {

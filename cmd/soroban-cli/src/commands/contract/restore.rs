@@ -133,7 +133,11 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let entry_keys = self.key.parse_keys()?;
+        let contract = config.locator.resolve_contract_id(
+            self.key.contract_id.as_ref().unwrap(),
+            &network.network_passphrase,
+        )?;
+        let entry_keys = self.key.parse_keys(contract)?;
         let client = Client::new(&network.rpc_url)?;
         let key = config.key_pair()?;
 
@@ -174,7 +178,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(tx));
         }
         let res = client
-            .prepare_and_send_transaction(&tx, &key, &[], &network.network_passphrase, None, None)
+            .send_transaction_polling(&config.sign_with_local_key(tx).await?)
             .await?;
         if args.map_or(true, |a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

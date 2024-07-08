@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/stellar-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.0.0-rc.1"
+version = "21.1.0"
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -72,7 +72,7 @@ rand = "0.8.5"
 wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
-ed25519-dalek = "=2.0.0"
+ed25519-dalek = { workspace = true }
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
 hyper = "0.14.27"
@@ -114,6 +114,7 @@ rust-embed = { version = "8.2.0", features = ["debug-embed"] }
 bollard = { workspace=true }
 futures-util = "0.3.30"
 home = "0.5.9"
+phf = { version = "0.11.2", features = ["macros"] }
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "=0.10.55", features = ["vendored"] }
