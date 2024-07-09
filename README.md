@@ -47,8 +47,7 @@ cargo install --locked stellar-cli --features opt --git https://github.com/stell
 ```
 
 ## Autocomplete
-The Stellar CLI supports some basic autocompletion. To set up autocomplete, run
-the following commands:
+The Stellar CLI supports some autocompletion. To set up, run the following commands:
 
 ```
 stellar completion --shell <SHELL>
