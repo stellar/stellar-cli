@@ -7,7 +7,7 @@ use super::{
     config::{self, locator},
     global, network, NetworkRunnable,
 };
-use crate::{rpc, utils};
+use crate::rpc;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -159,14 +159,6 @@ impl Cmd {
             }
         }
 
-        // Validate contract_ids
-        for id in &mut self.contract_ids {
-            utils::contract_id_from_str(id).map_err(|e| Error::InvalidContractId {
-                contract_id: id.clone(),
-                error: e,
-            })?;
-        }
-
         let response = self.run_against_rpc_server(None, None).await?;
 
         for event in &response.events {
@@ -226,11 +218,23 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
+
+        let contract_ids: Vec<String> = self
+            .contract_ids
+            .iter()
+            .map(|id| {
+                Ok(self
+                    .locator
+                    .resolve_contract_id(id, &network.network_passphrase)?
+                    .to_string())
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
         Ok(client
             .get_events(
                 start,
                 Some(self.event_type),
-                &self.contract_ids,
+                &contract_ids,
                 &self.topic_filters,
                 Some(self.count),
             )

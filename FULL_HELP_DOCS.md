@@ -108,31 +108,13 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 ###### **Options:**
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output. To turn on "stellar_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`
 * `-q`, `--quiet` — Do not write logs to stderr including `INFO`
-
-  Possible values: `true`, `false`
-
 * `-v`, `--verbose` — Log DEBUG events
-
-  Possible values: `true`, `false`
-
 * `--very-verbose` — Log DEBUG and TRACE events
-
-  Possible values: `true`, `false`
-
 * `--list` — List installed plugins. E.g. `stellar-hello`
-
-  Possible values: `true`, `false`
-
 * `--no-cache` — Do not cache your simulations and transactions
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -213,9 +195,6 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -235,26 +214,14 @@ Deploy builtin Soroban Asset Contract
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -307,14 +274,8 @@ Generate a TypeScript / JavaScript package
 * `--wasm <WASM>` — Path to optional wasm binary
 * `--output-dir <OUTPUT_DIR>` — Where to place generated project
 * `--overwrite` — Whether to overwrite output directory if it already exists
-
-  Possible values: `true`, `false`
-
 * `--contract-id <CONTRACT_ID>` — The contract ID/address on the network
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -338,23 +299,20 @@ To view the commands that will be executed, without executing them, use the --pr
 
   Default value: `Cargo.toml`
 * `--package <PACKAGE>` — Package to build
+
+   If omitted, all packages that build for crate-type cdylib are built.
 * `--profile <PROFILE>` — Build with the specified profile
 
   Default value: `release`
 * `--features <FEATURES>` — Build with the list of features activated, space or comma separated
 * `--all-features` — Build with the all features activated
-
-  Possible values: `true`, `false`
-
 * `--no-default-features` — Build with the default feature not activated
-
-  Possible values: `true`, `false`
-
 * `--out-dir <OUT_DIR>` — Directory to copy wasm files to
+
+   If provided, wasm files can be found in the cargo target directory, and the specified directory.
+
+   If ommitted, wasm files are written only to the cargo target directory.
 * `--print-commands-only` — Print commands to build without executing them
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -370,9 +328,6 @@ If no keys are specified the contract itself is extended.
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
-
-  Possible values: `true`, `false`
-
 * `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
@@ -394,26 +349,14 @@ If no keys are specified the contract itself is extended.
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -434,33 +377,18 @@ Deploy a wasm contract
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
-* `--alias <ALIAS>` — The alias that will be used to save the contract's id
+* `--alias <ALIAS>` — The alias that will be used to save the contract's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 
 
 
@@ -475,9 +403,6 @@ Fetch a contract's Wasm binary
 * `--id <CONTRACT_ID>` — Contract ID to fetch
 * `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -513,9 +438,6 @@ Deploy builtin Soroban Asset Contract
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -535,9 +457,6 @@ Deploy normal Wasm Contract
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -554,11 +473,11 @@ Initialize a Soroban project with an example contract
 
 ###### **Options:**
 
-* `-w`, `--with-example <WITH_EXAMPLE>`
+* `-w`, `--with-example <WITH_EXAMPLE>` — An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
 
   Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
 
-* `-f`, `--frontend-template <FRONTEND_TEMPLATE>`
+* `-f`, `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
   Default value: ``
 
@@ -586,9 +505,6 @@ Inspect a WASM file listing contract functions, meta, etc
     Pretty print of contract spec entries
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -607,33 +523,18 @@ Install a WASM file to the ledger without creating a contract instance
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -655,35 +556,20 @@ stellar contract invoke ... -- --help
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--is-view` — View the result simulating and do not sign and submit transaction
-
-  Possible values: `true`, `false`
-
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -741,9 +627,6 @@ Print the current value of a contract-data ledger entry
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -775,35 +658,20 @@ If no keys are specificed the contract itself is restored.
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
-
-  Possible values: `true`, `false`
-
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
-
-  Possible values: `true`, `false`
-
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -832,8 +700,20 @@ Watch the network for contract events
 * `-c`, `--count <COUNT>` — The maximum number of events to display (defer to the server-defined limit)
 
   Default value: `10`
-* `--id <CONTRACT_IDS>` — A set of (up to 5) contract IDs to filter events on. This parameter can be passed multiple times, e.g. `--id C123.. --id C456..`, or passed with multiple parameters, e.g. `--id C123 C456`
-* `--topic <TOPIC_FILTERS>` — A set of (up to 4) topic filters to filter event topics on. A single topic filter can contain 1-4 different segment filters, separated by commas, with an asterisk (* character) indicating a wildcard segment
+* `--id <CONTRACT_IDS>` — A set of (up to 5) contract IDs to filter events on. This parameter can be passed multiple times, e.g. `--id C123.. --id C456..`, or passed with multiple parameters, e.g. `--id C123 C456`.
+
+   Though the specification supports multiple filter objects (i.e. combinations of type, IDs, and topics), only one set can be specified on the command-line today, though that set can have multiple IDs/topics.
+* `--topic <TOPIC_FILTERS>` — A set of (up to 4) topic filters to filter event topics on. A single topic filter can contain 1-4 different segment filters, separated by commas, with an asterisk (* character) indicating a wildcard segment.
+
+   For example, this is one topic filter with two segments:
+
+   --topic "AAAABQAAAAdDT1VOVEVSAA==,*"
+
+   This is two topic filters with one and two segments each:
+
+   --topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'
+
+   Note that all of these topic filters are combined with the contract IDs into a single filter (i.e. combination of type, IDs, and topics).
 * `--type <EVENT_TYPE>` — Specifies which type of contract events to display
 
   Default value: `all`
@@ -841,9 +721,6 @@ Watch the network for contract events
   Possible values: `all`, `contract`, `system`
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -882,17 +759,8 @@ Add a new identity (keypair, ledger, macOS keychain)
 ###### **Options:**
 
 * `--secret-key` — Add using secret_key Can provide with SOROBAN_SECRET_KEY
-
-  Possible values: `true`, `false`
-
 * `--seed-phrase` — Add using 12 word seed phrase to generate secret_key
-
-  Possible values: `true`, `false`
-
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -911,9 +779,6 @@ Given an identity return its address (public key)
 
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -935,9 +800,6 @@ Fund an identity on a test network
 * `--network <NETWORK>` — Name of network to use from config
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -955,24 +817,12 @@ Generate a new identity with a seed phrase, currently 12 words
 ###### **Options:**
 
 * `--no-fund` — Do not fund address
-
-  Possible values: `true`, `false`
-
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
-
-  Possible values: `true`, `false`
-
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
-
-  Possible values: `true`, `false`
-
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -988,14 +838,8 @@ List identities
 ###### **Options:**
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `-l`, `--long`
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -1012,9 +856,6 @@ Remove an identity
 ###### **Options:**
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -1033,9 +874,6 @@ Given an identity return its private key
 
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -1235,9 +1073,6 @@ Add a new network
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -1255,9 +1090,6 @@ Remove a network
 ###### **Options:**
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -1271,14 +1103,8 @@ List networks
 ###### **Options:**
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `-l`, `--long` — Get more info about the networks
-
-  Possible values: `true`, `false`
-
 
 
 
@@ -1453,9 +1279,6 @@ Simulate a transaction envelope from stdin
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
@@ -1512,14 +1335,8 @@ List cached actions (transactions, simulations)
 ###### **Options:**
 
 * `--global` — Use global config
-
-  Possible values: `true`, `false`
-
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `-l`, `--long`
-
-  Possible values: `true`, `false`
-
 
 
 

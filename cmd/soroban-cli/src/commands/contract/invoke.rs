@@ -313,7 +313,8 @@ impl NetworkRunnable for Cmd {
         let contract_id = self
             .config
             .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
+            .0;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
@@ -559,6 +560,6 @@ fn arg_file_help(docs: &str) -> String {
         r#"{docs}
 Usage Notes:
 Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
-Note: The only types which aren't JSON are Bytes and Bytes which are raw bytes"#
+Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"#
     )
 }

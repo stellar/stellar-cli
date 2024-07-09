@@ -10,7 +10,7 @@ use soroban_env_host::xdr::{
 
 use crate::{
     commands::{
-        config::{self, data},
+        config::{self, data, locator},
         global, network,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
@@ -84,6 +84,8 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -128,7 +130,11 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let keys = self.key.parse_keys()?;
+        let contract = config.locator.resolve_contract_id(
+            self.key.contract_id.as_ref().unwrap(),
+            &network.network_passphrase,
+        )?;
+        let keys = self.key.parse_keys(contract)?;
         let network = &config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         let key = config.key_pair()?;

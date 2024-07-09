@@ -1,4 +1,5 @@
 use clap::arg;
+use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
@@ -9,11 +10,15 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use stellar_strkey::DecodeError;
+use stellar_strkey::{Contract, DecodeError};
 
 use crate::{utils::find_config_dir, Pwd};
 
-use super::{alias, network::Network, secret::Secret};
+use super::{
+    alias,
+    network::{self, Network},
+    secret::Secret,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -93,7 +98,7 @@ impl Display for Location {
                 Location::Local(_) => "Local",
                 Location::Global(_) => "Global",
             },
-            self.as_ref().parent().unwrap().parent().unwrap()
+            self.as_ref()
         )
     }
 }
@@ -175,16 +180,17 @@ impl Args {
     }
 
     pub fn list_networks(&self) -> Result<Vec<String>, Error> {
-        Ok(KeyType::Network
+        let saved_networks = KeyType::Network
             .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
-            .map(|x| x.0)
-            .collect())
+            .map(|x| x.0);
+        let default_networks = network::DEFAULTS.keys().map(ToString::to_string);
+        Ok(saved_networks.chain(default_networks).unique().collect())
     }
 
-    pub fn list_networks_long(&self) -> Result<Vec<(String, Network, Location)>, Error> {
-        Ok(KeyType::Network
+    pub fn list_networks_long(&self) -> Result<Vec<(String, Network, String)>, Error> {
+        let saved_networks = KeyType::Network
             .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
@@ -192,11 +198,15 @@ impl Args {
                 Some((
                     name,
                     KeyType::read_from_path::<Network>(location.as_ref()).ok()?,
-                    location,
+                    location.to_string(),
                 ))
-            })
-            .collect::<Vec<_>>())
+            });
+        let default_networks = network::DEFAULTS
+            .into_iter()
+            .map(|(name, network)| ((*name).to_string(), network.into(), "Default".to_owned()));
+        Ok(saved_networks.chain(default_networks).collect())
     }
+
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
@@ -204,11 +214,10 @@ impl Args {
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
         let res = KeyType::Network.read_with_global(name, &self.local_config()?);
         if let Err(Error::ConfigMissing(_, _)) = &res {
-            if name == "futurenet" {
-                let network = Network::futurenet();
-                self.write_network(name, &network)?;
-                return Ok(network);
-            }
+            let Some(network) = network::DEFAULTS.get(name) else {
+                return res;
+            };
+            return Ok(network.into());
         }
         res
     }
@@ -284,13 +293,15 @@ impl Args {
         &self,
         alias_or_contract_id: &str,
         network_passphrase: &str,
-    ) -> Result<[u8; 32], Error> {
+    ) -> Result<Contract, Error> {
         let contract_id = self
             .get_contract_id(alias_or_contract_id, network_passphrase)?
             .unwrap_or_else(|| alias_or_contract_id.to_string());
 
-        soroban_spec_tools::utils::contract_id_from_str(&contract_id)
-            .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))
+        Ok(Contract(
+            soroban_spec_tools::utils::contract_id_from_str(&contract_id)
+                .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))?,
+        ))
     }
 }
 

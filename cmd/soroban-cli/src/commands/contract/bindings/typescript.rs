@@ -96,7 +96,8 @@ impl NetworkRunnable for Cmd {
 
             let contract_id = self
                 .locator
-                .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
+                .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
+                .0;
 
             get_remote_contract_spec(
                 &contract_id,
@@ -124,11 +125,12 @@ impl NetworkRunnable for Cmd {
             rpc_url,
             network_passphrase,
             ..
-        } = self
-            .network
-            .get(&self.locator)
-            .ok()
-            .unwrap_or_else(Network::futurenet);
+        } = self.network.get(&self.locator).ok().unwrap_or_else(|| {
+            network::DEFAULTS
+                .get("futurenet")
+                .expect("why did we remove the default futurenet network?")
+                .into()
+        });
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path
             .file_name()
