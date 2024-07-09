@@ -126,5 +126,5 @@ async fn sign() {
         .write_stdin(xdr_base64.as_bytes())
         .assert()
         .success()
-        .stdout(predicate::str::contains(r#""status": "SUCCESS""#));
+        .stdout(predicates::str::contains(r#""status": "SUCCESS""#));
 }
