@@ -17,6 +17,7 @@ pub enum Error {
 pub struct Cmd {
     #[clap(flatten)]
     pub config: config::Args,
+    /// Only sign the Authorization Entries required by the provided source account
     #[arg(long, visible_alias = "auth", short = 'a')]
     pub auth_only: bool,
 }

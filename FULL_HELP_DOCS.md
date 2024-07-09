@@ -1314,7 +1314,7 @@ Sign a transaction
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
-* `-a`, `--auth-only`
+* `-a`, `--auth-only` — Only sign the Authorization Entries required by the provided source account
 
 
 
