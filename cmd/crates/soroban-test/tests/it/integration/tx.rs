@@ -83,10 +83,9 @@ async fn sign() {
     // Create new test_other account
     sandbox
         .new_assert_cmd("keys")
-        .arg("fund")
+        .arg("generate")
         .arg("test_other")
-        .assert()
-        .stderr(predicates::str::contains("Account already exists"));
+        .assert();
 
     // Get Xdr for transaction where auth is required for test_other
     let xdr_base64 = sandbox
