@@ -9,7 +9,7 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 
 - [Documentation](#documentation)
 - [Installation](#installation)
-- [Installation with Experimental Features](#installation-with-experiemental-featuers)
+- [Installation with Experimental Features](#installation-with-experiemental-features)
 - [Autocomplete](#autocomplete)
 - [Latest Release](#latest-release)
 - [Upcoming Features](#upcoming-features)
