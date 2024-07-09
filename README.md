@@ -1,12 +1,28 @@
 # Stellar CLI (stellar-cli)
 
+[![Apache 2.0 licensed](https://img.shields.io/badge/license-apache%202.0-blue.svg)]
+
 This repo is home to the Stellar CLI, the command-line multi-tool for running and deploying Stellar contracts on the Stellar network.
+
+
+## Table of Contents
+
+- [Documentation](#documentation)
+- [Installation](#installation)
+- [Installation with Experimental Features](#installation-with-experiemental-features)
+- [Autocomplete](#autocomplete)
+- [Latest Release](#latest-release)
+- [Upcoming Features](#upcoming-features)
+- [To Contribute](#to-contribute)
+- [Additional Developer Resources](#additional-developer-resources)
+
+
 
 ## Documentation
 
 For installation options see below, for usage instructions [see the full help docs](FULL_HELP_DOCS.md).
 
-## Install
+## Installation
 Install the latest version from source:
 ```
 cargo install --locked stellar-cli --features opt
@@ -24,13 +40,15 @@ Install with Homebrew:
 brew install stellar/tap/stellar-cli
 ```
 
-## Install Experimental Features
+## Installation with Experimental Features
 To use the potentially unreleased bleeding edge CLI functionalities, install from git:
 ```
-cargo install --locked stellar-cli --features opt --git git@github.com:stellar/stellar-cli.git
+cargo install --locked stellar-cli --features opt --git https://github.com/stellar/stellar-cli.git
 ```
 
-## Setup Autocomplete
+## Autocomplete
+The Stellar CLI supports some autocompletion. To set up, run the following commands:
+
 ```
 stellar completion --shell <SHELL>
 ```
@@ -47,7 +65,7 @@ echo "source <(stellar completion --shell bash)" >> ~/.bashrc
 ```
 
 ## Latest Release
-For latest releases, see [releases](https://github.com/stellar/stellar-cli/releases).
+For the latest release, see [releases](https://github.com/stellar/stellar-cli/releases).
 
 ## Upcoming Features
 For upcoming features, please see the [project board](https://github.com/orgs/stellar/projects/50).
@@ -55,6 +73,6 @@ For upcoming features, please see the [project board](https://github.com/orgs/st
 ## To Contribute
 Find issues to contribute to [here](https://github.com/stellar/stellar-cli/contribute) and review [CONTRIBUTING.md](/CONTRIBUTING.md).
 
-Developer Docs: https://developers.stellar.org/docs
-
-Developer Docs CLI Examples: https://developers.stellar.org/docs/smart-contracts/guides/cli
+## Additional Developer Resources
+- Developer Docs CLI Examples: https://developers.stellar.org/docs/smart-contracts/guides/cli
+- Video Tutorial: https://developers.stellar.org/meetings/2024/06/27
