@@ -71,6 +71,8 @@ pub enum Error {
     CannotParseContractId(String, DecodeError),
     #[error(transparent)]
     UtilsError(#[from] get_spec::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
 }
 
 #[async_trait::async_trait]
@@ -87,8 +89,16 @@ impl NetworkRunnable for Cmd {
             let wasm: wasm::Args = wasm.into();
             wasm.parse()?.spec
         } else {
-            let contract_id = soroban_spec_tools::utils::contract_id_from_str(&self.contract_id)
-                .map_err(|e| Error::CannotParseContractId(self.contract_id.clone(), e))?;
+            let network = config.map_or_else(
+                || self.network.get(&self.locator).map_err(Error::from),
+                |c| c.get_network().map_err(Error::from),
+            )?;
+
+            let contract_id = self
+                .locator
+                .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
+                .0;
+
             get_remote_contract_spec(
                 &contract_id,
                 &self.locator,
@@ -115,11 +125,12 @@ impl NetworkRunnable for Cmd {
             rpc_url,
             network_passphrase,
             ..
-        } = self
-            .network
-            .get(&self.locator)
-            .ok()
-            .unwrap_or_else(Network::futurenet);
+        } = self.network.get(&self.locator).ok().unwrap_or_else(|| {
+            network::DEFAULTS
+                .get("futurenet")
+                .expect("why did we remove the default futurenet network?")
+                .into()
+        });
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path
             .file_name()
