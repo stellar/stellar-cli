@@ -1,6 +1,6 @@
 # Stellar CLI (stellar-cli)
 
-[![Apache 2.0 licensed](https://img.shields.io/badge/license-apache%202.0-blue.svg)]
+![Apache 2.0 licensed](https://img.shields.io/badge/license-apache%202.0-blue.svg)
 
 This repo is home to the Stellar CLI, the command-line multi-tool for running and deploying Stellar contracts on the Stellar network.
 
