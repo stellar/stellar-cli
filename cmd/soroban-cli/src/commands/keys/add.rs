@@ -1,7 +1,5 @@
 use clap::command;
 
-use crate::commands::config::locator::KeyName;
-
 use super::super::config::{locator, secret};
 
 #[derive(thiserror::Error, Debug)]
@@ -17,7 +15,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity
-    pub name: KeyName,
+    pub name: String,
 
     #[command(flatten)]
     pub secrets: secret::Args,

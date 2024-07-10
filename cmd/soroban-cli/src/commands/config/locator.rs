@@ -70,10 +70,6 @@ pub enum Error {
     CannotAccessConfigDir,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
-    #[error("Incorrect Key name")]
-    IncorrectKeyName,
-    #[error("Cannot name a Key ledger")]
-    LedgerKeyName,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -104,28 +100,6 @@ impl Display for Location {
             },
             self.as_ref()
         )
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct KeyName(String);
-
-impl std::ops::Deref for KeyName {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl FromStr for KeyName {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "ledger" {
-            return Err(Error::LedgerKeyName);
-        }
-        Ok(KeyName(s.to_string()))
     }
 }
 
@@ -175,7 +149,7 @@ impl Args {
         )
     }
 
-    pub fn write_identity(&self, name: &KeyName, secret: &SignerKind) -> Result<(), Error> {
+    pub fn write_identity(&self, name: &str, secret: &SignerKind) -> Result<(), Error> {
         KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 
@@ -233,7 +207,7 @@ impl Args {
         Ok(saved_networks.chain(default_networks).collect())
     }
 
-    pub fn read_identity(&self, name: &KeyName) -> Result<SignerKind, Error> {
+    pub fn read_identity(&self, name: &str) -> Result<SignerKind, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
@@ -241,7 +215,7 @@ impl Args {
         if let Ok(signer) = account_str.parse::<SignerKind>() {
             Ok(signer)
         } else {
-            self.read_identity(&account_str.parse()?)
+            self.read_identity(account_str)
         }
     }
 
@@ -256,7 +230,7 @@ impl Args {
         res
     }
 
-    pub fn remove_identity(&self, name: &KeyName) -> Result<(), Error> {
+    pub fn remove_identity(&self, name: &str) -> Result<(), Error> {
         KeyType::Identity.remove(name, &self.config_dir()?)
     }
 

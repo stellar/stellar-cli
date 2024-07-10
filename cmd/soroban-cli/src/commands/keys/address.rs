@@ -1,9 +1,7 @@
-use clap::arg;
+use crate::commands::config::secret;
 
-use super::super::config::{
-    locator::{self, KeyName},
-    secret,
-};
+use super::super::config::locator;
+use clap::arg;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,7 +19,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity to lookup, default test identity used if not provided
-    pub name: KeyName,
+    pub name: String,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
