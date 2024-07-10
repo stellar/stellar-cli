@@ -15,7 +15,7 @@ fn doc_gen() -> std::io::Result<()> {
     let options = clap_markdown::MarkdownOptions::new()
         .show_footer(false)
         .show_table_of_contents(false)
-        .title("Command-Line Help for the Stellar CLI".to_string());
+        .title("Stellar CLI Manual".to_string());
 
     let content = clap_markdown::help_markdown_custom::<soroban_cli::Root>(&options);
 
