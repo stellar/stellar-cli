@@ -44,15 +44,11 @@ pub struct Cmd {
     contract_ids: Vec<String>,
     /// A set of (up to 4) topic filters to filter event topics on. A single
     /// topic filter can contain 1-4 different segment filters, separated by
-    /// commas, with an asterisk (* character) indicating a wildcard segment.
+    /// commas, with an asterisk (`*` character) indicating a wildcard segment.
     ///
-    /// For example, this is one topic filter with two segments:
+    /// **Example:** topic filter with two segments: `--topic "AAAABQAAAAdDT1VOVEVSAA==,*"`
     ///
-    ///     --topic "AAAABQAAAAdDT1VOVEVSAA==,*"
-    ///
-    /// This is two topic filters with one and two segments each:
-    ///
-    ///     --topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'
+    /// **Example:** two topic filters with one and two segments each: `--topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'`
     ///
     /// Note that all of these topic filters are combined with the contract IDs
     /// into a single filter (i.e. combination of type, IDs, and topics).

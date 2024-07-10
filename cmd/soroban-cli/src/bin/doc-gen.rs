@@ -12,11 +12,14 @@ fn main() -> Result<(), DynError> {
 
 fn doc_gen() -> std::io::Result<()> {
     let out_dir = project_root();
+    let options = clap_markdown::MarkdownOptions::new()
+        .show_footer(false)
+        .show_table_of_contents(false)
+        .title("Command-Line Help for the Stellar CLI".to_string());
 
-    std::fs::write(
-        out_dir.join("FULL_HELP_DOCS.md"),
-        clap_markdown::help_markdown::<soroban_cli::Root>(),
-    )?;
+    let content = clap_markdown::help_markdown_custom::<soroban_cli::Root>(&options);
+
+    std::fs::write(out_dir.join("FULL_HELP_DOCS.md"), content)?;
 
     Ok(())
 }
