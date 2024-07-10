@@ -35,7 +35,7 @@ pub struct Cmd {
     #[arg(short = 'l', long)]
     pub limits: Option<String>,
 
-    /// Argument to specify the HOST_PORT:CONTAINER_PORT mapping
+    /// Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
     #[arg(short = 'p', long, num_args = 1.., default_value = DEFAULT_PORT_MAPPING)]
     pub ports_mapping: Vec<String>,
 

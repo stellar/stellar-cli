@@ -1,78 +1,22 @@
-# Command-Line Help for `stellar`
+# Stellar CLI Manual
 
 This document contains the help content for the `stellar` command-line program.
 
-**Command Overview:**
-
-* [`stellar`↴](#stellar)
-* [`stellar completion`↴](#stellar-completion)
-* [`stellar contract`↴](#stellar-contract)
-* [`stellar contract asset`↴](#stellar-contract-asset)
-* [`stellar contract asset id`↴](#stellar-contract-asset-id)
-* [`stellar contract asset deploy`↴](#stellar-contract-asset-deploy)
-* [`stellar contract bindings`↴](#stellar-contract-bindings)
-* [`stellar contract bindings json`↴](#stellar-contract-bindings-json)
-* [`stellar contract bindings rust`↴](#stellar-contract-bindings-rust)
-* [`stellar contract bindings typescript`↴](#stellar-contract-bindings-typescript)
-* [`stellar contract build`↴](#stellar-contract-build)
-* [`stellar contract extend`↴](#stellar-contract-extend)
-* [`stellar contract deploy`↴](#stellar-contract-deploy)
-* [`stellar contract fetch`↴](#stellar-contract-fetch)
-* [`stellar contract id`↴](#stellar-contract-id)
-* [`stellar contract id asset`↴](#stellar-contract-id-asset)
-* [`stellar contract id wasm`↴](#stellar-contract-id-wasm)
-* [`stellar contract init`↴](#stellar-contract-init)
-* [`stellar contract inspect`↴](#stellar-contract-inspect)
-* [`stellar contract install`↴](#stellar-contract-install)
-* [`stellar contract invoke`↴](#stellar-contract-invoke)
-* [`stellar contract optimize`↴](#stellar-contract-optimize)
-* [`stellar contract read`↴](#stellar-contract-read)
-* [`stellar contract restore`↴](#stellar-contract-restore)
-* [`stellar events`↴](#stellar-events)
-* [`stellar keys`↴](#stellar-keys)
-* [`stellar keys add`↴](#stellar-keys-add)
-* [`stellar keys address`↴](#stellar-keys-address)
-* [`stellar keys fund`↴](#stellar-keys-fund)
-* [`stellar keys generate`↴](#stellar-keys-generate)
-* [`stellar keys ls`↴](#stellar-keys-ls)
-* [`stellar keys rm`↴](#stellar-keys-rm)
-* [`stellar keys show`↴](#stellar-keys-show)
-* [`stellar xdr`↴](#stellar-xdr)
-* [`stellar xdr types`↴](#stellar-xdr-types)
-* [`stellar xdr types list`↴](#stellar-xdr-types-list)
-* [`stellar xdr types schema`↴](#stellar-xdr-types-schema)
-* [`stellar xdr guess`↴](#stellar-xdr-guess)
-* [`stellar xdr decode`↴](#stellar-xdr-decode)
-* [`stellar xdr encode`↴](#stellar-xdr-encode)
-* [`stellar xdr version`↴](#stellar-xdr-version)
-* [`stellar network`↴](#stellar-network)
-* [`stellar network add`↴](#stellar-network-add)
-* [`stellar network rm`↴](#stellar-network-rm)
-* [`stellar network ls`↴](#stellar-network-ls)
-* [`stellar network start`↴](#stellar-network-start)
-* [`stellar network stop`↴](#stellar-network-stop)
-* [`stellar network container`↴](#stellar-network-container)
-* [`stellar network container logs`↴](#stellar-network-container-logs)
-* [`stellar network container start`↴](#stellar-network-container-start)
-* [`stellar network container stop`↴](#stellar-network-container-stop)
-* [`stellar version`↴](#stellar-version)
-* [`stellar tx`↴](#stellar-tx)
-* [`stellar tx simulate`↴](#stellar-tx-simulate)
-* [`stellar tx sign`↴](#stellar-tx-sign)
-* [`stellar tx send`↴](#stellar-tx-send)
-* [`stellar cache`↴](#stellar-cache)
-* [`stellar cache clean`↴](#stellar-cache-clean)
-* [`stellar cache path`↴](#stellar-cache-path)
-* [`stellar cache actionlog`↴](#stellar-cache-actionlog)
-* [`stellar cache actionlog ls`↴](#stellar-cache-actionlog-ls)
-* [`stellar cache actionlog read`↴](#stellar-cache-actionlog-read)
-
 ## `stellar`
 
-Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
+With the Stellar CLI you can:
 
-Stellar Docs: https://developers.stellar.org
-CLI Full Help Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md
+- build, deploy and interact with contracts
+- set identities to sign with
+- configure networks
+- generate keys
+- more!
+
+For additional information see:
+
+- Stellar Docs: https://developers.stellar.org
+- Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
+- CLI Docs: https://developers.stellar.org/docs/build/smart-contracts/stellar-cli
 
 The easiest way to get started is to generate a new identity:
 
@@ -124,14 +68,12 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 Print shell completion code for the specified shell
 
-Ensure the completion package for your shell is installed,
-e.g., bash-completion for bash.
+Ensure the completion package for your shell is installed, e.g. bash-completion for bash.
 
-To enable autocomplete in the current bash shell, run:
-  source <(stellar completion --shell bash)
+To enable autocomplete in the current bash shell, run: `source <(stellar completion --shell bash)`
 
-To enable autocomplete permanently, run:
-  echo "source <(stellar completion --shell bash)" >> ~/.bashrc
+To enable autocomplete permanently, run: `echo "source <(stellar completion --shell bash)" >> ~/.bashrc`
+
 
 **Usage:** `stellar completion --shell <SHELL>`
 
@@ -715,15 +657,11 @@ Watch the network for contract events
 * `--id <CONTRACT_IDS>` — A set of (up to 5) contract IDs to filter events on. This parameter can be passed multiple times, e.g. `--id C123.. --id C456..`, or passed with multiple parameters, e.g. `--id C123 C456`.
 
    Though the specification supports multiple filter objects (i.e. combinations of type, IDs, and topics), only one set can be specified on the command-line today, though that set can have multiple IDs/topics.
-* `--topic <TOPIC_FILTERS>` — A set of (up to 4) topic filters to filter event topics on. A single topic filter can contain 1-4 different segment filters, separated by commas, with an asterisk (* character) indicating a wildcard segment.
+* `--topic <TOPIC_FILTERS>` — A set of (up to 4) topic filters to filter event topics on. A single topic filter can contain 1-4 different segment filters, separated by commas, with an asterisk (`*` character) indicating a wildcard segment.
 
-   For example, this is one topic filter with two segments:
+   **Example:** topic filter with two segments: `--topic "AAAABQAAAAdDT1VOVEVSAA==,*"`
 
-   --topic "AAAABQAAAAdDT1VOVEVSAA==,*"
-
-   This is two topic filters with one and two segments each:
-
-   --topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'
+   **Example:** two topic filters with one and two segments each: `--topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'`
 
    Note that all of these topic filters are combined with the contract IDs into a single filter (i.e. combination of type, IDs, and topics).
 * `--type <EVENT_TYPE>` — Specifies which type of contract events to display
@@ -1128,9 +1066,11 @@ Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-stellar network start <NETWORK> [OPTIONS]
+`stellar network start NETWORK [OPTIONS]`
 
-By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
+
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc`
 
 **Usage:** `stellar network start [OPTIONS] <NETWORK>`
 
@@ -1145,7 +1085,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 * `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
-* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
+* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
@@ -1213,9 +1153,11 @@ Start network
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-stellar network start <NETWORK> [OPTIONS]
+`stellar network start NETWORK [OPTIONS]`
 
-By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command: docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
+
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc`
 
 **Usage:** `stellar network container start [OPTIONS] <NETWORK>`
 
@@ -1230,7 +1172,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 * `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
-* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the HOST_PORT:CONTAINER_PORT mapping
+* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
@@ -1403,9 +1345,3 @@ Read cached action
 
 
 
-<hr/>
-
-<small><i>
-    This document was generated automatically by
-    <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
-</i></small>
