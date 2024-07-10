@@ -34,10 +34,11 @@ pub enum Cmd {
     ///
     /// Start a container running a Stellar node, RPC, API, and friendbot (faucet).
     ///
-    /// stellar network start <NETWORK> [OPTIONS]
+    /// `stellar network start NETWORK [OPTIONS]`
     ///
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
-    /// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
+    ///
+    /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc`
     Start(container::StartCmd),
     /// ⚠️ Deprecated: use `stellar container stop` instead
     ///

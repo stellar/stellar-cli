@@ -18,10 +18,19 @@ pub mod version;
 pub mod txn_result;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
-const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
+const ABOUT: &str = "With the Stellar CLI you can:
 
-Stellar Docs: https://developers.stellar.org
-CLI Full Help Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md";
+- build, deploy and interact with contracts
+- set identities to sign with
+- configure networks
+- generate keys
+- more!
+
+For additional information see:
+
+- Stellar Docs: https://developers.stellar.org
+- Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
+- CLI Docs: https://developers.stellar.org/docs/build/smart-contracts/stellar-cli";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
@@ -38,13 +47,11 @@ Commands that relate to smart contract interactions are organized under the `con
 
 A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. The invoke subcommand makes use of this:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
-                            --help
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
-                            hello --to world
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 ";
 
 #[derive(Parser, Debug)]
