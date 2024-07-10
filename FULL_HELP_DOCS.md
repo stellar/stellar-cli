@@ -1,4 +1,4 @@
-# Command-Line Help for the Stellar CLI
+# Stellar CLI Manual
 
 This document contains the help content for the `stellar` command-line program.
 
