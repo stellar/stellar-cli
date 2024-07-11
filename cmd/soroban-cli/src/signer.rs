@@ -103,6 +103,7 @@ pub trait Stellar {
         &self,
         raw: &Transaction,
         network: &Network,
+        expiration_ledger: u32,
     ) -> Result<Option<Transaction>, Error> {
         let mut tx = raw.clone();
         let Some(mut op) = requires_auth(&tx) else {
@@ -116,12 +117,10 @@ pub trait Stellar {
         else {
             return Ok(None);
         };
-        let client = crate::rpc::Client::new(&network.rpc_url)?;
         let mut auths = body.auth.to_vec();
-        let current_ledger = client.get_latest_ledger().await?.sequence;
         for auth in &mut auths {
             *auth = self
-                .maybe_sign_soroban_authorization_entry(auth, network, current_ledger)
+                .maybe_sign_soroban_authorization_entry(auth, network, expiration_ledger)
                 .await?;
         }
         body.auth = auths.try_into()?;
@@ -136,7 +135,7 @@ pub trait Stellar {
         &self,
         unsigned_entry: &SorobanAuthorizationEntry,
         network: &Network,
-        current_ledger: u32,
+        expiration_ledger: u32,
     ) -> Result<SorobanAuthorizationEntry, Error> {
         if let SorobanAuthorizationEntry {
             credentials: SorobanCredentials::Address(SorobanAddressCredentials { address, .. }),
@@ -160,7 +159,7 @@ pub trait Stellar {
             };
             if key == self.get_public_key().await? {
                 return self
-                    .sign_soroban_authorization_entry(unsigned_entry, network, current_ledger)
+                    .sign_soroban_authorization_entry(unsigned_entry, network, expiration_ledger)
                     .await;
             }
         }
@@ -176,7 +175,7 @@ pub trait Stellar {
         Network {
             network_passphrase, ..
         }: &Network,
-        current_ledger: u32,
+        expiration_ledger: u32,
     ) -> Result<SorobanAuthorizationEntry, Error> {
         let address = self.get_public_key().await?;
         let mut auth = unsigned_entry.clone();
@@ -194,7 +193,7 @@ pub trait Stellar {
             ..
         } = credentials;
 
-        *signature_expiration_ledger = current_ledger + 60;
+        *signature_expiration_ledger = expiration_ledger;
 
         let preimage = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
             network_id: hash(network_passphrase),

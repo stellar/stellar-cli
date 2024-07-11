@@ -90,17 +90,23 @@ impl Args {
     pub async fn sign_soroban_authorizations(
         &self,
         tx: &Transaction,
+        ledgers_from_current: u32,
     ) -> Result<Option<Transaction>, Error> {
-        self.sign_soroban_authorizations_with_signer(&self.signer()?, tx)
+        self.sign_soroban_authorizations_with_signer(&self.signer()?, tx, ledgers_from_current)
             .await
     }
     pub async fn sign_soroban_authorizations_with_signer(
         &self,
         signer: &(impl Stellar + std::marker::Sync),
         tx: &Transaction,
+        ledgers_from_current: u32,
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        Ok(signer.sign_soroban_authorizations(tx, &network).await?)
+        let client = crate::rpc::Client::new(&network.rpc_url)?;
+        let expiration_ledger = client.get_latest_ledger().await?.sequence + ledgers_from_current;
+        Ok(signer
+            .sign_soroban_authorizations(tx, &network, expiration_ledger)
+            .await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {

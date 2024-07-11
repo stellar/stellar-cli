@@ -522,6 +522,9 @@ stellar contract invoke ... -- --help
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--ledgers-from-now <FROM_NOW>` — Number of ledgers from current ledger before the signed auth entry expires. Default 60 ~ 5 minutes
+
+  Default value: `60`
 
 
 
@@ -1256,6 +1259,9 @@ Sign a transaction
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
+* `--ledgers-from-now <FROM_NOW>` — Number of ledgers from current ledger before the signed auth entry expires. Default 60 ~ 5 minutes
+
+  Default value: `60`
 * `-a`, `--auth-only` — Only sign the Authorization Entries required by the provided source account
 
 

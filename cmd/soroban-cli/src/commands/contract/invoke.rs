@@ -59,6 +59,8 @@ pub struct Cmd {
     pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
+    #[command(flatten)]
+    pub ledgers: crate::commands::tx::auth::Args,
 }
 
 impl FromStr for Cmd {
@@ -393,7 +395,7 @@ impl NetworkRunnable for Cmd {
             // crate::log::auth(&[auth]);
             for signer in &signers {
                 if let Some(tx) = config
-                    .sign_soroban_authorizations_with_signer(signer, &txn)
+                    .sign_soroban_authorizations_with_signer(signer, &txn, self.ledgers.from_now)
                     .await?
                 {
                     txn = tx;

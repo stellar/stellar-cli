@@ -2,6 +2,7 @@ use clap::Parser;
 
 use super::global;
 
+pub mod auth;
 pub mod send;
 pub mod sign;
 pub mod simulate;

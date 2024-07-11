@@ -17,6 +17,8 @@ pub enum Error {
 pub struct Cmd {
     #[clap(flatten)]
     pub config: config::Args,
+    #[clap(flatten)]
+    pub ledgers: super::auth::Args,
     /// Only sign the Authorization Entries required by the provided source account
     #[arg(long, visible_alias = "auth", short = 'a')]
     pub auth_only: bool,
@@ -35,7 +37,7 @@ impl Cmd {
         if self.auth_only {
             Ok(self
                 .config
-                .sign_soroban_authorizations(&tx)
+                .sign_soroban_authorizations(&tx, self.ledgers.from_now)
                 .await?
                 .unwrap_or(tx)
                 .into())
