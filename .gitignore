@@ -4,3 +4,4 @@ captive-core/
 !test.toml
 *.sqlite
 test_snapshots
+.vscode/settings.json
