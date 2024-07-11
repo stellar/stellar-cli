@@ -160,7 +160,7 @@ async fn expired_auth_entry() {
         .arg("sign")
         .arg("--auth")
         .arg("--source=test_other")
-        .arg("--expiration-ledger=1")
+        .arg("--ledgers=1")
         .write_stdin(xdr_base64.as_bytes())
         .assert()
         .success()
