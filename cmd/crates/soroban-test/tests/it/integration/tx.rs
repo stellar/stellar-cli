@@ -120,7 +120,7 @@ async fn sign() {
         .success()
         .stdout_as_str();
     // Send transaction
-    let res = sandbox
+    sandbox
         .new_assert_cmd("tx")
         .arg("send")
         .write_stdin(xdr_base64.as_bytes())

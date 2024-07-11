@@ -105,7 +105,7 @@ async fn invoke() {
     };
     config_locator
         .write_identity(
-            &"testone".parse().unwrap(),
+            "testone",
             &secret::SignerKind::SecretKey {
                 secret_key: secret_key_1.clone(),
             },
