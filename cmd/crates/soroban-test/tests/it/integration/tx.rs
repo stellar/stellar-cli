@@ -180,6 +180,7 @@ async fn expired_auth_entry() {
         .arg("send")
         .write_stdin(xdr_base64.as_bytes())
         .assert()
-        .stderr(predicates::str::contains(r#""status": "FAILED""#))
+        .failure()
+        .stderr(predicates::str::contains(r#""FAILED""#))
         .stderr(predicates::str::contains("signature has expired"));
 }
