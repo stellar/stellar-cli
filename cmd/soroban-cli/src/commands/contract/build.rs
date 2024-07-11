@@ -82,6 +82,8 @@ pub enum Error {
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
     GettingCurrentDir(io::Error),
+    #[error("retreiving CARGO_HOME: {0}")]
+    CargoHome(io::Error),
 }
 
 impl Cmd {
@@ -131,6 +133,7 @@ impl Cmd {
                     cmd.arg(format!("--features={activate}"));
                 }
             }
+            set_env_to_remap_absolute_paths(&mut cmd)?;
             let cmd_str = format!(
                 "cargo {}",
                 cmd.get_args().map(OsStr::to_string_lossy).join(" ")
@@ -228,4 +231,82 @@ impl Cmd {
         // the output.
         cmd.exec()
     }
+}
+
+/// Configure cargo/rustc to replace absolute paths in panic messages / debuginfo
+/// with relative paths.
+///
+/// This is required for reproducible builds.
+///
+/// This works for paths to crates in the registry. The compiler already does
+/// something similar for standard library paths and local paths. It may not
+/// work for crates that come from other sources, including the standard library
+/// compiled from source, though it may be possible to accomodate such cases in
+/// the future.
+///
+/// This in theory breaks the ability of debuggers to find source code, but
+/// since we are only targetting wasm, which is not typically run in a debugger,
+/// and stellar-cli only compiles contracts in release mode, the impact is on
+/// debugging is expected to be minimal.
+///
+/// This works by setting the `CARGO_ENCODED_RUSTFLAGS` environment variable,
+/// with appropriate `--remap-path-prefix` option. It preserves the values of an
+/// existing `CARGO_ENCODED_RUSTFLAGS` (or `RUSTFLAGS`).
+///
+/// This must be done via `RUSTFLAGS` and not as arguments to `cargo rustc`
+/// because the latter only applies to the crate directly being compiled, while
+/// `RUSTFLAGS` applies to all crates, including dependencies.
+///
+/// Note that a consequence of setting `RUSTFLAGS` via the environment is that
+/// cargo will ignore any `build.rustflags`, etc. configuration values on
+/// the local system. It may be possible to accomodate such configurations
+/// by using the cargo API directly, but that's a heavy solution.
+///
+/// This assumes that paths are Unicode and that any existing `RUSTFLAGS`
+/// variables are Unicode. Non-Unicode paths will fail to correctly perform the
+/// the absolute path replacement. Non-Unicode `RUSTFLAGS` will result in the
+/// existing `RUSTFLAGS` being ignored, though note this is also the behavior of
+/// cargo itself.
+fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
+    let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
+    let cargo_home = format!("{}", cargo_home.display());
+    let registry_prefix = format!("{cargo_home}/registry/src/");
+    let new_rustflag = format!("--remap-path-prefix={registry_prefix}=");
+
+    let mut rustflags = get_rustflags().unwrap_or_default();
+    rustflags.push(new_rustflag);
+
+    let rustflags = rustflags.join("\x1f");
+    cmd.env("CARGO_ENCODED_RUSTFLAGS", rustflags);
+
+    // cargo will ignore RUSTFLAGS since CARGO_ENCODED_RUSTFLAGS is set,
+    // but let's drop it anyway to reduce potential confusion.
+    cmd.env_remove("RUSTFLAGS");
+
+    Ok(())
+}
+
+/// Get any existing rustflags from the environment, either from
+/// `CARGO_ENCODED_RUSTFLAGS` (preferred), or `RUSTFLAGS`. The logic here is
+/// copied directly from cargo's `rustflags_from_env`.
+///
+/// This conveniently ignores non-Unicode `RUSTFLAGS`, as does cargo.
+fn get_rustflags() -> Option<Vec<String>> {
+    if let Ok(a) = env::var("CARGO_ENCODED_RUSTFLAGS") {
+        if a.is_empty() {
+            return Some(Vec::new());
+        }
+        return Some(a.split('\x1f').map(str::to_string).collect());
+    }
+
+    if let Ok(a) = env::var("RUSTFLAGS") {
+        let args = a
+            .split(' ')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        return Some(args.collect());
+    }
+
+    None
 }
