@@ -45,6 +45,16 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
     .then(move || op.clone())
 }
 
+/// Calculate the hash of a Transaction
+pub fn transaction_hash(txn: &Transaction, network_passphrase: &str) -> Result<[u8; 32], Error> {
+    let signature_payload = TransactionSignaturePayload {
+        network_id: hash(network_passphrase),
+        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(txn.clone()),
+    };
+    let hash = Sha256::digest(signature_payload.to_xdr(Limits::none())?).into();
+    Ok(hash)
+}
+
 /// A trait for signing Stellar transactions and Soroban authorization entries
 #[async_trait::async_trait]
 pub trait Stellar {
@@ -84,11 +94,7 @@ pub trait Stellar {
             network_passphrase, ..
         }: &Network,
     ) -> Result<TransactionEnvelope, Error> {
-        let signature_payload = TransactionSignaturePayload {
-            network_id: hash(network_passphrase),
-            tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(txn.clone()),
-        };
-        let hash = Sha256::digest(signature_payload.to_xdr(Limits::none())?).into();
+        let hash = transaction_hash(&txn, network_passphrase)?;
         let decorated_signature = self.sign_txn_hash(hash).await?;
         Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
             tx: txn,
