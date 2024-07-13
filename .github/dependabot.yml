@@ -4,12 +4,11 @@ updates:
     directories:
       - "/"
       - "/cmd/soroban-cli"
-      - "/cmd/soroban-cli/src/utils/contract-init-template"
+      - "/cmd/stellar-cli"
       - "/cmd/crates/stellar-ledger"
       - "/cmd/crates/soroban-spec-typescript"
       - "/cmd/crates/soroban-spec-tools"
       - "/cmd/crates/soroban-spec-json"
-      - "/cmd/crates/soroban-test"
     schedule:
       interval: "weekly"
       day: "sunday"
