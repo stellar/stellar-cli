@@ -4,7 +4,6 @@ updates:
     directories:
       - "/"
       - "/cmd/soroban-cli"
-      - "/cmd/stellar-cli"
       - "/cmd/crates/stellar-ledger"
       - "/cmd/crates/soroban-spec-typescript"
       - "/cmd/crates/soroban-spec-tools"
