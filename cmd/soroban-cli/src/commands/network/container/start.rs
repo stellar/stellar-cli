@@ -8,7 +8,7 @@ use bollard::{
 use futures_util::TryStreamExt;
 
 use crate::commands::network::container::shared::{
-    connect_to_docker, get_container_name, Error as ConnectionError, Network,
+    connect_to_docker, Error as ConnectionError, Network,
 };
 
 use super::shared::Args;
@@ -89,8 +89,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
         ..Default::default()
     };
 
-    let container_name =
-        get_container_name(cmd.container_args.container_name.clone(), Some(cmd.network));
+    let container_name = cmd.container_args.get_container_name(Some(cmd.network));
     let create_container_response = docker
         .create_container(
             Some(CreateContainerOptions {
@@ -116,7 +115,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
 fn print_log_message(cmd: &Cmd) {
     let log_message = format!(
         "ℹ️ To see the logs for this container run: stellar network container logs {arg} {additional_flags}",
-        arg = cmd.container_args.get_container_name_arg(cmd.network),
+        arg = cmd.container_args.get_container_name_arg(Some(cmd.network)),
         additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{log_message}");
@@ -125,7 +124,7 @@ fn print_log_message(cmd: &Cmd) {
 fn print_stop_message(cmd: &Cmd) {
     let stop_message = format!(
         "ℹ️ To stop this container run: stellar network container stop {arg} {additional_flags}",
-        arg = cmd.container_args.get_container_name_arg(cmd.network),
+        arg = cmd.container_args.get_container_name_arg(Some(cmd.network)),
         additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{stop_message}");

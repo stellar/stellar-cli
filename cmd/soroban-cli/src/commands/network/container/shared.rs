@@ -50,9 +50,25 @@ impl Args {
             .unwrap_or_default()
     }
 
-    pub(crate) fn get_container_name_arg(&self, network: Network) -> String {
+    pub(crate) fn get_container_name(&self, network: Option<Network>) -> String {
         self.container_name.as_ref().map_or_else(
-            || network.to_string(),
+            || {
+                format!(
+                    "stellar-{}",
+                    network.expect("Container name and/or network are required.")
+                )
+            },
+            |container_name| container_name.to_string(),
+        )
+    }
+
+    pub(crate) fn get_container_name_arg(&self, network: Option<Network>) -> String {
+        self.container_name.as_ref().map_or_else(
+            || {
+                network
+                    .expect("Container name and/or network are required.")
+                    .to_string()
+            },
             |container_name| format!("--container-name {container_name}"),
         )
     }
@@ -173,16 +189,5 @@ async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::errors:
             );
             Err(err)
         }
-    }
-}
-
-pub fn get_container_name(container_name_arg: Option<String>, network: Option<Network>) -> String {
-    if let Some(container_name) = container_name_arg {
-        container_name.to_string()
-    } else {
-        format!(
-            "stellar-{}",
-            network.expect("Container name and/or network are required.")
-        )
     }
 }
