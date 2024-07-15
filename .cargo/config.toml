@@ -30,7 +30,7 @@ rustflags = [
     # Disable doc-markdown because it asks for backticks to be added around text
     # that shouldn't be surrounded by backticks.
     # https://github.com/rust-lang/rust-clippy/issues/13097
-    "-Aclippy::doc-markdown",
+    "-Aclippy::doc_markdown",
 
     # "-Aclippy::missing_safety_doc",
     # "-Aclippy::inline_always",
