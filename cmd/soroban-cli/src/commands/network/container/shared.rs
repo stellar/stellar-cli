@@ -164,6 +164,9 @@ pub fn get_container_name(container_name_arg: Option<String>, network: Option<Ne
     if let Some(container_name) = container_name_arg {
         container_name.to_string()
     } else {
-        format!("stellar-{}", network.unwrap())
+        format!(
+            "stellar-{}",
+            network.expect("Container name and/or network are required.")
+        )
     }
 }
