@@ -22,6 +22,9 @@ use cargo_metadata::{Metadata, MetadataCommand, Package};
 /// In workspaces builds all crates unless a package name is specified, or the
 /// command is executed from the sub-directory of a workspace crate.
 ///
+/// In workspaces builds all crates unless a package name is specified, or the
+/// command is executed from the sub-directory of a workspace crate.
+///
 /// To view the commands that will be executed, without executing them, use the
 /// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
@@ -76,6 +79,8 @@ pub enum Error {
     PackageNotFound { package: String },
     #[error("finding absolute path of Cargo.toml: {0}")]
     AbsolutePath(io::Error),
+    #[error("finding absolute path of Cargo.toml: {0}")]
+    AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
     #[error("copying wasm file: {0}")]
@@ -89,6 +94,7 @@ impl Cmd {
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
 
         let metadata = self.metadata()?;
+        let packages = self.packages(&metadata)?;
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
 
