@@ -138,7 +138,7 @@ async fn invoke() {
     handles_kebab_case(sandbox, id).await;
     fetch(sandbox, id).await;
     invoke_prng_u64_in_range_test(sandbox, id).await;
-    invoke_log(sandbox, id).await;
+    invoke_log(sandbox, id);
 }
 
 fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
@@ -374,7 +374,7 @@ async fn invoke_prng_u64_in_range_test(sandbox: &TestEnv, id: &str) {
         .await
         .is_ok());
 }
-async fn invoke_log(sandbox: &TestEnv, id: &str) {
+fn invoke_log(sandbox: &TestEnv, id: &str) {
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
