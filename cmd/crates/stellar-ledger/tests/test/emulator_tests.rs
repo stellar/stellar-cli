@@ -343,30 +343,52 @@ fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
 }
 
 async fn wait_for_emulator_start_text(ui_host_port: u16) {
-    sleep(Duration::from_secs(1)).await;
-
     let mut ready = false;
     while !ready {
-        let events = get_emulator_events(ui_host_port).await;
+        let events = get_emulator_events_with_retries(ui_host_port, 5).await;
 
         if events.iter().any(|event| event.text == "is ready") {
             ready = true;
         }
-        sleep(Duration::from_secs(1)).await;
     }
 }
 
 async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
+    // Allowing for less retries here because presumably the emulator should be up and running since we waited
+    // for the "is ready" text via wait_for_emulator_start_text
+    get_emulator_events_with_retries(ui_host_port, 1).await
+}
+
+async fn get_emulator_events_with_retries(
+    ui_host_port: u16,
+    max_retries: u16,
+) -> Vec<EmulatorEvent> {
     let client = reqwest::Client::new();
-    let resp = client
-        .get(format!("http://localhost:{ui_host_port}/events"))
-        .send()
-        .await
-        .unwrap()
-        .json::<EventsResponse>()
-        .await
-        .unwrap();
-    resp.events
+    let mut retries = 0;
+
+    let mut wait_time = Duration::from_secs(1);
+
+    loop {
+        match client
+            .get(format!("http://localhost:{ui_host_port}/events"))
+            .send()
+            .await
+        {
+            Ok(req) => {
+                let resp = req.json::<EventsResponse>().await.unwrap();
+                return resp.events;
+            }
+            Err(e) => {
+                println!("this many retries: {retries}");
+                retries += 1;
+                if retries >= max_retries {
+                    panic!("Failed to get emulator events: {e}");
+                }
+                sleep(wait_time).await;
+                wait_time *= 2;
+            }
+        }
+    }
 }
 
 async fn approve_tx_hash_signature(ui_host_port: u16, device_model: String) {
