@@ -4,7 +4,7 @@ use crate::commands::network::container::shared::{
     connect_to_docker, Error as ConnectionError, Network,
 };
 
-use super::shared::{get_container_name, ContainerArgs};
+use super::shared::{get_container_name, Args};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -18,7 +18,7 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
     #[command(flatten)]
-    pub container_args: ContainerArgs,
+    pub container_args: Args,
 
     /// Network container to tail (used in container name generation)
     #[arg(required_unless_present = "container_name")]

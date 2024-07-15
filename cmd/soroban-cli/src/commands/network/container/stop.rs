@@ -2,7 +2,7 @@ use crate::commands::network::container::shared::{
     connect_to_docker, get_container_name, Error as BollardConnectionError, Network,
 };
 
-use super::shared::ContainerArgs;
+use super::shared::Args;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -23,7 +23,7 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
     #[command(flatten)]
-    pub container_args: ContainerArgs,
+    pub container_args: Args,
 
     /// Network to stop (used in container name generation)
     #[arg(required_unless_present = "container_name")]

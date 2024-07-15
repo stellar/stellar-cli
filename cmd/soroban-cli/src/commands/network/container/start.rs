@@ -11,7 +11,7 @@ use crate::commands::network::container::shared::{
     connect_to_docker, get_container_name, Error as ConnectionError, Network,
 };
 
-use super::shared::ContainerArgs;
+use super::shared::Args;
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
@@ -28,7 +28,7 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
     #[command(flatten)]
-    pub container_args: ContainerArgs,
+    pub container_args: Args,
 
     /// Network to start
     pub network: Network,

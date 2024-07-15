@@ -32,7 +32,7 @@ pub enum Error {
 }
 
 #[derive(Debug, clap::Parser, Clone)]
-pub struct ContainerArgs {
+pub struct Args {
     /// Optional argument to specify the container name
     #[arg(short = 'c', long, required_unless_present = "network")]
     pub container_name: Option<String>,
