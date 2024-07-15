@@ -42,6 +42,15 @@ pub struct Args {
     pub docker_host: Option<String>,
 }
 
+impl Args {
+    pub(crate) fn get_additional_flags(&self) -> String {
+        self.docker_host
+            .as_ref()
+            .map(|docker_host| format!("--docker-host {docker_host}"))
+            .unwrap_or_default()
+    }
+}
+
 #[derive(ValueEnum, Debug, Copy, Clone, PartialEq)]
 pub enum Network {
     Local,

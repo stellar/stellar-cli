@@ -120,9 +120,7 @@ fn print_log_message(cmd: &Cmd) {
             || cmd.network.to_string(),
             |container_name| format!("--container-name {container_name}")
         ),
-        additional_flags = cmd.container_args.docker_host.as_ref().map(
-            |docker_host| format!("--docker-host {docker_host}")
-        ).unwrap_or_default()
+        additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{log_message}");
 }
@@ -134,13 +132,7 @@ fn print_stop_message(cmd: &Cmd) {
             || cmd.network.to_string(),
             |container_name| format!("--container-name {container_name}")
         ),
-        additional_flags = cmd
-            .container_args
-            .docker_host
-            .as_ref()
-            .map_or_else(String::new, |docker_host| format!(
-                "--docker-host {docker_host}"
-            ))
+        additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{stop_message}");
 }
