@@ -169,18 +169,23 @@ impl Cmd {
     }
 
     fn packages(&self, metadata: &Metadata) -> Result<Vec<Package>, Error> {
-        let manifest_path = path::absolute(&self.manifest_path).map_err(Error::AbsolutePath)?;
-
         // Filter by the package name if one is provided, or by the package that
         // matches the manifest path if the manifest path matches a specific
         // package.
-        let name = self.package.clone().or_else(|| {
+        let name = if let Some(name) = self.package.clone() {
+            Some(name)
+        } else {
+            // When matching a package based on the manifest path, match against the
+            // absolute path because the paths in the metadata are absolute. Match
+            // against a manifest in the current working directory if no manifest is
+            // specified.
+            let manifest_path = path::absolute(&self.manifest_path).map_err(Error::AbsolutePath)?;
             metadata
                 .packages
                 .iter()
                 .find(|p| p.manifest_path == manifest_path)
                 .map(|p| p.name.clone())
-        });
+        };
 
         let package = metadata
             .packages
