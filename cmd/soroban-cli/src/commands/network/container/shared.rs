@@ -49,6 +49,13 @@ impl Args {
             .map(|docker_host| format!("--docker-host {docker_host}"))
             .unwrap_or_default()
     }
+
+    pub(crate) fn get_container_name_arg(&self, network: Network) -> String {
+        self.container_name.as_ref().map_or_else(
+            || network.to_string(),
+            |container_name| format!("--container-name {container_name}"),
+        )
+    }
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, PartialEq)]

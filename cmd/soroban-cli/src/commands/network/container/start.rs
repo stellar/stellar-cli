@@ -116,10 +116,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
 fn print_log_message(cmd: &Cmd) {
     let log_message = format!(
         "ℹ️ To see the logs for this container run: stellar network container logs {arg} {additional_flags}",
-        arg = cmd.container_args.container_name.as_ref().map_or_else(
-            || cmd.network.to_string(),
-            |container_name| format!("--container-name {container_name}")
-        ),
+        arg = cmd.container_args.get_container_name_arg(cmd.network),
         additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{log_message}");
@@ -128,10 +125,7 @@ fn print_log_message(cmd: &Cmd) {
 fn print_stop_message(cmd: &Cmd) {
     let stop_message = format!(
         "ℹ️ To stop this container run: stellar network container stop {arg} {additional_flags}",
-        arg = cmd.container_args.container_name.as_ref().map_or_else(
-            || cmd.network.to_string(),
-            |container_name| format!("--container-name {container_name}")
-        ),
+        arg = cmd.container_args.get_container_name_arg(cmd.network),
         additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{stop_message}");
