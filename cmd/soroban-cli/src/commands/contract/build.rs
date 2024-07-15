@@ -187,7 +187,7 @@ impl Cmd {
                 .map(|p| p.name.clone())
         };
 
-        let package = metadata
+        let packages = metadata
             .packages
             .iter()
             .filter(|p|
@@ -204,7 +204,7 @@ impl Cmd {
             .cloned()
             .collect();
 
-        Ok(package)
+        Ok(packages)
     }
 
     fn metadata(&self) -> Result<Metadata, cargo_metadata::Error> {
