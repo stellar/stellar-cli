@@ -16,7 +16,7 @@ For additional information see:
 
 - Stellar Docs: https://developers.stellar.org
 - Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
-- CLI Docs: https://developers.stellar.org/docs/build/smart-contracts/stellar-cli
+- CLI Docs: https://developers.stellar.org/docs/tools/stellar-cli
 
 The easiest way to get started is to generate a new identity:
 
