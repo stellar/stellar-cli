@@ -76,3 +76,24 @@ error: package nopkgwiththisname not found
 ",
         ));
 }
+
+#[test]
+fn build_all_when_in_non_package_directory() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add/src/");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--print-commands-only")
+        .assert()
+        .success()
+        .stdout(predicate::eq(
+            "\
+cargo rustc --manifest-path=../Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
+cargo rustc --manifest-path=../../call/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
+cargo rustc --manifest-path=../add2/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
+",
+        ));
+}
