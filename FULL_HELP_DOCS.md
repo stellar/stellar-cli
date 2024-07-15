@@ -55,7 +55,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output. To turn on "stellar_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`
+* `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output. To turn on `stellar_cli::log::footprint=debug` or off `=off`. Can also use env var `RUST_LOG`
 * `-q`, `--quiet` — Do not write logs to stderr including `INFO`
 * `-v`, `--verbose` — Log DEBUG events
 * `--very-verbose` — Log DEBUG and TRACE events
@@ -629,7 +629,7 @@ Watch the network for contract events
 
 ###### **Options:**
 
-* `--start-ledger <START_LEDGER>` — The first ledger sequence number in the range to pull events https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+* `--start-ledger <START_LEDGER>` — The first ledger sequence number in the range to pull events <https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence>
 * `--cursor <CURSOR>` — The cursor corresponding to the start of the event range
 * `--output <OUTPUT>` — Output formatting options for event stream
 
@@ -641,7 +641,7 @@ Watch the network for contract events
   - `plain`:
     Human-oriented console output without colors
   - `json`:
-    JSONified console output
+    JSON formatted console output
 
 * `-c`, `--count <COUNT>` — The maximum number of events to display (defer to the server-defined limit)
 
@@ -700,8 +700,8 @@ Add a new identity (keypair, ledger, macOS keychain)
 
 ###### **Options:**
 
-* `--secret-key` — Add using secret_key Can provide with SOROBAN_SECRET_KEY
-* `--seed-phrase` — Add using 12 word seed phrase to generate secret_key
+* `--secret-key` — Add using `secret_key` Can provide with `SOROBAN_SECRET_KEY`
+* `--seed-phrase` — Add using 12 word seed phrase to generate `secret_key`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
@@ -763,7 +763,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `-s`, `--as-secret` — Output the generated identity as a secret key
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--hd-path <HD_PATH>` — When generating a secret key, which hd_path should be used from the original seed_phrase
+* `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
