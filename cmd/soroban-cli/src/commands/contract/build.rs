@@ -6,7 +6,7 @@ use std::{
     ffi::OsStr,
     fmt::Debug,
     fs, io,
-    path::Path,
+    path::{self, Path},
     process::{Command, ExitStatus, Stdio},
 };
 
@@ -71,6 +71,8 @@ pub enum Error {
     Exit(ExitStatus),
     #[error("package {package} not found")]
     PackageNotFound { package: String },
+    #[error("finding absolute path of Cargo.toml: {0}")]
+    AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
     #[error("copying wasm file: {0}")]
@@ -84,7 +86,7 @@ impl Cmd {
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
 
         let metadata = self.metadata()?;
-        let packages = self.packages(&metadata);
+        let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
 
         if let Some(package) = &self.package {
@@ -163,23 +165,38 @@ impl Cmd {
             .map(|f| f.split(&[',', ' ']).map(String::from).collect())
     }
 
-    fn packages(&self, metadata: &Metadata) -> Vec<Package> {
-        metadata
+    fn packages(&self, metadata: &Metadata) -> Result<Vec<Package>, Error> {
+        let manifest_path = path::absolute(&self.manifest_path).map_err(Error::AbsolutePath)?;
+
+        // Filter by the package name if one is provided, or by the package that
+        // matches the manifest path if the manifest path matches a specific
+        // package.
+        let name = self.package.clone().or_else(|| {
+            metadata
+                .packages
+                .iter()
+                .find(|p| p.manifest_path == manifest_path)
+                .map(|p| p.name.clone())
+        });
+
+        let package = metadata
             .packages
             .iter()
             .filter(|p|
-                // Filter by the package name if one is provided.
-                self.package.is_none() || Some(&p.name) == self.package.as_ref())
-            .filter(|p| {
-                // Filter crates by those that build to cdylib (wasm), unless a
-                // package is provided.
-                self.package.is_some()
-                    || p.targets
+                // Filter by the package name if one is selected based on the above logic.
+                if let Some(name) = &name {
+                    &p.name == name
+                } else {
+                    // Otherwise filter crates by those that build to cdylib (wasm).
+                    p.targets
                         .iter()
                         .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
-            })
+                }
+            )
             .cloned()
-            .collect()
+            .collect();
+
+        Ok(package)
     }
 
     fn metadata(&self) -> Result<Metadata, cargo_metadata::Error> {
