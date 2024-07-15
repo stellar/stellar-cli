@@ -233,6 +233,8 @@ Build a contract from source
 
 Builds all crates that are referenced by the cargo manifest (Cargo.toml) that have cdylib as their crate-type. Crates are built for the wasm32 target. Unless configured otherwise, crates are built with their default features and with their release profile.
 
+In workspaces builds all crates unless a package name is specified, or the command is executed from the sub-directory of a workspace crate.
+
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
 **Usage:** `stellar contract build [OPTIONS]`
