@@ -51,7 +51,7 @@ fn is_log_event(event: &xdr::DiagnosticEvent) -> bool {
     }
 }
 
-fn str_to_sc_string(s: &str) -> xdr::ScSymbol {
+fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
     let inner: xdr::StringM<32> = s.try_into().unwrap();
     xdr::ScSymbol(inner)
 }
