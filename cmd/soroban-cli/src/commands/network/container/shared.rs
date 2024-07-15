@@ -62,6 +62,10 @@ impl Args {
         )
     }
 
+    // This method is used in start.rs to create a message for the user to let them know how to stop the container they
+    // just started, and how to view its logs. For both `stop` and `logs` the user is able to pass in either the network
+    // (and we generate the container name) or the container name directly. Which is why we need to check if the
+    // container_name is present or not here.
     pub(crate) fn get_container_name_arg(&self, network: Option<Network>) -> String {
         self.container_name.as_ref().map_or_else(
             || {
