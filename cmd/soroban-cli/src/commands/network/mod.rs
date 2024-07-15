@@ -255,12 +255,12 @@ pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_
         "Standalone Network ; February 2017",
     ),
     "futurenet" => (
-        "https://soroban-testnet.stellar.org",
-        "Test SDF Network ; September 2015",
-    ),
-    "testnet" => (
         "https://rpc-futurenet.stellar.org:443",
         "Test SDF Future Network ; October 2022",
+    ),
+    "testnet" => (
+        "https://soroban-testnet.stellar.org",
+        "Test SDF Network ; September 2015",
     ),
     "mainnet" => (
         "Bring Your Own: https://developers.stellar.org/docs/data/rpc/rpc-providers",
