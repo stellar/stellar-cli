@@ -6,7 +6,7 @@ use std::{
     ffi::OsStr,
     fmt::Debug,
     fs, io,
-    path::Path,
+    path::{self, Path},
     process::{Command, ExitStatus, Stdio},
 };
 
@@ -18,6 +18,9 @@ use cargo_metadata::{Metadata, MetadataCommand, Package};
 /// that have cdylib as their crate-type. Crates are built for the wasm32
 /// target. Unless configured otherwise, crates are built with their default
 /// features and with their release profile.
+///
+/// In workspaces builds all crates unless a package name is specified, or the
+/// command is executed from the sub-directory of a workspace crate.
 ///
 /// To view the commands that will be executed, without executing them, use the
 /// --print-commands-only option.
@@ -71,6 +74,8 @@ pub enum Error {
     Exit(ExitStatus),
     #[error("package {package} not found")]
     PackageNotFound { package: String },
+    #[error("finding absolute path of Cargo.toml: {0}")]
+    AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
     #[error("copying wasm file: {0}")]
@@ -84,7 +89,7 @@ impl Cmd {
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
 
         let metadata = self.metadata()?;
-        let packages = self.packages(&metadata);
+        let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
 
         if let Some(package) = &self.package {
@@ -163,23 +168,43 @@ impl Cmd {
             .map(|f| f.split(&[',', ' ']).map(String::from).collect())
     }
 
-    fn packages(&self, metadata: &Metadata) -> Vec<Package> {
-        metadata
+    fn packages(&self, metadata: &Metadata) -> Result<Vec<Package>, Error> {
+        // Filter by the package name if one is provided, or by the package that
+        // matches the manifest path if the manifest path matches a specific
+        // package.
+        let name = if let Some(name) = self.package.clone() {
+            Some(name)
+        } else {
+            // When matching a package based on the manifest path, match against the
+            // absolute path because the paths in the metadata are absolute. Match
+            // against a manifest in the current working directory if no manifest is
+            // specified.
+            let manifest_path = path::absolute(&self.manifest_path).map_err(Error::AbsolutePath)?;
+            metadata
+                .packages
+                .iter()
+                .find(|p| p.manifest_path == manifest_path)
+                .map(|p| p.name.clone())
+        };
+
+        let packages = metadata
             .packages
             .iter()
             .filter(|p|
-                // Filter by the package name if one is provided.
-                self.package.is_none() || Some(&p.name) == self.package.as_ref())
-            .filter(|p| {
-                // Filter crates by those that build to cdylib (wasm), unless a
-                // package is provided.
-                self.package.is_some()
-                    || p.targets
+                // Filter by the package name if one is selected based on the above logic.
+                if let Some(name) = &name {
+                    &p.name == name
+                } else {
+                    // Otherwise filter crates by those that build to cdylib (wasm).
+                    p.targets
                         .iter()
                         .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
-            })
+                }
+            )
             .cloned()
-            .collect()
+            .collect();
+
+        Ok(packages)
     }
 
     fn metadata(&self) -> Result<Metadata, cargo_metadata::Error> {
