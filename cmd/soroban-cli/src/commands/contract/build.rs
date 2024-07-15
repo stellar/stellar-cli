@@ -19,6 +19,9 @@ use cargo_metadata::{Metadata, MetadataCommand, Package};
 /// target. Unless configured otherwise, crates are built with their default
 /// features and with their release profile.
 ///
+/// In workspaces builds all crates unless a package name is specified, or the
+/// command is executed from the sub-directory of a workspace crate.
+///
 /// To view the commands that will be executed, without executing them, use the
 /// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
