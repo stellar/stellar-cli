@@ -6,3 +6,4 @@ mod integration;
 mod plugin;
 mod util;
 mod version;
+mod build;
