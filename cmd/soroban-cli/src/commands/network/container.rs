@@ -10,10 +10,8 @@ pub type StopCmd = stop::Cmd;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Tail logs of a running network container
+    /// Get logs from a running network container
     Logs(logs::Cmd),
-    /// Start network
-    ///
     /// Start a container running a Stellar node, RPC, API, and friendbot (faucet).
     ///
     /// `stellar network container start NETWORK [OPTIONS]`
@@ -22,7 +20,7 @@ pub enum Cmd {
     ///
     /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
     Start(start::Cmd),
-    /// Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it.
+    /// Stop a network container started with `network container start`.
     Stop(stop::Cmd),
 }
 
