@@ -12,7 +12,7 @@ exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.package]
 version = "21.1.1"
-rust-version = "1.74.0"
+rust-version = "1.79.0"
 
 [workspace.dependencies.soroban-env-host]
 version = "=21.1.2"
