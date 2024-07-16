@@ -51,25 +51,40 @@ impl Spec {
             properties.insert(param.name.to_utf8_string_lossy(), param_schema);
         }
 
-        Ok(json!({
+        let mut schema = json!({
             "type": "object",
             "properties": properties,
             "required": function.inputs.iter().map(|p| p.name.to_utf8_string_lossy()).collect::<Vec<_>>()
-        }))
+        });
+
+        if !function.doc.is_empty() {
+            schema.as_object_mut().unwrap().insert("description".to_string(), json!(function.doc.to_utf8_string_lossy()));
+        }
+
+        Ok(schema)
     }
 
     fn struct_to_json_schema(&self, struct_: &xdr::ScSpecUdtStructV0) -> Result<Value, Error> {
         let mut properties = serde_json::Map::new();
         for field in struct_.fields.iter() {
-            let field_schema = self.type_to_json_schema(&field.type_)?;
+            let mut field_schema = self.type_to_json_schema(&field.type_)?;
+            if !field.doc.is_empty() {
+                field_schema.as_object_mut().unwrap().insert("description".to_string(), json!(field.doc.to_utf8_string_lossy()));
+            }
             properties.insert(field.name.to_utf8_string_lossy(), field_schema);
         }
 
-        Ok(json!({
+        let mut schema = json!({
             "type": "object",
             "properties": properties,
             "required": struct_.fields.iter().map(|f| f.name.to_utf8_string_lossy()).collect::<Vec<_>>()
-        }))
+        });
+
+        if !struct_.doc.is_empty() {
+            schema.as_object_mut().unwrap().insert("description".to_string(), json!(struct_.doc.to_utf8_string_lossy()));
+        }
+
+        Ok(schema)
     }
 
     fn union_to_json_schema(&self, union: &xdr::ScSpecUdtUnionV0) -> Result<Value, Error> {
@@ -77,17 +92,25 @@ impl Spec {
         for case in union.cases.iter() {
             match case {
                 xdr::ScSpecUdtUnionCaseV0::VoidV0(void_case) => {
-                    one_of.push(json!({
+                    let mut case_schema = json!({
                         "type": "string",
                         "enum": [void_case.name.to_utf8_string_lossy()]
-                    }));
+                    });
+                    if !void_case.doc.is_empty() {
+                        case_schema.as_object_mut().unwrap().insert("description".to_string(), json!(void_case.doc.to_utf8_string_lossy()));
+                    }
+                    one_of.push(case_schema);
                 }
                 xdr::ScSpecUdtUnionCaseV0::TupleV0(tuple_case) => {
                     let mut properties = serde_json::Map::new();
-                    properties.insert(tuple_case.name.to_utf8_string_lossy(), json!({
+                    let mut case_schema = json!({
                         "type": "array",
                         "items": tuple_case.type_.iter().map(|t| self.type_to_json_schema(t).unwrap()).collect::<Vec<_>>()
-                    }));
+                    });
+                    if !tuple_case.doc.is_empty() {
+                        case_schema.as_object_mut().unwrap().insert("description".to_string(), json!(tuple_case.doc.to_utf8_string_lossy()));
+                    }
+                    properties.insert(tuple_case.name.to_utf8_string_lossy(), case_schema);
                     one_of.push(json!({
                         "type": "object",
                         "properties": properties,
@@ -97,24 +120,42 @@ impl Spec {
             }
         }
 
-        Ok(json!({ "oneOf": one_of }))
+        let mut schema = json!({ "oneOf": one_of });
+
+        if !union.doc.is_empty() {
+            schema.as_object_mut().unwrap().insert("description".to_string(), json!(union.doc.to_utf8_string_lossy()));
+        }
+
+        Ok(schema)
     }
 
     fn enum_to_json_schema(&self, enum_: &xdr::ScSpecUdtEnumV0) -> Result<Value, Error> {
-        Ok(json!({
+        let mut schema = json!({
             "type": "integer",
             "enum": enum_.cases.iter().map(|c| c.value).collect::<Vec<_>>()
-        }))
+        });
+
+        if !enum_.doc.is_empty() {
+            schema.as_object_mut().unwrap().insert("description".to_string(), json!(enum_.doc.to_utf8_string_lossy()));
+        }
+
+        Ok(schema)
     }
 
     fn error_enum_to_json_schema(
         &self,
         error_enum: &xdr::ScSpecUdtErrorEnumV0,
     ) -> Result<Value, Error> {
-        Ok(json!({
+        let mut schema = json!({
             "type": "integer",
             "enum": error_enum.cases.iter().map(|c| c.value).collect::<Vec<_>>()
-        }))
+        });
+
+        if !error_enum.doc.is_empty() {
+            schema.as_object_mut().unwrap().insert("description".to_string(), json!(error_enum.doc.to_utf8_string_lossy()));
+        }
+
+        Ok(schema)
     }
 
     fn type_to_json_schema(&self, type_: &ScType) -> Result<Value, Error> {
