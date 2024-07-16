@@ -7,9 +7,7 @@ use bollard::{
 };
 use futures_util::TryStreamExt;
 
-use crate::commands::network::container::shared::{
-    connect_to_docker, Error as ConnectionError, Network,
-};
+use crate::commands::network::container::shared::{Error as ConnectionError, Network};
 
 use super::shared::Args;
 
@@ -58,7 +56,7 @@ impl Cmd {
 }
 
 async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
-    let docker = connect_to_docker(&cmd.container_args.docker_host).await?;
+    let docker = cmd.container_args.connect_to_docker().await?;
 
     let image = get_image_name(cmd);
     docker
