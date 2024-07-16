@@ -13,7 +13,7 @@ use crate::rpc;
 #[group(skip)]
 pub struct Cmd {
     /// The first ledger sequence number in the range to pull events
-    /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+    /// <https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence>
     #[arg(long, conflicts_with = "cursor", required_unless_present = "cursor")]
     start_ledger: Option<u32>,
     /// The cursor corresponding to the start of the event range.
@@ -128,7 +128,7 @@ pub enum OutputFormat {
     Pretty,
     /// Human-oriented console output without colors
     Plain,
-    /// JSONified console output
+    /// JSON formatted console output
     Json,
 }
 

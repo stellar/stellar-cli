@@ -96,7 +96,7 @@ heck = "0.5.0"
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-cargo_metadata = "0.15.4"
+cargo_metadata = "0.18.1"
 pathdiff = "0.2.1"
 dotenvy = "0.15.7"
 directories = { workspace = true }
