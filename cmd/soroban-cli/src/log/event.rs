@@ -1,24 +1,32 @@
 use crate::xdr;
-pub fn log(event: &xdr::DiagnosticEvent) {
-    tracing::info!("{event:#?}");
+
+mod log {
+    pub fn log(i: usize, event: &super::xdr::DiagnosticEvent) {
+        tracing::info!("{i}: {event:#?}");
+    }
 }
 
-pub fn contract(event: &xdr::DiagnosticEvent) {
-    tracing::info!("{event:#?}");
+mod contract {
+
+    pub fn contract(i: usize, event: &super::xdr::DiagnosticEvent) {
+        tracing::info!("{i}: {event:#?}");
+    }
 }
 
-pub fn diagnostic(event: &xdr::DiagnosticEvent) {
-    tracing::debug!("{event:#?}");
+mod diagnostic {
+    pub fn diagnostic(i: usize, event: &super::xdr::DiagnosticEvent) {
+        tracing::debug!("{i}: {event:#?}");
+    }
 }
 
 pub fn events(events: &[xdr::DiagnosticEvent]) {
-    for event in events {
+    for (i, event) in events.iter().enumerate() {
         if is_contract_event(event) {
-            contract(event);
+            contract::contract(i, event);
         } else if is_log_event(event) {
-            log(event);
+            log::log(i, event);
         } else {
-            diagnostic(event);
+            diagnostic::diagnostic(i, event);
         }
     }
 }
