@@ -6,7 +6,7 @@ use std::{
     ffi::OsStr,
     fmt::Debug,
     fs, io,
-    path::{self, Path},
+    path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
 
@@ -27,8 +27,8 @@ use cargo_metadata::{Metadata, MetadataCommand, Package};
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
     /// Path to Cargo.toml
-    #[arg(long, default_value = "Cargo.toml")]
-    pub manifest_path: std::path::PathBuf,
+    #[arg(long)]
+    pub manifest_path: Option<std::path::PathBuf>,
     /// Package to build
     ///
     /// If omitted, all packages that build for crate-type cdylib are built.
@@ -179,7 +179,12 @@ impl Cmd {
             // absolute path because the paths in the metadata are absolute. Match
             // against a manifest in the current working directory if no manifest is
             // specified.
-            let manifest_path = path::absolute(&self.manifest_path).map_err(Error::AbsolutePath)?;
+            let manifest_path = path::absolute(
+                self.manifest_path
+                    .clone()
+                    .unwrap_or(PathBuf::from("Cargo.toml")),
+            )
+            .map_err(Error::AbsolutePath)?;
             metadata
                 .packages
                 .iter()
@@ -210,7 +215,12 @@ impl Cmd {
     fn metadata(&self) -> Result<Metadata, cargo_metadata::Error> {
         let mut cmd = MetadataCommand::new();
         cmd.no_deps();
-        cmd.manifest_path(&self.manifest_path);
+        // Set the manifest path if one is provided, otherwise rely on the cargo
+        // commands default behavior of finding the nearest Cargo.toml in the
+        // current directory, or the parent directories above it.
+        if let Some(manifest_path) = &self.manifest_path {
+            cmd.manifest_path(manifest_path);
+        }
         // Do not configure features on the metadata command, because we are
         // only collecting non-dependency metadata, features have no impact on
         // the output.

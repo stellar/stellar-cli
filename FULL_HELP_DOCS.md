@@ -242,8 +242,6 @@ To view the commands that will be executed, without executing them, use the --pr
 ###### **Options:**
 
 * `--manifest-path <MANIFEST_PATH>` — Path to Cargo.toml
-
-  Default value: `Cargo.toml`
 * `--package <PACKAGE>` — Package to build
 
    If omitted, all packages that build for crate-type cdylib are built.
