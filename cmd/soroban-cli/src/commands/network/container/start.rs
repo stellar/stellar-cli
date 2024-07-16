@@ -33,6 +33,10 @@ pub struct Cmd {
     /// Network to start
     pub network: Network,
 
+    /// Optional argument to specify the container name
+    #[arg(long)]
+    pub name: Option<String>,
+
     /// Optional argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
     pub limits: Option<String>,
@@ -89,7 +93,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
         ..Default::default()
     };
 
-    let container_name = cmd.container_args.get_container_name(Some(cmd.network));
+    let container_name = get_container_name(cmd);
     let create_container_response = docker
         .create_container(
             Some(CreateContainerOptions {
@@ -112,10 +116,17 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
     Ok(())
 }
 
+fn get_container_name(cmd: &Cmd) -> String {
+    cmd.name.as_ref().map_or_else(
+        || format!("stellar-{}", cmd.network),
+        std::string::ToString::to_string,
+    )
+}
+
 fn print_log_message(cmd: &Cmd) {
     let log_message = format!(
-        "ℹ️ To see the logs for this container run: stellar network container logs {arg} {additional_flags}",
-        arg = cmd.container_args.get_container_name_arg(Some(cmd.network)),
+        "ℹ️ To see the logs for this container run: stellar network container logs {name} {additional_flags}",
+        name = get_container_name(cmd),
         additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{log_message}");
@@ -123,8 +134,8 @@ fn print_log_message(cmd: &Cmd) {
 
 fn print_stop_message(cmd: &Cmd) {
     let stop_message = format!(
-        "ℹ️ To stop this container run: stellar network container stop {arg} {additional_flags}",
-        arg = cmd.container_args.get_container_name_arg(Some(cmd.network)),
+        "ℹ️ To stop this container run: stellar network container stop {name} {additional_flags}",
+        name = get_container_name(cmd),
         additional_flags = cmd.container_args.get_additional_flags(),
     );
     println!("{stop_message}");

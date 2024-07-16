@@ -1,8 +1,6 @@
 use futures_util::TryStreamExt;
 
-use crate::commands::network::container::shared::{
-    connect_to_docker, Error as ConnectionError, Network,
-};
+use crate::commands::network::container::shared::{connect_to_docker, Error as ConnectionError};
 
 use super::shared::Args;
 
@@ -20,14 +18,13 @@ pub struct Cmd {
     #[command(flatten)]
     pub container_args: Args,
 
-    /// Network container to tail (used in container name generation)
-    #[arg(required_unless_present = "container_name")]
-    pub network: Option<Network>,
+    /// Container to get logs from
+    pub name: String,
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let container_name = self.container_args.get_container_name(self.network);
+        let container_name = self.name.clone();
         let docker = connect_to_docker(&self.container_args.docker_host).await?;
         let logs_stream = &mut docker.logs(
             &container_name,

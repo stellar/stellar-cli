@@ -33,10 +33,6 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Args {
-    /// Optional argument to specify the container name
-    #[arg(short = 'c', long, required_unless_present = "network")]
-    pub container_name: Option<String>,
-
     /// Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
     #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
     pub docker_host: Option<String>,
@@ -48,33 +44,6 @@ impl Args {
             .as_ref()
             .map(|docker_host| format!("--docker-host {docker_host}"))
             .unwrap_or_default()
-    }
-
-    pub(crate) fn get_container_name(&self, network: Option<Network>) -> String {
-        self.container_name.as_ref().map_or_else(
-            || {
-                format!(
-                    "stellar-{}",
-                    network.expect("Container name and/or network are required.")
-                )
-            },
-            |container_name| container_name.to_string(),
-        )
-    }
-
-    // This method is used in start.rs to create a message for the user to let them know how to stop the container they
-    // just started, and how to view its logs. For both `stop` and `logs` the user is able to pass in either the network
-    // (and we generate the container name) or the container name directly. Which is why we need to check if the
-    // container_name is present or not here.
-    pub(crate) fn get_container_name_arg(&self, network: Option<Network>) -> String {
-        self.container_name.as_ref().map_or_else(
-            || {
-                network
-                    .expect("Container name and/or network are required.")
-                    .to_string()
-            },
-            |container_name| format!("--container-name {container_name}"),
-        )
     }
 }
 
