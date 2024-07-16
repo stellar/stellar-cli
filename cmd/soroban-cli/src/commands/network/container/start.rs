@@ -31,6 +31,10 @@ pub struct Cmd {
     /// Network to start
     pub network: Network,
 
+    /// Optional argument to specify the container name
+    #[arg(long)]
+    pub name: Option<String>,
+
     /// Optional argument to specify the limits for the local network only
     #[arg(short = 'l', long)]
     pub limits: Option<String>,
@@ -83,7 +87,7 @@ impl Cmd {
             ..Default::default()
         };
 
-        let container_name = self.container_args.get_container_name(Some(self.network));
+        let container_name = self.get_container_name();
         let create_container_response = docker
             .create_container(
                 Some(CreateContainerOptions {
@@ -157,10 +161,17 @@ impl Cmd {
         port_mapping_hash
     }
 
+    fn get_container_name(&self) -> String {
+        self.name.as_ref().map_or_else(
+            || self.network.to_string(),
+            std::string::ToString::to_string,
+        )
+    }
+
     fn print_log_message(&self) {
         let log_message = format!(
             "ℹ️ To see the logs for this container run: stellar network container logs {container_name} {additional_flags}",
-            container_name = self.container_args.get_container_name(Some(self.network)),
+            container_name = self.get_container_name(),
             additional_flags = self.container_args.get_additional_flags(),
         );
         println!("{log_message}");
@@ -170,7 +181,7 @@ impl Cmd {
         let stop_message =
             format!(
             "ℹ️ To stop this container run: stellar network container stop {container_name} {additional_flags}",
-            container_name = self.container_args.get_container_name(Some(self.network)),
+            container_name = self.get_container_name(),
             additional_flags = self.container_args.get_additional_flags(),
         );
         println!("{stop_message}");

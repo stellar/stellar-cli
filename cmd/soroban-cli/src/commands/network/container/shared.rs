@@ -33,10 +33,6 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Args {
-    /// Optional argument to specify the container name
-    #[arg(long, required_unless_present = "network")]
-    pub name: Option<String>,
-
     /// Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
     #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
     pub docker_host: Option<String>,
@@ -48,17 +44,6 @@ impl Args {
             .as_ref()
             .map(|docker_host| format!("--docker-host {docker_host}"))
             .unwrap_or_default()
-    }
-
-    pub(crate) fn get_container_name(&self, network: Option<Network>) -> String {
-        self.name.as_ref().map_or_else(
-            || {
-                network
-                    .expect("Container name and/or network are required.")
-                    .to_string()
-            },
-            std::string::ToString::to_string,
-        )
     }
 
     pub(crate) async fn connect_to_docker(&self) -> Result<Docker, Error> {

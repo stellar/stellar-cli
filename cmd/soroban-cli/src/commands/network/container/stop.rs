@@ -1,4 +1,4 @@
-use crate::commands::network::container::shared::{Error as BollardConnectionError, Network};
+use crate::commands::network::container::shared::Error as BollardConnectionError;
 
 use super::shared::Args;
 
@@ -23,14 +23,13 @@ pub struct Cmd {
     #[command(flatten)]
     pub container_args: Args,
 
-    /// Network to stop (used in container name generation)
-    #[arg(required_unless_present = "name")]
-    pub network: Option<Network>,
+    /// Container to stop
+    pub name: String,
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let container_name = self.container_args.get_container_name(self.network);
+        let container_name = self.name.clone();
         let docker = self.container_args.connect_to_docker().await?;
         println!("ℹ️ Stopping container: {container_name}");
         docker
