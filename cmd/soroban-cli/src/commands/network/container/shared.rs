@@ -53,27 +53,11 @@ impl Args {
     pub(crate) fn get_container_name(&self, network: Option<Network>) -> String {
         self.name.as_ref().map_or_else(
             || {
-                format!(
-                    "stellar-{}",
-                    network.expect("Container name and/or network are required.")
-                )
-            },
-            std::string::ToString::to_string,
-        )
-    }
-
-    // This method is used in start.rs to create a message for the user to let them know how to stop the container they
-    // just started, and how to view its logs. For both `stop` and `logs` the user is able to pass in either the network
-    // (and we generate the container name) or the container name directly. Which is why we need to check if the
-    // container_name is present or not here.
-    pub(crate) fn get_container_name_arg(&self, network: Option<Network>) -> String {
-        self.name.as_ref().map_or_else(
-            || {
                 network
                     .expect("Container name and/or network are required.")
                     .to_string()
             },
-            |container_name| format!("--name {container_name}"),
+            std::string::ToString::to_string,
         )
     }
 

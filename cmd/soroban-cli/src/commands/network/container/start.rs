@@ -159,8 +159,8 @@ impl Cmd {
 
     fn print_log_message(&self) {
         let log_message = format!(
-            "ℹ️ To see the logs for this container run: stellar network container logs {arg} {additional_flags}",
-            arg = self.container_args.get_container_name_arg(Some(self.network)),
+            "ℹ️ To see the logs for this container run: stellar network container logs {container_name} {additional_flags}",
+            container_name = self.container_args.get_container_name(Some(self.network)),
             additional_flags = self.container_args.get_additional_flags(),
         );
         println!("{log_message}");
@@ -169,8 +169,8 @@ impl Cmd {
     fn print_stop_message(&self) {
         let stop_message =
             format!(
-            "ℹ️ To stop this container run: stellar network container stop {arg} {additional_flags}",
-            arg = self.container_args.get_container_name_arg(Some(self.network)),
+            "ℹ️ To stop this container run: stellar network container stop {container_name} {additional_flags}",
+            container_name = self.container_args.get_container_name(Some(self.network)),
             additional_flags = self.container_args.get_additional_flags(),
         );
         println!("{stop_message}");
