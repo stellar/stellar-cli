@@ -97,3 +97,22 @@ cargo rustc --manifest-path=../add2/Cargo.toml --crate-type=cdylib --target=wasm
 ",
         ));
 }
+
+#[test]
+fn build_default_members() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace-with-default-members/");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--print-commands-only")
+        .assert()
+        .success()
+        .stdout(predicate::eq(
+            "\
+cargo rustc --manifest-path=contracts/add/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
+",
+        ));
+}

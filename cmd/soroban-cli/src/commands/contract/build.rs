@@ -200,10 +200,12 @@ impl Cmd {
                 if let Some(name) = &name {
                     &p.name == name
                 } else {
-                    // Otherwise filter crates by those that build to cdylib (wasm).
-                    p.targets
-                        .iter()
-                        .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
+                    // Otherwise filter crates that are default members of the
+                    // workspace and that build to cdylib (wasm).
+                    metadata.workspace_default_members.contains(&p.id)
+                        && p.targets
+                            .iter()
+                            .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
                 }
             )
             .cloned()
