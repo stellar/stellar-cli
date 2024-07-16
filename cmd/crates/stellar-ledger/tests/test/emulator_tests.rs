@@ -379,9 +379,11 @@ async fn get_emulator_events_with_retries(
                 return resp.events;
             }
             Err(e) => {
-                println!("this many retries: {retries}");
+                println!("Retry count: {retries}");
+                println!("Wait time: {wait_time:?}");
                 retries += 1;
                 if retries >= max_retries {
+                    println!("Exeeded max retries");
                     panic!("Failed to get emulator events: {e}");
                 }
                 sleep(wait_time).await;
