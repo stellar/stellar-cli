@@ -58,7 +58,10 @@ impl Spec {
         });
 
         if !function.doc.is_empty() {
-            schema.as_object_mut().unwrap().insert("description".to_string(), json!(function.doc.to_utf8_string_lossy()));
+            schema.as_object_mut().unwrap().insert(
+                "description".to_string(),
+                json!(function.doc.to_utf8_string_lossy()),
+            );
         }
 
         Ok(schema)
@@ -69,7 +72,10 @@ impl Spec {
         for field in struct_.fields.iter() {
             let mut field_schema = self.type_to_json_schema(&field.type_)?;
             if !field.doc.is_empty() {
-                field_schema.as_object_mut().unwrap().insert("description".to_string(), json!(field.doc.to_utf8_string_lossy()));
+                field_schema.as_object_mut().unwrap().insert(
+                    "description".to_string(),
+                    json!(field.doc.to_utf8_string_lossy()),
+                );
             }
             properties.insert(field.name.to_utf8_string_lossy(), field_schema);
         }
@@ -81,7 +87,10 @@ impl Spec {
         });
 
         if !struct_.doc.is_empty() {
-            schema.as_object_mut().unwrap().insert("description".to_string(), json!(struct_.doc.to_utf8_string_lossy()));
+            schema.as_object_mut().unwrap().insert(
+                "description".to_string(),
+                json!(struct_.doc.to_utf8_string_lossy()),
+            );
         }
 
         Ok(schema)
@@ -97,7 +106,10 @@ impl Spec {
                         "enum": [void_case.name.to_utf8_string_lossy()]
                     });
                     if !void_case.doc.is_empty() {
-                        case_schema.as_object_mut().unwrap().insert("description".to_string(), json!(void_case.doc.to_utf8_string_lossy()));
+                        case_schema.as_object_mut().unwrap().insert(
+                            "description".to_string(),
+                            json!(void_case.doc.to_utf8_string_lossy()),
+                        );
                     }
                     one_of.push(case_schema);
                 }
@@ -108,7 +120,10 @@ impl Spec {
                         "items": tuple_case.type_.iter().map(|t| self.type_to_json_schema(t).unwrap()).collect::<Vec<_>>()
                     });
                     if !tuple_case.doc.is_empty() {
-                        case_schema.as_object_mut().unwrap().insert("description".to_string(), json!(tuple_case.doc.to_utf8_string_lossy()));
+                        case_schema.as_object_mut().unwrap().insert(
+                            "description".to_string(),
+                            json!(tuple_case.doc.to_utf8_string_lossy()),
+                        );
                     }
                     properties.insert(tuple_case.name.to_utf8_string_lossy(), case_schema);
                     one_of.push(json!({
@@ -123,7 +138,10 @@ impl Spec {
         let mut schema = json!({ "oneOf": one_of });
 
         if !union.doc.is_empty() {
-            schema.as_object_mut().unwrap().insert("description".to_string(), json!(union.doc.to_utf8_string_lossy()));
+            schema.as_object_mut().unwrap().insert(
+                "description".to_string(),
+                json!(union.doc.to_utf8_string_lossy()),
+            );
         }
 
         Ok(schema)
@@ -136,7 +154,10 @@ impl Spec {
         });
 
         if !enum_.doc.is_empty() {
-            schema.as_object_mut().unwrap().insert("description".to_string(), json!(enum_.doc.to_utf8_string_lossy()));
+            schema.as_object_mut().unwrap().insert(
+                "description".to_string(),
+                json!(enum_.doc.to_utf8_string_lossy()),
+            );
         }
 
         Ok(schema)
@@ -152,7 +173,10 @@ impl Spec {
         });
 
         if !error_enum.doc.is_empty() {
-            schema.as_object_mut().unwrap().insert("description".to_string(), json!(error_enum.doc.to_utf8_string_lossy()));
+            schema.as_object_mut().unwrap().insert(
+                "description".to_string(),
+                json!(error_enum.doc.to_utf8_string_lossy()),
+            );
         }
 
         Ok(schema)
