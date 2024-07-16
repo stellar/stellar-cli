@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directories:
+      - "/"
+      - "/cmd/soroban-cli"
+      - "/cmd/crates/stellar-ledger"
+      - "/cmd/crates/soroban-spec-typescript"
+      - "/cmd/crates/soroban-spec-tools"
+      - "/cmd/crates/soroban-spec-json"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    open-pull-requests-limit: 2
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+        - "patch"
+        - "minor"
+      major:
+        applies-to: version-updates
+        update-types:
+        - "major"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    open-pull-requests-limit: 2
+    groups:
+      all-actions:
+        applies-to: version-updates
+        patterns: [ "*" ]
