@@ -21,7 +21,7 @@ pub struct Cmd {
     pub container_args: Args,
 
     /// Network container to tail (used in container name generation)
-    #[arg(required_unless_present = "container_name")]
+    #[arg(required_unless_present = "name")]
     pub network: Option<Network>,
 }
 

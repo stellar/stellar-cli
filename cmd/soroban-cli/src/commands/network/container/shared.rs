@@ -34,8 +34,8 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Args {
     /// Optional argument to specify the container name
-    #[arg(short = 'c', long, required_unless_present = "network")]
-    pub container_name: Option<String>,
+    #[arg(long, required_unless_present = "network")]
+    pub name: Option<String>,
 
     /// Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
     #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
@@ -51,7 +51,7 @@ impl Args {
     }
 
     pub(crate) fn get_container_name(&self, network: Option<Network>) -> String {
-        self.container_name.as_ref().map_or_else(
+        self.name.as_ref().map_or_else(
             || {
                 format!(
                     "stellar-{}",
@@ -67,13 +67,13 @@ impl Args {
     // (and we generate the container name) or the container name directly. Which is why we need to check if the
     // container_name is present or not here.
     pub(crate) fn get_container_name_arg(&self, network: Option<Network>) -> String {
-        self.container_name.as_ref().map_or_else(
+        self.name.as_ref().map_or_else(
             || {
                 network
                     .expect("Container name and/or network are required.")
                     .to_string()
             },
-            |container_name| format!("--container-name {container_name}"),
+            |container_name| format!("--name {container_name}"),
         )
     }
 }
