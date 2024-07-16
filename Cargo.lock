@@ -4923,7 +4923,6 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "serde_json",
- "soroban-env-host",
  "soroban-spec",
  "stellar-strkey",
  "stellar-xdr",
