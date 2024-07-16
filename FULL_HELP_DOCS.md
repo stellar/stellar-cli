@@ -1073,8 +1073,8 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ###### **Options:**
 
-* `--name <NAME>` — Optional argument to specify the container name
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `--name <NAME>` — Optional argument to specify the container name
 * `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 * `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
 
@@ -1090,18 +1090,14 @@ By default, when starting a testnet container, without any optional arguments, i
 
 Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
-**Usage:** `stellar network stop [OPTIONS] [NETWORK]`
+**Usage:** `stellar network stop [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to stop (used in container name generation)
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
+* `<NAME>` — Container to stop
 
 ###### **Options:**
 
-* `--name <NAME>` — Optional argument to specify the container name
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
@@ -1124,18 +1120,14 @@ Commands to start, stop and get logs for a quickstart container
 
 Get logs from a running network container
 
-**Usage:** `stellar network container logs [OPTIONS] [NETWORK]`
+**Usage:** `stellar network container logs [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network container to tail (used in container name generation)
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
+* `<NAME>` — Container to get logs from
 
 ###### **Options:**
 
-* `--name <NAME>` — Optional argument to specify the container name
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
@@ -1161,8 +1153,8 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ###### **Options:**
 
-* `--name <NAME>` — Optional argument to specify the container name
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `--name <NAME>` — Optional argument to specify the container name
 * `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 * `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
 
@@ -1176,18 +1168,14 @@ By default, when starting a testnet container, without any optional arguments, i
 
 Stop a network container started with `network container start`
 
-**Usage:** `stellar network container stop [OPTIONS] [NETWORK]`
+**Usage:** `stellar network container stop [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to stop (used in container name generation)
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
+* `<NAME>` — Container to stop
 
 ###### **Options:**
 
-* `--name <NAME>` — Optional argument to specify the container name
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
