@@ -58,7 +58,7 @@ impl Args {
                     network.expect("Container name and/or network are required.")
                 )
             },
-            |container_name| container_name.to_string(),
+            std::string::ToString::to_string,
         )
     }
 
