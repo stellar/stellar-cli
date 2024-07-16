@@ -10,7 +10,7 @@ pub struct Args {
     #[clap(flatten)]
     pub locator: config::locator::Args,
 
-    /// Filter logs output. To turn on "stellar_cli::log::footprint=debug" or off "=off". Can also use env var `RUST_LOG`.
+    /// Filter logs output. To turn on `stellar_cli::log::footprint=debug` or off `=off`. Can also use env var `RUST_LOG`.
     #[arg(long, short = 'f')]
     pub filter_logs: Vec<String>,
 
