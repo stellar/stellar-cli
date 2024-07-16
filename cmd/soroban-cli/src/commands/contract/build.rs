@@ -79,8 +79,6 @@ pub enum Error {
     PackageNotFound { package: String },
     #[error("finding absolute path of Cargo.toml: {0}")]
     AbsolutePath(io::Error),
-    #[error("finding absolute path of Cargo.toml: {0}")]
-    AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
     #[error("copying wasm file: {0}")]
@@ -94,7 +92,6 @@ impl Cmd {
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
 
         let metadata = self.metadata()?;
-        let packages = self.packages(&metadata)?;
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
 
