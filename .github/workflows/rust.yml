@@ -120,7 +120,7 @@ jobs:
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: --features opt --ignore-unknown-features
 
-    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@6c656e987e1a17b85986e17e10d98c094d3151ec
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@379b2880afb860de8009d87e486ed5624827c183
     with:
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
