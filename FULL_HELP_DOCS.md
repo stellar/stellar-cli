@@ -627,9 +627,7 @@ Watch the network for contract events
 
 ###### **Options:**
 
-* `--start-ledger <START_LEDGER>` — The first [ledger sequence] number in the range to pull events
-
-   [ledger sequence]: https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+* `--start-ledger <START_LEDGER>` — The first ledger sequence number in the range to pull events https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
 * `--cursor <CURSOR>` — The cursor corresponding to the start of the event range
 * `--output <OUTPUT>` — Output formatting options for event stream
 
