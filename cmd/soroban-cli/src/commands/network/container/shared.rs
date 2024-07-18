@@ -133,28 +133,19 @@ impl Name {
     }
 
     pub fn get_internal_container_name(&self) -> String {
-        self.0.as_ref().map_or_else(
-            || {
-                format!(
-                    "stellar-{}",
-                    self.1
-                        .expect("Container name and/or network are required.")
-                        .to_string()
-                )
-            },
-            |name| format!("stellar-{}", name.to_string()),
-        )
+        match (&self.0, &self.1) {
+            (Some(name), _) => format!("stellar-{}", name),
+            (None, Some(network)) => format!("stellar-{}", network),
+            (None, None) => panic!("Container name and/or network are required."),
+        }
     }
 
     pub fn get_external_container_name(&self) -> String {
-        self.0.as_ref().map_or_else(
-            || {
-                self.1
-                    .expect("Container name and/or network are required.")
-                    .to_string()
-            },
-            std::string::ToString::to_string,
-        )
+        match (&self.0, &self.1) {
+            (Some(name), _) => name.to_string(),
+            (None, Some(network)) => network.to_string(),
+            (None, None) => panic!("Container name and/or network are required."),
+        }
     }
 }
 
