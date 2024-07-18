@@ -8,7 +8,7 @@ pub enum Error {
     #[error(transparent)]
     XdrToBase64(#[from] soroban_env_host::xdr::Error),
     #[error(transparent)]
-    Config(#[from] super::super::config::Error),
+    Config(#[from] super::super::network::Error),
 }
 
 // Command to return the transaction hash submitted to a network
@@ -17,13 +17,13 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     #[clap(flatten)]
-    pub config: super::super::config::Args,
+    pub network: super::super::network::Args,
 }
 
 impl Cmd {
-    pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
-        let network = &self.config.get_network()?;
+        let network = &self.network.get(&global_args.locator)?;
         println!(
             "{}",
             hex::encode(transaction_hash(&tx, &network.network_passphrase)?)
