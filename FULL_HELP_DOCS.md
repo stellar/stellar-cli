@@ -266,7 +266,7 @@ Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -534,7 +534,7 @@ Optimize a WASM file
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `stellar contract read [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract read [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -581,7 +581,7 @@ Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `stellar contract restore [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract restore [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
