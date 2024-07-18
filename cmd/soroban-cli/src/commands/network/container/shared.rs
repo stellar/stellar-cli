@@ -126,6 +126,35 @@ impl fmt::Display for Network {
     }
 }
 
+pub struct Name(Option<String>, Option<Network>);
+impl Name {
+    pub fn new(name: Option<String>, network: Option<Network>) -> Self {
+        Self(name, network)
+    }
+
+    pub fn get_internal_container_name(&self) -> String {
+        self.0.as_ref().map_or_else(
+            || {
+                self.1
+                    .expect("Container name and/or network are required.")
+                    .to_string()
+            },
+            std::string::ToString::to_string,
+        )
+    }
+
+    pub fn get_external_container_name(&self) -> String {
+        self.0.as_ref().map_or_else(
+            || {
+                self.1
+                    .expect("Container name and/or network are required.")
+                    .to_string()
+            },
+            std::string::ToString::to_string,
+        )
+    }
+}
+
 #[cfg(unix)]
 fn try_docker_desktop_socket(host: &str) -> Result<Docker, bollard::errors::Error> {
     let default_docker_desktop_host =

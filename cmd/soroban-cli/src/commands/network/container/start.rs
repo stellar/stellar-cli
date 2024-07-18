@@ -9,7 +9,7 @@ use futures_util::TryStreamExt;
 
 use crate::commands::network::container::shared::{Error as ConnectionError, Network};
 
-use super::shared::Args;
+use super::shared::{Args, Name};
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
@@ -87,11 +87,10 @@ impl Cmd {
             ..Default::default()
         };
 
-        let container_name = self.get_container_name();
         let create_container_response = docker
             .create_container(
                 Some(CreateContainerOptions {
-                    name: container_name.clone(),
+                    name: self.container_name().get_internal_container_name(),
                     ..Default::default()
                 }),
                 config,
@@ -104,7 +103,10 @@ impl Cmd {
                 None::<StartContainerOptions<String>>,
             )
             .await?;
-        println!("✅ Container started: {container_name}");
+        println!(
+            "✅ Container started: {}",
+            self.container_name().get_external_container_name()
+        );
         self.print_log_message();
         self.print_stop_message();
         Ok(())
@@ -161,17 +163,14 @@ impl Cmd {
         port_mapping_hash
     }
 
-    fn get_container_name(&self) -> String {
-        self.name.as_ref().map_or_else(
-            || self.network.to_string(),
-            std::string::ToString::to_string,
-        )
+    fn container_name(&self) -> Name {
+        Name::new(self.name.clone(), Some(self.network))
     }
 
     fn print_log_message(&self) {
         let log_message = format!(
             "ℹ️ To see the logs for this container run: stellar network container logs {container_name} {additional_flags}",
-            container_name = self.get_container_name(),
+            container_name = self.container_name().get_external_container_name(),
             additional_flags = self.container_args.get_additional_flags(),
         );
         println!("{log_message}");
@@ -181,7 +180,7 @@ impl Cmd {
         let stop_message =
             format!(
             "ℹ️ To stop this container run: stellar network container stop {container_name} {additional_flags}",
-            container_name = self.get_container_name(),
+            container_name = self.container_name().get_external_container_name(),
             additional_flags = self.container_args.get_additional_flags(),
         );
         println!("{stop_message}");
