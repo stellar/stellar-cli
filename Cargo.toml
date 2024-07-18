@@ -11,52 +11,52 @@ default-members = ["cmd/soroban-cli", "cmd/crates/soroban-spec-tools", "cmd/crat
 exclude = ["cmd/crates/soroban-test/tests/fixtures/hello"]
 
 [workspace.package]
-version = "21.1.1"
+version = "21.2.0"
 rust-version = "1.79.0"
 
 [workspace.dependencies.soroban-env-host]
-version = "=21.1.2"
+version = "=21.2.0"
 
 [workspace.dependencies.soroban-simulation]
-version = "21.1.2"
+version = "21.2.0"
 
 [workspace.dependencies.soroban-spec]
-version = "=21.1.1"
+version = "=21.2.0"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=21.1.1"
+version = "=21.2.0"
 
 [workspace.dependencies.soroban-spec-json]
-version = "=21.1.1"
+version = "=21.2.0"
 path = "./cmd/crates/soroban-spec-json"
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "21.1.1"
+version = "21.2.0"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "21.1.1"
+version = "21.2.0"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
-version = "=21.1.1"
+version = "=21.2.0"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "=21.1.1"
+version = "=21.2.0"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "=21.1.1"
+version = "=21.2.0"
 
 [workspace.dependencies.soroban-cli]
-version = "=21.1.1"
+version = "=21.2.0"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "21.3.1"
+version = "21.4.0"
 
 [workspace.dependencies.stellar-xdr]
-version = "21.1.0"
+version = "21.2.0"
 default-features = true
 
 [workspace.dependencies]
