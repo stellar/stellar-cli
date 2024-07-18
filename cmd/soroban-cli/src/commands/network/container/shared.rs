@@ -135,11 +135,14 @@ impl Name {
     pub fn get_internal_container_name(&self) -> String {
         self.0.as_ref().map_or_else(
             || {
-                self.1
-                    .expect("Container name and/or network are required.")
-                    .to_string()
+                format!(
+                    "stellar-{}",
+                    self.1
+                        .expect("Container name and/or network are required.")
+                        .to_string()
+                )
             },
-            std::string::ToString::to_string,
+            |name| format!("stellar-{}", name.to_string()),
         )
     }
 

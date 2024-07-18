@@ -1,6 +1,6 @@
 use crate::commands::network::container::shared::Error as BollardConnectionError;
 
-use super::shared::Args;
+use super::shared::{Args, Name};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -29,24 +29,30 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let container_name = self.name.clone();
+        let container_name = Name::new(Some(self.name.clone()), None);
         let docker = self.container_args.connect_to_docker().await?;
-        println!("ℹ️ Stopping container: {container_name}");
+        println!(
+            "ℹ️ Stopping container: {}",
+            container_name.get_external_container_name()
+        );
         docker
-            .stop_container(&container_name, None)
+            .stop_container(&container_name.get_internal_container_name(), None)
             .await
             .map_err(|e| {
                 let msg = e.to_string();
                 if msg.contains("No such container") {
                     Error::ContainerNotFound {
-                        container_name: container_name.clone(),
+                        container_name: container_name.get_external_container_name(),
                         source: e,
                     }
                 } else {
                     Error::ContainerStopFailed(e)
                 }
             })?;
-        println!("✅ Container stopped: {container_name}");
+        println!(
+            "✅ Container stopped: {}",
+            container_name.get_external_container_name()
+        );
         Ok(())
     }
 }
