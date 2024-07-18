@@ -126,12 +126,8 @@ impl fmt::Display for Network {
     }
 }
 
-pub struct Name(String);
+pub struct Name(pub String);
 impl Name {
-    pub fn new(name: String) -> Self {
-        Self(name)
-    }
-
     pub fn get_internal_container_name(&self) -> String {
         format!("stellar-{}", self.0)
     }

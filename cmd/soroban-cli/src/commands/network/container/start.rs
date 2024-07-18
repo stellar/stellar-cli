@@ -164,7 +164,7 @@ impl Cmd {
     }
 
     fn container_name(&self) -> Name {
-        Name::new(self.name.clone().unwrap_or(self.network.to_string()))
+        Name(self.name.clone().unwrap_or(self.network.to_string()))
     }
 
     fn print_log_message(&self) {
