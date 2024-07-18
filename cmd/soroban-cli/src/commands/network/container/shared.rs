@@ -196,3 +196,61 @@ async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::errors:
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NETWORK: Network = Network::Local;
+    const CONTAINER_NAME: &str = "test-name";
+
+    #[test]
+    fn test_get_internal_container_name_with_both_args() {
+        let name = Name::new(Some(CONTAINER_NAME.to_string()), Some(NETWORK));
+        assert_eq!(name.get_internal_container_name(), "stellar-test-name");
+    }
+
+    #[test]
+    fn test_get_internal_container_name_with_network() {
+        let name = Name::new(None, Some(NETWORK));
+        assert_eq!(name.get_internal_container_name(), "stellar-local");
+    }
+
+    #[test]
+    fn test_get_internal_container_name_with_name() {
+        // in practice, this would fail clap validation and we would never get here, but testing anyway
+        let name = Name::new(Some(CONTAINER_NAME.to_string()), None);
+        assert_eq!(name.get_internal_container_name(), "stellar-test-name");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_get_internal_container_name_with_neither_args() {
+        Name::new(None, None).get_internal_container_name();
+    }
+
+    #[test]
+    fn test_get_external_container_name_with_both_args() {
+        let name = Name::new(Some(CONTAINER_NAME.to_string()), Some(NETWORK));
+        assert_eq!(name.get_external_container_name(), "test-name");
+    }
+
+    #[test]
+    fn test_get_external_container_name_with_network() {
+        let name = Name::new(None, Some(NETWORK));
+        assert_eq!(name.get_external_container_name(), "local");
+    }
+
+    #[test]
+    fn test_get_external_container_name_with_name() {
+        // in practice, this would fail clap validation and we would never get here, but testing anyway
+        let name = Name::new(Some(CONTAINER_NAME.to_string()), None);
+        assert_eq!(name.get_external_container_name(), "test-name");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_get_external_container_name_with_neither_args() {
+        Name::new(None, None).get_external_container_name();
+    }
+}
