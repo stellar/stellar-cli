@@ -29,7 +29,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let container_name = Name::new(Some(self.name.clone()), None);
+        let container_name = Name::new(self.name.clone());
         let docker = self.container_args.connect_to_docker().await?;
         println!(
             "ℹ️ Stopping container: {}",

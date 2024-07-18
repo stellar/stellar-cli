@@ -24,7 +24,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let container_name = Name::new(Some(self.name.clone()), None).get_internal_container_name();
+        let container_name = Name::new(self.name.clone()).get_internal_container_name();
         let docker = self.container_args.connect_to_docker().await?;
         let logs_stream = &mut docker.logs(
             &container_name,

@@ -126,26 +126,18 @@ impl fmt::Display for Network {
     }
 }
 
-pub struct Name(Option<String>, Option<Network>);
+pub struct Name(String);
 impl Name {
-    pub fn new(name: Option<String>, network: Option<Network>) -> Self {
-        Self(name, network)
+    pub fn new(name: String) -> Self {
+        Self(name)
     }
 
     pub fn get_internal_container_name(&self) -> String {
-        match (&self.0, &self.1) {
-            (Some(name), _) => format!("stellar-{}", name),
-            (None, Some(network)) => format!("stellar-{}", network),
-            (None, None) => panic!("Container name and/or network are required."),
-        }
+        format!("stellar-{}", self.0)
     }
 
     pub fn get_external_container_name(&self) -> String {
-        match (&self.0, &self.1) {
-            (Some(name), _) => name.to_string(),
-            (None, Some(network)) => network.to_string(),
-            (None, None) => panic!("Container name and/or network are required."),
-        }
+        self.0.to_string()
     }
 }
 
@@ -185,63 +177,5 @@ async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::errors:
             );
             Err(err)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const NETWORK: Network = Network::Local;
-    const CONTAINER_NAME: &str = "test-name";
-
-    #[test]
-    fn test_get_internal_container_name_with_both_args() {
-        let name = Name::new(Some(CONTAINER_NAME.to_string()), Some(NETWORK));
-        assert_eq!(name.get_internal_container_name(), "stellar-test-name");
-    }
-
-    #[test]
-    fn test_get_internal_container_name_with_network() {
-        let name = Name::new(None, Some(NETWORK));
-        assert_eq!(name.get_internal_container_name(), "stellar-local");
-    }
-
-    #[test]
-    fn test_get_internal_container_name_with_name() {
-        // in practice, this would fail clap validation and we would never get here, but testing anyway
-        let name = Name::new(Some(CONTAINER_NAME.to_string()), None);
-        assert_eq!(name.get_internal_container_name(), "stellar-test-name");
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_get_internal_container_name_with_neither_args() {
-        Name::new(None, None).get_internal_container_name();
-    }
-
-    #[test]
-    fn test_get_external_container_name_with_both_args() {
-        let name = Name::new(Some(CONTAINER_NAME.to_string()), Some(NETWORK));
-        assert_eq!(name.get_external_container_name(), "test-name");
-    }
-
-    #[test]
-    fn test_get_external_container_name_with_network() {
-        let name = Name::new(None, Some(NETWORK));
-        assert_eq!(name.get_external_container_name(), "local");
-    }
-
-    #[test]
-    fn test_get_external_container_name_with_name() {
-        // in practice, this would fail clap validation and we would never get here, but testing anyway
-        let name = Name::new(Some(CONTAINER_NAME.to_string()), None);
-        assert_eq!(name.get_external_container_name(), "test-name");
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_get_external_container_name_with_neither_args() {
-        Name::new(None, None).get_external_container_name();
     }
 }
