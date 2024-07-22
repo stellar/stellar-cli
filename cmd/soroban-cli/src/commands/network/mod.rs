@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use clap::{arg, Parser};
 use http::Uri;
+use phf::phf_map;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use stellar_strkey::ed25519::PublicKey;
@@ -28,20 +29,21 @@ pub enum Cmd {
     Rm(rm::Cmd),
     /// List networks
     Ls(ls::Cmd),
-    /// ⚠️ Deprecated: use `soroban container start` instead
+    /// ⚠️ Deprecated: use `stellar container start` instead
     ///
     /// Start network
     ///
     /// Start a container running a Stellar node, RPC, API, and friendbot (faucet).
     ///
-    /// soroban network start <NETWORK> [OPTIONS]
+    /// `stellar network start NETWORK [OPTIONS]`
     ///
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
-    /// docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc
-    Start(container::StartCmd),
-    /// ⚠️ Deprecated: use `soroban container stop` instead
     ///
-    /// Stop a network started with `network start`. For example, if you ran `soroban network start local`, you can use `soroban network stop local` to stop it.
+    /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc`
+    Start(container::StartCmd),
+    /// ⚠️ Deprecated: use `stellar container stop` instead
+    ///
+    /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
     Stop(container::StopCmd),
 
     /// Commands to start, stop and get logs for a quickstart container
@@ -289,25 +291,31 @@ impl Network {
     }
 }
 
-impl Network {
-    pub fn pubnet() -> Self {
-        Network {
-            rpc_url: String::new(),
-            network_passphrase: "Public Global Stellar Network ; September 2015".to_owned(),
-            archive_url: None,
-        }
-    }
-    pub fn testnet() -> Self {
-        Network {
-            rpc_url: "https://soroban-testnet.stellar.org:443".to_owned(),
-            network_passphrase: "Test SDF Network ; September 2015".to_owned(),
-            archive_url: None,
-        }
-    }
-    pub fn futurenet() -> Self {
-        Network {
-            rpc_url: "https://rpc-futurenet.stellar.org:443".to_owned(),
-            network_passphrase: "Test SDF Future Network ; October 2022".to_owned(),
+pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_map! {
+    "local" => (
+        "http://localhost:8000/rpc",
+        "Standalone Network ; February 2017",
+    ),
+    "futurenet" => (
+        "https://rpc-futurenet.stellar.org:443",
+        "Test SDF Future Network ; October 2022",
+    ),
+    "testnet" => (
+        "https://soroban-testnet.stellar.org",
+        "Test SDF Network ; September 2015",
+    ),
+    "mainnet" => (
+        "Bring Your Own: https://developers.stellar.org/docs/data/rpc/rpc-providers",
+        "Public Global Stellar Network ; September 2015",
+    ),
+};
+
+impl From<&(&str, &str)> for Network {
+    /// Convert the return value of `DEFAULTS.get()` into a Network
+    fn from(n: &(&str, &str)) -> Self {
+        Self {
+            rpc_url: n.0.to_string(),
+            network_passphrase: n.1.to_string(),
             archive_url: None,
         }
     }

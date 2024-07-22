@@ -1,16 +1,24 @@
 use clap::arg;
+use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    fs, io,
+    fs::{self, create_dir_all, OpenOptions},
+    io,
+    io::Write,
     path::{Path, PathBuf},
     str::FromStr,
 };
+use stellar_strkey::{Contract, DecodeError};
 
 use crate::{utils::find_config_dir, Pwd};
 
-use super::{network::Network, secret::Secret};
+use super::{
+    alias,
+    network::{self, Network},
+    secret::Secret,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,13 +30,9 @@ pub enum Error {
     NoConfigEnvVar,
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
-    #[error(
-        "Failed to read secret's file: {path}.\nProbably need to use `soroban config identity add`"
-    )]
+    #[error("Failed to read secret's file: {path}.\nProbably need to use `stellar keys add`")]
     SecretFileRead { path: PathBuf },
-    #[error(
-        "Failed to read network file: {path};\nProbably need to use `soroban config network add`"
-    )]
+    #[error("Failed to read network file: {path};\nProbably need to use `stellar network add`")]
     NetworkFileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
@@ -60,6 +64,12 @@ pub enum Error {
     String(#[from] std::string::FromUtf8Error),
     #[error(transparent)]
     Secret(#[from] crate::commands::config::secret::Error),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error("cannot access config dir for alias file")]
+    CannotAccessConfigDir,
+    #[error("cannot parse contract ID {0}: {1}")]
+    CannotParseContractId(String, DecodeError),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -88,7 +98,7 @@ impl Display for Location {
                 Location::Local(_) => "Local",
                 Location::Global(_) => "Global",
             },
-            self.as_ref().parent().unwrap().parent().unwrap()
+            self.as_ref()
         )
     }
 }
@@ -170,16 +180,17 @@ impl Args {
     }
 
     pub fn list_networks(&self) -> Result<Vec<String>, Error> {
-        Ok(KeyType::Network
+        let saved_networks = KeyType::Network
             .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
-            .map(|x| x.0)
-            .collect())
+            .map(|x| x.0);
+        let default_networks = network::DEFAULTS.keys().map(ToString::to_string);
+        Ok(saved_networks.chain(default_networks).unique().collect())
     }
 
-    pub fn list_networks_long(&self) -> Result<Vec<(String, Network, Location)>, Error> {
-        Ok(KeyType::Network
+    pub fn list_networks_long(&self) -> Result<Vec<(String, Network, String)>, Error> {
+        let saved_networks = KeyType::Network
             .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
@@ -187,11 +198,15 @@ impl Args {
                 Some((
                     name,
                     KeyType::read_from_path::<Network>(location.as_ref()).ok()?,
-                    location,
+                    location.to_string(),
                 ))
-            })
-            .collect::<Vec<_>>())
+            });
+        let default_networks = network::DEFAULTS
+            .into_iter()
+            .map(|(name, network)| ((*name).to_string(), network.into(), "Default".to_owned()));
+        Ok(saved_networks.chain(default_networks).collect())
     }
+
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
@@ -199,24 +214,10 @@ impl Args {
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
         let res = KeyType::Network.read_with_global(name, &self.local_config()?);
         if let Err(Error::ConfigMissing(_, _)) = &res {
-            match name {
-                "pubnet" => {
-                    let network = Network::pubnet();
-                    self.write_network(name, &network)?;
-                    return Ok(network);
-                }
-                "testnet" => {
-                    let network = Network::testnet();
-                    self.write_network(name, &network)?;
-                    return Ok(network);
-                }
-                "futurenet" => {
-                    let network = Network::futurenet();
-                    self.write_network(name, &network)?;
-                    return Ok(network);
-                }
-                _ => {}
-            }
+            let Some(network) = network::DEFAULTS.get(name) else {
+                return res;
+            };
+            return Ok(network.into());
         }
         res
     }
@@ -227,6 +228,80 @@ impl Args {
 
     pub fn remove_network(&self, name: &str) -> Result<(), Error> {
         KeyType::Network.remove(name, &self.config_dir()?)
+    }
+
+    fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
+        let path = self.alias_path(alias)?;
+
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let content = fs::read_to_string(path)?;
+        let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+        Ok(Some(data))
+    }
+
+    fn alias_path(&self, alias: &str) -> Result<PathBuf, Error> {
+        let file_name = format!("{alias}.json");
+        let config_dir = self.config_dir()?;
+        Ok(config_dir.join("contract-ids").join(file_name))
+    }
+
+    pub fn save_contract_id(
+        &self,
+        network_passphrase: &str,
+        contract_id: &str,
+        alias: &str,
+    ) -> Result<(), Error> {
+        let path = self.alias_path(alias)?;
+        let dir = path.parent().ok_or(Error::CannotAccessConfigDir)?;
+
+        create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
+
+        let content = fs::read_to_string(&path).unwrap_or_default();
+        let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+        let mut to_file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(path)?;
+
+        data.ids
+            .insert(network_passphrase.into(), contract_id.into());
+
+        let content = serde_json::to_string(&data)?;
+
+        Ok(to_file.write_all(content.as_bytes())?)
+    }
+
+    pub fn get_contract_id(
+        &self,
+        alias: &str,
+        network_passphrase: &str,
+    ) -> Result<Option<String>, Error> {
+        let Some(alias_data) = self.load_contract_from_alias(alias)? else {
+            return Ok(None);
+        };
+
+        Ok(alias_data.ids.get(network_passphrase).cloned())
+    }
+
+    pub fn resolve_contract_id(
+        &self,
+        alias_or_contract_id: &str,
+        network_passphrase: &str,
+    ) -> Result<Contract, Error> {
+        let contract_id = self
+            .get_contract_id(alias_or_contract_id, network_passphrase)?
+            .unwrap_or_else(|| alias_or_contract_id.to_string());
+
+        Ok(Contract(
+            soroban_spec_tools::utils::contract_id_from_str(&contract_id)
+                .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))?,
+        ))
     }
 }
 

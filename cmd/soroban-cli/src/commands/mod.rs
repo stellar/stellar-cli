@@ -13,6 +13,7 @@ pub mod keys;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
+pub mod tx;
 pub mod version;
 
 pub mod txn_result;
@@ -20,15 +21,24 @@ pub mod txn_result;
 pub const HEADING_NETWORK: &str = "Options (Network)";
 const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
-Stellar Docs: https://developers.stellar.org
-CLI Full Hep Docs: https://github.com/stellar/stellar-cli/tree/main/FULL_HELP_DOCS.md";
+- build, deploy and interact with contracts
+- set identities to sign with
+- configure networks
+- generate keys
+- more!
+
+For additional information see:
+
+- Stellar Docs: https://developers.stellar.org
+- Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
+- CLI Docs: https://developers.stellar.org/docs/tools/stellar-cli";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
 
 The easiest way to get started is to generate a new identity:
 
-    stellar config identity generate alice
+    stellar keys generate alice
 
 You can use identities with the `--source` flag in other commands later.
 
@@ -38,13 +48,11 @@ Commands that relate to smart contract interactions are organized under the `con
 
 A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. The invoke subcommand makes use of this:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
-                            --help
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- \
-                            hello --to world
+    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 ";
 
 #[derive(Parser, Debug)]
@@ -102,6 +110,7 @@ impl Root {
             Cmd::Snapshot(snapshot) => snapshot.run().await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,
+            Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Cache(data) => data.run()?,
         };
         Ok(())
@@ -138,7 +147,10 @@ pub enum Cmd {
     Snapshot(snapshot::Cmd),
     /// Print version information
     Version(version::Cmd),
-    /// Cache for tranasctions and contract specs
+    /// Sign, Simulate, and Send transactions
+    #[command(subcommand)]
+    Tx(tx::Cmd),
+    /// Cache for transactions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
 }
@@ -162,6 +174,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
+    #[error(transparent)]
+    Tx(#[from] tx::Error),
     #[error(transparent)]
     Cache(#[from] cache::Error),
 }

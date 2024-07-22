@@ -35,7 +35,7 @@ pub struct Cmd {
     #[arg(short = 'l', long)]
     pub limits: Option<String>,
 
-    /// Argument to specify the HOST_PORT:CONTAINER_PORT mapping
+    /// Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
     #[arg(short = 'p', long, num_args = 1.., default_value = DEFAULT_PORT_MAPPING)]
     pub ports_mapping: Vec<String>,
 
@@ -106,7 +106,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
         .await?;
     println!("✅ Container started: {container_name}");
     let stop_message = format!(
-        "ℹ️  To stop this container run: soroban network stop {network} {additional_flags}",
+        "ℹ️  To stop this container run: stellar network stop {network} {additional_flags}",
         network = &cmd.network,
         additional_flags = if cmd.docker_host.is_some() {
             format!("--docker-host {}", cmd.docker_host.as_ref().unwrap())
@@ -122,7 +122,7 @@ async fn run_docker_command(cmd: &Cmd) -> Result<(), Error> {
 fn get_container_args(cmd: &Cmd) -> Vec<String> {
     [
         format!("--{}", cmd.network),
-        "--enable-soroban-rpc".to_string(),
+        "--enable rpc,horizon".to_string(),
         get_protocol_version_arg(cmd),
         get_limits_arg(cmd),
     ]
@@ -135,9 +135,9 @@ fn get_container_args(cmd: &Cmd) -> Vec<String> {
 fn get_image_name(cmd: &Cmd) -> String {
     // this can be overriden with the `-t` flag
     let mut image_tag = match cmd.network {
-        Network::Testnet => "testing",
+        Network::Pubnet => "latest",
         Network::Futurenet => "future",
-        _ => "latest", // default to latest for local and pubnet
+        _ => "testing", // default to testing for local and testnet
     };
 
     if let Some(image_override) = &cmd.image_tag_override {

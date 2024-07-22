@@ -4,6 +4,7 @@ use std::num::ParseIntError;
 
 use clap::{arg, command, Parser};
 use rand::Rng;
+use regex::Regex;
 use soroban_env_host::{
     xdr::{
         AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
@@ -15,7 +16,7 @@ use soroban_env_host::{
 };
 
 use crate::commands::{
-    config::data,
+    config::{data, locator},
     contract::{self, id::wasm::get_contract_id},
     global, network,
     txn_result::{TxnEnvelopeResult, TxnResult},
@@ -37,23 +38,28 @@ use crate::{
 pub struct Cmd {
     /// WASM file to deploy
     #[arg(long, group = "wasm_src")]
-    wasm: Option<std::path::PathBuf>,
+    pub wasm: Option<std::path::PathBuf>,
     /// Hash of the already installed/deployed WASM file
     #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
-    wasm_hash: Option<String>,
+    pub wasm_hash: Option<String>,
     /// Custom salt 32-byte salt for the token id
     #[arg(
         long,
         help_heading = HEADING_NETWORK,
     )]
-    salt: Option<String>,
+    pub salt: Option<String>,
     #[command(flatten)]
-    config: config::Args,
+    pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
+    /// The alias that will be used to save the contract's id.
+    /// Whenever used, `--alias` will always overwrite the existing contract id
+    /// configuration without asking for confirmation.
+    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
+    pub alias: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -100,6 +106,12 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[error(
+        "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
+    )]
+    InvalidAliasFormat { alias: String },
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl Cmd {
@@ -108,10 +120,32 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
+                let network = self.config.get_network()?;
+
+                if let Some(alias) = self.alias.clone() {
+                    self.config.locator.save_contract_id(
+                        &network.network_passphrase,
+                        &contract,
+                        &alias,
+                    )?;
+                }
+
                 println!("{contract}");
             }
         }
         Ok(())
+    }
+}
+
+fn alias_validator(alias: &str) -> Result<String, Error> {
+    let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
+
+    if regex.is_match(alias) {
+        Ok(alias.into())
+    } else {
+        Err(Error::InvalidAliasFormat {
+            alias: alias.into(),
+        })
     }
 }
 
@@ -127,7 +161,7 @@ impl NetworkRunnable for Cmd {
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let hash = if self.fee.build_only {
+            let hash = if self.fee.build_only || self.fee.sim_only {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
                 install::Cmd {
@@ -188,13 +222,13 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        let txn = client.create_assembled_transaction(&txn).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let txn = client.simulate_and_assemble_transaction(&txn).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn.transaction().clone()));
+            return Ok(TxnResult::Txn(txn));
         }
         let get_txn_resp = client
-            .send_assembled_transaction(txn, &key, &[], &network.network_passphrase, None, None)
+            .send_transaction_polling(&config.sign_with_local_key(txn).await?)
             .await?
             .try_into()?;
         if global_args.map_or(true, |a| !a.no_cache) {
@@ -268,5 +302,35 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_alias_validator_with_valid_inputs() {
+        let valid_inputs = [
+            "hello",
+            "123",
+            "hello123",
+            "hello_123",
+            "123_hello",
+            "123-hello",
+            "hello-123",
+            "HeLlo-123",
+        ];
+
+        for input in valid_inputs {
+            let result = alias_validator(input);
+            assert!(result.is_ok());
+            assert!(result.unwrap() == input);
+        }
+    }
+
+    #[test]
+    fn test_alias_validator_with_invalid_inputs() {
+        let invalid_inputs = ["", "invalid!", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
+
+        for input in invalid_inputs {
+            let result = alias_validator(input);
+            assert!(result.is_err());
+        }
     }
 }

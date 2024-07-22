@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// A barebones implementation of Total Order IDs (TOIDs) from
 /// [SEP-35](https://stellar.org/protocol/sep-35), using the reference
 /// implementation from the Go
@@ -61,9 +63,9 @@ impl From<Toid> for u64 {
     }
 }
 
-impl ToString for Toid {
-    fn to_string(&self) -> String {
+impl Display for Toid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let u: u64 = (*self).into();
-        u.to_string()
+        write!(f, "{u}")
     }
 }

@@ -2,7 +2,7 @@ use super::{deploy, id};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Get Id of builtin Soroban Asset Contract. Deprecated, use `soroban contract id asset` instead
+    /// Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
     Id(id::asset::Cmd),
     /// Deploy builtin Soroban Asset Contract
     Deploy(deploy::asset::Cmd),

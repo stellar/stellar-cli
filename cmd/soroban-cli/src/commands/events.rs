@@ -7,13 +7,14 @@ use super::{
     config::{self, locator},
     global, network, NetworkRunnable,
 };
-use crate::{rpc, utils};
+use crate::rpc;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
+    #[allow(clippy::doc_markdown)]
     /// The first ledger sequence number in the range to pull events
-    /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+    /// https://developers.stellar.org/docs/learn/encyclopedia/network-configuration/ledger-headers#ledger-sequence
     #[arg(long, conflicts_with = "cursor", required_unless_present = "cursor")]
     start_ledger: Option<u32>,
     /// The cursor corresponding to the start of the event range.
@@ -44,15 +45,11 @@ pub struct Cmd {
     contract_ids: Vec<String>,
     /// A set of (up to 4) topic filters to filter event topics on. A single
     /// topic filter can contain 1-4 different segment filters, separated by
-    /// commas, with an asterisk (* character) indicating a wildcard segment.
+    /// commas, with an asterisk (`*` character) indicating a wildcard segment.
     ///
-    /// For example, this is one topic filter with two segments:
+    /// **Example:** topic filter with two segments: `--topic "AAAABQAAAAdDT1VOVEVSAA==,*"`
     ///
-    ///     --topic "AAAABQAAAAdDT1VOVEVSAA==,*"
-    ///
-    /// This is two topic filters with one and two segments each:
-    ///
-    ///     --topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'
+    /// **Example:** two topic filters with one and two segments each: `--topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'`
     ///
     /// Note that all of these topic filters are combined with the contract IDs
     /// into a single filter (i.e. combination of type, IDs, and topics).
@@ -132,7 +129,7 @@ pub enum OutputFormat {
     Pretty,
     /// Human-oriented console output without colors
     Plain,
-    /// JSONified console output
+    /// JSON formatted console output
     Json,
 }
 
@@ -157,14 +154,6 @@ impl Cmd {
                     }
                 }
             }
-        }
-
-        // Validate contract_ids
-        for id in &mut self.contract_ids {
-            utils::contract_id_from_str(id).map_err(|e| Error::InvalidContractId {
-                contract_id: id.clone(),
-                error: e,
-            })?;
         }
 
         let response = self.run_against_rpc_server(None, None).await?;
@@ -226,11 +215,23 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
+
+        let contract_ids: Vec<String> = self
+            .contract_ids
+            .iter()
+            .map(|id| {
+                Ok(self
+                    .locator
+                    .resolve_contract_id(id, &network.network_passphrase)?
+                    .to_string())
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
         Ok(client
             .get_events(
                 start,
                 Some(self.event_type),
-                &self.contract_ids,
+                &contract_ids,
                 &self.topic_filters,
                 Some(self.count),
             )

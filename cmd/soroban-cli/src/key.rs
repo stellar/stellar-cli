@@ -4,12 +4,9 @@ use soroban_env_host::xdr::{
     ScVal,
 };
 use std::path::PathBuf;
+use stellar_strkey::Contract;
 
-use crate::{
-    commands::contract::Durability,
-    utils::{self},
-    wasm,
-};
+use crate::{commands::contract::Durability, wasm};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -59,12 +56,12 @@ pub struct Args {
     )]
     pub wasm_hash: Option<String>,
     /// Storage entry durability
-    #[arg(long, value_enum, required = true, default_value = "persistent")]
+    #[arg(long, value_enum, default_value = "persistent")]
     pub durability: Durability,
 }
 
 impl Args {
-    pub fn parse_keys(&self) -> Result<Vec<LedgerKey>, Error> {
+    pub fn parse_keys(&self, contract: Contract) -> Result<Vec<LedgerKey>, Error> {
         let keys = if let Some(keys) = &self.key {
             keys.iter()
                 .map(|key| {
@@ -90,21 +87,16 @@ impl Args {
         } else {
             vec![ScVal::LedgerKeyContractInstance]
         };
-        let contract_id = contract_id(self.contract_id.as_ref().unwrap())?;
 
         Ok(keys
             .into_iter()
             .map(|key| {
                 LedgerKey::ContractData(LedgerKeyContractData {
-                    contract: ScAddress::Contract(xdr::Hash(contract_id)),
+                    contract: ScAddress::Contract(xdr::Hash(contract.0)),
                     durability: (&self.durability).into(),
                     key,
                 })
             })
             .collect())
     }
-}
-
-fn contract_id(s: &str) -> Result<[u8; 32], Error> {
-    utils::contract_id_from_str(s).map_err(|e| Error::CannotParseContractId(s.to_string(), e))
 }

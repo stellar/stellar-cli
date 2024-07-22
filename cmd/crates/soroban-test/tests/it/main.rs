@@ -1,4 +1,5 @@
 mod arg_parsing;
+mod build;
 mod config;
 mod help;
 #[cfg(feature = "it")]
