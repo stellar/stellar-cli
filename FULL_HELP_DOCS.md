@@ -4,7 +4,7 @@ This document contains the help content for the `stellar` command-line program.
 
 ## `stellar`
 
-With the Stellar CLI you can:
+Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
 
 - build, deploy and interact with contracts
 - set identities to sign with
@@ -47,6 +47,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `keys` — Create and manage identities including keys and addresses
 * `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
+* `snapshot` — Download a snapshot of a ledger from an archive
 * `version` — Print version information
 * `tx` — Sign, Simulate, and Send transactions
 * `cache` — Cache for transactions and contract specs
@@ -135,6 +136,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -154,6 +156,7 @@ Deploy builtin Soroban Asset Contract
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -164,8 +167,8 @@ Deploy builtin Soroban Asset Contract
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
 
 
 
@@ -223,6 +226,7 @@ Generate a TypeScript / JavaScript package
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -289,6 +293,7 @@ If no keys are specified the contract itself is extended.
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -299,8 +304,8 @@ If no keys are specified the contract itself is extended.
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
 
 
 
@@ -317,6 +322,7 @@ Deploy a wasm contract
 * `--salt <SALT>` — Custom salt 32-byte salt for the token id
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -327,8 +333,8 @@ Deploy a wasm contract
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
@@ -350,6 +356,7 @@ Fetch a contract's Wasm binary
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -378,6 +385,7 @@ Deploy builtin Soroban Asset Contract
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -397,6 +405,7 @@ Deploy normal Wasm Contract
 * `--salt <SALT>` — ID of the Soroban contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -463,6 +472,7 @@ Install a WASM file to the ledger without creating a contract instance
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -473,8 +483,8 @@ Install a WASM file to the ledger without creating a contract instance
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -502,6 +512,7 @@ stellar contract invoke ... -- --help
 * `--is-view` — View the result simulating and do not sign and submit transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -512,8 +523,8 @@ stellar contract invoke ... -- --help
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
 
 
 
@@ -567,6 +578,7 @@ Print the current value of a contract-data ledger entry
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -604,6 +616,7 @@ If no keys are specificed the contract itself is restored.
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -614,8 +627,8 @@ If no keys are specificed the contract itself is restored.
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--build-only` — Build the transaction only write the base64 xdr to stdout
+* `--sim-only` — Simulation the transaction only write the base64 xdr to stdout
 
 
 
@@ -664,6 +677,7 @@ Watch the network for contract events
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -737,6 +751,7 @@ Fund an identity on a test network
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
@@ -765,6 +780,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -1012,6 +1028,7 @@ Add a new network
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
@@ -1189,6 +1206,30 @@ Stop a network started with `network container start`. For example, if you ran `
 
 
 
+## `stellar snapshot`
+
+Download a snapshot of a ledger from an archive
+
+**Usage:** `stellar snapshot [OPTIONS]`
+
+###### **Options:**
+
+* `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
+* `--account-id <ACCOUNT_IDS>` — Account IDs to filter by
+* `--contract-id <CONTRACT_IDS>` — Contract IDs to filter by
+* `--wasm-hash <WASM_HASHES>` — Contract IDs to filter by
+* `--out <OUT>` — The out path that the snapshot is written to
+
+  Default value: `snapshot.json`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
+* `--network <NETWORK>` — Name of network to use from config
+
+
+
 ## `stellar version`
 
 Print version information
@@ -1219,6 +1260,7 @@ Simulate a transaction envelope from stdin
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
