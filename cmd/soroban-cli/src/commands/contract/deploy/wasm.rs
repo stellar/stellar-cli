@@ -23,7 +23,7 @@ use crate::commands::{
     NetworkRunnable,
 };
 use crate::{
-    commands::{config, contract::install, HEADING_NETWORK},
+    commands::{config, contract::install, HEADING_RPC},
     rpc::{self, Client},
     utils, wasm,
 };
@@ -45,7 +45,7 @@ pub struct Cmd {
     /// Custom salt 32-byte salt for the token id
     #[arg(
         long,
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub salt: Option<String>,
     #[command(flatten)]

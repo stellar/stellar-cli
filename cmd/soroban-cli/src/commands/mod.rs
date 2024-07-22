@@ -18,8 +18,8 @@ pub mod version;
 
 pub mod txn_result;
 
-pub const HEADING_NETWORK: &str = "Options (Network)";
-const ABOUT: &str = "Build, deploy, & interact with contracts; set identities to sign with; configure networks; generate keys; and more.
+pub const HEADING_RPC: &str = "Options (RPC)";
+const ABOUT: &str = "With the Stellar CLI you can:
 
 - build, deploy and interact with contracts
 - set identities to sign with

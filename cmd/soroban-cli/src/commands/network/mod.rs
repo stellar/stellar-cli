@@ -8,7 +8,7 @@ use serde_json::Value;
 use stellar_strkey::ed25519::PublicKey;
 
 use crate::{
-    commands::HEADING_NETWORK,
+    commands::HEADING_RPC,
     rpc::{self, Client},
 };
 
@@ -128,7 +128,7 @@ pub struct Args {
         requires = "network_passphrase",
         required_unless_present = "network",
         env = "STELLAR_RPC_URL",
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
@@ -137,7 +137,7 @@ pub struct Args {
         requires = "rpc_url",
         required_unless_present = "network",
         env = "STELLAR_NETWORK_PASSPHRASE",
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
     /// Archive URL
@@ -145,7 +145,7 @@ pub struct Args {
         long = "archive-url",
         requires = "network_passphrase",
         env = "STELLAR_ARCHIVE_URL",
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub archive_url: Option<String>,
     /// Name of network to use from config
@@ -153,7 +153,7 @@ pub struct Args {
         long,
         required_unless_present = "rpc_url",
         env = "STELLAR_NETWORK",
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub network: Option<String>,
 }
@@ -186,21 +186,21 @@ pub struct Network {
     #[arg(
         long = "rpc-url",
         env = "STELLAR_RPC_URL",
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long,
         env = "STELLAR_NETWORK_PASSPHRASE",
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub network_passphrase: String,
     /// Archive URL
     #[arg(
         long = "archive-url",
         env = "STELLAR_ARCHIVE_URL",
-        help_heading = HEADING_NETWORK,
+        help_heading = HEADING_RPC,
     )]
     pub archive_url: Option<String>,
 }
