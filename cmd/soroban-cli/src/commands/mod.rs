@@ -18,7 +18,8 @@ pub mod version;
 pub mod txn_result;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
-const ABOUT: &str = "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
+const ABOUT: &str =
+    "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
 - Generate and manage keys and accounts
 - Build, deploy, and interact with contracts
