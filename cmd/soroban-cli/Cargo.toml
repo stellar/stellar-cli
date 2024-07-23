@@ -100,6 +100,7 @@ pathdiff = "0.2.1"
 dotenvy = "0.15.7"
 directories = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
+rust_decimal = "1.35.0"
 strum = "0.17.1"
 strum_macros = "0.17.1"
 gix = { version = "0.58.0", default-features = false, features = [

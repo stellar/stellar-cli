@@ -12,11 +12,10 @@ use heck::ToKebabCase;
 
 use soroban_env_host::{
     xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, Hash, HostFunction, InvokeContractArgs,
-        InvokeHostFunctionOp, LedgerEntryData, Limits, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0,
-        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM, Thresholds, Transaction,
-        TransactionExt, Uint256, VecM, WriteXdr,
+        self, AccountId, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
+        LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -30,6 +29,7 @@ use super::super::{
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
+use crate::utils::get_account_details;
 use crate::{
     commands::{config::data, global, network},
     rpc, Pwd,
@@ -321,19 +321,14 @@ impl NetworkRunnable for Cmd {
             let _ = self.build_host_function_parameters(contract_id, spec_entries, config)?;
         }
         let client = rpc::Client::new(&network.rpc_url)?;
-        let account_details = if self.is_view {
-            default_account_entry()
-        } else {
-            client
-                .verify_network_passphrase(Some(&network.network_passphrase))
-                .await?;
-            let key = config.key_pair()?;
-
-            // Get the account sequence number
-            let public_strkey =
-                stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-            client.get_account(&public_strkey).await?
-        };
+        let key = config.key_pair()?;
+        let account_details = get_account_details(
+            self.is_view,
+            &client.clone(),
+            &network.network_passphrase,
+            &key,
+        )
+        .await?;
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
@@ -396,8 +391,6 @@ impl NetworkRunnable for Cmd {
     }
 }
 
-const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32])));
-
 // fn log_auth_cost_and_footprint(resources: Option<&SorobanResources>) {
 //     if let Some(resources) = resources {
 //         crate::log::footprint(&resources.footprint);
@@ -425,21 +418,6 @@ const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(
 //         })
 //         .unwrap_or_default()
 // }
-
-fn default_account_entry() -> AccountEntry {
-    AccountEntry {
-        account_id: DEFAULT_ACCOUNT_ID,
-        balance: 0,
-        seq_num: SequenceNumber(0),
-        num_sub_entries: 0,
-        inflation_dest: None,
-        flags: 0,
-        home_domain: String32::from(unsafe { StringM::<32>::from_str("TEST").unwrap_unchecked() }),
-        thresholds: Thresholds([0; 4]),
-        signers: unsafe { [].try_into().unwrap_unchecked() },
-        ext: AccountEntryExt::V0,
-    }
-}
 
 pub fn output_to_string(
     spec: &Spec,
