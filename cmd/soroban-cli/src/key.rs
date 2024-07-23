@@ -56,7 +56,7 @@ pub struct Args {
     )]
     pub wasm_hash: Option<String>,
     /// Storage entry durability
-    #[arg(long, value_enum, required = true, default_value = "persistent")]
+    #[arg(long, value_enum, default_value = "persistent")]
     pub durability: Durability,
 }
 

@@ -14,7 +14,7 @@ use crate::rpc;
 pub struct Cmd {
     #[allow(clippy::doc_markdown)]
     /// The first ledger sequence number in the range to pull events
-    /// https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+    /// https://developers.stellar.org/docs/learn/encyclopedia/network-configuration/ledger-headers#ledger-sequence
     #[arg(long, conflicts_with = "cursor", required_unless_present = "cursor")]
     start_ledger: Option<u32>,
     /// The cursor corresponding to the start of the event range.
