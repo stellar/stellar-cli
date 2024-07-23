@@ -259,8 +259,7 @@ fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
                     );
                     continue;
                 }
-            }
-            if !exists {
+            } else {
                 println!("➕  Writing {}", &new_path.to_string_lossy());
             }
             copy(&path, &new_path).map_err(|e| {
