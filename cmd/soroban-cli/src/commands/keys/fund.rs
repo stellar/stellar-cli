@@ -173,13 +173,10 @@ impl Cmd {
 
     pub async fn run(&self) -> Result<(), Error> {
         let addr = self.address.public_key()?;
-        let balance = match self.check_balance().await {
-            Ok(balance) => balance,
-            Err(err) => {
-                eprintln!("Failed to check balance: {err}");
-                0
-            }
-        };
+        let balance = self.check_balance().await.unwrap_or_else(|err| {
+            eprintln!("Failed to check balance: {err}");
+            0
+        });
         let rounded_xlm = convert_xlm_rounded(balance);
         if balance >= DEFAULT_FRIENDBOT_AMOUNT {
             println!(
