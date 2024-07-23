@@ -296,6 +296,18 @@ async fn contract_data_read() {
         .assert()
         .success()
         .stdout(predicates::str::starts_with("COUNTER,2"));
+
+    // ensure default durability = persistent works
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("read")
+        .arg("--id")
+        .arg(id)
+        .arg("--key")
+        .arg(KEY)
+        .assert()
+        .success()
+        .stdout(predicates::str::starts_with("COUNTER,2"));
 }
 
 #[tokio::test]

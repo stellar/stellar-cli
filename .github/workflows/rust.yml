@@ -122,7 +122,6 @@ jobs:
 
     uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
     with:
-      crates: soroban-spec-tools soroban-spec-json soroban-spec-typescript soroban-test soroban-cli
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
       cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options }}

@@ -268,7 +268,7 @@ Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -545,7 +545,7 @@ Optimize a WASM file
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `stellar contract read [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract read [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -593,7 +593,7 @@ Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `stellar contract restore [OPTIONS] --durability <DURABILITY> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract restore [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -640,7 +640,7 @@ Watch the network for contract events
 
 ###### **Options:**
 
-* `--start-ledger <START_LEDGER>` — The first ledger sequence number in the range to pull events <https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence>
+* `--start-ledger <START_LEDGER>` — The first ledger sequence number in the range to pull events https://developers.stellar.org/docs/learn/encyclopedia/network-configuration/ledger-headers#ledger-sequence
 * `--cursor <CURSOR>` — The cursor corresponding to the start of the event range
 * `--output <OUTPUT>` — Output formatting options for event stream
 
@@ -1073,7 +1073,7 @@ Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc`
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
 
 **Usage:** `stellar network start [OPTIONS] <NETWORK>`
 
@@ -1087,6 +1087,7 @@ By default, when starting a testnet container, without any optional arguments, i
 ###### **Options:**
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `--name <NAME>` — Optional argument to specify the container name
 * `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 * `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
 
@@ -1102,14 +1103,11 @@ By default, when starting a testnet container, without any optional arguments, i
 
 Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
-**Usage:** `stellar network stop [OPTIONS] <NETWORK>`
+**Usage:** `stellar network stop [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to stop
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
+* `<NAME>` — Container to stop
 
 ###### **Options:**
 
@@ -1125,24 +1123,21 @@ Commands to start, stop and get logs for a quickstart container
 
 ###### **Subcommands:**
 
-* `logs` — Tail logs of a running network container
-* `start` — Start network
-* `stop` — Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it
+* `logs` — Get logs from a running network container
+* `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
+* `stop` — Stop a network container started with `network container start`
 
 
 
 ## `stellar network container logs`
 
-Tail logs of a running network container
+Get logs from a running network container
 
-**Usage:** `stellar network container logs [OPTIONS] <NETWORK>`
+**Usage:** `stellar network container logs [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to tail
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
+* `<NAME>` — Container to get logs from
 
 ###### **Options:**
 
@@ -1152,15 +1147,13 @@ Tail logs of a running network container
 
 ## `stellar network container start`
 
-Start network
-
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-`stellar network start NETWORK [OPTIONS]`
+`stellar network container start NETWORK [OPTIONS]`
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable-soroban-rpc`
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
 
 **Usage:** `stellar network container start [OPTIONS] <NETWORK>`
 
@@ -1174,6 +1167,7 @@ By default, when starting a testnet container, without any optional arguments, i
 ###### **Options:**
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `--name <NAME>` — Optional argument to specify the container name
 * `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 * `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
 
@@ -1185,16 +1179,13 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network container stop`
 
-Stop a network started with `network container start`. For example, if you ran `network container start local`, you can use `network container stop local` to stop it
+Stop a network container started with `network container start`
 
-**Usage:** `stellar network container stop [OPTIONS] <NETWORK>`
+**Usage:** `stellar network container stop [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to stop
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
+* `<NAME>` — Container to stop
 
 ###### **Options:**
 
@@ -1219,6 +1210,7 @@ Sign, Simulate, and Send transactions
 ###### **Subcommands:**
 
 * `simulate` — Simulate a transaction envelope from stdin
+* `hash` — Calculate the hash of a transaction envelope from stdin
 * `sign` — Sign a transaction
 * `send` — Send a transaction envelope to the network
 
@@ -1240,6 +1232,20 @@ Simulate a transaction envelope from stdin
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--check` — Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
+
+
+
+## `stellar tx hash`
+
+Calculate the hash of a transaction envelope from stdin
+
+**Usage:** `stellar tx hash [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
 
 
 
