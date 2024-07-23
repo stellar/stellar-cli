@@ -130,3 +130,4 @@ ureq = { version = "2.9.1", features = ["json"] }
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 predicates = "2.1.5"
+walkdir = "2.5.0"
