@@ -35,7 +35,7 @@ async fn invoke() {
         .arg("fund")
         .arg("test")
         .assert()
-        .stderr(predicates::str::contains("Account already exists"));
+        .stdout(predicates::str::contains("Nothing to do."));
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
@@ -138,6 +138,12 @@ async fn invoke() {
     handles_kebab_case(sandbox, id).await;
     fetch(sandbox, id).await;
     invoke_prng_u64_in_range_test(sandbox, id).await;
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("fund")
+        .arg("test")
+        .assert()
+        .stdout(predicates::str::contains("New test balance: 10000 XLM."));
 }
 
 fn invoke_hello_world(sandbox: &TestEnv, id: &str) {

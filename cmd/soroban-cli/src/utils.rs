@@ -1,15 +1,16 @@
-use ed25519_dalek::Signer;
+use crate::rpc;
+use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
+use std::str::FromStr;
 use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
-    Asset, ContractIdPreimage, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-    HashIdPreimageContractId, Limits, Signature, SignatureHint, Transaction, TransactionEnvelope,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, WriteXdr,
+    AccountEntry, AccountEntryExt, AccountId, Asset, ContractIdPreimage, DecoratedSignature,
+    Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId, Limits, PublicKey,
+    SequenceNumber, Signature, SignatureHint, String32, StringM, Thresholds, Transaction,
+    TransactionEnvelope, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+    TransactionV1Envelope, Uint256, WriteXdr,
 };
-
-pub use soroban_spec_tools::contract as contract_spec;
 
 /// # Errors
 ///
@@ -127,6 +128,45 @@ pub fn contract_id_hash_from_asset(
     });
     let preimage_xdr = preimage.to_xdr(Limits::none())?;
     Ok(Hash(Sha256::digest(preimage_xdr).into()))
+}
+
+const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32])));
+
+pub fn default_account_entry() -> AccountEntry {
+    AccountEntry {
+        account_id: DEFAULT_ACCOUNT_ID,
+        balance: 0,
+        seq_num: SequenceNumber(0),
+        num_sub_entries: 0,
+        inflation_dest: None,
+        flags: 0,
+        home_domain: String32::from(unsafe { StringM::<32>::from_str("TEST").unwrap_unchecked() }),
+        thresholds: Thresholds([0; 4]),
+        signers: unsafe { [].try_into().unwrap_unchecked() },
+        ext: AccountEntryExt::V0,
+    }
+}
+
+/// # Errors
+/// Error retrieving rpc client from url
+pub async fn get_account_details(
+    is_view: bool,
+    client: &rpc::Client,
+    network_passphrase: &str,
+    key: &SigningKey,
+) -> Result<AccountEntry, rpc::Error> {
+    if is_view {
+        Ok(default_account_entry())
+    } else {
+        client
+            .verify_network_passphrase(Some(network_passphrase))
+            .await?;
+        // Get the account sequence number
+        let public_strkey =
+            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
+        let account_details = client.get_account(&public_strkey).await?;
+        Ok(account_details)
+    }
 }
 
 pub mod parsing {
