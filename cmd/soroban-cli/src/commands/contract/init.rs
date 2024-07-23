@@ -478,7 +478,13 @@ fn get_merged_file_delimiter(file_path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
-    use std::fs::{self, read_to_string};
+    use std::{
+        collections::HashMap,
+        fs::{self, read_to_string},
+        path::PathBuf,
+        time::SystemTime,
+    };
+    use walkdir::WalkDir;
 
     use super::*;
 
@@ -591,6 +597,62 @@ mod tests {
         assert_readme_includes_frontend_readme_appended(&project_dir);
 
         temp_dir.close().unwrap();
+    }
+
+    #[test]
+    fn test_init_with_overwrite() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
+        let with_examples = vec![];
+
+        // First initialization
+        init(
+            project_dir.as_path(),
+            "https://github.com/stellar/soroban-astro-template",
+            &with_examples,
+            false,
+        )
+        .unwrap();
+
+        // Get initial modification times
+        let initial_mod_times = get_mod_times(&project_dir);
+
+        // Second initialization with overwrite
+        init(
+            project_dir.as_path(),
+            "https://github.com/stellar/soroban-astro-template",
+            &with_examples,
+            true, // overwrite = true
+        )
+        .unwrap();
+
+        // Get new modification times
+        let new_mod_times = get_mod_times(&project_dir);
+
+        // Compare modification times
+        for (path, initial_time) in initial_mod_times {
+            let new_time = new_mod_times.get(&path).expect("File should still exist");
+            assert!(
+                new_time > &initial_time,
+                "File {} should have a later modification time",
+                path.display()
+            );
+        }
+
+        temp_dir.close().unwrap();
+    }
+
+    fn get_mod_times(dir: &Path) -> HashMap<PathBuf, SystemTime> {
+        let mut mod_times = HashMap::new();
+        for entry in WalkDir::new(dir) {
+            let entry = entry.unwrap();
+            if entry.file_type().is_file() {
+                let path = entry.path().to_owned();
+                let metadata = fs::metadata(&path).unwrap();
+                mod_times.insert(path, metadata.modified().unwrap());
+            }
+        }
+        mod_times
     }
 
     #[test]
