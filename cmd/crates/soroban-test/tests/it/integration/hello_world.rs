@@ -138,12 +138,13 @@ async fn invoke() {
     handles_kebab_case(sandbox, id).await;
     fetch(sandbox, id).await;
     invoke_prng_u64_in_range_test(sandbox, id).await;
+    // test fund will add when account exists
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
         .arg("test")
         .assert()
-        .stdout(predicates::str::contains("New test balance: 10000 XLM."));
+        .stdout(predicates::str::contains("New test balance:"));
 }
 
 fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
