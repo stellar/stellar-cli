@@ -3,9 +3,10 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
+use crate::config;
+
 pub mod cache;
 pub mod completion;
-pub mod config;
 pub mod contract;
 pub mod events;
 pub mod global;

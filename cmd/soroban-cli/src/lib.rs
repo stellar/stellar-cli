@@ -12,6 +12,7 @@ mod cli;
 pub use cli::main;
 
 pub mod commands;
+pub mod config;
 pub mod fee;
 pub mod get_spec;
 pub mod key;
