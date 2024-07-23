@@ -1,12 +1,14 @@
-use crate::{commands::global, utils::transaction_hash};
-use hex;
+use crate::{
+    commands::global,
+    signer::{self, transaction_hash},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     TxEnvelopeFromStdin(#[from] super::xdr::Error),
     #[error(transparent)]
-    XdrToBase64(#[from] soroban_env_host::xdr::Error),
+    Signer(#[from] signer::Error),
     #[error(transparent)]
     Config(#[from] super::super::network::Error),
 }

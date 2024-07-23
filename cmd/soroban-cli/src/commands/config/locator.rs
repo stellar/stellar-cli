@@ -17,7 +17,7 @@ use crate::{utils::find_config_dir, Pwd};
 use super::{
     alias,
     network::{self, Network},
-    secret::Secret,
+    secret::SignerKind,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -70,6 +70,8 @@ pub enum Error {
     CannotAccessConfigDir,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
+    #[error("cannot use \"ledger\" as a key name")]
+    LedgerKeyName,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -100,6 +102,47 @@ impl Display for Location {
             },
             self.as_ref()
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NewKeyName(KeyName);
+
+impl std::ops::Deref for NewKeyName {
+    type Target = KeyName;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FromStr for NewKeyName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "ledger" {
+            return Err(Error::LedgerKeyName);
+        }
+        Ok(NewKeyName(s.parse()?))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct KeyName(String);
+
+impl std::ops::Deref for KeyName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FromStr for KeyName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(KeyName(s.to_string()))
     }
 }
 
@@ -149,7 +192,7 @@ impl Args {
         )
     }
 
-    pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
+    pub fn write_identity(&self, name: &str, secret: &SignerKind) -> Result<(), Error> {
         KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 
@@ -207,8 +250,16 @@ impl Args {
         Ok(saved_networks.chain(default_networks).collect())
     }
 
-    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
+    pub fn read_identity(&self, name: &str) -> Result<SignerKind, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
+    }
+
+    pub fn account(&self, account_str: &str) -> Result<SignerKind, Error> {
+        if let Ok(signer) = account_str.parse::<SignerKind>() {
+            Ok(signer)
+        } else {
+            self.read_identity(account_str)
+        }
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
