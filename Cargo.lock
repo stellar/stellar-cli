@@ -4780,6 +4780,7 @@ dependencies = [
  "tracing-subscriber",
  "ulid",
  "ureq",
+ "walkdir",
  "wasm-opt",
  "wasmparser 0.90.0",
  "which",
