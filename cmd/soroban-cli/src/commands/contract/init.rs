@@ -239,9 +239,10 @@ fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
             copy_contents(&path, &new_path, overwrite)?;
         } else {
             let exists = file_exists(&new_path);
+            let new_path_str = new_path.to_string_lossy();
             if exists {
-                let new_path_str = new_path.to_string_lossy();
-                let append = new_path_str.contains(".gitignore") || new_path_str.contains("README.md");
+                let append =
+                    new_path_str.contains(".gitignore") || new_path_str.contains("README.md");
                 if append {
                     append_contents(&path, &new_path)?;
                 }
@@ -249,9 +250,7 @@ fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
                 if overwrite && !append {
                     println!("🔄  Overwriting {new_path_str}");
                 } else {
-                    println!(
-                        "ℹ️  Skipped creating {new_path_str} as it already exists"
-                    );
+                    println!("ℹ️  Skipped creating {new_path_str} as it already exists");
                     continue;
                 }
             } else {
