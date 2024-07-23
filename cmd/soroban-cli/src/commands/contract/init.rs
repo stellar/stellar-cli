@@ -160,16 +160,13 @@ fn init(
 fn copy_template_files(project_path: &Path, overwrite: bool) -> Result<(), Error> {
     for item in TemplateFiles::iter() {
         let mut to = project_path.join(item.as_ref());
-        let mut exists = false;
-        if file_exists(&to) {
-            exists = true;
-            if !overwrite {
-                println!(
-                    "ℹ️  Skipped creating {} as it already exists",
-                    &to.to_string_lossy()
-                );
-                continue;
-            }
+        let exists = file_exists(&to);
+        if exists && !overwrite {
+            println!(
+                "ℹ️  Skipped creating {} as it already exists",
+                &to.to_string_lossy()
+            );
+            continue;
         }
         create_dir_all(to.parent().unwrap()).map_err(|e| {
             eprintln!("Error creating directory path for: {to:?}");
@@ -241,9 +238,8 @@ fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
             })?;
             copy_contents(&path, &new_path, overwrite)?;
         } else {
-            let mut exists = false;
-            if file_exists(&new_path) {
-                exists = true;
+            let exists = file_exists(&new_path);
+            if exists {
                 let mut appended = false;
                 if new_path.to_string_lossy().contains(".gitignore") {
                     appended = true;
