@@ -240,13 +240,9 @@ fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
         } else {
             let exists = file_exists(&new_path);
             if exists {
-                let mut appended = false;
-                if new_path.to_string_lossy().contains(".gitignore") {
-                    appended = true;
-                    append_contents(&path, &new_path)?;
-                }
-                if new_path.to_string_lossy().contains("README.md") {
-                    appended = true;
+                let new_path_str = new_path.to_string_lossy();
+                let append = new_path_str.contains(".gitignore") || new_path_str.contains("README.md");
+                if append {
                     append_contents(&path, &new_path)?;
                 }
 
