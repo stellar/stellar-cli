@@ -144,7 +144,6 @@ impl Cmd {
             .as_ref()
             .ok_or(Error::MissingNetworkPassphrase)?;
         let (from_id, temp_secret) = self.create_temp_account().await?;
-        let to_id = format!("{addr}");
         let cmd = commands::contract::invoke::Cmd::parse_arg_vec(&[
             "--id",
             &id.to_string(),
@@ -157,7 +156,7 @@ impl Cmd {
             "--",
             "transfer",
             "--to",
-            &to_id,
+            &addr.to_string(),
             "--from",
             &from_id.to_string(),
             "--amount",
