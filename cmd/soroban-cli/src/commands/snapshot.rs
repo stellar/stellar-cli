@@ -1,5 +1,5 @@
 use bytesize::ByteSize;
-use clap::{arg, Parser};
+use clap::{arg, Parser, ValueEnum};
 use flate2::bufread::GzDecoder;
 use futures::TryStreamExt;
 use http::Uri;
@@ -32,6 +32,17 @@ use super::{
 };
 use crate::commands::config::data;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
+pub enum Format {
+    Json,
+}
+
+impl Default for Format {
+    fn default() -> Self {
+        Self::Json
+    }
+}
+
 fn default_out_path() -> PathBuf {
     PathBuf::new().join("snapshot.json")
 }
@@ -44,14 +55,17 @@ pub struct Cmd {
     #[arg(long)]
     ledger: Option<u32>,
     /// Account IDs to filter by.
-    #[arg(long = "account-id", help_heading = "FILTERS")]
+    #[arg(long = "account-id", help_heading = "Filter Options")]
     account_ids: Vec<String>,
     /// Contract IDs to filter by.
-    #[arg(long = "contract-id", help_heading = "FILTERS")]
+    #[arg(long = "contract-id", help_heading = "Filter Options")]
     contract_ids: Vec<String>,
     /// WASM hashes to filter by.
-    #[arg(long = "wasm-hash", help_heading = "FILTERS")]
+    #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<String>,
+    /// Format of the out file.
+    #[arg(long)]
+    format: Format,
     /// Out path that the snapshot is written to.
     #[arg(long, default_value=default_out_path().into_os_string())]
     out: PathBuf,
