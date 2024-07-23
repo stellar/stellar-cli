@@ -246,17 +246,16 @@ fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
                     append_contents(&path, &new_path)?;
                 }
 
-                if overwrite && !appended {
-                    println!("🔄  Overwriting {}", &new_path.to_string_lossy());
+                if overwrite && !append {
+                    println!("🔄  Overwriting {new_path_str}");
                 } else {
                     println!(
-                        "ℹ️  Skipped creating {} as it already exists",
-                        &new_path.to_string_lossy()
+                        "ℹ️  Skipped creating {new_path_str} as it already exists"
                     );
                     continue;
                 }
             } else {
-                println!("➕  Writing {}", &new_path.to_string_lossy());
+                println!("➕  Writing {new_path_str}");
             }
             copy(&path, &new_path).map_err(|e| {
                 eprintln!(
