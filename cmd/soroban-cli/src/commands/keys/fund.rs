@@ -143,15 +143,13 @@ impl Cmd {
             .network_passphrase
             .as_ref()
             .ok_or(Error::MissingNetworkPassphrase)?;
-        let temp_account = self.create_temp_account().await?;
-        let temp_secret = format!("{}", temp_account.1);
-        let from_id = format!("{}", temp_account.0);
+        let (from_id, temp_secret) = self.create_temp_account().await?;
         let to_id = format!("{addr}");
         let cmd = commands::contract::invoke::Cmd::parse_arg_vec(&[
             "--id",
             &id.to_string(),
             "--source-account",
-            &temp_secret,
+            &temp_secret.to_string(),
             "--rpc-url",
             rpc_url,
             "--network-passphrase",
@@ -161,25 +159,16 @@ impl Cmd {
             "--to",
             &to_id,
             "--from",
-            &from_id,
+            &from_id.to_string(),
             "--amount",
             &amount.to_string(),
         ])?;
-        match cmd
-            .run(&global::Args {
-                locator: self.address.locator.clone(),
-                filter_logs: Vec::default(),
-                quiet: false,
-                verbose: false,
-                very_verbose: false,
-                list: false,
-                no_cache: false,
-            })
-            .await
-        {
-            Ok(()) => Ok(()),
-            Err(e) => Err(Error::FundTransferError(e.to_string())),
-        }
+        cmd.run(&global::Args {
+            locator: self.address.locator.clone(),
+            ..Default::default()
+        })
+        .await
+        .map_err(|e| Error::FundTransferError(e.to_string()))
     }
 
     pub async fn run(&self) -> Result<(), Error> {
