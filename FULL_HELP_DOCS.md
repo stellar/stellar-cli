@@ -404,6 +404,7 @@ Initialize a Soroban project with an example contract
 * `-f`, `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
   Default value: ``
+* `-o`, `--overwrite` — Overwrite all existing files.
 
 
 
@@ -1006,6 +1007,7 @@ Sign, Simulate, and Send transactions
 ###### **Subcommands:**
 
 * `simulate` — Simulate a transaction envelope from stdin
+* `hash` — Calculate the hash of a transaction envelope from stdin
 
 
 
@@ -1024,6 +1026,20 @@ Simulate a transaction envelope from stdin
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `stellar tx hash`
+
+Calculate the hash of a transaction envelope from stdin
+
+**Usage:** `stellar tx hash [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
 
 
 
