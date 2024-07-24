@@ -20,7 +20,7 @@ pub struct Cmd {
     #[clap(flatten)]
     pub ledgers: super::auth::Args,
     /// Only sign the Authorization Entries required by the provided source account
-    #[arg(long, visible_alias = "auth", short = 'a')]
+    #[arg(long)]
     pub auth_only: bool,
 }
 
