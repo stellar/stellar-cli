@@ -19,7 +19,7 @@ use crate::{
         NetworkRunnable,
     },
     rpc::{Client, Error as SorobanRpcError},
-    utils::{contract_id_hash_from_asset, parsing::parse_asset},
+    utils::{contract_id_hash_from_asset, get_account_details, parsing::parse_asset},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -94,16 +94,10 @@ impl NetworkRunnable for Cmd {
 
         let network = config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
-        client
-            .verify_network_passphrase(Some(&network.network_passphrase))
-            .await?;
         let key = config.key_pair()?;
-
-        // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details =
+            get_account_details(false, &client, &network.network_passphrase, &key).await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
         let contract_id = contract_id_hash_from_asset(&asset, network_passphrase)?;
