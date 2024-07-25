@@ -1,6 +1,6 @@
 use clap::command;
 
-use crate::commands::network;
+use crate::config::network;
 
 use super::address;
 

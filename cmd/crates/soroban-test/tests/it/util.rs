@@ -1,8 +1,8 @@
 use std::path::Path;
 
-use soroban_cli::commands::{
+use soroban_cli::{
+    commands::contract,
     config::{locator::KeyType, secret::Secret},
-    contract,
 };
 use soroban_test::{TestEnv, Wasm, TEST_ACCOUNT};
 
