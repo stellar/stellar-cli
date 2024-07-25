@@ -5,3 +5,4 @@ captive-core/
 *.sqlite
 test_snapshots
 .vscode/settings.json
+.idea
