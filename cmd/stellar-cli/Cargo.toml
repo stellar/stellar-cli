@@ -18,7 +18,7 @@ path = "src/bin/main.rs"
 
 [[bin]]
 name = "soroban"
-path = "../soroban-cli/src/bin/main.rs"
+path = "src/bin/soroban.rs"
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
