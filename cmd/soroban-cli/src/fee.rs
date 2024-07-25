@@ -27,15 +27,11 @@ pub struct Args {
 
 impl Args {
     pub fn apply_to_assembled_txn(&self, txn: Assembled) -> Assembled {
-        apply_max_instructions_to_txn(txn, self.instructions)
-    }
-}
-
-pub fn apply_max_instructions_to_txn(txn: Assembled, max_instructions: Option<u32>) -> Assembled {
-    if let Some(instructions) = max_instructions {
-        txn.set_max_instructions(instructions)
-    } else {
-        add_padding_to_instructions(txn)
+        if let Some(instructions) = self.instructions {
+            txn.set_max_instructions(instructions)
+        } else {
+            add_padding_to_instructions(txn)
+        }
     }
 }
 
