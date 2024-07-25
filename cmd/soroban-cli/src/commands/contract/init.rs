@@ -48,7 +48,7 @@ pub struct Cmd {
     )]
     pub frontend_template: String,
 
-    #[arg(short, long, long_help = "Overwrite all existing files.")]
+    #[arg(long, long_help = "Overwrite all existing files.")]
     pub overwrite: bool,
 }
 
