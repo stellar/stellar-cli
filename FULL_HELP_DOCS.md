@@ -4,13 +4,15 @@ This document contains the help content for the `stellar` command-line program.
 
 ## `stellar`
 
-With the Stellar CLI you can:
+Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
-- build, deploy and interact with contracts
-- set identities to sign with
-- configure networks
-- generate keys
-- more!
+- Generate and manage keys and accounts
+- Build, deploy, and interact with contracts
+- Deploy asset contracts
+- Stream events
+- Start local testnets
+- Decode, encode XDR
+- More!
 
 For additional information see:
 
@@ -18,21 +20,21 @@ For additional information see:
 - Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
 - CLI Docs: https://developers.stellar.org/docs/tools/stellar-cli
 
-The easiest way to get started is to generate a new identity:
+To get started generate a new identity:
 
     stellar keys generate alice
 
-You can use identities with the `--source` flag in other commands later.
+Use keys with the `--source` flag in other commands.
 
-Commands that relate to smart contract interactions are organized under the `contract` subcommand. List them:
+Commands that work with contracts are organized under the `contract` subcommand. List them:
 
     stellar contract --help
 
-A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. The invoke subcommand makes use of this:
+Use contracts like a CLI:
 
     stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
-Anything after the `--` double dash (the "slop") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
+Anything after the `--` double dash (the "slop") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
     stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 
@@ -41,15 +43,15 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 ###### **Subcommands:**
 
-* `completion` — Print shell completion code for the specified shell
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
-* `xdr` — Decode and encode XDR
 * `network` — Start and configure networks
-* `version` — Print version information
 * `tx` — Sign, Simulate, and Send transactions
+* `xdr` — Decode and encode XDR
+* `completion` — Print shell completion code for the specified shell
 * `cache` — Cache for transactions and contract specs
+* `version` — Print version information
 
 ###### **Options:**
 
@@ -61,28 +63,6 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `--very-verbose` — Log DEBUG and TRACE events
 * `--list` — List installed plugins. E.g. `stellar-hello`
 * `--no-cache` — Do not cache your simulations and transactions
-
-
-
-## `stellar completion`
-
-Print shell completion code for the specified shell
-
-Ensure the completion package for your shell is installed, e.g. bash-completion for bash.
-
-To enable autocomplete in the current bash shell, run: `source <(stellar completion --shell bash)`
-
-To enable autocomplete permanently, run: `echo "source <(stellar completion --shell bash)" >> ~/.bashrc`
-
-
-**Usage:** `stellar completion --shell <SHELL>`
-
-###### **Options:**
-
-* `--shell <SHELL>` — The shell type
-
-  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
-
 
 
 
@@ -424,7 +404,7 @@ Initialize a Soroban project with an example contract
 * `-f`, `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
   Default value: ``
-* `-o`, `--overwrite` — Overwrite all existing files.
+* `--overwrite` — Overwrite all existing files.
 
 
 
@@ -819,169 +799,6 @@ Given an identity return its private key
 
 
 
-## `stellar xdr`
-
-Decode and encode XDR
-
-**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
-
-###### **Subcommands:**
-
-* `types` — View information about types
-* `guess` — Guess the XDR type
-* `decode` — Decode XDR
-* `encode` — Encode XDR
-* `version` — Print version information
-
-###### **Arguments:**
-
-* `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
-
-
-
-
-## `stellar xdr types`
-
-View information about types
-
-**Usage:** `stellar xdr types <COMMAND>`
-
-###### **Subcommands:**
-
-* `list` — 
-* `schema` — 
-
-
-
-## `stellar xdr types list`
-
-**Usage:** `stellar xdr types list [OPTIONS]`
-
-###### **Options:**
-
-* `--output <OUTPUT>`
-
-  Default value: `plain`
-
-  Possible values: `plain`, `json`, `json-formatted`
-
-
-
-
-## `stellar xdr types schema`
-
-**Usage:** `stellar xdr types schema [OPTIONS] --type <TYPE>`
-
-###### **Options:**
-
-* `--type <TYPE>` — XDR type to decode
-* `--output <OUTPUT>`
-
-  Default value: `json-schema-draft201909`
-
-  Possible values: `json-schema-draft7`, `json-schema-draft201909`
-
-
-
-
-## `stellar xdr guess`
-
-Guess the XDR type
-
-**Usage:** `stellar xdr guess [OPTIONS] [FILE]`
-
-###### **Arguments:**
-
-* `<FILE>` — File to decode, or stdin if omitted
-
-###### **Options:**
-
-* `--input <INPUT>`
-
-  Default value: `single-base64`
-
-  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
-
-* `--output <OUTPUT>`
-
-  Default value: `list`
-
-  Possible values: `list`
-
-* `--certainty <CERTAINTY>` — Certainty as an arbitrary value
-
-  Default value: `2`
-
-
-
-## `stellar xdr decode`
-
-Decode XDR
-
-**Usage:** `stellar xdr decode [OPTIONS] --type <TYPE> [FILES]...`
-
-###### **Arguments:**
-
-* `<FILES>` — Files to decode, or stdin if omitted
-
-###### **Options:**
-
-* `--type <TYPE>` — XDR type to decode
-* `--input <INPUT>`
-
-  Default value: `stream-base64`
-
-  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
-
-* `--output <OUTPUT>`
-
-  Default value: `json`
-
-  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
-
-
-
-
-## `stellar xdr encode`
-
-Encode XDR
-
-**Usage:** `stellar xdr encode [OPTIONS] --type <TYPE> [FILES]...`
-
-###### **Arguments:**
-
-* `<FILES>` — Files to encode, or stdin if omitted
-
-###### **Options:**
-
-* `--type <TYPE>` — XDR type to encode
-* `--input <INPUT>`
-
-  Default value: `json`
-
-  Possible values: `json`
-
-* `--output <OUTPUT>`
-
-  Default value: `single-base64`
-
-  Possible values: `single`, `single-base64`
-
-
-
-
-## `stellar xdr version`
-
-Print version information
-
-**Usage:** `stellar xdr version`
-
-
-
 ## `stellar network`
 
 Start and configure networks
@@ -1181,14 +998,6 @@ Stop a network container started with `network container start`
 
 
 
-## `stellar version`
-
-Print version information
-
-**Usage:** `stellar version`
-
-
-
 ## `stellar tx`
 
 Sign, Simulate, and Send transactions
@@ -1231,6 +1040,191 @@ Calculate the hash of a transaction envelope from stdin
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `stellar xdr`
+
+Decode and encode XDR
+
+**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
+
+###### **Subcommands:**
+
+* `types` — View information about types
+* `guess` — Guess the XDR type
+* `decode` — Decode XDR
+* `encode` — Encode XDR
+* `version` — Print version information
+
+###### **Arguments:**
+
+* `<CHANNEL>` — Channel of XDR to operate on
+
+  Default value: `+curr`
+
+  Possible values: `+curr`, `+next`
+
+
+
+
+## `stellar xdr types`
+
+View information about types
+
+**Usage:** `stellar xdr types <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — 
+* `schema` — 
+
+
+
+## `stellar xdr types list`
+
+**Usage:** `stellar xdr types list [OPTIONS]`
+
+###### **Options:**
+
+* `--output <OUTPUT>`
+
+  Default value: `plain`
+
+  Possible values: `plain`, `json`, `json-formatted`
+
+
+
+
+## `stellar xdr types schema`
+
+**Usage:** `stellar xdr types schema [OPTIONS] --type <TYPE>`
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to decode
+* `--output <OUTPUT>`
+
+  Default value: `json-schema-draft201909`
+
+  Possible values: `json-schema-draft7`, `json-schema-draft201909`
+
+
+
+
+## `stellar xdr guess`
+
+Guess the XDR type
+
+**Usage:** `stellar xdr guess [OPTIONS] [FILE]`
+
+###### **Arguments:**
+
+* `<FILE>` — File to decode, or stdin if omitted
+
+###### **Options:**
+
+* `--input <INPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
+
+* `--output <OUTPUT>`
+
+  Default value: `list`
+
+  Possible values: `list`
+
+* `--certainty <CERTAINTY>` — Certainty as an arbitrary value
+
+  Default value: `2`
+
+
+
+## `stellar xdr decode`
+
+Decode XDR
+
+**Usage:** `stellar xdr decode [OPTIONS] --type <TYPE> [FILES]...`
+
+###### **Arguments:**
+
+* `<FILES>` — Files to decode, or stdin if omitted
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to decode
+* `--input <INPUT>`
+
+  Default value: `stream-base64`
+
+  Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
+
+* `--output <OUTPUT>`
+
+  Default value: `json`
+
+  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
+
+
+
+
+## `stellar xdr encode`
+
+Encode XDR
+
+**Usage:** `stellar xdr encode [OPTIONS] --type <TYPE> [FILES]...`
+
+###### **Arguments:**
+
+* `<FILES>` — Files to encode, or stdin if omitted
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to encode
+* `--input <INPUT>`
+
+  Default value: `json`
+
+  Possible values: `json`
+
+* `--output <OUTPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`
+
+
+
+
+## `stellar xdr version`
+
+Print version information
+
+**Usage:** `stellar xdr version`
+
+
+
+## `stellar completion`
+
+Print shell completion code for the specified shell
+
+Ensure the completion package for your shell is installed, e.g. bash-completion for bash.
+
+To enable autocomplete in the current bash shell, run: `source <(stellar completion --shell bash)`
+
+To enable autocomplete permanently, run: `echo "source <(stellar completion --shell bash)" >> ~/.bashrc`
+
+
+**Usage:** `stellar completion --shell <SHELL>`
+
+###### **Options:**
+
+* `--shell <SHELL>` — The shell type
+
+  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
+
 
 
 
@@ -1300,6 +1294,14 @@ Read cached action
 ###### **Options:**
 
 * `--id <ID>` — ID of the cache entry
+
+
+
+## `stellar version`
+
+Print version information
+
+**Usage:** `stellar version`
 
 
 
