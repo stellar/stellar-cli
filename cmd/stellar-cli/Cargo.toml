@@ -14,7 +14,7 @@ default-run = "stellar"
 
 [[bin]]
 name = "stellar"
-path = "src/bin/main.rs"
+path = "src/bin/stellar.rs"
 
 [[bin]]
 name = "soroban"
