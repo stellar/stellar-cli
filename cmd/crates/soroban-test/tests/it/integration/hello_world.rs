@@ -1,8 +1,10 @@
 use predicates::boolean::PredicateBooleanExt;
-use soroban_cli::commands::{
+use soroban_cli::{
+    commands::{
+        contract::{self, fetch},
+        txn_result::TxnResult,
+    },
     config::{locator, secret},
-    contract::{self, fetch},
-    txn_result::TxnResult,
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};

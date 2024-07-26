@@ -24,19 +24,14 @@ use soroban_env_host::{
 use soroban_sdk::xdr::ScSpecFunctionInputV0;
 use soroban_spec::read::FromWasmError;
 
-use super::super::{
-    config::{self, locator},
-    events,
-};
+use super::super::events;
 use crate::commands::config::secret::StellarSigner;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
+use crate::config::{self, data, locator, network};
 use crate::get_spec::{self, get_remote_contract_spec};
 use crate::signer::{self, Stellar};
-use crate::{
-    commands::{config::data, global, network},
-    rpc, Pwd,
-};
+use crate::{commands::global, rpc, Pwd};
 use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]

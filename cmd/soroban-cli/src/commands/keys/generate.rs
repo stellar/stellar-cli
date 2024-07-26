@@ -1,9 +1,7 @@
 use clap::{arg, command};
 
-use crate::commands::network;
-
 use super::super::config::{
-    locator,
+    locator, network,
     secret::{self, SignerKind},
 };
 

@@ -3,7 +3,7 @@ use ed25519_dalek::ed25519::signature::Signer;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    commands::network::Network,
+    config::network::Network,
     xdr::{
         self, AccountId, DecoratedSignature, Hash, HashIdPreimage,
         HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,

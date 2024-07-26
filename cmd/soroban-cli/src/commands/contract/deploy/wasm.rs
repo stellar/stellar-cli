@@ -16,14 +16,14 @@ use soroban_env_host::{
 };
 
 use crate::commands::{
-    config::{data, locator},
     contract::{self, id::wasm::get_contract_id},
-    global, network,
+    global,
     txn_result::{TxnEnvelopeResult, TxnResult},
     NetworkRunnable,
 };
 use crate::{
-    commands::{config, contract::install, HEADING_RPC},
+    commands::{contract::install, HEADING_RPC},
+    config::{self, data, locator, network},
     rpc::{self, Client},
     utils, wasm,
 };

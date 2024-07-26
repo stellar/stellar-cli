@@ -11,12 +11,12 @@ use stellar_strkey::DecodeError;
 
 use crate::{
     commands::{
-        config::{self, data, locator},
         contract::extend,
-        global, network,
+        global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
+    config::{self, data, locator, network},
     key,
     rpc::{self, Client},
     wasm, Pwd,

@@ -15,5 +15,5 @@ crate-type = ["cdylib"]
 soroban-sdk = { workspace = true }
 soroban-token-sdk = { workspace = true }
 
-[dev_dependencies]
+[dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

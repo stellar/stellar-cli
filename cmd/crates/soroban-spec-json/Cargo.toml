@@ -22,5 +22,5 @@ sha2 = "0.9.9"
 workspace = true
 features = ["curr", "std", "serde"]
 
-[dev_dependencies]
+[dev-dependencies]
 pretty_assertions = "1.2.1"

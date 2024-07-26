@@ -27,7 +27,7 @@ base64 = { workspace = true }
 workspace = true
 features = ["curr", "std", "serde", "base64"]
 
-[dev_dependencies]
+[dev-dependencies]
 temp-dir = "0.1.11"
 pretty_assertions = "1.2.1"
 walkdir = "2.3.3"

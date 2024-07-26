@@ -10,11 +10,11 @@ use soroban_env_host::xdr::{
 
 use crate::{
     commands::{
-        config::{self, data, locator},
-        global, network,
+        global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
+    config::{self, data, locator, network},
     key,
     rpc::{self, Client},
     wasm, Pwd,

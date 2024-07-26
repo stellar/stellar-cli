@@ -30,7 +30,8 @@ use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
-    commands::{config, contract::invoke, global, keys, network, NetworkRunnable},
+    commands::{contract::invoke, global, keys, NetworkRunnable},
+    config::{self, network},
     CommandParser,
 };
 

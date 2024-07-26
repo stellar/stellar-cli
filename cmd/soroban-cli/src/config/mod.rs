@@ -11,17 +11,14 @@ use crate::{signer::Stellar, Pwd};
 
 use self::network::Network;
 
-use super::{keys, network};
-
 pub mod alias;
 pub mod data;
 pub mod locator;
+pub mod network;
 pub mod secret;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Identity(#[from] keys::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]

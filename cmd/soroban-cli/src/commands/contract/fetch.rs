@@ -19,9 +19,11 @@ use soroban_env_host::{
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
-use super::super::config::{self, locator};
-use crate::commands::network::{self, Network};
 use crate::commands::{global, NetworkRunnable};
+use crate::config::{
+    self, locator,
+    network::{self, Network},
+};
 use crate::{
     rpc::{self, Client},
     Pwd,

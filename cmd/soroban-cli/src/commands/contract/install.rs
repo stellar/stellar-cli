@@ -11,12 +11,12 @@ use soroban_env_host::xdr::{
 };
 
 use super::restore;
-use crate::commands::network;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
-use crate::commands::{config::data, global, NetworkRunnable};
+use crate::commands::{global, NetworkRunnable};
+use crate::config::{self, data, network};
 use crate::key;
 use crate::rpc::{self, Client};
-use crate::{commands::config, utils, wasm};
+use crate::{utils, wasm};
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
 const PUBLIC_NETWORK_PASSPHRASE: &str = "Public Global Stellar Network ; September 2015";

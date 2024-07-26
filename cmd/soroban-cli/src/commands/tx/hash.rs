@@ -1,5 +1,8 @@
+use hex;
+
 use crate::{
     commands::global,
+    config::network,
     signer::{self, transaction_hash},
 };
 
@@ -10,7 +13,7 @@ pub enum Error {
     #[error(transparent)]
     Signer(#[from] signer::Error),
     #[error(transparent)]
-    Config(#[from] super::super::network::Error),
+    Config(#[from] network::Error),
 }
 
 // Command to return the transaction hash submitted to a network
@@ -19,7 +22,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     #[clap(flatten)]
-    pub network: super::super::network::Args,
+    pub network: network::Args,
 }
 
 impl Cmd {

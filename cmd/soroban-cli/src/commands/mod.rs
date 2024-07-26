@@ -3,9 +3,10 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
+use crate::config;
+
 pub mod cache;
 pub mod completion;
-pub mod config;
 pub mod contract;
 pub mod events;
 pub mod global;
@@ -18,13 +19,16 @@ pub mod version;
 pub mod txn_result;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
-const ABOUT: &str = "With the Stellar CLI you can:
+const ABOUT: &str =
+    "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
-- build, deploy and interact with contracts
-- set identities to sign with
-- configure networks
-- generate keys
-- more!
+- Generate and manage keys and accounts
+- Build, deploy, and interact with contracts
+- Deploy asset contracts
+- Stream events
+- Start local testnets
+- Decode, encode XDR
+- More!
 
 For additional information see:
 
@@ -35,21 +39,21 @@ For additional information see:
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
 
-The easiest way to get started is to generate a new identity:
+To get started generate a new identity:
 
     stellar keys generate alice
 
-You can use identities with the `--source` flag in other commands later.
+Use keys with the `--source` flag in other commands.
 
-Commands that relate to smart contract interactions are organized under the `contract` subcommand. List them:
+Commands that work with contracts are organized under the `contract` subcommand. List them:
 
     stellar contract --help
 
-A Soroban contract has its interface schema types embedded in the binary that gets deployed on-chain, making it possible to dynamically generate a custom CLI for each. The invoke subcommand makes use of this:
+Use contracts like a CLI:
 
     stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
-Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the embedded schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
+Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
     stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 ";
@@ -125,30 +129,35 @@ impl FromStr for Root {
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
-    /// Print shell completion code for the specified shell.
-    #[command(long_about = completion::LONG_ABOUT)]
-    Completion(completion::Cmd),
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
     /// Watch the network for contract events
     Events(events::Cmd),
+
     /// Create and manage identities including keys and addresses
     #[command(subcommand)]
     Keys(keys::Cmd),
-    /// Decode and encode XDR
-    Xdr(stellar_xdr::cli::Root),
+
     /// Start and configure networks
     #[command(subcommand)]
     Network(network::Cmd),
-    /// Print version information
-    Version(version::Cmd),
+
     /// Sign, Simulate, and Send transactions
     #[command(subcommand)]
     Tx(tx::Cmd),
+
+    /// Decode and encode XDR
+    Xdr(stellar_xdr::cli::Root),
+
+    /// Print shell completion code for the specified shell.
+    #[command(long_about = completion::LONG_ABOUT)]
+    Completion(completion::Cmd),
     /// Cache for transactions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
+    /// Print version information
+    Version(version::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
