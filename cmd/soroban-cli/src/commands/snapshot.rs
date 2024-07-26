@@ -233,6 +233,7 @@ impl Cmd {
                         .await
                         .map_err(Error::GettingBucket)?;
                     if !response.status().is_success() {
+                        println!();
                         return Err(Error::GettingBucketGotStatusCode(response.status()));
                     }
                     if let Some(val) = response.headers().get("Content-Length") {
