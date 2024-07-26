@@ -6,18 +6,6 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
-use soroban_env_host::{
-    budget::Budget,
-    storage::Storage,
-    xdr::{
-        self, ContractCodeEntry, ContractDataDurability, ContractDataEntry, ContractExecutable,
-        Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractCode,
-        LedgerKeyContractData, ScAddress, ScContractInstance, ScVal,
-    },
-};
-
-use soroban_spec::read::FromWasmError;
-use stellar_strkey::DecodeError;
 
 use crate::commands::{global, NetworkRunnable};
 use crate::config::{
@@ -69,21 +57,9 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    Xdr(#[from] XdrError),
-    #[error(transparent)]
-    Spec(#[from] soroban_spec::read::FromWasmError),
-    #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("missing result")]
-    MissingResult,
-    #[error("unexpected contract code data type: {0:?}")]
-    UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("reading file {0:?}: {1}")]
     CannotWriteContractFile(PathBuf, io::Error),
-    #[error("cannot parse contract ID {0}: {1}")]
-    CannotParseContractId(String, DecodeError),
-    #[error("network details not provided")]
-    NetworkNotProvided,
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error("cannot create contract directory for {0:?}")]
