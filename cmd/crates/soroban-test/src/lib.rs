@@ -31,7 +31,7 @@ use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
     commands::{contract::invoke, global, keys, NetworkRunnable},
-    config::{self, network},
+    config::{self, network, sign_with},
     CommandParser,
 };
 
@@ -232,8 +232,10 @@ impl TestEnv {
                 global: false,
                 config_dir,
             },
-            hd_path: None,
-            check: false,
+            sign_with: sign_with::Args {
+                yes: true,
+                ..Default::default()
+            },
         }
     }
 

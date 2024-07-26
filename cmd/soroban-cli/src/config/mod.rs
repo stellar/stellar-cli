@@ -16,6 +16,7 @@ pub mod data;
 pub mod locator;
 pub mod network;
 pub mod secret;
+pub mod sign_with;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -41,29 +42,28 @@ pub struct Args {
     /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
     pub source_account: String,
 
-    #[arg(long)]
-    /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-    pub hd_path: Option<usize>,
-
     #[command(flatten)]
     pub locator: locator::Args,
 
-    /// Check with user before signature. Eventually this will be replaced with `--yes`, which does the opposite and will force a check without --yes
-    #[arg(long)]
-    pub check: bool,
+    #[command(flatten)]
+    pub sign_with: sign_with::Args,
 }
 
 impl Args {
     pub fn signer(&self) -> Result<StellarSigner, Error> {
+        let (account, prompt) = self.sign_with.sign_with_key.as_ref().map_or_else(
+            || (&self.source_account, false),
+            |s| (s, !self.sign_with.yes),
+        );
         Ok(self
             .locator
-            .account(&self.source_account)?
-            .signer(self.hd_path, self.check)?)
+            .account(account)?
+            .signer(self.sign_with.hd_path, prompt)?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = self.locator.account(&self.source_account)?;
-        Ok(key.key_pair(self.hd_path)?)
+        Ok(key.key_pair(self.sign_with.hd_path)?)
     }
 
     pub async fn public_key(&self) -> Result<PublicKey, Error> {

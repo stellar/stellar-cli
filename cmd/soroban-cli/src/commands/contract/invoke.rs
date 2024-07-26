@@ -238,7 +238,7 @@ impl Cmd {
                 if let Ok(signer_) = config
                     .locator
                     .account(&s)
-                    .and_then(|signer| Ok(signer.signer(config.hd_path, config.check)?))
+                    .and_then(|signer| Ok(signer.signer(config.sign_with.hd_path, false)?))
                 {
                     s = signer_.get_public_key().await?.to_string();
                     signer = Some(signer_);
