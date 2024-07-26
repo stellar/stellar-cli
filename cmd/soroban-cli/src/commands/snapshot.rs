@@ -79,6 +79,8 @@ pub struct Cmd {
 pub enum Error {
     #[error("downloading history: {0}")]
     DownloadingHistory(hyper::Error),
+    #[error("downloading history: got status code {0}")]
+    DownloadingHistoryGotStatusCode(hyper::StatusCode),
     #[error("json decoding history: {0}")]
     JsonDecodingHistory(serde_json::Error),
     #[error("opening cached bucket to read: {0}")]
@@ -87,6 +89,8 @@ pub enum Error {
     ParsingBucketUrl(http::uri::InvalidUri),
     #[error("getting bucket: {0}")]
     GettingBucket(hyper::Error),
+    #[error("getting bucket: got status code {0}")]
+    GettingBucketGotStatusCode(hyper::StatusCode),
     #[error("opening cached bucket to write: {0}")]
     WriteOpeningCachedBucket(io::Error),
     #[error("read XDR frame bucket entry: {0}")]
@@ -109,6 +113,10 @@ pub enum Error {
     Config(#[from] config::Error),
 }
 
+/// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
+/// often by 8. There's no way to simply detect what frequency to expect ledgers
+/// at, so it is hardcoded at 64, and this value is used only to help the user
+/// select good ledger numbers when they select one that doesn't exist.
 const CHECKPOINT_FREQUENCY: u32 = 64;
 
 impl Cmd {
@@ -119,17 +127,6 @@ impl Cmd {
         let start = Instant::now();
 
         let history_url = if let Some(ledger) = self.ledger {
-            // Check ledger is a checkpoint ledger and available in archives.
-            let ledger_offset = (ledger + 1) % CHECKPOINT_FREQUENCY;
-            if ledger_offset != 0 {
-                println!(
-                    "ledger {ledger} not a checkpoint ledger, use {} or {}",
-                    ledger - ledger_offset,
-                    ledger + (CHECKPOINT_FREQUENCY - ledger_offset),
-                );
-                return Ok(());
-            }
-
             // Download history JSON file.
             let ledger_hex = format!("{ledger:08x}");
             let ledger_hex_0 = &ledger_hex[0..=1];
@@ -148,6 +145,20 @@ impl Cmd {
             .get(history_url)
             .await
             .map_err(Error::DownloadingHistory)?;
+        if !response.status().is_success() {
+            // Check ledger is a checkpoint ledger and available in archives.
+            if let Some(ledger) = self.ledger {
+                let ledger_offset = (ledger + 1) % CHECKPOINT_FREQUENCY;
+                if ledger_offset != 0 {
+                    println!(
+                        "ℹ️  Ledger {ledger} may not be a checkpoint ledger, try {} or {}",
+                        ledger - ledger_offset,
+                        ledger + (CHECKPOINT_FREQUENCY - ledger_offset),
+                    );
+                }
+            }
+            return Err(Error::DownloadingHistoryGotStatusCode(response.status()));
+        }
         let body = hyper::body::to_bytes(response.into_body())
             .await
             .map_err(Error::ReadHistoryHttpStream)?;
@@ -194,7 +205,8 @@ impl Cmd {
         let mut account_ids = self.account_ids.clone();
         let mut contract_ids = self.contract_ids.clone();
         let mut wasm_hashes = self.wasm_hashes.clone();
-        for _ in 0..2 {
+        for p in 1..=2 {
+            println!("ℹ️  Beginning parse {p}/2 of buckets...");
             for (i, bucket) in buckets.iter().enumerate() {
                 // Defined where the bucket will be read from, either from cache on
                 // disk, or streamed from the archive.
@@ -220,6 +232,9 @@ impl Cmd {
                         .get(bucket_url)
                         .await
                         .map_err(Error::GettingBucket)?;
+                    if !response.status().is_success() {
+                        return Err(Error::GettingBucketGotStatusCode(response.status()));
+                    }
                     if let Some(val) = response.headers().get("Content-Length") {
                         if let Ok(str) = val.to_str() {
                             if let Ok(len) = str.parse::<u64>() {
