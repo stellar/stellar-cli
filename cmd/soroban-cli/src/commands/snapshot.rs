@@ -77,6 +77,8 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("wasm hash invalid: {0}")]
+    WasmHashInvalid(String),
     #[error("downloading history: {0}")]
     DownloadingHistory(hyper::Error),
     #[error("downloading history: got status code {0}")]
@@ -122,48 +124,10 @@ const CHECKPOINT_FREQUENCY: u32 = 64;
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self) -> Result<(), Error> {
-        let archive_url = self.network.get(&self.locator)?.archive_url()?.to_string();
-
         let start = Instant::now();
 
-        let history_url = if let Some(ledger) = self.ledger {
-            // Download history JSON file.
-            let ledger_hex = format!("{ledger:08x}");
-            let ledger_hex_0 = &ledger_hex[0..=1];
-            let ledger_hex_1 = &ledger_hex[2..=3];
-            let ledger_hex_2 = &ledger_hex[4..=5];
-            format!("{archive_url}/history/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/history-{ledger_hex}.json")
-        } else {
-            format!("{archive_url}/.well-known/stellar-history.json")
-        };
-
-        let history_url = Uri::from_str(&history_url).unwrap();
-        println!("🌎 Downloading history {history_url}");
-        let https = hyper_tls::HttpsConnector::new();
-        let response = hyper::Client::builder()
-            .build::<_, hyper::Body>(https)
-            .get(history_url)
-            .await
-            .map_err(Error::DownloadingHistory)?;
-        if !response.status().is_success() {
-            // Check ledger is a checkpoint ledger and available in archives.
-            if let Some(ledger) = self.ledger {
-                let ledger_offset = (ledger + 1) % CHECKPOINT_FREQUENCY;
-                if ledger_offset != 0 {
-                    println!(
-                        "ℹ️  Ledger {ledger} may not be a checkpoint ledger, try {} or {}",
-                        ledger - ledger_offset,
-                        ledger + (CHECKPOINT_FREQUENCY - ledger_offset),
-                    );
-                }
-            }
-            return Err(Error::DownloadingHistoryGotStatusCode(response.status()));
-        }
-        let body = hyper::body::to_bytes(response.into_body())
-            .await
-            .map_err(Error::ReadHistoryHttpStream)?;
-        let history =
-            serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)?;
+        let archive_url = self.network.get(&self.locator)?.archive_url()?;
+        let history = get_history(&archive_url, self.ledger).await?;
 
         let ledger = history.current_ledger;
         let network_passphrase = &history.network_passphrase;
@@ -204,66 +168,41 @@ impl Cmd {
 
         let mut account_ids = self.account_ids.clone();
         let mut contract_ids = self.contract_ids.clone();
-        let mut wasm_hashes = self.wasm_hashes.clone();
+        let mut wasm_hashes = self
+            .wasm_hashes
+            .iter()
+            .map(|h| {
+                hex::decode(h)
+                    .map_err(|_| Error::WasmHashInvalid(h.clone()))
+                    .and_then(|vec| {
+                        vec.try_into()
+                            .map_err(|_| Error::WasmHashInvalid("".to_string()))
+                    })
+            })
+            .collect::<Result<Vec<[u8; 32]>, _>>()?;
+        // Parse the buckets twice, because during the first pass contracts
+        // and accounts will be found, along with explicitly provided wasm
+        // hashes. Contracts found will have their wasm hashes added to the
+        // filter because in most cases if someone wants a ledger snapshot
+        // of a contract they also want the contracts code entry (e.g.
+        // wasm).
         for p in 1..=2 {
             println!("ℹ️  Beginning parse {p}/2 of buckets...");
             for (i, bucket) in buckets.iter().enumerate() {
                 // Defined where the bucket will be read from, either from cache on
                 // disk, or streamed from the archive.
-                let bucket_dir = data::bucket_dir().map_err(Error::GetBucketDir)?;
-                let cache_path = bucket_dir.join(format!("bucket-{bucket}.xdr"));
-                let (read, stream): (Box<dyn Read + Sync + Send>, bool) = if cache_path.exists() {
-                    println!("🪣  Loading cached bucket {i} {bucket}");
-                    let file = OpenOptions::new()
-                        .read(true)
-                        .open(&cache_path)
-                        .map_err(Error::ReadOpeningCachedBucket)?;
-                    (Box::new(file), false)
-                } else {
-                    let bucket_0 = &bucket[0..=1];
-                    let bucket_1 = &bucket[2..=3];
-                    let bucket_2 = &bucket[4..=5];
-                    let bucket_url = format!("{archive_url}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz");
-                    print!("🪣  Downloading bucket {i} {bucket}");
-                    let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
-                    let https = hyper_tls::HttpsConnector::new();
-                    let response = hyper::Client::builder()
-                        .build::<_, hyper::Body>(https)
-                        .get(bucket_url)
-                        .await
-                        .map_err(Error::GettingBucket)?;
-                    if !response.status().is_success() {
-                        println!();
-                        return Err(Error::GettingBucketGotStatusCode(response.status()));
-                    }
-                    if let Some(val) = response.headers().get("Content-Length") {
-                        if let Ok(str) = val.to_str() {
-                            if let Ok(len) = str.parse::<u64>() {
-                                print!(" ({})", ByteSize(len));
-                            }
-                        }
-                    }
-                    println!();
-                    let read = tokio_util::io::SyncIoBridge::new(
-                        response
-                            .into_body()
-                            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-                            .into_async_read()
-                            .compat(),
-                    );
-                    (Box::new(read), true)
-                };
+                let (read, cache_path, from_cache) =
+                    get_bucket_stream(&archive_url, i, bucket).await?;
 
-                let cache_path = cache_path.clone();
                 (seen, snapshot, account_ids, contract_ids, wasm_hashes) =
                     tokio::task::spawn_blocking(move || -> Result<_, Error> {
                         let dl_path = cache_path.with_extension("dl");
                         let buf = BufReader::new(read);
-                        let read: Box<dyn Read + Sync + Send> = if stream {
-                            // When streamed from the archive the bucket will be
-                            // uncompressed, and also be streamed to cache.
-                            let gz = GzDecoder::new(buf);
-                            let buf = BufReader::new(gz);
+                        let read: Box<dyn Read + Sync + Send> = if from_cache {
+                            Box::new(buf)
+                        } else {
+                            // When the stream is not from the cache, write it
+                            // to the cache.
                             let file = OpenOptions::new()
                                 .create(true)
                                 .truncate(true)
@@ -272,16 +211,14 @@ impl Cmd {
                                 .map_err(Error::WriteOpeningCachedBucket)?;
                             let tee = TeeReader::new(buf, file);
                             Box::new(tee)
-                        } else {
-                            Box::new(buf)
                         };
                         // Stream the bucket entries from the bucket, identifying
                         // entries that match the filters, and including only the
                         // entries that match in the snapshot.
                         let limited = &mut Limited::new(read, Limits::none());
-                        let sz = Frame::<BucketEntry>::read_xdr_iter(limited);
+                        let entries = Frame::<BucketEntry>::read_xdr_iter(limited);
                         let mut count_saved = 0;
-                        for entry in sz {
+                        for entry in entries {
                             let Frame(entry) = entry.map_err(Error::ReadXdrFrameBucketEntry)?;
                             let (key, val) = match entry {
                                 BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
@@ -311,22 +248,20 @@ impl Cmd {
                                         // contract executable stored in another
                                         // ledger entry, add that ledger entry to
                                         // the filter so that Wasm for any filtered
-                                        // contract is collected too.
+                                        // contract is collected too in the second pass.
                                         if keep && e.key == ScVal::LedgerKeyContractInstance {
                                             if let ScVal::ContractInstance(ScContractInstance {
                                                 executable: ContractExecutable::Wasm(Hash(hash)),
                                                 ..
                                             }) = e.val
                                             {
-                                                let hash = hex::encode(hash);
                                                 wasm_hashes.push(hash);
                                             }
                                         }
                                         keep
                                     }
                                     LedgerEntryData::ContractCode(e) => {
-                                        let hash = hex::encode(e.hash.0);
-                                        wasm_hashes.contains(&hash)
+                                        wasm_hashes.contains(&e.hash.0)
                                     }
                                     LedgerEntryData::Offer(_)
                                     | LedgerEntryData::Data(_)
@@ -338,8 +273,9 @@ impl Cmd {
                                 seen.insert(key.clone());
                                 if keep {
                                     // Store the found ledger entry in the snapshot with
-                                    // a max u32 expiry. TODO: Change the expiry to come
-                                    // from the corresponding TTL ledger entry.
+                                    // a max u32 expiry.
+                                    // TODO: Change the expiry to come from the
+                                    // corresponding TTL ledger entry.
                                     snapshot
                                         .ledger_entries
                                         .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
@@ -347,7 +283,7 @@ impl Cmd {
                                 }
                             }
                         }
-                        if stream {
+                        if !from_cache {
                             fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
                         }
                         if count_saved > 0 {
@@ -373,6 +309,99 @@ impl Cmd {
 
         Ok(())
     }
+}
+
+async fn get_history(archive_url: &Uri, ledger: Option<u32>) -> Result<History, Error> {
+    let history_url = if let Some(ledger) = ledger {
+        let ledger_hex = format!("{ledger:08x}");
+        let ledger_hex_0 = &ledger_hex[0..=1];
+        let ledger_hex_1 = &ledger_hex[2..=3];
+        let ledger_hex_2 = &ledger_hex[4..=5];
+        format!("{archive_url}/history/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/history-{ledger_hex}.json")
+    } else {
+        format!("{archive_url}/.well-known/stellar-history.json")
+    };
+    let history_url = Uri::from_str(&history_url).unwrap();
+
+    println!("🌎 Downloading history {history_url}");
+    let https = hyper_tls::HttpsConnector::new();
+    let response = hyper::Client::builder()
+        .build::<_, hyper::Body>(https)
+        .get(history_url)
+        .await
+        .map_err(Error::DownloadingHistory)?;
+    if !response.status().is_success() {
+        // Check ledger is a checkpoint ledger and available in archives.
+        if let Some(ledger) = ledger {
+            let ledger_offset = (ledger + 1) % CHECKPOINT_FREQUENCY;
+            if ledger_offset != 0 {
+                println!(
+                    "ℹ️  Ledger {ledger} may not be a checkpoint ledger, try {} or {}",
+                    ledger - ledger_offset,
+                    ledger + (CHECKPOINT_FREQUENCY - ledger_offset),
+                );
+            }
+        }
+        return Err(Error::DownloadingHistoryGotStatusCode(response.status()));
+    }
+    let body = hyper::body::to_bytes(response.into_body())
+        .await
+        .map_err(Error::ReadHistoryHttpStream)?;
+    serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)
+}
+
+async fn get_bucket_stream(
+    archive_url: &Uri,
+    bucket_index: usize,
+    bucket: &str,
+) -> Result<(Box<dyn Read + Sync + Send>, PathBuf, bool), Error> {
+    let bucket_dir = data::bucket_dir().map_err(Error::GetBucketDir)?;
+    let cache_path = bucket_dir.join(format!("bucket-{bucket}.xdr"));
+    let (read, from_cache): (Box<dyn Read + Sync + Send>, bool) = if cache_path.exists() {
+        println!("🪣  Loading cached bucket {bucket_index} {bucket}");
+        let file = OpenOptions::new()
+            .read(true)
+            .open(&cache_path)
+            .map_err(Error::ReadOpeningCachedBucket)?;
+        (Box::new(file), true)
+    } else {
+        let bucket_0 = &bucket[0..=1];
+        let bucket_1 = &bucket[2..=3];
+        let bucket_2 = &bucket[4..=5];
+        let bucket_url =
+            format!("{archive_url}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz");
+        print!("🪣  Downloading bucket {bucket_index} {bucket}");
+        let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
+        let https = hyper_tls::HttpsConnector::new();
+        let response = hyper::Client::builder()
+            .build::<_, hyper::Body>(https)
+            .get(bucket_url)
+            .await
+            .map_err(Error::GettingBucket)?;
+        if !response.status().is_success() {
+            println!();
+            return Err(Error::GettingBucketGotStatusCode(response.status()));
+        }
+        if let Some(val) = response.headers().get("Content-Length") {
+            if let Ok(str) = val.to_str() {
+                if let Ok(len) = str.parse::<u64>() {
+                    print!(" ({})", ByteSize(len));
+                }
+            }
+        }
+        println!();
+        let read = tokio_util::io::SyncIoBridge::new(
+            response
+                .into_body()
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                .into_async_read()
+                .compat(),
+        );
+        let read = GzDecoder::new(read);
+        let read = BufReader::new(read);
+        (Box::new(read), false)
+    };
+    Ok((read, cache_path, from_cache))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize)]
