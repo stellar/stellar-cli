@@ -19,6 +19,7 @@ use soroban_env_host::{
 use soroban_spec::read::FromWasmError;
 use stellar_strkey::DecodeError;
 
+use crate::commands::contract::fetch::Error::{ContractIsStellarAsset, UnexpectedContractToken};
 use crate::commands::{global, NetworkRunnable};
 use crate::config::{
     self, locator,
@@ -28,7 +29,6 @@ use crate::{
     rpc::{self, Client},
     Pwd,
 };
-use crate::commands::contract::fetch::Error::{ContractIsStellarAsset, UnexpectedContractToken};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -91,8 +91,10 @@ pub enum Error {
     CannotCreateContractDir(PathBuf),
     #[error("unexpected contract code {0:?}")]
     UnexpectedContractToken(ContractDataEntry),
-    #[error("cannot fetch wasm for contract because the contract is \
-    a network built-in asset contract that does not have a downloadable code binary")]
+    #[error(
+        "cannot fetch wasm for contract because the contract is \
+    a network built-in asset contract that does not have a downloadable code binary"
+    )]
     ContractIsStellarAsset(),
 }
 
@@ -159,9 +161,11 @@ impl NetworkRunnable for Cmd {
         let data_entry = client.get_contract_data(&contract_id).await?;
         if let ScVal::ContractInstance(contract) = &data_entry.val {
             return match &contract.executable {
-                ContractExecutable::Wasm(hash) => Ok(client.get_remote_wasm_from_hash(&hash).await?),
-                ContractExecutable::StellarAsset => Err(ContractIsStellarAsset())
-            }
+                ContractExecutable::Wasm(hash) => {
+                    Ok(client.get_remote_wasm_from_hash(&hash).await?)
+                }
+                ContractExecutable::StellarAsset => Err(ContractIsStellarAsset()),
+            };
         }
         return Err(UnexpectedContractToken(data_entry));
     }
@@ -180,10 +184,10 @@ pub fn get_contract_wasm_from_storage(
         Ok(rc) => match rc.as_ref() {
             xdr::LedgerEntry {
                 data:
-                LedgerEntryData::ContractData(ContractDataEntry {
-                                                  val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
-                                                  ..
-                                              }),
+                    LedgerEntryData::ContractData(ContractDataEntry {
+                        val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
+                        ..
+                    }),
                 ..
             } => match executable {
                 ContractExecutable::Wasm(hash) => {
