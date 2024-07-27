@@ -89,7 +89,7 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error("cannot create contract directory for {0:?}")]
     CannotCreateContractDir(PathBuf),
-    #[error("unexpected contract code {0:?}")]
+    #[error("unexpected contract data {0:?}")]
     UnexpectedContractToken(ContractDataEntry),
     #[error(
         "cannot fetch wasm for contract because the contract is \
