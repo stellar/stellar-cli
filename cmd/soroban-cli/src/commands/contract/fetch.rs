@@ -28,6 +28,7 @@ use crate::{
     rpc::{self, Client},
     Pwd,
 };
+use crate::commands::contract::fetch::Error::{ContractIsStellarAsset, UnexpectedContractToken};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -88,6 +89,11 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error("cannot create contract directory for {0:?}")]
     CannotCreateContractDir(PathBuf),
+    #[error("unexpected contract code {0:?}")]
+    UnexpectedContractToken(ContractDataEntry),
+    #[error("cannot fetch wasm for contract because the contract is \
+    a network built-in asset contract that does not have a downloadable code binary")]
+    ContractIsStellarAsset(),
 }
 
 impl From<Infallible> for Error {
@@ -150,9 +156,17 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        Ok(client.get_remote_wasm(&contract_id).await?)
+        let data_entry = client.get_contract_data(&contract_id).await?;
+        if let ScVal::ContractInstance(contract) = &data_entry.val {
+            return match &contract.executable {
+                ContractExecutable::Wasm(hash) => Ok(client.get_remote_wasm_from_hash(&hash).await?),
+                ContractExecutable::StellarAsset => Err(ContractIsStellarAsset())
+            }
+        }
+        return Err(UnexpectedContractToken(data_entry));
     }
 }
+
 pub fn get_contract_wasm_from_storage(
     storage: &mut Storage,
     contract_id: [u8; 32],
@@ -166,10 +180,10 @@ pub fn get_contract_wasm_from_storage(
         Ok(rc) => match rc.as_ref() {
             xdr::LedgerEntry {
                 data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
-                        ..
-                    }),
+                LedgerEntryData::ContractData(ContractDataEntry {
+                                                  val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
+                                                  ..
+                                              }),
                 ..
             } => match executable {
                 ContractExecutable::Wasm(hash) => {
