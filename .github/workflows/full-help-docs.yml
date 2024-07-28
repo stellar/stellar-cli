@@ -11,7 +11,7 @@ jobs:
   doc_check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: stellar/actions/rust-cache@main
     - run: rustup update
     - name: Generate help doc
@@ -26,7 +26,7 @@ jobs:
 
     - name: Check diff
       if: steps.doc-gen.outputs.diff != ''
-      uses: actions/github-script@v3
+      uses: actions/github-script@v7
       with:
         script: |
           core.setFailed('Expected `doc-gen` to generate no diffs, but got diff shown in previous step.\n\nUpdate the full help docs:\n\n    cargo md-gen\n\nDo this automatically on every commit by installing the pre-commit hook as explained in the README.')

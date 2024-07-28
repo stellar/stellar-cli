@@ -34,7 +34,7 @@ jobs:
             ext: .exe
     runs-on: ${{ matrix.sys.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: rustup update
     - run: rustup target add ${{ matrix.sys.target }}
     - if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
@@ -63,13 +63,13 @@ jobs:
           cd target/${{ matrix.sys.target }}/release
           tar czvf $NAME.tar.gz ${{ matrix.crate.binary }}${{ matrix.sys.ext }}
     - name: Upload to Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ env.NAME }}
         path: 'target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'
     - name: Upload to Release (release only)
       if: github.event_name == 'release'
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');

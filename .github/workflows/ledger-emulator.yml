@@ -15,7 +15,7 @@ jobs:
     env:
       CI_TESTS: true
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: stellar/actions/rust-cache@main
     - name: install libudev-dev
       run: |
