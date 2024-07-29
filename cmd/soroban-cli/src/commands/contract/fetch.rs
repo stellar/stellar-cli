@@ -6,22 +6,12 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
-use soroban_env_host::{
-    budget::Budget,
-    storage::Storage,
-    xdr::{
-        self, ContractCodeEntry, ContractDataDurability, ContractDataEntry, ContractExecutable,
-        Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractCode,
-        LedgerKeyContractData, ScAddress, ScContractInstance, ScVal,
-    },
-};
 
-use soroban_spec::read::FromWasmError;
-use stellar_strkey::DecodeError;
-
-use super::super::config::{self, locator};
-use crate::commands::network::{self, Network};
 use crate::commands::{global, NetworkRunnable};
+use crate::config::{
+    self, locator,
+    network::{self, Network},
+};
 use crate::{
     rpc::{self, Client},
     Pwd,
@@ -67,21 +57,9 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    Xdr(#[from] XdrError),
-    #[error(transparent)]
-    Spec(#[from] soroban_spec::read::FromWasmError),
-    #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("missing result")]
-    MissingResult,
-    #[error("unexpected contract code data type: {0:?}")]
-    UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("reading file {0:?}: {1}")]
     CannotWriteContractFile(PathBuf, io::Error),
-    #[error("cannot parse contract ID {0}: {1}")]
-    CannotParseContractId(String, DecodeError),
-    #[error("network details not provided")]
-    NetworkNotProvided,
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error("cannot create contract directory for {0:?}")]
@@ -149,48 +127,5 @@ impl NetworkRunnable for Cmd {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
         Ok(client.get_remote_wasm(&contract_id).await?)
-    }
-}
-pub fn get_contract_wasm_from_storage(
-    storage: &mut Storage,
-    contract_id: [u8; 32],
-) -> Result<Vec<u8>, FromWasmError> {
-    let key = LedgerKey::ContractData(LedgerKeyContractData {
-        contract: ScAddress::Contract(contract_id.into()),
-        key: ScVal::LedgerKeyContractInstance,
-        durability: ContractDataDurability::Persistent,
-    });
-    match storage.get(&key.into(), &Budget::default()) {
-        Ok(rc) => match rc.as_ref() {
-            xdr::LedgerEntry {
-                data:
-                    LedgerEntryData::ContractData(ContractDataEntry {
-                        val: ScVal::ContractInstance(ScContractInstance { executable, .. }),
-                        ..
-                    }),
-                ..
-            } => match executable {
-                ContractExecutable::Wasm(hash) => {
-                    if let Ok(rc) = storage.get(
-                        &LedgerKey::ContractCode(LedgerKeyContractCode { hash: hash.clone() })
-                            .into(),
-                        &Budget::default(),
-                    ) {
-                        match rc.as_ref() {
-                            xdr::LedgerEntry {
-                                data: LedgerEntryData::ContractCode(ContractCodeEntry { code, .. }),
-                                ..
-                            } => Ok(code.to_vec()),
-                            _ => Err(FromWasmError::NotFound),
-                        }
-                    } else {
-                        Err(FromWasmError::NotFound)
-                    }
-                }
-                ContractExecutable::StellarAsset => todo!(),
-            },
-            _ => Err(FromWasmError::NotFound),
-        },
-        _ => Err(FromWasmError::NotFound),
     }
 }

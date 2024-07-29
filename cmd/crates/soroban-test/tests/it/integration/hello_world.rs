@@ -1,8 +1,10 @@
 use predicates::boolean::PredicateBooleanExt;
-use soroban_cli::commands::{
+use soroban_cli::{
+    commands::{
+        contract::{self, fetch},
+        txn_result::TxnResult,
+    },
     config::{locator, secret},
-    contract::{self, fetch},
-    txn_result::TxnResult,
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
@@ -35,7 +37,7 @@ async fn invoke() {
         .arg("fund")
         .arg("test")
         .assert()
-        .stdout(predicates::str::contains("Nothing to do."));
+        .stderr(predicates::str::contains("Account already exists"));
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
@@ -138,13 +140,6 @@ async fn invoke() {
     handles_kebab_case(sandbox, id).await;
     fetch(sandbox, id).await;
     invoke_prng_u64_in_range_test(sandbox, id).await;
-    // test fund will add when account exists
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("fund")
-        .arg("test")
-        .assert()
-        .stdout(predicates::str::contains("New test balance:"));
 }
 
 fn invoke_hello_world(sandbox: &TestEnv, id: &str) {

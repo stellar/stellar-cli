@@ -7,9 +7,8 @@ use soroban_env_host::xdr::{
 use soroban_spec::read::FromWasmError;
 pub use soroban_spec_tools::contract as contract_spec;
 
-use crate::commands::config::{self, locator};
-use crate::commands::network;
-use crate::commands::{config::data, global};
+use crate::commands::global;
+use crate::config::{self, data, locator, network};
 use crate::rpc;
 
 #[derive(thiserror::Error, Debug)]

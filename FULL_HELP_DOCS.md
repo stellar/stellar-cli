@@ -404,7 +404,7 @@ Initialize a Soroban project with an example contract
 * `-f`, `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
   Default value: ``
-* `-o`, `--overwrite` — Overwrite all existing files.
+* `--overwrite` — Overwrite all existing files.
 
 
 
