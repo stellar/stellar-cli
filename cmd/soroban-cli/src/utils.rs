@@ -21,20 +21,16 @@ pub async fn log_simulation_result(
     tx: &Transaction,
 ) -> Result<Assembled, RPCError> {
     match client.simulate_and_assemble_transaction(tx).await {
-        Ok(outcome) => {
-            outcome.assembled.ok_or_else(|| {
-                if !&outcome.sim_res.events.is_empty() {
-                    crate::log::sim_diagnostic_events(&outcome.sim_res.events, tracing::Level::INFO);
-                }
-                if let Some(error) = outcome.sim_res.error {
-                    RPCError::TransactionSimulationFailed(error)
-                } else {
-                    RPCError::TransactionSimulationFailed(
-                        "Failed to simulate transaction.".to_string(),
-                    )
-                }
-            })
-        }
+        Ok(outcome) => outcome.assembled.ok_or_else(|| {
+            if !&outcome.sim_res.events.is_empty() {
+                crate::log::sim_diagnostic_events(&outcome.sim_res.events, tracing::Level::INFO);
+            }
+            if let Some(error) = outcome.sim_res.error {
+                RPCError::TransactionSimulationFailed(error)
+            } else {
+                RPCError::TransactionSimulationFailed("Failed to simulate transaction.".to_string())
+            }
+        }),
         Err(e) => Err(RPCError::TransactionSimulationFailed(format!(
             "Failed to simulate transaction: {e:#?}"
         ))),
