@@ -51,13 +51,13 @@ pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
     ledger: Option<u32>,
-    /// Account IDs to filter by.
+    /// Account IDs to include in the snapshot.
     #[arg(long = "account-id", help_heading = "Filter Options")]
     account_ids: Vec<String>,
-    /// Contract IDs to filter by.
+    /// Contract IDs to include in the snapshot.
     #[arg(long = "contract-id", help_heading = "Filter Options")]
     contract_ids: Vec<String>,
-    /// WASM hashes to filter by.
+    /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<String>,
     /// Format of the out file.
