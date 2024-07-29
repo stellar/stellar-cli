@@ -198,6 +198,8 @@ impl Cmd {
                             let tee = TeeReader::new(buf, file);
                             Box::new(tee)
                         };
+                        let read = BufReader::new(read);
+                        let read = GzDecoder::new(read);
                         // Stream the bucket entries from the bucket, identifying
                         // entries that match the filters, and including only the
                         // entries that match in the snapshot.
@@ -397,8 +399,6 @@ async fn get_bucket_stream(
                 .into_async_read()
                 .compat(),
         );
-        let read = GzDecoder::new(read);
-        let read = BufReader::new(read);
         (Box::new(read), false)
     };
     Ok((read, cache_path, from_cache))
