@@ -34,7 +34,6 @@ fn log_diagnostic_events<E: std::fmt::Debug>(
             .as_ref()
             .ok()
             .and_then(|event| serde_json::to_string(event).ok());
-
         let log_message = match (event_result, json_result) {
             (Ok(_), Some(json)) => format!("{i}: {event_xdr:#?} {json}"),
             (Err(e), _) => {
@@ -42,8 +41,6 @@ fn log_diagnostic_events<E: std::fmt::Debug>(
             }
             (Ok(_), None) => format!("{i}: {event_xdr:#?} JSON encoding of DiagnosticEvent failed"),
         };
-        eprintln!("{log_message}");
-
         match level {
             tracing::Level::TRACE => tracing::trace!("{}", log_message),
             tracing::Level::INFO => tracing::info!("{}", log_message),
