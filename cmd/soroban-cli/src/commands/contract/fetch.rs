@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
+use stellar_xdr::curr::{ContractDataEntry, ContractExecutable, ScVal};
 
 use crate::commands::contract::fetch::Error::{ContractIsStellarAsset, UnexpectedContractToken};
 use crate::commands::{global, NetworkRunnable};
