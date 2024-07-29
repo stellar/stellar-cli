@@ -33,8 +33,6 @@ pub enum Error {
     InvalidUrl(String),
     #[error("Inproper response {0}")]
     InproperResponse(String),
-    #[error("Currently not supported on windows. Please visit:\n{0}")]
-    WindowsNotSupported(String),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
