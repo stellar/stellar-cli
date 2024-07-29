@@ -13,11 +13,11 @@ jobs:
   dependency-sanity-checker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: rustup update
       - run: scripts/check-dependencies.bash
   validate-rust-git-rev-deps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: stellar/actions/rust-check-git-rev-deps@main
