@@ -14,10 +14,7 @@ use crate::{
         global, network,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
-    },
-    key,
-    rpc::{self, Client},
-    utils, wasm, Pwd,
+    }, key, log, rpc::{self, Client}, utils, wasm, Pwd
 };
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
@@ -190,7 +187,7 @@ impl NetworkRunnable for Cmd {
 
         let events = res.events()?;
         if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
+            log::diagnostic_events(&events, tracing::Level::INFO);
         }
         let meta = res
             .result_meta
