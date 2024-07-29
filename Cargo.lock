@@ -4977,6 +4977,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml 0.8.14",
+ "tracing",
+ "tracing-subscriber",
  "ulid",
  "walkdir",
  "which",
@@ -5075,8 +5077,7 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "21.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c735c8e456fa7c37f72dd2a6abc022a111b3bf9b0520d50eef091eb1336ad370"
+source = "git+https://github.com/AhaLabs/rs-stellar-rpc-client?branch=feat/diagnostic_events_decode#0ea004bb556cbb1e5000462a80d0662f9367e110"
 dependencies = [
  "clap",
  "hex",
@@ -5087,6 +5088,7 @@ dependencies = [
  "serde",
  "serde-aux",
  "serde_json",
+ "serde_with",
  "sha2 0.10.8",
  "stellar-strkey",
  "stellar-xdr",

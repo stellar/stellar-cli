@@ -4,6 +4,7 @@ mod config;
 mod help;
 #[cfg(feature = "it")]
 mod integration;
+mod log;
 mod plugin;
 mod util;
 mod version;

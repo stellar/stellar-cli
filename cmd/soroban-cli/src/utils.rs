@@ -1,5 +1,6 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
+use soroban_rpc::{Assembled, Client, Error as RPCError};
 use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
@@ -10,6 +11,35 @@ use soroban_env_host::xdr::{
 };
 
 pub use soroban_spec_tools::contract as contract_spec;
+
+/// # Errors
+///
+/// If the Simulation failed and there is no `Assembled`, it will return the error contained within
+/// the `SimulateTransactionResult`. It will also log any events.
+pub async fn log_simulation_result(
+    client: &Client,
+    tx: &Transaction,
+) -> Result<Assembled, RPCError> {
+    match client.simulate_and_assemble_transaction(tx).await {
+        Ok(outcome) => {
+            if !&outcome.sim_res.events.is_empty() {
+                crate::log::sim_diagnostic_events(&outcome.sim_res.events, tracing::Level::INFO);
+            }
+            outcome.assembled.ok_or_else(|| {
+                if let Some(error) = outcome.sim_res.error {
+                    RPCError::TransactionSimulationFailed(error)
+                } else {
+                    RPCError::TransactionSimulationFailed(
+                        "Failed to simulate transaction.".to_string(),
+                    )
+                }
+            })
+        }
+        Err(e) => Err(RPCError::TransactionSimulationFailed(format!(
+            "Failed to simulate transaction: {e:#?}"
+        ))),
+    }
+}
 
 /// # Errors
 ///

@@ -222,7 +222,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        let txn = client.simulate_and_assemble_transaction(&txn).await?;
+        let txn = utils::log_simulation_result(&client, &txn).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn));

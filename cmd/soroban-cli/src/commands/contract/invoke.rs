@@ -30,6 +30,7 @@ use super::super::{
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
+use crate::utils;
 use crate::{
     commands::{config::data, global, network},
     rpc, Pwd,
@@ -359,7 +360,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let txn = client.simulate_and_assemble_transaction(&tx).await?;
+        let txn = utils::log_simulation_result(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn.transaction().clone()));
