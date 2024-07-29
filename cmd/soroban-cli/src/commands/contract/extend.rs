@@ -14,7 +14,10 @@ use crate::{
         global, network,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
-    }, key, log, rpc::{self, Client}, utils, wasm, Pwd
+    },
+    key, log,
+    rpc::{self, Client},
+    utils, wasm, Pwd,
 };
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
