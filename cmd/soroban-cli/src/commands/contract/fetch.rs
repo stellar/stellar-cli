@@ -140,7 +140,7 @@ impl NetworkRunnable for Cmd {
         if let ScVal::ContractInstance(contract) = &data_entry.val {
             return match &contract.executable {
                 ContractExecutable::Wasm(hash) => {
-                    Ok(get_remote_wasm_from_hash(&client, &hash).await?)
+                    Ok(get_remote_wasm_from_hash(&client, hash).await?)
                 }
                 ContractExecutable::StellarAsset => Err(ContractIsStellarAsset()),
             };
