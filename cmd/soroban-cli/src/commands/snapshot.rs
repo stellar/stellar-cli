@@ -165,18 +165,7 @@ impl Cmd {
 
         let mut account_ids = self.account_ids.clone();
         let mut contract_ids = self.contract_ids.clone();
-        let mut wasm_hashes = self
-            .wasm_hashes
-            .iter()
-            .map(|h| {
-                hex::decode(h)
-                    .map_err(|_| Error::WasmHashInvalid(h.clone()))
-                    .and_then(|vec| {
-                        vec.try_into()
-                            .map_err(|_| Error::WasmHashInvalid("".to_string()))
-                    })
-            })
-            .collect::<Result<Vec<[u8; 32]>, _>>()?;
+        let mut wasm_hashes = self.wasm_hashes()?;
         // Parse the buckets twice, because during the first pass contracts
         // and accounts will be found, along with explicitly provided wasm
         // hashes. Contracts found will have their wasm hashes added to the
@@ -305,6 +294,20 @@ impl Cmd {
         println!("✅ Completed in {}", format_duration(duration));
 
         Ok(())
+    }
+
+    fn wasm_hashes(&self) -> Result<Vec<[u8; 32]>, Error> {
+        self.wasm_hashes
+            .iter()
+            .map(|h| {
+                hex::decode(h)
+                    .map_err(|_| Error::WasmHashInvalid(h.clone()))
+                    .and_then(|vec| {
+                        vec.try_into()
+                            .map_err(|_| Error::WasmHashInvalid(h.clone()))
+                    })
+            })
+            .collect::<Result<Vec<[u8; 32]>, _>>()
     }
 }
 
