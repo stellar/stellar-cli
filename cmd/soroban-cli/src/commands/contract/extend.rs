@@ -15,7 +15,7 @@ use crate::{
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
-    key, log,
+    key,
     rpc::{self, Client},
     utils, wasm, Pwd,
 };
@@ -190,7 +190,7 @@ impl NetworkRunnable for Cmd {
 
         let events = res.events()?;
         if !events.is_empty() {
-            log::diagnostic_events(&events, tracing::Level::INFO);
+            crate::log::diagnostic_events(&events, tracing::Level::INFO);
         }
         let meta = res
             .result_meta
