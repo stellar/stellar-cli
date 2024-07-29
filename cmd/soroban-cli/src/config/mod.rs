@@ -4,7 +4,7 @@ use clap::{arg, command};
 use secret::StellarSigner;
 use serde::{Deserialize, Serialize};
 
-use crate::signer::Stellar;
+use crate::signer::{self, Stellar};
 use crate::xdr::{Transaction, TransactionEnvelope};
 use crate::Pwd;
 
@@ -27,6 +27,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -54,21 +56,13 @@ impl Args {
     }
 
     pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(self.sign_with.public_key().await?)
+        Ok(self.signer()?.get_public_key().await?)
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        Ok(self.sign_with.sign_txn(tx).await?)
-    }
-
-    pub async fn sign_soroban_authorizations(
-        &self,
-        tx: &Transaction,
-        ledgers_from_current: u32,
-    ) -> Result<Option<Transaction>, Error> {
         Ok(self
             .sign_with
-            .sign_soroban_authorizations(tx, ledgers_from_current)
+            .sign_tx_env_with_signer(&self.signer()?, tx.into())
             .await?)
     }
 
