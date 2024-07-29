@@ -13,10 +13,8 @@ use soroban_env_host::{
 };
 
 use crate::{
-    commands::{
-        config::{self, locator},
-        global, NetworkRunnable,
-    },
+    commands::{global, NetworkRunnable},
+    config::{self, locator},
     key,
     rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
 };

@@ -1,4 +1,4 @@
-use super::super::config::{locator, secret};
+use crate::config::{locator, network, secret};
 use clap::command;
 
 #[derive(thiserror::Error, Debug)]
@@ -17,7 +17,7 @@ pub struct Cmd {
     pub name: String,
 
     #[command(flatten)]
-    pub network: super::Network,
+    pub network: network::Network,
 
     #[command(flatten)]
     pub config_locator: locator::Args,
