@@ -5076,6 +5076,7 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "21.4.0"
+source = "git+https://github.com/stellar/rs-stellar-rpc-client?rev=495001a0118802fa807714c3ef25f5893bc6a0bb#495001a0118802fa807714c3ef25f5893bc6a0bb"
 dependencies = [
  "clap",
  "hex",

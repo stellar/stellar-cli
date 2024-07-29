@@ -155,7 +155,6 @@ pub mod rpc {
     }
 }
 
-
 pub mod parsing {
 
     use regex::Regex;

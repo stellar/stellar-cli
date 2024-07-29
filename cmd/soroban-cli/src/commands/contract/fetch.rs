@@ -14,11 +14,11 @@ use crate::config::{
     self, locator,
     network::{self, Network},
 };
+use crate::utils::rpc::get_remote_wasm_from_hash;
 use crate::{
     rpc::{self, Client},
     Pwd,
 };
-use crate::utils::rpc::get_remote_wasm_from_hash;
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
