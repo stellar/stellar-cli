@@ -47,6 +47,9 @@ pub struct Cmd {
         long_help = "An optional flag to pass in a url for a frontend template repository."
     )]
     pub frontend_template: String,
+
+    #[arg(long, long_help = "Overwrite all existing files.")]
+    pub overwrite: bool,
 }
 
 fn possible_example_values() -> ValueParser {
@@ -89,7 +92,12 @@ impl Cmd {
         println!("ℹ️  Initializing project at {}", self.project_path);
         let project_path = Path::new(&self.project_path);
 
-        init(project_path, &self.frontend_template, &self.with_example)?;
+        init(
+            project_path,
+            &self.frontend_template,
+            &self.with_example,
+            self.overwrite,
+        )?;
 
         Ok(())
     }
@@ -103,13 +111,14 @@ fn init(
     project_path: &Path,
     frontend_template: &str,
     with_examples: &[String],
+    overwrite: bool,
 ) -> Result<(), Error> {
     // create a project dir, and copy the contents of the base template (contract-init-template) into it
     create_dir_all(project_path).map_err(|e| {
         eprintln!("Error creating new project directory: {project_path:?}");
         e
     })?;
-    copy_template_files(project_path)?;
+    copy_template_files(project_path, overwrite)?;
 
     if !check_internet_connection() {
         println!("⚠️  It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
@@ -127,7 +136,7 @@ fn init(
         clone_repo(frontend_template, fe_template_dir.path())?;
 
         // copy the frontend template files into the project
-        copy_frontend_files(fe_template_dir.path(), project_path)?;
+        copy_frontend_files(fe_template_dir.path(), project_path, overwrite)?;
     }
 
     // if there are --with-example flags, include the example contracts
@@ -142,17 +151,17 @@ fn init(
         clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
 
         // copy the example contracts into the project
-        copy_example_contracts(examples_dir.path(), project_path, with_examples)?;
+        copy_example_contracts(examples_dir.path(), project_path, with_examples, overwrite)?;
     }
 
     Ok(())
 }
 
-fn copy_template_files(project_path: &Path) -> Result<(), Error> {
+fn copy_template_files(project_path: &Path, overwrite: bool) -> Result<(), Error> {
     for item in TemplateFiles::iter() {
         let mut to = project_path.join(item.as_ref());
-
-        if file_exists(&to) {
+        let exists = file_exists(&to);
+        if exists && !overwrite {
             println!(
                 "ℹ️  Skipped creating {} as it already exists",
                 &to.to_string_lossy()
@@ -184,7 +193,11 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
             to = project_path.join(item_parent_path).join("Cargo.toml");
         }
 
-        println!("➕  Writing {}", &to.to_string_lossy());
+        if exists {
+            println!("🔄  Overwriting {}", &to.to_string_lossy());
+        } else {
+            println!("➕  Writing {}", &to.to_string_lossy());
+        }
         write(&to, file_contents).map_err(|e| {
             eprintln!("Error writing file: {to:?}");
             e
@@ -193,7 +206,7 @@ fn copy_template_files(project_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
+fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
     let contents_to_exclude_from_copy = [
         ".git",
         ".github",
@@ -223,24 +236,26 @@ fn copy_contents(from: &Path, to: &Path) -> Result<(), Error> {
                 eprintln!("Error creating directory: {new_path:?}");
                 e
             })?;
-            copy_contents(&path, &new_path)?;
+            copy_contents(&path, &new_path, overwrite)?;
         } else {
-            if file_exists(&new_path) {
-                if new_path.to_string_lossy().contains(".gitignore") {
-                    append_contents(&path, &new_path)?;
-                }
-                if new_path.to_string_lossy().contains("README.md") {
+            let exists = file_exists(&new_path);
+            let new_path_str = new_path.to_string_lossy();
+            if exists {
+                let append =
+                    new_path_str.contains(".gitignore") || new_path_str.contains("README.md");
+                if append {
                     append_contents(&path, &new_path)?;
                 }
 
-                println!(
-                    "ℹ️  Skipped creating {} as it already exists",
-                    &new_path.to_string_lossy()
-                );
-                continue;
+                if overwrite && !append {
+                    println!("🔄  Overwriting {new_path_str}");
+                } else {
+                    println!("ℹ️  Skipped creating {new_path_str} as it already exists");
+                    continue;
+                }
+            } else {
+                println!("➕  Writing {new_path_str}");
             }
-
-            println!("➕  Writing {}", &new_path.to_string_lossy());
             copy(&path, &new_path).map_err(|e| {
                 eprintln!(
                     "Error copying from {:?} to {:?}",
@@ -302,7 +317,12 @@ fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Result<(), Error> {
+fn copy_example_contracts(
+    from: &Path,
+    to: &Path,
+    contracts: &[String],
+    overwrite: bool,
+) -> Result<(), Error> {
     let project_contracts_path = to.join("contracts");
     for contract in contracts {
         println!("ℹ️  Initializing example contract: {contract}");
@@ -315,7 +335,7 @@ fn copy_example_contracts(from: &Path, to: &Path, contracts: &[String]) -> Resul
             e
         })?;
 
-        copy_contents(&from_contract_path, &to_contract_path)?;
+        copy_contents(&from_contract_path, &to_contract_path, overwrite)?;
         edit_contract_cargo_file(&to_contract_path)?;
     }
 
@@ -354,9 +374,9 @@ fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn copy_frontend_files(from: &Path, to: &Path) -> Result<(), Error> {
+fn copy_frontend_files(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
     println!("ℹ️  Initializing with frontend template");
-    copy_contents(from, to)?;
+    copy_contents(from, to, overwrite)?;
     edit_package_json_files(to)
 }
 
@@ -447,7 +467,13 @@ fn get_merged_file_delimiter(file_path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
-    use std::fs::{self, read_to_string};
+    use std::{
+        collections::HashMap,
+        fs::{self, read_to_string},
+        path::PathBuf,
+        time::SystemTime,
+    };
+    use walkdir::WalkDir;
 
     use super::*;
 
@@ -458,7 +484,8 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
-        init(project_dir.as_path(), "", &with_examples).unwrap();
+        let overwrite = false;
+        init(project_dir.as_path(), "", &with_examples, overwrite).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -476,7 +503,8 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = ["alloc".to_owned()];
-        init(project_dir.as_path(), "", &with_examples).unwrap();
+        let overwrite = false;
+        init(project_dir.as_path(), "", &with_examples, overwrite).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -499,7 +527,8 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
-        init(project_dir.as_path(), "", &with_examples).unwrap();
+        let overwrite = false;
+        init(project_dir.as_path(), "", &with_examples, overwrite).unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -523,7 +552,8 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
-        assert!(init(project_dir.as_path(), "", &with_examples,).is_err());
+        let overwrite = false;
+        assert!(init(project_dir.as_path(), "", &with_examples, overwrite).is_err());
 
         temp_dir.close().unwrap();
     }
@@ -533,10 +563,12 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
+        let overwrite = false;
         init(
             project_dir.as_path(),
             "https://github.com/stellar/soroban-astro-template",
             &with_examples,
+            overwrite,
         )
         .unwrap();
 
@@ -557,14 +589,72 @@ mod tests {
     }
 
     #[test]
-    fn test_init_from_within_an_existing_project() {
+    fn test_init_with_overwrite() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let project_dir = temp_dir.path().join("./");
+        let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
+
+        // First initialization
         init(
             project_dir.as_path(),
             "https://github.com/stellar/soroban-astro-template",
             &with_examples,
+            false,
+        )
+        .unwrap();
+
+        // Get initial modification times
+        let initial_mod_times = get_mod_times(&project_dir);
+
+        // Second initialization with overwrite
+        init(
+            project_dir.as_path(),
+            "https://github.com/stellar/soroban-astro-template",
+            &with_examples,
+            true, // overwrite = true
+        )
+        .unwrap();
+
+        // Get new modification times
+        let new_mod_times = get_mod_times(&project_dir);
+
+        // Compare modification times
+        for (path, initial_time) in initial_mod_times {
+            let new_time = new_mod_times.get(&path).expect("File should still exist");
+            assert!(
+                new_time > &initial_time,
+                "File {} should have a later modification time",
+                path.display()
+            );
+        }
+
+        temp_dir.close().unwrap();
+    }
+
+    fn get_mod_times(dir: &Path) -> HashMap<PathBuf, SystemTime> {
+        let mut mod_times = HashMap::new();
+        for entry in WalkDir::new(dir) {
+            let entry = entry.unwrap();
+            if entry.file_type().is_file() {
+                let path = entry.path().to_owned();
+                let metadata = fs::metadata(&path).unwrap();
+                mod_times.insert(path, metadata.modified().unwrap());
+            }
+        }
+        mod_times
+    }
+
+    #[test]
+    fn test_init_from_within_an_existing_project() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("./");
+        let with_examples = vec![];
+        let overwrite = false;
+        init(
+            project_dir.as_path(),
+            "https://github.com/stellar/soroban-astro-template",
+            &with_examples,
+            overwrite,
         )
         .unwrap();
 
@@ -591,10 +681,12 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let with_examples = vec![];
+        let overwrite = false;
         init(
             project_dir.as_path(),
             "https://github.com/stellar/soroban-astro-template",
             &with_examples,
+            overwrite,
         )
         .unwrap();
 
@@ -603,6 +695,7 @@ mod tests {
             project_dir.as_path(),
             "https://github.com/stellar/soroban-astro-template",
             &with_examples,
+            overwrite,
         )
         .unwrap();
 

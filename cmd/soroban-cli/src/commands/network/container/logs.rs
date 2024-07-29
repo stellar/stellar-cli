@@ -1,8 +1,8 @@
 use futures_util::TryStreamExt;
 
-use crate::commands::network::container::shared::{
-    connect_to_docker, Error as ConnectionError, Network, DOCKER_HOST_HELP,
-};
+use crate::commands::network::container::shared::Error as ConnectionError;
+
+use super::shared::{Args, Name};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -15,17 +15,17 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cmd {
-    /// Network to tail
-    pub network: Network,
+    #[command(flatten)]
+    pub container_args: Args,
 
-    #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
-    pub docker_host: Option<String>,
+    /// Container to get logs from
+    pub name: String,
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let container_name = format!("stellar-{}", self.network);
-        let docker = connect_to_docker(&self.docker_host).await?;
+        let container_name = Name(self.name.clone()).get_internal_container_name();
+        let docker = self.container_args.connect_to_docker().await?;
         let logs_stream = &mut docker.logs(
             &container_name,
             Some(bollard::container::LogsOptions {

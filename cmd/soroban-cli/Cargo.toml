@@ -14,11 +14,11 @@ default-run = "soroban"
 
 [[bin]]
 name = "stellar"
-path = "src/bin/main.rs"
+path = "src/bin/stellar.rs"
 
 [[bin]]
 name = "soroban"
-path = "src/bin/main.rs"
+path = "src/bin/soroban.rs"
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
@@ -137,3 +137,4 @@ ureq = { version = "2.9.1", features = ["json"] }
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 predicates = "2.1.5"
+walkdir = "2.5.0"

@@ -14,11 +14,11 @@ default-run = "stellar"
 
 [[bin]]
 name = "stellar"
-path = "src/bin/main.rs"
+path = "src/bin/stellar.rs"
 
 [[bin]]
 name = "soroban"
-path = "src/bin/main.rs"
+path = "src/bin/soroban.rs"
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"

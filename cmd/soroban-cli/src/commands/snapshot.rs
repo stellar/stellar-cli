@@ -26,10 +26,7 @@ use tokio_util::compat::FuturesAsyncReadCompatExt as _;
 
 use soroban_env_host::xdr::{self};
 
-use super::{
-    config::{self, locator},
-    network,
-};
+use super::config::{self, locator};
 use crate::commands::config::data;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -72,7 +69,7 @@ pub struct Cmd {
     #[command(flatten)]
     locator: locator::Args,
     #[command(flatten)]
-    network: network::Args,
+    network: config::network::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -108,7 +105,7 @@ pub enum Error {
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(#[from] config::network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
