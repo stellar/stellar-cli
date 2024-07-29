@@ -1,6 +1,5 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr;
 use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
@@ -9,8 +8,6 @@ use soroban_env_host::xdr::{
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, WriteXdr,
 };
-use soroban_rpc::{Client, Error};
-use stellar_xdr::curr::{LedgerEntryData, LedgerKey, ReadXdr};
 
 pub use soroban_spec_tools::contract as contract_spec;
 
