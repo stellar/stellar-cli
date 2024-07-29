@@ -118,16 +118,12 @@ impl NetworkRunnable for Cmd {
                 tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
             }
         }
-        let key = config.key_pair()?;
-
+        let public_strkey = config.public_key().await?;
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client.get_account(&public_strkey.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
-
         let (tx_without_preflight, hash) =
-            build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &key)?;
+            build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &public_strkey)?;
 
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx_without_preflight));
@@ -231,14 +227,12 @@ pub(crate) fn build_install_contract_code_tx(
     source_code: &[u8],
     sequence: i64,
     fee: u32,
-    key: &ed25519_dalek::SigningKey,
+    key: &stellar_strkey::ed25519::PublicKey,
 ) -> Result<(Transaction, Hash), XdrError> {
     let hash = utils::contract_hash(source_code)?;
 
     let op = Operation {
-        source_account: Some(MuxedAccount::Ed25519(Uint256(
-            key.verifying_key().to_bytes(),
-        ))),
+        source_account: Some(MuxedAccount::Ed25519(Uint256(key.0))),
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
             auth: VecM::default(),
@@ -246,7 +240,7 @@ pub(crate) fn build_install_contract_code_tx(
     };
 
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -268,8 +262,12 @@ mod tests {
             b"foo",
             300,
             1,
-            &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
-                .unwrap(),
+            &stellar_strkey::ed25519::PublicKey(
+                utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+                    .unwrap()
+                    .verifying_key()
+                    .to_bytes(),
+            ),
         );
 
         assert!(result.is_ok());

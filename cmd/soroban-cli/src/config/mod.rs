@@ -57,11 +57,6 @@ impl Args {
         Ok(self.sign_with.public_key().await?)
     }
 
-    pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = self.sign_with.locator.account(&self.source_account)?;
-        Ok(key.key_pair(self.sign_with.hd_path)?)
-    }
-
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         Ok(self.sign_with.sign_txn(tx).await?)
     }

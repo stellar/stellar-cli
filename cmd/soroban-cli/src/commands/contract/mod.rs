@@ -125,7 +125,7 @@ impl Cmd {
             Cmd::Build(build) => build.run()?,
             Cmd::Extend(extend) => extend.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
-            Cmd::Id(id) => id.run()?,
+            Cmd::Id(id) => id.run().await?,
             Cmd::Init(init) => init.run()?,
             Cmd::Inspect(inspect) => inspect.run()?,
             Cmd::Install(install) => install.run().await?,
