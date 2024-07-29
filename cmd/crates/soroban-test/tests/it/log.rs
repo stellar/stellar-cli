@@ -10,7 +10,7 @@ impl<S: Subscriber> tracing_subscriber::Layer<S> for TestSubscriber {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
         // Capture the event data
         let mut logs = self.logs.lock().unwrap();
-        logs.push(format!("{:?}", event));
+        logs.push(format!("{event:?}"));
     }
 }
 
