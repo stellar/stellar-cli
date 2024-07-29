@@ -1,5 +1,6 @@
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
+use soroban_env_host::xdr;
 use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
@@ -8,6 +9,8 @@ use soroban_env_host::xdr::{
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, WriteXdr,
 };
+use soroban_rpc::{Client, Error};
+use stellar_xdr::curr::{LedgerEntryData, LedgerKey, ReadXdr};
 
 pub use soroban_spec_tools::contract as contract_spec;
 
@@ -128,6 +131,30 @@ pub fn contract_id_hash_from_asset(
     let preimage_xdr = preimage.to_xdr(Limits::none())?;
     Ok(Hash(Sha256::digest(preimage_xdr).into()))
 }
+
+pub mod rpc {
+    use soroban_env_host::xdr;
+    use soroban_rpc::{Client, Error};
+    use stellar_xdr::curr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
+
+    pub async fn get_remote_wasm_from_hash(client: &Client, hash: &Hash) -> Result<Vec<u8>, Error> {
+        let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
+        let contract_data = client.get_ledger_entries(&[code_key]).await?;
+        let entries = contract_data.entries.unwrap_or_default();
+        if entries.is_empty() {
+            return Err(Error::NotFound(
+                "Contract Code".to_string(),
+                hex::encode(hash),
+            ));
+        }
+        let contract_data_entry = &entries[0];
+        match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())? {
+            LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Ok(code.into()),
+            scval => Err(Error::UnexpectedContractCodeDataType(scval)),
+        }
+    }
+}
+
 
 pub mod parsing {
 

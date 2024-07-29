@@ -29,6 +29,7 @@ use crate::{
     rpc::{self, Client},
     Pwd,
 };
+use crate::utils::rpc::get_remote_wasm_from_hash;
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -162,7 +163,7 @@ impl NetworkRunnable for Cmd {
         if let ScVal::ContractInstance(contract) = &data_entry.val {
             return match &contract.executable {
                 ContractExecutable::Wasm(hash) => {
-                    Ok(client.get_remote_wasm_from_hash(&hash).await?)
+                    Ok(get_remote_wasm_from_hash(&client, &hash).await?)
                 }
                 ContractExecutable::StellarAsset => Err(ContractIsStellarAsset()),
             };
