@@ -222,17 +222,17 @@ impl TestEnv {
     pub fn clone_config(&self, account: &str) -> config::Args {
         let config_dir = Some(self.dir().to_path_buf());
         config::Args {
-            network: network::Args {
-                rpc_url: Some(self.rpc_url.clone()),
-                network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
-                network: None,
-            },
             source_account: account.to_string(),
-            locator: config::locator::Args {
-                global: false,
-                config_dir,
-            },
             sign_with: sign_with::Args {
+                network: network::Args {
+                    rpc_url: Some(self.rpc_url.clone()),
+                    network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
+                    network: None,
+                },
+                locator: config::locator::Args {
+                    global: false,
+                    config_dir,
+                },
                 yes: true,
                 ..Default::default()
             },
@@ -248,7 +248,7 @@ impl TestEnv {
         let config = self.clone_config(account);
         cmd.run_against_rpc_server(
             Some(&global::Args {
-                locator: config.locator.clone(),
+                locator: config.sign_with.locator.clone(),
                 filter_logs: Vec::default(),
                 quiet: false,
                 verbose: false,

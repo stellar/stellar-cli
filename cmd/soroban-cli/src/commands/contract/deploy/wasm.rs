@@ -117,19 +117,12 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let res = self.run_against_rpc_server(None, None).await?.to_envelope();
-        match res {
+        match &res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
-                let network = self.config.get_network()?;
-
-                if let Some(alias) = self.alias.clone() {
-                    self.config.locator.save_contract_id(
-                        &network.network_passphrase,
-                        &contract,
-                        &alias,
-                    )?;
+                if let Some(alias) = self.alias.as_deref() {
+                    self.config.save_contract_id(contract, alias)?;
                 }
-
                 println!("{contract}");
             }
         }

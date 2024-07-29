@@ -236,6 +236,7 @@ impl Cmd {
             let mut s = val.next().unwrap().to_string_lossy().to_string();
             if matches!(input.type_, ScSpecTypeDef::Address) {
                 if let Ok(signer_) = config
+                    .sign_with
                     .locator
                     .account(&s)
                     .and_then(|signer| Ok(signer.signer(config.sign_with.hd_path, false)?))
@@ -320,11 +321,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = self
-            .config
-            .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
-            .0;
+        let contract_id = self.config.resolve_contract_id(&self.contract_id)?.0;
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
@@ -349,8 +346,8 @@ impl NetworkRunnable for Cmd {
 
         let spec_entries = get_remote_contract_spec(
             &contract_id,
-            &config.locator,
-            &config.network,
+            &config.sign_with.locator,
+            &config.sign_with.network,
             global_args,
             Some(config),
         )

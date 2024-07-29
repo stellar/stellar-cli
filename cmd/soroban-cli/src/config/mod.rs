@@ -3,11 +3,10 @@ use std::path::PathBuf;
 use clap::{arg, command};
 use secret::StellarSigner;
 use serde::{Deserialize, Serialize};
-use stellar_strkey::ed25519::PublicKey;
 
-use crate::signer;
+use crate::signer::Stellar;
 use crate::xdr::{Transaction, TransactionEnvelope};
-use crate::{signer::Stellar, Pwd};
+use crate::Pwd;
 
 use self::network::Network;
 
@@ -21,29 +20,21 @@ pub mod sign_with;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Network(#[from] network::Error),
+    SignWith(#[from] sign_with::Error),
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
-    Config(#[from] locator::Error),
+    Network(#[from] network::Error),
     #[error(transparent)]
-    Rpc(#[from] soroban_rpc::Error),
-    #[error(transparent)]
-    Signer(#[from] signer::Error),
+    Locator(#[from] locator::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
-    #[command(flatten)]
-    pub network: network::Args,
-
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
     /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
     pub source_account: String,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
 
     #[command(flatten)]
     pub sign_with: sign_with::Args,
@@ -56,32 +47,23 @@ impl Args {
             |s| (s, !self.sign_with.yes),
         );
         Ok(self
+            .sign_with
             .locator
             .account(account)?
             .signer(self.sign_with.hd_path, prompt)?)
     }
 
+    pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        Ok(self.sign_with.public_key().await?)
+    }
+
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = self.locator.account(&self.source_account)?;
+        let key = self.sign_with.locator.account(&self.source_account)?;
         Ok(key.key_pair(self.sign_with.hd_path)?)
     }
 
-    pub async fn public_key(&self) -> Result<PublicKey, Error> {
-        Ok(self.signer()?.get_public_key().await?)
-    }
-
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let signer = self.signer()?;
-        self.sign_with_signer(&signer, tx).await
-    }
-
-    pub async fn sign_with_signer(
-        &self,
-        signer: &(impl Stellar + std::marker::Sync),
-        tx: Transaction,
-    ) -> Result<TransactionEnvelope, Error> {
-        let network = self.get_network()?;
-        Ok(signer.sign_txn(tx, &network).await?)
+        Ok(self.sign_with.sign(tx).await?)
     }
 
     pub async fn sign_soroban_authorizations(
@@ -89,35 +71,55 @@ impl Args {
         tx: &Transaction,
         ledgers_from_current: u32,
     ) -> Result<Option<Transaction>, Error> {
-        self.sign_soroban_authorizations_with_signer(&self.signer()?, tx, ledgers_from_current)
-            .await
+        Ok(self
+            .sign_with
+            .sign_soroban_authorizations(tx, ledgers_from_current)
+            .await?)
     }
+
     pub async fn sign_soroban_authorizations_with_signer(
         &self,
         signer: &(impl Stellar + std::marker::Sync),
         tx: &Transaction,
         ledgers_from_current: u32,
     ) -> Result<Option<Transaction>, Error> {
-        let network = self.get_network()?;
-        let client = crate::rpc::Client::new(&network.rpc_url)?;
-        let expiration_ledger = client.get_latest_ledger().await?.sequence + ledgers_from_current;
-        Ok(signer
-            .sign_soroban_authorizations(tx, &network, expiration_ledger)
+        Ok(self
+            .sign_with
+            .sign_soroban_authorizations_with_signer(signer, tx, ledgers_from_current)
             .await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        Ok(self.network.get(&self.locator)?)
+        Ok(self.sign_with.get_network()?)
     }
 
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        Ok(self.locator.config_dir()?)
+        Ok(self.sign_with.config_dir()?)
+    }
+
+    pub fn resolve_contract_id(
+        &self,
+        contract_id: &str,
+    ) -> Result<stellar_strkey::Contract, Error> {
+        Ok(self
+            .sign_with
+            .locator
+            .resolve_contract_id(contract_id, &self.get_network()?.network_passphrase)?)
+    }
+
+    pub fn save_contract_id(&self, contract_id: &str, alias: &str) -> Result<(), Error> {
+        self.sign_with.locator.save_contract_id(
+            &self.get_network()?.network_passphrase,
+            contract_id,
+            alias,
+        )?;
+        Ok(())
     }
 }
 
 impl Pwd for Args {
     fn set_pwd(&mut self, pwd: &std::path::Path) {
-        self.locator.set_pwd(pwd);
+        self.sign_with.locator.set_pwd(pwd);
     }
 }
 

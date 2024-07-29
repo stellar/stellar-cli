@@ -113,16 +113,16 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -135,16 +135,16 @@ Deploy builtin Soroban Asset Contract
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -273,16 +273,16 @@ If no keys are specified the contract itself is extended.
   - `temporary`:
     Temporary
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -304,16 +304,16 @@ Deploy a wasm contract
 * `--wasm <WASM>` — WASM file to deploy
 * `--wasm-hash <WASM_HASH>` — Hash of the already installed/deployed WASM file
 * `--salt <SALT>` — Custom salt 32-byte salt for the token id
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -368,16 +368,16 @@ Deploy builtin Soroban Asset Contract
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -390,16 +390,16 @@ Deploy normal Wasm Contract
 ###### **Options:**
 
 * `--salt <SALT>` — ID of the Soroban contract
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -460,16 +460,16 @@ Install a WASM file to the ledger without creating a contract instance
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -502,16 +502,16 @@ stellar contract invoke ... -- --help
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--is-view` — View the result simulating and do not sign and submit transaction
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -573,16 +573,16 @@ Print the current value of a contract-data ledger entry
   - `temporary`:
     Temporary
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -613,16 +613,16 @@ If no keys are specificed the contract itself is restored.
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
@@ -1054,16 +1054,16 @@ Simulate a transaction envelope from stdin
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -1085,24 +1085,19 @@ Calculate the hash of a transaction envelope from stdin
 
 Sign a transaction
 
-**Usage:** `stellar tx sign [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar tx sign [OPTIONS]`
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
-* `--ledgers-from-now <FROM_NOW>` — Number of ledgers from current ledger before the signed auth entry expires. Default 60 ~ 5 minutes
-
-  Default value: `60`
-* `--auth-only` — Only sign the Authorization Entries required by the provided source account
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
