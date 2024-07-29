@@ -28,6 +28,8 @@ pub enum Error {
     Rpc(#[from] crate::rpc::Error),
     #[error("User cancelled signing, perhaps need to remove --check")]
     UserCancelledSigning,
+    #[error("Only Transaction envelope V1 type is supported")]
+    UnsupportedTransactionEnvelopeType,
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -81,6 +83,26 @@ pub trait Stellar {
             signature: Signature(tx_signature.try_into()?),
         })
     }
+
+    async fn sign_txn_env(
+        &self,
+        txn_env: TransactionEnvelope,
+        network: &Network,
+    ) -> Result<TransactionEnvelope, Error> {
+        match txn_env {
+            TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
+                let decorated_signature = self.sign_txn(&tx, network).await?;
+                let mut sigs = signatures.to_vec();
+                sigs.push(decorated_signature);
+                Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
+                    tx,
+                    signatures: sigs.try_into()?,
+                }))
+            }
+            _ => Err(Error::UnsupportedTransactionEnvelopeType),
+        }
+    }
+
     /// Sign a Stellar transaction with the given source account
     /// This is a default implementation that signs the transaction hash and returns a decorated signature
     ///
@@ -89,17 +111,13 @@ pub trait Stellar {
     /// Returns an error if the source account is not found
     async fn sign_txn(
         &self,
-        txn: Transaction,
+        txn: &Transaction,
         Network {
             network_passphrase, ..
         }: &Network,
-    ) -> Result<TransactionEnvelope, Error> {
-        let hash = transaction_hash(&txn, network_passphrase)?;
-        let decorated_signature = self.sign_txn_hash(hash).await?;
-        Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
-            tx: txn,
-            signatures: vec![decorated_signature].try_into()?,
-        }))
+    ) -> Result<DecoratedSignature, Error> {
+        let hash = transaction_hash(txn, network_passphrase)?;
+        self.sign_txn_hash(hash).await
     }
 
     /// Sign a Soroban authorization entries for a given transaction and set the expiration ledger

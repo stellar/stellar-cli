@@ -15,7 +15,7 @@ pub enum Cmd {
     Simulate(simulate::Cmd),
     /// Calculate the hash of a transaction envelope from stdin
     Hash(hash::Cmd),
-    /// Sign a transaction
+    /// Sign a transaction envolope appending the signature to the envelope
     Sign(sign::Cmd),
     /// Send a transaction envelope to the network
     Send(send::Cmd),
@@ -25,7 +25,6 @@ pub enum Cmd {
 pub enum Error {
     #[error(transparent)]
     Simulate(#[from] simulate::Error),
-    /// An error during hash calculation
     #[error(transparent)]
     Hash(#[from] hash::Error),
     #[error(transparent)]

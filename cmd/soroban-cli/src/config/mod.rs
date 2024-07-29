@@ -63,7 +63,7 @@ impl Args {
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        Ok(self.sign_with.sign(tx).await?)
+        Ok(self.sign_with.sign_txn(tx).await?)
     }
 
     pub async fn sign_soroban_authorizations(

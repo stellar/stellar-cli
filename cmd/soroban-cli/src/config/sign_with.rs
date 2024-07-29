@@ -78,18 +78,26 @@ impl Args {
         Ok(self.signer()?.get_public_key().await?)
     }
 
-    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign_txn(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let signer = self.signer()?;
-        self.sign_with_signer(&signer, tx).await
+        self.sign_tx_env_with_signer(&signer, tx.into()).await
     }
 
-    pub async fn sign_with_signer(
+    pub async fn sign_txn_env(
+        &self,
+        tx: TransactionEnvelope,
+    ) -> Result<TransactionEnvelope, Error> {
+        let signer = self.signer()?;
+        self.sign_tx_env_with_signer(&signer, tx).await
+    }
+
+    pub async fn sign_tx_env_with_signer(
         &self,
         signer: &(impl Stellar + std::marker::Sync),
-        tx: Transaction,
+        tx_env: TransactionEnvelope,
     ) -> Result<TransactionEnvelope, Error> {
         let network = self.get_network()?;
-        Ok(signer.sign_txn(tx, &network).await?)
+        Ok(signer.sign_txn_env(tx_env, &network).await?)
     }
 
     pub async fn sign_soroban_authorizations(
