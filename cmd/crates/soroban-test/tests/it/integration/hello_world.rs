@@ -1,8 +1,10 @@
 use predicates::boolean::PredicateBooleanExt;
-use soroban_cli::commands::{
+use soroban_cli::{
+    commands::{
+        contract::{self, fetch},
+        txn_result::TxnResult,
+    },
     config::{locator, secret},
-    contract::{self, fetch},
-    txn_result::TxnResult,
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
@@ -292,6 +294,18 @@ async fn contract_data_read() {
         .arg("--key")
         .arg(KEY)
         .arg("--durability=persistent")
+        .assert()
+        .success()
+        .stdout(predicates::str::starts_with("COUNTER,2"));
+
+    // ensure default durability = persistent works
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("read")
+        .arg("--id")
+        .arg(id)
+        .arg("--key")
+        .arg(KEY)
         .assert()
         .success()
         .stdout(predicates::str::starts_with("COUNTER,2"));

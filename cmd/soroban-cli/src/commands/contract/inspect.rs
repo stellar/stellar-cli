@@ -5,7 +5,7 @@ use std::{fmt::Debug, path::PathBuf};
 use tracing::debug;
 
 use super::SpecOutput;
-use crate::{commands::config::locator, wasm};
+use crate::{config::locator, wasm};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
