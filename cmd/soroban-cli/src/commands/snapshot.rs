@@ -10,7 +10,7 @@ use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
     collections::HashSet,
     fs::{self, OpenOptions},
-    io::{self, BufReader, Read},
+    io::{self, BufReader, BufWriter, Read},
     path::PathBuf,
     str::FromStr,
     time::{Duration, Instant},
@@ -183,10 +183,13 @@ impl Cmd {
                 (seen, snapshot, account_ids, contract_ids, wasm_hashes) =
                     tokio::task::spawn_blocking(move || -> Result<_, Error> {
                         let dl_path = cache_path.with_extension("dl");
-                        let buf = BufReader::new(read);
                         let read: Box<dyn Read + Sync + Send> = if from_cache {
-                            Box::new(buf)
+                            let read = BufReader::new(read);
+                            Box::new(read)
                         } else {
+                            let read = BufReader::new(read);
+                            let read = GzDecoder::new(read);
+                            let read = BufReader::new(read);
                             // When the stream is not from the cache, write it
                             // to the cache.
                             let file = OpenOptions::new()
@@ -195,11 +198,10 @@ impl Cmd {
                                 .write(true)
                                 .open(&dl_path)
                                 .map_err(Error::WriteOpeningCachedBucket)?;
-                            let tee = TeeReader::new(buf, file);
+                            let write = BufWriter::new(file);
+                            let tee = TeeReader::new(read, write);
                             Box::new(tee)
                         };
-                        let read = BufReader::new(read);
-                        let read = GzDecoder::new(read);
                         // Stream the bucket entries from the bucket, identifying
                         // entries that match the filters, and including only the
                         // entries that match in the snapshot.

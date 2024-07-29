@@ -194,14 +194,17 @@ impl Network {
         self.archive_url
             .as_deref()
             .or(match self.network_passphrase.as_str() {
-                "Public Global Stellar Network ; September 2015" => {
+                passphrase::MAINNET => {
                     Some("https://history.stellar.org/prd/core-live/core_live_001")
                 }
-                "Test SDF Network ; September 2015" => {
+                passphrase::TESTNET => {
                     Some("https://history.stellar.org/prd/core-testnet/core_testnet_001")
                 }
-                "Test SDF Future Network ; October 2022" => {
+                passphrase::FUTURENET => {
                     Some("https://history-futurenet.stellar.org")
+                }
+                passphrase::LOCAL => {
+                    Some("http://localhost:8000/archive")
                 }
                 _ => None,
             })
