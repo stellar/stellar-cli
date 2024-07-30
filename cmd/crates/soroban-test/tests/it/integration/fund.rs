@@ -1,5 +1,6 @@
 use soroban_test::TestEnv;
 
+#[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn fund() {
     let sandbox = &TestEnv::new();
