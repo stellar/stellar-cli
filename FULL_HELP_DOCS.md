@@ -1024,9 +1024,9 @@ Download a snapshot of a ledger from an archive
 ###### **Options:**
 
 * `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
-* `--account-id <ACCOUNT_IDS>` — Account IDs to filter by
-* `--contract-id <CONTRACT_IDS>` — Contract IDs to filter by
-* `--wasm-hash <WASM_HASHES>` — WASM hashes to filter by
+* `--account-id <ACCOUNT_IDS>` — Account IDs to include in the snapshot
+* `--contract-id <CONTRACT_IDS>` — Contract IDs to include in the snapshot
+* `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
 * `--format <FORMAT>` — Format of the out file
 
   Possible values: `json`
