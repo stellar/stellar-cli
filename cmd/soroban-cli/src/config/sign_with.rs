@@ -91,11 +91,11 @@ impl Args {
     pub async fn sign_soroban_authorizations(
         &self,
         tx: &Transaction,
-        ledgers_from_current: u32,
+        expiration_ledger: u32,
     ) -> Result<Option<Transaction>, Error> {
         Ok(self
             .signer()?
-            .sign_soroban_authorizations(tx, &self.get_network()?, ledgers_from_current)
+            .sign_soroban_authorizations(tx, &self.get_network()?, expiration_ledger)
             .await?)
     }
 
@@ -111,6 +111,7 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
+        eprintln!("{self:#?}");
         Ok(self.network.get(&self.locator)?)
     }
 

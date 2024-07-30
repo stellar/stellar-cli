@@ -68,7 +68,6 @@ pub struct Args {
 
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
-        println!("{self:#?}");
         if let Some(name) = self.network.as_deref() {
             if let Ok(network) = locator.read_network(name) {
                 return Ok(network);
