@@ -319,10 +319,6 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
-        eprintln!(
-            "Invoking contract {} on config {config:#?}...",
-            self.contract_id
-        );
         let network = config.get_network()?;
         tracing::trace!(?network);
         let contract_id = config.resolve_contract_id(&self.contract_id)?.0;

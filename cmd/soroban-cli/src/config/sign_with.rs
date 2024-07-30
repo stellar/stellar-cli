@@ -111,7 +111,6 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        eprintln!("{self:#?}");
         Ok(self.network.get(&self.locator)?)
     }
 
