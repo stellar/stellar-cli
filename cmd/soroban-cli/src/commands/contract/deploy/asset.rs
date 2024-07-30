@@ -13,11 +13,11 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
 use crate::{
     commands::{
-        config::{self, data},
-        global, network,
+        global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
+    config::{self, data, network},
     rpc::{Client, Error as SorobanRpcError},
     utils::{contract_id_hash_from_asset, parsing::parse_asset},
 };

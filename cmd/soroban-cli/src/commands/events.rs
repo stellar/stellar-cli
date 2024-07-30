@@ -3,18 +3,16 @@ use std::io;
 
 use soroban_env_host::xdr::{self, Limits, ReadXdr};
 
-use super::{
-    config::{self, locator},
-    global, network, NetworkRunnable,
-};
+use super::{global, NetworkRunnable};
+use crate::config::{self, locator, network};
 use crate::rpc;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// The first [ledger sequence] number in the range to pull events
-    ///
-    /// [ledger sequence]: https://developers.stellar.org/docs/encyclopedia/ledger-headers#ledger-sequence
+    #[allow(clippy::doc_markdown)]
+    /// The first ledger sequence number in the range to pull events
+    /// https://developers.stellar.org/docs/learn/encyclopedia/network-configuration/ledger-headers#ledger-sequence
     #[arg(long, conflicts_with = "cursor", required_unless_present = "cursor")]
     start_ledger: Option<u32>,
     /// The cursor corresponding to the start of the event range.

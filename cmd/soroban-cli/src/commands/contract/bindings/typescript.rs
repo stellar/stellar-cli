@@ -7,12 +7,10 @@ use stellar_strkey::DecodeError;
 
 use crate::wasm;
 use crate::{
-    commands::{
-        config::{self, locator},
-        contract::fetch,
-        global,
+    commands::{contract::fetch, global, NetworkRunnable},
+    config::{
+        self, locator,
         network::{self, Network},
-        NetworkRunnable,
     },
     get_spec::{self, get_remote_contract_spec},
 };
