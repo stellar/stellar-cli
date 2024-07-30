@@ -59,6 +59,10 @@ jobs:
       # triggers system test to log out details from quickstart's logs and test steps
       SYSTEM_TEST_VERBOSE_OUTPUT: "true"
 
+      # the soroban test cases will compile various contracts from the examples repo
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_HASH: "782458d31395b0191ac40c9572ac53f13f573aa3"
+      SYSTEM_TEST_SOROBAN_EXAMPLES_GIT_REPO: "https://github.com/stellar/soroban-examples.git"
+
     steps:
       - uses: actions/checkout@v4
         name: checkout current pr source
