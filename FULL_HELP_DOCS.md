@@ -114,7 +114,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -136,7 +136,7 @@ Deploy builtin Soroban Asset Contract
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -274,7 +274,7 @@ If no keys are specified the contract itself is extended.
     Temporary
 
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -305,7 +305,7 @@ Deploy a wasm contract
 * `--wasm-hash <WASM_HASH>` — Hash of the already installed/deployed WASM file
 * `--salt <SALT>` — Custom salt 32-byte salt for the token id
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -369,7 +369,7 @@ Deploy builtin Soroban Asset Contract
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -391,7 +391,7 @@ Deploy normal Wasm Contract
 
 * `--salt <SALT>` — ID of the Soroban contract
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -461,7 +461,7 @@ Install a WASM file to the ledger without creating a contract instance
 ###### **Options:**
 
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -503,7 +503,7 @@ stellar contract invoke ... -- --help
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--is-view` — View the result simulating and do not sign and submit transaction
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -574,7 +574,7 @@ Print the current value of a contract-data ledger entry
     Temporary
 
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -614,7 +614,7 @@ If no keys are specificed the contract itself is restored.
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -1055,7 +1055,7 @@ Simulate a transaction envelope from stdin
 ###### **Options:**
 
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
@@ -1089,7 +1089,7 @@ Sign a transaction envolope appending the signature to the envelope
 
 ###### **Options:**
 
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with secret key
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted

@@ -34,7 +34,7 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
-    /// Sign with secret key
+    /// Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
     #[arg(
         long,
         conflicts_with = "sign_with_laboratory",

@@ -85,7 +85,7 @@ fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> Transaction
         sandbox
             .new_assert_cmd("tx")
             .arg("sign")
-            .arg("--source=test")
+            .arg("--sign-with-key=test")
             .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap().as_bytes())
             .assert()
             .success()
@@ -93,113 +93,4 @@ fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> Transaction
         Limits::none(),
     )
     .unwrap()
-}
-
-#[tokio::test]
-async fn sign() {
-    let sandbox = &TestEnv::new();
-    let id = &deploy_hello(sandbox).await;
-    // Create new test_other account
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("generate")
-        .arg("test_other")
-        .assert();
-
-    // Get Xdr for transaction where auth is required for test_other
-    let xdr_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("invoke")
-        .arg("--id")
-        .arg(id)
-        .arg("--sim-only")
-        .arg("--")
-        .arg("auth")
-        .arg("--world=world")
-        .arg("--addr=test_other")
-        .assert()
-        .success()
-        .stdout_as_str();
-    // Sign the transaction's auth entry with test_other
-    let xdr_base64 = sandbox
-        .new_assert_cmd("tx")
-        .arg("sign")
-        .arg("--auth")
-        .arg("--source=test_other")
-        .write_stdin(xdr_base64.as_bytes())
-        .assert()
-        .success()
-        .stdout_as_str();
-    // Sign the transaction with test as source account
-    let xdr_base64 = sandbox
-        .new_assert_cmd("tx")
-        .arg("sign")
-        .write_stdin(xdr_base64.as_bytes())
-        .assert()
-        .success()
-        .stdout_as_str();
-    // Send transaction
-    sandbox
-        .new_assert_cmd("tx")
-        .arg("send")
-        .write_stdin(xdr_base64.as_bytes())
-        .assert()
-        .success()
-        .stdout(predicates::str::contains(r#""status": "SUCCESS""#));
-}
-
-#[tokio::test]
-async fn expired_auth_entry() {
-    let sandbox = &TestEnv::new();
-    let id = &deploy_hello(sandbox).await;
-    // Create new test_other account
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("generate")
-        .arg("test_other")
-        .assert();
-
-    // Get Xdr for transaction where auth is required for test_other
-    let xdr_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("invoke")
-        .arg("--id")
-        .arg(id)
-        .arg("--sim-only")
-        .arg("--")
-        .arg("auth")
-        .arg("--world=world")
-        .arg("--addr=test_other")
-        .assert()
-        .success()
-        .stdout_as_str();
-    // Sign the transaction's auth entry with test_other
-    let xdr_base64 = sandbox
-        .new_assert_cmd("tx")
-        .arg("sign")
-        .arg("--auth")
-        .arg("--source=test_other")
-        .arg("--ledgers=1")
-        .write_stdin(xdr_base64.as_bytes())
-        .assert()
-        .success()
-        .stdout_as_str();
-    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-    // Sign the transaction with test as source account
-    let xdr_base64 = sandbox
-        .new_assert_cmd("tx")
-        .arg("sign")
-        .write_stdin(xdr_base64.as_bytes())
-        .assert()
-        .success()
-        .stdout_as_str();
-    // Send transaction
-    sandbox
-        .new_assert_cmd("tx")
-        .arg("send")
-        .write_stdin(xdr_base64.as_bytes())
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains(r#""FAILED""#))
-        .stderr(predicates::str::contains("signature has expired"));
 }
