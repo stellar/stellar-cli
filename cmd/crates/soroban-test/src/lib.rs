@@ -246,7 +246,6 @@ impl TestEnv {
         account: &str,
     ) -> Result<T::Result, T::Error> {
         let config = self.clone_config(account);
-        println!("{config:#?}");
         cmd.run_against_rpc_server(
             Some(&global::Args {
                 locator: config.sign_with.locator.clone(),
