@@ -198,12 +198,8 @@ impl Network {
                 passphrase::TESTNET => {
                     Some("https://history.stellar.org/prd/core-testnet/core_testnet_001")
                 }
-                passphrase::FUTURENET => {
-                    Some("https://history-futurenet.stellar.org")
-                }
-                passphrase::LOCAL => {
-                    Some("http://localhost:8000/archive")
-                }
+                passphrase::FUTURENET => Some("https://history-futurenet.stellar.org"),
+                passphrase::LOCAL => Some("http://localhost:8000/archive"),
                 _ => None,
             })
             .ok_or(Error::ArchiveUrlNotConfigured)
