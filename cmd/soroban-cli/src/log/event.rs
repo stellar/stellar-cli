@@ -1,32 +1,12 @@
 use crate::xdr;
-
-mod log {
-    pub fn log(i: usize, event: &super::xdr::DiagnosticEvent) {
-        tracing::info!("{i}: {event:#?}");
-    }
-}
-
-mod contract {
-
-    pub fn contract(i: usize, event: &super::xdr::DiagnosticEvent) {
-        tracing::info!("{i}: {event:#?}");
-    }
-}
-
-mod diagnostic {
-    pub fn diagnostic(i: usize, event: &super::xdr::DiagnosticEvent) {
-        tracing::debug!("{i}: {event:#?}");
-    }
-}
-
 pub fn events(events: &[xdr::DiagnosticEvent]) {
     for (i, event) in events.iter().enumerate() {
         if is_contract_event(event) {
-            contract::contract(i, event);
+            tracing::info!(event_type = "contract", "{i}: {event:#?}");
         } else if is_log_event(event) {
-            log::log(i, event);
+            tracing::info!(event_type = "log", "{i}: {event:#?}");
         } else {
-            diagnostic::diagnostic(i, event);
+            tracing::debug!(event_type = "diagnostic", "{i}: {event:#?}");
         }
     }
 }
@@ -37,7 +17,10 @@ fn is_contract_event(event: &xdr::DiagnosticEvent) -> bool {
 
 fn is_log_event(event: &xdr::DiagnosticEvent) -> bool {
     match &event.event.body {
-        xdr::ContractEventBody::V0(xdr::ContractEventV0 { topics, .. }) if topics.len() == 1 => {
+        xdr::ContractEventBody::V0(xdr::ContractEventV0 { topics, .. })
+            if topics.len() == 1
+                && matches!(event.event.type_, xdr::ContractEventType::Diagnostic) =>
+        {
             topics[0] == xdr::ScVal::Symbol(str_to_sc_symbol("log"))
         }
         xdr::ContractEventBody::V0(_) => false,
