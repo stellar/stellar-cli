@@ -1,15 +1,4 @@
-use predicates::boolean::PredicateBooleanExt;
-use soroban_cli::{
-    commands::{
-        contract::{self, fetch},
-        txn_result::TxnResult,
-    },
-    config::{locator, secret},
-};
-use soroban_rpc::GetLatestLedgerResponse;
-use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
-
-use crate::integration::util::extend_contract;
+use soroban_test::TestEnv;
 
 #[allow(clippy::too_many_lines)]
 async fn fund() {
@@ -25,6 +14,5 @@ async fn fund() {
         .arg("fund")
         .arg("test")
         .assert()
-        .failed()
-        .stderr(predicates::str::contains("failed"));
+        .stderr(predicates::str::contains("funding failed"));
 }
