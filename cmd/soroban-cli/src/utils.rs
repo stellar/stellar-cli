@@ -20,7 +20,7 @@ pub async fn log_simulation_result(
     client: &Client,
     tx: &Transaction,
 ) -> Result<Assembled, RPCError> {
-    match client.simulate_and_assemble_transaction(tx).await {
+    match client.simulate_and_prepare_transaction(tx).await {
         Ok(outcome) => outcome.assembled.ok_or_else(|| {
             if !&outcome.sim_res.events.is_empty() {
                 crate::log::sim_diagnostic_events(&outcome.sim_res.events, tracing::Level::INFO);
