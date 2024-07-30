@@ -32,10 +32,8 @@ pub enum Error {
     FailedToParseJSON(String, serde_json::Error),
     #[error("Invalid URL {0}")]
     InvalidUrl(String),
-    #[error("Inproper response {0}")]
-    InproperResponse(String),
-    #[error("Currently not supported on windows. Please visit:\n{0}")]
-    WindowsNotSupported(String),
+    #[error("funding failed: {0}")]
+    FundingFailed(String),
     #[error("Archive URL not configured")]
     ArchiveUrlNotConfigured,
 }
@@ -170,16 +168,16 @@ impl Network {
                 return Err(Error::InvalidUrl(uri.to_string()));
             }
         };
+        let request_successful = response.status().is_success();
         let body = hyper::body::to_bytes(response.into_body()).await?;
         let res = serde_json::from_slice::<serde_json::Value>(&body)
             .map_err(|e| Error::FailedToParseJSON(uri.to_string(), e))?;
         tracing::debug!("{res:#?}");
-        if let Some(detail) = res.get("detail").and_then(Value::as_str) {
-            if detail.contains("createAccountAlreadyExist") {
-                eprintln!("Account already exists");
+        if !request_successful {
+            if let Some(detail) = res.get("detail").and_then(Value::as_str) {
+                return Err(Error::FundingFailed(detail.to_string()));
             }
-        } else if res.get("successful").is_none() {
-            return Err(Error::InproperResponse(res.to_string()));
+            return Err(Error::FundingFailed("unknown cause".to_string()));
         }
         Ok(())
     }
