@@ -1,7 +1,6 @@
 use assert_fs::prelude::*;
 use predicates::prelude::predicate;
 use soroban_test::TestEnv;
-use toml;
 
 #[test]
 fn init() {
@@ -24,5 +23,4 @@ fn init() {
             table["workspace"]["dependencies"]["soroban-sdk"].as_str()
                 == Some(&format!("{major}.0.0"))
         }));
-    // assert_eq!(toml, "");
 }
