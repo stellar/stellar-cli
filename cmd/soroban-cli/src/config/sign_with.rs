@@ -51,7 +51,7 @@ pub struct Args {
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
-    /// If `--sign-with-*` is used this will remove requirement of being prompted
+    /// If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
     #[arg(long)]
     pub yes: bool,
 

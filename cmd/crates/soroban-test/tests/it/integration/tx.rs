@@ -86,6 +86,7 @@ fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> Transaction
             .new_assert_cmd("tx")
             .arg("sign")
             .arg("--sign-with-key=test")
+            .arg("--yes")
             .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap().as_bytes())
             .assert()
             .success()

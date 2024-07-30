@@ -117,7 +117,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -139,7 +139,7 @@ Deploy builtin Soroban Asset Contract
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -277,7 +277,7 @@ If no keys are specified the contract itself is extended.
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -308,7 +308,7 @@ Deploy a wasm contract
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -372,7 +372,7 @@ Deploy builtin Soroban Asset Contract
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -394,7 +394,7 @@ Deploy normal Wasm Contract
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -464,7 +464,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -506,7 +506,7 @@ stellar contract invoke ... -- --help
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -578,7 +578,7 @@ Print the current value of a contract-data ledger entry
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -618,7 +618,7 @@ If no keys are specificed the contract itself is restored.
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -1059,7 +1059,7 @@ Simulate a transaction envelope from stdin
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -1093,7 +1093,7 @@ Sign a transaction envolope appending the signature to the envelope
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-laboratory` — Sign with labratory
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted
+* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
