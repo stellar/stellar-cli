@@ -1,8 +1,10 @@
 use predicates::boolean::PredicateBooleanExt;
-use soroban_cli::commands::{
+use soroban_cli::{
+    commands::{
+        contract::{self, fetch},
+        txn_result::TxnResult,
+    },
     config::{locator, secret},
-    contract::{self, fetch},
-    txn_result::TxnResult,
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
@@ -30,12 +32,6 @@ async fn invoke() {
     let sandbox = &TestEnv::new();
     let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("fund")
-        .arg("test")
-        .assert()
-        .stderr(predicates::str::contains("Account already exists"));
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")

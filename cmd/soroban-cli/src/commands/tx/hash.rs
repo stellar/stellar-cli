@@ -1,5 +1,6 @@
-use crate::{commands::global, utils::transaction_hash};
 use hex;
+
+use crate::{commands::global, config::network, utils::transaction_hash};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -8,7 +9,7 @@ pub enum Error {
     #[error(transparent)]
     XdrToBase64(#[from] soroban_env_host::xdr::Error),
     #[error(transparent)]
-    Config(#[from] super::super::network::Error),
+    Config(#[from] network::Error),
 }
 
 // Command to return the transaction hash submitted to a network
@@ -17,7 +18,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     #[clap(flatten)]
-    pub network: super::super::network::Args,
+    pub network: network::Args,
 }
 
 impl Cmd {

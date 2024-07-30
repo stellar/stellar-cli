@@ -1,7 +1,6 @@
 use std::{fs, io::ErrorKind};
 
-use super::super::config::locator;
-use crate::commands::config::data;
+use crate::config::{data, locator};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

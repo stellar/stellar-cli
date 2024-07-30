@@ -63,7 +63,7 @@ pub enum Error {
     #[error(transparent)]
     String(#[from] std::string::FromUtf8Error),
     #[error(transparent)]
-    Secret(#[from] crate::commands::config::secret::Error),
+    Secret(#[from] crate::config::secret::Error),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error("cannot access config dir for alias file")]

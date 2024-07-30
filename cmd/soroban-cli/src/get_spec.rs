@@ -7,10 +7,10 @@ use soroban_env_host::xdr::{
 use soroban_spec::read::FromWasmError;
 pub use soroban_spec_tools::contract as contract_spec;
 
-use crate::commands::config::{self, locator};
-use crate::commands::network;
-use crate::commands::{config::data, global};
+use crate::commands::global;
+use crate::config::{self, data, locator, network};
 use crate::rpc;
+use crate::utils::rpc::get_remote_wasm_from_hash;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -66,7 +66,7 @@ pub async fn get_remote_contract_spec(
             if let Ok(entries) = data::read_spec(&hash_str) {
                 entries
             } else {
-                let raw_wasm = client.get_remote_wasm_from_hash(hash).await?;
+                let raw_wasm = get_remote_wasm_from_hash(&client, &hash).await?;
                 let res = contract_spec::Spec::new(&raw_wasm)?;
                 let res = res.spec;
                 if global_args.map_or(true, |a| !a.no_cache) {
