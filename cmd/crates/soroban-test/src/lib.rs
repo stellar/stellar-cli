@@ -226,6 +226,7 @@ impl TestEnv {
                 rpc_url: Some(self.rpc_url.clone()),
                 network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
                 network: None,
+                archive_url: None,
             },
             source_account: account.to_string(),
             locator: config::locator::Args {
