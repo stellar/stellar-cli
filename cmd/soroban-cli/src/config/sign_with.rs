@@ -1,16 +1,15 @@
 use std::path::PathBuf;
 
-use clap::arg;
-use stellar_strkey::ed25519::PublicKey;
-
-use super::network::{self, Network};
-use super::{
-    locator,
-    secret::{self, StellarSigner},
-};
 use crate::{
     signer::{self, Stellar},
     xdr::{Transaction, TransactionEnvelope},
+};
+use clap::arg;
+
+use super::{
+    locator,
+    network::{self, Network},
+    secret::{self, StellarSigner},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -21,12 +20,10 @@ pub enum Error {
     Signer(#[from] signer::Error),
     #[error(transparent)]
     Secret(#[from] secret::Error),
-
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
-
     #[error("No sign with key provided")]
     NoSignWithKey,
 }
@@ -74,15 +71,6 @@ impl Args {
             .signer(self.hd_path, !self.yes)?)
     }
 
-    pub async fn public_key(&self) -> Result<PublicKey, Error> {
-        Ok(self.signer()?.get_public_key().await?)
-    }
-
-    pub async fn sign_txn(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let signer = self.signer()?;
-        self.sign_tx_env_with_signer(&signer, tx.into()).await
-    }
-
     pub async fn sign_txn_env(
         &self,
         tx: TransactionEnvelope,
@@ -105,21 +93,20 @@ impl Args {
         tx: &Transaction,
         ledgers_from_current: u32,
     ) -> Result<Option<Transaction>, Error> {
-        self.sign_soroban_authorizations_with_signer(&self.signer()?, tx, ledgers_from_current)
-            .await
+        Ok(self
+            .signer()?
+            .sign_soroban_authorizations(tx, &self.get_network()?, ledgers_from_current)
+            .await?)
     }
 
     pub async fn sign_soroban_authorizations_with_signer(
         &self,
         signer: &(impl Stellar + std::marker::Sync),
         tx: &Transaction,
-        ledgers_from_current: u32,
+        expiration_ledger: u32,
     ) -> Result<Option<Transaction>, Error> {
-        let network = self.get_network()?;
-        let client = crate::rpc::Client::new(&network.rpc_url)?;
-        let expiration_ledger = client.get_latest_ledger().await?.sequence + ledgers_from_current;
         Ok(signer
-            .sign_soroban_authorizations(tx, &network, expiration_ledger)
+            .sign_soroban_authorizations(tx, &self.get_network()?, expiration_ledger)
             .await?)
     }
 

@@ -1,19 +1,33 @@
 use clap::arg;
 
+use crate::rpc::{self, Client};
+
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
     /// Number of ledgers from current ledger before the signed auth entry expires. Default 60 ~ 5 minutes.
-    #[arg(
-        long = "ledgers-from-now",
-        visible_alias = "ledgers",
-        default_value = "60"
-    )]
-    pub from_now: u32,
+    #[arg(long, default_value = "60")]
+    pub auth_expires_in_ledgers: u32,
+    /// Ledger number when signed auth entry expires.
+    #[arg(long, conflicts_with = "auth_expires_in_ledgers")]
+    pub auth_expires_at_ledger: Option<u32>,
+}
+
+impl Args {
+    pub async fn expiration_ledger(&self, client: &Client) -> Result<u32, rpc::Error> {
+        if let Some(ledger) = self.auth_expires_at_ledger {
+            return Ok(ledger);
+        }
+        let current_ledger = client.get_latest_ledger().await?.sequence;
+        Ok(current_ledger + self.auth_expires_in_ledgers)
+    }
 }
 
 impl Default for Args {
     fn default() -> Self {
-        Self { from_now: 60 }
+        Self {
+            auth_expires_in_ledgers: 60,
+            auth_expires_at_ledger: None,
+        }
     }
 }

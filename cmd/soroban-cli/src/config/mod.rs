@@ -66,18 +66,6 @@ impl Args {
             .await?)
     }
 
-    pub async fn sign_soroban_authorizations_with_signer(
-        &self,
-        signer: &(impl Stellar + std::marker::Sync),
-        tx: &Transaction,
-        ledgers_from_current: u32,
-    ) -> Result<Option<Transaction>, Error> {
-        Ok(self
-            .sign_with
-            .sign_soroban_authorizations_with_signer(signer, tx, ledgers_from_current)
-            .await?)
-    }
-
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.sign_with.get_network()?)
     }

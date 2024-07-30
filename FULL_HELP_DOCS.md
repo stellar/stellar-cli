@@ -519,9 +519,10 @@ stellar contract invoke ... -- --help
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-* `--ledgers-from-now <FROM_NOW>` — Number of ledgers from current ledger before the signed auth entry expires. Default 60 ~ 5 minutes
+* `--auth-expires-in-ledgers <AUTH_EXPIRES_IN_LEDGERS>` — Number of ledgers from current ledger before the signed auth entry expires. Default 60 ~ 5 minutes
 
   Default value: `60`
+* `--auth-expires-at-ledger <AUTH_EXPIRES_AT_LEDGER>` — Ledger number when signed auth entry expires
 
 
 
