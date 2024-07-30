@@ -43,16 +43,16 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn kind(&self) -> Result<SignerKind, Error> {
+    pub fn kind(&self) -> Result<Secret, Error> {
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
-            Ok(SignerKind::SecretKey { secret_key })
+            Ok(Secret::SecretKey { secret_key })
         } else if self.secret_key {
             println!("Type a secret key: ");
             let secret_key = read_password()?;
             let secret_key = PrivateKey::from_string(&secret_key)
                 .map_err(|_| Error::InvalidSecretKey)?
                 .to_string();
-            Ok(SignerKind::SecretKey { secret_key })
+            Ok(Secret::SecretKey { secret_key })
         } else if self.seed_phrase {
             println!("Type a 12 word seed phrase: ");
             let seed_phrase = read_password()?;
@@ -61,7 +61,7 @@ impl Args {
             //     let len = seed_phrase.len();
             //     return Err(Error::InvalidSeedPhrase { len });
             // }
-            Ok(SignerKind::SeedPhrase {
+            Ok(Secret::SeedPhrase {
                 seed_phrase: seed_phrase
                     .into_iter()
                     .map(ToString::to_string)
@@ -76,21 +76,21 @@ impl Args {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SignerKind {
+pub enum Secret {
     SecretKey { secret_key: String },
     SeedPhrase { seed_phrase: String },
 }
 
-impl FromStr for SignerKind {
+impl FromStr for Secret {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if PrivateKey::from_string(s).is_ok() {
-            Ok(SignerKind::SecretKey {
+            Ok(Secret::SecretKey {
                 secret_key: s.to_string(),
             })
         } else if sep5::SeedPhrase::from_str(s).is_ok() {
-            Ok(SignerKind::SeedPhrase {
+            Ok(Secret::SeedPhrase {
                 seed_phrase: s.to_string(),
             })
         } else {
@@ -99,19 +99,19 @@ impl FromStr for SignerKind {
     }
 }
 
-impl From<PrivateKey> for SignerKind {
+impl From<PrivateKey> for Secret {
     fn from(value: PrivateKey) -> Self {
-        SignerKind::SecretKey {
+        Secret::SecretKey {
             secret_key: value.to_string(),
         }
     }
 }
 
-impl SignerKind {
+impl Secret {
     pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
         Ok(match self {
-            SignerKind::SecretKey { secret_key } => PrivateKey::from_string(secret_key)?,
-            SignerKind::SeedPhrase { seed_phrase } => PrivateKey::from_payload(
+            Secret::SecretKey { secret_key } => PrivateKey::from_string(secret_key)?,
+            Secret::SeedPhrase { seed_phrase } => PrivateKey::from_payload(
                 &sep5::SeedPhrase::from_str(seed_phrase)?
                     .from_path_index(index.unwrap_or_default(), None)?
                     .private()
@@ -127,9 +127,9 @@ impl SignerKind {
 
     pub fn signer(&self, index: Option<usize>, prompt: bool) -> Result<StellarSigner, Error> {
         match self {
-            SignerKind::SecretKey { .. } | SignerKind::SeedPhrase { .. } => Ok(
-                StellarSigner::Local(LocalKey::new(self.key_pair(index)?, prompt)),
-            ),
+            Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => Ok(StellarSigner::Local(
+                LocalKey::new(self.key_pair(index)?, prompt),
+            )),
         }
     }
 
@@ -145,7 +145,7 @@ impl SignerKind {
         }?
         .seed_phrase
         .into_phrase();
-        Ok(SignerKind::SeedPhrase { seed_phrase })
+        Ok(Secret::SeedPhrase { seed_phrase })
     }
 
     pub fn test_seed_phrase() -> Result<Self, Error> {

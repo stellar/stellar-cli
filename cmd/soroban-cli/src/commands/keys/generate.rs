@@ -2,7 +2,7 @@ use clap::{arg, command};
 
 use super::super::config::{
     locator, network,
-    secret::{self, SignerKind},
+    secret::{self, Secret},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -51,9 +51,9 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let seed_phrase = if self.default_seed {
-            SignerKind::test_seed_phrase()
+            Secret::test_seed_phrase()
         } else {
-            SignerKind::from_seed(self.seed.as_deref())
+            Secret::from_seed(self.seed.as_deref())
         }?;
         let secret = if self.as_secret {
             seed_phrase.private_key(self.hd_path)?.into()

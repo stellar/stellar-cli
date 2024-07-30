@@ -2,7 +2,7 @@ use std::path::Path;
 
 use soroban_cli::{
     commands::contract,
-    config::{locator::KeyType, secret::SignerKind},
+    config::{locator::KeyType, secret::Secret},
 };
 use soroban_test::{TestEnv, Wasm, TEST_ACCOUNT};
 
@@ -17,10 +17,10 @@ pub enum SecretKind {
 #[allow(clippy::needless_pass_by_value)]
 pub fn add_key(dir: &Path, name: &str, kind: SecretKind, data: &str) {
     let secret = match kind {
-        SecretKind::Seed => SignerKind::SeedPhrase {
+        SecretKind::Seed => Secret::SeedPhrase {
             seed_phrase: data.to_string(),
         },
-        SecretKind::Key => SignerKind::SecretKey {
+        SecretKind::Key => Secret::SecretKey {
             secret_key: data.to_string(),
         },
     };

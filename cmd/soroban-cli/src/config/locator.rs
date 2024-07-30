@@ -17,7 +17,7 @@ use crate::{utils::find_config_dir, Pwd};
 use super::{
     alias,
     network::{self, Network},
-    secret::SignerKind,
+    secret::Secret,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -149,7 +149,7 @@ impl Args {
         )
     }
 
-    pub fn write_identity(&self, name: &str, secret: &SignerKind) -> Result<(), Error> {
+    pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
         KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 
@@ -207,12 +207,12 @@ impl Args {
         Ok(saved_networks.chain(default_networks).collect())
     }
 
-    pub fn read_identity(&self, name: &str) -> Result<SignerKind, Error> {
+    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
-    pub fn account(&self, account_str: &str) -> Result<SignerKind, Error> {
-        if let Ok(signer) = account_str.parse::<SignerKind>() {
+    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
+        if let Ok(signer) = account_str.parse::<Secret>() {
             Ok(signer)
         } else {
             self.read_identity(account_str)
