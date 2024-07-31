@@ -15,5 +15,9 @@ async fn fund() {
         .arg("fund")
         .arg("test")
         .assert()
-        .stderr(predicates::str::contains("funding failed"));
+        // Don't expect error if friendbot indicated that the account is
+        // already fully funded to the starting balance, because the
+        // user's goal is to get funded, and the account is funded
+        // so it is success much the same.
+        .success();
 }
