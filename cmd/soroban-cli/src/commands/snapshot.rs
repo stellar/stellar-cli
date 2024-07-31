@@ -91,6 +91,8 @@ pub enum Error {
     GettingBucketGotStatusCode(hyper::StatusCode),
     #[error("opening cached bucket to write: {0}")]
     WriteOpeningCachedBucket(io::Error),
+    #[error("streaming bucket: {0}")]
+    StreamingBucket(io::Error),
     #[error("read XDR frame bucket entry: {0}")]
     ReadXdrFrameBucketEntry(xdr::Error),
     #[error("renaming temporary downloaded file to final destination: {0}")]
@@ -406,7 +408,9 @@ async fn cache_bucket(
             .open(&dl_path)
             .await
             .map_err(Error::WriteOpeningCachedBucket)?;
-        tokio::io::copy(&mut read, &mut file).await.unwrap();
+        tokio::io::copy(&mut read, &mut file)
+            .await
+            .map_err(Error::StreamingBucket)?;
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
     }
     Ok(cache_path)
