@@ -27,7 +27,7 @@ pub struct Args {
     pub very_verbose: bool,
 
     /// List installed plugins. E.g. `stellar-hello`
-    #[arg(long, global = true)]
+    #[arg(long)]
     pub list: bool,
 
     /// Do not cache your simulations and transactions
