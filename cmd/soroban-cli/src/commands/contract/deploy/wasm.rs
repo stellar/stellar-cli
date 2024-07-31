@@ -230,7 +230,7 @@ impl NetworkRunnable for Cmd {
         )?;
 
         if self.fee.build_only {
-            output.check("Done!");
+            output.check("Transaction built!");
             return Ok(TxnResult::Txn(txn));
         }
 
