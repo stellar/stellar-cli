@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     services:
       rpc:
-        image: stellar/quickstart:v423-testing
+        image: stellar/quickstart:v438-testing
         ports:
           - 8000:8000
         env:
