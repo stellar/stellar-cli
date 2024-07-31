@@ -142,31 +142,42 @@ impl Cmd {
             .filter(|b| b != "0000000000000000000000000000000000000000000000000000000000000000")
             .collect::<Vec<_>>();
 
-        // Track ledger keys seen, so that we can ignore old versions of
-        // entries. Entries can appear in both higher level and lower level
-        // buckets, and to get the latest version of the entry the version in
-        // the higher level bucket should be used.
-        let mut seen = HashSet::<LedgerKey>::new();
-
-        // The snapshot is what will be written to file at the end. Fields will
-        // be updated while parsing the history archive.
-        // TODO: Update more of the fields.
-        let mut snapshot = LedgerSnapshot {
-            protocol_version: 0,
-            sequence_number: ledger,
-            timestamp: 0,
-            network_id: network_id.into(),
-            base_reserve: 1,
-            min_persistent_entry_ttl: 0,
-            min_temp_entry_ttl: 0,
-            max_entry_ttl: 0,
-            ledger_entries: Vec::new(),
+        #[allow(clippy::items_after_statements)]
+        struct State {
+            // The snapshot is what will be written to file at the end. Fields will
+            // be updated while parsing the history archive.
+            snapshot: LedgerSnapshot,
+            // Track ledger keys seen, so that we can ignore old versions of
+            // entries. Entries can appear in both higher level and lower level
+            // buckets, and to get the latest version of the entry the version in
+            // the higher level bucket should be used.
+            seen: HashSet<LedgerKey>,
+            // Tracking items to search by.
+            account_ids: Vec<String>,
+            contract_ids: Vec<String>,
+            wasm_hashes: Vec<[u8; 32]>,
+            wasm_hashes_2nd_pass: Vec<[u8; 32]>,
+        }
+        let mut state = State {
+            seen: HashSet::new(),
+            snapshot: LedgerSnapshot {
+                // TODO: Update more of the fields.
+                protocol_version: 0,
+                sequence_number: ledger,
+                timestamp: 0,
+                network_id: network_id.into(),
+                base_reserve: 1,
+                min_persistent_entry_ttl: 0,
+                min_temp_entry_ttl: 0,
+                max_entry_ttl: 0,
+                ledger_entries: Vec::new(),
+            },
+            account_ids: self.account_ids.clone(),
+            contract_ids: self.contract_ids.clone(),
+            wasm_hashes: self.wasm_hashes()?,
+            wasm_hashes_2nd_pass: Vec::new(),
         };
 
-        let mut account_ids = self.account_ids.clone();
-        let mut contract_ids = self.contract_ids.clone();
-        let mut wasm_hashes = self.wasm_hashes()?;
-        let mut wasm_hashes_2nd_pass = Vec::<[u8; 32]>::new();
         // Parse the buckets twice, because during the first pass contracts
         // and accounts will be found, along with explicitly provided wasm
         // hashes. Contracts found will have their wasm hashes added to the
@@ -174,7 +185,7 @@ impl Cmd {
         // of a contract they also want the contracts code entry (e.g.
         // wasm).
         for p in 1..=2 {
-            if p == 2 && wasm_hashes_2nd_pass.is_empty() {
+            if p == 2 && state.wasm_hashes_2nd_pass.is_empty() {
                 println!("ℹ️  Skipping parse {p}/2 of buckets");
                 break;
             }
@@ -185,14 +196,7 @@ impl Cmd {
                 let (read, cache_path, from_cache) =
                     get_bucket_stream(&archive_url, i, bucket).await?;
 
-                (
-                    seen,
-                    snapshot,
-                    account_ids,
-                    contract_ids,
-                    wasm_hashes,
-                    wasm_hashes_2nd_pass,
-                ) = tokio::task::spawn_blocking(move || -> Result<_, Error> {
+                state = tokio::task::spawn_blocking(move || -> Result<_, Error> {
                     let dl_path = cache_path.with_extension("dl");
                     let read: Box<dyn Read + Sync + Send> = if from_cache {
                         let read = BufReader::new(read);
@@ -228,23 +232,23 @@ impl Cmd {
                             }
                             BucketEntry::Deadentry(k) => (k, None),
                             BucketEntry::Metaentry(m) => {
-                                snapshot.protocol_version = m.ledger_version;
+                                state.snapshot.protocol_version = m.ledger_version;
                                 continue;
                             }
                         };
-                        if seen.contains(&key) {
+                        if state.seen.contains(&key) {
                             continue;
                         }
                         if let Some(val) = val {
                             let keep = match &val.data {
                                 LedgerEntryData::Account(e) => {
-                                    account_ids.contains(&e.account_id.to_string())
+                                    state.account_ids.contains(&e.account_id.to_string())
                                 }
                                 LedgerEntryData::Trustline(e) => {
-                                    account_ids.contains(&e.account_id.to_string())
+                                    state.account_ids.contains(&e.account_id.to_string())
                                 }
                                 LedgerEntryData::ContractData(e) => {
-                                    let keep = contract_ids.contains(&e.contract.to_string());
+                                    let keep = state.contract_ids.contains(&e.contract.to_string());
                                     // If a contract instance references
                                     // contract executable stored in another
                                     // ledger entry, add that ledger entry to
@@ -256,7 +260,7 @@ impl Cmd {
                                             ..
                                         }) = e.val
                                         {
-                                            wasm_hashes_2nd_pass.push(hash);
+                                            state.wasm_hashes_2nd_pass.push(hash);
                                             println!(
                                                 "ℹ️  Adding wasm hash {} to find in second pass.",
                                                 hex::encode(hash)
@@ -267,9 +271,9 @@ impl Cmd {
                                 }
                                 LedgerEntryData::ContractCode(e) => {
                                     if p == 1 {
-                                        wasm_hashes.contains(&e.hash.0)
+                                        state.wasm_hashes.contains(&e.hash.0)
                                     } else if p == 2 {
-                                        wasm_hashes_2nd_pass.contains(&e.hash.0)
+                                        state.wasm_hashes_2nd_pass.contains(&e.hash.0)
                                     } else {
                                         false
                                     }
@@ -281,13 +285,14 @@ impl Cmd {
                                 | LedgerEntryData::ConfigSetting(_)
                                 | LedgerEntryData::Ttl(_) => false,
                             };
-                            seen.insert(key.clone());
+                            state.seen.insert(key.clone());
                             if keep {
                                 // Store the found ledger entry in the snapshot with
                                 // a max u32 expiry.
                                 // TODO: Change the expiry to come from the
                                 // corresponding TTL ledger entry.
-                                snapshot
+                                state
+                                    .snapshot
                                     .ledger_entries
                                     .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
                                 count_saved += 1;
@@ -300,25 +305,19 @@ impl Cmd {
                     if count_saved > 0 {
                         println!("🔎 Found {count_saved} entries");
                     }
-                    Ok((
-                        seen,
-                        snapshot,
-                        account_ids,
-                        contract_ids,
-                        wasm_hashes,
-                        wasm_hashes_2nd_pass,
-                    ))
+                    Ok(state)
                 })
                 .await??;
             }
         }
 
-        snapshot
+        state
+            .snapshot
             .write_file(&self.out)
             .map_err(Error::WriteLedgerSnapshot)?;
         println!(
             "💾 Saved {} entries to {:?}",
-            snapshot.ledger_entries.len(),
+            state.snapshot.ledger_entries.len(),
             self.out
         );
 
