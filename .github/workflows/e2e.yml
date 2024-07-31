@@ -26,7 +26,7 @@ jobs:
 
       # the pre-compiled image to use of quickstart, or the git ref to build
       # from source.
-      SYSTEM_TEST_QUICKSTART_IMAGE: stellar/quickstart:v423-testing
+      SYSTEM_TEST_QUICKSTART_IMAGE: stellar/quickstart:testing
       # SYSTEM_TEST_QUICKSTART_GIT_REF: "https://github.com/stellar/quickstart.git#master"
 
       # the version of components built in quickstart. only used if quickstart
@@ -49,7 +49,7 @@ jobs:
       # set the version of js-stellar-sdk to use, need to choose one of either
       # resolution options, using npm release or a gh ref:
       # option #1, set the version of stellar-sdk based on a npm release version
-      SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION: 11.3.0
+      SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION: 12.2.0
       # option #2, set the version of stellar-sdk used as a ref to a gh repo if
       # a value is set on SYSTEM_TEST_JS_STELLAR_SDK_GH_REPO, it takes
       # precedence over any SYSTEM_TEST_JS_STELLAR_SDK_NPM_VERSION
