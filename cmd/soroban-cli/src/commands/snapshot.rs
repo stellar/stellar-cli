@@ -1,16 +1,15 @@
+use async_compression::tokio::bufread::GzipDecoder;
 use bytesize::ByteSize;
 use clap::{arg, Parser, ValueEnum};
-use flate2::bufread::GzDecoder;
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use http::Uri;
 use humantime::format_duration;
-use io_tee::TeeReader;
 use sha2::{Digest, Sha256};
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
     collections::HashSet,
-    fs::{self, OpenOptions},
-    io::{self, BufReader, BufWriter, Read},
+    fs::{self},
+    io::{self},
     path::PathBuf,
     str::FromStr,
     time::{Duration, Instant},
@@ -22,7 +21,7 @@ use stellar_xdr::curr::{
     LedgerKeyLiquidityPool, LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits,
     ReadXdr, ScContractInstance, ScVal,
 };
-use tokio_util::compat::FuturesAsyncReadCompatExt as _;
+use tokio::fs::OpenOptions;
 
 use soroban_env_host::xdr::{self};
 
@@ -142,41 +141,45 @@ impl Cmd {
             .filter(|b| b != "0000000000000000000000000000000000000000000000000000000000000000")
             .collect::<Vec<_>>();
 
+        // Pre-cache the buckets.
+        for (i, bucket) in buckets.iter().enumerate() {
+            cache_bucket(&archive_url, i, bucket).await?;
+        }
+
+        // The snapshot is what will be written to file at the end. Fields will
+        // be updated while parsing the history archive.
+        let mut snapshot = LedgerSnapshot {
+            // TODO: Update more of the fields.
+            protocol_version: 0,
+            sequence_number: ledger,
+            timestamp: 0,
+            network_id: network_id.into(),
+            base_reserve: 1,
+            min_persistent_entry_ttl: 0,
+            min_temp_entry_ttl: 0,
+            max_entry_ttl: 0,
+            ledger_entries: Vec::new(),
+        };
+
+        // Track ledger keys seen, so that we can ignore old versions of
+        // entries. Entries can appear in both higher level and lower level
+        // buckets, and to get the latest version of the entry the version in
+        // the higher level bucket should be used.
+        let mut seen = HashSet::new();
+
         #[allow(clippy::items_after_statements)]
-        struct State {
-            // The snapshot is what will be written to file at the end. Fields will
-            // be updated while parsing the history archive.
-            snapshot: LedgerSnapshot,
-            // Track ledger keys seen, so that we can ignore old versions of
-            // entries. Entries can appear in both higher level and lower level
-            // buckets, and to get the latest version of the entry the version in
-            // the higher level bucket should be used.
-            seen: HashSet<LedgerKey>,
-            // Tracking items to search by.
+        #[derive(Default)]
+        struct SearchInputs {
             account_ids: Vec<String>,
             contract_ids: Vec<String>,
             wasm_hashes: Vec<[u8; 32]>,
-            wasm_hashes_2nd_pass: Vec<[u8; 32]>,
         }
-        let mut state = State {
-            seen: HashSet::new(),
-            snapshot: LedgerSnapshot {
-                // TODO: Update more of the fields.
-                protocol_version: 0,
-                sequence_number: ledger,
-                timestamp: 0,
-                network_id: network_id.into(),
-                base_reserve: 1,
-                min_persistent_entry_ttl: 0,
-                min_temp_entry_ttl: 0,
-                max_entry_ttl: 0,
-                ledger_entries: Vec::new(),
-            },
+        let mut current = SearchInputs {
             account_ids: self.account_ids.clone(),
             contract_ids: self.contract_ids.clone(),
             wasm_hashes: self.wasm_hashes()?,
-            wasm_hashes_2nd_pass: Vec::new(),
         };
+        let mut next = SearchInputs::default();
 
         // Parse the buckets twice, because during the first pass contracts
         // and accounts will be found, along with explicitly provided wasm
@@ -184,140 +187,115 @@ impl Cmd {
         // filter because in most cases if someone wants a ledger snapshot
         // of a contract they also want the contracts code entry (e.g.
         // wasm).
-        for p in 1..=2 {
-            if p == 2 && state.wasm_hashes_2nd_pass.is_empty() {
-                println!("ℹ️  Skipping parse {p}/2 of buckets");
+        loop {
+            if current.account_ids.is_empty()
+                && current.contract_ids.is_empty()
+                && current.wasm_hashes.is_empty()
+            {
                 break;
             }
-            println!("ℹ️  Beginning parse {p}/2 of buckets...");
+            println!(
+                "ℹ️  Searching for {} accounts, {} contracts, {} wasms",
+                current.account_ids.len(),
+                current.contract_ids.len(),
+                current.wasm_hashes.len()
+            );
             for (i, bucket) in buckets.iter().enumerate() {
+                println!("🔎 Looking in bucket {i} {bucket}");
                 // Defined where the bucket will be read from, either from cache on
                 // disk, or streamed from the archive.
-                let (read, cache_path, from_cache) =
-                    get_bucket_stream(&archive_url, i, bucket).await?;
-
-                state = tokio::task::spawn_blocking(move || -> Result<_, Error> {
-                    let dl_path = cache_path.with_extension("dl");
-                    let read: Box<dyn Read + Sync + Send> = if from_cache {
-                        let read = BufReader::new(read);
-                        Box::new(read)
-                    } else {
-                        let read = BufReader::new(read);
-                        let read = GzDecoder::new(read);
-                        let read = BufReader::new(read);
-                        // When the stream is not from the cache, write it
-                        // to the cache.
-                        let file = OpenOptions::new()
-                            .create(true)
-                            .truncate(true)
-                            .write(true)
-                            .open(&dl_path)
-                            .map_err(Error::WriteOpeningCachedBucket)?;
-                        let write = BufWriter::new(file);
-                        let tee = TeeReader::new(read, write);
-                        Box::new(tee)
-                    };
-                    // Stream the bucket entries from the bucket, identifying
-                    // entries that match the filters, and including only the
-                    // entries that match in the snapshot.
-                    let limited = &mut Limited::new(read, Limits::none());
-                    let entries = Frame::<BucketEntry>::read_xdr_iter(limited);
-                    let mut count_saved = 0;
-                    for entry in entries {
-                        let Frame(entry) = entry.map_err(Error::ReadXdrFrameBucketEntry)?;
-                        let (key, val) = match entry {
-                            BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
-                                let k = data_into_key(&l);
-                                (k, Some(l))
-                            }
-                            BucketEntry::Deadentry(k) => (k, None),
-                            BucketEntry::Metaentry(m) => {
-                                state.snapshot.protocol_version = m.ledger_version;
-                                continue;
-                            }
-                        };
-                        if state.seen.contains(&key) {
+                let cache_path = cache_bucket(&archive_url, i, bucket).await?;
+                let file = std::fs::OpenOptions::new()
+                    .read(true)
+                    .open(&cache_path)
+                    .map_err(Error::ReadOpeningCachedBucket)?;
+                // Stream the bucket entries from the bucket, identifying
+                // entries that match the filters, and including only the
+                // entries that match in the snapshot.
+                let limited = &mut Limited::new(file, Limits::none());
+                let entries = Frame::<BucketEntry>::read_xdr_iter(limited);
+                let mut count_saved = 0;
+                for entry in entries {
+                    let Frame(entry) = entry.map_err(Error::ReadXdrFrameBucketEntry)?;
+                    let (key, val) = match entry {
+                        BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
+                            let k = data_into_key(&l);
+                            (k, Some(l))
+                        }
+                        BucketEntry::Deadentry(k) => (k, None),
+                        BucketEntry::Metaentry(m) => {
+                            snapshot.protocol_version = m.ledger_version;
                             continue;
                         }
-                        if let Some(val) = val {
-                            let keep = match &val.data {
-                                LedgerEntryData::Account(e) => {
-                                    state.account_ids.contains(&e.account_id.to_string())
-                                }
-                                LedgerEntryData::Trustline(e) => {
-                                    state.account_ids.contains(&e.account_id.to_string())
-                                }
-                                LedgerEntryData::ContractData(e) => {
-                                    let keep = state.contract_ids.contains(&e.contract.to_string());
-                                    // If a contract instance references
-                                    // contract executable stored in another
-                                    // ledger entry, add that ledger entry to
-                                    // the filter so that Wasm for any filtered
-                                    // contract is collected too in the second pass.
-                                    if keep && e.key == ScVal::LedgerKeyContractInstance {
-                                        if let ScVal::ContractInstance(ScContractInstance {
-                                            executable: ContractExecutable::Wasm(Hash(hash)),
-                                            ..
-                                        }) = e.val
-                                        {
-                                            state.wasm_hashes_2nd_pass.push(hash);
-                                            println!(
-                                                "ℹ️  Adding wasm hash {} to find in second pass.",
-                                                hex::encode(hash)
-                                            );
-                                        }
-                                    }
-                                    keep
-                                }
-                                LedgerEntryData::ContractCode(e) => {
-                                    if p == 1 {
-                                        state.wasm_hashes.contains(&e.hash.0)
-                                    } else if p == 2 {
-                                        state.wasm_hashes_2nd_pass.contains(&e.hash.0)
-                                    } else {
-                                        false
-                                    }
-                                }
-                                LedgerEntryData::Offer(_)
-                                | LedgerEntryData::Data(_)
-                                | LedgerEntryData::ClaimableBalance(_)
-                                | LedgerEntryData::LiquidityPool(_)
-                                | LedgerEntryData::ConfigSetting(_)
-                                | LedgerEntryData::Ttl(_) => false,
-                            };
-                            state.seen.insert(key.clone());
-                            if keep {
-                                // Store the found ledger entry in the snapshot with
-                                // a max u32 expiry.
-                                // TODO: Change the expiry to come from the
-                                // corresponding TTL ledger entry.
-                                state
-                                    .snapshot
-                                    .ledger_entries
-                                    .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
-                                count_saved += 1;
+                    };
+                    if seen.contains(&key) {
+                        continue;
+                    }
+                    if let Some(val) = val {
+                        let keep = match &val.data {
+                            LedgerEntryData::Account(e) => {
+                                current.account_ids.contains(&e.account_id.to_string())
                             }
+                            LedgerEntryData::Trustline(e) => {
+                                current.account_ids.contains(&e.account_id.to_string())
+                            }
+                            LedgerEntryData::ContractData(e) => {
+                                let keep = current.contract_ids.contains(&e.contract.to_string());
+                                // If a contract instance references
+                                // contract executable stored in another
+                                // ledger entry, add that ledger entry to
+                                // the filter so that Wasm for any filtered
+                                // contract is collected too in the second pass.
+                                if keep && e.key == ScVal::LedgerKeyContractInstance {
+                                    if let ScVal::ContractInstance(ScContractInstance {
+                                        executable: ContractExecutable::Wasm(Hash(hash)),
+                                        ..
+                                    }) = e.val
+                                    {
+                                        next.wasm_hashes.push(hash);
+                                        println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
+                                    }
+                                }
+                                keep
+                            }
+                            LedgerEntryData::ContractCode(e) => {
+                                current.wasm_hashes.contains(&e.hash.0)
+                            }
+                            LedgerEntryData::Offer(_)
+                            | LedgerEntryData::Data(_)
+                            | LedgerEntryData::ClaimableBalance(_)
+                            | LedgerEntryData::LiquidityPool(_)
+                            | LedgerEntryData::ConfigSetting(_)
+                            | LedgerEntryData::Ttl(_) => false,
+                        };
+                        seen.insert(key.clone());
+                        if keep {
+                            // Store the found ledger entry in the snapshot with
+                            // a max u32 expiry.
+                            // TODO: Change the expiry to come from the
+                            // corresponding TTL ledger entry.
+                            snapshot
+                                .ledger_entries
+                                .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
+                            count_saved += 1;
                         }
                     }
-                    if !from_cache {
-                        fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
-                    }
-                    if count_saved > 0 {
-                        println!("🔎 Found {count_saved} entries");
-                    }
-                    Ok(state)
-                })
-                .await??;
+                }
+                if count_saved > 0 {
+                    println!("ℹ️  Found {count_saved} entries");
+                }
             }
+            seen.clear();
+            current = next;
+            next = SearchInputs::default();
         }
 
-        state
-            .snapshot
+        snapshot
             .write_file(&self.out)
             .map_err(Error::WriteLedgerSnapshot)?;
         println!(
             "💾 Saved {} entries to {:?}",
-            state.snapshot.ledger_entries.len(),
+            snapshot.ledger_entries.len(),
             self.out
         );
 
@@ -381,21 +359,14 @@ async fn get_history(archive_url: &Uri, ledger: Option<u32>) -> Result<History, 
     serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)
 }
 
-async fn get_bucket_stream(
+async fn cache_bucket(
     archive_url: &Uri,
     bucket_index: usize,
     bucket: &str,
-) -> Result<(Box<dyn Read + Sync + Send>, PathBuf, bool), Error> {
+) -> Result<PathBuf, Error> {
     let bucket_dir = data::bucket_dir().map_err(Error::GetBucketDir)?;
     let cache_path = bucket_dir.join(format!("bucket-{bucket}.xdr"));
-    let (read, from_cache): (Box<dyn Read + Sync + Send>, bool) = if cache_path.exists() {
-        println!("🪣  Loading cached bucket {bucket_index} {bucket}");
-        let file = OpenOptions::new()
-            .read(true)
-            .open(&cache_path)
-            .map_err(Error::ReadOpeningCachedBucket)?;
-        (Box::new(file), true)
-    } else {
+    if !cache_path.exists() {
         let bucket_0 = &bucket[0..=1];
         let bucket_1 = &bucket[2..=3];
         let bucket_2 = &bucket[4..=5];
@@ -421,16 +392,24 @@ async fn get_bucket_stream(
             }
         }
         println!();
-        let read = tokio_util::io::SyncIoBridge::new(
-            response
-                .into_body()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-                .into_async_read()
-                .compat(),
-        );
-        (Box::new(read), false)
-    };
-    Ok((read, cache_path, from_cache))
+        let read = response
+            .into_body()
+            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
+            .into_async_read();
+        let read = tokio_util::compat::FuturesAsyncReadCompatExt::compat(read);
+        let mut read = GzipDecoder::new(read);
+        let dl_path = cache_path.with_extension("dl");
+        let mut file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&dl_path)
+            .await
+            .map_err(Error::WriteOpeningCachedBucket)?;
+        tokio::io::copy(&mut read, &mut file).await.unwrap();
+        fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+    }
+    Ok(cache_path)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize)]
