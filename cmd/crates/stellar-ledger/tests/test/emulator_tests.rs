@@ -1,7 +1,10 @@
 use ledger_transport::Exchange;
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 use soroban_env_host::xdr::{Hash, Transaction};
+use std::ops::Range;
+use std::sync::Mutex;
 use std::vec;
 
 use std::net::TcpListener;
@@ -17,6 +20,8 @@ use stellar_xdr::curr::{
 
 use testcontainers::{clients, core::Port, RunnableImage};
 use tokio::time::sleep;
+
+static PORT_RANGE: Lazy<Mutex<Range<u16>>> = Lazy::new(|| Mutex::new(40000..50000));
 
 pub const TEST_NETWORK_PASSPHRASE: &[u8] = b"Test SDF Network ; September 2015";
 pub fn test_network_hash() -> Hash {
@@ -332,7 +337,7 @@ fn get_runnable_image(ledger_device_model: String) -> RunnableImage<Speculos> {
     let runnable_image: RunnableImage<Speculos> = (Speculos::new(), args).into();
 
     // doing this to randomize the ports on the host so that parallel tests don't clobber each other
-    let (tcp_port_1, tcp_port_2) = get_available_ports();
+    let (tcp_port_1, tcp_port_2) = get_available_ports(2);
     runnable_image
         .with_mapped_port(Port {
             local: tcp_port_1,
@@ -344,15 +349,21 @@ fn get_runnable_image(ledger_device_model: String) -> RunnableImage<Speculos> {
         })
 }
 
-fn get_available_ports() -> (u16, u16) {
-    let listener1 = TcpListener::bind("127.0.0.1:0").unwrap();
-    let listener2 = TcpListener::bind("127.0.0.1:0").unwrap();
-    let port_1 = listener1.local_addr().unwrap().port();
-    let port_2 = listener2.local_addr().unwrap().port();
-    drop(listener1);
-    drop(listener2);
+fn get_available_ports(n: usize) -> (u16, u16) {
+    let mut range = PORT_RANGE.lock().unwrap();
+    let mut ports = Vec::with_capacity(n);
+    while ports.len() < n {
+        if let Some(port) = range.next() {
+            if let Ok(listener) = TcpListener::bind(("127.0.0.1", port)) {
+                ports.push(port);
+                drop(listener);
+            }
+        } else {
+            panic!("No more available ports");
+        }
+    }
 
-    (port_1, port_2)
+    (ports[0], ports[1])
 }
 
 async fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
