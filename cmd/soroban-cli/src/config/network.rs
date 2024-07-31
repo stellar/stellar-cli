@@ -175,9 +175,18 @@ impl Network {
         tracing::debug!("{res:#?}");
         if !request_successful {
             if let Some(detail) = res.get("detail").and_then(Value::as_str) {
-                return Err(Error::FundingFailed(detail.to_string()));
+                if detail.contains("account already funded to starting balance") {
+                    // Don't error if friendbot indicated that the account is
+                    // already fully funded to the starting balance, because the
+                    // user's goal is to get funded, and the account is funded
+                    // so it is success much the same.
+                    tracing::debug!("already funded error ignored because account is funded");
+                } else {
+                    return Err(Error::FundingFailed(detail.to_string()));
+                }
+            } else {
+                return Err(Error::FundingFailed("unknown cause".to_string()));
             }
-            return Err(Error::FundingFailed("unknown cause".to_string()));
         }
         Ok(())
     }
