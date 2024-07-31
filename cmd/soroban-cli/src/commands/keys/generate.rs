@@ -102,34 +102,31 @@ impl Cmd {
         };
 
         // Check if identity exists
-        match self.config_locator.read_identity(&self.name) {
-            Ok(existing_secret) => {
-                if self.seed.is_some() || self.default_seed {
-                    // Compare secrets only if seed is provided
-                    match (
-                        existing_secret.private_key(self.hd_path),
-                        secret.private_key(self.hd_path),
-                    ) {
-                        (Ok(existing_pk), Ok(new_pk)) if existing_pk == new_pk => {
-                            self.handle_existing_identity(&existing_secret).await?;
-                            return Ok(());
-                        }
-                        _ => {
-                            // Secrets don't match
-                            eprintln!("An identity with the name {} already exists but has a different secret. Overwriting...", self.name);
-                            self.write_and_fund_identity(&secret).await?;
-                        }
+        if let Ok(existing_secret) = self.config_locator.read_identity(&self.name) {
+            if self.seed.is_some() || self.default_seed {
+                // Compare secrets only if seed is provided
+                match (
+                    existing_secret.private_key(self.hd_path),
+                    secret.private_key(self.hd_path),
+                ) {
+                    (Ok(existing_pk), Ok(new_pk)) if existing_pk == new_pk => {
+                        self.handle_existing_identity(&existing_secret).await?;
+                        return Ok(());
                     }
-                } else {
-                    // No seed provided, inform user that identity already exists
-                    self.handle_existing_identity(&existing_secret).await?;
-                    return Ok(());
+                    _ => {
+                        // Secrets don't match
+                        eprintln!("An identity with the name {} already exists but has a different secret. Overwriting...", self.name);
+                        self.write_and_fund_identity(&secret).await?;
+                    }
                 }
+            } else {
+                // No seed provided, inform user that identity already exists
+                self.handle_existing_identity(&existing_secret).await?;
+                return Ok(());
             }
-            Err(_) => {
-                // Identity doesn't exist, create new one
-                self.write_and_fund_identity(&secret).await?;
-            }
+        } else {
+            // Identity doesn't exist, create new one
+            self.write_and_fund_identity(&secret).await?;
         }
         Ok(())
     }
