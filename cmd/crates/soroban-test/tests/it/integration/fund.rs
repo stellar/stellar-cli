@@ -38,6 +38,8 @@ async fn fund() {
         .arg("aaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         .assert()
         .stderr_as_str();
-    assert!(output.contains("An identity with the name test already exists but has a different secret. Overwriting..."));
+    assert!(output.contains(
+        "An identity with the name test already exists but has a different secret. Overwriting..."
+    ));
     assert!(output.contains("Generated new key"));
 }
