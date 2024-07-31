@@ -354,7 +354,7 @@ fn get_available_ports(n: usize) -> (u16, u16) {
     let mut ports = Vec::with_capacity(n);
     while ports.len() < n {
         if let Some(port) = range.next() {
-            if let Ok(listener) = TcpListener::bind(("127.0.0.1", port)) {
+            if let Ok(listener) = TcpListener::bind(("0.0.0.0", port)) {
                 ports.push(port);
                 drop(listener);
             }
