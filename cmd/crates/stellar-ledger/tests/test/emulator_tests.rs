@@ -24,8 +24,8 @@ pub fn test_network_hash() -> Hash {
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
 
-fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
-    LedgerSigner::new(get_http_transport("127.0.0.1", host_port).unwrap())
+async fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
+    LedgerSigner::new(get_http_transport("127.0.0.1", host_port).await.unwrap())
 }
 
 mod test_helpers {
@@ -52,7 +52,7 @@ async fn test_get_public_key(ledger_device_model: String) {
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(host_port).await;
 
     match ledger.get_public_key(&0.into()).await {
         Ok(public_key) => {
@@ -84,7 +84,7 @@ async fn test_get_app_configuration(ledger_device_model: String) {
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(host_port).await;
 
     match ledger.get_app_configuration().await {
         Ok(config) => {
@@ -112,7 +112,7 @@ async fn test_sign_tx(ledger_device_model: String) {
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = Arc::new(ledger(host_port));
+    let ledger = Arc::new(ledger(host_port).await);
 
     let path = HdPath(0);
 
@@ -201,7 +201,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model:
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(host_port).await;
 
     let path = 0;
     let test_hash = b"313e8447f569233bb8db39aa607c8889";
@@ -232,7 +232,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: Str
     wait_for_emulator_start_text(ui_host_port).await;
     enable_hash_signing(ui_host_port).await;
 
-    let ledger = Arc::new(ledger(host_port));
+    let ledger = Arc::new(ledger(host_port).await);
 
     let path = 0;
     let mut test_hash = [0u8; 32];
@@ -347,7 +347,6 @@ fn get_runnable_image(ledger_device_model: String) -> RunnableImage<Speculos> {
 fn get_available_ports() -> (u16, u16) {
     let listener1 = TcpListener::bind("127.0.0.1:0").unwrap();
     let listener2 = TcpListener::bind("127.0.0.1:0").unwrap();
-    println!("listener1: {:?}", listener1);
     let port_1 = listener1.local_addr().unwrap().port();
     let port_2 = listener2.local_addr().unwrap().port();
     drop(listener1);
@@ -356,8 +355,29 @@ fn get_available_ports() -> (u16, u16) {
     (port_1, port_2)
 }
 
-fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
-    Ok(EmulatorHttpTransport::new(host, port))
+async fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
+    let max_retries = 5;
+    let mut retries = 0;
+    let mut wait_time = Duration::from_secs(1);
+    // ping the emulator port to make sure it's up and running
+    // retry with exponential backoff
+    loop {
+        match reqwest::get(format!("http://{host}:{port}")).await {
+            Ok(_) => return Ok(EmulatorHttpTransport::new(host, port)),
+            Err(e) => {
+                retries += 1;
+                if retries >= max_retries {
+                    println!("get_http_transport: Exceeded max retries for connecting to emulated device");
+
+                    return Err(Error::APDUExchangeError(format!(
+                        "Failed to connect to emulator: {e}"
+                    )));
+                }
+                sleep(wait_time).await;
+                wait_time *= 2;
+            }
+        }
+    }
 }
 
 async fn wait_for_emulator_start_text(ui_host_port: u16) {
@@ -383,9 +403,7 @@ async fn get_emulator_events_with_retries(
 ) -> Vec<EmulatorEvent> {
     let client = reqwest::Client::new();
     let mut retries = 0;
-
     let mut wait_time = Duration::from_secs(1);
-
     loop {
         match client
             .get(format!("http://localhost:{ui_host_port}/events"))
@@ -397,12 +415,10 @@ async fn get_emulator_events_with_retries(
                 return resp.events;
             }
             Err(e) => {
-                println!("Retry count: {retries}");
-                println!("Wait time: {wait_time:?}");
                 retries += 1;
                 if retries >= max_retries {
-                    println!("Exeeded max retries");
-                    panic!("Failed to get emulator events: {e}");
+                    println!("get_emulator_events_with_retries: Exceeded max retries");
+                    panic!("get_emulator_events_with_retries: Failed to get emulator events: {e}");
                 }
                 sleep(wait_time).await;
                 wait_time *= 2;
