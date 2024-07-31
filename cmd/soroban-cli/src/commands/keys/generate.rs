@@ -49,6 +49,46 @@ pub struct Cmd {
 }
 
 impl Cmd {
+    async fn fund_identity(&self, secret: &Secret) -> Result<(), Error> {
+        if !self.no_fund {
+            let addr = secret.public_key(self.hd_path)?;
+            let network = self.network.get(&self.config_locator)?;
+            eprintln!("🌎 Funding account with public key as address on testnet...");
+            match network.fund_address(&addr).await {
+                Ok(()) => {
+                    eprintln!("✅ Funded (use 'stellar keys fund me' to fund again)");
+                }
+                Err(e) => {
+                    tracing::warn!("fund_address failed: {e}");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn write_and_fund_identity(&self, secret: &Secret) -> Result<(), Error> {
+        self.config_locator.write_identity(&self.name, secret)?;
+        eprintln!("✅ Generated new key for '{}'", self.name);
+        eprintln!("ℹ️ Public key: {}", secret.public_key(self.hd_path)?);
+        eprintln!(
+            "ℹ️ Secret key: hidden (use 'stellar keys show {}' to view)",
+            self.name
+        );
+        self.fund_identity(secret).await?;
+        Ok(())
+    }
+
+    async fn handle_existing_identity(&self, existing_secret: &Secret) -> Result<(), Error> {
+        eprintln!("The identity {} already exists!", self.name);
+        if let Ok(root) = self.config_locator.config_dir() {
+            let mut path = root.join("identity").join(&self.name);
+            path.set_extension("toml");
+            eprintln!("    Seed phrase found at: {}", path.display());
+        }
+        self.fund_identity(existing_secret).await?;
+        Ok(())
+    }
+
     pub async fn run(&self) -> Result<(), Error> {
         let seed_phrase = if self.default_seed {
             Secret::test_seed_phrase()
@@ -60,17 +100,36 @@ impl Cmd {
         } else {
             seed_phrase
         };
-        self.config_locator.write_identity(&self.name, &secret)?;
-        if !self.no_fund {
-            let addr = secret.public_key(self.hd_path)?;
-            let network = self.network.get(&self.config_locator)?;
-            network
-                .fund_address(&addr)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("fund_address failed: {e}");
-                })
-                .unwrap_or_default();
+
+        // Check if identity exists
+        match self.config_locator.read_identity(&self.name) {
+            Ok(existing_secret) => {
+                if self.seed.is_some() || self.default_seed {
+                    // Compare secrets only if seed is provided
+                    match (
+                        existing_secret.private_key(self.hd_path),
+                        secret.private_key(self.hd_path),
+                    ) {
+                        (Ok(existing_pk), Ok(new_pk)) if existing_pk == new_pk => {
+                            self.handle_existing_identity(&existing_secret).await?;
+                            return Ok(());
+                        }
+                        _ => {
+                            // Secrets don't match
+                            eprintln!("An identity with the name {} already exists but has a different secret. Overwriting...", self.name);
+                            self.write_and_fund_identity(&secret).await?;
+                        }
+                    }
+                } else {
+                    // No seed provided, inform user that identity already exists
+                    self.handle_existing_identity(&existing_secret).await?;
+                    return Ok(());
+                }
+            }
+            Err(_) => {
+                // Identity doesn't exist, create new one
+                self.write_and_fund_identity(&secret).await?;
+            }
         }
         Ok(())
     }
