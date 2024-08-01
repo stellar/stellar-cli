@@ -25,8 +25,10 @@ use tokio::fs::OpenOptions;
 
 use soroban_env_host::xdr::{self};
 
-use super::config::{self, locator};
-use crate::{commands::config::data, config::network::passphrase};
+use crate::{
+    commands::{config::data, HEADING_RPC},
+    config::{self, locator, network::passphrase},
+};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Format {
@@ -70,7 +72,7 @@ pub struct Cmd {
     #[command(flatten)]
     network: config::network::Args,
     /// Archive URL
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_RPC, env = "STELLAR_ARCHIVE_URL")]
     archive_url: Option<Uri>,
 }
 

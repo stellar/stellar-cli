@@ -146,6 +146,7 @@ pub enum Cmd {
     Network(network::Cmd),
 
     /// Download a snapshot of a ledger from an archive.
+    #[command(subcommand)]
     Snapshot(snapshot::Cmd),
 
     /// Sign, Simulate, and Send transactions
