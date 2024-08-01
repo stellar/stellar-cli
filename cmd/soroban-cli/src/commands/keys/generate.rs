@@ -4,6 +4,7 @@ use super::super::config::{
     locator, network,
     secret::{self, Secret},
 };
+use crate::config::network::get_network_name;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -53,7 +54,8 @@ impl Cmd {
         if !self.no_fund {
             let addr = secret.public_key(self.hd_path)?;
             let network = self.network.get(&self.config_locator)?;
-            eprintln!("🌎 Funding account with public key as address on testnet...");
+            let network_name = get_network_name(&network.rpc_url).unwrap_or(&network.rpc_url);
+            eprintln!("🌎 Funding account with public key as address on {network_name}...",);
             match network.fund_address(&addr).await {
                 Ok(()) => {
                     eprintln!("✅ Funded (use 'stellar keys fund me' to fund again)");
@@ -102,31 +104,29 @@ impl Cmd {
         };
 
         // Check if identity exists
-        if let Ok(existing_secret) = self.config_locator.read_identity(&self.name) {
-            if self.seed.is_some() || self.default_seed {
-                // Compare secrets only if seed is provided
-                match (
-                    existing_secret.private_key(self.hd_path),
-                    secret.private_key(self.hd_path),
-                ) {
-                    (Ok(existing_pk), Ok(new_pk)) if existing_pk == new_pk => {
-                        self.handle_existing_identity(&existing_secret).await?;
-                        return Ok(());
-                    }
-                    _ => {
-                        // Secrets don't match
-                        eprintln!("An identity with the name {} already exists but has a different secret. Overwriting...", self.name);
-                        self.write_and_fund_identity(&secret).await?;
-                    }
-                }
-            } else {
-                // No seed provided, inform user that identity already exists
-                self.handle_existing_identity(&existing_secret).await?;
-                return Ok(());
-            }
-        } else {
+        let Ok(existing_secret) = self.config_locator.read_identity(&self.name) else {
             // Identity doesn't exist, create new one
             self.write_and_fund_identity(&secret).await?;
+            return Ok(());
+        };
+        if self.seed.is_some() || self.default_seed {
+            // Compare secrets only if seed is provided
+            match (
+                existing_secret.private_key(self.hd_path),
+                secret.private_key(self.hd_path),
+            ) {
+                (Ok(existing_pk), Ok(new_pk)) if existing_pk == new_pk => {
+                    self.handle_existing_identity(&existing_secret).await?;
+                }
+                _ => {
+                    // Secrets don't match
+                    eprintln!("An identity with the name {} already exists but has a different secret. Overwriting...", self.name);
+                    self.write_and_fund_identity(&secret).await?;
+                }
+            }
+        } else {
+            // No seed provided, inform user that identity already exists
+            self.handle_existing_identity(&existing_secret).await?;
         }
         Ok(())
     }
