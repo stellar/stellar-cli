@@ -245,21 +245,31 @@ impl Cmd {
                     if seen.contains(&key) {
                         continue;
                     }
+                    let keep = match &key {
+                        LedgerKey::Account(k) => {
+                            current.account_ids.contains(&k.account_id.to_string())
+                        }
+                        LedgerKey::Trustline(k) => {
+                            current.account_ids.contains(&k.account_id.to_string())
+                        }
+                        LedgerKey::ContractData(k) => {
+                            current.contract_ids.contains(&k.contract.to_string())
+                        }
+                        LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash.0),
+                        _ => false,
+                    };
+                    if !keep {
+                        continue;
+                    }
+                    seen.insert(key.clone());
                     let Some(val) = val else { continue };
-                    let keep = match &val.data {
-                        LedgerEntryData::Account(e) => {
-                            current.account_ids.contains(&e.account_id.to_string())
-                        }
-                        LedgerEntryData::Trustline(e) => {
-                            current.account_ids.contains(&e.account_id.to_string())
-                        }
+                    match &val.data {
                         LedgerEntryData::ContractData(e) => {
-                            let keep = current.contract_ids.contains(&e.contract.to_string());
-                            // If a contract instance references
-                            // contract executable stored in another
-                            // ledger entry, add that ledger entry to
-                            // the filter so that Wasm for any filtered
-                            // contract is collected too in the second pass.
+                            // If a contract instance references contract
+                            // executable stored in another ledger entry, add
+                            // that ledger entry to the filter so that Wasm for
+                            // any filtered contract is collected too in the
+                            // second pass.
                             if keep && e.key == ScVal::LedgerKeyContractInstance {
                                 if let ScVal::ContractInstance(ScContractInstance {
                                     executable: ContractExecutable::Wasm(Hash(hash)),
@@ -272,25 +282,16 @@ impl Cmd {
                             }
                             keep
                         }
-                        LedgerEntryData::ContractCode(e) => current.wasm_hashes.contains(&e.hash.0),
-                        LedgerEntryData::Offer(_)
-                        | LedgerEntryData::Data(_)
-                        | LedgerEntryData::ClaimableBalance(_)
-                        | LedgerEntryData::LiquidityPool(_)
-                        | LedgerEntryData::ConfigSetting(_)
-                        | LedgerEntryData::Ttl(_) => false,
+                        _ => false,
                     };
-                    seen.insert(key.clone());
-                    if keep {
-                        // Store the found ledger entry in the snapshot with
-                        // a max u32 expiry.
-                        // TODO: Change the expiry to come from the
-                        // corresponding TTL ledger entry.
-                        snapshot
-                            .ledger_entries
-                            .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
-                        count_saved += 1;
-                    }
+                    // Store the found ledger entry in the snapshot with a max
+                    // u32 expiry.
+                    // TODO: Change the expiry to come from the corresponding
+                    // TTL ledger entry.
+                    snapshot
+                        .ledger_entries
+                        .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
+                    count_saved += 1;
                 }
                 if count_saved > 0 {
                     println!("ℹ️  Found {count_saved} entries");
