@@ -119,7 +119,6 @@ futures = "0.3.30"
 home = "0.5.9"
 flate2 = "1.0.30"
 bytesize = "1.3.0"
-io_tee = "0.1.1"
 humantime = "2.1.0"
 phf = { version = "0.11.2", features = ["macros"] }
 

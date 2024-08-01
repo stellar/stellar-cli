@@ -63,10 +63,11 @@ fn snapshot() {
     // Create the snapshot.
     sandbox
         .new_assert_cmd("snapshot")
-        .arg("--format=json")
-        .arg("--account-id")
+        .arg("create")
+        .arg("--output=json")
+        .arg("--address")
         .arg(&account_a)
-        .arg("--contract-id")
+        .arg("--address")
         .arg(&contract_b)
         .assert()
         .success();

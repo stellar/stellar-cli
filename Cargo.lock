@@ -2969,12 +2969,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "io_tee"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b3f7cef34251886990511df1c61443aa928499d598a9473929ab5a90a527304"
-
-[[package]]
 name = "ipnet"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4741,7 +4735,6 @@ dependencies = [
  "humantime",
  "hyper 0.14.28",
  "hyper-tls",
- "io_tee",
  "itertools 0.10.5",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
