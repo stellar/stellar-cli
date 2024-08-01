@@ -210,7 +210,6 @@ impl Cmd {
                 current.wasm_hashes.len()
             );
             for (i, bucket) in buckets.iter().enumerate() {
-                println!("🔎 Looking in bucket {i} {bucket}");
                 // Defined where the bucket will be read from, either from cache on
                 // disk, or streamed from the archive.
                 let cache_path = cache_bucket(&archive_url, i, bucket).await?;
@@ -218,6 +217,12 @@ impl Cmd {
                     .read(true)
                     .open(&cache_path)
                     .map_err(Error::ReadOpeningCachedBucket)?;
+                print!("🔎 Searching bucket {i} {bucket}");
+                if let Ok(metadata) = file.metadata() {
+                    print!(" ({})", ByteSize(metadata.len()));
+                }
+                println!();
+
                 // Stream the bucket entries from the bucket, identifying
                 // entries that match the filters, and including only the
                 // entries that match in the snapshot.
