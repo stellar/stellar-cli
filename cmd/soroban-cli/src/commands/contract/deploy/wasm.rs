@@ -245,7 +245,7 @@ impl NetworkRunnable for Cmd {
         }
 
         output.globe("Submitting deploy transaction…");
-        utils::log_transaction(&output, &txn, &network, true)?;
+        output.log_transaction(&txn, &network, true)?;
 
         let get_txn_resp = client
             .send_transaction_polling(&config.sign_with_local_key(txn).await?)

@@ -12,7 +12,7 @@ use soroban_env_host::xdr::{
 
 pub use soroban_spec_tools::contract as contract_spec;
 
-use crate::{config::network::Network, output::Output};
+use crate::config::network::Network;
 
 /// # Errors
 ///
@@ -47,29 +47,6 @@ pub fn explorer_url_for_contract(network: &Network, contract_id: &str) -> Option
     EXPLORERS
         .get(&network.network_passphrase)
         .map(|base_url| format!("{base_url}/contract/{contract_id}"))
-}
-
-/// # Errors
-///
-/// Might return an error
-pub fn log_transaction(
-    output: &Output,
-    tx: &Transaction,
-    network: &Network,
-    show_link: bool,
-) -> Result<(), XdrError> {
-    let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
-    let hash = hex::encode(tx_hash);
-
-    output.info(format!("Transaction hash is {hash}").as_str());
-
-    if show_link {
-        if let Some(url) = explorer_url_for_transaction(network, &hash) {
-            output.link(url);
-        }
-    }
-
-    Ok(())
 }
 
 /// # Errors
