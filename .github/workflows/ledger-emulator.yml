@@ -25,4 +25,4 @@ jobs:
       run: |
         sudo apt install -y libudev-dev
     - run: |
-        cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests"
+        cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture
