@@ -183,125 +183,167 @@ impl Cmd {
             contract_ids: Vec<String>,
             wasm_hashes: Vec<[u8; 32]>,
         }
-        let mut current = SearchInputs {
+        let current = SearchInputs {
             account_ids: self.account_ids.clone(),
             contract_ids: self.contract_ids.clone(),
             wasm_hashes: self.wasm_hashes()?,
         };
-        let mut next = SearchInputs::default();
+        let mut next_wasm_hashes = HashSet::<[u8; 32]>::new();
 
-        // Parse the buckets twice, because during the first pass contracts
-        // and accounts will be found, along with explicitly provided wasm
-        // hashes. Contracts found will have their wasm hashes added to the
-        // filter because in most cases if someone wants a ledger snapshot
-        // of a contract they also want the contracts code entry (e.g.
-        // wasm).
-        loop {
-            if current.account_ids.is_empty()
-                && current.contract_ids.is_empty()
-                && current.wasm_hashes.is_empty()
-            {
+        // Search the buckets.
+        println!(
+            "ℹ️  Searching for {} accounts, {} contracts, {} wasms",
+            current.account_ids.len(),
+            current.contract_ids.len(),
+            current.wasm_hashes.len()
+        );
+        for (i, bucket) in buckets.iter().enumerate() {
+            // Defined where the bucket will be read from, either from cache on
+            // disk, or streamed from the archive.
+            let cache_path = cache_bucket(&archive_url, i, bucket).await?;
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .open(&cache_path)
+                .map_err(Error::ReadOpeningCachedBucket)?;
+            print!("🔎 Searching bucket {i} {bucket}");
+            if let Ok(metadata) = file.metadata() {
+                print!(" ({})", ByteSize(metadata.len()));
+            }
+            println!();
+
+            // Stream the bucket entries from the bucket, identifying
+            // entries that match the filters, and including only the
+            // entries that match in the snapshot.
+            let limited = &mut Limited::new(file, Limits::none());
+            let entries = Frame::<BucketEntry>::read_xdr_iter(limited);
+            let mut count_saved = 0;
+            for entry in entries {
+                let Frame(entry) = entry.map_err(Error::ReadXdrFrameBucketEntry)?;
+                let (key, val) = match entry {
+                    BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
+                        let k = data_into_key(&l);
+                        (k, Some(l))
+                    }
+                    BucketEntry::Deadentry(k) => (k, None),
+                    BucketEntry::Metaentry(m) => {
+                        snapshot.protocol_version = m.ledger_version;
+                        continue;
+                    }
+                };
+                if seen.contains(&key) {
+                    continue;
+                }
+                let keep = match &key {
+                    LedgerKey::Account(k) => {
+                        current.account_ids.contains(&k.account_id.to_string())
+                    }
+                    LedgerKey::Trustline(k) => {
+                        current.account_ids.contains(&k.account_id.to_string())
+                    }
+                    LedgerKey::ContractData(k) => {
+                        current.contract_ids.contains(&k.contract.to_string())
+                    }
+                    LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash.0),
+                    _ => false,
+                };
+                if !keep {
+                    continue;
+                }
+                seen.insert(key.clone());
+                let Some(val) = val else { continue };
+                match &val.data {
+                    LedgerEntryData::ContractData(e) => {
+                        // If a contract instance references contract
+                        // executable stored in another ledger entry, add
+                        // that ledger entry to the filter so that Wasm for
+                        // any filtered contract is collected too in the
+                        // second pass.
+                        if keep && e.key == ScVal::LedgerKeyContractInstance {
+                            if let ScVal::ContractInstance(ScContractInstance {
+                                executable: ContractExecutable::Wasm(Hash(hash)),
+                                ..
+                            }) = e.val
+                            {
+                                next_wasm_hashes.insert(hash);
+                                println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
+                            }
+                        }
+                        keep
+                    }
+                    _ => false,
+                };
+                snapshot
+                    .ledger_entries
+                    .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
+                count_saved += 1;
+            }
+            if count_saved > 0 {
+                println!("ℹ️  Found {count_saved} entries");
+            }
+        }
+        seen.clear();
+
+        // Parse the buckets a second time if we found wasms in the first pass
+        // that should be included.
+        println!(
+            "ℹ️  Searching for {} additional wasms",
+            next_wasm_hashes.len()
+        );
+        for (i, bucket) in buckets.iter().enumerate() {
+            if next_wasm_hashes.is_empty() {
                 break;
             }
-            println!(
-                "ℹ️  Searching for {} accounts, {} contracts, {} wasms",
-                current.account_ids.len(),
-                current.contract_ids.len(),
-                current.wasm_hashes.len()
-            );
-            for (i, bucket) in buckets.iter().enumerate() {
-                // Defined where the bucket will be read from, either from cache on
-                // disk, or streamed from the archive.
-                let cache_path = cache_bucket(&archive_url, i, bucket).await?;
-                let file = std::fs::OpenOptions::new()
-                    .read(true)
-                    .open(&cache_path)
-                    .map_err(Error::ReadOpeningCachedBucket)?;
-                print!("🔎 Searching bucket {i} {bucket}");
-                if let Ok(metadata) = file.metadata() {
-                    print!(" ({})", ByteSize(metadata.len()));
-                }
-                println!();
-
-                // Stream the bucket entries from the bucket, identifying
-                // entries that match the filters, and including only the
-                // entries that match in the snapshot.
-                let limited = &mut Limited::new(file, Limits::none());
-                let entries = Frame::<BucketEntry>::read_xdr_iter(limited);
-                let mut count_saved = 0;
-                for entry in entries {
-                    let Frame(entry) = entry.map_err(Error::ReadXdrFrameBucketEntry)?;
-                    let (key, val) = match entry {
-                        BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
-                            let k = data_into_key(&l);
-                            (k, Some(l))
-                        }
-                        BucketEntry::Deadentry(k) => (k, None),
-                        BucketEntry::Metaentry(m) => {
-                            snapshot.protocol_version = m.ledger_version;
-                            continue;
-                        }
-                    };
-                    if seen.contains(&key) {
-                        continue;
-                    }
-                    let keep = match &key {
-                        LedgerKey::Account(k) => {
-                            current.account_ids.contains(&k.account_id.to_string())
-                        }
-                        LedgerKey::Trustline(k) => {
-                            current.account_ids.contains(&k.account_id.to_string())
-                        }
-                        LedgerKey::ContractData(k) => {
-                            current.contract_ids.contains(&k.contract.to_string())
-                        }
-                        LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash.0),
-                        _ => false,
-                    };
-                    if !keep {
-                        continue;
-                    }
-                    seen.insert(key.clone());
-                    let Some(val) = val else { continue };
-                    match &val.data {
-                        LedgerEntryData::ContractData(e) => {
-                            // If a contract instance references contract
-                            // executable stored in another ledger entry, add
-                            // that ledger entry to the filter so that Wasm for
-                            // any filtered contract is collected too in the
-                            // second pass.
-                            if keep && e.key == ScVal::LedgerKeyContractInstance {
-                                if let ScVal::ContractInstance(ScContractInstance {
-                                    executable: ContractExecutable::Wasm(Hash(hash)),
-                                    ..
-                                }) = e.val
-                                {
-                                    next.wasm_hashes.push(hash);
-                                    println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
-                                }
-                            }
-                            keep
-                        }
-                        _ => false,
-                    };
-                    // Store the found ledger entry in the snapshot with a max
-                    // u32 expiry.
-                    // TODO: Change the expiry to come from the corresponding
-                    // TTL ledger entry.
-                    snapshot
-                        .ledger_entries
-                        .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
-                    count_saved += 1;
-                }
-                if count_saved > 0 {
-                    println!("ℹ️  Found {count_saved} entries");
-                }
+            // Defined where the bucket will be read from, either from cache on
+            // disk, or streamed from the archive.
+            let cache_path = cache_bucket(&archive_url, i, bucket).await?;
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .open(&cache_path)
+                .map_err(Error::ReadOpeningCachedBucket)?;
+            print!("🔎 Searching bucket {i} {bucket}");
+            if let Ok(metadata) = file.metadata() {
+                print!(" ({})", ByteSize(metadata.len()));
             }
-            seen.clear();
-            current = next;
-            next = SearchInputs::default();
+            println!();
+
+            // Stream the bucket entries from the bucket, identifying
+            // entries that match the filters, and including only the
+            // entries that match in the snapshot.
+            let limited = &mut Limited::new(file, Limits::none());
+            let entries = Frame::<BucketEntry>::read_xdr_iter(limited);
+            let mut count_saved = 0;
+            for entry in entries {
+                if next_wasm_hashes.is_empty() {
+                    break;
+                }
+                let Frame(entry) = entry.map_err(Error::ReadXdrFrameBucketEntry)?;
+                let (key, val) = match entry {
+                    BucketEntry::Liveentry(l) | BucketEntry::Initentry(l) => {
+                        let k = data_into_key(&l);
+                        (k, Some(l))
+                    }
+                    BucketEntry::Deadentry(k) => (k, None),
+                    BucketEntry::Metaentry(_) => continue,
+                };
+                let keep = match &key {
+                    LedgerKey::ContractCode(e) => next_wasm_hashes.remove(&e.hash.0),
+                    _ => false,
+                };
+                if !keep {
+                    continue;
+                }
+                let Some(val) = val else { continue };
+                snapshot
+                    .ledger_entries
+                    .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
+                count_saved += 1;
+            }
+            if count_saved > 0 {
+                println!("ℹ️  Found {count_saved} entries");
+            }
         }
 
+        // Write the snapshot to file.
         snapshot
             .write_file(&self.out)
             .map_err(Error::WriteLedgerSnapshot)?;
