@@ -1020,8 +1020,7 @@ Create a snapshot using the archive
 ###### **Options:**
 
 * `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
-* `--account-id <ACCOUNT_IDS>` — Account IDs to include in the snapshot
-* `--contract-id <CONTRACT_IDS>` — Contract IDs to include in the snapshot
+* `--address <ADDRESS>` — Account or contract address to include in the snapshot
 * `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
 * `--output <OUTPUT>` — Format of the out file
 
