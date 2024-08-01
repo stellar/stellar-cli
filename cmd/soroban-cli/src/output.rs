@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub struct Output {
     pub quiet: bool,
 }
@@ -7,25 +9,25 @@ impl Output {
         Output { quiet }
     }
 
-    fn print(&self, icon: &str, message: &str) {
+    fn print<T: Display>(&self, icon: &str, message: T) {
         if !self.quiet {
             eprintln!("{icon} {message}");
         }
     }
 
-    pub fn check(&self, message: &str) {
+    pub fn check<T: Display>(&self, message: T) {
         self.print("✅", message);
     }
 
-    pub fn info(&self, message: &str) {
+    pub fn info<T: Display>(&self, message: T) {
         self.print("ℹ️", message);
     }
 
-    pub fn globe(&self, message: &str) {
+    pub fn globe<T: Display>(&self, message: T) {
         self.print("🌎", message);
     }
 
-    pub fn link(&self, message: &str) {
+    pub fn link<T: Display>(&self, message: T) {
         self.print("🔗", message);
     }
 }

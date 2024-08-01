@@ -259,7 +259,7 @@ impl NetworkRunnable for Cmd {
         let contract_id = stellar_strkey::Contract(contract_id.0).to_string();
 
         if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
-            output.link(&url);
+            output.link(url);
         }
 
         output.check("Deployed!");

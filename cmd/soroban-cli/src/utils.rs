@@ -61,9 +61,11 @@ pub fn log_transaction(
     let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
     let hash = hex::encode(tx_hash);
 
+    output.info(format!("Transaction hash is {hash}").as_str());
+
     if show_link {
         if let Some(url) = explorer_url_for_transaction(network, &hash) {
-            output.link(&url);
+            output.link(url);
         }
     }
 
