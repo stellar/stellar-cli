@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, value_parser, Parser};
+use clap::{arg, command, value_parser, Parser, ValueEnum};
 use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 
@@ -21,6 +21,7 @@ use soroban_env_host::{
     HostError,
 };
 
+use soroban_rpc::SimulateTransactionResponse;
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
@@ -44,7 +45,7 @@ pub struct Cmd {
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction
+    /// View the result simulating and do not sign and submit transaction. Ieprecated use `--send=no`
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
@@ -54,6 +55,9 @@ pub struct Cmd {
     pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
+    /// Whether or not to send a transaction
+    #[arg(long, value_enum, default_value("if-write"))]
+    pub send: Send,
 }
 
 impl FromStr for Cmd {
@@ -153,14 +157,9 @@ impl From<Infallible> for Error {
 }
 
 impl Cmd {
-    fn is_view(&self) -> bool {
-        self.is_view ||
-            // TODO: Remove at next major release. Was added to retain backwards
-            // compatibility when this env var used to be used for the --is-view
-            // option.
-            std::env::var("SYSTEM_TEST_VERBOSE_OUTPUT").as_deref() == Ok("true")
+    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+        Ok(self.send.should_send(sim_res)? && !self.is_view)
     }
-
     fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
@@ -366,20 +365,13 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let (return_value, events) = if self.is_view() {
-            // log_auth_cost_and_footprint(Some(&sim_res.transaction_data()?.resources));
-            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
-        } else {
+        let (return_value, events) = if self.send(sim_res)? {
             let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
             // Need to sign all auth entries
             let mut txn = txn.transaction().clone();
-            // let auth = auth_entries(&txn);
-            // crate::log::auth(&[auth]);
-
             if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
                 txn = tx;
             }
-            // log_auth_cost_and_footprint(resources(&txn));
             let res = client
                 .send_transaction_polling(&config.sign_with_local_key(txn).await?)
                 .await?;
@@ -387,6 +379,8 @@ impl NetworkRunnable for Cmd {
                 data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
             }
             (res.return_value()?, res.contract_events()?)
+        } else {
+            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         };
 
         crate::log::diagnostic_events(&events, tracing::Level::INFO);
@@ -560,4 +554,30 @@ Usage Notes:
 Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
 Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"#
     )
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
+pub enum Send {
+    /// Only send transaction if there are ledger writes, otherwise return simulation result
+    #[default]
+    IfWrite,
+    /// Do not send transaction, return simulation result
+    No,
+    /// Always send transaction
+    Yes,
+}
+
+impl Send {
+    pub fn should_send(self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+        Ok(match self {
+            Send::IfWrite => !sim_res
+                .transaction_data()?
+                .resources
+                .footprint
+                .read_write
+                .is_empty(),
+            Send::No => false,
+            Send::Yes => true,
+        })
+    }
 }
