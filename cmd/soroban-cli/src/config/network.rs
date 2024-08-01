@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use clap::arg;
-use http::Uri;
 use phf::phf_map;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
