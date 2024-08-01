@@ -4,6 +4,7 @@ use clap::{arg, Parser, ValueEnum};
 use futures::{StreamExt, TryStreamExt};
 use http::Uri;
 use humantime::format_duration;
+use itertools::{Either, Itertools};
 use sha2::{Digest, Sha256};
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
@@ -15,11 +16,11 @@ use std::{
     time::{Duration, Instant},
 };
 use stellar_xdr::curr::{
-    BucketEntry, ConfigSettingEntry, ConfigSettingId, ContractExecutable, Frame, Hash, LedgerEntry,
-    LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
+    AccountId, BucketEntry, ConfigSettingEntry, ConfigSettingId, ContractExecutable, Frame, Hash,
+    LedgerEntry, LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
     LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
     LedgerKeyLiquidityPool, LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits,
-    ReadXdr, ScContractInstance, ScVal,
+    ReadXdr, ScAddress, ScContractInstance, ScVal,
 };
 use tokio::fs::OpenOptions;
 
@@ -52,12 +53,9 @@ pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
     ledger: Option<u32>,
-    /// Account IDs to include in the snapshot.
-    #[arg(long = "account-id", help_heading = "Filter Options")]
-    account_ids: Vec<String>,
-    /// Contract IDs to include in the snapshot.
-    #[arg(long = "contract-id", help_heading = "Filter Options")]
-    contract_ids: Vec<String>,
+    /// Account or contract address to include in the snapshot.
+    #[arg(long = "address", help_heading = "Filter Options")]
+    address: Vec<ScAddress>,
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<String>,
@@ -176,8 +174,7 @@ impl Cmd {
         // the higher level bucket should be used.
         let mut seen = HashSet::new();
 
-        let account_ids = HashSet::<&String>::from_iter(&self.account_ids);
-        let contract_ids = HashSet::<&String>::from_iter(&self.contract_ids);
+        let (account_ids, contract_ids) = self.addresses();
         let wasm_hashes = self.wasm_hashes()?;
         let mut next_wasm_hashes = HashSet::<[u8; 32]>::new();
 
@@ -225,9 +222,9 @@ impl Cmd {
                     continue;
                 }
                 let keep = match &key {
-                    LedgerKey::Account(k) => account_ids.contains(&k.account_id.to_string()),
-                    LedgerKey::Trustline(k) => account_ids.contains(&k.account_id.to_string()),
-                    LedgerKey::ContractData(k) => contract_ids.contains(&k.contract.to_string()),
+                    LedgerKey::Account(k) => account_ids.contains(&k.account_id),
+                    LedgerKey::Trustline(k) => account_ids.contains(&k.account_id),
+                    LedgerKey::ContractData(k) => contract_ids.contains(&k.contract),
                     LedgerKey::ContractCode(e) => wasm_hashes.contains(&e.hash.0),
                     _ => false,
                 };
@@ -342,6 +339,13 @@ impl Cmd {
         println!("✅ Completed in {}", format_duration(duration));
 
         Ok(())
+    }
+
+    fn addresses(&self) -> (HashSet<AccountId>, HashSet<ScAddress>) {
+        self.address.iter().cloned().partition_map(|a| match a {
+            ScAddress::Account(account_id) => Either::Left(account_id),
+            ScAddress::Contract(_) => Either::Right(a),
+        })
     }
 
     fn wasm_hashes(&self) -> Result<HashSet<[u8; 32]>, Error> {
