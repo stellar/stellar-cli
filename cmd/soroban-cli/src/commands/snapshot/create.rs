@@ -245,54 +245,51 @@ impl Cmd {
                     if seen.contains(&key) {
                         continue;
                     }
-                    if let Some(val) = val {
-                        let keep = match &val.data {
-                            LedgerEntryData::Account(e) => {
-                                current.account_ids.contains(&e.account_id.to_string())
-                            }
-                            LedgerEntryData::Trustline(e) => {
-                                current.account_ids.contains(&e.account_id.to_string())
-                            }
-                            LedgerEntryData::ContractData(e) => {
-                                let keep = current.contract_ids.contains(&e.contract.to_string());
-                                // If a contract instance references
-                                // contract executable stored in another
-                                // ledger entry, add that ledger entry to
-                                // the filter so that Wasm for any filtered
-                                // contract is collected too in the second pass.
-                                if keep && e.key == ScVal::LedgerKeyContractInstance {
-                                    if let ScVal::ContractInstance(ScContractInstance {
-                                        executable: ContractExecutable::Wasm(Hash(hash)),
-                                        ..
-                                    }) = e.val
-                                    {
-                                        next.wasm_hashes.push(hash);
-                                        println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
-                                    }
-                                }
-                                keep
-                            }
-                            LedgerEntryData::ContractCode(e) => {
-                                current.wasm_hashes.contains(&e.hash.0)
-                            }
-                            LedgerEntryData::Offer(_)
-                            | LedgerEntryData::Data(_)
-                            | LedgerEntryData::ClaimableBalance(_)
-                            | LedgerEntryData::LiquidityPool(_)
-                            | LedgerEntryData::ConfigSetting(_)
-                            | LedgerEntryData::Ttl(_) => false,
-                        };
-                        seen.insert(key.clone());
-                        if keep {
-                            // Store the found ledger entry in the snapshot with
-                            // a max u32 expiry.
-                            // TODO: Change the expiry to come from the
-                            // corresponding TTL ledger entry.
-                            snapshot
-                                .ledger_entries
-                                .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
-                            count_saved += 1;
+                    let Some(val) = val else { continue };
+                    let keep = match &val.data {
+                        LedgerEntryData::Account(e) => {
+                            current.account_ids.contains(&e.account_id.to_string())
                         }
+                        LedgerEntryData::Trustline(e) => {
+                            current.account_ids.contains(&e.account_id.to_string())
+                        }
+                        LedgerEntryData::ContractData(e) => {
+                            let keep = current.contract_ids.contains(&e.contract.to_string());
+                            // If a contract instance references
+                            // contract executable stored in another
+                            // ledger entry, add that ledger entry to
+                            // the filter so that Wasm for any filtered
+                            // contract is collected too in the second pass.
+                            if keep && e.key == ScVal::LedgerKeyContractInstance {
+                                if let ScVal::ContractInstance(ScContractInstance {
+                                    executable: ContractExecutable::Wasm(Hash(hash)),
+                                    ..
+                                }) = e.val
+                                {
+                                    next.wasm_hashes.push(hash);
+                                    println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
+                                }
+                            }
+                            keep
+                        }
+                        LedgerEntryData::ContractCode(e) => current.wasm_hashes.contains(&e.hash.0),
+                        LedgerEntryData::Offer(_)
+                        | LedgerEntryData::Data(_)
+                        | LedgerEntryData::ClaimableBalance(_)
+                        | LedgerEntryData::LiquidityPool(_)
+                        | LedgerEntryData::ConfigSetting(_)
+                        | LedgerEntryData::Ttl(_) => false,
+                    };
+                    seen.insert(key.clone());
+                    if keep {
+                        // Store the found ledger entry in the snapshot with
+                        // a max u32 expiry.
+                        // TODO: Change the expiry to come from the
+                        // corresponding TTL ledger entry.
+                        snapshot
+                            .ledger_entries
+                            .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
+                        count_saved += 1;
                     }
                 }
                 if count_saved > 0 {
