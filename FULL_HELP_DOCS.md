@@ -1003,7 +1003,19 @@ Stop a network container started with `network container start`
 
 Download a snapshot of a ledger from an archive
 
-**Usage:** `stellar snapshot [OPTIONS] --format <FORMAT>`
+**Usage:** `stellar snapshot <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — Create a snapshot using the archive
+
+
+
+## `stellar snapshot create`
+
+Create a snapshot using the archive
+
+**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
 
 ###### **Options:**
 
@@ -1011,7 +1023,7 @@ Download a snapshot of a ledger from an archive
 * `--account-id <ACCOUNT_IDS>` — Account IDs to include in the snapshot
 * `--contract-id <CONTRACT_IDS>` — Contract IDs to include in the snapshot
 * `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
-* `--format <FORMAT>` — Format of the out file
+* `--output <OUTPUT>` — Format of the out file
 
   Possible values: `json`
 

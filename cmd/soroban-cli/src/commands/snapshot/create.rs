@@ -31,11 +31,11 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
-pub enum Format {
+pub enum Output {
     Json,
 }
 
-impl Default for Format {
+impl Default for Output {
     fn default() -> Self {
         Self::Json
     }
@@ -63,7 +63,7 @@ pub struct Cmd {
     wasm_hashes: Vec<String>,
     /// Format of the out file.
     #[arg(long)]
-    format: Format,
+    output: Output,
     /// Out path that the snapshot is written to.
     #[arg(long, default_value=default_out_path().into_os_string())]
     out: PathBuf,
