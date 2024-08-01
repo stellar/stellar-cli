@@ -21,10 +21,15 @@ async fn txn_simulate() {
     assert_eq!(xdr_base64_sim_only, assembled_str);
     let assembled = sandbox
         .client()
-        .simulate_and_assemble_transaction(&tx)
+        .simulate_and_prepare_transaction(&tx)
         .await
         .unwrap();
-    let txn_env: TransactionEnvelope = assembled.transaction().clone().into();
+    let txn_env: TransactionEnvelope = assembled
+        .assembled
+        .expect("Simulation should succeed")
+        .transaction()
+        .clone()
+        .into();
     assert_eq!(
         txn_env.to_xdr_base64(Limits::none()).unwrap(),
         assembled_str

@@ -17,7 +17,7 @@ use crate::{
     config::{self, data, locator, network},
     key,
     rpc::{self, Client},
-    wasm, Pwd,
+    utils, wasm, Pwd,
 };
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
@@ -177,8 +177,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = client
-            .simulate_and_assemble_transaction(&tx)
+        let tx = utils::log_simulation_result(&client, &tx)
             .await?
             .transaction()
             .clone();
@@ -191,7 +190,7 @@ impl NetworkRunnable for Cmd {
 
         let events = res.events()?;
         if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
+            crate::log::diagnostic_events(&events, tracing::Level::INFO);
         }
         let meta = res
             .result_meta
