@@ -26,7 +26,7 @@ use tokio::fs::OpenOptions;
 use soroban_env_host::xdr::{self};
 
 use super::config::{self, locator};
-use crate::commands::config::data;
+use crate::{commands::config::data, config::network::passphrase};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Format {
@@ -69,6 +69,9 @@ pub struct Cmd {
     locator: locator::Args,
     #[command(flatten)]
     network: config::network::Args,
+    /// Archive URL
+    #[arg(long)]
+    archive_url: Option<Uri>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -111,6 +114,8 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error("archive url not configured")]
+    ArchiveUrlNotConfigured,
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -124,7 +129,7 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let start = Instant::now();
 
-        let archive_url = self.network.get(&self.locator)?.archive_url()?;
+        let archive_url = self.archive_url()?;
         let history = get_history(&archive_url, self.ledger).await?;
 
         let ledger = history.current_ledger;
@@ -319,6 +324,30 @@ impl Cmd {
                     })
             })
             .collect::<Result<Vec<[u8; 32]>, _>>()
+    }
+
+    fn archive_url(&self) -> Result<http::Uri, Error> {
+        // Return the configured archive URL, or if one is not configured, guess
+        // at an appropriate archive URL given the network passphrase.
+        self.archive_url
+            .clone()
+            .or_else(|| {
+                self.network.get(&self.locator).ok().and_then(|network| {
+                    match network.network_passphrase.as_str() {
+                        passphrase::MAINNET => {
+                            Some("https://history.stellar.org/prd/core-live/core_live_001")
+                        }
+                        passphrase::TESTNET => {
+                            Some("https://history.stellar.org/prd/core-testnet/core_testnet_001")
+                        }
+                        passphrase::FUTURENET => Some("https://history-futurenet.stellar.org"),
+                        passphrase::LOCAL => Some("http://localhost:8000/archive"),
+                        _ => None,
+                    }
+                    .map(|s| Uri::from_str(s).expect("archive url valid"))
+                })
+            })
+            .ok_or(Error::ArchiveUrlNotConfigured)
     }
 }
 

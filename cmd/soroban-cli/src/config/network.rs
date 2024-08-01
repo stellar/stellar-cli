@@ -34,8 +34,6 @@ pub enum Error {
     InvalidUrl(String),
     #[error("funding failed: {0}")]
     FundingFailed(String),
-    #[error("Archive URL not configured")]
-    ArchiveUrlNotConfigured,
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -59,14 +57,6 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
-    /// Archive URL
-    #[arg(
-        long = "archive-url",
-        requires = "network_passphrase",
-        env = "STELLAR_ARCHIVE_URL",
-        help_heading = HEADING_RPC,
-    )]
-    pub archive_url: Option<String>,
     /// Name of network to use from config
     #[arg(
         long,
@@ -90,7 +80,6 @@ impl Args {
             Ok(Network {
                 rpc_url,
                 network_passphrase,
-                archive_url: None,
             })
         } else {
             Err(Error::Network)
@@ -115,13 +104,6 @@ pub struct Network {
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,
-    /// Archive URL
-    #[arg(
-        long = "archive-url",
-        env = "STELLAR_ARCHIVE_URL",
-        help_heading = HEADING_RPC,
-    )]
-    pub archive_url: Option<String>,
 }
 
 impl Network {
@@ -194,29 +176,6 @@ impl Network {
     pub fn rpc_uri(&self) -> Result<http::Uri, Error> {
         http::Uri::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
     }
-
-    pub fn archive_url(&self) -> Result<http::Uri, Error> {
-        // Return the configured archive URL, or if one is not configured, guess
-        // at an appropriate archive URL given the network passphrase.
-        self.archive_url
-            .as_deref()
-            .or(match self.network_passphrase.as_str() {
-                passphrase::MAINNET => {
-                    Some("https://history.stellar.org/prd/core-live/core_live_001")
-                }
-                passphrase::TESTNET => {
-                    Some("https://history.stellar.org/prd/core-testnet/core_testnet_001")
-                }
-                passphrase::FUTURENET => Some("https://history-futurenet.stellar.org"),
-                passphrase::LOCAL => Some("http://localhost:8000/archive"),
-                _ => None,
-            })
-            .ok_or(Error::ArchiveUrlNotConfigured)
-            .and_then(|archive_url| {
-                Uri::from_str(archive_url)
-                    .map_err(|_| Error::InvalidUrl((*archive_url).to_string()))
-            })
-    }
 }
 
 pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_map! {
@@ -244,7 +203,6 @@ impl From<&(&str, &str)> for Network {
         Self {
             rpc_url: n.0.to_string(),
             network_passphrase: n.1.to_string(),
-            archive_url: None,
         }
     }
 }
