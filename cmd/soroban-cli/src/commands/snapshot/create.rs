@@ -176,26 +176,17 @@ impl Cmd {
         // the higher level bucket should be used.
         let mut seen = HashSet::new();
 
-        #[allow(clippy::items_after_statements)]
-        #[derive(Default)]
-        struct SearchInputs {
-            account_ids: Vec<String>,
-            contract_ids: Vec<String>,
-            wasm_hashes: Vec<[u8; 32]>,
-        }
-        let current = SearchInputs {
-            account_ids: self.account_ids.clone(),
-            contract_ids: self.contract_ids.clone(),
-            wasm_hashes: self.wasm_hashes()?,
-        };
+        let account_ids = HashSet::<&String>::from_iter(&self.account_ids);
+        let contract_ids = HashSet::<&String>::from_iter(&self.contract_ids);
+        let wasm_hashes = self.wasm_hashes()?;
         let mut next_wasm_hashes = HashSet::<[u8; 32]>::new();
 
         // Search the buckets.
         println!(
             "ℹ️  Searching for {} accounts, {} contracts, {} wasms",
-            current.account_ids.len(),
-            current.contract_ids.len(),
-            current.wasm_hashes.len()
+            account_ids.len(),
+            contract_ids.len(),
+            wasm_hashes.len()
         );
         for (i, bucket) in buckets.iter().enumerate() {
             // Defined where the bucket will be read from, either from cache on
@@ -234,16 +225,10 @@ impl Cmd {
                     continue;
                 }
                 let keep = match &key {
-                    LedgerKey::Account(k) => {
-                        current.account_ids.contains(&k.account_id.to_string())
-                    }
-                    LedgerKey::Trustline(k) => {
-                        current.account_ids.contains(&k.account_id.to_string())
-                    }
-                    LedgerKey::ContractData(k) => {
-                        current.contract_ids.contains(&k.contract.to_string())
-                    }
-                    LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash.0),
+                    LedgerKey::Account(k) => account_ids.contains(&k.account_id.to_string()),
+                    LedgerKey::Trustline(k) => account_ids.contains(&k.account_id.to_string()),
+                    LedgerKey::ContractData(k) => contract_ids.contains(&k.contract.to_string()),
+                    LedgerKey::ContractCode(e) => wasm_hashes.contains(&e.hash.0),
                     _ => false,
                 };
                 if !keep {
@@ -359,7 +344,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn wasm_hashes(&self) -> Result<Vec<[u8; 32]>, Error> {
+    fn wasm_hashes(&self) -> Result<HashSet<[u8; 32]>, Error> {
         self.wasm_hashes
             .iter()
             .map(|h| {
@@ -370,7 +355,7 @@ impl Cmd {
                             .map_err(|_| Error::WasmHashInvalid(h.clone()))
                     })
             })
-            .collect::<Result<Vec<[u8; 32]>, _>>()
+            .collect::<Result<HashSet<[u8; 32]>, _>>()
     }
 
     fn archive_url(&self) -> Result<http::Uri, Error> {
