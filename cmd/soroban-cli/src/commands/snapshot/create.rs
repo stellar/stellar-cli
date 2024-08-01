@@ -58,7 +58,7 @@ pub struct Cmd {
     address: Vec<ScAddress>,
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
-    wasm_hashes: Vec<String>,
+    wasm_hashes: Vec<Hash>,
     /// Format of the out file.
     #[arg(long)]
     output: Output,
@@ -175,8 +175,8 @@ impl Cmd {
         let mut seen = HashSet::new();
 
         let (account_ids, contract_ids) = self.addresses();
-        let wasm_hashes = self.wasm_hashes()?;
-        let mut next_wasm_hashes = HashSet::<[u8; 32]>::new();
+        let wasm_hashes = HashSet::<&Hash>::from_iter(&self.wasm_hashes);
+        let mut next_wasm_hashes = HashSet::<Hash>::new();
 
         // Search the buckets.
         println!(
@@ -225,7 +225,7 @@ impl Cmd {
                     LedgerKey::Account(k) => account_ids.contains(&k.account_id),
                     LedgerKey::Trustline(k) => account_ids.contains(&k.account_id),
                     LedgerKey::ContractData(k) => contract_ids.contains(&k.contract),
-                    LedgerKey::ContractCode(e) => wasm_hashes.contains(&e.hash.0),
+                    LedgerKey::ContractCode(e) => wasm_hashes.contains(&e.hash),
                     _ => false,
                 };
                 if !keep {
@@ -242,11 +242,11 @@ impl Cmd {
                         // second pass.
                         if keep && e.key == ScVal::LedgerKeyContractInstance {
                             if let ScVal::ContractInstance(ScContractInstance {
-                                executable: ContractExecutable::Wasm(Hash(hash)),
+                                executable: ContractExecutable::Wasm(hash),
                                 ..
-                            }) = e.val
+                            }) = &e.val
                             {
-                                next_wasm_hashes.insert(hash);
+                                next_wasm_hashes.insert(hash.clone());
                                 println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
                             }
                         }
@@ -308,7 +308,7 @@ impl Cmd {
                     BucketEntry::Metaentry(_) => continue,
                 };
                 let keep = match &key {
-                    LedgerKey::ContractCode(e) => next_wasm_hashes.remove(&e.hash.0),
+                    LedgerKey::ContractCode(e) => next_wasm_hashes.remove(&e.hash),
                     _ => false,
                 };
                 if !keep {
@@ -346,20 +346,6 @@ impl Cmd {
             ScAddress::Account(account_id) => Either::Left(account_id),
             ScAddress::Contract(_) => Either::Right(a),
         })
-    }
-
-    fn wasm_hashes(&self) -> Result<HashSet<[u8; 32]>, Error> {
-        self.wasm_hashes
-            .iter()
-            .map(|h| {
-                hex::decode(h)
-                    .map_err(|_| Error::WasmHashInvalid(h.clone()))
-                    .and_then(|vec| {
-                        vec.try_into()
-                            .map_err(|_| Error::WasmHashInvalid(h.clone()))
-                    })
-            })
-            .collect::<Result<HashSet<[u8; 32]>, _>>()
     }
 
     fn archive_url(&self) -> Result<http::Uri, Error> {
