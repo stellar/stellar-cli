@@ -116,17 +116,16 @@ pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
 }
 
-pub fn contract_id_hash_from_asset(
-    asset: &Asset,
-    network_passphrase: &str,
-) -> Result<Hash, XdrError> {
+pub fn contract_id_hash_from_asset(asset: &Asset, network_passphrase: &str) -> Hash {
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
         contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
     });
-    let preimage_xdr = preimage.to_xdr(Limits::none())?;
-    Ok(Hash(Sha256::digest(preimage_xdr).into()))
+    let preimage_xdr = preimage
+        .to_xdr(Limits::none())
+        .expect("HashIdPreimage should not fail encoding to xdr");
+    Hash(Sha256::digest(preimage_xdr).into())
 }
 
 pub mod rpc {

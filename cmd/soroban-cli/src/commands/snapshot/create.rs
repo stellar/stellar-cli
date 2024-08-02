@@ -16,19 +16,19 @@ use std::{
     time::{Duration, Instant},
 };
 use stellar_xdr::curr::{
-    AccountId, BucketEntry, ConfigSettingEntry, ConfigSettingId, ContractExecutable, Frame, Hash,
-    LedgerEntry, LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
-    LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
-    LedgerKeyLiquidityPool, LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits,
-    ReadXdr, ScAddress, ScContractInstance, ScVal,
+    self as xdr, AccountId, Asset, BucketEntry, ConfigSettingEntry, ConfigSettingId,
+    ContractExecutable, Frame, Hash, LedgerEntry, LedgerEntryData, LedgerKey, LedgerKeyAccount,
+    LedgerKeyClaimableBalance, LedgerKeyConfigSetting, LedgerKeyContractCode,
+    LedgerKeyContractData, LedgerKeyData, LedgerKeyLiquidityPool, LedgerKeyOffer,
+    LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits, ReadXdr, ScAddress, ScContractInstance,
+    ScMapEntry, ScString, ScVal, TrustLineAsset,
 };
 use tokio::fs::OpenOptions;
-
-use soroban_env_host::xdr::{self};
 
 use crate::{
     commands::{config::data, HEADING_RPC},
     config::{self, locator, network::passphrase},
+    utils::{contract_id_hash_from_asset, parsing::parse_asset},
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -59,6 +59,9 @@ pub struct Cmd {
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<Hash>,
+    /// WASM hashes to include in the snapshot.
+    #[arg(long = "asset", help_heading = "Filter Options", value_parser=parse_asset)]
+    assets: Vec<Asset>,
     /// Format of the out file.
     #[arg(long)]
     output: Output,
@@ -116,6 +119,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error("archive url not configured")]
     ArchiveUrlNotConfigured,
+    #[error("parsing asset name: {0}")]
+    ParseAssetName(String),
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -180,21 +185,40 @@ impl Cmd {
             account_ids: HashSet<AccountId>,
             contract_ids: HashSet<ScAddress>,
             wasm_hashes: HashSet<Hash>,
+            assets: HashSet<Asset>,
         }
         impl SearchInputs {
             pub fn is_empty(&self) -> bool {
                 self.account_ids.is_empty()
                     && self.contract_ids.is_empty()
                     && self.wasm_hashes.is_empty()
+                    && self.assets.is_empty()
             }
         }
 
-        // Search the buckets.
-        let (account_ids, contract_ids) = self.addresses();
+        // Search the buckets using the user inputs as the starting inputs.
+        let (mut account_ids, mut contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) =
+            self.address.iter().cloned().partition_map(|a| match a {
+                ScAddress::Account(account_id) => Either::Left(account_id),
+                ScAddress::Contract(_) => Either::Right(a),
+            });
+        // Include accounts of issuers of any asset requested.
+        account_ids.extend(self.assets.iter().filter_map(|a| match a {
+            Asset::Native => None,
+            Asset::CreditAlphanum4(a4) => Some(a4.issuer.clone()),
+            Asset::CreditAlphanum12(a12) => Some(a12.issuer.clone()),
+        }));
+        // Include contracts of any asset requested.
+        contract_ids.extend(
+            self.assets
+                .iter()
+                .map(|a| ScAddress::Contract(contract_id_hash_from_asset(a, network_passphrase))),
+        );
         let mut current = SearchInputs {
             account_ids,
             contract_ids,
             wasm_hashes: self.wasm_hashes.iter().cloned().collect(),
+            assets: self.assets.iter().cloned().collect(),
         };
         let mut next = SearchInputs::default();
         loop {
@@ -202,10 +226,11 @@ impl Cmd {
                 break;
             }
             println!(
-                "ℹ️  Searching for {} accounts, {} contracts, {} wasms",
+                "ℹ️  Searching for {} accounts, {} contracts, {} wasms, {} assets",
                 current.account_ids.len(),
                 current.contract_ids.len(),
-                current.wasm_hashes.len()
+                current.wasm_hashes.len(),
+                current.assets.len(),
             );
             for (i, bucket) in buckets.iter().enumerate() {
                 // Defined where the bucket will be read from, either from cache on
@@ -244,8 +269,26 @@ impl Cmd {
                         continue;
                     }
                     let keep = match &key {
-                        LedgerKey::Account(k) => current.account_ids.contains(&k.account_id),
-                        LedgerKey::Trustline(k) => current.account_ids.contains(&k.account_id),
+                        LedgerKey::Account(k) => {
+                            current.account_ids.contains(&k.account_id)
+                                || current.assets.contains(&Asset::Native)
+                        }
+                        LedgerKey::Trustline(LedgerKeyTrustLine {
+                            account_id,
+                            asset: TrustLineAsset::CreditAlphanum4(a4),
+                        }) => {
+                            current.account_ids.contains(account_id)
+                                || current.assets.contains(&Asset::CreditAlphanum4(a4.clone()))
+                        }
+                        LedgerKey::Trustline(LedgerKeyTrustLine {
+                            account_id,
+                            asset: TrustLineAsset::CreditAlphanum12(a12),
+                        }) => {
+                            current.account_ids.contains(account_id)
+                                || current
+                                    .assets
+                                    .contains(&Asset::CreditAlphanum12(a12.clone()))
+                        }
                         LedgerKey::ContractData(k) => current.contract_ids.contains(&k.contract),
                         LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash),
                         _ => false,
@@ -263,15 +306,37 @@ impl Cmd {
                             // any filtered contract is collected too in the
                             // second pass.
                             if keep && e.key == ScVal::LedgerKeyContractInstance {
-                                if let ScVal::ContractInstance(ScContractInstance {
-                                    executable: ContractExecutable::Wasm(hash),
-                                    ..
-                                }) = &e.val
-                                {
-                                    if !current.wasm_hashes.contains(hash) {
-                                        next.wasm_hashes.insert(hash.clone());
-                                        println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
+                                match &e.val {
+                                    ScVal::ContractInstance(ScContractInstance {
+                                        executable: ContractExecutable::Wasm(hash),
+                                        ..
+                                    }) => {
+                                        if !current.wasm_hashes.contains(hash) {
+                                            next.wasm_hashes.insert(hash.clone());
+                                            println!(
+                                                "ℹ️  Adding wasm {} to search",
+                                                hex::encode(hash)
+                                            );
+                                        }
                                     }
+                                    ScVal::ContractInstance(ScContractInstance {
+                                        executable: ContractExecutable::StellarAsset,
+                                        storage: Some(storage),
+                                    }) => {
+                                        if let Some(ScMapEntry {
+                                            val: ScVal::String(ScString(name)),
+                                            ..
+                                        }) = storage.iter().find(|ScMapEntry { key, .. }| {
+                                            key == &ScVal::Symbol("name".try_into().unwrap())
+                                        }) {
+                                            let name = name.to_string();
+                                            println!("ℹ️  Adding asset {name} to search");
+                                            let asset = parse_asset(&name)
+                                                .map_err(|_| Error::ParseAssetName(name))?;
+                                            next.assets.insert(asset);
+                                        }
+                                    }
+                                    _ => {}
                                 }
                             }
                             keep
@@ -305,13 +370,6 @@ impl Cmd {
         println!("✅ Completed in {}", format_duration(duration));
 
         Ok(())
-    }
-
-    fn addresses(&self) -> (HashSet<AccountId>, HashSet<ScAddress>) {
-        self.address.iter().cloned().partition_map(|a| match a {
-            ScAddress::Account(account_id) => Either::Left(account_id),
-            ScAddress::Contract(_) => Either::Right(a),
-        })
     }
 
     fn archive_url(&self) -> Result<http::Uri, Error> {
