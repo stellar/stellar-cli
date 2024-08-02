@@ -46,6 +46,16 @@ fn default_out_path() -> PathBuf {
     PathBuf::new().join("snapshot.json")
 }
 
+/// Create a ledger snapshot using a history archive.
+///
+/// Filters (address, wasm-hash) specify what ledger entries to include.
+///
+/// Account addresses include the account, and trust lines.
+///
+/// Contract addresses include the related wasm, contract data.
+///
+/// If a contract is a Stellar asset contract, it includes the asset issuer's
+/// account and trust lines.
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 #[command(arg_required_else_help = true)]

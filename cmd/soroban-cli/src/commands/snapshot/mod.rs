@@ -2,9 +2,9 @@ use clap::Parser;
 
 pub mod create;
 
+/// Create and operate on ledger snapshots.
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Create a snapshot using the archive
     Create(create::Cmd),
 }
 
