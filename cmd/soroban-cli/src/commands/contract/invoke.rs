@@ -12,11 +12,12 @@ use heck::ToKebabCase;
 
 use soroban_env_host::{
     xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, Hash, HostFunction, InvokeContractArgs,
-        InvokeHostFunctionOp, LedgerEntryData, Limits, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0,
-        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM, Thresholds, Transaction,
-        TransactionExt, Uint256, VecM, WriteXdr,
+        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
+        DiagnosticEvent, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
+        LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
+        WriteXdr,
     },
     HostError,
 };
@@ -45,7 +46,7 @@ pub struct Cmd {
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
+    /// View the result simulating and do not sign and submit transaction. Ieprecated use `--send=no`
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
@@ -558,7 +559,7 @@ Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Send {
-    /// Only send transaction if there are ledger writes, otherwise return simulation result
+    /// Only send transaction if there are ledger writes or published events, otherwise return simulation result
     #[default]
     IfWrite,
     /// Do not send transaction, return simulation result
@@ -570,14 +571,26 @@ pub enum Send {
 impl Send {
     pub fn should_send(self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         Ok(match self {
-            Send::IfWrite => !sim_res
-                .transaction_data()?
-                .resources
-                .footprint
-                .read_write
-                .is_empty(),
+            Send::IfWrite => has_write(sim_res)? || has_published_event(sim_res)?,
             Send::No => false,
             Send::Yes => true,
         })
     }
+}
+
+fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(!sim_res
+        .transaction_data()?
+        .resources
+        .footprint
+        .read_write
+        .is_empty())
+}
+fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(!sim_res.events()?.iter().any(
+        |DiagnosticEvent {
+             event: ContractEvent { type_, .. },
+             ..
+         }| matches!(type_, ContractEventType::Contract),
+    ))
 }

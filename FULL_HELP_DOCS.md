@@ -480,7 +480,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
+* `--is-view` — View the result simulating and do not sign and submit transaction. Ieprecated use `--send=no`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -501,11 +501,11 @@ stellar contract invoke ... -- --help
 
   Possible values:
   - `if-write`:
-    Send the transaction to the network if there are ledger writes or events published, otherwise output the simulation result and do not send to the network
+    Only send transaction if there are ledger writes or published events, otherwise return simulation result
   - `no`:
-    Do not send the transaction to the network, and output the simulation result
+    Do not send transaction, return simulation result
   - `yes`:
-    Send the transaction to the network, and output the transaction result
+    Always send transaction
 
 
 
