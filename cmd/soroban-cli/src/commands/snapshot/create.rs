@@ -21,7 +21,7 @@ use stellar_xdr::curr::{
     LedgerKeyClaimableBalance, LedgerKeyConfigSetting, LedgerKeyContractCode,
     LedgerKeyContractData, LedgerKeyData, LedgerKeyLiquidityPool, LedgerKeyOffer,
     LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits, ReadXdr, ScAddress, ScContractInstance,
-    ScMapEntry, ScString, ScVal, TrustLineAsset,
+    ScVal, TrustLineAsset,
 };
 use tokio::fs::OpenOptions;
 
