@@ -1,12 +1,23 @@
+use tracing::{debug, info, span, Level};
+
 use crate::xdr;
+
 pub fn events(events: &[xdr::DiagnosticEvent]) {
     for (i, event) in events.iter().enumerate() {
-        if is_contract_event(event) {
-            tracing::info!(event_type = "contract", "{i}: {event:#?}");
+        let span = if is_contract_event(event) {
+            span!(Level::INFO, "contract_event")
         } else if is_log_event(event) {
-            tracing::info!(event_type = "log", "{i}: {event:#?}");
+            span!(Level::INFO, "log_event")
         } else {
-            tracing::debug!(event_type = "diagnostic", "{i}: {event:#?}");
+            span!(Level::DEBUG, "diagnostic_event")
+        };
+
+        let _enter = span.enter();
+
+        if span.metadata().unwrap().level() == &Level::INFO {
+            info!("{i}: {event:#?}");
+        } else {
+            debug!("{i}: {event:#?}");
         }
     }
 }
