@@ -28,7 +28,10 @@ use tokio::fs::OpenOptions;
 use crate::{
     commands::{config::data, HEADING_RPC},
     config::{self, locator, network::passphrase},
-    utils::{contract_id_hash_from_asset, parsing::parse_asset},
+    utils::{
+        contract_id_hash_from_asset, get_name_from_stellar_asset_contract_storage,
+        parsing::parse_asset,
+    },
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -323,13 +326,9 @@ impl Cmd {
                                         executable: ContractExecutable::StellarAsset,
                                         storage: Some(storage),
                                     }) => {
-                                        if let Some(ScMapEntry {
-                                            val: ScVal::String(ScString(name)),
-                                            ..
-                                        }) = storage.iter().find(|ScMapEntry { key, .. }| {
-                                            key == &ScVal::Symbol("name".try_into().unwrap())
-                                        }) {
-                                            let name = name.to_string();
+                                        if let Some(name) =
+                                            get_name_from_stellar_asset_contract_storage(storage)
+                                        {
                                             println!("ℹ️  Adding asset {name} to search");
                                             let asset = parse_asset(&name)
                                                 .map_err(|_| Error::ParseAssetName(name))?;
