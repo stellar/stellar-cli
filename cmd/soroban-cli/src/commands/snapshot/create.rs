@@ -55,7 +55,7 @@ fn default_out_path() -> PathBuf {
 /// Contract addresses include the related wasm, contract data.
 ///
 /// If a contract is a Stellar asset contract, it includes the asset issuer's
-/// account and trust lines.
+/// account and trust lines, but does not include all the trust lines of other accounts holding the asset. To inclu
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 #[command(arg_required_else_help = true)]
