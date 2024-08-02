@@ -1007,13 +1007,21 @@ Download a snapshot of a ledger from an archive
 
 ###### **Subcommands:**
 
-* `create` — Create a snapshot using the archive
+* `create` — Create a ledger snapshot using a history archive
 
 
 
 ## `stellar snapshot create`
 
-Create a snapshot using the archive
+Create a ledger snapshot using a history archive.
+
+Filters (address, wasm-hash) specify what ledger entries to include.
+
+Account addresses include the account, and trust lines.
+
+Contract addresses include the related wasm, contract data.
+
+If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
 
 **Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
 
