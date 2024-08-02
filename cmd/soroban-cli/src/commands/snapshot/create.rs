@@ -168,6 +168,12 @@ impl Cmd {
             ledger_entries: Vec::new(),
         };
 
+        // Track ledger keys seen, so that we can ignore old versions of
+        // entries. Entries can appear in both higher level and lower level
+        // buckets, and to get the latest version of the entry the version in
+        // the higher level bucket should be used.
+        let mut seen = HashSet::new();
+
         #[allow(clippy::items_after_statements)]
         #[derive(Default)]
         struct SearchInputs {
@@ -201,11 +207,6 @@ impl Cmd {
                 current.contract_ids.len(),
                 current.wasm_hashes.len()
             );
-            // Track ledger keys seen, so that we can ignore old versions of
-            // entries. Entries can appear in both higher level and lower level
-            // buckets, and to get the latest version of the entry the version in
-            // the higher level bucket should be used.
-            let mut seen = HashSet::new();
             for (i, bucket) in buckets.iter().enumerate() {
                 // Defined where the bucket will be read from, either from cache on
                 // disk, or streamed from the archive.
@@ -286,7 +287,6 @@ impl Cmd {
                     println!("ℹ️  Found {count_saved} entries");
                 }
             }
-            seen.clear();
             current = next;
             next = SearchInputs::default();
         }
