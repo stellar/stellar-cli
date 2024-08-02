@@ -333,6 +333,17 @@ impl Cmd {
                                             println!("ℹ️  Adding asset {name} to search");
                                             let asset = parse_asset(&name)
                                                 .map_err(|_| Error::ParseAssetName(name))?;
+                                            if let Some(issuer) = match &asset {
+                                                Asset::Native => None,
+                                                Asset::CreditAlphanum4(a4) => {
+                                                    Some(a4.issuer.clone())
+                                                }
+                                                Asset::CreditAlphanum12(a12) => {
+                                                    Some(a12.issuer.clone())
+                                                }
+                                            } {
+                                                next.account_ids.insert(issuer);
+                                            }
                                             next.assets.insert(asset);
                                         }
                                     }
