@@ -382,7 +382,7 @@ impl Cmd {
 
 async fn get_history(archive_url: &Uri, ledger: Option<u32>) -> Result<History, Error> {
     let archive_url = archive_url.to_string();
-    let archive_url = archive_url.strip_suffix("/").unwrap_or(&archive_url);
+    let archive_url = archive_url.strip_suffix('/').unwrap_or(&archive_url);
     let history_url = if let Some(ledger) = ledger {
         let ledger_hex = format!("{ledger:08x}");
         let ledger_hex_0 = &ledger_hex[0..=1];
