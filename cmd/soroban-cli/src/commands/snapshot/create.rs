@@ -246,8 +246,10 @@ impl Cmd {
                                 ..
                             }) = &e.val
                             {
-                                next_wasm_hashes.insert(hash.clone());
-                                println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
+                                if !wasm_hashes.contains(hash) {
+                                    next_wasm_hashes.insert(hash.clone());
+                                    println!("ℹ️  Adding wasm {} to search", hex::encode(hash));
+                                }
                             }
                         }
                         keep
