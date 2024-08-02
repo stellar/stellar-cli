@@ -342,6 +342,9 @@ impl Cmd {
                                                     Some(a12.issuer.clone())
                                                 }
                                             } {
+                                                println!(
+                                                    "ℹ️  Adding asset issuer {issuer} to search"
+                                                );
                                                 next.account_ids.insert(issuer);
                                             }
                                             next.assets.insert(asset);
