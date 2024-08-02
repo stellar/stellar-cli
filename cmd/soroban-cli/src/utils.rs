@@ -4,9 +4,9 @@ use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
     Asset, ContractIdPreimage, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-    HashIdPreimageContractId, Limits, ScMap, Signature, SignatureHint, Transaction,
-    TransactionEnvelope, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, WriteXdr,ScVal,ScMapEntry
+    HashIdPreimageContractId, Limits, ScMap, ScMapEntry, ScVal, Signature, SignatureHint,
+    Transaction, TransactionEnvelope, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, WriteXdr,
 };
 
 pub use soroban_spec_tools::contract as contract_spec;
@@ -141,14 +141,15 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
             ..
         }) = map
             .iter()
-            .find(|ScMapEntry { key, .. }| key == &ScVal::Symbol("METADATA".try_into().unwrap()))
+            .find(|ScMapEntry { key, .. }| key == &ScVal::Symbol("name".try_into().unwrap()))
         {
             Some(name.to_string())
-        }
-        else {
+        } else {
             None
         }
-    } else { None }
+    } else {
+        None
+    }
 }
 
 pub mod rpc {

@@ -21,17 +21,14 @@ use stellar_xdr::curr::{
     LedgerKeyClaimableBalance, LedgerKeyConfigSetting, LedgerKeyContractCode,
     LedgerKeyContractData, LedgerKeyData, LedgerKeyLiquidityPool, LedgerKeyOffer,
     LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits, ReadXdr, ScAddress, ScContractInstance,
-    ScVal, TrustLineAsset,
+    ScVal,
 };
 use tokio::fs::OpenOptions;
 
 use crate::{
     commands::{config::data, HEADING_RPC},
     config::{self, locator, network::passphrase},
-    utils::{
-        contract_id_hash_from_asset, get_name_from_stellar_asset_contract_storage,
-        parsing::parse_asset,
-    },
+    utils::{get_name_from_stellar_asset_contract_storage, parsing::parse_asset},
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -62,9 +59,6 @@ pub struct Cmd {
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<Hash>,
-    /// WASM hashes to include in the snapshot.
-    #[arg(long = "asset", help_heading = "Filter Options", value_parser=parse_asset)]
-    assets: Vec<Asset>,
     /// Format of the out file.
     #[arg(long)]
     output: Output,
@@ -188,40 +182,25 @@ impl Cmd {
             account_ids: HashSet<AccountId>,
             contract_ids: HashSet<ScAddress>,
             wasm_hashes: HashSet<Hash>,
-            assets: HashSet<Asset>,
         }
         impl SearchInputs {
             pub fn is_empty(&self) -> bool {
                 self.account_ids.is_empty()
                     && self.contract_ids.is_empty()
                     && self.wasm_hashes.is_empty()
-                    && self.assets.is_empty()
             }
         }
 
         // Search the buckets using the user inputs as the starting inputs.
-        let (mut account_ids, mut contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) =
+        let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) =
             self.address.iter().cloned().partition_map(|a| match a {
                 ScAddress::Account(account_id) => Either::Left(account_id),
                 ScAddress::Contract(_) => Either::Right(a),
             });
-        // Include accounts of issuers of any asset requested.
-        account_ids.extend(self.assets.iter().filter_map(|a| match a {
-            Asset::Native => None,
-            Asset::CreditAlphanum4(a4) => Some(a4.issuer.clone()),
-            Asset::CreditAlphanum12(a12) => Some(a12.issuer.clone()),
-        }));
-        // Include contracts of any asset requested.
-        contract_ids.extend(
-            self.assets
-                .iter()
-                .map(|a| ScAddress::Contract(contract_id_hash_from_asset(a, network_passphrase))),
-        );
         let mut current = SearchInputs {
             account_ids,
             contract_ids,
             wasm_hashes: self.wasm_hashes.iter().cloned().collect(),
-            assets: self.assets.iter().cloned().collect(),
         };
         let mut next = SearchInputs::default();
         loop {
@@ -229,11 +208,10 @@ impl Cmd {
                 break;
             }
             println!(
-                "ℹ️  Searching for {} accounts, {} contracts, {} wasms, {} assets",
+                "ℹ️  Searching for {} accounts, {} contracts, {} wasms",
                 current.account_ids.len(),
                 current.contract_ids.len(),
                 current.wasm_hashes.len(),
-                current.assets.len(),
             );
             for (i, bucket) in buckets.iter().enumerate() {
                 // Defined where the bucket will be read from, either from cache on
@@ -272,26 +250,8 @@ impl Cmd {
                         continue;
                     }
                     let keep = match &key {
-                        LedgerKey::Account(k) => {
-                            current.account_ids.contains(&k.account_id)
-                                || current.assets.contains(&Asset::Native)
-                        }
-                        LedgerKey::Trustline(LedgerKeyTrustLine {
-                            account_id,
-                            asset: TrustLineAsset::CreditAlphanum4(a4),
-                        }) => {
-                            current.account_ids.contains(account_id)
-                                || current.assets.contains(&Asset::CreditAlphanum4(a4.clone()))
-                        }
-                        LedgerKey::Trustline(LedgerKeyTrustLine {
-                            account_id,
-                            asset: TrustLineAsset::CreditAlphanum12(a12),
-                        }) => {
-                            current.account_ids.contains(account_id)
-                                || current
-                                    .assets
-                                    .contains(&Asset::CreditAlphanum12(a12.clone()))
-                        }
+                        LedgerKey::Account(k) => current.account_ids.contains(&k.account_id),
+                        LedgerKey::Trustline(k) => current.account_ids.contains(&k.account_id),
                         LedgerKey::ContractData(k) => current.contract_ids.contains(&k.contract),
                         LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash),
                         _ => false,
@@ -329,7 +289,6 @@ impl Cmd {
                                         if let Some(name) =
                                             get_name_from_stellar_asset_contract_storage(storage)
                                         {
-                                            println!("ℹ️  Adding asset {name} to search");
                                             let asset = parse_asset(&name)
                                                 .map_err(|_| Error::ParseAssetName(name))?;
                                             if let Some(issuer) = match &asset {
@@ -346,7 +305,6 @@ impl Cmd {
                                                 );
                                                 next.account_ids.insert(issuer);
                                             }
-                                            next.assets.insert(asset);
                                         }
                                     }
                                     _ => {}
