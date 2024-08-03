@@ -5,6 +5,7 @@ pub mod deploy;
 pub mod extend;
 pub mod fetch;
 pub mod id;
+pub mod info;
 pub mod init;
 pub mod inspect;
 pub mod install;
@@ -40,6 +41,10 @@ pub enum Cmd {
     /// Generate the contract id for a given contract or asset
     #[command(subcommand)]
     Id(id::Cmd),
+
+    /// Access info about contracts
+    #[command(subcommand)]
+    Info(info::Cmd),
 
     /// Initialize a Soroban project with an example contract
     Init(init::Cmd),
@@ -99,6 +104,9 @@ pub enum Error {
     Id(#[from] id::Error),
 
     #[error(transparent)]
+    Info(#[from] info::Error),
+
+    #[error(transparent)]
     Inspect(#[from] inspect::Error),
 
     #[error(transparent)]
@@ -126,6 +134,7 @@ impl Cmd {
             Cmd::Extend(extend) => extend.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::Id(id) => id.run()?,
+            Cmd::Info(info) => info.run().await?,
             Cmd::Init(init) => init.run()?,
             Cmd::Inspect(inspect) => inspect.run()?,
             Cmd::Install(install) => install.run().await?,
@@ -164,4 +173,14 @@ pub enum SpecOutput {
     XdrBase64Array,
     /// Pretty print of contract spec entries
     Docs,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
+pub enum InfoOutput {
+    /// XDR output of the info entry
+    XdrBase64,
+    /// JSON output of the info entry (not formatted)
+    Json,
+    /// Formatted JSON output of the info entry
+    JsonFormatted,
 }
