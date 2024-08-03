@@ -394,11 +394,11 @@ fn invoke_log(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stderr(predicates::str::contains(
-            "INFO soroban_cli::log::event::contract: 1: DiagnosticEvent {",
+            "INFO contract_event: soroban_cli::log::event: 1: DiagnosticEvent {",
         ))
         .stderr(predicates::str::contains("StringM(hello)"))
         .stderr(predicates::str::contains(
-            "INFO soroban_cli::log::event::log: 2: DiagnosticEvent",
+            "INFO log_event: soroban_cli::log::event: 2: DiagnosticEvent",
         ))
         .stderr(predicates::str::contains("StringM(hello {})"))
         .stderr(predicates::str::contains("StringM(world)"));
