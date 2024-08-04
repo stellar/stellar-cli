@@ -26,7 +26,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest-16-cores
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: rustup update
     - run: cargo fmt --all --check
 
@@ -58,7 +58,7 @@ jobs:
     env:
       CI_TESTS: true
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: stellar/actions/rust-cache@main
     - name: Use the minimum supported Rust version
       if: matrix.rust == 'msrv'
