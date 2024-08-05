@@ -3,7 +3,7 @@ use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
     Asset, ContractIdPreimage, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
-    Limits, WriteXdr,
+    Limits, ScMap, ScMapEntry, ScVal, WriteXdr,
 };
 
 pub use soroban_spec_tools::contract as contract_spec;
@@ -80,17 +80,40 @@ pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
 }
 
-pub fn contract_id_hash_from_asset(
-    asset: &Asset,
-    network_passphrase: &str,
-) -> Result<Hash, XdrError> {
+pub fn contract_id_hash_from_asset(asset: &Asset, network_passphrase: &str) -> Hash {
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
         contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
     });
-    let preimage_xdr = preimage.to_xdr(Limits::none())?;
-    Ok(Hash(Sha256::digest(preimage_xdr).into()))
+    let preimage_xdr = preimage
+        .to_xdr(Limits::none())
+        .expect("HashIdPreimage should not fail encoding to xdr");
+    Hash(Sha256::digest(preimage_xdr).into())
+}
+
+pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<String> {
+    if let Some(ScMapEntry {
+        val: ScVal::Map(Some(map)),
+        ..
+    }) = storage
+        .iter()
+        .find(|ScMapEntry { key, .. }| key == &ScVal::Symbol("METADATA".try_into().unwrap()))
+    {
+        if let Some(ScMapEntry {
+            val: ScVal::String(name),
+            ..
+        }) = map
+            .iter()
+            .find(|ScMapEntry { key, .. }| key == &ScVal::Symbol("name".try_into().unwrap()))
+        {
+            Some(name.to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 pub mod rpc {

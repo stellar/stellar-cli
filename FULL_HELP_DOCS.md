@@ -47,6 +47,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
 * `network` — Start and configure networks
+* `snapshot` — Download a snapshot of a ledger from an archive
 * `tx` — Sign, Simulate, and Send transactions
 * `xdr` — Decode and encode XDR
 * `completion` — Print shell completion code for the specified shell
@@ -1029,6 +1030,53 @@ Stop a network container started with `network container start`
 ###### **Options:**
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar snapshot`
+
+Download a snapshot of a ledger from an archive
+
+**Usage:** `stellar snapshot <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — Create a ledger snapshot using a history archive
+
+
+
+## `stellar snapshot create`
+
+Create a ledger snapshot using a history archive.
+
+Filters (address, wasm-hash) specify what ledger entries to include.
+
+Account addresses include the account, and trust lines.
+
+Contract addresses include the related wasm, contract data.
+
+If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
+
+**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
+
+###### **Options:**
+
+* `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
+* `--address <ADDRESS>` — Account or contract address to include in the snapshot
+* `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
+* `--output <OUTPUT>` — Format of the out file
+
+  Possible values: `json`
+
+* `--out <OUT>` — Out path that the snapshot is written to
+
+  Default value: `snapshot.json`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 
 
 

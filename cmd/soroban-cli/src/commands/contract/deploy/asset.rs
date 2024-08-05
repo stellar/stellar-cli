@@ -103,7 +103,7 @@ impl NetworkRunnable for Cmd {
         let account_details = client.get_account(&public_strkey.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase)?;
+        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
         let tx = build_wrap_token_tx(
             &asset,
             &contract_id,
