@@ -1,9 +1,13 @@
 use ledger_transport::Exchange;
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
 use soroban_env_host::xdr::{Hash, Transaction};
+use std::ops::Range;
+use std::sync::Mutex;
 use std::vec;
 
+use std::net::TcpListener;
 use stellar_ledger::hd_path::HdPath;
 use stellar_ledger::{Blob, Error, LedgerSigner};
 
@@ -14,8 +18,10 @@ use stellar_xdr::curr::{
     Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
 };
 
-use testcontainers::clients;
+use testcontainers::{clients, core::Port, RunnableImage};
 use tokio::time::sleep;
+
+static PORT_RANGE: Lazy<Mutex<Range<u16>>> = Lazy::new(|| Mutex::new(40000..50000));
 
 pub const TEST_NETWORK_PASSPHRASE: &[u8] = b"Test SDF Network ; September 2015";
 pub fn test_network_hash() -> Hash {
@@ -23,8 +29,8 @@ pub fn test_network_hash() -> Hash {
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
 
-fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
-    LedgerSigner::new(get_http_transport("127.0.0.1", host_port).unwrap())
+async fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
+    LedgerSigner::new(get_http_transport("127.0.0.1", host_port).await.unwrap())
 }
 
 mod test_helpers {
@@ -44,16 +50,14 @@ use test_helpers::test::{
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_get_public_key(ledger_device_model: String) {
-    let args = Args {
-        ledger_device_model,
-    };
+    let runnable_image = get_runnable_image(ledger_device_model.clone());
     let docker = clients::Cli::default();
-    let node = docker.run((Speculos::new(), args));
+    let node = docker.run(runnable_image);
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(host_port).await;
 
     match ledger.get_public_key(&0.into()).await {
         Ok(public_key) => {
@@ -78,16 +82,14 @@ async fn test_get_public_key(ledger_device_model: String) {
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_get_app_configuration(ledger_device_model: String) {
-    let args = Args {
-        ledger_device_model,
-    };
+    let runnable_image = get_runnable_image(ledger_device_model.clone());
     let docker = clients::Cli::default();
-    let node = docker.run((Speculos::new(), args));
+    let node = docker.run(runnable_image);
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(host_port).await;
 
     match ledger.get_app_configuration().await {
         Ok(config) => {
@@ -108,16 +110,14 @@ async fn test_get_app_configuration(ledger_device_model: String) {
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_sign_tx(ledger_device_model: String) {
-    let args = Args {
-        ledger_device_model,
-    };
+    let runnable_image = get_runnable_image(ledger_device_model.clone());
     let docker = clients::Cli::default();
-    let node = docker.run((Speculos::new(), args.clone()));
+    let node = docker.run(runnable_image);
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = Arc::new(ledger(host_port));
+    let ledger = Arc::new(ledger(host_port).await);
 
     let path = HdPath(0);
 
@@ -175,7 +175,7 @@ async fn test_sign_tx(ledger_device_model: String) {
         let ledger = Arc::clone(&ledger);
         async move { ledger.sign_transaction(path, tx, test_network_hash()).await }
     });
-    let approve = tokio::task::spawn(approve_tx_signature(ui_host_port, args.ledger_device_model));
+    let approve = tokio::task::spawn(approve_tx_signature(ui_host_port, ledger_device_model));
 
     let result = sign.await.unwrap();
     let _ = approve.await.unwrap();
@@ -199,17 +199,14 @@ async fn test_sign_tx(ledger_device_model: String) {
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model: String) {
-    let args = Args {
-        ledger_device_model,
-    };
-
+    let runnable_image = get_runnable_image(ledger_device_model.clone());
     let docker = clients::Cli::default();
-    let node = docker.run((Speculos::new(), args));
+    let node = docker.run(runnable_image);
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
     wait_for_emulator_start_text(ui_host_port).await;
 
-    let ledger = ledger(host_port);
+    let ledger = ledger(host_port).await;
 
     let path = 0;
     let test_hash = b"313e8447f569233bb8db39aa607c8889";
@@ -231,18 +228,16 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model:
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: String) {
-    let args = Args {
-        ledger_device_model,
-    };
+    let runnable_image = get_runnable_image(ledger_device_model.clone());
     let docker = clients::Cli::default();
-    let node = docker.run((Speculos::new(), args.clone()));
+    let node = docker.run(runnable_image);
     let host_port = node.get_host_port_ipv4(9998);
     let ui_host_port: u16 = node.get_host_port_ipv4(5000);
 
     wait_for_emulator_start_text(ui_host_port).await;
     enable_hash_signing(ui_host_port).await;
 
-    let ledger = Arc::new(ledger(host_port));
+    let ledger = Arc::new(ledger(host_port).await);
 
     let path = 0;
     let mut test_hash = [0u8; 32];
@@ -262,10 +257,7 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: Str
         let ledger = Arc::clone(&ledger);
         async move { ledger.sign_transaction_hash(path, &test_hash).await }
     });
-    let approve = tokio::task::spawn(approve_tx_hash_signature(
-        ui_host_port,
-        args.ledger_device_model,
-    ));
+    let approve = tokio::task::spawn(approve_tx_hash_signature(ui_host_port, ledger_device_model));
 
     let response = sign.await.unwrap();
     let _ = approve.await.unwrap();
@@ -338,8 +330,65 @@ struct EventsResponse {
     events: Vec<EmulatorEvent>,
 }
 
-fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
-    Ok(EmulatorHttpTransport::new(host, port))
+fn get_runnable_image(ledger_device_model: String) -> RunnableImage<Speculos> {
+    let args = Args {
+        ledger_device_model,
+    };
+    let runnable_image: RunnableImage<Speculos> = (Speculos::new(), args).into();
+
+    // doing this to randomize the ports on the host so that parallel tests don't clobber each other
+    let (tcp_port_1, tcp_port_2) = get_available_ports(2);
+    runnable_image
+        .with_mapped_port(Port {
+            local: tcp_port_1,
+            internal: 9998,
+        })
+        .with_mapped_port(Port {
+            local: tcp_port_2,
+            internal: 5000,
+        })
+}
+
+fn get_available_ports(n: usize) -> (u16, u16) {
+    let mut range = PORT_RANGE.lock().unwrap();
+    let mut ports = Vec::with_capacity(n);
+    while ports.len() < n {
+        if let Some(port) = range.next() {
+            if let Ok(listener) = TcpListener::bind(("0.0.0.0", port)) {
+                ports.push(port);
+                drop(listener);
+            }
+        } else {
+            panic!("No more available ports");
+        }
+    }
+
+    (ports[0], ports[1])
+}
+
+async fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
+    let max_retries = 5;
+    let mut retries = 0;
+    let mut wait_time = Duration::from_secs(1);
+    // ping the emulator port to make sure it's up and running
+    // retry with exponential backoff
+    loop {
+        match reqwest::get(format!("http://{host}:{port}")).await {
+            Ok(_) => return Ok(EmulatorHttpTransport::new(host, port)),
+            Err(e) => {
+                retries += 1;
+                if retries >= max_retries {
+                    println!("get_http_transport: Exceeded max retries for connecting to emulated device");
+
+                    return Err(Error::APDUExchangeError(format!(
+                        "Failed to connect to emulator: {e}"
+                    )));
+                }
+                sleep(wait_time).await;
+                wait_time *= 2;
+            }
+        }
+    }
 }
 
 async fn wait_for_emulator_start_text(ui_host_port: u16) {
@@ -365,9 +414,7 @@ async fn get_emulator_events_with_retries(
 ) -> Vec<EmulatorEvent> {
     let client = reqwest::Client::new();
     let mut retries = 0;
-
     let mut wait_time = Duration::from_secs(1);
-
     loop {
         match client
             .get(format!("http://localhost:{ui_host_port}/events"))
@@ -379,10 +426,10 @@ async fn get_emulator_events_with_retries(
                 return resp.events;
             }
             Err(e) => {
-                println!("this many retries: {retries}");
                 retries += 1;
                 if retries >= max_retries {
-                    panic!("Failed to get emulator events: {e}");
+                    println!("get_emulator_events_with_retries: Exceeded max retries");
+                    panic!("get_emulator_events_with_retries: Failed to get emulator events: {e}");
                 }
                 sleep(wait_time).await;
                 wait_time *= 2;
