@@ -1,6 +1,7 @@
 target/
 captive-core/
 .soroban/
+snapshot.json
 !test.toml
 *.sqlite
 test_snapshots
