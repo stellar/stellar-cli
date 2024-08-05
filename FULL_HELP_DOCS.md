@@ -480,7 +480,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — View the result simulating and do not sign and submit transaction. Ieprecated use `--send=no`
+* `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config

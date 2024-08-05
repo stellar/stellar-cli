@@ -46,7 +46,7 @@ pub struct Cmd {
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction. Ieprecated use `--send=no`
+    /// View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
