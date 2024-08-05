@@ -219,6 +219,7 @@ async fn invoke_auth_with_different_test_account_fail(sandbox: &TestEnv, id: &st
             "--hd-path=0",
             "--id",
             id,
+            "--fee=1000000",
             "--",
             "auth",
             &format!("--addr={addr}"),
@@ -227,8 +228,8 @@ async fn invoke_auth_with_different_test_account_fail(sandbox: &TestEnv, id: &st
         .await;
     let e = res.unwrap_err();
     assert!(
-        matches!(e, contract::invoke::Error::Config(_)),
-        "Expected config error got {e:?}"
+        matches!(e, contract::invoke::Error::Rpc(_)),
+        "Expected rpc error got {e:?}"
     );
 }
 
