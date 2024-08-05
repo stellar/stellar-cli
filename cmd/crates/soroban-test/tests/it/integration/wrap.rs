@@ -24,7 +24,7 @@ async fn burn() {
         .success();
     // wrap_cmd(&asset).run().await.unwrap();
     let asset = soroban_cli::utils::parsing::parse_asset(&asset).unwrap();
-    let hash = contract_id_hash_from_asset(&asset, &network_passphrase).unwrap();
+    let hash = contract_id_hash_from_asset(&asset, &network_passphrase);
     let id = stellar_strkey::Contract(hash.0).to_string();
     println!("{id}, {address}");
     sandbox
