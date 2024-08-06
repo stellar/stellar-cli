@@ -26,17 +26,18 @@ use stellar_xdr::curr::{
 use tokio::fs::OpenOptions;
 
 use crate::{
-    commands::{config::data, HEADING_RPC},
+    commands::{config::data, global, HEADING_RPC},
     config::{self, locator, network::passphrase},
+    output,
     utils::{get_name_from_stellar_asset_contract_storage, parsing::parse_asset},
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
-pub enum Output {
+pub enum OutputFile {
     Json,
 }
 
-impl Default for Output {
+impl Default for OutputFile {
     fn default() -> Self {
         Self::Json
     }
@@ -73,7 +74,7 @@ pub struct Cmd {
     wasm_hashes: Vec<Hash>,
     /// Format of the out file.
     #[arg(long)]
-    output: Output,
+    output: OutputFile,
     /// Out path that the snapshot is written to.
     #[arg(long, default_value=default_out_path().into_os_string())]
     out: PathBuf,
@@ -140,18 +141,19 @@ const CHECKPOINT_FREQUENCY: u32 = 64;
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let output = output::Output::new(global_args.quiet);
         let start = Instant::now();
 
         let archive_url = self.archive_url()?;
-        let history = get_history(&archive_url, self.ledger).await?;
+        let history = get_history(&output, &archive_url, self.ledger).await?;
 
         let ledger = history.current_ledger;
         let network_passphrase = &history.network_passphrase;
         let network_id = Sha256::digest(network_passphrase);
-        println!("ℹ️  Ledger: {ledger}");
-        println!("ℹ️  Network Passphrase: {network_passphrase}");
-        println!("ℹ️  Network ID: {}", hex::encode(network_id));
+        output.info(format!("Ledger: {ledger}"));
+        output.info(format!("Network Passphrase: {network_passphrase}"));
+        output.info(format!("Network ID: {}", hex::encode(network_id)));
 
         // Prepare a flat list of buckets to read. They'll be ordered by their
         // level so that they can iterated higher level to lower level.
@@ -164,7 +166,7 @@ impl Cmd {
 
         // Pre-cache the buckets.
         for (i, bucket) in buckets.iter().enumerate() {
-            cache_bucket(&archive_url, i, bucket).await?;
+            cache_bucket(&output, &archive_url, i, bucket).await?;
         }
 
         // The snapshot is what will be written to file at the end. Fields will
@@ -219,25 +221,29 @@ impl Cmd {
             if current.is_empty() {
                 break;
             }
-            println!(
-                "ℹ️  Searching for {} accounts, {} contracts, {} wasms",
+            output.info(format!(
+                "Searching for {} accounts, {} contracts, {} wasms",
                 current.account_ids.len(),
                 current.contract_ids.len(),
                 current.wasm_hashes.len(),
-            );
+            ));
+
             for (i, bucket) in buckets.iter().enumerate() {
                 // Defined where the bucket will be read from, either from cache on
                 // disk, or streamed from the archive.
-                let cache_path = cache_bucket(&archive_url, i, bucket).await?;
+                let cache_path = cache_bucket(&output, &archive_url, i, bucket).await?;
                 let file = std::fs::OpenOptions::new()
                     .read(true)
                     .open(&cache_path)
                     .map_err(Error::ReadOpeningCachedBucket)?;
-                print!("🔎 Searching bucket {i} {bucket}");
+                output.search(format!("Searching bucket {i} {bucket}…"));
+
                 if let Ok(metadata) = file.metadata() {
-                    print!(" ({})", ByteSize(metadata.len()));
+                    let size = ByteSize(metadata.len());
+                    output.search(format!("\r🔎 Searching bucket {i} {bucket} ({size})"));
+                } else {
+                    output.print("", "", true);
                 }
-                println!();
 
                 // Stream the bucket entries from the bucket, identifying
                 // entries that match the filters, and including only the
@@ -288,10 +294,10 @@ impl Cmd {
                                     }) => {
                                         if !current.wasm_hashes.contains(hash) {
                                             next.wasm_hashes.insert(hash.clone());
-                                            println!(
-                                                "ℹ️  Adding wasm {} to search",
+                                            output.info(format!(
+                                                "Adding wasm {} to search",
                                                 hex::encode(hash)
-                                            );
+                                            ));
                                         }
                                     }
                                     ScVal::ContractInstance(ScContractInstance {
@@ -312,9 +318,9 @@ impl Cmd {
                                                     Some(a12.issuer.clone())
                                                 }
                                             } {
-                                                println!(
-                                                    "ℹ️  Adding asset issuer {issuer} to search"
-                                                );
+                                                output.info(format!(
+                                                    "Adding asset issuer {issuer} to search"
+                                                ));
                                                 next.account_ids.insert(issuer);
                                             }
                                         }
@@ -332,7 +338,7 @@ impl Cmd {
                     count_saved += 1;
                 }
                 if count_saved > 0 {
-                    println!("ℹ️  Found {count_saved} entries");
+                    output.info(format!("Found {count_saved} entries"));
                 }
             }
             current = next;
@@ -343,14 +349,14 @@ impl Cmd {
         snapshot
             .write_file(&self.out)
             .map_err(Error::WriteLedgerSnapshot)?;
-        println!(
-            "💾 Saved {} entries to {:?}",
+        output.save(format!(
+            "Saved {} entries to {:?}",
             snapshot.ledger_entries.len(),
             self.out
-        );
+        ));
 
         let duration = Duration::from_secs(start.elapsed().as_secs());
-        println!("✅ Completed in {}", format_duration(duration));
+        output.check(format!("Completed in {}", format_duration(duration)));
 
         Ok(())
     }
@@ -380,7 +386,11 @@ impl Cmd {
     }
 }
 
-async fn get_history(archive_url: &Uri, ledger: Option<u32>) -> Result<History, Error> {
+async fn get_history(
+    output: &output::Output,
+    archive_url: &Uri,
+    ledger: Option<u32>,
+) -> Result<History, Error> {
     let archive_url = archive_url.to_string();
     let archive_url = archive_url.strip_suffix('/').unwrap_or(&archive_url);
     let history_url = if let Some(ledger) = ledger {
@@ -394,7 +404,8 @@ async fn get_history(archive_url: &Uri, ledger: Option<u32>) -> Result<History, 
     };
     let history_url = Uri::from_str(&history_url).unwrap();
 
-    println!("🌎 Downloading history {history_url}");
+    output.globe(format!("Downloading history {history_url}"));
+
     let https = hyper_tls::HttpsConnector::new();
     let response = hyper::Client::builder()
         .build::<_, hyper::Body>(https)
@@ -406,11 +417,11 @@ async fn get_history(archive_url: &Uri, ledger: Option<u32>) -> Result<History, 
         if let Some(ledger) = ledger {
             let ledger_offset = (ledger + 1) % CHECKPOINT_FREQUENCY;
             if ledger_offset != 0 {
-                println!(
-                    "ℹ️  Ledger {ledger} may not be a checkpoint ledger, try {} or {}",
+                output.info(format!(
+                    "Ledger {ledger} may not be a checkpoint ledger, try {} or {}",
                     ledger - ledger_offset,
                     ledger + (CHECKPOINT_FREQUENCY - ledger_offset),
-                );
+                ));
             }
         }
         return Err(Error::DownloadingHistoryGotStatusCode(response.status()));
@@ -422,6 +433,7 @@ async fn get_history(archive_url: &Uri, ledger: Option<u32>) -> Result<History, 
 }
 
 async fn cache_bucket(
+    output: &output::Output,
     archive_url: &Uri,
     bucket_index: usize,
     bucket: &str,
@@ -434,7 +446,10 @@ async fn cache_bucket(
         let bucket_2 = &bucket[4..=5];
         let bucket_url =
             format!("{archive_url}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz");
-        print!("🪣  Downloading bucket {bucket_index} {bucket}");
+        let message = format!("Downloading bucket {bucket_index} {bucket}");
+
+        output.print("🪣", format!("{message}…"), false);
+
         let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
         let https = hyper_tls::HttpsConnector::new();
         let response = hyper::Client::builder()
@@ -442,18 +457,22 @@ async fn cache_bucket(
             .get(bucket_url)
             .await
             .map_err(Error::GettingBucket)?;
+
         if !response.status().is_success() {
-            println!();
+            output.print("", "", true);
             return Err(Error::GettingBucketGotStatusCode(response.status()));
         }
+
         if let Some(val) = response.headers().get("Content-Length") {
             if let Ok(str) = val.to_str() {
                 if let Ok(len) = str.parse::<u64>() {
-                    print!(" ({})", ByteSize(len));
+                    let size = ByteSize(len);
+                    output.print("", "\r", false);
+                    output.bucket(format!("{message} ({size})"));
                 }
             }
         }
-        println!();
+
         let read = response
             .into_body()
             .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))

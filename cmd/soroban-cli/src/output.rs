@@ -16,26 +16,44 @@ impl Output {
         Output { quiet }
     }
 
-    fn print<T: Display>(&self, icon: &str, message: T) {
-        if !self.quiet {
+    pub fn print<T: Display>(&self, icon: &str, message: T, new_line: bool) {
+        if self.quiet {
+            return;
+        }
+
+        if new_line {
             eprintln!("{icon} {message}");
+        } else {
+            eprint!("{icon} {message}");
         }
     }
 
     pub fn check<T: Display>(&self, message: T) {
-        self.print("✅", message);
+        self.print("✅", message, true);
+    }
+
+    pub fn search<T: Display>(&self, message: T) {
+        self.print("🔎", message, true);
+    }
+
+    pub fn save<T: Display>(&self, message: T) {
+        self.print("💾", message, true);
+    }
+
+    pub fn bucket<T: Display>(&self, message: T) {
+        self.print("🪣", message, true);
     }
 
     pub fn info<T: Display>(&self, message: T) {
-        self.print("ℹ️", message);
+        self.print("ℹ️", message, true);
     }
 
     pub fn globe<T: Display>(&self, message: T) {
-        self.print("🌎", message);
+        self.print("🌎", message, true);
     }
 
     pub fn link<T: Display>(&self, message: T) {
-        self.print("🔗", message);
+        self.print("🔗", message, true);
     }
 
     /// # Errors
