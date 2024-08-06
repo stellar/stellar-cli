@@ -48,7 +48,7 @@ pub struct Cmd {
     pub image_tag_override: Option<String>,
 
     /// Optional argument to specify the protocol version for the local network only
-    #[arg(short = 'v', long)]
+    #[arg(long)]
     pub protocol_version: Option<String>,
 }
 
