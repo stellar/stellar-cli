@@ -34,20 +34,20 @@ pub struct Args {
     /// Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
     #[arg(
         long,
-        conflicts_with = "sign_with_laboratory",
+        conflicts_with = "sign_with_lab",
         env = "STELLAR_SIGN_WITH_SECRET"
     )]
     pub sign_with_key: Option<String>,
     /// Sign with labratory
     #[arg(
         long,
-        visible_alias = "sign-with-lab",
         conflicts_with = "sign_with_key",
-        env = "STELLAR_SIGN_WITH_LABRATORY"
+        env = "STELLAR_SIGN_WITH_LABRATORY",
+        hide = true
     )]
-    pub sign_with_laboratory: bool,
+    pub sign_with_lab: bool,
 
-    #[arg(long, conflicts_with = "sign_with_laboratory")]
+    #[arg(long, conflicts_with = "sign_with_lab")]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
