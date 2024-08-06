@@ -23,16 +23,16 @@ pub enum Error {
     Spec(#[from] contract::Error),
     #[error("no interface present in provided WASM file")]
     NoInterfacePresent(),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<String, Error> {
         let bytes = fetch_wasm(&self.common).await?;
 
-        let base64 = if bytes.is_none() {
-            let res = Spec::spec_to_base64(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?;
-
-            res.0
+        let (base64, spec) = if bytes.is_none() {
+            Spec::spec_to_base64(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
         } else {
             let spec = Spec::new(&bytes.unwrap())?;
 
@@ -40,17 +40,13 @@ impl Cmd {
                 return Err(NoInterfacePresent());
             }
 
-            spec.spec_base64.unwrap()
+            (spec.spec_base64.unwrap(), spec.spec)
         };
 
         let res = match self.common.output {
             InfoOutput::XdrBase64 => base64,
-            InfoOutput::Json => {
-                unreachable!("TODO")
-            }
-            InfoOutput::JsonFormatted => {
-                unreachable!("TODO")
-            }
+            InfoOutput::Json => serde_json::to_string(&spec)?,
+            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
         };
 
         Ok(res)

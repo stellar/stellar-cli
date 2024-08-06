@@ -26,6 +26,8 @@ pub enum Error {
     NoSACMeta(),
     #[error("no meta present in provided WASM file")]
     NoMetaPresent(),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 impl Cmd {
@@ -43,12 +45,8 @@ impl Cmd {
 
         let res = match self.common.output {
             InfoOutput::XdrBase64 => spec.meta_base64.unwrap(),
-            InfoOutput::Json => {
-                unreachable!("TODO")
-            }
-            InfoOutput::JsonFormatted => {
-                unreachable!("TODO")
-            }
+            InfoOutput::Json => serde_json::to_string(&spec.meta)?,
+            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.meta)?,
         };
 
         Ok(res)
