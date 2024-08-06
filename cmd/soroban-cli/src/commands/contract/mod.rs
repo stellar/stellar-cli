@@ -175,9 +175,10 @@ pub enum SpecOutput {
     Docs,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum InfoOutput {
     /// XDR output of the info entry
+    #[default]
     XdrBase64,
     /// JSON output of the info entry (not formatted)
     Json,

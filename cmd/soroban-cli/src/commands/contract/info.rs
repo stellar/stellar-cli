@@ -3,6 +3,7 @@ use std::fmt::Debug;
 pub mod env_meta;
 pub mod interface;
 pub mod meta;
+mod shared;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {

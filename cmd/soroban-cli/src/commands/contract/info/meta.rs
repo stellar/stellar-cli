@@ -1,42 +1,56 @@
 use std::fmt::Debug;
-use std::path::PathBuf;
 
+use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
+use crate::commands::contract::info::shared;
+use crate::commands::contract::info::shared::fetch_wasm;
 use clap::{command, Parser};
+use soroban_spec_tools::contract;
+use soroban_spec_tools::contract::Spec;
 
+// use crate::commands::contract::info::shared::fetch_wasm;
 use crate::commands::contract::InfoOutput;
 
 #[derive(Parser, Debug, Clone)]
-#[command(group(
-    clap::ArgGroup::new("src")
-    .required(true)
-    .args(& ["wasm", "wasm_hash", "contract_id"]),
-))]
-#[group(skip)]
 pub struct Cmd {
-    /// Wasm file to extract the meta from
-    #[arg(
-        long,
-        conflicts_with = "wasm_hash",
-        conflicts_with = "contract_id",
-        group = "src"
-    )]
-    pub wasm: Option<PathBuf>,
-    /// Wasm hash to get the meta for
-    #[arg(long = "wasm-hash", group = "src")]
-    pub wasm_hash: Option<String>,
-    /// Format of the output
-    #[arg(long = "id", env = "STELLAR_CONTRACT_ID", group = "src")]
-    pub contract_id: Option<String>,
-    /// Format of the output
-    #[arg(long, default_value = "xdr-base64")]
-    output: InfoOutput,
+    #[command(flatten)]
+    pub common: shared::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {}
+pub enum Error {
+    #[error(transparent)]
+    Wasm(#[from] shared::Error),
+    #[error(transparent)]
+    Spec(#[from] contract::Error),
+    #[error("Stellar asset contract doesn't contain meta information")]
+    NoSACMeta(),
+    #[error("no meta present in provided WASM file")]
+    NoMetaPresent(),
+}
 
 impl Cmd {
     pub async fn run(&self) -> Result<String, Error> {
-        Ok("meta".to_string()) // TODO
+        let bytes = fetch_wasm(&self.common).await?;
+
+        if bytes.is_none() {
+            return Err(NoSACMeta());
+        }
+        let spec = Spec::new(&bytes.unwrap())?;
+
+        if spec.meta_base64.is_none() {
+            return Err(NoMetaPresent());
+        }
+
+        let res = match self.common.output {
+            InfoOutput::XdrBase64 => spec.meta_base64.unwrap(),
+            InfoOutput::Json => {
+                unreachable!("TODO")
+            }
+            InfoOutput::JsonFormatted => {
+                unreachable!("TODO")
+            }
+        };
+
+        Ok(res)
     }
 }

@@ -414,9 +414,9 @@ Outputs no data when no data is present in the contract.
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the meta from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the meta for
-* `--id <CONTRACT_ID>` — Contract ID to get the meta for
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
 * `--output <OUTPUT>` — Format of the output
 
   Default value: `xdr-base64`
@@ -429,6 +429,11 @@ Outputs no data when no data is present in the contract.
   - `json-formatted`:
     Formatted JSON output of the info entry
 
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -446,9 +451,9 @@ Outputs no data when no data is present in the contract.
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the interface from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the interface for
-* `--id <CONTRACT_ID>` — Format of the output
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
 * `--output <OUTPUT>` — Format of the output
 
   Default value: `xdr-base64`
@@ -461,6 +466,11 @@ Outputs no data when no data is present in the contract.
   - `json-formatted`:
     Formatted JSON output of the info entry
 
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -478,9 +488,9 @@ Outputs no data when no data is present in the contract.
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the meta from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the meta for
-* `--id <CONTRACT_ID>` — Format of the output
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
 * `--output <OUTPUT>` — Format of the output
 
   Default value: `xdr-base64`
@@ -493,6 +503,11 @@ Outputs no data when no data is present in the contract.
   - `json-formatted`:
     Formatted JSON output of the info entry
 
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
