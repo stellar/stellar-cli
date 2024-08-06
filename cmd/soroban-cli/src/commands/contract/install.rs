@@ -163,7 +163,7 @@ impl NetworkRunnable for Cmd {
                             // Skip reupload if this isn't V0 because V1 extension already
                             // exists.
                             if code.ext.ne(&ContractCodeEntryExt::V0) {
-                                output.info("Reusing contract previously uploaded");
+                                output.info("Skipping install because wasm already installed");
                                 return Ok(TxnResult::Res(hash));
                             }
                         }
