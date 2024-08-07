@@ -15,7 +15,7 @@ use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::{global, NetworkRunnable};
 use crate::config::{self, data, network};
 use crate::key;
-use crate::output::Output;
+use crate::print::Print;
 use crate::rpc::{self, Client};
 use crate::{utils, wasm};
 
@@ -96,7 +96,7 @@ impl NetworkRunnable for Cmd {
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<Hash>, Error> {
-        let output = Output::new(args.map_or(false, |a| a.quiet));
+        let print = Print::new(args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
@@ -163,7 +163,7 @@ impl NetworkRunnable for Cmd {
                             // Skip reupload if this isn't V0 because V1 extension already
                             // exists.
                             if code.ext.ne(&ContractCodeEntryExt::V0) {
-                                output.info("Skipping install because wasm already installed");
+                                print.info("Skipping install because wasm already installed");
                                 return Ok(TxnResult::Res(hash));
                             }
                         }
@@ -175,7 +175,7 @@ impl NetworkRunnable for Cmd {
             }
         }
 
-        output.info("Simulating install transaction…");
+        print.info("Simulating install transaction…");
 
         let txn = client
             .simulate_and_assemble_transaction(&tx_without_preflight)
@@ -186,7 +186,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        output.globe("Submitting install transaction…");
+        print.globe("Submitting install transaction…");
 
         let txn_resp = client
             .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
