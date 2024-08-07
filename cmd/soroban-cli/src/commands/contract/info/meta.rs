@@ -8,7 +8,6 @@ use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
-// use crate::commands::contract::info::shared::fetch_wasm;
 use crate::commands::contract::InfoOutput;
 
 #[derive(Parser, Debug, Clone)]
@@ -54,6 +53,15 @@ impl Cmd {
                 for meta_entry in &spec.meta {
                     match meta_entry {
                         ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
+                            let key = key.to_string();
+                            let (key, val) = match key.as_str() {
+                                "rsver" => ("Rust version", val.to_string()),
+                                "rssdkver" => (
+                                    "Soroban SDK version",
+                                    format!("{})", val.to_string().replace('#', " (commit hash: ")),
+                                ),
+                                _ => (key.as_str(), val.to_string()),
+                            };
                             meta_str.push_str(&format!(" • {key}: {val}\n"));
                         }
                     }
