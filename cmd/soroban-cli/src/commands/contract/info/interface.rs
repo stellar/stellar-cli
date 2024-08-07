@@ -47,7 +47,7 @@ impl Cmd {
             InfoOutput::XdrBase64 => base64,
             InfoOutput::Json => serde_json::to_string(&spec)?,
             InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
-            InfoOutput::Pretty => unreachable!("TODO"),
+            InfoOutput::Pretty => contract::pretty_spec(spec),
         };
 
         Ok(res)

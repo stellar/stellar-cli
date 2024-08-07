@@ -1,4 +1,5 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine as _};
+use itertools::Itertools;
 use std::{
     fmt::Display,
     io::{self, Cursor},
@@ -9,6 +10,7 @@ use soroban_env_host::xdr::{
     ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
     StringM, WriteXdr,
 };
+use stellar_xdr::curr::ScSpecTypeDef;
 
 pub struct Spec {
     pub env_meta_base64: Option<String>,
@@ -282,4 +284,124 @@ fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
     } else {
         name.to_utf8_string_lossy()
     }
+}
+
+pub fn pretty_spec(spec: Vec<ScSpecEntry>) -> String {
+    let mut res = "ContractSpec {\n".to_string();
+
+    for spec_entry in &spec {
+        let append = match spec_entry {
+            ScSpecEntry::FunctionV0(func) => pretty_func(func),
+            ScSpecEntry::UdtUnionV0(udt) => pretty_union(udt),
+            ScSpecEntry::UdtStructV0(udt) => pretty_struct(udt),
+            ScSpecEntry::UdtEnumV0(udt) => pretty_enum(udt),
+            ScSpecEntry::UdtErrorEnumV0(udt) => pretty_error(udt),
+        };
+
+        res.push_str(&append);
+    }
+
+    return res + "}";
+}
+
+const IDENT: &str = "    ";
+
+fn pretty_func(func: &ScSpecFunctionV0) -> String {
+    let mut res = String::new();
+    if func.doc.len() != 0 {
+        res.push_str(&format!(
+            "{}/// {}\n",
+            IDENT,
+            func.doc
+                .to_string()
+                .replace("\\n", &format!("\n{}/// ", IDENT))
+        ))
+    }
+
+    res.push_str(&format!("{}pub fn {}(", IDENT, func.name.0));
+
+    // TODO: handle input.doc;
+    res.push_str(
+        &func
+            .inputs
+            .as_vec()
+            .iter()
+            .map(|x| format!("{}: {}", x.name, pretty_type(&x.type_)))
+            .join(", "),
+    );
+
+    let outputs = func.outputs.as_vec();
+
+    res.push(')');
+
+    match outputs.len() {
+        0 => {}
+        1 => res.push_str(&format!(" -> {}", pretty_type(&outputs[0]))),
+        _ => unreachable!("Outputs is VecM<1>"),
+    };
+
+    res.push_str(";\n");
+    return res;
+}
+
+fn pretty_union(udt: &ScSpecUdtUnionV0) -> String {
+    return "TODOu ".to_string();
+}
+
+fn pretty_struct(udt: &ScSpecUdtStructV0) -> String {
+    return "TODOs ".to_string();
+}
+
+fn pretty_enum(udt: &ScSpecUdtEnumV0) -> String {
+    return "TODOe ".to_string();
+}
+
+fn pretty_error(udt: &ScSpecUdtErrorEnumV0) -> String {
+    return "TODOerr ".to_string();
+}
+
+fn pretty_type(def: &ScSpecTypeDef) -> String {
+    return match def {
+        ScSpecTypeDef::U32
+        | ScSpecTypeDef::I32
+        | ScSpecTypeDef::U64
+        | ScSpecTypeDef::I64
+        | ScSpecTypeDef::U128
+        | ScSpecTypeDef::I128
+        | ScSpecTypeDef::U256
+        | ScSpecTypeDef::I256 => def.name().to_string().to_lowercase(),
+
+        ScSpecTypeDef::Val
+        | ScSpecTypeDef::Bool
+        | ScSpecTypeDef::Void
+        | ScSpecTypeDef::Error
+        | ScSpecTypeDef::Timepoint
+        | ScSpecTypeDef::Duration
+        | ScSpecTypeDef::Bytes
+        | ScSpecTypeDef::String
+        | ScSpecTypeDef::Symbol
+        | ScSpecTypeDef::Address => def.name().to_string(),
+
+        ScSpecTypeDef::Option(x) => format!("Option<{}>", pretty_type(&x.value_type)),
+        ScSpecTypeDef::Result(r) => format!(
+            "Result<{}, {}>",
+            pretty_type(&r.ok_type),
+            pretty_type(&r.error_type)
+        ),
+        ScSpecTypeDef::Vec(v) => format!("Vec<{}>", pretty_type(&v.element_type)),
+        ScSpecTypeDef::Map(m) => format!(
+            "Map<{}, {}>",
+            pretty_type(&m.key_type),
+            pretty_type(&m.value_type)
+        ),
+        ScSpecTypeDef::Tuple(vec) => {
+            let mut res = "(".to_string();
+            let vec = vec.value_types.as_vec();
+            res.push_str(&vec.iter().map(|x| pretty_type(x)).join(", "));
+            res.push(')');
+            res
+        }
+        ScSpecTypeDef::BytesN(spec) => format!("BytesN<{}>", spec.n),
+        ScSpecTypeDef::Udt(u) => format!("{}", u.name),
+    };
 }
