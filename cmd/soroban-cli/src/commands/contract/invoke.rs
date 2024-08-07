@@ -6,21 +6,23 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, value_parser, Parser};
+use clap::{arg, command, value_parser, Parser, ValueEnum};
 use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 
 use soroban_env_host::{
     xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, Hash, HostFunction, InvokeContractArgs,
-        InvokeHostFunctionOp, LedgerEntryData, Limits, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0,
-        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM, Thresholds, Transaction,
-        TransactionExt, Uint256, VecM, WriteXdr,
+        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
+        DiagnosticEvent, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
+        LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
+        WriteXdr,
     },
     HostError,
 };
 
+use soroban_rpc::SimulateTransactionResponse;
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
@@ -44,7 +46,7 @@ pub struct Cmd {
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction
+    /// View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
@@ -54,6 +56,9 @@ pub struct Cmd {
     pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
+    /// Whether or not to send a transaction
+    #[arg(long, value_enum, default_value("if-write"), env = "STELLAR_SEND")]
+    pub send: Send,
 }
 
 impl FromStr for Cmd {
@@ -153,14 +158,9 @@ impl From<Infallible> for Error {
 }
 
 impl Cmd {
-    fn is_view(&self) -> bool {
-        self.is_view ||
-            // TODO: Remove at next major release. Was added to retain backwards
-            // compatibility when this env var used to be used for the --is-view
-            // option.
-            std::env::var("SYSTEM_TEST_VERBOSE_OUTPUT").as_deref() == Ok("true")
+    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+        Ok(self.send.should_send(sim_res)? && !self.is_view)
     }
-
     fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
@@ -366,20 +366,13 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let (return_value, events) = if self.is_view() {
-            // log_auth_cost_and_footprint(Some(&sim_res.transaction_data()?.resources));
-            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
-        } else {
+        let (return_value, events) = if self.send(sim_res)? {
             let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
             // Need to sign all auth entries
             let mut txn = txn.transaction().clone();
-            // let auth = auth_entries(&txn);
-            // crate::log::auth(&[auth]);
-
             if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
                 txn = tx;
             }
-            // log_auth_cost_and_footprint(resources(&txn));
             let res = client
                 .send_transaction_polling(&config.sign_with_local_key(txn).await?)
                 .await?;
@@ -392,6 +385,8 @@ impl NetworkRunnable for Cmd {
                 .map(crate::log::extract_events)
                 .unwrap_or_default();
             (res.return_value()?, events)
+        } else {
+            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         };
         crate::log::events(&events);
         output_to_string(&spec, &return_value, &function)
@@ -564,4 +559,42 @@ Usage Notes:
 Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
 Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"#
     )
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
+pub enum Send {
+    /// Only send transaction if there are ledger writes or published events, otherwise return simulation result
+    #[default]
+    IfWrite,
+    /// Do not send transaction, return simulation result
+    No,
+    /// Always send transaction
+    Yes,
+}
+
+impl Send {
+    pub fn should_send(self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+        Ok(match self {
+            Send::IfWrite => has_write(sim_res)? || has_published_event(sim_res)?,
+            Send::No => false,
+            Send::Yes => true,
+        })
+    }
+}
+
+fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(!sim_res
+        .transaction_data()?
+        .resources
+        .footprint
+        .read_write
+        .is_empty())
+}
+fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(!sim_res.events()?.iter().any(
+        |DiagnosticEvent {
+             event: ContractEvent { type_, .. },
+             ..
+         }| matches!(type_, ContractEventType::Contract),
+    ))
 }
