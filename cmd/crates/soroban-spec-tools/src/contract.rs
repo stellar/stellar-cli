@@ -10,7 +10,7 @@ use soroban_env_host::xdr::{
     ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
     StringM, WriteXdr,
 };
-use stellar_xdr::curr::ScSpecTypeDef;
+use stellar_xdr::curr::{ScSpecTypeDef, ScSpecUdtUnionCaseV0, VecM};
 
 pub struct Spec {
     pub env_meta_base64: Option<String>,
@@ -287,36 +287,36 @@ fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
 }
 
 pub fn pretty_spec(spec: Vec<ScSpecEntry>) -> String {
-    let mut res = "ContractSpec {\n".to_string();
+    let mut res = vec![
+        "/////// Generated pseudocode contract spec from an XDR: \\\\\\\\\\\\\\\n".to_string(),
+    ];
+
+    let mut functions = Vec::new();
 
     for spec_entry in &spec {
-        let append = match spec_entry {
-            ScSpecEntry::FunctionV0(func) => pretty_func(func),
-            ScSpecEntry::UdtUnionV0(udt) => pretty_union(udt),
-            ScSpecEntry::UdtStructV0(udt) => pretty_struct(udt),
-            ScSpecEntry::UdtEnumV0(udt) => pretty_enum(udt),
-            ScSpecEntry::UdtErrorEnumV0(udt) => pretty_error(udt),
+        match spec_entry {
+            ScSpecEntry::FunctionV0(func) => functions.push(func),
+            ScSpecEntry::UdtUnionV0(udt) => res.push(pretty_union(udt)),
+            ScSpecEntry::UdtStructV0(udt) => res.push(pretty_struct(udt)),
+            ScSpecEntry::UdtEnumV0(udt) => res.push(pretty_enum(udt)),
+            ScSpecEntry::UdtErrorEnumV0(udt) => res.push(pretty_error(udt)),
         };
-
-        res.push_str(&append);
     }
 
-    return res + "}";
+    if !functions.is_empty() {
+        res.push(format!(
+            "pub trait ContractTrait {{\n{}}}",
+            functions.iter().map(|f| pretty_func(f)).join("")
+        ));
+    }
+
+    res.iter().join("\n")
 }
 
 const IDENT: &str = "    ";
 
 fn pretty_func(func: &ScSpecFunctionV0) -> String {
-    let mut res = String::new();
-    if func.doc.len() != 0 {
-        res.push_str(&format!(
-            "{}/// {}\n",
-            IDENT,
-            func.doc
-                .to_string()
-                .replace("\\n", &format!("\n{}/// ", IDENT))
-        ))
-    }
+    let mut res = pretty_doc(&func.doc, IDENT);
 
     res.push_str(&format!("{}pub fn {}(", IDENT, func.name.0));
 
@@ -341,27 +341,109 @@ fn pretty_func(func: &ScSpecFunctionV0) -> String {
     };
 
     res.push_str(";\n");
-    return res;
+    res
 }
 
-fn pretty_union(udt: &ScSpecUdtUnionV0) -> String {
-    return "TODOu ".to_string();
+fn pretty_union(udt_union: &ScSpecUdtUnionV0) -> String {
+    // TODO: handle lib
+    let mut res = pretty_doc(&udt_union.doc, "");
+
+    let body = udt_union
+        .cases
+        .as_vec()
+        .iter()
+        .map(|u| match u {
+            ScSpecUdtUnionCaseV0::VoidV0(void) => {
+                format!("{}{}{}", pretty_doc(&void.doc, IDENT), IDENT, void.name)
+            }
+            ScSpecUdtUnionCaseV0::TupleV0(tuple) => format!(
+                "{}{}{}{}",
+                pretty_doc(&tuple.doc, IDENT),
+                IDENT,
+                tuple.name,
+                pretty_tuple(&tuple.type_)
+            ),
+        })
+        .join(",\n");
+    res.push_str(&format!("pub enum {} {{\n{}\n}}", udt_union.name, body));
+
+    res
 }
 
-fn pretty_struct(udt: &ScSpecUdtStructV0) -> String {
-    return "TODOs ".to_string();
+fn pretty_struct(udt_struct: &ScSpecUdtStructV0) -> String {
+    // TODO: handle lib
+    let mut res = pretty_doc(&udt_struct.doc, "");
+
+    let body = udt_struct
+        .fields
+        .as_vec()
+        .iter()
+        .map(|f| {
+            format!(
+                "{}{}pub {}: {}",
+                pretty_doc(&f.doc, IDENT),
+                IDENT,
+                f.name,
+                pretty_type(&f.type_)
+            )
+        })
+        .join(",\n");
+
+    res.push_str(&format!("pub struct {} {{\n{}\n}}", udt_struct.name, body));
+
+    res
 }
 
 fn pretty_enum(udt: &ScSpecUdtEnumV0) -> String {
-    return "TODOe ".to_string();
+    // TODO: handle lib
+    let mut res = pretty_doc(&udt.doc, "");
+
+    let body = udt
+        .cases
+        .as_vec()
+        .iter()
+        .map(|case| {
+            format!(
+                "{}{}{} = {}",
+                pretty_doc(&case.doc, IDENT),
+                IDENT,
+                case.name,
+                case.value
+            )
+        })
+        .join(",\n");
+
+    res.push_str(&format!("pub enum {} {{\n{}\n}}", udt.name, body));
+
+    res
 }
 
 fn pretty_error(udt: &ScSpecUdtErrorEnumV0) -> String {
-    return "TODOerr ".to_string();
+    // TODO: handle lib
+    let mut res = pretty_doc(&udt.doc, "");
+
+    let body = udt
+        .cases
+        .as_vec()
+        .iter()
+        .map(|case| {
+            format!(
+                "{}{}{} = {}",
+                pretty_doc(&case.doc, IDENT),
+                IDENT,
+                case.name,
+                case.value
+            )
+        })
+        .join(",\n");
+
+    res.push_str(&format!("pub enum {} {{\n{}\n}}", udt.name, body));
+
+    res
 }
 
 fn pretty_type(def: &ScSpecTypeDef) -> String {
-    return match def {
+    match def {
         ScSpecTypeDef::U32
         | ScSpecTypeDef::I32
         | ScSpecTypeDef::U64
@@ -394,14 +476,23 @@ fn pretty_type(def: &ScSpecTypeDef) -> String {
             pretty_type(&m.key_type),
             pretty_type(&m.value_type)
         ),
-        ScSpecTypeDef::Tuple(vec) => {
-            let mut res = "(".to_string();
-            let vec = vec.value_types.as_vec();
-            res.push_str(&vec.iter().map(|x| pretty_type(x)).join(", "));
-            res.push(')');
-            res
-        }
+        ScSpecTypeDef::Tuple(vec) => pretty_tuple(&vec.value_types),
         ScSpecTypeDef::BytesN(spec) => format!("BytesN<{}>", spec.n),
         ScSpecTypeDef::Udt(u) => format!("{}", u.name),
-    };
+    }
+}
+
+fn pretty_doc(doc: &StringM<1024>, ident: &str) -> String {
+    if doc.len() != 0 {
+        return format!(
+            "{}/// {}\n",
+            ident,
+            doc.to_string().replace("\\n", &format!("\n{ident}/// "))
+        );
+    }
+    String::new()
+}
+
+fn pretty_tuple(vec: &VecM<ScSpecTypeDef, 12>) -> String {
+    format!("({})", vec.iter().map(pretty_type).join(", "))
 }
