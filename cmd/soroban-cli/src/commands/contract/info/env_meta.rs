@@ -1,12 +1,14 @@
 use std::fmt::Debug;
 
-use crate::commands::contract::info::env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta};
-use crate::commands::contract::info::shared;
-use crate::commands::contract::info::shared::fetch_wasm;
 use clap::{command, Parser};
+use stellar_xdr::curr::ScEnvMetaEntry;
+
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 
+use crate::commands::contract::info::env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta};
+use crate::commands::contract::info::shared;
+use crate::commands::contract::info::shared::fetch_wasm;
 use crate::commands::contract::InfoOutput;
 
 #[derive(Parser, Debug, Clone)]
@@ -46,6 +48,21 @@ impl Cmd {
             InfoOutput::XdrBase64 => spec.env_meta_base64.unwrap(),
             InfoOutput::Json => serde_json::to_string(&spec.env_meta)?,
             InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.env_meta)?,
+            InfoOutput::Pretty => {
+                let mut meta_str = "Contract env-meta:\n".to_string();
+                for env_meta_entry in &spec.env_meta {
+                    match env_meta_entry {
+                        ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
+                            let protocol = v >> 32;
+                            let interface = v & 0xffff_ffff;
+                            meta_str.push_str(&format!(" • Protocol: v{protocol}\n"));
+                            meta_str.push_str(&format!(" • Interface: v{interface}\n"));
+                            meta_str.push_str(&format!(" • Interface Version: {v}\n"));
+                        }
+                    }
+                }
+                meta_str
+            }
         };
 
         Ok(res)

@@ -419,15 +419,17 @@ Outputs no data when no data is present in the contract.
 * `--id <CONTRACT_ID>` — Contract id to get the data for
 * `--output <OUTPUT>` — Format of the output
 
-  Default value: `xdr-base64`
+  Default value: `pretty`
 
   Possible values:
+  - `pretty`:
+    Pretty-printed output of the info entry
   - `xdr-base64`:
     XDR output of the info entry
   - `json`:
-    JSON output of the info entry (not formatted)
+    JSON output of the info entry (one line, not formatted)
   - `json-formatted`:
-    Formatted JSON output of the info entry
+    Formatted (multiline) JSON output of the info entry
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -456,15 +458,17 @@ Outputs no data when no data is present in the contract.
 * `--id <CONTRACT_ID>` — Contract id to get the data for
 * `--output <OUTPUT>` — Format of the output
 
-  Default value: `xdr-base64`
+  Default value: `pretty`
 
   Possible values:
+  - `pretty`:
+    Pretty-printed output of the info entry
   - `xdr-base64`:
     XDR output of the info entry
   - `json`:
-    JSON output of the info entry (not formatted)
+    JSON output of the info entry (one line, not formatted)
   - `json-formatted`:
-    Formatted JSON output of the info entry
+    Formatted (multiline) JSON output of the info entry
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -493,15 +497,17 @@ Outputs no data when no data is present in the contract.
 * `--id <CONTRACT_ID>` — Contract id to get the data for
 * `--output <OUTPUT>` — Format of the output
 
-  Default value: `xdr-base64`
+  Default value: `pretty`
 
   Possible values:
+  - `pretty`:
+    Pretty-printed output of the info entry
   - `xdr-base64`:
     XDR output of the info entry
   - `json`:
-    JSON output of the info entry (not formatted)
+    JSON output of the info entry (one line, not formatted)
   - `json-formatted`:
-    Formatted JSON output of the info entry
+    Formatted (multiline) JSON output of the info entry
 
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server

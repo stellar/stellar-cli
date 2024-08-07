@@ -6,6 +6,7 @@ use crate::commands::contract::info::shared::fetch_wasm;
 use clap::{command, Parser};
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
+use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
 // use crate::commands::contract::info::shared::fetch_wasm;
 use crate::commands::contract::InfoOutput;
@@ -47,6 +48,19 @@ impl Cmd {
             InfoOutput::XdrBase64 => spec.meta_base64.unwrap(),
             InfoOutput::Json => serde_json::to_string(&spec.meta)?,
             InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.meta)?,
+            InfoOutput::Pretty => {
+                let mut meta_str = "Contract meta:\n".to_string();
+
+                for meta_entry in &spec.meta {
+                    match meta_entry {
+                        ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
+                            meta_str.push_str(&format!(" • {key}: {val}\n"));
+                        }
+                    }
+                }
+
+                meta_str
+            }
         };
 
         Ok(res)

@@ -29,7 +29,7 @@ pub struct Args {
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID", group = "src")]
     pub contract_id: Option<String>,
     /// Format of the output
-    #[arg(long, default_value = "xdr-base64")]
+    #[arg(long, default_value = "pretty")]
     pub output: InfoOutput,
     #[command(flatten)]
     pub network: network::Args,
