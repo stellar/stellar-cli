@@ -286,14 +286,14 @@ fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
     }
 }
 
-pub fn pretty_spec(spec: Vec<ScSpecEntry>) -> String {
+pub fn pretty_spec(spec: &Vec<ScSpecEntry>) -> String {
     let mut res = vec![
         "/////// Generated pseudocode contract spec from an XDR: \\\\\\\\\\\\\\\n".to_string(),
     ];
 
     let mut functions = Vec::new();
 
-    for spec_entry in &spec {
+    for spec_entry in spec {
         match spec_entry {
             ScSpecEntry::FunctionV0(func) => functions.push(func),
             ScSpecEntry::UdtUnionV0(udt) => res.push(pretty_union(udt)),
