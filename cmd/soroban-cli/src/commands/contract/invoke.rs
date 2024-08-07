@@ -57,7 +57,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub fee: crate::fee::Args,
     /// Whether or not to send a transaction
-    #[arg(long, value_enum, default_value("if-write"))]
+    #[arg(long, value_enum, default_value("if-write"), env = "STELLAR_SEND")]
     pub send: Send,
 }
 
