@@ -42,7 +42,6 @@ pub struct Cmd {
 
     #[arg(
         long,
-        short = 't',
         default_value = "",
         long_help = "An optional flag to pass in a url for a frontend template repository."
     )]
