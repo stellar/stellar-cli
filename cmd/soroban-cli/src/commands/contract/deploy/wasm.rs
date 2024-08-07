@@ -28,7 +28,7 @@ use crate::{
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
-    output::Output,
+    print::Print,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -165,7 +165,7 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
-        let output = Output::new(global_args.map_or(false, |a| a.quiet));
+        let print = Print::new(global_args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let hash = if self.fee.build_only || self.fee.sim_only {
@@ -197,7 +197,7 @@ impl NetworkRunnable for Cmd {
             }
         })?);
 
-        output.info(format!("Using wasm hash {wasm_hash}").as_str());
+        print.info(format!("Using wasm hash {wasm_hash}").as_str());
 
         let network = config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
@@ -230,22 +230,22 @@ impl NetworkRunnable for Cmd {
         )?;
 
         if self.fee.build_only {
-            output.check("Transaction built!");
+            print.check("Transaction built!");
             return Ok(TxnResult::Txn(txn));
         }
 
-        output.info("Simulating deploy transaction…");
+        print.info("Simulating deploy transaction…");
 
         let txn = client.simulate_and_assemble_transaction(&txn).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
 
         if self.fee.sim_only {
-            output.check("Done!");
+            print.check("Done!");
             return Ok(TxnResult::Txn(txn));
         }
 
-        output.globe("Submitting deploy transaction…");
-        output.log_transaction(&txn, &network, true)?;
+        print.globe("Submitting deploy transaction…");
+        print.log_transaction(&txn, &network, true)?;
 
         let get_txn_resp = client
             .send_transaction_polling(&config.sign_with_local_key(txn).await?)
@@ -259,10 +259,10 @@ impl NetworkRunnable for Cmd {
         let contract_id = stellar_strkey::Contract(contract_id.0).to_string();
 
         if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
-            output.link(url);
+            print.link(url);
         }
 
-        output.check("Deployed!");
+        print.check("Deployed!");
 
         Ok(TxnResult::Res(contract_id))
     }
