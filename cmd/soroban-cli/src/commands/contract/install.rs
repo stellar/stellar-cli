@@ -15,6 +15,7 @@ use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::{global, NetworkRunnable};
 use crate::config::{self, data, network};
 use crate::key;
+use crate::output::Output;
 use crate::rpc::{self, Client};
 use crate::{utils, wasm};
 
@@ -72,8 +73,11 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self
+            .run_against_rpc_server(Some(global_args), None)
+            .await?
+            .to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
@@ -86,11 +90,13 @@ impl Cmd {
 impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<Hash>;
+
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<Hash>, Error> {
+        let output = Output::new(args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
@@ -102,6 +108,7 @@ impl NetworkRunnable for Cmd {
             wasm: self.wasm.wasm.clone(),
             error: e,
         })?;
+
         // Check Rust SDK version if using the public network.
         if let Some(rs_sdk_ver) = get_contract_meta_sdk_version(wasm_spec) {
             if rs_sdk_ver.contains("rc")
@@ -118,6 +125,7 @@ impl NetworkRunnable for Cmd {
                 tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
             }
         }
+
         let key = config.key_pair()?;
 
         // Get the account sequence number
@@ -132,6 +140,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx_without_preflight));
         }
+
         // Don't check whether the contract is already installed when the user
         // has requested to perform simulation only and is hoping to get a
         // transaction back.
@@ -139,6 +148,7 @@ impl NetworkRunnable for Cmd {
             let code_key =
                 xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
             let contract_data = client.get_ledger_entries(&[code_key]).await?;
+
             // Skip install if the contract is already installed, and the contract has an extension version that isn't V0.
             // In protocol 21 extension V1 was added that stores additional information about a contract making execution
             // of the contract cheaper. So if folks want to reinstall we should let them which is why the install will still
@@ -153,6 +163,7 @@ impl NetworkRunnable for Cmd {
                             // Skip reupload if this isn't V0 because V1 extension already
                             // exists.
                             if code.ext.ne(&ContractCodeEntryExt::V0) {
+                                output.info("Skipping install because wasm already installed");
                                 return Ok(TxnResult::Res(hash));
                             }
                         }
@@ -163,19 +174,28 @@ impl NetworkRunnable for Cmd {
                 }
             }
         }
+
+        output.info("Simulating install transaction…");
+
         let txn = client
             .simulate_and_assemble_transaction(&tx_without_preflight)
             .await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn));
         }
+
+        output.globe("Submitting install transaction…");
+
         let txn_resp = client
             .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
             .await?;
+
         if args.map_or(true, |a| !a.no_cache) {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
         }
+
         // Currently internal errors are not returned if the contract code is expired
         if let Some(TransactionResult {
             result: TransactionResultResult::TxInternalError,
@@ -200,9 +220,11 @@ impl NetworkRunnable for Cmd {
             .run_against_rpc_server(args, None)
             .await?;
         }
+
         if args.map_or(true, |a| !a.no_cache) {
             data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
         }
+
         Ok(TxnResult::Res(hash))
     }
 }
@@ -217,6 +239,7 @@ fn get_contract_meta_sdk_version(wasm_spec: &soroban_spec_tools::contract::Spec)
     } else {
         None
     };
+
     if let Some(rs_sdk_version_entry) = &rs_sdk_version_option {
         match rs_sdk_version_entry {
             ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) => {
@@ -224,6 +247,7 @@ fn get_contract_meta_sdk_version(wasm_spec: &soroban_spec_tools::contract::Spec)
             }
         }
     }
+
     None
 }
 

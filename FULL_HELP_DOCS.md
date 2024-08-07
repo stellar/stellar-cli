@@ -911,7 +911,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 
@@ -991,7 +991,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 
