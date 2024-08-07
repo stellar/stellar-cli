@@ -481,7 +481,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — View the result simulating and do not sign and submit transaction
+* `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -496,6 +496,18 @@ stellar contract invoke ... -- --help
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--send <SEND>` — Whether or not to send a transaction
+
+  Default value: `if-write`
+
+  Possible values:
+  - `if-write`:
+    Only send transaction if there are ledger writes or published events, otherwise return simulation result
+  - `no`:
+    Do not send transaction, return simulation result
+  - `yes`:
+    Always send transaction
+
 
 
 
