@@ -174,16 +174,3 @@ pub enum SpecOutput {
     /// Pretty print of contract spec entries
     Docs,
 }
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum InfoOutput {
-    /// Pretty-printed output of the info entry
-    #[default]
-    Pretty,
-    /// XDR output of the info entry
-    XdrBase64,
-    /// JSON output of the info entry (one line, not formatted)
-    Json,
-    /// Formatted (multiline) JSON output of the info entry
-    JsonFormatted,
-}

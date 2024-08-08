@@ -5,7 +5,6 @@ use soroban_env_host::xdr;
 use soroban_rpc::Client;
 
 use crate::commands::contract::info::shared::Error::InvalidWasmHash;
-use crate::commands::contract::InfoOutput;
 use crate::config::{locator, network};
 use crate::utils::rpc::get_remote_wasm_from_hash;
 use crate::wasm;
@@ -13,28 +12,38 @@ use crate::wasm::Error::ContractIsStellarAsset;
 
 #[derive(Debug, clap::Args, Clone, Default)]
 #[command(group(
-    clap::ArgGroup::new("src")
+    clap::ArgGroup::new("Source")
     .required(true)
     .args(& ["wasm", "wasm_hash", "contract_id"]),
 ))]
 #[group(skip)]
 pub struct Args {
     /// Wasm file to extract the data from
-    #[arg(long, group = "src")]
+    #[arg(long, group = "Source")]
     pub wasm: Option<PathBuf>,
     /// Wasm hash to get the data for
-    #[arg(long = "wasm-hash", group = "src")]
+    #[arg(long = "wasm-hash", group = "Source")]
     pub wasm_hash: Option<String>,
     /// Contract id to get the data for
-    #[arg(long = "id", env = "STELLAR_CONTRACT_ID", group = "src")]
+    #[arg(long = "id", env = "STELLAR_CONTRACT_ID", group = "Source")]
     pub contract_id: Option<String>,
-    /// Format of the output
-    #[arg(long, default_value = "pretty")]
-    pub output: InfoOutput,
     #[command(flatten)]
     pub network: network::Args,
     #[command(flatten)]
     pub locator: locator::Args,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
+pub enum MetasInfoOutput {
+    /// Text output of the meta info entry
+    #[default]
+    Text,
+    /// XDR output of the info entry
+    XdrBase64,
+    /// JSON output of the info entry (one line, not formatted)
+    Json,
+    /// Formatted (multiline) JSON output of the info entry
+    JsonFormatted,
 }
 
 #[derive(thiserror::Error, Debug)]

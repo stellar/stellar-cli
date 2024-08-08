@@ -2,18 +2,19 @@ use std::fmt::Debug;
 
 use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
 use crate::commands::contract::info::shared;
-use crate::commands::contract::info::shared::fetch_wasm;
+use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
 use clap::{command, Parser};
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
-use crate::commands::contract::InfoOutput;
-
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
     #[command(flatten)]
     pub common: shared::Args,
+    /// Format of the output
+    #[arg(long, default_value = "text")]
+    pub output: MetasInfoOutput,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -43,24 +44,23 @@ impl Cmd {
             return Err(NoMetaPresent());
         }
 
-        let res = match self.common.output {
-            InfoOutput::XdrBase64 => spec.meta_base64.unwrap(),
-            InfoOutput::Json => serde_json::to_string(&spec.meta)?,
-            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.meta)?,
-            InfoOutput::Pretty => {
+        let res = match self.output {
+            MetasInfoOutput::XdrBase64 => spec.meta_base64.unwrap(),
+            MetasInfoOutput::Json => serde_json::to_string(&spec.meta)?,
+            MetasInfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.meta)?,
+            MetasInfoOutput::Text => {
                 let mut meta_str = "Contract meta:\n".to_string();
 
                 for meta_entry in &spec.meta {
                     match meta_entry {
                         ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
                             let key = key.to_string();
-                            let (key, val) = match key.as_str() {
-                                "rsver" => ("Rust version", val.to_string()),
-                                "rssdkver" => (
-                                    "Soroban SDK version",
-                                    format!("{})", val.to_string().replace('#', " (commit hash: ")),
-                                ),
-                                _ => (key.as_str(), val.to_string()),
+                            let val = match key.as_str() {
+                                "rsver" => format!("{val} (Rust version)"),
+                                "rssdkver" => {
+                                    format!("{val} (Soroban SDK version and it's commit hash)")
+                                }
+                                _ => val.to_string(),
                             };
                             meta_str.push_str(&format!(" • {key}: {val}\n"));
                         }

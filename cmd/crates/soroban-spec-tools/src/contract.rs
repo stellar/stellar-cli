@@ -1,5 +1,4 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine as _};
-use itertools::Itertools;
 use std::{
     fmt::Display,
     io::{self, Cursor},

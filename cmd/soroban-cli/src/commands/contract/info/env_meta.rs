@@ -8,13 +8,15 @@ use soroban_spec_tools::contract::Spec;
 
 use crate::commands::contract::info::env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta};
 use crate::commands::contract::info::shared;
-use crate::commands::contract::info::shared::fetch_wasm;
-use crate::commands::contract::InfoOutput;
+use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
     #[command(flatten)]
     pub common: shared::Args,
+    /// Format of the output
+    #[arg(long, default_value = "text")]
+    pub output: MetasInfoOutput,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -44,11 +46,11 @@ impl Cmd {
             return Err(NoEnvMetaPresent());
         }
 
-        let res = match self.common.output {
-            InfoOutput::XdrBase64 => spec.env_meta_base64.unwrap(),
-            InfoOutput::Json => serde_json::to_string(&spec.env_meta)?,
-            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.env_meta)?,
-            InfoOutput::Pretty => {
+        let res = match self.output {
+            MetasInfoOutput::XdrBase64 => spec.env_meta_base64.unwrap(),
+            MetasInfoOutput::Json => serde_json::to_string(&spec.env_meta)?,
+            MetasInfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.env_meta)?,
+            MetasInfoOutput::Text => {
                 let mut meta_str = "Contract env-meta:\n".to_string();
                 for env_meta_entry in &spec.env_meta {
                     match env_meta_entry {

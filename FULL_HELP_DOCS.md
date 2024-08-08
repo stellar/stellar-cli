@@ -394,48 +394,9 @@ Access info about contracts
 
 ###### **Subcommands:**
 
-* `env-meta` — Output the env required metadata stored in a contract
 * `interface` — Output the interface of a contract
 * `meta` — Output the metadata stored in a contract
-
-
-
-## `stellar contract info env-meta`
-
-Output the env required metadata stored in a contract.
-
-Env-meta is information stored in all contracts, in the `contractenvmetav0` WASM custom section, about the environment that the contract was built for. Env-meta allows the Soroban Env to know whether the contract is compatibility with the network in its current configuration.
-
-The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
-
-Outputs no data when no data is present in the contract.
-
-**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
-
-###### **Options:**
-
-* `--wasm <WASM>` — Wasm file to extract the data from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id to get the data for
-* `--output <OUTPUT>` — Format of the output
-
-  Default value: `pretty`
-
-  Possible values:
-  - `pretty`:
-    Pretty-printed output of the info entry
-  - `xdr-base64`:
-    XDR output of the info entry
-  - `json`:
-    JSON output of the info entry (one line, not formatted)
-  - `json-formatted`:
-    Formatted (multiline) JSON output of the info entry
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `env-meta` — Output the env required metadata stored in a contract
 
 
 
@@ -456,13 +417,18 @@ Outputs no data when no data is present in the contract.
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
 * `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--output <OUTPUT>` — Format of the output
 
-  Default value: `pretty`
+  Default value: `rust`
 
   Possible values:
-  - `pretty`:
-    Pretty-printed output of the info entry
+  - `rust`:
+    Rust code output of the contract interface
   - `xdr-base64`:
     XDR output of the info entry
   - `json`:
@@ -470,11 +436,6 @@ Outputs no data when no data is present in the contract.
   - `json-formatted`:
     Formatted (multiline) JSON output of the info entry
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -495,13 +456,18 @@ Outputs no data when no data is present in the contract.
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
 * `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--output <OUTPUT>` — Format of the output
 
-  Default value: `pretty`
+  Default value: `text`
 
   Possible values:
-  - `pretty`:
-    Pretty-printed output of the info entry
+  - `text`:
+    Text output of the meta info entry
   - `xdr-base64`:
     XDR output of the info entry
   - `json`:
@@ -509,11 +475,45 @@ Outputs no data when no data is present in the contract.
   - `json-formatted`:
     Formatted (multiline) JSON output of the info entry
 
+
+
+
+## `stellar contract info env-meta`
+
+Output the env required metadata stored in a contract.
+
+Env-meta is information stored in all contracts, in the `contractenvmetav0` WASM custom section, about the environment that the contract was built for. Env-meta allows the Soroban Env to know whether the contract is compatibility with the network in its current configuration.
+
+The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
+
+Outputs no data when no data is present in the contract.
+
+**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of the meta info entry
+  - `xdr-base64`:
+    XDR output of the info entry
+  - `json`:
+    JSON output of the info entry (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the info entry
+
 
 
 

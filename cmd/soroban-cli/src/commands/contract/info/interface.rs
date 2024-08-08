@@ -8,12 +8,26 @@ use soroban_spec_rust::ToFormattedString;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 
-use crate::commands::contract::InfoOutput;
-
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
     #[command(flatten)]
     pub common: shared::Args,
+    /// Format of the output
+    #[arg(long, default_value = "rust")]
+    pub output: InfoOutput,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
+pub enum InfoOutput {
+    /// Rust code output of the contract interface
+    #[default]
+    Rust,
+    /// XDR output of the info entry
+    XdrBase64,
+    /// JSON output of the info entry (one line, not formatted)
+    Json,
+    /// Formatted (multiline) JSON output of the info entry
+    JsonFormatted,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -44,11 +58,11 @@ impl Cmd {
             (spec.spec_base64.unwrap(), spec.spec)
         };
 
-        let res = match self.common.output {
+        let res = match self.output {
             InfoOutput::XdrBase64 => base64,
             InfoOutput::Json => serde_json::to_string(&spec)?,
             InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
-            InfoOutput::Pretty => soroban_spec_rust::generate_without_file(&spec)
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };
