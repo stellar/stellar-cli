@@ -35,7 +35,7 @@
             SOROBAN_SECRET_KEY=SBPXU3OP65M2DQPRM4YFZ5NME66NWWH5DHN44IBDYAN4TFKKY7CS4OHY stellar keys add dev_key
             export STELLAR_NETWORK=testnet
             export STELLAR_ACCOUNT=dev_key
-            shell=$SHELL
+            shell=$0
             shell=`basename $SHELL`
             source <(stellar completion --shell $shell)
           '';
