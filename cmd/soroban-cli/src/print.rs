@@ -16,6 +16,26 @@ impl Print {
         Print { quiet }
     }
 
+    pub fn print<T: Display + Sized>(&self, message: T) {
+        if !self.quiet {
+            print!("{message}");
+        }
+    }
+
+    pub fn println<T: Display + Sized>(&self, message: T) {
+        if !self.quiet {
+            println!("{message}");
+        }
+    }
+
+    pub fn clear_line(&self) {
+        if cfg!(windows) {
+            print!("\r");
+        } else {
+            print!("\r\x1b[2K");
+        }
+    }
+
     /// # Errors
     ///
     /// Might return an error

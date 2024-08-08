@@ -1,5 +1,7 @@
 use clap::Parser;
 
+use super::global;
+
 pub mod create;
 
 /// Create and operate on ledger snapshots.
@@ -15,9 +17,9 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::Create(cmd) => cmd.run().await?,
+            Cmd::Create(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }
