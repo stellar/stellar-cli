@@ -24,7 +24,10 @@ version = "21.2.0"
 version = "=21.2.0"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=21.2.0"
+# TODO
+version = "=21.4.0"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "70a4989b21d84b14216cbf00c06b8f7d074864fa"
 
 [workspace.dependencies.soroban-spec-json]
 version = "=21.2.0"

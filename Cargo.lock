@@ -4709,9 +4709,9 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec",
+ "soroban-spec 21.2.0",
  "soroban-spec-json",
- "soroban-spec-rust",
+ "soroban-spec-rust 21.4.0",
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-rpc-client",
@@ -4867,8 +4867,8 @@ dependencies = [
  "rustc_version",
  "sha2 0.10.8",
  "soroban-env-common",
- "soroban-spec",
- "soroban-spec-rust",
+ "soroban-spec 21.2.0",
+ "soroban-spec-rust 21.2.0",
  "stellar-xdr",
  "syn 2.0.39",
 ]
@@ -4886,6 +4886,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-spec"
+version = "21.4.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=70a4989b21d84b14216cbf00c06b8f7d074864fa#70a4989b21d84b14216cbf00c06b8f7d074864fa"
+dependencies = [
+ "base64 0.13.1",
+ "stellar-xdr",
+ "thiserror",
+ "wasmparser 0.116.1",
+]
+
+[[package]]
 name = "soroban-spec-json"
 version = "21.2.0"
 dependencies = [
@@ -4894,7 +4905,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec",
+ "soroban-spec 21.2.0",
  "stellar-xdr",
  "thiserror",
 ]
@@ -4909,7 +4920,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "soroban-spec",
+ "soroban-spec 21.2.0",
+ "stellar-xdr",
+ "syn 2.0.39",
+ "thiserror",
+]
+
+[[package]]
+name = "soroban-spec-rust"
+version = "21.4.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=70a4989b21d84b14216cbf00c06b8f7d074864fa#70a4989b21d84b14216cbf00c06b8f7d074864fa"
+dependencies = [
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "sha2 0.10.8",
+ "soroban-spec 21.4.0",
  "stellar-xdr",
  "syn 2.0.39",
  "thiserror",
@@ -4925,7 +4951,7 @@ dependencies = [
  "itertools 0.10.5",
  "serde_json",
  "soroban-env-host",
- "soroban-spec",
+ "soroban-spec 21.2.0",
  "stellar-strkey",
  "stellar-xdr",
  "thiserror",
@@ -4948,7 +4974,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec",
+ "soroban-spec 21.2.0",
  "stellar-xdr",
  "temp-dir",
  "thiserror",
@@ -4971,7 +4997,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec",
+ "soroban-spec 21.2.0",
  "soroban-spec-tools",
  "stellar-rpc-client",
  "stellar-strkey",
@@ -5062,7 +5088,7 @@ dependencies = [
  "sha2 0.9.9",
  "slip10",
  "soroban-env-host",
- "soroban-spec",
+ "soroban-spec 21.2.0",
  "stellar-rpc-client",
  "stellar-strkey",
  "stellar-xdr",

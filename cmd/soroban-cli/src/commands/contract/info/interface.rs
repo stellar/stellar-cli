@@ -4,6 +4,7 @@ use crate::commands::contract::info::interface::Error::NoInterfacePresent;
 use crate::commands::contract::info::shared;
 use crate::commands::contract::info::shared::fetch_wasm;
 use clap::{command, Parser};
+use soroban_spec_rust::ToFormattedString;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 
@@ -47,7 +48,9 @@ impl Cmd {
             InfoOutput::XdrBase64 => base64,
             InfoOutput::Json => serde_json::to_string(&spec)?,
             InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
-            InfoOutput::Pretty => contract::pretty_spec(&spec),
+            InfoOutput::Pretty => soroban_spec_rust::generate_without_file(&spec)
+                .to_formatted_string()
+                .expect("Unexpected spec format error"),
         };
 
         Ok(res)
