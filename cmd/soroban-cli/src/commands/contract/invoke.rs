@@ -406,7 +406,7 @@ impl NetworkRunnable for Cmd {
             ShouldSend::No => (sim_res.results()?[0].xdr.clone(), sim_res.events()?),
             ShouldSend::DefaultNo => {
                 let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
-                print.infoln("Send skipped because simulation identified a read-only. Send by rerunning with `--send=yes`.");
+                print.infoln("Send skipped because simulation identified as read-only. Send by rerunning with `--send=yes`.");
                 (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
             }
         };
