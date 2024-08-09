@@ -159,9 +159,6 @@ impl From<Infallible> for Error {
 }
 
 impl Cmd {
-    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
-        Ok(self.send.should_send(sim_res)? && !self.is_view)
-    }
     fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
@@ -294,6 +291,23 @@ impl Cmd {
             })
             .transpose()
     }
+
+    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
+        Ok(match self.send {
+            Send::Default => {
+                if self.is_view {
+                    ShouldSend::No
+                } else if has_write(sim_res)? || has_published_event(sim_res)? || has_auth(sim_res)?
+                {
+                    ShouldSend::Yes
+                } else {
+                    ShouldSend::DefaultNo
+                }
+            }
+            Send::No => ShouldSend::No,
+            Send::Yes => ShouldSend::Yes,
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -367,29 +381,34 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let (return_value, events) = if self.send(sim_res)? {
-            let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
-            // Need to sign all auth entries
-            let mut txn = txn.transaction().clone();
-            if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-                txn = tx;
+        let should_send = self.send(sim_res)?;
+        let (return_value, events) = match should_send {
+            ShouldSend::Yes => {
+                let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
+                // Need to sign all auth entries
+                let mut txn = txn.transaction().clone();
+                if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
+                    txn = tx;
+                }
+                let res = client
+                    .send_transaction_polling(&config.sign_with_local_key(txn).await?)
+                    .await?;
+                if !no_cache {
+                    data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
+                }
+                let events = res
+                    .result_meta
+                    .as_ref()
+                    .map(crate::log::extract_events)
+                    .unwrap_or_default();
+                (res.return_value()?, events)
             }
-            let res = client
-                .send_transaction_polling(&config.sign_with_local_key(txn).await?)
-                .await?;
-            if !no_cache {
-                data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
+            ShouldSend::No => (sim_res.results()?[0].xdr.clone(), sim_res.events()?),
+            ShouldSend::DefaultNo => {
+                let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
+                print.infoln("Send skipped because simulation identified a read-only. Send by rerunning with `--send=yes`.");
+                (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
             }
-            let events = res
-                .result_meta
-                .as_ref()
-                .map(crate::log::extract_events)
-                .unwrap_or_default();
-            (res.return_value()?, events)
-        } else {
-            let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
-            print.infoln("Send skipped because simulation identified a read-only invoke. Send invoke to network with `--send=yes`.");
-            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         };
         crate::log::events(&events);
         output_to_string(&spec, &return_value, &function)
@@ -576,16 +595,10 @@ pub enum Send {
     Yes,
 }
 
-impl Send {
-    pub fn should_send(self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
-        Ok(match self {
-            Send::Default => {
-                has_write(sim_res)? || has_published_event(sim_res)? || has_auth(sim_res)?
-            }
-            Send::No => false,
-            Send::Yes => true,
-        })
-    }
+enum ShouldSend {
+    DefaultNo,
+    No,
+    Yes,
 }
 
 fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
