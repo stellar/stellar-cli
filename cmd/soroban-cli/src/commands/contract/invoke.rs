@@ -29,6 +29,7 @@ use super::super::events;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
+use crate::print;
 use crate::{
     commands::global,
     config::{self, data, locator, network},
@@ -386,6 +387,8 @@ impl NetworkRunnable for Cmd {
                 .unwrap_or_default();
             (res.return_value()?, events)
         } else {
+            let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
+            print.infoln("Invoke simulated only because simulation identified a read-only transaction. To send invoke to network in a transaction use --send=yes.");
             (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         };
         crate::log::events(&events);
