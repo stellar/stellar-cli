@@ -388,7 +388,7 @@ impl NetworkRunnable for Cmd {
             (res.return_value()?, events)
         } else {
             let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
-            print.infoln("Invoke simulated only because simulation identified a read-only transaction. To send invoke to network in a transaction use --send=yes.");
+            print.infoln("Send skipped because simulation identified a read-only invoke. Send invoke to network with `--send=yes`.");
             (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         };
         crate::log::events(&events);
