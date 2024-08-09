@@ -110,7 +110,7 @@ impl Root {
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
-            Cmd::Network(network) => network.run().await?,
+            Cmd::Network(network) => network.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run().await?,

@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::rpc::{self};
 
-use super::config::locator;
+use super::{config::locator, global};
 
 pub mod add;
 pub mod container;
@@ -81,22 +81,22 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::Container(cmd) => cmd.run().await?,
+            Cmd::Container(cmd) => cmd.run(global_args).await?,
 
             // TODO Remove this once `network start` is removed
             Cmd::Start(cmd) => {
                 eprintln!("⚠️ Warning: `network start` has been deprecated. Use `network container start` instead");
-                cmd.run().await?;
+                cmd.run(global_args).await?;
             }
             // TODO Remove this once `network stop` is removed
             Cmd::Stop(cmd) => {
                 println!("⚠️ Warning: `network stop` has been deprecated. Use `network container stop` instead");
-                cmd.run().await?;
+                cmd.run(global_args).await?;
             }
         };
         Ok(())

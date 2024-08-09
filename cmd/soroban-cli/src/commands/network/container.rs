@@ -1,3 +1,5 @@
+use crate::commands::global;
+
 pub(crate) mod logs;
 mod shared;
 pub(crate) mod start;
@@ -37,11 +39,11 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match &self {
             Cmd::Logs(cmd) => cmd.run().await?,
-            Cmd::Start(cmd) => cmd.run().await?,
-            Cmd::Stop(cmd) => cmd.run().await?,
+            Cmd::Start(cmd) => cmd.run(global_args).await?,
+            Cmd::Stop(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
