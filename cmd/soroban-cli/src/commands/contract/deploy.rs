@@ -1,3 +1,5 @@
+use crate::commands::global;
+
 pub mod asset;
 pub mod wasm;
 
@@ -18,10 +20,10 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match &self {
             Cmd::Asset(asset) => asset.run().await?,
-            Cmd::Wasm(wasm) => wasm.run().await?,
+            Cmd::Wasm(wasm) => wasm.run(global_args).await?,
         }
         Ok(())
     }

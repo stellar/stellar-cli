@@ -47,6 +47,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
 * `network` — Start and configure networks
+* `snapshot` — Download a snapshot of a ledger from an archive
 * `tx` — Sign, Simulate, and Send transactions
 * `xdr` — Decode and encode XDR
 * `completion` — Print shell completion code for the specified shell
@@ -533,7 +534,7 @@ Initialize a Soroban project with an example contract
 
   Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
 
-* `-f`, `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
+* `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
   Default value: ``
 * `--overwrite` — Overwrite all existing files.
@@ -612,7 +613,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — View the result simulating and do not sign and submit transaction
+* `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -627,6 +628,18 @@ stellar contract invoke ... -- --help
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--send <SEND>` — Whether or not to send a transaction
+
+  Default value: `if-write`
+
+  Possible values:
+  - `if-write`:
+    Only send transaction if there are ledger writes or published events, otherwise return simulation result
+  - `no`:
+    Do not send transaction, return simulation result
+  - `yes`:
+    Always send transaction
+
 
 
 
@@ -1030,7 +1043,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 
@@ -1110,7 +1123,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 
@@ -1127,6 +1140,53 @@ Stop a network container started with `network container start`
 ###### **Options:**
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar snapshot`
+
+Download a snapshot of a ledger from an archive
+
+**Usage:** `stellar snapshot <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — Create a ledger snapshot using a history archive
+
+
+
+## `stellar snapshot create`
+
+Create a ledger snapshot using a history archive.
+
+Filters (address, wasm-hash) specify what ledger entries to include.
+
+Account addresses include the account, and trust lines.
+
+Contract addresses include the related wasm, contract data.
+
+If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
+
+**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
+
+###### **Options:**
+
+* `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
+* `--address <ADDRESS>` — Account or contract address to include in the snapshot
+* `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
+* `--output <OUTPUT>` — Format of the out file
+
+  Possible values: `json`
+
+* `--out <OUT>` — Out path that the snapshot is written to
+
+  Default value: `snapshot.json`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 
 
 
