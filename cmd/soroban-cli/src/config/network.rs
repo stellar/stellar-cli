@@ -196,6 +196,15 @@ pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_
     ),
 };
 
+pub fn get_network_name(url: &str) -> Option<&'static str> {
+    for (name, (network_url, _)) in DEFAULTS.entries() {
+        if *network_url == url {
+            return Some(name);
+        }
+    }
+    None
+}
+
 impl From<&(&str, &str)> for Network {
     /// Convert the return value of `DEFAULTS.get()` into a Network
     fn from(n: &(&str, &str)) -> Self {
