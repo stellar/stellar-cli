@@ -21,10 +21,10 @@ version = "=21.2.0"
 version = "21.2.0"
 
 [workspace.dependencies.soroban-spec]
-version = "=21.2.0"
+version = "=21.5.0"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=21.2.0"
+version = "=21.5.0"
 
 [workspace.dependencies.soroban-spec-json]
 version = "=21.3.0"

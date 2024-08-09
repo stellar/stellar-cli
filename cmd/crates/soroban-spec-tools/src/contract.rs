@@ -77,14 +77,11 @@ impl Spec {
             vec![]
         };
 
-        let mut spec_base64 = None;
-        let spec = if let Some(spec) = spec {
-            spec_base64 = Some(base64.encode(spec));
-            let cursor = Cursor::new(spec);
-            let mut read = Limited::new(cursor, Limits::none());
-            ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?
+        let (spec_base64, spec) = if let Some(spec) = spec {
+            let (spec_base64, spec) = Spec::spec_to_base64(spec)?;
+            (Some(spec_base64), spec)
         } else {
-            vec![]
+            (None, vec![])
         };
 
         Ok(Spec {
@@ -105,6 +102,16 @@ impl Spec {
             .collect::<Result<Vec<_>, Error>>()?
             .join(",\n");
         Ok(format!("[{spec}]"))
+    }
+
+    pub fn spec_to_base64(spec: &[u8]) -> Result<(String, Vec<ScSpecEntry>), Error> {
+        let spec_base64 = base64.encode(spec);
+        let cursor = Cursor::new(spec);
+        let mut read = Limited::new(cursor, Limits::none());
+        Ok((
+            spec_base64,
+            ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?,
+        ))
     }
 }
 
