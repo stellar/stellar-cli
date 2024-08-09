@@ -22,7 +22,7 @@ use soroban_env_host::{
     HostError,
 };
 
-use soroban_rpc::SimulateTransactionResponse;
+use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
@@ -57,7 +57,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub fee: crate::fee::Args,
     /// Whether or not to send a transaction
-    #[arg(long, value_enum, default_value("if-write"), env = "STELLAR_SEND")]
+    #[arg(long, value_enum, env = "STELLAR_SEND")]
     pub send: Send,
 }
 
@@ -563,9 +563,10 @@ Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Send {
-    /// Only send transaction if there are ledger writes or published events, otherwise return simulation result
+    /// Only send transaction if simulation indicates there are ledger writes,
+    /// published events, or auth required, otherwise return simulation result
     #[default]
-    IfWrite,
+    Default,
     /// Do not send transaction, return simulation result
     No,
     /// Always send transaction
@@ -575,7 +576,9 @@ pub enum Send {
 impl Send {
     pub fn should_send(self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         Ok(match self {
-            Send::IfWrite => has_write(sim_res)? || has_published_event(sim_res)?,
+            Send::Default => {
+                has_write(sim_res)? || has_published_event(sim_res)? || has_auth(sim_res)?
+            }
             Send::No => false,
             Send::Yes => true,
         })
@@ -590,6 +593,7 @@ fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         .read_write
         .is_empty())
 }
+
 fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
     Ok(!sim_res.events()?.iter().any(
         |DiagnosticEvent {
@@ -597,4 +601,11 @@ fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Er
              ..
          }| matches!(type_, ContractEventType::Contract),
     ))
+}
+
+fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(!sim_res
+        .results()?
+        .iter()
+        .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
 }
