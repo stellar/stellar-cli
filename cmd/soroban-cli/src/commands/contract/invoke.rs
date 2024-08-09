@@ -22,13 +22,14 @@ use soroban_env_host::{
     HostError,
 };
 
-use soroban_rpc::SimulateTransactionResponse;
+use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
+use crate::print;
 use crate::{
     commands::global,
     config::{self, data, locator, network},
@@ -57,7 +58,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub fee: crate::fee::Args,
     /// Whether or not to send a transaction
-    #[arg(long, value_enum, default_value("if-write"), env = "STELLAR_SEND")]
+    #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
 }
 
@@ -158,9 +159,6 @@ impl From<Infallible> for Error {
 }
 
 impl Cmd {
-    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
-        Ok(self.send.should_send(sim_res)? && !self.is_view)
-    }
     fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
@@ -293,6 +291,23 @@ impl Cmd {
             })
             .transpose()
     }
+
+    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
+        Ok(match self.send {
+            Send::Default => {
+                if self.is_view {
+                    ShouldSend::No
+                } else if has_write(sim_res)? || has_published_event(sim_res)? || has_auth(sim_res)?
+                {
+                    ShouldSend::Yes
+                } else {
+                    ShouldSend::DefaultNo
+                }
+            }
+            Send::No => ShouldSend::No,
+            Send::Yes => ShouldSend::Yes,
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -366,27 +381,34 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let (return_value, events) = if self.send(sim_res)? {
-            let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
-            // Need to sign all auth entries
-            let mut txn = txn.transaction().clone();
-            if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-                txn = tx;
+        let should_send = self.send(sim_res)?;
+        let (return_value, events) = match should_send {
+            ShouldSend::Yes => {
+                let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
+                // Need to sign all auth entries
+                let mut txn = txn.transaction().clone();
+                if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
+                    txn = tx;
+                }
+                let res = client
+                    .send_transaction_polling(&config.sign_with_local_key(txn).await?)
+                    .await?;
+                if !no_cache {
+                    data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
+                }
+                let events = res
+                    .result_meta
+                    .as_ref()
+                    .map(crate::log::extract_events)
+                    .unwrap_or_default();
+                (res.return_value()?, events)
             }
-            let res = client
-                .send_transaction_polling(&config.sign_with_local_key(txn).await?)
-                .await?;
-            if !no_cache {
-                data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
+            ShouldSend::No => (sim_res.results()?[0].xdr.clone(), sim_res.events()?),
+            ShouldSend::DefaultNo => {
+                let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
+                print.infoln("Send skipped because simulation identified a read-only. Send by rerunning with `--send=yes`.");
+                (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
             }
-            let events = res
-                .result_meta
-                .as_ref()
-                .map(crate::log::extract_events)
-                .unwrap_or_default();
-            (res.return_value()?, events)
-        } else {
-            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
         };
         crate::log::events(&events);
         output_to_string(&spec, &return_value, &function)
@@ -563,23 +585,20 @@ Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Send {
-    /// Only send transaction if there are ledger writes or published events, otherwise return simulation result
+    /// Send transaction if simulation indicates there are ledger writes,
+    /// published events, or auth required, otherwise return simulation result
     #[default]
-    IfWrite,
+    Default,
     /// Do not send transaction, return simulation result
     No,
     /// Always send transaction
     Yes,
 }
 
-impl Send {
-    pub fn should_send(self, sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
-        Ok(match self {
-            Send::IfWrite => has_write(sim_res)? || has_published_event(sim_res)?,
-            Send::No => false,
-            Send::Yes => true,
-        })
-    }
+enum ShouldSend {
+    DefaultNo,
+    No,
+    Yes,
 }
 
 fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
@@ -590,11 +609,19 @@ fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         .read_write
         .is_empty())
 }
+
 fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
-    Ok(!sim_res.events()?.iter().any(
+    Ok(sim_res.events()?.iter().any(
         |DiagnosticEvent {
              event: ContractEvent { type_, .. },
              ..
          }| matches!(type_, ContractEventType::Contract),
     ))
+}
+
+fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(sim_res
+        .results()?
+        .iter()
+        .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
 }
