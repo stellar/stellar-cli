@@ -498,11 +498,11 @@ stellar contract invoke ... -- --help
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
 * `--send <SEND>` — Whether or not to send a transaction
 
-  Default value: `if-write`
+  Default value: `default`
 
   Possible values:
-  - `if-write`:
-    Only send transaction if there are ledger writes or published events, otherwise return simulation result
+  - `default`:
+    Only send transaction if simulation indicates there are ledger writes, published events, or auth required, otherwise return simulation result
   - `no`:
     Do not send transaction, return simulation result
   - `yes`:
