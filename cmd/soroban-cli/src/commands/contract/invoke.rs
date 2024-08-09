@@ -58,7 +58,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub fee: crate::fee::Args,
     /// Whether or not to send a transaction
-    #[arg(long, value_enum, env = "STELLAR_SEND")]
+    #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
 }
 
@@ -598,7 +598,7 @@ fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
 }
 
 fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
-    Ok(!sim_res.events()?.iter().any(
+    Ok(sim_res.events()?.iter().any(
         |DiagnosticEvent {
              event: ContractEvent { type_, .. },
              ..
@@ -607,7 +607,7 @@ fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Er
 }
 
 fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
-    Ok(!sim_res
+    Ok(sim_res
         .results()?
         .iter()
         .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
