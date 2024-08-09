@@ -7,3 +7,4 @@ snapshot.json
 test_snapshots
 .vscode/settings.json
 .idea
+local.sh
