@@ -20,7 +20,7 @@ There are 2 ways to being developing stellar-cli:
 
 ### Installing all required dependencies 
 
-You may want to install all required dependencies locally. This includes installing `rustup`, `make`, `libudev`, `jq` from your package manager. After all dependencies are installed, you can start with running `make build` to build `stellar-cli` on your machine! 
+You may want to install all required dependencies locally. This includes installing `rustup`, `make`, `libudev`, `jq` from your package manager. After all dependencies are installed, you can start with running `make install` to build `stellar-cli` and install it! 
 
 ### Using `nix`
 
