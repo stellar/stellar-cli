@@ -502,7 +502,7 @@ stellar contract invoke ... -- --help
 
   Possible values:
   - `default`:
-    Only send transaction if simulation indicates there are ledger writes, published events, or auth required, otherwise return simulation result
+    Send transaction if simulation indicates there are ledger writes, published events, or auth required, otherwise return simulation result
   - `no`:
     Do not send transaction, return simulation result
   - `yes`:

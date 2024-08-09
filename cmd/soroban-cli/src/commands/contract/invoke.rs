@@ -585,7 +585,7 @@ Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Send {
-    /// Only send transaction if simulation indicates there are ledger writes,
+    /// Send transaction if simulation indicates there are ledger writes,
     /// published events, or auth required, otherwise return simulation result
     #[default]
     Default,
