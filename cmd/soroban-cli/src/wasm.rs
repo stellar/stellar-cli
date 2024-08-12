@@ -46,7 +46,7 @@ pub enum Error {
         "cannot fetch wasm for contract because the contract is \
     a network built-in asset contract that does not have a downloadable code binary"
     )]
-    ContractIsStellarAsset(),
+    ContractIsStellarAsset,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -136,7 +136,7 @@ pub async fn fetch_from_contract(
     if let ScVal::ContractInstance(contract) = &data_entry.val {
         return match &contract.executable {
             ContractExecutable::Wasm(hash) => Ok(get_remote_wasm_from_hash(&client, hash).await?),
-            ContractExecutable::StellarAsset => Err(ContractIsStellarAsset()),
+            ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
         };
     }
     Err(UnexpectedContractToken(data_entry))

@@ -35,17 +35,17 @@ impl Cmd {
     pub async fn run(&self) -> Result<String, Error> {
         let bytes = fetch_wasm(&self.common).await?;
 
-        if bytes.is_none() {
+        let Some(bytes) = bytes else {
             return Err(NoSACMeta());
-        }
-        let spec = Spec::new(&bytes.unwrap())?;
+        };
+        let spec = Spec::new(&bytes)?;
 
-        if spec.meta_base64.is_none() {
+        let Some(meta_base64) = spec.meta_base64 else {
             return Err(NoMetaPresent());
-        }
+        };
 
         let res = match self.output {
-            MetasInfoOutput::XdrBase64 => spec.meta_base64.unwrap(),
+            MetasInfoOutput::XdrBase64 => meta_base64,
             MetasInfoOutput::Json => serde_json::to_string(&spec.meta)?,
             MetasInfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec.meta)?,
             MetasInfoOutput::Text => {
