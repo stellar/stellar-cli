@@ -532,7 +532,7 @@ Initialize a Soroban project with an example contract
 
 * `-w`, `--with-example <WITH_EXAMPLE>` — An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
 
-  Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
+  Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `other_custom_types`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
 
 * `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
@@ -630,11 +630,11 @@ stellar contract invoke ... -- --help
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
 * `--send <SEND>` — Whether or not to send a transaction
 
-  Default value: `if-write`
+  Default value: `default`
 
   Possible values:
-  - `if-write`:
-    Only send transaction if there are ledger writes or published events, otherwise return simulation result
+  - `default`:
+    Send transaction if simulation indicates there are ledger writes, published events, or auth required, otherwise return simulation result
   - `no`:
     Do not send transaction, return simulation result
   - `yes`:
