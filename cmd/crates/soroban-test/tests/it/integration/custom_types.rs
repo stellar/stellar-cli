@@ -207,16 +207,14 @@ fn void(sandbox: &TestEnv, id: &str) {
     invoke_custom(sandbox, id, "woid")
         .assert()
         .success()
-        .stdout("\n")
-        .stderr("");
+        .stdout("\n");
 }
 
 fn val(sandbox: &TestEnv, id: &str) {
     invoke_custom(sandbox, id, "val")
         .assert()
         .success()
-        .stdout("null\n")
-        .stderr("");
+        .stdout("null\n");
 }
 
 async fn i32(sandbox: &TestEnv, id: &str) {

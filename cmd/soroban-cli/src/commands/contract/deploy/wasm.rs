@@ -15,17 +15,20 @@ use soroban_env_host::{
     HostError,
 };
 
-use crate::commands::{
-    contract::{self, id::wasm::get_contract_id},
-    global,
-    txn_result::{TxnEnvelopeResult, TxnResult},
-    NetworkRunnable,
-};
 use crate::{
     commands::{contract::install, HEADING_RPC},
     config::{self, data, locator, network},
     rpc::{self, Client},
     utils, wasm,
+};
+use crate::{
+    commands::{
+        contract::{self, id::wasm::get_contract_id},
+        global,
+        txn_result::{TxnEnvelopeResult, TxnResult},
+        NetworkRunnable,
+    },
+    print::Print,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -115,8 +118,11 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self
+            .run_against_rpc_server(Some(global_args), None)
+            .await?
+            .to_envelope();
         match &res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
@@ -152,6 +158,7 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
+        let print = Print::new(global_args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let hash = if self.fee.build_only || self.fee.sim_only {
@@ -182,6 +189,9 @@ impl NetworkRunnable for Cmd {
                 error: e,
             }
         })?);
+
+        print.info(format!("Using wasm hash {wasm_hash}").as_str());
+
         let network = config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
             Some(h) => soroban_spec_tools::utils::padded_hex_from_str(h, 32)
@@ -207,25 +217,43 @@ impl NetworkRunnable for Cmd {
             salt,
             &public_strkey,
         )?;
+
         if self.fee.build_only {
+            print.check("Transaction built!");
             return Ok(TxnResult::Txn(txn));
         }
 
+        print.info("Simulating deploy transaction…");
+
         let txn = client.simulate_and_assemble_transaction(&txn).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+
         if self.fee.sim_only {
+            print.check("Done!");
             return Ok(TxnResult::Txn(txn));
         }
+
+        print.globe("Submitting deploy transaction…");
+        print.log_transaction(&txn, &network, true)?;
+
         let get_txn_resp = client
             .send_transaction_polling(&config.sign(txn).await?)
             .await?
             .try_into()?;
+
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
-        Ok(TxnResult::Res(
-            stellar_strkey::Contract(contract_id.0).to_string(),
-        ))
+
+        let contract_id = stellar_strkey::Contract(contract_id.0).to_string();
+
+        if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
+            print.link(url);
+        }
+
+        print.check("Deployed!");
+
+        Ok(TxnResult::Res(contract_id))
     }
 }
 

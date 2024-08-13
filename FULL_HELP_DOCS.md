@@ -414,7 +414,7 @@ Initialize a Soroban project with an example contract
 
   Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
 
-* `-f`, `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
+* `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
   Default value: ``
 * `--overwrite` — Overwrite all existing files.
@@ -495,7 +495,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — View the result simulating and do not sign and submit transaction
+* `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -516,6 +516,18 @@ stellar contract invoke ... -- --help
 
   Default value: `60`
 * `--auth-expires-at-ledger <AUTH_EXPIRES_AT_LEDGER>` — Ledger number when signed auth entry expires
+* `--send <SEND>` — Whether or not to send a transaction
+
+  Default value: `default`
+
+  Possible values:
+  - `default`:
+    Send transaction if simulation indicates there are ledger writes, published events, or auth required, otherwise return simulation result
+  - `no`:
+    Do not send transaction, return simulation result
+  - `yes`:
+    Always send transaction
+
 
 
 
@@ -923,7 +935,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 
@@ -1003,7 +1015,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 

@@ -6,21 +6,22 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, value_parser, Parser};
-
+use clap::{arg, command, value_parser, Parser, ValueEnum};
 use heck::ToKebabCase;
 
 use soroban_env_host::{
     xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, Hash, HostFunction, InvokeContractArgs,
-        InvokeHostFunctionOp, LedgerEntryData, Limits, Memo, MuxedAccount, Operation,
-        OperationBody, Preconditions, PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0,
-        ScSpecTypeDef, ScVal, ScVec, SequenceNumber, String32, StringM, Thresholds, Transaction,
-        TransactionExt, Uint256, VecM, WriteXdr,
+        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
+        DiagnosticEvent, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
+        LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+        SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
+        WriteXdr,
     },
     HostError,
 };
 
+use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_sdk::xdr::ScSpecFunctionInputV0;
 use soroban_spec::read::FromWasmError;
 
@@ -30,6 +31,7 @@ use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::config::{self, data, locator, network};
 use crate::get_spec::{self, get_remote_contract_spec};
+use crate::print;
 use crate::signer::{self, Stellar};
 use crate::{commands::global, rpc, Pwd};
 use soroban_spec_tools::{contract, Spec};
@@ -44,7 +46,7 @@ pub struct Cmd {
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction
+    /// View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
@@ -56,6 +58,9 @@ pub struct Cmd {
     pub fee: crate::fee::Args,
     #[command(flatten)]
     pub auth: crate::commands::tx::auth::Args,
+    /// Whether or not to send a transaction
+    #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
+    pub send: Send,
 }
 
 impl FromStr for Cmd {
@@ -157,14 +162,6 @@ impl From<Infallible> for Error {
 }
 
 impl Cmd {
-    fn is_view(&self) -> bool {
-        self.is_view ||
-            // TODO: Remove at next major release. Was added to retain backwards
-            // compatibility when this env var used to be used for the --is-view
-            // option.
-            std::env::var("SYSTEM_TEST_VERBOSE_OUTPUT").as_deref() == Ok("true")
-    }
-
     async fn build_host_function_parameters(
         &self,
         contract_id: [u8; 32],
@@ -306,6 +303,23 @@ impl Cmd {
             })
             .transpose()
     }
+
+    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
+        Ok(match self.send {
+            Send::Default => {
+                if self.is_view {
+                    ShouldSend::No
+                } else if has_write(sim_res)? || has_published_event(sim_res)? || has_auth(sim_res)?
+                {
+                    ShouldSend::Yes
+                } else {
+                    ShouldSend::DefaultNo
+                }
+            }
+            Send::No => ShouldSend::No,
+            Send::Yes => ShouldSend::Yes,
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -376,37 +390,40 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let (return_value, events) = if self.is_view() {
-            // log_auth_cost_and_footprint(Some(&sim_res.transaction_data()?.resources));
-            (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
-        } else {
-            let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
-            // Need to sign all auth entries
-            let mut txn = txn.transaction().clone();
-            // let auth = auth_entries(&txn);
-            // crate::log::auth(&[auth]);
-            let expriation_ledger = self.auth.expiration_ledger(&client).await?;
-            for signer in &signers {
-                if let Some(tx) = signer
-                    .sign_soroban_authorizations(&txn, &network, expriation_ledger)
-                    .await?
-                {
-                    txn = tx;
+        let should_send = self.send(sim_res)?;
+        let (return_value, events) = match should_send {
+            ShouldSend::Yes => {
+                let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
+                // Need to sign all auth entries
+                let mut txn = txn.transaction().clone();
+                let expriation_ledger = self.auth.expiration_ledger(&client).await?;
+                for signer in &signers {
+                    if let Some(tx) = signer
+                        .sign_soroban_authorizations(&txn, &network, expriation_ledger)
+                        .await?
+                    {
+                        txn = tx;
+                    }
                 }
+                let res = client
+                    .send_transaction_polling(&config.sign(txn).await?)
+                    .await?;
+                if !no_cache {
+                    data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
+                }
+                let events = res
+                    .result_meta
+                    .as_ref()
+                    .map(crate::log::extract_events)
+                    .unwrap_or_default();
+                (res.return_value()?, events)
             }
-            // log_auth_cost_and_footprint(resources(&txn));
-            let res = client
-                .send_transaction_polling(&config.sign(txn).await?)
-                .await?;
-            if !no_cache {
-                data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
+            ShouldSend::No => (sim_res.results()?[0].xdr.clone(), sim_res.events()?),
+            ShouldSend::DefaultNo => {
+                let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
+                print.infoln("Send skipped because simulation identified as read-only. Send by rerunning with `--send=yes`.");
+                (sim_res.results()?[0].xdr.clone(), sim_res.events()?)
             }
-            let events = res
-                .result_meta
-                .as_ref()
-                .map(crate::log::extract_events)
-                .unwrap_or_default();
-            (res.return_value()?, events)
         };
         crate::log::events(&events);
         output_to_string(&spec, &return_value, &function)
@@ -579,4 +596,47 @@ Usage Notes:
 Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
 Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"#
     )
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
+pub enum Send {
+    /// Send transaction if simulation indicates there are ledger writes,
+    /// published events, or auth required, otherwise return simulation result
+    #[default]
+    Default,
+    /// Do not send transaction, return simulation result
+    No,
+    /// Always send transaction
+    Yes,
+}
+
+enum ShouldSend {
+    DefaultNo,
+    No,
+    Yes,
+}
+
+fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(!sim_res
+        .transaction_data()?
+        .resources
+        .footprint
+        .read_write
+        .is_empty())
+}
+
+fn has_published_event(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(sim_res.events()?.iter().any(
+        |DiagnosticEvent {
+             event: ContractEvent { type_, .. },
+             ..
+         }| matches!(type_, ContractEventType::Contract),
+    ))
+}
+
+fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
+    Ok(sim_res
+        .results()?
+        .iter()
+        .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
 }

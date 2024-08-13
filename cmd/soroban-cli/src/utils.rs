@@ -1,18 +1,50 @@
+use phf::phf_map;
 use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
     Asset, ContractIdPreimage, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
-    Limits, ScMap, ScMapEntry, ScVal, WriteXdr,
+    Limits, ScMap, ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
 
 pub use soroban_spec_tools::contract as contract_spec;
+
+use crate::config::network::Network;
 
 /// # Errors
 ///
 /// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
     Ok(Hash(Sha256::digest(contract).into()))
+}
+
+/// # Errors
+///
+/// Might return an error
+pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u8; 32], XdrError> {
+    let signature_payload = TransactionSignaturePayload {
+        network_id: Hash(Sha256::digest(network_passphrase).into()),
+        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
+    };
+    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
+}
+
+static EXPLORERS: phf::Map<&'static str, &'static str> = phf_map! {
+    "Test SDF Network ; September 2015" => "https://stellar.expert/explorer/testnet",
+    "Public Global Stellar Network ; September 2015" => "https://stellar.expert/explorer/public",
+};
+
+pub fn explorer_url_for_transaction(network: &Network, tx_hash: &str) -> Option<String> {
+    EXPLORERS
+        .get(&network.network_passphrase)
+        .map(|base_url| format!("{base_url}/tx/{tx_hash}"))
+}
+
+pub fn explorer_url_for_contract(network: &Network, contract_id: &str) -> Option<String> {
+    EXPLORERS
+        .get(&network.network_passphrase)
+        .map(|base_url| format!("{base_url}/contract/{contract_id}"))
 }
 
 /// # Errors

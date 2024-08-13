@@ -76,11 +76,11 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// Use global config
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub global: bool,
 
     /// Location of config directory, default is "."
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub config_dir: Option<PathBuf>,
 }
 
