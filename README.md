@@ -9,7 +9,7 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 
 - [Documentation](#documentation)
 - [Installation](#installation)
-- [Installation with Experimental Features](#installation-with-experiemental-features)
+- [Installation with Experimental Features](#installation-with-experimental-features)
 - [Autocomplete](#autocomplete)
 - [Latest Release](#latest-release)
 - [Upcoming Features](#upcoming-features)
@@ -37,7 +37,7 @@ cargo binstall -y stellar-cli
 Install with Homebrew:
 
 ```
-brew install stellar/tap/stellar-cli
+brew install stellar-cli
 ```
 
 ## Installation with Experimental Features
