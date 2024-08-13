@@ -57,7 +57,7 @@ impl Cmd {
                 }
             })?;
 
-        print.checkln("Container has been stopped");
+        print.checkln("Container stopped");
 
         Ok(())
     }
