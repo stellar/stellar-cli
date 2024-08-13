@@ -41,7 +41,6 @@ pub struct Cmd {
     pub with_example: Vec<String>,
 
     #[arg(
-        short,
         long,
         default_value = "",
         long_help = "An optional flag to pass in a url for a frontend template repository."

@@ -47,6 +47,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `events` — Watch the network for contract events
 * `keys` — Create and manage identities including keys and addresses
 * `network` — Start and configure networks
+* `snapshot` — Download a snapshot of a ledger from an archive
 * `tx` — Sign, Simulate, and Send transactions
 * `xdr` — Decode and encode XDR
 * `completion` — Print shell completion code for the specified shell
@@ -81,6 +82,7 @@ Tools for smart contract developers
 * `deploy` — Deploy a wasm contract
 * `fetch` — Fetch a contract's Wasm binary
 * `id` — Generate the contract id for a given contract or asset
+* `info` — Access info about contracts
 * `init` — Initialize a Soroban project with an example contract
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
@@ -385,6 +387,137 @@ Deploy normal Wasm Contract
 
 
 
+## `stellar contract info`
+
+Access info about contracts
+
+**Usage:** `stellar contract info <COMMAND>`
+
+###### **Subcommands:**
+
+* `interface` — Output the interface of a contract
+* `meta` — Output the metadata stored in a contract
+* `env-meta` — Output the env required metadata stored in a contract
+
+
+
+## `stellar contract info interface`
+
+Output the interface of a contract.
+
+A contract's interface describes the functions, parameters, and types that the contract makes accessible to be called.
+
+The data outputted by this command is a stream of `SCSpecEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
+
+Outputs no data when no data is present in the contract.
+
+**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `rust`
+
+  Possible values:
+  - `rust`:
+    Rust code output of the contract interface
+  - `xdr-base64`:
+    XDR output of the info entry
+  - `json`:
+    JSON output of the info entry (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the info entry
+
+
+
+
+## `stellar contract info meta`
+
+Output the metadata stored in a contract.
+
+A contract's meta is a series of key-value pairs that the contract developer can set with any values to provided metadata about the contract. The meta also contains some information like the version of Rust SDK, and Rust compiler version.
+
+The data outputted by this command is a stream of `SCMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
+
+Outputs no data when no data is present in the contract.
+
+**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of the meta info entry
+  - `xdr-base64`:
+    XDR output of the info entry
+  - `json`:
+    JSON output of the info entry (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the info entry
+
+
+
+
+## `stellar contract info env-meta`
+
+Output the env required metadata stored in a contract.
+
+Env-meta is information stored in all contracts, in the `contractenvmetav0` WASM custom section, about the environment that the contract was built for. Env-meta allows the Soroban Env to know whether the contract is compatibility with the network in its current configuration.
+
+The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
+
+Outputs no data when no data is present in the contract.
+
+**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of the meta info entry
+  - `xdr-base64`:
+    XDR output of the info entry
+  - `json`:
+    JSON output of the info entry (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the info entry
+
+
+
+
 ## `stellar contract init`
 
 Initialize a Soroban project with an example contract
@@ -399,9 +532,9 @@ Initialize a Soroban project with an example contract
 
 * `-w`, `--with-example <WITH_EXAMPLE>` — An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
 
-  Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
+  Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `other_custom_types`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
 
-* `-f`, `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
+* `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
 
   Default value: ``
 * `--overwrite` — Overwrite all existing files.
@@ -480,7 +613,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — View the result simulating and do not sign and submit transaction
+* `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -495,6 +628,18 @@ stellar contract invoke ... -- --help
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--send <SEND>` — Whether or not to send a transaction
+
+  Default value: `default`
+
+  Possible values:
+  - `default`:
+    Send transaction if simulation indicates there are ledger writes, published events, or auth required, otherwise return simulation result
+  - `no`:
+    Do not send transaction, return simulation result
+  - `yes`:
+    Always send transaction
+
 
 
 
@@ -898,7 +1043,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 
@@ -978,7 +1123,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
   Default value: `8000:8000`
 * `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `-v`, `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
 
 
 
@@ -995,6 +1140,53 @@ Stop a network container started with `network container start`
 ###### **Options:**
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar snapshot`
+
+Download a snapshot of a ledger from an archive
+
+**Usage:** `stellar snapshot <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — Create a ledger snapshot using a history archive
+
+
+
+## `stellar snapshot create`
+
+Create a ledger snapshot using a history archive.
+
+Filters (address, wasm-hash) specify what ledger entries to include.
+
+Account addresses include the account, and trust lines.
+
+Contract addresses include the related wasm, contract data.
+
+If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
+
+**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
+
+###### **Options:**
+
+* `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
+* `--address <ADDRESS>` — Account or contract address to include in the snapshot
+* `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
+* `--output <OUTPUT>` — Format of the out file
+
+  Possible values: `json`
+
+* `--out <OUT>` — Out path that the snapshot is written to
+
+  Default value: `snapshot.json`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 
 
 
