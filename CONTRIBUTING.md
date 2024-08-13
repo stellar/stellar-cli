@@ -14,6 +14,31 @@ changes quickly.
   * Clearly describe the issue including steps to reproduce if it is a bug.
 * Fork the repository on GitHub.
 
+## Setting up development environment
+
+There are 2 ways to being developing stellar-cli:
+
+### Installing all required dependencies 
+
+You may want to install all required dependencies locally. This includes installing `rustup`, `make`, `libudev`, `jq` from your package manager. After all dependencies are installed, you can start with running `make install` to build `stellar-cli` and install it! 
+
+### Using `nix`
+
+If you don't want to install necessary dependencies from above, you can run development shell using [nix](https://nixos.org/guides/how-nix-works/) (make sure to [install](https://nixos.org/download/) version above 2.20). After installing `nix`, simply run `nix develop` that will start new `bash` session in your current terminal. If you want to use different shell (e.g. `zsh`) you can run `nix develop -c zsh`
+
+This session will have:
+1. All required dependencies installed
+2. `stellar` alias (overwriting your existing `stellar` installed via cargo, if any)
+3. Configured auto-complete for the working git branch
+
+You can add extra configuration in your `local.sh` file (for example, if you want to export some extra variables for your devshell you can put following in your `local.sh`:
+```shell
+#!/usr/bin/env bash
+export STELLAR_NETWORK=testnet
+```
+Note that all of dependencies and configurations mentioned above is available only in your local development shell, not outside of it.
+
+
 ### Minor Changes
 
 #### Documentation
