@@ -82,6 +82,7 @@ Tools for smart contract developers
 * `deploy` — Deploy a wasm contract
 * `fetch` — Fetch a contract's Wasm binary
 * `id` — Generate the contract id for a given contract or asset
+* `info` — Access info about contracts
 * `init` — Initialize a Soroban project with an example contract
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
@@ -383,6 +384,137 @@ Deploy normal Wasm Contract
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `stellar contract info`
+
+Access info about contracts
+
+**Usage:** `stellar contract info <COMMAND>`
+
+###### **Subcommands:**
+
+* `interface` — Output the interface of a contract
+* `meta` — Output the metadata stored in a contract
+* `env-meta` — Output the env required metadata stored in a contract
+
+
+
+## `stellar contract info interface`
+
+Output the interface of a contract.
+
+A contract's interface describes the functions, parameters, and types that the contract makes accessible to be called.
+
+The data outputted by this command is a stream of `SCSpecEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
+
+Outputs no data when no data is present in the contract.
+
+**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `rust`
+
+  Possible values:
+  - `rust`:
+    Rust code output of the contract interface
+  - `xdr-base64`:
+    XDR output of the info entry
+  - `json`:
+    JSON output of the info entry (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the info entry
+
+
+
+
+## `stellar contract info meta`
+
+Output the metadata stored in a contract.
+
+A contract's meta is a series of key-value pairs that the contract developer can set with any values to provided metadata about the contract. The meta also contains some information like the version of Rust SDK, and Rust compiler version.
+
+The data outputted by this command is a stream of `SCMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
+
+Outputs no data when no data is present in the contract.
+
+**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of the meta info entry
+  - `xdr-base64`:
+    XDR output of the info entry
+  - `json`:
+    JSON output of the info entry (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the info entry
+
+
+
+
+## `stellar contract info env-meta`
+
+Output the env required metadata stored in a contract.
+
+Env-meta is information stored in all contracts, in the `contractenvmetav0` WASM custom section, about the environment that the contract was built for. Env-meta allows the Soroban Env to know whether the contract is compatibility with the network in its current configuration.
+
+The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
+
+Outputs no data when no data is present in the contract.
+
+**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file to extract the data from
+* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
+* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of the meta info entry
+  - `xdr-base64`:
+    XDR output of the info entry
+  - `json`:
+    JSON output of the info entry (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the info entry
+
 
 
 

@@ -6,19 +6,13 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
-use stellar_xdr::curr::{ContractDataEntry, ContractExecutable, ScVal};
 
-use crate::commands::contract::fetch::Error::{ContractIsStellarAsset, UnexpectedContractToken};
 use crate::commands::{global, NetworkRunnable};
 use crate::config::{
     self, locator,
     network::{self, Network},
 };
-use crate::utils::rpc::get_remote_wasm_from_hash;
-use crate::{
-    rpc::{self, Client},
-    Pwd,
-};
+use crate::{wasm, Pwd};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -54,8 +48,6 @@ impl Pwd for Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
@@ -67,13 +59,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error("cannot create contract directory for {0:?}")]
     CannotCreateContractDir(PathBuf),
-    #[error("unexpected contract data {0:?}")]
-    UnexpectedContractToken(ContractDataEntry),
-    #[error(
-        "cannot fetch wasm for contract because the contract is \
-    a network built-in asset contract that does not have a downloadable code binary"
-    )]
-    ContractIsStellarAsset(),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl From<Infallible> for Error {
@@ -110,14 +97,6 @@ impl Cmd {
     pub fn network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
     }
-
-    fn contract_id(&self) -> Result<[u8; 32], Error> {
-        let network = self.network()?;
-        Ok(self
-            .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
-            .0)
-    }
 }
 
 #[async_trait::async_trait]
@@ -130,21 +109,6 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<Vec<u8>, Error> {
         let network = config.map_or_else(|| self.network(), |c| Ok(c.get_network()?))?;
-        tracing::trace!(?network);
-        let contract_id = self.contract_id()?;
-        let client = Client::new(&network.rpc_url)?;
-        client
-            .verify_network_passphrase(Some(&network.network_passphrase))
-            .await?;
-        let data_entry = client.get_contract_data(&contract_id).await?;
-        if let ScVal::ContractInstance(contract) = &data_entry.val {
-            return match &contract.executable {
-                ContractExecutable::Wasm(hash) => {
-                    Ok(get_remote_wasm_from_hash(&client, hash).await?)
-                }
-                ContractExecutable::StellarAsset => Err(ContractIsStellarAsset()),
-            };
-        }
-        return Err(UnexpectedContractToken(data_entry));
+        return Ok(wasm::fetch_from_contract(&self.contract_id, &network, &self.locator).await?);
     }
 }
