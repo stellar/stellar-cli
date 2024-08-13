@@ -1,4 +1,7 @@
-use crate::commands::network::container::shared::Error as BollardConnectionError;
+use crate::{
+    commands::{global, network::container::shared::Error as BollardConnectionError},
+    print,
+};
 
 use super::shared::{Args, Name};
 
@@ -28,18 +31,22 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = print::Print::new(global_args.quiet);
         let container_name = Name(self.name.clone());
         let docker = self.container_args.connect_to_docker().await?;
-        println!(
-            "ℹ️ Stopping container: {}",
+
+        print.infoln(format!(
+            "Stopping {} container",
             container_name.get_external_container_name()
-        );
+        ));
+
         docker
             .stop_container(&container_name.get_internal_container_name(), None)
             .await
             .map_err(|e| {
                 let msg = e.to_string();
+
                 if msg.contains("No such container") {
                     Error::ContainerNotFound {
                         container_name: container_name.get_external_container_name(),
@@ -49,10 +56,9 @@ impl Cmd {
                     Error::ContainerStopFailed(e)
                 }
             })?;
-        println!(
-            "✅ Container stopped: {}",
-            container_name.get_external_container_name()
-        );
+
+        print.checkln("Container stopped");
+
         Ok(())
     }
 }
