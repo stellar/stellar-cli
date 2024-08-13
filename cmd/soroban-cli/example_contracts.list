@@ -15,6 +15,7 @@ increment
 liquidity_pool
 logging
 mint-lock
+other_custom_types
 simple_account
 single_offer
 timelock
