@@ -48,10 +48,10 @@ pub struct Args {
     pub sign_with_lab: bool,
 
     #[arg(long, conflicts_with = "sign_with_lab")]
-    /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+    /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
-    /// If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+    /// If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
     #[arg(long)]
     pub yes: bool,
 

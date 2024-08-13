@@ -35,7 +35,9 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
-    /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
+    /// Account where the final transaction originates from.
+    /// If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction.
+    /// Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
     pub source_account: String,
 
     #[command(flatten)]

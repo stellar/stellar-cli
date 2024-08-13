@@ -115,10 +115,10 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -136,10 +136,10 @@ Deploy builtin Soroban Asset Contract
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -273,10 +273,10 @@ If no keys are specified the contract itself is extended.
   - `temporary`:
     Temporary
 
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -303,10 +303,10 @@ Deploy a wasm contract
 * `--wasm <WASM>` — WASM file to deploy
 * `--wasm-hash <WASM_HASH>` — Hash of the already installed/deployed WASM file
 * `--salt <SALT>` — Custom salt 32-byte salt for the token id
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -366,10 +366,10 @@ Deploy builtin Soroban Asset Contract
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -387,10 +387,10 @@ Deploy normal Wasm Contract
 ###### **Options:**
 
 * `--salt <SALT>` — ID of the Soroban contract
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -587,10 +587,10 @@ Install a WASM file to the ledger without creating a contract instance
 
 ###### **Options:**
 
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -628,10 +628,10 @@ stellar contract invoke ... -- --help
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -711,10 +711,10 @@ Print the current value of a contract-data ledger entry
   - `temporary`:
     Temporary
 
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -750,10 +750,10 @@ If no keys are specificed the contract itself is restored.
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -1237,10 +1237,10 @@ Simulate a transaction envelope from stdin
 
 ###### **Options:**
 
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
@@ -1272,8 +1272,8 @@ Sign a transaction envolope appending the signature to the envelope
 ###### **Options:**
 
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with account. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--yes` — If `--sign-with-*` is used this will remove requirement of being prompted to sign transactions
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
