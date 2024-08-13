@@ -5,6 +5,7 @@ pub mod deploy;
 pub mod extend;
 pub mod fetch;
 pub mod id;
+pub mod info;
 pub mod init;
 pub mod inspect;
 pub mod install;
@@ -40,6 +41,10 @@ pub enum Cmd {
     /// Generate the contract id for a given contract or asset
     #[command(subcommand)]
     Id(id::Cmd),
+
+    /// Access info about contracts
+    #[command(subcommand)]
+    Info(info::Cmd),
 
     /// Initialize a Soroban project with an example contract
     Init(init::Cmd),
@@ -99,6 +104,9 @@ pub enum Error {
     Id(#[from] id::Error),
 
     #[error(transparent)]
+    Info(#[from] info::Error),
+
+    #[error(transparent)]
     Inspect(#[from] inspect::Error),
 
     #[error(transparent)]
@@ -126,6 +134,7 @@ impl Cmd {
             Cmd::Extend(extend) => extend.run().await?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
             Cmd::Id(id) => id.run().await?,
+            Cmd::Info(info) => info.run().await?,
             Cmd::Init(init) => init.run()?,
             Cmd::Inspect(inspect) => inspect.run()?,
             Cmd::Install(install) => install.run(global_args).await?,
