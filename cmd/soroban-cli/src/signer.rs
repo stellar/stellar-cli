@@ -5,14 +5,14 @@ use sha2::{Digest, Sha256};
 use crate::{
     config::network::Network,
     xdr::{
-        self, AccountId, DecoratedSignature, Hash, HashIdPreimage,
-        HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
-        PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature, SignatureHint,
-        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
-        SorobanCredentials, Transaction, TransactionEnvelope, TransactionSignaturePayload,
-        TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, Uint256, WriteXdr,
+        self, DecoratedSignature, InvokeHostFunctionOp, Limits, Operation, OperationBody,
+        Signature, SignatureHint, SorobanAuthorizedFunction, Transaction, TransactionEnvelope,
+        TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+        TransactionV1Envelope, WriteXdr,
     },
 };
+
+pub mod auth;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -32,7 +32,7 @@ pub enum Error {
     UnsupportedTransactionEnvelopeType,
 }
 
-fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
+pub fn extract_auth_operation(txn: &Transaction) -> Option<xdr::Operation> {
     let [op @ Operation {
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
         ..
@@ -84,25 +84,6 @@ pub trait Stellar {
         })
     }
 
-    async fn sign_txn_env(
-        &self,
-        txn_env: TransactionEnvelope,
-        network: &Network,
-    ) -> Result<TransactionEnvelope, Error> {
-        match txn_env {
-            TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-                let decorated_signature = self.sign_txn(&tx, network).await?;
-                let mut sigs = signatures.to_vec();
-                sigs.push(decorated_signature);
-                Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
-                    tx,
-                    signatures: sigs.try_into()?,
-                }))
-            }
-            _ => Err(Error::UnsupportedTransactionEnvelopeType),
-        }
-    }
-
     /// Sign a Stellar transaction with the given source account
     /// This is a default implementation that signs the transaction hash and returns a decorated signature
     ///
@@ -119,135 +100,28 @@ pub trait Stellar {
         let hash = transaction_hash(txn, network_passphrase)?;
         self.sign_txn_hash(hash).await
     }
+}
 
-    /// Sign a Soroban authorization entries for a given transaction and set the expiration ledger
-    /// # Errors
-    /// Returns an error if the address is not found
-    async fn sign_soroban_authorizations(
-        &self,
-        raw: &Transaction,
-        network: &Network,
-        expiration_ledger: u32,
-    ) -> Result<Option<Transaction>, Error> {
-        let mut tx = raw.clone();
-        let Some(mut op) = requires_auth(&tx) else {
-            return Ok(None);
-        };
-
-        let xdr::Operation {
-            body: OperationBody::InvokeHostFunction(ref mut body),
-            ..
-        } = op
-        else {
-            return Ok(None);
-        };
-        let mut auths = body.auth.to_vec();
-        for auth in &mut auths {
-            *auth = self
-                .maybe_sign_soroban_authorization_entry(auth, network, expiration_ledger)
-                .await?;
+pub async fn sign_txn_env(
+    signer: &(impl Stellar + std::marker::Sync),
+    txn_env: TransactionEnvelope,
+    network: &Network,
+) -> Result<TransactionEnvelope, Error> {
+    match txn_env {
+        TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
+            let decorated_signature = signer.sign_txn(&tx, network).await?;
+            let mut sigs = signatures.to_vec();
+            sigs.push(decorated_signature);
+            Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
+                tx,
+                signatures: sigs.try_into()?,
+            }))
         }
-        body.auth = auths.try_into()?;
-        tx.operations = [op].try_into()?;
-        Ok(Some(tx))
-    }
-
-    /// Sign a Soroban authorization entry if the address is public key
-    /// # Errors
-    /// Returns an error if the address in entry is a contract
-    async fn maybe_sign_soroban_authorization_entry(
-        &self,
-        unsigned_entry: &SorobanAuthorizationEntry,
-        network: &Network,
-        expiration_ledger: u32,
-    ) -> Result<SorobanAuthorizationEntry, Error> {
-        if let SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(SorobanAddressCredentials { address, .. }),
-            ..
-        } = unsigned_entry
-        {
-            // See if we have a signer for this authorizationEntry
-            // If not, then we Error
-            let key = match address {
-                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(a)))) => {
-                    stellar_strkey::ed25519::PublicKey(*a)
-                }
-                ScAddress::Contract(Hash(c)) => {
-                    // This address is for a contract. This means we're using a custom
-                    // smart-contract account. Currently the CLI doesn't support that yet.
-                    return Err(Error::MissingSignerForAddress {
-                        address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
-                            .to_string(),
-                    });
-                }
-            };
-            if key == self.get_public_key().await? {
-                return self
-                    .sign_soroban_authorization_entry(unsigned_entry, network, expiration_ledger)
-                    .await;
-            }
-        }
-        Ok(unsigned_entry.clone())
-    }
-
-    /// Sign a Soroban authorization entry with the given address
-    /// # Errors
-    /// Returns an error if the address is not found
-    async fn sign_soroban_authorization_entry(
-        &self,
-        unsigned_entry: &SorobanAuthorizationEntry,
-        Network {
-            network_passphrase, ..
-        }: &Network,
-        expiration_ledger: u32,
-    ) -> Result<SorobanAuthorizationEntry, Error> {
-        let address = self.get_public_key().await?;
-        let mut auth = unsigned_entry.clone();
-        let SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(ref mut credentials),
-            ..
-        } = auth
-        else {
-            // Doesn't need special signing
-            return Ok(auth);
-        };
-        let SorobanAddressCredentials {
-            nonce,
-            signature_expiration_ledger,
-            ..
-        } = credentials;
-
-        *signature_expiration_ledger = expiration_ledger;
-
-        let preimage = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
-            network_id: hash(network_passphrase),
-            invocation: auth.root_invocation.clone(),
-            nonce: *nonce,
-            signature_expiration_ledger: *signature_expiration_ledger,
-        })
-        .to_xdr(Limits::none())?;
-
-        let payload = Sha256::digest(preimage);
-        let signature = self.sign_blob(&payload).await?;
-
-        let map = ScMap::sorted_from(vec![
-            (
-                ScVal::Symbol(ScSymbol("public_key".try_into()?)),
-                ScVal::Bytes(address.0.to_vec().try_into()?),
-            ),
-            (
-                ScVal::Symbol(ScSymbol("signature".try_into()?)),
-                ScVal::Bytes(signature.try_into()?),
-            ),
-        ])?;
-        credentials.signature = ScVal::Vec(Some(vec![ScVal::Map(Some(map))].try_into()?));
-        auth.credentials = SorobanCredentials::Address(credentials.clone());
-
-        Ok(auth)
+        _ => Err(Error::UnsupportedTransactionEnvelopeType),
     }
 }
 
-fn hash(network_passphrase: &str) -> xdr::Hash {
+pub(crate) fn hash(network_passphrase: &str) -> xdr::Hash {
     xdr::Hash(Sha256::digest(network_passphrase.as_bytes()).into())
 }
 

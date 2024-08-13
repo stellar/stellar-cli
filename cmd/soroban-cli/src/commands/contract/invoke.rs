@@ -32,6 +32,7 @@ use crate::commands::NetworkRunnable;
 use crate::config::{self, data, locator, network};
 use crate::get_spec::{self, get_remote_contract_spec};
 use crate::print;
+use crate::signer::auth::sign_soroban_authorizations;
 use crate::signer::{self, Stellar};
 use crate::{commands::global, rpc, Pwd};
 use soroban_spec_tools::{contract, Spec};
@@ -398,9 +399,9 @@ impl NetworkRunnable for Cmd {
                 let mut txn = txn.transaction().clone();
                 let expriation_ledger = self.auth.expiration_ledger(&client).await?;
                 for signer in &signers {
-                    if let Some(tx) = signer
-                        .sign_soroban_authorizations(&txn, &network, expriation_ledger)
-                        .await?
+                    if let Some(tx) =
+                        sign_soroban_authorizations(signer, &txn, &network, expriation_ledger)
+                            .await?
                     {
                         txn = tx;
                     }

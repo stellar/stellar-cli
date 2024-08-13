@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use crate::{
-    signer::{self, Stellar},
-    xdr::{Transaction, TransactionEnvelope},
+    signer::{self, sign_txn_env, Stellar},
+    xdr::TransactionEnvelope,
 };
 use clap::arg;
 
@@ -85,29 +85,7 @@ impl Args {
         tx_env: TransactionEnvelope,
     ) -> Result<TransactionEnvelope, Error> {
         let network = self.get_network()?;
-        Ok(signer.sign_txn_env(tx_env, &network).await?)
-    }
-
-    pub async fn sign_soroban_authorizations(
-        &self,
-        tx: &Transaction,
-        expiration_ledger: u32,
-    ) -> Result<Option<Transaction>, Error> {
-        Ok(self
-            .signer()?
-            .sign_soroban_authorizations(tx, &self.get_network()?, expiration_ledger)
-            .await?)
-    }
-
-    pub async fn sign_soroban_authorizations_with_signer(
-        &self,
-        signer: &(impl Stellar + std::marker::Sync),
-        tx: &Transaction,
-        expiration_ledger: u32,
-    ) -> Result<Option<Transaction>, Error> {
-        Ok(signer
-            .sign_soroban_authorizations(tx, &self.get_network()?, expiration_ledger)
-            .await?)
+        Ok(sign_txn_env(signer, tx_env, &network).await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
