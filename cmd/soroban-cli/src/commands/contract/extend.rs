@@ -134,7 +134,7 @@ impl NetworkRunnable for Cmd {
         let keys = self.key.parse_keys(contract)?;
         let network = &config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
-        let public_key = config.public_key().await?;
+        let public_key = config.source_account().await?;
         let extend_to = self.ledgers_to_extend();
         let account_details = client.get_account(&public_key.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();

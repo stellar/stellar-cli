@@ -125,7 +125,7 @@ impl NetworkRunnable for Cmd {
                 tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
             }
         }
-        let public_strkey = config.public_key().await?;
+        let public_strkey = config.source_account().await?;
         // Get the account sequence number
         let account_details = client.get_account(&public_strkey.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();

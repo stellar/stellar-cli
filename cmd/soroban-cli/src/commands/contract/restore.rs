@@ -138,7 +138,7 @@ impl NetworkRunnable for Cmd {
         let client = Client::new(&network.rpc_url)?;
 
         // Get the account sequence number
-        let public_strkey = config.public_key().await?;
+        let public_strkey = config.source_account().await?;
         let account_details = client.get_account(&public_strkey.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
 

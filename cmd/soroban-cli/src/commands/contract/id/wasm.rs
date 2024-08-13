@@ -34,7 +34,7 @@ impl Cmd {
             .map_err(|_| Error::CannotParseSalt(self.salt.clone()))?
             .try_into()
             .map_err(|_| Error::CannotParseSalt(self.salt.clone()))?;
-        let contract_id_preimage = contract_preimage(&self.config.public_key().await?, salt);
+        let contract_id_preimage = contract_preimage(&self.config.source_account().await?, salt);
         let contract_id = get_contract_id(
             contract_id_preimage.clone(),
             &self.config.get_network()?.network_passphrase,

@@ -4,7 +4,7 @@ use clap::{arg, command};
 use secret::StellarSigner;
 use serde::{Deserialize, Serialize};
 
-use crate::signer::{self, Stellar};
+use crate::signer;
 use crate::xdr::{Transaction, TransactionEnvelope};
 use crate::Pwd;
 
@@ -55,8 +55,13 @@ impl Args {
             .signer(self.sign_with.hd_path, prompt)?)
     }
 
-    pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(self.signer()?.get_public_key().await?)
+    pub async fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        Ok(self
+            .sign_with
+            .locator
+            .account(&self.source_account)?
+            .public_key(self.sign_with.hd_path)
+            .await?)
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
