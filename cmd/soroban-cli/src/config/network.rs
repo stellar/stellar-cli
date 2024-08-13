@@ -60,6 +60,7 @@ pub struct Args {
     #[arg(
         long,
         required_unless_present = "rpc_url",
+        required_unless_present = "network_passphrase",
         env = "STELLAR_NETWORK",
         help_heading = HEADING_RPC,
     )]
