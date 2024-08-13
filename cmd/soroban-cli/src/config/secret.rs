@@ -24,8 +24,6 @@ pub enum Error {
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Invalid address {0}")]
     InvalidAddress(String),
-    #[error("Ledger does not reveal secret key")]
-    LedgerDoesNotRevealSecretKey,
     #[error(transparent)]
     Stellar(#[from] signer::Error),
 }
