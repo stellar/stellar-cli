@@ -16,6 +16,26 @@ impl Print {
         Print { quiet }
     }
 
+    pub fn print<T: Display + Sized>(&self, message: T) {
+        if !self.quiet {
+            eprint!("{message}");
+        }
+    }
+
+    pub fn println<T: Display + Sized>(&self, message: T) {
+        if !self.quiet {
+            eprintln!("{message}");
+        }
+    }
+
+    pub fn clear_line(&self) {
+        if cfg!(windows) {
+            eprint!("\r");
+        } else {
+            eprint!("\r\x1b[2K");
+        }
+    }
+
     /// # Errors
     ///
     /// Might return an error
@@ -46,14 +66,14 @@ macro_rules! create_print_functions {
             #[allow(dead_code)]
             pub fn $name<T: Display + Sized>(&self, message: T) {
                 if !self.quiet {
-                    print!("{} {}", $icon, message);
+                    eprint!("{} {}", $icon, message);
                 }
             }
 
             #[allow(dead_code)]
             pub fn $nameln<T: Display + Sized>(&self, message: T) {
                 if !self.quiet {
-                    println!("{} {}", $icon, message);
+                    eprintln!("{} {}", $icon, message);
                 }
             }
         }
