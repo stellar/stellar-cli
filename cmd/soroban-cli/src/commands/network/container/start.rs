@@ -82,17 +82,25 @@ impl Runner {
         let docker = self.args.container_args.connect_to_docker().await?;
 
         let image = self.get_image_name();
-        docker
-            .create_image(
-                Some(CreateImageOptions {
-                    from_image: image.clone(),
-                    ..Default::default()
-                }),
-                None,
-                None,
-            )
-            .try_collect::<Vec<_>>()
-            .await?;
+        let mut stream = docker.create_image(
+            Some(CreateImageOptions {
+                from_image: image.clone(),
+                ..Default::default()
+            }),
+            None,
+            None,
+        );
+
+        while let Ok(Some(output)) = stream.try_next().await {
+            if let Some(status) = output.status {
+                if status.contains("Pulling from")
+                    || status.contains("Digest")
+                    || status.contains("Status")
+                {
+                    self.print.infoln(format!("{}", status));
+                }
+            }
+        }
 
         let config = Config {
             image: Some(image),
