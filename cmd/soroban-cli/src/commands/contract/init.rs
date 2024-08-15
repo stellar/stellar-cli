@@ -21,6 +21,8 @@ use std::{
 use toml_edit::{Document, TomlError};
 use ureq::get;
 
+use crate::{commands::global, print};
+
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 const GITHUB_URL: &str = "https://github.com";
 const WITH_EXAMPLE_LONG_HELP_TEXT: &str =
@@ -87,73 +89,84 @@ pub enum Error {
 
 impl Cmd {
     #[allow(clippy::unused_self)]
-    pub fn run(&self) -> Result<(), Error> {
-        println!("ℹ️  Initializing project at {}", self.project_path);
-        let project_path = Path::new(&self.project_path);
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let runner = Runner {
+            args: self.clone(),
+            print: print::Print::new(global_args.quiet),
+        };
 
-        init(
-            project_path,
-            &self.frontend_template,
-            &self.with_example,
-            self.overwrite,
-        )?;
-
-        Ok(())
+        runner.run()
     }
 }
 
 #[derive(RustEmbed)]
 #[folder = "src/utils/contract-init-template"]
 struct TemplateFiles;
+struct Runner {
+    args: Cmd,
+    print: print::Print,
+}
 
-fn init(
-    project_path: &Path,
-    frontend_template: &str,
-    with_examples: &[String],
-    overwrite: bool,
-) -> Result<(), Error> {
-    // create a project dir, and copy the contents of the base template (contract-init-template) into it
-    create_dir_all(project_path).map_err(|e| {
-        eprintln!("Error creating new project directory: {project_path:?}");
-        e
-    })?;
-    copy_template_files(project_path, overwrite)?;
+impl Runner {
+    fn run(&self) -> Result<(), Error> {
+        let project_path = Path::new(&self.args.project_path);
+        self.print
+            .infoln(format!("Initializing project at {:?}", project_path));
 
-    if !check_internet_connection() {
-        println!("⚠️  It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
-        return Ok(());
+        self.init()?;
+
+        Ok(())
     }
 
-    if !frontend_template.is_empty() {
-        // create a temp dir for the template repo
-        let fe_template_dir = tempfile::tempdir().map_err(|e| {
-            eprintln!("Error creating temp dir for frontend template");
+    fn init(&self) -> Result<(), Error> {
+        let project_path = Path::new(&self.args.project_path);
+        let frontend_template = &self.args.frontend_template;
+        let with_examples = &self.args.with_example;
+        let overwrite = self.args.overwrite;
+
+        // create a project dir, and copy the contents of the base template (contract-init-template) into it
+        create_dir_all(project_path).map_err(|e| {
+            eprintln!("Error creating new project directory: {project_path:?}");
             e
         })?;
+        copy_template_files(project_path, overwrite)?;
 
-        // clone the template repo into the temp dir
-        clone_repo(frontend_template, fe_template_dir.path())?;
+        if !check_internet_connection() {
+            self.print.warnln("It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
+            return Ok(());
+        }
 
-        // copy the frontend template files into the project
-        copy_frontend_files(fe_template_dir.path(), project_path, overwrite)?;
+        if !frontend_template.is_empty() {
+            // create a temp dir for the template repo
+            let fe_template_dir = tempfile::tempdir().map_err(|e| {
+                eprintln!("Error creating temp dir for frontend template");
+                e
+            })?;
+
+            // clone the template repo into the temp dir
+            clone_repo(frontend_template, fe_template_dir.path())?;
+
+            // copy the frontend template files into the project
+            copy_frontend_files(fe_template_dir.path(), project_path, overwrite)?;
+        }
+
+        // if there are --with-example flags, include the example contracts
+        if include_example_contracts(with_examples) {
+            // create an examples temp dir
+            let examples_dir = tempfile::tempdir().map_err(|e| {
+                eprintln!("Error creating temp dir for soroban-examples");
+                e
+            })?;
+
+            // clone the soroban-examples repo into the temp dir
+            clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
+
+            // copy the example contracts into the project
+            copy_example_contracts(examples_dir.path(), project_path, with_examples, overwrite)?;
+        }
+
+        Ok(())
     }
-
-    // if there are --with-example flags, include the example contracts
-    if include_example_contracts(with_examples) {
-        // create an examples temp dir
-        let examples_dir = tempfile::tempdir().map_err(|e| {
-            eprintln!("Error creating temp dir for soroban-examples");
-            e
-        })?;
-
-        // clone the soroban-examples repo into the temp dir
-        clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
-
-        // copy the example contracts into the project
-        copy_example_contracts(examples_dir.path(), project_path, with_examples, overwrite)?;
-    }
-
-    Ok(())
 }
 
 fn copy_template_files(project_path: &Path, overwrite: bool) -> Result<(), Error> {
