@@ -91,13 +91,22 @@ impl Runner {
             None,
         );
 
-        while let Ok(Some(output)) = stream.try_next().await {
-            if let Some(status) = output.status {
-                if status.contains("Pulling from")
-                    || status.contains("Digest")
-                    || status.contains("Status")
-                {
-                    self.print.infoln(format!("{}", status));
+        while let Some(result) = stream.try_next().await.transpose() {
+            match result {
+                Ok(item) => {
+                    if let Some(status) = item.status {
+                        if status.contains("Pulling from")
+                            || status.contains("Digest")
+                            || status.contains("Status")
+                        {
+                            self.print.infoln(format!("{}", status));
+                        }
+                    }
+                }
+                Err(_) => {
+                    self.print.warnln("Failed to fetch image from Docker Hub.");
+                    self.print.warnln("Attempting to start local quickstart image instead. Please note this image may be out-of-date.");
+                    break;
                 }
             }
         }

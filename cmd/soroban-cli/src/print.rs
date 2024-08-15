@@ -88,3 +88,4 @@ create_print_functions!(info, infoln, "ℹ️");
 create_print_functions!(link, linkln, "🔗");
 create_print_functions!(save, saveln, "💾");
 create_print_functions!(search, searchln, "🔎");
+create_print_functions!(warn, warnln, "⚠️");
