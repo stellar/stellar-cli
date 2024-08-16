@@ -112,13 +112,6 @@ impl Runner {
         let project_path = Path::new(&self.args.project_path);
         self.print
             .infoln(format!("Initializing project at {project_path:?}"));
-        self.init()?;
-
-        Ok(())
-    }
-
-    fn init(&self) -> Result<(), Error> {
-        let project_path = Path::new(&self.args.project_path);
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
         create_dir_all(project_path).map_err(|e| {
