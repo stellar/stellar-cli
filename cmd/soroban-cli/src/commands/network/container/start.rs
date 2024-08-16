@@ -103,7 +103,7 @@ impl Runner {
                 }
             } else {
                 self.print.warnln("Failed to fetch image from Docker Hub.");
-                self.print.warnln("Attempting to start local quickstart image instead. Please note this image may be out-of-date.");
+                self.print.warnln("Attempting to start local quickstart image. The image may be out-of-date.");
                 break;
             }
         }
