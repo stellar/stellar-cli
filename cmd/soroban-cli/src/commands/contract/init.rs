@@ -111,8 +111,7 @@ impl Runner {
     fn run(&self) -> Result<(), Error> {
         let project_path = Path::new(&self.args.project_path);
         self.print
-            .infoln(format!("Initializing project at {:?}", project_path));
-
+            .infoln(format!("Initializing project at {project_path:?}"));
         self.init()?;
 
         Ok(())
@@ -129,7 +128,7 @@ impl Runner {
         })?;
         self.copy_template_files()?;
 
-        if !self.check_internet_connection() {
+        if !Self::check_internet_connection() {
             self.print.warnln("It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
             return Ok(());
         }
@@ -176,7 +175,7 @@ impl Runner {
         let project_path = Path::new(&self.args.project_path);
         for item in TemplateFiles::iter() {
             let mut to = project_path.join(item.as_ref());
-            let exists = self.file_exists(&to);
+            let exists = Self::file_exists(&to);
             if exists && !self.args.overwrite {
                 self.print
                     .infoln(format!("Skipped creating {to:?} as it already exists"));
@@ -258,7 +257,7 @@ impl Runner {
                 })?;
                 self.copy_contents(&path, &new_path)?;
             } else {
-                let exists = self.file_exists(&new_path);
+                let exists = Self::file_exists(&new_path);
                 let new_path_str = new_path.to_string_lossy();
                 if exists {
                     let append =
@@ -292,14 +291,14 @@ impl Runner {
         Ok(())
     }
 
-    fn file_exists(&self, file_path: &Path) -> bool {
+    fn file_exists(file_path: &Path) -> bool {
         metadata(file_path)
             .as_ref()
             .map(Metadata::is_file)
             .unwrap_or(false)
     }
 
-    fn check_internet_connection(&self) -> bool {
+    fn check_internet_connection() -> bool {
         if let Ok(_req) = get(GITHUB_URL).call() {
             return true;
         }
@@ -479,7 +478,7 @@ impl Runner {
         let mut to_content = String::new();
         to_file.read_to_string(&mut to_content)?;
 
-        let delimiter = self.get_merged_file_delimiter(to);
+        let delimiter = Self::get_merged_file_delimiter(to);
         // if the to file already contains the delimiter, we don't need to append the contents again
         if to_content.contains(&delimiter) {
             return Ok(());
@@ -492,7 +491,7 @@ impl Runner {
         Ok(())
     }
 
-    fn get_merged_file_delimiter(&self, file_path: &Path) -> String {
+    fn get_merged_file_delimiter(file_path: &Path) -> String {
         let comment = if file_path.to_string_lossy().contains("README.md") {
             "---\n<!-- The following is the Frontend Template's README.md -->".to_string()
         } else if file_path.to_string_lossy().contains("gitignore") {
@@ -528,7 +527,7 @@ mod tests {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
                 with_example: vec![],
-                frontend_template: "".to_owned(),
+                frontend_template: String::new(),
                 overwrite: false,
             },
             print: print::Print::new(false),
@@ -554,7 +553,7 @@ mod tests {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
                 with_example: ["alloc".to_owned()].to_vec(),
-                frontend_template: "".to_owned(),
+                frontend_template: String::new(),
                 overwrite: false,
             },
             print: print::Print::new(false),
@@ -585,7 +584,7 @@ mod tests {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
                 with_example: ["account".to_owned(), "atomic_swap".to_owned()].to_vec(),
-                frontend_template: "".to_owned(),
+                frontend_template: String::new(),
                 overwrite: false,
             },
             print: print::Print::new(false),
@@ -617,7 +616,7 @@ mod tests {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
                 with_example: ["invalid_example".to_owned(), "atomic_swap".to_owned()].to_vec(),
-                frontend_template: "".to_owned(),
+                frontend_template: String::new(),
                 overwrite: false,
             },
             print: print::Print::new(false),
