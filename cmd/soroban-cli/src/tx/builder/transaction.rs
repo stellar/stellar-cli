@@ -33,10 +33,10 @@ impl Transaction {
     }
 
     #[must_use]
-    pub fn add_operation_builder<T: Into<MuxedAccount>>(
+    pub fn add_operation_builder(
         mut self,
         operation: impl Operation,
-        source_account: Option<T>,
+        source_account: Option<xdr::MuxedAccount>,
     ) -> Self {
         self.operations.push(operation.build_op(source_account));
         self

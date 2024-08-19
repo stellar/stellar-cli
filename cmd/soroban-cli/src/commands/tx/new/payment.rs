@@ -85,7 +85,7 @@ impl NetworkRunnable for Cmd {
 
         self.tx
             .handle_tx(
-                tx_build.add_operation_builder::<stellar_strkey::ed25519::PublicKey>(op, None),
+                tx_build.add_operation_builder(op, None),
                 &args.cloned().unwrap_or_default(),
             )
             .await?;

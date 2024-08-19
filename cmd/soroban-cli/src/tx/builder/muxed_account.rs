@@ -43,3 +43,9 @@ impl From<MuxedAccount> for xdr::MuxedAccount {
         builder.0
     }
 }
+
+impl From<xdr::MuxedAccount> for MuxedAccount {
+    fn from(account: xdr::MuxedAccount) -> Self {
+        Self(account)
+    }
+}
