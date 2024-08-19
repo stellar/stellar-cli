@@ -1244,13 +1244,14 @@ Create a new transaction
 
 ###### **Subcommands:**
 
-* `create-account` — Simulate a transaction envelope from stdin
+* `create-account` — Create a new account using another account
+* `payment` — Send a payment to an account
 
 
 
 ## `stellar tx new create-account`
 
-Simulate a transaction envelope from stdin
+Create a new account using another account
 
 **Usage:** `stellar tx new create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION>`
 
@@ -1272,6 +1273,36 @@ Simulate a transaction envelope from stdin
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--destination <DESTINATION>` — Account to create
 * `--starting-balance <STARTING_BALANCE>` — Initial balance of the account, default 1 XLM
+
+
+
+## `stellar tx new payment`
+
+Send a payment to an account
+
+**Usage:** `stellar tx new payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT>`
+
+###### **Options:**
+
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--destination <DESTINATION>` — Account to send to
+* `--asset <ASSET>` — Asset to send, default XLM
+
+  Default value: `native`
+* `--amount <AMOUNT>` — Initial balance of the account, default 1 XLM
 
 
 
