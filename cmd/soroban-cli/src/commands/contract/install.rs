@@ -5,9 +5,8 @@ use std::num::ParseIntError;
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
-    LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
-    ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt, TransactionResult,
-    TransactionResultResult, Uint256, VecM, WriteXdr,
+    LedgerEntryData, Limits, OperationBody, ReadXdr, ScMetaEntry, ScMetaV0, Transaction,
+    TransactionResult, TransactionResultResult, VecM, WriteXdr,
 };
 
 use super::restore;
@@ -17,6 +16,8 @@ use crate::config::{self, data, network};
 use crate::key;
 use crate::print::Print;
 use crate::rpc::{self, Client};
+use crate::tx::builder;
+use crate::tx::builder::ops::operation;
 use crate::{utils, wasm};
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
@@ -70,6 +71,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Data(#[from] data::Error),
+    #[error(transparent)]
+    Builder(#[from] builder::Error),
 }
 
 impl Cmd {
@@ -256,28 +259,19 @@ pub(crate) fn build_install_contract_code_tx(
     sequence: i64,
     fee: u32,
     key: &ed25519_dalek::SigningKey,
-) -> Result<(Transaction, Hash), XdrError> {
+) -> Result<(Transaction, Hash), Error> {
     let hash = utils::contract_hash(source_code)?;
 
-    let op = Operation {
-        source_account: Some(MuxedAccount::Ed25519(Uint256(
-            key.verifying_key().to_bytes(),
-        ))),
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+    let op = operation(
+        Some(key),
+        OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
             auth: VecM::default(),
         }),
-    };
-
-    let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
-        fee,
-        seq_num: SequenceNumber(sequence),
-        cond: Preconditions::None,
-        memo: Memo::None,
-        operations: vec![op].try_into()?,
-        ext: TransactionExt::V0,
-    };
+    );
+    let tx = builder::Transaction::new(key, fee, sequence)
+        .add_operation(op)
+        .build()?;
 
     Ok((tx, hash))
 }

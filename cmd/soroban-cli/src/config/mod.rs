@@ -7,7 +7,7 @@ use soroban_rpc::Client;
 
 use crate::{
     signer,
-    xdr::{Transaction, TransactionEnvelope},
+    xdr::{SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
 };
 
@@ -103,6 +103,12 @@ impl Args {
 
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         Ok(self.locator.config_dir()?)
+    }
+
+    pub async fn next_sequence_number(&self, account_str: &str) -> Result<SequenceNumber, Error> {
+        let network = self.get_network()?;
+        let client = Client::new(&network.rpc_url)?;
+        Ok((client.get_account(account_str).await?.seq_num.0 + 1).into())
     }
 }
 
