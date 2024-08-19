@@ -13,6 +13,8 @@ pub enum Error {
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error("An identity with the name '{0}' already exists")]
+    IdentityAlreadyExists(String),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -40,6 +42,10 @@ pub struct Cmd {
     /// Equivalent to --seed 0000000000000000
     #[arg(long, short = 'd', conflicts_with = "seed")]
     pub default_seed: bool,
+
+    /// Overwrite existing identity if it already exists
+    #[arg(long)]
+    pub overwrite: bool,
 
     #[command(flatten)]
     pub network: network::Args,
@@ -79,30 +85,22 @@ impl Cmd {
         };
 
         // Check if identity exists
-        let Ok(existing_secret) = self.config_locator.read_identity(&self.name) else {
-            // Identity doesn't exist, create new one
-            self.write_identity(&secret)?;
-            return Ok(());
-        };
-        if self.seed.is_some() || self.default_seed {
-            // Compare secrets only if seed is provided
-            match (
-                existing_secret.private_key(self.hd_path),
-                secret.private_key(self.hd_path),
-            ) {
-                (Ok(existing_pk), Ok(new_pk)) if existing_pk == new_pk => {
-                    self.handle_existing_identity();
-                }
-                _ => {
-                    // Secrets don't match
-                    eprintln!("An identity with the name {} already exists but has a different secret. Overwriting...", self.name);
-                    self.write_identity(&secret)?;
-                }
+        if let Ok(_existing_secret) = self.config_locator.read_identity(&self.name) {
+            if self.overwrite {
+                eprintln!(
+                    "Overwriting existing identity '{}' as requested.",
+                    self.name
+                );
+                self.write_identity(&secret)?;
+            } else {
+                self.handle_existing_identity();
+                return Err(Error::IdentityAlreadyExists(self.name.clone()));
             }
         } else {
-            // No seed provided, inform user that identity already exists
-            self.handle_existing_identity();
+            // Identity doesn't exist, create new one
+            self.write_identity(&secret)?;
         }
+
         Ok(())
     }
 }
