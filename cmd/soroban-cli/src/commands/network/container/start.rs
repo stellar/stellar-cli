@@ -82,17 +82,34 @@ impl Runner {
         let docker = self.args.container_args.connect_to_docker().await?;
 
         let image = self.get_image_name();
-        docker
-            .create_image(
-                Some(CreateImageOptions {
-                    from_image: image.clone(),
-                    ..Default::default()
-                }),
-                None,
-                None,
-            )
-            .try_collect::<Vec<_>>()
-            .await?;
+        let mut stream = docker.create_image(
+            Some(CreateImageOptions {
+                from_image: image.clone(),
+                ..Default::default()
+            }),
+            None,
+            None,
+        );
+
+        while let Some(result) = stream.try_next().await.transpose() {
+            if let Ok(item) = result {
+                if let Some(status) = item.status {
+                    if status.contains("Pulling from")
+                        || status.contains("Digest")
+                        || status.contains("Status")
+                    {
+                        self.print.infoln(status);
+                    }
+                }
+            } else {
+                self.print
+                    .warnln(format!("Failed to fetch image: {image}."));
+                self.print.warnln(
+                    "Attempting to start local quickstart image. The image may be out-of-date.",
+                );
+                break;
+            }
+        }
 
         let config = Config {
             image: Some(image),
