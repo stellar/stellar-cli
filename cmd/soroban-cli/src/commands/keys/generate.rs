@@ -4,7 +4,6 @@ use super::super::config::{
     locator, network,
     secret::{self, Secret},
 };
-use crate::config::network::get_network_name;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,9 +20,6 @@ pub enum Error {
 pub struct Cmd {
     /// Name of identity
     pub name: String,
-    /// Do not fund address
-    #[arg(long)]
-    pub no_fund: bool,
     /// Optional seed to use when generating seed phrase.
     /// Random otherwise.
     #[arg(long, conflicts_with = "default_seed")]
@@ -50,25 +46,7 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    async fn fund_identity(&self, secret: &Secret) -> Result<(), Error> {
-        if !self.no_fund {
-            let addr = secret.public_key(self.hd_path)?;
-            let network = self.network.get(&self.config_locator)?;
-            let network_name = get_network_name(&network.rpc_url).unwrap_or(&network.rpc_url);
-            eprintln!("🌎 Funding account with public key as address on {network_name}...",);
-            match network.fund_address(&addr).await {
-                Ok(()) => {
-                    eprintln!("✅ Funded (use 'stellar keys fund me' to fund again)");
-                }
-                Err(e) => {
-                    tracing::warn!("fund_address failed: {e}");
-                }
-            }
-        }
-        Ok(())
-    }
-
-    async fn write_and_fund_identity(&self, secret: &Secret) -> Result<(), Error> {
+    fn write_identity(&self, secret: &Secret) -> Result<(), Error> {
         self.config_locator.write_identity(&self.name, secret)?;
         eprintln!("✅ Generated new key for '{}'", self.name);
         eprintln!("ℹ️ Public key: {}", secret.public_key(self.hd_path)?);
@@ -76,22 +54,19 @@ impl Cmd {
             "ℹ️ Secret key: hidden (use 'stellar keys show {}' to view)",
             self.name
         );
-        self.fund_identity(secret).await?;
         Ok(())
     }
 
-    async fn handle_existing_identity(&self, existing_secret: &Secret) -> Result<(), Error> {
+    fn handle_existing_identity(&self) {
         eprintln!("The identity {} already exists!", self.name);
         if let Ok(root) = self.config_locator.config_dir() {
             let mut path = root.join("identity").join(&self.name);
             path.set_extension("toml");
             eprintln!("    Seed phrase found at: {}", path.display());
         }
-        self.fund_identity(existing_secret).await?;
-        Ok(())
     }
 
-    pub async fn run(&self) -> Result<(), Error> {
+    pub fn run(&self) -> Result<(), Error> {
         let seed_phrase = if self.default_seed {
             Secret::test_seed_phrase()
         } else {
@@ -106,7 +81,7 @@ impl Cmd {
         // Check if identity exists
         let Ok(existing_secret) = self.config_locator.read_identity(&self.name) else {
             // Identity doesn't exist, create new one
-            self.write_and_fund_identity(&secret).await?;
+            self.write_identity(&secret)?;
             return Ok(());
         };
         if self.seed.is_some() || self.default_seed {
@@ -116,17 +91,17 @@ impl Cmd {
                 secret.private_key(self.hd_path),
             ) {
                 (Ok(existing_pk), Ok(new_pk)) if existing_pk == new_pk => {
-                    self.handle_existing_identity(&existing_secret).await?;
+                    self.handle_existing_identity();
                 }
                 _ => {
                     // Secrets don't match
                     eprintln!("An identity with the name {} already exists but has a different secret. Overwriting...", self.name);
-                    self.write_and_fund_identity(&secret).await?;
+                    self.write_identity(&secret)?;
                 }
             }
         } else {
             // No seed provided, inform user that identity already exists
-            self.handle_existing_identity(&existing_secret).await?;
+            self.handle_existing_identity();
         }
         Ok(())
     }

@@ -53,7 +53,7 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Address(cmd) => cmd.run()?,
             Cmd::Fund(cmd) => cmd.run().await?,
-            Cmd::Generate(cmd) => cmd.run().await?,
+            Cmd::Generate(cmd) => cmd.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Rm(cmd) => cmd.run()?,
             Cmd::Show(cmd) => cmd.run()?,
