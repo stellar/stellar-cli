@@ -78,6 +78,8 @@ typescript-bindings-fixtures: build-test-wasms
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types \
 					--overwrite
 
+docker:
+	docker build -t stellar/stellar-cli:dev .
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures
+.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures docker
