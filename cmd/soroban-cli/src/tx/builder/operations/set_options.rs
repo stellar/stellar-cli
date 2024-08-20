@@ -109,7 +109,7 @@ impl SetOptions {
         self
     }
 
-    pub fn set_home_domain(mut self, home_domain: fqdn::FQDN) -> Result<Self, xdr::Error> {
+    pub fn set_home_domain(mut self, home_domain: &fqdn::FQDN) -> Result<Self, xdr::Error> {
         self.0.home_domain = Some(xdr::String32::from(xdr::StringM::<32>::from_str(
             &home_domain.to_string(),
         )?));

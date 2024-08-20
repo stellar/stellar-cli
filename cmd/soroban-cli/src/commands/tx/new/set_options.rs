@@ -123,7 +123,7 @@ impl NetworkRunnable for Cmd {
         };
 
         if let Some(home_domain) = self.home_domain.as_ref() {
-            op = op.set_home_domain(home_domain.clone().parse()?)?;
+            op = op.set_home_domain(&home_domain.parse()?)?;
         };
 
         // TODO: Signer implementation
