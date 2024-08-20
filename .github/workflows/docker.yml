@@ -49,6 +49,9 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.REGISTRY_IMAGE }}
+        tags: |
+          type=sha
+          type=raw,value={{tag}}
 
     # QEMU is needed if building arm64 on amd64, but it is commented because the
     # build is currently configured to build each natively.

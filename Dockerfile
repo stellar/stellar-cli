@@ -1,4 +1,4 @@
-FROM rust:bookworm as builder
+FROM rust:bookworm AS builder
 WORKDIR /wd
 COPY . .
 RUN cargo install --locked --path cmd/stellar-cli --bin stellar --features opt
